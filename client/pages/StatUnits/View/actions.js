@@ -6,6 +6,7 @@ import { navigateBack } from 'helpers/actionCreators'
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 export const fetchHistorySucceeded = createAction('fetch History succeeded')
 export const fetchHistoryStarted = createAction('fetch History started')
+export const fetchStatUnitFailed = createAction('fetch StatUnit failed')
 export const fetchHistoryDetailsSucceeded = createAction('fetch History Details succeeded')
 export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
 export const fetchSectorSucceeded = createAction('fetch Sector succeeded')
@@ -51,6 +52,9 @@ const fetchStatUnit = (type, id) =>
         dispatch(fetchUnitStatus(resp.unitStatusId))
       }
     },
+    onFail: (dispatch, resp) => {
+      dispatch(fetchStatUnitFailed(resp))
+    },
   })
 
 const fetchHistory = (type, id) =>
@@ -64,9 +68,9 @@ const fetchHistory = (type, id) =>
     },
   })
 
-const fetchHistoryDetails = (type, id) =>
+const fetchHistoryDetails = (type, id, isHistory) =>
   dispatchRequest({
-    url: `/api/StatUnits/historyDetails/${type}/${id}`,
+    url: `/api/StatUnits/historyDetails/${type}/${id}/${isHistory}`,
     onStart: (dispatch) => {
       dispatch(fetchHistoryDetailsStarted())
     },

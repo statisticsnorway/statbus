@@ -42,9 +42,9 @@ namespace nscreg.Data.DbInitializers
                     LegalFormId,
                     DataSourceClassificationId,
                     StartPeriod,
-                    ParentId,
                     IsDeleted,
                     LiqReason,
+                    LiqDate,
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
                     Address_part3 AS AddressPart3,
@@ -74,9 +74,9 @@ namespace nscreg.Data.DbInitializers
                     LegalFormId,
                     DataSourceClassificationId,
                     StartPeriod,
-                    ParentId,
                     IsDeleted,
                     LiqReason,
+                    LiqDateEnd,
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
                     Address_part3 AS AddressPart3,
@@ -148,7 +148,7 @@ namespace nscreg.Data.DbInitializers
                 AS
                 RETURN 
                 (
-	                  WITH ActivityCte ([Id], [Code], [DicParentId], [IsDeleted], [Name], [ParentId], [Section],[VersionId]) AS 
+	                  WITH ActivityCte ([Id], [Code], [DicParentId], [IsDeleted], [Name], [NameLanguage1], [NameLanguage2], [ParentId], [Section], [VersionId], [ActivityCategoryLevel]) AS 
 	                  (
 		                SELECT 
 		                   [Id]
@@ -156,9 +156,12 @@ namespace nscreg.Data.DbInitializers
 		                  ,[DicParentId]
 		                  ,[IsDeleted]
 		                  ,[Name]
+                          ,[NameLanguage1]
+                          ,[NameLanguage2]
 		                  ,[ParentId]
 		                  ,[Section]
-		                  ,[VersionId] 
+		                  ,[VersionId]
+                          ,[ActivityCategoryLevel]
 		                FROM [dbo].[ActivityCategories]
 		                WHERE [Id] = @activityId
 
@@ -170,9 +173,12 @@ namespace nscreg.Data.DbInitializers
 		                  ,ac.[DicParentId]
 		                  ,ac.[IsDeleted]
 		                  ,ac.[Name]
+                          ,ac.[NameLanguage1]
+                          ,ac.[NameLanguage2]
 		                  ,ac.[ParentId]
 		                  ,ac.[Section]
-		                  ,ac.[VersionId] 
+		                  ,ac.[VersionId]
+                          ,ac.[ActivityCategoryLevel]
 		                FROM [dbo].[ActivityCategories] ac
 			                INNER JOIN ActivityCte  
 			                ON ActivityCte.[Id] = ac.[ParentId]
@@ -195,7 +201,7 @@ namespace nscreg.Data.DbInitializers
                 AS
                 RETURN 
                 (
-	                 WITH RegionsCte ([Id], [AdminstrativeCenter], [Code], [IsDeleted], [Name], [ParentId], [FullPath]) AS 
+	                 WITH RegionsCte ([Id], [AdminstrativeCenter], [Code], [IsDeleted], [Name], [NameLanguage1], [NameLanguage2], [ParentId], [FullPath], [FullPathLanguage1], [FullPathLanguage2], [RegionLevel]) AS 
 	                  (
 		                SELECT 
 		                   [Id]
@@ -203,8 +209,13 @@ namespace nscreg.Data.DbInitializers
 		                  ,[Code]
 		                  ,[IsDeleted]
 		                  ,[Name]
+                          ,[NameLanguage1]
+                          ,[NameLanguage2]
 		                  ,[ParentId]
 		                  ,[FullPath]
+                          ,[FullPathLanguage1]
+                          ,[FullPathLanguage2]
+                          ,[RegionLevel]
 		                FROM [dbo].[Regions]
 		                WHERE [Id] = @regionId
 
@@ -216,8 +227,13 @@ namespace nscreg.Data.DbInitializers
 		                  ,r.[Code]
 		                  ,r.[IsDeleted]
 		                  ,r.[Name]
+                          ,r.[NameLanguage1]
+                          ,r.[NameLanguage2]
 		                  ,r.[ParentId]
 		                  ,r.[FullPath]
+                          ,r.[FullPathLanguage1]
+                          ,r.[FullPathLanguage2]
+                          ,r.[RegionLevel]
 		                FROM [dbo].[Regions] r
 			                INNER JOIN RegionsCte rc
 			                ON rc.[Id] = r.[ParentId]

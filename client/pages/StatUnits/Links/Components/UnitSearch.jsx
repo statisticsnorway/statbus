@@ -12,12 +12,15 @@ export const defaultUnitSearchResult = {
   code: '',
   name: '',
   type: undefined,
+  regId: undefined,
 }
 
-const StatUnitView = ({ 'data-name': name, 'data-code': code }) => (
+const StatUnitView = ({ 'data-name': name, 'data-code': code, 'data-type': type, localize }) => (
   <span>
-    <strong>{code}</strong>
-    &nbsp;
+    <strong>
+      {code} - {localize && localize(statUnitTypes.get(type))}
+    </strong>
+    <br />
     {name.length > 50 ? (
       <span title={name}>{`${name.substring(0, 50)}...`}</span>
     ) : (
@@ -29,6 +32,7 @@ const StatUnitView = ({ 'data-name': name, 'data-code': code }) => (
 StatUnitView.propTypes = {
   'data-name': string.isRequired,
   'data-code': string.isRequired,
+  'data-type': string.isRequired,
 }
 
 class UnitSearch extends React.Component {
@@ -41,14 +45,19 @@ class UnitSearch extends React.Component {
       code: string,
       name: string,
       type: number,
+      regId: number,
     }),
     disabled: bool,
+    type: number,
+    isDeleted: bool,
   }
 
   static defaultProps = {
     onChange: R.identity,
     value: defaultUnitSearchResult,
     disabled: false,
+    isDeleted: false,
+    type: undefined,
   }
 
   state = {
@@ -107,7 +116,7 @@ class UnitSearch extends React.Component {
           code: value,
         })
         if (value !== '') {
-          this.searchData(value)
+          this.searchData(this.props.type, value, this.props.isDeleted)
         }
       },
     )
@@ -119,11 +128,14 @@ class UnitSearch extends React.Component {
   }
 
   searchData = debounce(
-    value =>
+    (type, value, isDeleted) =>
       internalRequest({
         url: '/api/StatUnits/SearchByStatId',
         method: 'get',
-        queryParams: { code: value },
+        queryParams:
+          this.props.name === 'source2'
+            ? { type, code: value, regId: this.props.value.regId, isDeleted }
+            : { type, code: value, isDeleted },
         onSuccess: (resp) => {
           const data = resp.find(v => v.code === this.props.value.code)
           this.setState(
@@ -135,6 +147,7 @@ class UnitSearch extends React.Component {
                 'data-code': v.code,
                 'data-id': v.id,
                 'data-type': v.type,
+                localize: this.props.localize,
               })),
             },
             () => {

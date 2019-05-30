@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.History;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 namespace nscreg.Data
@@ -63,5 +64,16 @@ namespace nscreg.Data
         public DbSet<RegistrationReason> RegistrationReasons { get; set; }
         public DbSet<CustomAnalysisCheck> CustomAnalysisChecks { get; set; }
         public DbSet<PersonType> PersonTypes { get; set; }
+
+        #region History
+        public DbSet<StatisticalUnitHistory> StatisticalUnitHistory { get; set; }
+        public DbSet<LocalUnitHistory> LocalUnitHistory { get; set; }
+        public DbSet<LegalUnitHistory> LegalUnitHistory { get; set; }
+        public DbSet<EnterpriseUnitHistory> EnterpriseUnitHistory { get; set; }
+        public DbSet<EnterpriseGroupHistory> EnterpriseGroupHistory { get; set; }
+        public DbSet<ActivityStatisticalUnitHistory> ActivityStatisticalUnitHistory { get; set; }
+        public DbSet<CountryStatisticalUnitHistory> CountryStatisticalUnitHistory { get; set; }
+        public DbSet<PersonStatisticalUnitHistory> PersonStatisticalUnitHistory { get; set; }
+        #endregion
     }
 }

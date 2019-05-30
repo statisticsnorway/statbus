@@ -29,7 +29,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string DataSource { get; set; }
         public int? RefNo { get; set; }
 
-        [Required]
         public string Name { get; set; }
 
         public int? ParentOrgLink { get; set; }
@@ -91,7 +90,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string EditComment { get; set; }
         public int? ForeignParticipationCountryId { get; set; }
         public List<int> ForeignParticipationCountriesUnits { get; set; }
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
         public int? ForeignParticipationId { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int? ReorgTypeId { get; set; }

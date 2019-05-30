@@ -584,11 +584,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have reorg type.
+        /// </summary>
+        public static string AnalysisMandatoryReorgType {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryReorgType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat unit doesn&apos;t have short name.
         /// </summary>
         public static string AnalysisMandatoryShortName {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryShortName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have size.
+        /// </summary>
+        public static string AnalysisMandatorySize {
+            get {
+                return ResourceManager.GetString("AnalysisMandatorySize", resourceCulture);
             }
         }
         
@@ -607,6 +625,15 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisMandatoryTelephoneNo {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryTelephoneNo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have status.
+        /// </summary>
+        public static string AnalysisMandatoryUnitStatus {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryUnitStatus", resourceCulture);
             }
         }
         
@@ -881,7 +908,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Cannot delete this datasource template..
+        ///   Looks up a localized string similar to This data sourse template should not be deleted.
         /// </summary>
         public static string CantDeleteDatasourceTemp {
             get {
@@ -1754,6 +1781,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Done.
+        /// </summary>
+        public static string Done {
+            get {
+                return ResourceManager.GetString("Done", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Download sample frame.
         /// </summary>
         public static string DownloadSampleFrame {
@@ -2290,6 +2326,15 @@ namespace nscreg.Resources.Languages {
         public static string FieldsToSelect {
             get {
                 return ResourceManager.GetString("FieldsToSelect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uploading file has empty unit.
+        /// </summary>
+        public static string FileHasEmptyUnit {
+            get {
+                return ResourceManager.GetString("FileHasEmptyUnit", resourceCulture);
             }
         }
         
@@ -2960,6 +3005,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to You cann&apos;t liquidate Enterprise unit.
+        /// </summary>
+        public static string LiquidateEntrUnit {
+            get {
+                return ResourceManager.GetString("LiquidateEntrUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You will need to liquidate Legal unit.
+        /// </summary>
+        public static string LiquidateLegalUnit {
+            get {
+                return ResourceManager.GetString("LiquidateLegalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Liquidation info.
         /// </summary>
         public static string LiquidationInfo {
@@ -3271,6 +3334,15 @@ namespace nscreg.Resources.Languages {
         public static string NewPassword_LeaveItEmptyIfYouWillNotChangePassword {
             get {
                 return ResourceManager.GetString("NewPassword_LeaveItEmptyIfYouWillNotChangePassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New password not confirmed.
+        /// </summary>
+        public static string NewPasswordNotConfirmed {
+            get {
+                return ResourceManager.GetString("NewPasswordNotConfirmed", resourceCulture);
             }
         }
         
@@ -4204,6 +4276,15 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Looks up a localized string similar to Registration reason.
         /// </summary>
+        public static string RegistrationReason {
+            get {
+                return ResourceManager.GetString("RegistrationReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Registration reason.
+        /// </summary>
         public static string RegistrationReasonId {
             get {
                 return ResourceManager.GetString("RegistrationReasonId", resourceCulture);
@@ -5129,11 +5210,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be empty .
+        /// </summary>
+        public static string ShouldBeGreaterThenZero {
+            get {
+                return ResourceManager.GetString("ShouldBeGreaterThenZero", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be greater 8 symbols.
+        /// </summary>
+        public static string ShouldNotBeGreaterThenEight {
+            get {
+                return ResourceManager.GetString("ShouldNotBeGreaterThenEight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Size.
         /// </summary>
         public static string Size {
             get {
                 return ResourceManager.GetString("Size", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Size.
+        /// </summary>
+        public static string SizeId {
+            get {
+                return ResourceManager.GetString("SizeId", resourceCulture);
             }
         }
         
@@ -5867,6 +5975,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unit has been liquidated.
+        /// </summary>
+        public static string UnitHasLiquidated {
+            get {
+                return ResourceManager.GetString("UnitHasLiquidated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat Unit id in database.
         /// </summary>
         public static string UnitId {
@@ -5881,6 +5998,15 @@ namespace nscreg.Resources.Languages {
         public static string UnitName {
             get {
                 return ResourceManager.GetString("UnitName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status.
+        /// </summary>
+        public static string UnitStatus {
+            get {
+                return ResourceManager.GetString("UnitStatus", resourceCulture);
             }
         }
         
@@ -5989,6 +6115,15 @@ namespace nscreg.Resources.Languages {
         public static string UploadDateTime {
             get {
                 return ResourceManager.GetString("UploadDateTime", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uploading file is empty.
+        /// </summary>
+        public static string UploadFileEmpty {
+            get {
+                return ResourceManager.GetString("UploadFileEmpty", resourceCulture);
             }
         }
         

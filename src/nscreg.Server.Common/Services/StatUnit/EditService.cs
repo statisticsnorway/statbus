@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -14,6 +16,7 @@ using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
@@ -33,9 +36,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UserService _userService;
         private readonly Common _commonSvc;
         private readonly ElasticService _elasticService;
+        private readonly ValidationSettings _validationSettings;
+        private readonly DataAccessService _dataAccessService;
+        private readonly int? _liquidateStatusId;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields)
+            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -43,6 +49,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
             _elasticService = new ElasticService(dbContext);
+            _validationSettings = validationSettings;
+            _dataAccessService = new DataAccessService(dbContext);
+
+            _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
         }
 
         /// <summary>
@@ -60,12 +70,32 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
-                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
+                        
                         unit.LocalUnits.Clear();
                         unit.HistoryLocalUnitIds = null;
+
+                        if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                        {
+                            var enterpriseUnit = _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
+                            var legalUnits = enterpriseUnit.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
+                            if (enterpriseUnit != null && legalUnits.Count == 0)
+                            {
+                                enterpriseUnit.UnitStatusId = unit.UnitStatusId;
+                                enterpriseUnit.LiqReason = unit.LiqReason;
+                                enterpriseUnit.LiqDate = unit.LiqDate;
+                            }
+                        }
+                        
                         if (data.LocalUnits == null) return Task.CompletedTask;
                         foreach (var localUnit in localUnits)
                         {
+                            if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                            {
+                                localUnit.UnitStatusId = unit.UnitStatusId;
+                                localUnit.LiqReason = unit.LiqReason;
+                                localUnit.LiqDate = unit.LiqDate;
+                            }
                             unit.LocalUnits.Add(localUnit);
                         }
 
@@ -86,7 +116,18 @@ namespace nscreg.Server.Common.Services.StatUnit
                 data,
                 v => v.RegId ?? 0,
                 userId,
-                null);
+                unit =>
+                {
+                    if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                    {
+                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => unit.LegalUnitId == x.RegId && !x.IsDeleted);
+                        if (legalUnit != null && legalUnit.LocalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId.Value).ToList().Count == 0)
+                        {
+                            throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
+                        }
+                    } 
+                    return Task.CompletedTask;
+                });
 
         /// <summary>
         /// Метод редактирования предприятия
@@ -101,6 +142,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
+                    if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                    {
+                        throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
+                    }
                     if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
                         var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
@@ -128,7 +173,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 data,
                 m => m.RegId ?? 0,
                 userId,
-                unit =>
+                (unit, oldUnit) =>
                 {
                     if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
@@ -166,7 +211,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 data,
                 idSelector,
                 userId,
-                async unit =>
+                async (unit, oldUnit) =>
                 {
                     //Merge activities
                     if (Common.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
@@ -290,10 +335,23 @@ namespace nscreg.Server.Common.Services.StatUnit
                     statisticalUnits.Clear();
                     unit.PersonsUnits.AddRange(persons);
 
+                    if (data.LiqDate != null || !string.IsNullOrEmpty(data.LiqReason) || (_liquidateStatusId != null && data.UnitStatusId == _liquidateStatusId))
+                    {
+                        unit.UnitStatusId = _liquidateStatusId;
+                        unit.LiqDate = unit.LiqDate ?? DateTime.Now;
+                    }
+
+                    if ((oldUnit.LiqDate != null && data.LiqDate == null)  || (!string.IsNullOrEmpty(oldUnit.LiqReason) &&  string.IsNullOrEmpty(data.LiqReason)))
+                    {
+                        unit.LiqDate = oldUnit.LiqDate != null && data.LiqDate == null ? oldUnit.LiqDate : data.LiqDate;
+                        unit.LiqReason = !string.IsNullOrEmpty(oldUnit.LiqReason) && string.IsNullOrEmpty(data.LiqReason) ? oldUnit.LiqReason : data.LiqReason;
+                    }
+
                     if (work != null)
                     {
                         await work(unit);
                     }
+                    
                 });
 
         /// <summary>
@@ -308,11 +366,18 @@ namespace nscreg.Server.Common.Services.StatUnit
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
-            Func<TUnit, Task> work)
+            Func<TUnit, TUnit, Task> work)
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
+
+
             var unit = (TUnit) await ValidateChanges<TUnit>(idSelector(data));
+            if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
+            {
+                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new []{ nameof(Resource.Error403) } } };
+            }
+
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
             var unitsHistoryHolder = new UnitsHistoryHolder(unit);
@@ -320,7 +385,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
-
+            
             var deleteEnterprise = false;
             var existingLeuEntRegId = (int?) 0;
             if (unit is LegalUnit)
@@ -333,10 +398,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                     deleteEnterprise = true;
             }
 
+            if (_liquidateStatusId != null && hUnit.UnitStatusId == _liquidateStatusId && unit.UnitStatusId != hUnit.UnitStatusId)
+            {
+                throw new BadRequestException(nameof(Resource.UnitHasLiquidated));
+            }
+            
             //External Mappings
             if (work != null)
             {
-                await work(unit);
+                await work(unit, hUnit);
             }
 
             _commonSvc.AddAddresses<TUnit>(unit, data);
@@ -347,19 +417,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.EditComment = data.EditComment;
 
             IStatUnitAnalyzeService analysisService =
-                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
+                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
-            _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
+            var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
+            _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit));
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
                     var changeDateTime = DateTime.Now;
-                    _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit, changeDateTime));
-                    await _dbContext.SaveChangesAsync();
+                    _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit, changeDateTime));
+                   await _dbContext.SaveChangesAsync();
 
                     _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment,
                         changeDateTime, unitsHistoryHolder);

@@ -1,11 +1,13 @@
 import React from 'react'
-import { shape, arrayOf, func, string, bool } from 'prop-types'
+import { shape, arrayOf, func, string, bool, number } from 'prop-types'
 import { Icon, Table, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
+import { hasValue } from 'helpers/validation'
 import PersonView from './View'
 import PersonEdit from './Edit'
+import { getNewName } from 'helpers/locale'
 
 class PersonsList extends React.Component {
   static propTypes = {
@@ -19,7 +21,7 @@ class PersonsList extends React.Component {
     errors: arrayOf(string),
     disabled: bool,
     required: bool,
-    regId: string,
+    regId: number,
   }
 
   static defaultProps = {
@@ -30,7 +32,7 @@ class PersonsList extends React.Component {
     errors: [],
     disabled: false,
     required: false,
-    regId: '',
+    regId: undefined,
   }
 
   state = {
@@ -38,8 +40,7 @@ class PersonsList extends React.Component {
     addRow: false,
     editRow: undefined,
     newRowId: -1,
-    roles: {},
-    data: [],
+    roles: [],
   }
 
   componentDidMount() {
@@ -47,14 +48,17 @@ class PersonsList extends React.Component {
       url: '/api/lookup/4',
       method: 'get',
       onSuccess: (data) => {
-        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name, ...x })) })
+        this.setState({
+          countries: data.map(x => ({ value: x.id, text: getNewName(x, false), ...x })),
+        })
       },
     })
+
     internalRequest({
-      url: `/api/statunits/personsroles/${this.props.regId}`,
+      url: '/api/lookup/15',
       method: 'get',
-      onSuccess: (resp) => {
-        this.setState({ roles: resp })
+      onSuccess: (data) => {
+        this.setState({ roles: data.map(x => ({ value: x.id, text: getNewName(x, false), ...x })) })
       },
     })
   }
@@ -114,6 +118,7 @@ class PersonsList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled, locale } = this.props
     const { countries, addRow, editRow, roles } = this.state
+
     const renderComponent = x =>
       x.id !== editRow ? (
         <PersonView
@@ -177,18 +182,17 @@ class PersonsList extends React.Component {
               <Table.HeaderCell content={localize('PhoneNumber1')} width={2} textAlign="center" />
               {!readOnly && (
                 <Table.HeaderCell width={1} textAlign="right">
-                  {editRow === undefined &&
-                    addRow === false && (
-                      <div data-tooltip={localize('ButtonAdd')} data-position="top center">
-                        <Icon
-                          name="add"
-                          onClick={disabled ? R.identity : this.addHandler}
-                          disabled={disabled}
-                          color="green"
-                          size="big"
-                        />
-                      </div>
-                    )}
+                  {editRow === undefined && addRow === false && (
+                    <div data-tooltip={localize('ButtonAdd')} data-position="top center">
+                      <Icon
+                        name="add"
+                        onClick={disabled ? R.identity : this.addHandler}
+                        disabled={disabled}
+                        color="green"
+                        size="big"
+                      />
+                    </div>
+                  )}
                 </Table.HeaderCell>
               )}
             </Table.Row>
@@ -204,6 +208,7 @@ class PersonsList extends React.Component {
                 newRowId={newRowId}
                 countries={countries}
                 disabled={disabled}
+                roles={roles}
               />
             )}
             {value.length === 0 && !addRow ? (

@@ -17,6 +17,22 @@
     <ProjectReference Include="..\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="logs\**" />
+    <EmbeddedResource Remove="logs\**" />
+    <None Remove="logs\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\appsettings.Shared.json" Link="appsettings.Shared.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+    <None Update="nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="..\..\appsettings.Shared.json" Link="appsettings.Shared.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

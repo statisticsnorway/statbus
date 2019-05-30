@@ -86,7 +86,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
 
         public int[] EnterpriseUnits { get; set; }
 
-        [Required]
         public string Name { get; set; }
 
         public AddressM Address { get; set; }
@@ -94,7 +93,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public AddressM PostalAddress { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int? ReorgTypeId { get; set; }
         public int? UnitStatusId { get; set; }
@@ -113,14 +112,8 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
     {
         public EnterpriseGroupCreateMValidator()
         {
-            RuleFor(x => x.Name)
-                .NotEmpty()
-                .WithMessage(nameof(Resource.NameIsRequired));
             RuleFor(x => x.EmailAddress)
                 .EmailAddress();
-            RuleFor(x => x.EnterpriseUnits)
-                .Must(x => x != null && x.Length != 0)
-                .WithMessage(nameof(Resource.ChooseAtLeastOne));
         }
     }
 }

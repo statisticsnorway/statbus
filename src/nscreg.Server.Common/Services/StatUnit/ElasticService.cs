@@ -46,11 +46,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (_isSynchronized && !force)
                     return;
 
-                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
+                var baseQuery = _dbContext.StatUnitSearchView;
                 if (!force)
                 {
                     int dbCount = await baseQuery.CountAsync();
-                    var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                    var elasticsCount =
+                        await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
                     if (dbCount == elasticsCount.Count)
                     {
                         _isSynchronized = true;
@@ -63,7 +64,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     throw new Exception(deleteResponse.DebugInformation);
 
                 var activityCategoryStaticalUnits = (await _dbContext.ActivityStatisticalUnits
-                    .Select(a => new { a.UnitId, a.Activity.ActivityCategoryId }).ToListAsync())
+                        .Select(a => new {a.UnitId, a.Activity.ActivityCategoryId}).ToListAsync())
                     .ToLookup(a => a.UnitId, a => a.ActivityCategoryId);
 
                 const int batchSize = 50000;
@@ -111,6 +112,34 @@ namespace nscreg.Server.Common.Services.StatUnit
                     u => u.Index(StatUnitSearchIndexName).Doc(elasticItem));
                 if (!updateResult.IsValid)
                     throw new Exception(updateResult.DebugInformation);
+            }
+            catch (Exception)
+            {
+                await Synchronize();
+            }
+        }
+
+        /// <summary>
+        /// Removing statunit from elastic
+        /// </summary>
+        /// <param name="statId">index of item in elastic</param>
+        /// <param name="unitType">type of statunit</param>
+        /// <returns></returns>
+        public async Task DeleteDocumentAsync(string statId, int unitType)
+        {
+            try
+            {
+                var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(StatUnitSearchIndexName,
+                        TypeName.From<ElasticStatUnit>(),
+                        q => q
+                            .Query(rq => rq
+                                .Bool(b => b
+                                    .Must(x => x
+                                            .Term(y => y.Field(f => f.Id).Value(statId)),
+                                        z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
+                    .ConfigureAwait(false);
+                if (!deleteResponse.IsValid)
+                    throw new Exception(deleteResponse.DebugInformation);
             }
             catch (Exception)
             {
@@ -171,8 +200,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     mustQueries.Add(m => m.Prefix(p => p.Field(f => f.Name).Value(nameFilter)));
             }
 
-            if (filter.Type.HasValue)
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.UnitType).Value(filter.Type.Value)));
+            if (filter.Type.Any())
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.UnitType).Terms(filter.Type)));
 
             if (!string.IsNullOrWhiteSpace(filter.StatId))
                 mustQueries.Add(m => m.Prefix(p => p.Field(f => f.StatId).Value(filter.StatId.ToLower())));
@@ -247,8 +276,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.DataSourceClassificationId).Value(dataSourceClassificationId)));
             }
 
-            if (!filter.IncludeLiquidated)
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.IsLiquidated).Value(false)));
+            if (!filter.IncludeLiquidated.HasValue || !filter.IncludeLiquidated.Value)
+                mustQueries.Add(m => !m.Bool(b => b
+                                         .Should(s => s.Term(t => t.Field(f => f.LiqDate).Value(null)))) && !m.Exists(p => p.Field(f => f.LiqDate)));
 
             if (filter.RegMainActivityId.HasValue)
             {
@@ -266,6 +296,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 int legalFormId = filter.LegalFormId.Value;
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.LegalFormId).Value(legalFormId)));
+            }
+
+            if (filter.RegId.HasValue)
+            {
+                int id = filter.RegId.Value;
+                mustQueries.Add(m=>m.Term(p=>p.Field(f=>f.RegId).Value(id)));
             }
 
             if (isAdmin && filter.RegionId.HasValue)

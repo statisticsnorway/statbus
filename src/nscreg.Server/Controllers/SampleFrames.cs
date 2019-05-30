@@ -27,26 +27,26 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.SampleFramesView)]
         public async Task<IActionResult> GetAll([FromQuery] SearchQueryM model) =>
-            Ok(await _sampleFramesService.GetAll(model));
+            Ok(await _sampleFramesService.GetAll(model,User.GetUserId()));
 
         [HttpGet("{id:int}")]
         [SystemFunction(SystemFunctions.SampleFramesView)]
         public async Task<IActionResult> GetById(int id) =>
-            Ok(await _sampleFramesService.GetById(id));
+            Ok(await _sampleFramesService.GetById(id, User.GetUserId()));
 
         [HttpGet("{id:int}/preview")]
         [SystemFunction(SystemFunctions.SampleFramesPreview)]
         public async Task<IActionResult> Preview(int id) =>
-            Ok(await _sampleFramesService.Preview(id, 10));
+            Ok(await _sampleFramesService.Preview(id, User.GetUserId(), 10));
 
         [HttpGet("{id:int}/preview/download")]
         [SystemFunction(SystemFunctions.SampleFramesPreview)]
         public async Task<IActionResult> DownloadPreview(int id)
         {
-            var preview = await _sampleFramesService.Preview(id);
+            var preview = await _sampleFramesService.Preview(id, User.GetUserId());
             var csvString = _csvHelper.ConvertToCsv(preview);
-            var nameOfFile = _sampleFramesService.GetById(id).Result.Name + ".csv";
-            return File(Encoding.GetEncoding(1251).GetBytes(csvString), "text/csv", nameOfFile);
+            var nameOfFile = _sampleFramesService.GetById(id, User.GetUserId()).Result.Name + ".csv";
+            return File(Encoding.UTF8.GetBytes(csvString), "text/csv", nameOfFile);
         }
 
         [HttpPost]
@@ -69,7 +69,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.SampleFramesDelete)]
         public async Task<IActionResult> DeleteAsync(int id)
         {
-            await _sampleFramesService.Delete(id);
+            await _sampleFramesService.Delete(id, User.GetUserId());
             return NoContent();
         }
 

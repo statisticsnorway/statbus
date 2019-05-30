@@ -102,6 +102,7 @@ class AddressField extends React.Component {
     const label = localize(labelKey)
     const latitudeIsBad = !validateLatitude(value.latitude)
     const longitudeIsBad = !validateLongitude(value.longitude)
+
     return (
       <Segment.Group as={Form.Field}>
         <label className={required ? 'is-required' : undefined} htmlFor={name}>
@@ -168,7 +169,7 @@ class AddressField extends React.Component {
                     onChange={this.handleEdit}
                     label={localize('Latitude')}
                     placeholder={localize('Latitude')}
-                    required={mandatoryField.latitude}
+                    required={mandatoryField.Latitude}
                     disabled={disabled || !editing}
                     maxLength={10}
                     min="-90"
@@ -191,7 +192,7 @@ class AddressField extends React.Component {
                     onChange={this.handleEdit}
                     label={localize('Longitude')}
                     placeholder={localize('Longitude')}
-                    required={mandatoryField.longitude}
+                    required={mandatoryField.Longitude}
                     disabled={disabled || !editing}
                     maxLength={11}
                     min="-180"

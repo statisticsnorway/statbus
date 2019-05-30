@@ -60,6 +60,7 @@ namespace nscreg.Server.DataUploadSvc
             var statUnitAnalysisRules =
                 configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
+            var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
             ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 
@@ -89,7 +90,8 @@ namespace nscreg.Server.DataUploadSvc
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 logger,
                                 statUnitAnalysisRules,
-                                dbMandatoryFields),
+                                dbMandatoryFields,
+                                validationSettings),
                             new QueueCleanupJob(
                                 ctxCleanUp,
                                 servicesSettings.DataUploadServiceDequeueInterval,

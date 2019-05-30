@@ -32,7 +32,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
 
         public string DataSource { get; set; }
 
-        [Required]
         public string Name { get; set; }
 
         public string ShortName { get; set; }
@@ -96,7 +95,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public int[] EnterpriseUnits { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int? ReorgTypeId { get; set; }
         public int? UnitStatusId { get; set; }
@@ -115,9 +114,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
     {
         public EnterpriseGroupEditMValidator()
         {
-            RuleFor(x => x.EnterpriseUnits)
-                .Must(x => x != null && x.Length != 0)
-                .WithMessage(Resource.ChooseAtLeastOne);
             RuleFor(v => v.ChangeReason)
                 .NotEmpty()
                 .Must(v =>
@@ -128,9 +124,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
                 .NotEmpty()
                 .When(v => v.ChangeReason == ChangeReasons.Edit)
                 .WithMessage(nameof(Resource.EditCommentMandatory));
-            RuleFor(x => x.Name)
-                .NotEmpty()
-                .WithMessage(nameof(Resource.NameIsRequired));
             RuleFor(x => x.EmailAddress)
                 .EmailAddress();
         }

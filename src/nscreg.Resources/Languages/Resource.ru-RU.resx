@@ -1990,7 +1990,7 @@
     <value>Сводные сообщения</value>
   </data>
   <data name="SampleFrameNotFound" xml:space="preserve">
-    <value>Шаблон выборки не найдена</value>
+    <value>Шаблон выборки не найден</value>
   </data>
   <data name="CsvDelimiter" xml:space="preserve">
     <value>CSV ограничитель</value>
@@ -2228,5 +2228,53 @@
   </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
+  </data>
+  <data name="NewPasswordNotConfirmed" xml:space="preserve">
+    <value>Новый пароль не подтвержден</value>
+  </data>
+  <data name="LiquidateEntrUnit" xml:space="preserve">
+    <value>Вы не можете ликвидировать Предприятие</value>
+  </data>
+  <data name="LiquidateLegalUnit" xml:space="preserve">
+    <value>Вы должны ликвидировать Юридическую единицу</value>
+  </data>
+  <data name="UnitHasLiquidated" xml:space="preserve">
+    <value>Единица была ликвидирована</value>
+  </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Поле ввода не должно быть больше 8 символов</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>Завершено</value>
+  </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>Причина регистрации</value>
+  </data>
+  <data name="UnitStatus" xml:space="preserve">
+    <value>Статус</value>
+  </data>
+  <data name="ProviderIsNotSet" xml:space="preserve">
+    <value>Провайдер для базы данных не определен</value>
+  </data>
+  <data name="SizeId" xml:space="preserve">
+    <value>Размер</value>
+  </data>
+  <data name="AnalysisMandatorySize" xml:space="preserve">
+    <value>Не определен размер статистической единицы</value>
+  </data>
+  <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
+    <value>Не определен статус статистической единицы</value>
+  </data>
+  <data name="AnalysisMandatoryReorgType" xml:space="preserve">
+    <value>Не определен тип реорганизации статистической единицы</value>
+  </data>
+  <data name="UploadFileEmpty" xml:space="preserve">
+    <value>Загружаемый файл пуст</value>
+  </data>
+  <data name="FileHasEmptyUnit" xml:space="preserve">
+    <value>Загружаемый файл имеет пустые данные статистической единицы</value>
+  </data>
+  <data name="ShouldBeGreaterThenZero" xml:space="preserve">
+    <value>Поле не должно быть пустым</value>
   </data>
 </root>

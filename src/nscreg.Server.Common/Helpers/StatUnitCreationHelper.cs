@@ -74,10 +74,7 @@ namespace nscreg.Server.Common.Helpers
                     var sameStatIdLocalUnits =
                         _dbContext.LocalUnits.Where(lou => lou.StatId == legalUnit.StatId).ToList();
 
-                    if (sameStatIdLocalUnits.Any())
-                        await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
-                    else
-                        createdLocal = await CreateLocalForLegalAsync(createdLegal);
+                    createdLocal = await CreateLocalForLegalAsync(createdLegal);
 
                     transaction.Commit();
                 }

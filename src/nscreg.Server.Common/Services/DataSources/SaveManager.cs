@@ -123,7 +123,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 return (null, false);
 
             var saveAction =
-                unitExists ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                unitExists && dataSource.AllowedOperations != DataSourceAllowedOperation.Create ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {
@@ -168,7 +168,15 @@ namespace nscreg.Server.Common.Services.DataSources
             mappedUnit.PostalAddress = Mapper.Map<AddressM>(unit.PostalAddress);
 
             unit.Activities.ForEach(activity => mappedActivities.Add(Mapper.Map<ActivityM>(activity)));
-            unit.Persons.ForEach(person => mappedPersons.Add(Mapper.Map<PersonM>(person)));
+            foreach (var personStatisticalUnit in unit.PersonsUnits)
+            {
+                var person = Mapper.Map<PersonM>(personStatisticalUnit.Person);
+                if (personStatisticalUnit.PersonTypeId != null)
+                {
+                    person.Role = (int) personStatisticalUnit.PersonTypeId;
+                }
+                mappedPersons.Add(person);
+            }
 
             mappedUnit.Activities = mappedActivities;
             mappedUnit.Persons = mappedPersons;

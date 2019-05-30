@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -22,6 +23,7 @@ using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using Activity = nscreg.Data.Entities.Activity;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -340,7 +342,7 @@ namespace nscreg.Server.Common.Services
             if (existing.SerializedUnit != null)
             {
                 dynamic jsonParsed = JsonConvert.DeserializeObject(existing.SerializedUnit);
-                int unitType = int.Parse(jsonParsed["UnitType"].ToString());
+                int unitType = int.Parse(jsonParsed["unitType"].ToString());
 
                 if (existing.Status == DataUploadingLogStatuses.Done &&
                     existing.StartImportDate != null)
@@ -359,6 +361,7 @@ namespace nscreg.Server.Common.Services
                         default:
                             throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
                     }
+                    await _statUnitDeleteService.DeleteUnitFromElasticAsync(existing.TargetStatId, unitType).ConfigureAwait(false);
                 }
             }
             

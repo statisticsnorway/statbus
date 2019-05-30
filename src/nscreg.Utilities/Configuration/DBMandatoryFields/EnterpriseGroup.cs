@@ -48,5 +48,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ReorgTypeId { get; set; }
         public bool UnitStatusId { get; set; }
         public bool EnterpriseUnits { get; set; }
+        public bool PostalAddress { get; set; }
     }
 }

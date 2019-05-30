@@ -50,6 +50,11 @@ const viewStatUnit = createReducer(
         unitStatusId: data,
       },
     }),
+    [actionTypes.fetchStatUnitFailed]: (state, data) => ({
+      ...state,
+      statUnit: Object,
+      errorMessage: data,
+    }),
   },
   initialState,
 )

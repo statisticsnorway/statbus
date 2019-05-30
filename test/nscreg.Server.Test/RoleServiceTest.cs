@@ -53,7 +53,7 @@ namespace nscreg.Server.Test
                 context.Roles.Add(new Role {Name = roleName, Status = RoleStatuses.Active});
                 context.SaveChanges();
 
-                var role = new RoleService(context).GetRoleById(context.Roles.Single(x => x.Name == roleName).Id);
+                var role = new RoleService(context).GetRoleVmById(context.Roles.Single(x => x.Name == roleName).Id);
 
                 Assert.Equal(roleName, role.Name);
             }

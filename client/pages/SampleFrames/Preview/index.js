@@ -6,21 +6,57 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import getUid from 'helpers/getUid'
 import { getText } from 'helpers/locale'
 import { internalRequest } from 'helpers/request'
+import { hasValue } from 'helpers/validation'
 import List from './List'
 
-const assert = props => props.list != null
+const assert = props => props.error != null || props.list != null
 
 const withUids = R.map(x => R.assoc('uid', getUid(), x))
 const hooks = {
   componentDidMount() {
     internalRequest({
+      url: `/api/sampleframes/${this.props.id}`,
+      onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
+      onFail: data => this.setState({ error: data.message }),
+    })
+    internalRequest({
       url: `/api/sampleframes/${this.props.id}/preview`,
       onSuccess: (resp) => {
         this.setState({ list: withUids(resp) })
-        internalRequest({
-          url: `/api/sampleframes/${this.props.id}`,
-          onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
-        })
+        if (this.state.sampleFrame.fields.includes(4)) {
+          internalRequest({
+            url: '/api//lookup/9',
+            onSuccess: (data) => {
+              this.setState(s => ({
+                ...s.list,
+                list: s.list.map((x) => {
+                  const temp = data.find(y => y.id === parseInt(x.unitStatusId, 10))
+                  return {
+                    ...x,
+                    unitStatusId: hasValue(temp) ? temp.name : '',
+                  }
+                }),
+              }))
+            },
+          })
+        }
+        if (this.state.sampleFrame.fields.includes(10)) {
+          internalRequest({
+            url: '/api//lookup/11',
+            onSuccess: (data) => {
+              this.setState(s => ({
+                ...s.list,
+                list: s.list.map((x) => {
+                  const temp = data.find(y => y.id === parseInt(x.foreignParticipationId, 10))
+                  return {
+                    ...x,
+                    foreignParticipationId: hasValue(temp) ? temp.name : '',
+                  }
+                }),
+              }))
+            },
+          })
+        }
       },
     })
   },
@@ -38,6 +74,10 @@ const mapStateToProps = (state, props) => ({
   id: props.params.id,
 })
 
-const enhance = R.pipe(withSpinnerUnless(assert), lifecycle(hooks), connect(mapStateToProps))
+const enhance = R.pipe(
+  withSpinnerUnless(assert),
+  lifecycle(hooks),
+  connect(mapStateToProps),
+)
 
 export default enhance(List)

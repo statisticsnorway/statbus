@@ -19,7 +19,6 @@ namespace nscreg.Data.Entities
         bool IsDeleted { get; set; }
         decimal? Turnover { get; set; }
         StatUnitTypes UnitType { get; }
-        int? ParentId { get; set; }
         DateTime StartPeriod { get; set; }
         DateTime EndPeriod { get; set; }
         string UserId { get; set; }

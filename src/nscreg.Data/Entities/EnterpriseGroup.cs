@@ -67,9 +67,6 @@ namespace nscreg.Data.Entities
         public bool IsDeleted { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? ParentId { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? AddressId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -81,7 +78,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 50, GroupName = GroupNames.StatUnitInfo)]
         public string EntGroupType { get; set; }
 
-        [Display(Order = 55, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 105, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 20)]
@@ -94,11 +91,11 @@ namespace nscreg.Data.Entities
         public string WebAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
-        [Display(GroupName = GroupNames.ContactInfo, Order = 50)]
+        [Display(GroupName = GroupNames.LiquidationInfo, Order = 50)]
         public DateTime? LiqDateStart { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
-        [Display(GroupName = GroupNames.ContactInfo, Order = 60)]
+        [Display(GroupName = GroupNames.LiquidationInfo, Order = 60)]
         public DateTime? LiqDateEnd { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 70)]
@@ -121,41 +118,44 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.LinkInfo)]
         public DateTime EndPeriod { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 30)]
         public string LiqReason { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 40)]
         public string SuspensionStart { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 50)]
         public string SuspensionEnd { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 110)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 110)]
         public int? Employees { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 111)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 111)]
         public int? EmployeesYear { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 112)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 112)]
         public DateTime? EmployeesDate { get; set; }
 
         [PopupLocalizedKey("InThousandsKGS")]
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 90)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 80)]
         public decimal? Turnover { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 100)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 90)]
         public int? TurnoverYear { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 80)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 100)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 90)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 80)]
         public string Status { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 133)]
         public DateTime StatusDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 80)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 90)]
         public string Notes { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -185,7 +185,7 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
 
-
+        [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual RegistrationReason RegistrationReason { get; set; }
 
@@ -216,8 +216,12 @@ namespace nscreg.Data.Entities
         }
 
         [Reference(LookupEnum.UnitSizeLookup)]
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 120)]
-        public int? Size { get; set; }
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 70)]
+        public int? SizeId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual UnitSize Size { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 131)]
@@ -231,9 +235,17 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 50)]
         public int? ReorgTypeId { get; set; }
 
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ReorgType ReorgType { get; set; }
+
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 132)]
         public int? UnitStatusId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual UnitStatus UnitStatus { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

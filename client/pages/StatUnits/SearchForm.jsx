@@ -210,14 +210,12 @@ class SearchForm extends React.Component {
               <Grid divided columns="equal">
                 <Grid.Row stretched>
                   <Grid.Column>
-                    {canRead('StatId') && (
-                      <Form.Input
-                        name="statId"
-                        value={formData.statId ? formData.statId : ''}
-                        onChange={this.handleChange}
-                        label={localize('StatId')}
-                      />
-                    )}
+                    <Form.Input
+                      name="statId"
+                      value={formData.statId ? formData.statId : ''}
+                      onChange={this.handleChange}
+                      label={localize('StatId')}
+                    />
                     {canRead('TaxRegId') && (
                       <Form.Input
                         name="taxRegId"

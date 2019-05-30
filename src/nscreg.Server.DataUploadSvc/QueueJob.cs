@@ -3,26 +3,24 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models.StatUnits.Create;
-using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
-using RawUnit = System.Collections.Generic.IReadOnlyDictionary<string, string>;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
-using Priority = nscreg.Data.Constants.DataSourcePriority;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -36,23 +34,22 @@ namespace nscreg.Server.DataUploadSvc
         private readonly QueueService _queueSvc;
         private readonly AnalyzeService _analysisSvc;
         private readonly SaveManager _saveManager;
-        private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
-        private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
 
         public QueueJob(
             NSCRegDbContext ctx,
             int dequeueInterval,
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields dbMandatoryFields)
+            DbMandatoryFields dbMandatoryFields,
+            ValidationSettings validationSettings)
         {
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
-            _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields);
+            _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
 
-            var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields);
-            var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields);
+            var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
+            var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
             _saveManager = new SaveManager(ctx, _queueSvc, createSvc, editSvc);
         }
 
@@ -78,7 +75,8 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
                 return;
             }
-            _logger.LogInformation("parsed {0} entities", parsed.Length + 1);
+
+            _logger.LogInformation("parsed {0} entities", parsed.Length);
 
             var anyWarnings = false;
 
@@ -87,7 +85,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
-                _logger.LogInformation("populating unit");
+                _logger.LogInformation("populating unit");                
                 var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 if (populateError.HasValue())
                 {
@@ -111,6 +109,7 @@ namespace nscreg.Server.DataUploadSvc
                 if (errors.Count > 0)
                 {
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
+                    errors.Values.ForEach(x=>x.ForEach(e=> _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
                     anyWarnings = true;
                     await LogUpload(LogStatus.Warning, "ErrorsOccuredDuringManualAnalysis", errors, summary);
                     continue;
@@ -120,6 +119,7 @@ namespace nscreg.Server.DataUploadSvc
                 var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId);
                 if (saveError.HasValue())
                 {
+                    _logger.LogError(saveError);
                     anyWarnings = true;
                     await LogUpload(LogStatus.Warning, saveError);
                     continue;
@@ -135,10 +135,18 @@ namespace nscreg.Server.DataUploadSvc
                     var rawUnit = JsonConvert.SerializeObject(
                         dequeued.DataSource.VariablesMappingArray.ToDictionary(
                             x => x.target,
-                            x => parsed[i][x.source]));
+                            x =>
+                            {
+                                if (parsed[i] is string)
+                                    return parsed[i][x.source];
+                                var tmp = x.source.Split('.');
+                                if (parsed[i].ContainsKey(tmp[0]))
+                                    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                                return tmp[0];
+                            }));
                     return _queueSvc.LogUnitUpload(
                         dequeued, rawUnit, startedAt, populated, DateTime.Now,
-                        status, note, analysisErrors, analysisSummary);
+                        status, note ?? "", analysisErrors, analysisSummary);
                 }
             }
 
@@ -168,9 +176,9 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private static async Task<(string error, RawUnit[] result)> ParseFile(DataSourceQueue queueItem)
+        private static async Task<(string error, IReadOnlyDictionary<string, object>[] result)> ParseFile(DataSourceQueue queueItem)
         {
-            IEnumerable<RawUnit> parsed;
+            IEnumerable<IReadOnlyDictionary<string, object>> parsed;
             try
             {
                 switch (queueItem.DataSourceFileName)
@@ -192,12 +200,29 @@ namespace nscreg.Server.DataUploadSvc
                 return (ex.Message, null);
             }
 
-            return (null, parsed.ToArray());
+            var parsedArr = parsed.ToArray();
+
+            if (parsedArr.Length == 0)
+            {
+                return (Resource.UploadFileEmpty, parsedArr);
+            }
+
+            if (parsedArr.Any(x => x.Count == 0))
+            {
+                return (Resource.FileHasEmptyUnit, parsedArr);
+            }
+            return  (null, parsedArr);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="queueItem"></param>
+        /// <param name="parsedUnit"></param>
+        /// <returns></returns>
         private async Task<(string, StatisticalUnit)> PopulateUnit(
             DataSourceQueue queueItem,
-            IReadOnlyDictionary<string, string> parsedUnit)
+            IReadOnlyDictionary<string, object> parsedUnit)
         {
             StatisticalUnit unit;
 
@@ -207,7 +232,8 @@ namespace nscreg.Server.DataUploadSvc
                     parsedUnit,
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray,
-                    queueItem.DataSource.DataSourceUploadType);
+                    queueItem.DataSource.DataSourceUploadType,
+                    queueItem.DataSource.AllowedOperations);
             }
             catch (Exception ex)
             {

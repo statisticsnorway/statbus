@@ -46,10 +46,11 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ForeignParticipationCountry { get; set; }
         public bool ForeignParticipationCountriesUnits { get; set; }
         public bool OrgLink { get; set; }
-        public bool Size { get; set; }
+        public bool SizeId { get; set; }
         public bool ForeignParticipationId { get; set; }
         public bool DataSourceClassificationId { get; set; }
         public bool ReorgTypeId { get; set; }
         public bool UnitStatusId { get; set; }
+        public bool PostalAddress { get; set; }
     }
 }

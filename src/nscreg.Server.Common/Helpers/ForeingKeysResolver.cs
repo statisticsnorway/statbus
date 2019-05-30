@@ -82,7 +82,7 @@ namespace nscreg.Server.Common.Helpers
                     foreignKeyField.After = dbContext.EnterpriseGroups
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
-                [nameof(StatisticalUnit.Size)] = foreignKeyField =>
+                [nameof(StatisticalUnit.SizeId)] = foreignKeyField =>
                 {
                     foreignKeyField.Before = dbContext.UnitsSize
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;

@@ -9,7 +9,6 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Enums;
-using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services
 {
@@ -36,16 +35,16 @@ namespace nscreg.Server.Common.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _dbContext.LocalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.LocalUnits.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _dbContext.LegalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.LegalUnits.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    query = _dbContext.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.EnterpriseUnits.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.CountryLookup:
                     query = _dbContext.Countries.OrderBy(x => x.Name)
@@ -56,6 +55,15 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.SectorCodeLookup:
                     query = _dbContext.SectorCodes.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.PersonTypeLookup:
+                    query = _dbContext.PersonTypes.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.UnitStatusLookup:
+                    query = _dbContext.Statuses.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm  { Id = x.Id, Name = x.Name });
+                    break;
+                case LookupEnum.ForeignParticipationLookup:
+                    query = _dbContext.ForeignParticipations.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm { Id = x.Id, Name = x.Name });
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
@@ -80,7 +88,7 @@ namespace nscreg.Server.Common.Services
 
             if (string.IsNullOrEmpty(searchModel.Wildcard))
             {
-                searchCriteia = x => !x.IsDeleted && x.ParentId == null;
+                searchCriteia = x => !x.IsDeleted;
                 searchCodeLookupCriteia = x => !x.IsDeleted;
                 searchIsoCodeLookupCriteia = x => !x.IsDeleted;
             }
@@ -88,7 +96,7 @@ namespace nscreg.Server.Common.Services
             {
                
 
-                searchCriteia = x => !x.IsDeleted && x.ParentId == null &&
+                searchCriteia = x => !x.IsDeleted &&
                                      (!statIdSearch && x.Name.ToLower().Contains(loweredWc)
                                      || statIdSearch && x.StatId == loweredWc);
 

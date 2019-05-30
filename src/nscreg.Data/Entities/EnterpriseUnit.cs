@@ -39,7 +39,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 380, GroupName = GroupNames.RegistrationInfo)]
         public bool Commercial { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 400)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 530)]
         public string TotalCapital { get; set; }
 
         [Display(GroupName = GroupNames.CapitalInfo, Order = 490)]
@@ -48,13 +48,13 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.CapitalInfo, Order = 500)]
         public string StateCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 510)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 480)]
         public string PrivCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 520)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 510)]
         public string ForeignCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 530)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 520)]
         public string ForeignCapitalCurrency { get; set; }
 
         [Reference(LookupEnum.LegalUnitLookup)]

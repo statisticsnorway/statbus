@@ -26,14 +26,16 @@ class DateTimeField extends React.Component {
   onChangeRawWrapper = (event) => {
     const { name, onChange } = this.props
     const isEmpty = event.target.value === ''
-    const parsed = dateFns.parse(event.target.value)
+    const parsed = dateFns.parse(event.target.value && event.target.value.slice(0, 10))
     const isDateValid = (!!parsed && parsed.isValid() && dateFns.isDateInThePast(parsed)) || isEmpty
     const errorMessages =
       isDateValid && !!parsed
         ? []
         : !parsed.isValid()
           ? ['DateNotValid']
-          : !dateFns.isDateInThePast(parsed) ? ['DateCantBeInFuture'] : ['DateNotValid']
+          : !dateFns.isDateInThePast(parsed)
+            ? ['DateCantBeInFuture']
+            : ['DateNotValid']
     this.setState({ isDateValid, errorMessages })
     const nextValue = isEmpty ? '' : isDateValid ? this.ensure(parsed) : ''
     onChange({ target: { name, value: nextValue } }, { ...this.props, value: nextValue })
@@ -41,7 +43,17 @@ class DateTimeField extends React.Component {
 
   format = x => dateFns.formatDate(x, this.props.dateFormat)
 
-  ensure = x => R.cond([[hasValue, R.pipe(this.format, dateFns.toUtc)], [R.T, R.identity]])(x)
+  ensure = x =>
+    R.cond([
+      [
+        hasValue,
+        R.pipe(
+          this.format,
+          dateFns.toUtc,
+        ),
+      ],
+      [R.T, R.identity],
+    ])(x)
 
   render() {
     const {

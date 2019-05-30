@@ -5,6 +5,7 @@ using System.Reflection;
 using nscreg.Data.Entities;
 using nscreg.ModelGeneration.PropertiesMetadata;
 using nscreg.ModelGeneration.Validation;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
@@ -35,10 +36,15 @@ namespace nscreg.ModelGeneration.PropertyCreators
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)
         {
+            var persons = obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>)propInfo.GetValue(obj);
+            var regIdPropertyInfo = typeof(IStatisticalUnit).GetProperty(nameof(IStatisticalUnit.RegId));
+            var regId = obj == null ? default(int) : (int) regIdPropertyInfo.GetValue(obj);
+            persons.ForEach(x=>x.Role = x.PersonsUnits.FirstOrDefault(y=>y.UnitId == regId).PersonTypeId);
+
             return new PersonPropertyMetada(
                 propInfo.Name,
                 mandatory,
-                obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>) propInfo.GetValue(obj),
+                persons,
                 GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable

@@ -1,5 +1,6 @@
 using nscreg.Data.Entities;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using nscreg.Data.Constants;
@@ -33,6 +34,10 @@ namespace nscreg.Business.DataSources
                     break;
                 case nameof(Activity.ActivityCategory):
                     result.ActivityCategory = ParseActivityCategory(PathTail(propPath), value, result.ActivityCategory);
+                    break;
+                case nameof(ActivityCategory.Code):
+                case nameof(ActivityCategory.Name):
+                    result.ActivityCategory = ParseActivityCategory(propPath, value, result.ActivityCategory);
                     break;
                 case nameof(Activity.ActivityYear):
                     if (int.TryParse(value, out var activityYear))
@@ -73,8 +78,12 @@ namespace nscreg.Business.DataSources
                     if (DateTime.TryParse(value, out var birthDate)) result.BirthDate = birthDate;
                     else throw BadValueFor<Person>(propPath, value);
                     break;
-                case nameof(Person.NationalityCode):
-                    result.NationalityCode = ParseCountry(PathTail(propPath), value, result.NationalityCode);
+                case nameof(Country.Code):
+                case nameof(Country.Name):
+                    if (result.NationalityCode == null)
+                    {
+                        result.NationalityCode = ParseCountry(propPath, value, result.NationalityCode);
+                    }
                     break;
                 case nameof(Person.Sex):
                     result.Sex = ParsePersonSex(value);
@@ -85,6 +94,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.PhoneNumber1):
                     result.PhoneNumber1 = value;
                     break;
+                //case nameof(Person.Code)
                 default: throw UnsupportedPropertyOf<Person>(propPath);
             }
             return result;
@@ -155,6 +165,9 @@ namespace nscreg.Business.DataSources
             var result = prev ?? new Country();
             switch (prop)
             {
+                case nameof(Country.Id):
+                    result.Id = int.Parse(value);
+                    break;
                 case nameof(Country.Code):
                     result.Code = value;
                     break;
@@ -207,8 +220,76 @@ namespace nscreg.Business.DataSources
                 case nameof(DataSourceClassification.Name):
                     result.Name = value;
                     break;
+                case nameof(DataSourceClassification.Code):
+                    result.Code = value;
+                    break;
                 default: throw UnsupportedPropertyOf<DataSourceClassification>(prop);
             }
+            return result;
+        }
+
+        public static UnitSize ParseSize(string prop, string value, UnitSize prev)
+        {
+            var result = prev ?? new UnitSize();
+            switch (prop)
+            {
+                case nameof(UnitSize.Name):
+                    result.Name = value;
+                    break;
+                default: throw UnsupportedPropertyOf<UnitSize>(prop);
+            }
+
+            return result;
+        }
+
+        public static UnitStatus ParseUnitStatus(string prop, string value, UnitStatus prev)
+        {
+            var result = prev ?? new UnitStatus();
+            switch (prop)
+            {
+                case nameof(UnitStatus.Name):
+                    result.Name = value;
+                    break;
+                case nameof(UnitStatus.Code):
+                    result.Code = value;
+                    break;
+                default: throw UnsupportedPropertyOf<UnitStatus>(prop);
+            }
+
+            return result;
+        }
+
+        public static ReorgType ParseReorgType(string prop, string value, ReorgType prev)
+        {
+            var result = prev ?? new ReorgType();
+            switch (prop)
+            {
+                case nameof(UnitStatus.Name):
+                    result.Name = value;
+                    break;
+                case nameof(UnitStatus.Code):
+                    result.Code = value;
+                    break;
+                default: throw UnsupportedPropertyOf<ReorgType>(prop);
+            }
+
+            return result;
+        }
+
+        public static RegistrationReason ParseRegistrationReason(string prop, string value, RegistrationReason prev)
+        {
+            var result = prev ?? new RegistrationReason();
+            switch (prop)
+            {
+                case nameof(UnitStatus.Name):
+                    result.Name = value;
+                    break;
+                case nameof(UnitStatus.Code):
+                    result.Code = value;
+                    break;
+                default: throw UnsupportedPropertyOf<RegistrationReason>(prop);
+            }
+
             return result;
         }
 
@@ -216,6 +297,23 @@ namespace nscreg.Business.DataSources
         {
             var result = value == "1" ? (byte)1 : (byte)2;
             return result;
+        }
+
+        public static bool SetPersonStatUnitOwnPeroperties(string path, PersonStatisticalUnit entity, string value)
+        {
+            switch (path)
+            {
+                case "Role":
+                    entity.PersonTypeId = Convert.ToInt32(value);
+                    if (entity.Person != null)
+                    {
+                        entity.Person.Role = Convert.ToInt32(value);
+                    }
+                    break;
+                default:
+                    return false;
+            }
+            return true;
         }
 
         private static Exception UnsupportedPropertyOf<T>(string propPath) =>

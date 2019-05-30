@@ -19,6 +19,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
             _context = context;
             _paramExtractors = new Dictionary<FieldEnum, Func<IStatisticalUnit, FieldEnum, string>>
             {
+                
                 [FieldEnum.ActivityCodes] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ActivitiesUnits.Select(y => y.Activity.ActivityCategory.Code))),
                 [FieldEnum.Region] = CreateReferenceValueExtractor(x => x.Address.Region.FullPath),
@@ -28,8 +29,9 @@ namespace nscreg.Server.Common.Services.SampleFrames
                         .First(y => y.ActivityType == ActivityTypes.Primary).ActivityCategory;
                     return $"{activityCategory.Code} {activityCategory.Name}";
                 }),
-                [FieldEnum.ForeignParticipationId] = CreateReferenceValueExtractor(x =>
+                [FieldEnum.ForeignParticipationCountry] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ForeignParticipationCountriesUnits.Select(y => $"{y.Country.IsoCode} {y.Country.Name}"))),
+                [FieldEnum.ContactPerson] = CreateReferenceValueExtractor(x =>string.Join(", ", x.PersonsUnits.Select(z => $"{z.Person.GivenName} {z.Person.Surname} {z.Person.MiddleName}"))),
                 [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm.Code} {x.LegalForm.Name}"),
                 [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode.Code} {x.InstSectorCode.Name}"),
                 [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address.Region.FullPath}, {x.Address.AddressPart1}, {x.Address.AddressPart2}, {x.Address.AddressPart3}"),
@@ -54,8 +56,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 [FieldEnum.ShortName] = SimpleValueExtractor,
                 [FieldEnum.TelephoneNo] = SimpleValueExtractor,
                 [FieldEnum.EmailAddress] = SimpleValueExtractor,
-                [FieldEnum.FreeEconZone] = SimpleValueExtractor
-
+                [FieldEnum.FreeEconZone] = SimpleValueExtractor,
+                [FieldEnum.ForeignParticipationId] = SimpleValueExtractor
             };
         }
 

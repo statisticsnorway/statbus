@@ -3,12 +3,11 @@ import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-type
 import { Button, Table, Form, Search, Popup, Message } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
-import { DateTimeField, SelectField } from 'components/fields'
+import { DateTimeField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import getUid from 'helpers/getUid'
 import config from 'helpers/config'
-import { getNewName } from '../../../helpers/locale'
 
 const options = {
   sex: [...personSex],
@@ -39,6 +38,7 @@ class PersonEdit extends React.Component {
     isAlreadyExist: func,
     countries: arrayOf(shape({})),
     disabled: bool,
+    roles: arrayOf(shape({})),
   }
 
   static defaultProps = {
@@ -61,10 +61,14 @@ class PersonEdit extends React.Component {
     isAlreadyExist: () => false,
     disabled: false,
     locale: '',
+    roles: [],
   }
 
   state = {
-    data: { ...this.props.data, id: this.props.newRowId },
+    data: {
+      ...this.props.data,
+      id: this.props.newRowId,
+    },
     isLoading: false,
     touched: false,
     isAlreadyExist: false,
@@ -164,7 +168,7 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { localize, countries, disabled, locale } = this.props
+    const { localize, countries, disabled, roles } = this.props
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
@@ -173,15 +177,15 @@ class PersonEdit extends React.Component {
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <SelectField
-                name="role"
-                label="PersonType"
-                lookup={15}
-                onChange={this.onFieldChange}
+              <Form.Select
+                label={localize('PersonType')}
+                placeholder={localize('PersonType')}
+                options={roles}
                 value={data.role}
-                localize={localize}
-                locale={locale}
+                name="role"
                 required={personMandatoryFields.Role}
+                onChange={this.onFieldChange}
+                disabled={disabled}
               />
               <Form.Input
                 label={localize('StatUnitFormPersonName')}
@@ -240,17 +244,15 @@ class PersonEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <div className="field datepicker">
-                <label htmlFor="birthDate">{localize('BirthDate')}</label>
-                <DateTimeField
-                  name="birthDate"
-                  value={data.birthDate}
-                  onChange={this.onFieldChange}
-                  disabled={disabled}
-                  localize={localize}
-                  required={personMandatoryFields.BirthDate}
-                />
-              </div>
+              <DateTimeField
+                label="BirthDate"
+                name="birthDate"
+                value={data.birthDate}
+                onChange={this.onFieldChange}
+                disabled={disabled}
+                localize={localize}
+                required={personMandatoryFields.BirthDate}
+              />
               <Form.Select
                 name="sex"
                 label={localize('Sex')}

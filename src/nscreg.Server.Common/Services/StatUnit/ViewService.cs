@@ -14,6 +14,7 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -45,7 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
         {
             var item = await _commonSvc.GetStatisticalUnitByIdAndType(id, type, showDeleted);
-
+            if (item == null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
             async Task FillRegionParents(Address address)
             {
                 if (address?.Region?.ParentId == null)
@@ -75,6 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
 
+            if (item==null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
 
             var config = type == StatUnitTypes.EnterpriseGroup
@@ -128,7 +130,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             return root;
 
             async Task<StatisticalUnit> GetOrgLinkNode(int regId) => await
-                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted && x.ParentId == null);
+                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted);
 
             async Task<IEnumerable<OrgLinksNode>> GetChildren(int regId) => await (await _context.StatisticalUnits
                     .Where(u => u.ParentOrgLink == regId && !u.IsDeleted).ToListAsync())
@@ -186,12 +188,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             return legalForm != null
                 ? new CodeLookupVm { Id = legalForm.Id, Code = legalForm.Code, Name = legalForm.Name, NameLanguage1 = legalForm.NameLanguage1, NameLanguage2 = legalForm.NameLanguage2 }
                 : new CodeLookupVm();
-        }
-
-        public IQueryable<StatUnitPersonsRoleModel> GetPersonsRolesById(int unitId)
-        {
-            return _context.PersonStatisticalUnits.Where(x => x.UnitId == unitId).Select(y =>
-                new StatUnitPersonsRoleModel { PersonId = y.PersonId, RoleId = y.PersonTypeId });
         }
     }
 }

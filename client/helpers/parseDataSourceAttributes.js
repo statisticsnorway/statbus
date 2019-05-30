@@ -1,25 +1,27 @@
 import { parse as parseXml } from 'fast-xml-parser'
 import { parse as parseCsv } from 'papaparse'
-import { pipe, union, keys, values } from 'ramda'
+import { pipe, union, values } from 'ramda'
 
-function isObject(data) {
-  return data != null && typeof data === 'object'
-}
-function hasNested(data) {
-  return values(data).some(isObject)
-}
 function unionBy(asFn) {
   return function comapare(prev, curr) {
     return union(prev, asFn(curr))
   }
 }
 
+const keyify = (obj, prefix = '') =>
+  Object.keys(obj).reduce((res, el) => {
+    if (Array.isArray(obj[el]) && obj[el].length > 0) {
+      return [...res, ...keyify(obj[el][0], `${prefix + el}.`)]
+    } else if (typeof obj[el] === 'object' && obj[el] !== null) {
+      return [...res, ...keyify(obj[el], `${prefix + el}.`)]
+    }
+    return [...res, prefix + el]
+  }, [])
+
 function getXmlAttributes(parsed) {
-  return Array.isArray(parsed)
-    ? parsed.reduce(unionBy(keys), [])
-    : isObject(parsed)
-      ? hasNested(parsed) ? values(parsed).reduce(unionBy(getXmlAttributes), []) : keys(parsed)
-      : []
+  return values(parsed)
+    .reduce(unionBy(keyify), [])
+    .map(x => `${x.substring(x.indexOf('.') + 1)}`)
 }
 
 function getCsvAttributes(parsed) {
@@ -31,5 +33,11 @@ function getCsvAttributes(parsed) {
   }
 }
 
-export const fromXml = pipe(parseXml, getXmlAttributes)
-export const fromCsv = pipe(parseCsv, getCsvAttributes)
+export const fromXml = pipe(
+  parseXml,
+  getXmlAttributes,
+)
+export const fromCsv = pipe(
+  parseCsv,
+  getCsvAttributes,
+)

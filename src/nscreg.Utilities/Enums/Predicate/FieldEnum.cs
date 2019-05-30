@@ -145,6 +145,7 @@ namespace nscreg.Utilities.Enums.Predicate
         Size = 26,
         Notes = 27,
         PostalAddress = 28,
-        AddressId = 29
+        AddressId = 29,
+        ForeignParticipationCountry = 30
     }
 }

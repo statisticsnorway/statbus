@@ -7,6 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.History;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.History;
@@ -22,12 +23,14 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
         private readonly ForeingKeysResolver _foreignKeysResolver;
+        private readonly Common _commonSvc;
 
         public HistoryService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
             _foreignKeysResolver = new ForeingKeysResolver(dbContext);
+            _commonSvc = new Common(dbContext);
         }
 
         /// <summary>
@@ -39,8 +42,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
-                ? await FetchUnitHistoryAsync<EnterpriseGroup>(id)
-                : await FetchUnitHistoryAsync<StatisticalUnit>(id);
+                ? await FetchUnitHistoryAsync<EnterpriseGroup, EnterpriseGroupHistory>(id)
+                : await FetchUnitHistoryAsync<StatisticalUnit, StatisticalUnitHistory>(id);
             var result = history.ToArray();
             return SearchVm.Create(result, result.Length);
         }
@@ -51,42 +54,57 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
         /// <param name="userId">Id пользователя</param>
+        /// <param name="isHistory">Является ли стат. единица исторической</param>
         /// <returns></returns>
-        public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId)
+        public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId, bool isHistory)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
-                ? await FetchDetailedUnitHistoryAsync<EnterpriseGroup>(id, userId)
-                : await FetchDetailedUnitHistoryAsync<StatisticalUnit>(id, userId);
+                ? await FetchDetailedUnitHistoryAsync<EnterpriseGroup, EnterpriseGroupHistory>(id, userId, isHistory)
+                : await FetchDetailedUnitHistoryAsync<StatisticalUnit, StatisticalUnitHistory>(id, userId, isHistory);
             var result = history.ToArray();
             return SearchVm.Create(result, result.Length);
         }
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="userId">Id пользователя</param>
+        ///  <summary>
+        /// 
+        ///  </summary>
+        ///  <param name="id">Id стат. единицы</param>
+        ///  <param name="userId">Id пользователя</param>
+        /// <param name="isHistory">Является ли стат. единица исторической</param>
         /// <returns></returns>
-        private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<T>(int id, string userId)
-            where T : class, IStatisticalUnit
+        private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<TUnit, THistory>(int id, string userId, bool isHistory)
+            where TUnit : class, IStatisticalUnit
+            where THistory : class, IStatisticalUnitHistory
         {
-            var result = await _dbContext.Set<T>()
-                .Join(_dbContext.Set<T>(),
-                    unitAfter => unitAfter.ParentId ?? unitAfter.RegId,
+            var actualToHistoryComparingResult = await _dbContext.Set<TUnit>()
+                .Join(_dbContext.Set<THistory>(),
+                    unitAfter => unitAfter.RegId,
                     unitBefore => unitBefore.ParentId,
                     (unitAfter, unitBefore) => new {UnitAfter = unitAfter, UnitBefore = unitBefore})
                 .Where(x => x.UnitAfter.RegId == id && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
                 .FirstOrDefaultAsync();
-            return result == null
+
+           
+            var historyToHistoryComparingResult = await _dbContext.Set<THistory>()
+                    .Join(_dbContext.Set<THistory>(),
+                        unitAfter => unitAfter.ParentId,
+                        unitBefore => unitBefore.ParentId,
+                        (unitAfter, unitBefore) => new { UnitAfter = unitAfter, UnitBefore = unitBefore })
+                    .Where(x => x.UnitAfter.RegId == id && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
+                    .FirstOrDefaultAsync();
+
+
+            return actualToHistoryComparingResult == null && historyToHistoryComparingResult == null
                 ? new List<ChangedField>()
-                : await CutUnchangedFields(result.UnitAfter, result.UnitBefore, userId);
+                : actualToHistoryComparingResult == null || isHistory ? await CutUnchangedFields(_commonSvc.MapHistoryUnitToUnit(historyToHistoryComparingResult.UnitAfter), _commonSvc.MapHistoryUnitToUnit(historyToHistoryComparingResult.UnitBefore), userId)
+                    : await CutUnchangedFields(actualToHistoryComparingResult.UnitAfter, _commonSvc.MapHistoryUnitToUnit(actualToHistoryComparingResult.UnitBefore), userId);
         }
 
         /// <summary>
         /// Метод возвращающий неизменённые обрезанные поля
         /// </summary>
-        /// <param name="after">До</param>
-        /// <param name="before">После</param>
+        /// <param name="after">После</param>
+        /// <param name="before">До</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
         private async Task<IEnumerable<ChangedField>> CutUnchangedFields<T>(T after, T before, string userId)
@@ -123,14 +141,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="id">Id стат. единицы</param>
         /// <returns></returns>
-        private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
-            where T : class, IStatisticalUnit
-            => await _dbContext.Set<T>()
+        private async Task<IEnumerable<object>> FetchUnitHistoryAsync<TUnit, THistory>(int id)
+            where TUnit : class, IStatisticalUnit
+            where THistory : class, IStatisticalUnitHistory
+        {
+            var actualUnit = await _dbContext.Set<TUnit>()
                 .Join(_dbContext.Users,
                     unit => unit.UserId,
                     user => user.Id,
-                    (unit, user) => new {Unit = unit, User = user})
-                .Where(x => x.Unit.ParentId == id || x.Unit.RegId == id)
+                    (unit, user) => new { Unit = unit, User = user })
+                .Where(x => x.Unit.RegId == id)
                 .Select(x => new
                 {
                     x.Unit.RegId,
@@ -138,9 +158,32 @@ namespace nscreg.Server.Common.Services.StatUnit
                     x.Unit.ChangeReason,
                     x.Unit.EditComment,
                     x.Unit.StartPeriod,
-                    x.Unit.EndPeriod
+                    x.Unit.EndPeriod,
+                    IsHistory = false
+                }).ToListAsync();
+
+            var historyUnits = await _dbContext.Set<THistory>()
+                .Join(_dbContext.Users,
+                    unit => unit.UserId,
+                    user => user.Id,
+                    (unit, user) => new { Unit = unit, User = user })
+                .Where(x => x.Unit.ParentId == id)
+                .Select(x => new
+                {
+                    x.Unit.RegId,
+                    x.User.Name,
+                    x.Unit.ChangeReason,
+                    x.Unit.EditComment,
+                    x.Unit.StartPeriod,
+                    x.Unit.EndPeriod,
+                    IsHistory = true
                 })
                 .OrderByDescending(x => x.EndPeriod)
                 .ToListAsync();
+
+            actualUnit.AddRange(historyUnits);
+            return actualUnit;
+        }
+             
     }
 }

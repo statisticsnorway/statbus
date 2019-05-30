@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return,arrow-parens,no-shadow */
 import { shape } from 'prop-types'
 import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
 
@@ -78,7 +79,7 @@ export const findMatchAndLocalize = (nextRoute, localize) => {
     }
   }
 
-  simpleRoutes.forEach((el) => {
+  simpleRoutes.forEach(el => {
     if (el.route === nextRoute) {
       localizedValue = localize(el.key)
     }
@@ -113,29 +114,34 @@ export const nullsToUndefined = obj =>
     {},
   )
 
-export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
+export const hasValue = pipe(
+  anyPass([isNil, isEmpty]),
+  not,
+)
 
-export const confirmIsEmpty = (formData) => {
+export const confirmIsEmpty = formData => {
   const { sortRule, ...copyFormData } = formData
   return (
-    Object.values(copyFormData).filter(x => !isEmpty(x) && !isNil(x) && x !== false).length === 0
+    Object.entries(copyFormData)
+      .map(v => v[1])
+      .filter(x => !isEmpty(x) && !isNil(x) && x !== false).length === 0
   )
 }
 
-export const confirmHasOnlySortRule = (formData) => {
+export const confirmHasOnlySortRule = formData => {
   const filtering = key =>
     !isNil(formData[key]) && !isEmpty(formData[key]) && formData[key] !== false
   const keys = Object.keys(formData)
   const correctKeys = keys.filter(filtering)
   let hasOnlySortRule
-  correctKeys.forEach((key) => {
+  correctKeys.forEach(key => {
     hasOnlySortRule = key === 'sortRule' && formData.sortRule === 1
   })
 
   return hasOnlySortRule
 }
 
-export const getCorrectQuery = (formData) => {
+export const getCorrectQuery = formData => {
   const keys = Object.keys(formData)
   return keys.reduce((acc, key) => {
     if (isEmpty(formData[key])) {
@@ -174,16 +180,29 @@ export const getSeparator = (field, operation) => {
   return separator
 }
 
-export const filterPredicateErrors = errors =>
-  errors.filter(x => hasValue(x)).reduce((acc, el) => {
-    if (!acc.includes(el.value)) {
-      acc.push(el.value)
-      return acc
+export const filterPredicateErrors = errors => {
+  const getClausesErrors = errors => {
+    if (errors.clauses) {
+      return errors.clauses
+    } else if (errors.predicates) {
+      return getClausesErrors(errors.predicates[0])
     }
-    return acc
-  }, [])
+  }
+  return getClausesErrors(errors)
+    .filter(x => hasValue(x))
+    .reduce((acc, el) => {
+      if (!acc.includes(el.value)) {
+        acc.push(el.value)
+        return acc
+      }
+      return acc
+    }, [])
+}
 
-export const hasValues = pipe(values, any(hasValue))
+export const hasValues = pipe(
+  values,
+  any(hasValue),
+)
 
 export const ensureArray = value => (Array.isArray(value) ? value : value ? [value] : [])
 

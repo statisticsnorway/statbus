@@ -68,7 +68,7 @@ namespace nscreg.Server.Test
                 context.Users.Add(user);
                 context.SaveChanges();
 
-                var expected = new UserService(context).GetById(user.Id);
+                var expected = new UserService(context).GetUserVmById(user.Id);
 
                 Assert.Equal(expected.Name,
                     context.Users.Single(x => x.Id == user.Id && x.UserName == user.UserName).Name);
@@ -92,7 +92,7 @@ namespace nscreg.Server.Test
                 ctx.Users.Add(user);
                 ctx.SaveChanges();
 
-                var result = new UserService(ctx).GetById(user.Id);
+                var result = new UserService(ctx).GetUserVmById(user.Id);
 
                 Assert.Equal(role.Name, result.AssignedRole);
             }
