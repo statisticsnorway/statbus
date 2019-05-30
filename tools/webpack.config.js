@@ -26,7 +26,7 @@ const config = {
   },
   devtool: isDebug ? 'source-map' : false,
   performance: {
-    hints: isDebug ? false : 'warning',
+    hints: false,
   },
   stats: {
     cached: isVerbose,
