@@ -26,7 +26,7 @@ const config = {
   },
   devtool: isDebug ? 'source-map' : false,
   performance: {
-    hints: isDebug ? false : 'warning',
+    hints: false,
   },
   stats: {
     cached: isVerbose,
@@ -40,10 +40,6 @@ const config = {
   },
   plugins: [
     new Webpack.optimize.OccurrenceOrderPlugin(),
-    new Webpack.DefinePlugin({
-      'process.env.NODE_ENV': isDebug ? '"development"' : '"production"',
-      __DEV__: isDebug,
-    }),
     new AssetsWebpackPlugin({
       path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
       filename: 'assets.json',
@@ -94,12 +90,8 @@ const config = {
 }
 
 if (!isDebug) {
-  config.plugins = [
-    ...config.plugins,
-    new Webpack.optimize.ModuleConcatenationPlugin(),
-    new Webpack.optimize.UglifyJsPlugin({ compress: { warnings: isVerbose } }),
-    new Webpack.optimize.AggressiveMergingPlugin(),
-  ]
+  config.plugins = [...config.plugins, new Webpack.optimize.AggressiveMergingPlugin()]
+  config.mode = 'production'
 }
 
 if (isDebug && useHMR) {
@@ -110,11 +102,8 @@ if (isDebug && useHMR) {
     'eventsource-polyfill',
     ...config.entry,
   ]
-  config.plugins = [
-    ...config.plugins,
-    new Webpack.HotModuleReplacementPlugin(),
-    new Webpack.NoEmitOnErrorsPlugin(),
-  ]
+  config.plugins = [...config.plugins, new Webpack.HotModuleReplacementPlugin()]
+  config.mode = 'development'
 }
 
 module.exports = config
