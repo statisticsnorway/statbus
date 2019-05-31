@@ -22,11 +22,11 @@ namespace nscreg.Server.Common.Services.SampleFrames
     {
         private readonly NSCRegDbContext _context;
         private readonly SampleFrameExecutor _sampleFrameExecutor;
-
+        private readonly IConfiguration _configuration;
         public SampleFramesService(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
-            _sampleFrameExecutor = new SampleFrameExecutor(context, configuration);
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
         public async Task<SearchVm<SampleFrameM>> GetAll(SearchQueryM model, string userId)
         {
             var query = _context.SampleFrames
-                .Where(x =>x.UserId == userId && (string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower())))
+                .Where(x => x.UserId == userId && (string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower())))
                 .OrderBy(y => y.EditingDate);
 
             var total = await query.CountAsync<SampleFrame>();
@@ -64,12 +64,12 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
         public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id, string userId, int? count = null)
         {
-            var sampleFrame = await _context.SampleFrames.FindAsync(id);
+            var sampleFrame = _context.SampleFrames.Find(id);
             if (sampleFrame == null || sampleFrame.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
             var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
             var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
-            return await _sampleFrameExecutor.Execute(predicateTree, fields, count);
+            return await new SampleFrameExecutor(_context, _configuration).Execute(predicateTree, fields, count);
         }
 
         /// <summary>
