@@ -64,12 +64,12 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
         public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id, string userId, int? count = null)
         {
-            var sampleFrame = _context.SampleFrames.Find(id);
+            var sampleFrame = await _context.SampleFrames.FindAsync(id).ConfigureAwait(false);
             if (sampleFrame == null || sampleFrame.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
             var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
             var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
-            return await new SampleFrameExecutor(_context, _configuration).Execute(predicateTree, fields, count);
+            return await new SampleFrameExecutor(_context, _configuration).Execute(predicateTree, fields, count).ConfigureAwait(false);
         }
 
         /// <summary>
