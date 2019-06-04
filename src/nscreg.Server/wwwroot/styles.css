@@ -49,3 +49,7 @@
 .login-form-head {
     text-align: center;
 }
+
+.cursor-pointer {
+  cursor: pointer;
+}
