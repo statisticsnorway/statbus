@@ -194,6 +194,9 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.RegistrationReason):
                         propValue = ParseRegistrationReason(propTail, value, unit.RegistrationReason);
                         break;
+                    case nameof(StatisticalUnit.ForeignParticipation):
+                        propValue = ParseForeignParticipation(propTail, value, unit.ForeignParticipation);
+                        break;
                     default:
                         var type = propInfo.PropertyType;
                         var underlyingType = Nullable.GetUnderlyingType(type);
