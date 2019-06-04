@@ -244,7 +244,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
         [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
-        public int? ForeignParticipationId { get; set; }
+        public virtual ForeignParticipation ForeignParticipation { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(Order = 221, GroupName = GroupNames.StatUnitInfo)]

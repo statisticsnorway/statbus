@@ -89,13 +89,6 @@ namespace nscreg.Server.Common.Helpers
                     foreignKeyField.After = dbContext.UnitsSize
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
-                [nameof(StatisticalUnit.ForeignParticipationId)] = foreignKeyField =>
-                {
-                    foreignKeyField.Before = dbContext.ForeignParticipations
-                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = dbContext.ForeignParticipations
-                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
-                },
                 [nameof(StatisticalUnit.DataSourceClassificationId)] = foreignKeyField =>
                 {
                     foreignKeyField.Before = dbContext.DataSourceClassifications

@@ -179,6 +179,22 @@ namespace nscreg.Business.DataSources
             return result;
         }
 
+        public static ForeignParticipation ParseForeignParticipation(string prop, string value, ForeignParticipation prev)
+        {
+            var result = prev ?? new ForeignParticipation();
+            switch (prop)
+            {
+                case nameof(ForeignParticipation.Name):
+                    result.Name = value;
+                    break;
+                case nameof(ForeignParticipation.Code):
+                    result.Code = value;
+                    break;
+                default: throw UnsupportedPropertyOf<ForeignParticipation>(prop);
+            }
+            return result;
+        }
+
         public static LegalForm ParseLegalForm(string prop, string value, LegalForm prev)
         {
             var result = prev ?? new LegalForm();

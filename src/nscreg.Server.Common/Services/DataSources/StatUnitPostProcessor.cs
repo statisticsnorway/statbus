@@ -88,6 +88,11 @@ namespace nscreg.Server.Common.Services.DataSources
                             fpcu.Country= await GetFilledCountry(fpcu.Country);
                     });
 
+                if (unit.ForeignParticipation?.Id == 0)
+                {
+                    unit.ForeignParticipation = await GetFilledForeignParticipation(unit.ForeignParticipation);
+                }
+
                 if (!string.IsNullOrEmpty(unit.LegalForm?.Name) || !string.IsNullOrEmpty(unit.LegalForm?.Code))
                 {
                     unit.LegalForm = await GetFilledLegalForm(unit.LegalForm);
@@ -252,6 +257,15 @@ namespace nscreg.Server.Common.Services.DataSources
                        && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
                        && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
                        ?? throw new Exception($"Country by `{parsedCountry.Code}` code or `{parsedCountry.Name}` name not found");
+        }
+
+        private async Task<ForeignParticipation> GetFilledForeignParticipation(ForeignParticipation foreignParticipation)
+        {
+            return await _ctx.ForeignParticipations.FirstOrDefaultAsync(c =>
+                       !c.IsDeleted
+                       && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
+                       && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name))
+                   ?? throw new Exception($"Country by `{foreignParticipation.Code}` code or `{foreignParticipation.Name}` name not found");
         }
 
         private async Task<LegalForm> GetFilledLegalForm(LegalForm parsedLegalForm)
