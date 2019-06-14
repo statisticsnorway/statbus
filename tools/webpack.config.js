@@ -16,7 +16,7 @@ const babelConfig = Object.assign({}, pkg.babel, {
 
 const config = {
   context: Path.resolve(__dirname, '../client'),
-  entry: ['./index.js'],
+  entry: ['./styles.pcss', './index.js'],
   output: {
     path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
     publicPath: '/dist/',
