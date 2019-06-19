@@ -44,9 +44,13 @@ namespace nscreg.Business.DataSources
                 }
                 else
                 {
-                    var targetArrKeys = mappings.Where(x => x.Key.StartsWith($"{kv.Key}."))
-                        .ToDictionary(x=>x.Key.Split('.').LastOrDefault(),x=>x.Value.Select(d=>d.Split('.').LastOrDefault()).ToArray());
-                    UpdateObject(kv.Key, kv.Value, targetArrKeys);
+                    var mappingArray = mappings.Where(x => x.Key.StartsWith($"{kv.Key}.")).ToList();
+                    if (mappingArray.Count>0)
+                    {
+                        var targetArrKeys = mappingArray.ToDictionary(x => x.Key.Split('.').LastOrDefault(), x => x.Value.Select(d => d.Split('.').LastOrDefault()).ToArray());
+                        string keyClassName = mappingArray.FirstOrDefault().Value.FirstOrDefault().Split('.').FirstOrDefault();
+                        UpdateObject(keyClassName, kv.Value, targetArrKeys);
+                    }
                 }
             }
 
@@ -189,6 +193,9 @@ namespace nscreg.Business.DataSources
                         break;
                     case nameof(StatisticalUnit.RegistrationReason):
                         propValue = ParseRegistrationReason(propTail, value, unit.RegistrationReason);
+                        break;
+                    case nameof(StatisticalUnit.ForeignParticipation):
+                        propValue = ParseForeignParticipation(propTail, value, unit.ForeignParticipation);
                         break;
                     default:
                         var type = propInfo.PropertyType;

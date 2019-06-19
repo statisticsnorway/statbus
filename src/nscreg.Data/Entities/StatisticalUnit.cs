@@ -244,7 +244,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
         [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
-        public int? ForeignParticipationId { get; set; }
+        public virtual ForeignParticipation ForeignParticipation { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(Order = 221, GroupName = GroupNames.StatUnitInfo)]
@@ -275,14 +275,5 @@ namespace nscreg.Data.Entities
         [Display(Order = 470, GroupName = GroupNames.CapitalInfo)]
         public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
             new HashSet<CountryStatisticalUnit>();
-
-        [NotMapped]
-        [JsonIgnore]
-        [Display(Order = 425, GroupName = GroupNames.CapitalInfo)]
-        public IEnumerable<Country> Countries
-        {
-            get => ForeignParticipationCountriesUnits.Select(v => v.Country);
-            set => throw new NotImplementedException();
-        }
     }
 }

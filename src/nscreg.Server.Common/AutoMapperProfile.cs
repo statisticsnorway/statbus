@@ -66,7 +66,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<LegalUnit, LegalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -83,7 +82,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<LocalUnit, LocalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -100,7 +98,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -260,7 +257,6 @@ namespace nscreg.Server.Common
             CreateMap<LocalUnitHistory, LocalUnit>()
                 .ForMember(dst => dst.Activities, opt => opt.Ignore())
                 .ForMember(dst => dst.Persons, opt => opt.Ignore())
-                .ForMember(dst => dst.Countries, opt => opt.Ignore())
                 .ForMember(dst => dst.PersonsUnits, opt => opt.Ignore())
                 .ForMember(dst => dst.ActivitiesUnits, opt => opt.Ignore())
                 .ForMember(dst => dst.ForeignParticipationCountriesUnits, opt => opt.Ignore());
@@ -277,7 +273,6 @@ namespace nscreg.Server.Common
                 .ForMember(dst => dst.HistoryLocalUnitIds, opt => opt.MapFrom(src => src.HistoryLocalUnitIds))
                 .ForMember(dst => dst.Activities, opt => opt.Ignore())
                 .ForMember(dst => dst.Persons, opt => opt.Ignore())
-                .ForMember(dst => dst.Countries, opt => opt.Ignore())
                 .ForMember(dst => dst.PersonsUnits, opt => opt.Ignore())
                 .ForMember(dst => dst.ActivitiesUnits, opt => opt.Ignore())
                 .ForMember(dst => dst.ForeignParticipationCountriesUnits, opt => opt.Ignore());
@@ -292,7 +287,6 @@ namespace nscreg.Server.Common
             CreateMap<EnterpriseUnitHistory, EnterpriseUnit>()
                 .ForMember(dst => dst.Activities, opt => opt.Ignore())
                 .ForMember(dst => dst.Persons, opt => opt.Ignore())
-                .ForMember(dst => dst.Countries, opt => opt.Ignore())
                 .ForMember(dst => dst.PersonsUnits, opt => opt.Ignore())
                 .ForMember(dst => dst.ActivitiesUnits, opt => opt.Ignore())
                 .ForMember(dst => dst.ForeignParticipationCountriesUnits, opt => opt.Ignore());
@@ -342,7 +336,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
 
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
@@ -365,7 +358,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
 
                 .ForMember(x => x.LegalForm, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
@@ -389,7 +381,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
@@ -441,7 +432,6 @@ namespace nscreg.Server.Common
                 .ForMember(v => v.Persons, v => v.Ignore())
                 .ForMember(v => v.PersonsUnits, v =>
                     v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId, PersonTypeId = z.PersonTypeId})))
-                .ForMember(v => v.Countries, v => v.Ignore())
                 .ForMember(v => v.ForeignParticipationCountriesUnits, v =>
                     v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit {CountryId = z.CountryId})));
 
@@ -463,7 +453,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore());
 
         /// <summary>

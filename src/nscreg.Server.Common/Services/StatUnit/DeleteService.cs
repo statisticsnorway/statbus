@@ -321,5 +321,16 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext.EnterpriseUnitHistory.RemoveRange(afterUploadEnterpriseUnitsList);
             await _dbContext.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// Removing statunit from elastic
+        /// </summary>
+        /// <param name="elasticItemId">index of item in elastic</param>
+        /// <param name="unitType">type of statunit</param>
+        /// <returns></returns>
+        public Task DeleteUnitFromElasticAsync(string elasticItemId, int unitType)
+        {
+            return _elasticService.DeleteDocumentAsync(elasticItemId, unitType);
+        }
     }
 }

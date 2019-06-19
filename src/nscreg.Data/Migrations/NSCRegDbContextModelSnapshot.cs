@@ -15,7 +15,7 @@ namespace nscreg.Data.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
             modelBuilder
-                .HasAnnotation("ProductVersion", "1.1.3")
+                .HasAnnotation("ProductVersion", "1.1.6")
                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityRoleClaim<string>", b =>
@@ -1476,6 +1476,8 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("ForeignParticipationCountryId");
 
+                    b.HasIndex("ForeignParticipationId");
+
                     b.HasIndex("InstSectorCodeId");
 
                     b.HasIndex("LegalFormId");
@@ -2192,6 +2194,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Country", "ForeignParticipationCountry")
                         .WithMany()
                         .HasForeignKey("ForeignParticipationCountryId");
+
+                    b.HasOne("nscreg.Data.Entities.ForeignParticipation", "ForeignParticipation")
+                        .WithMany()
+                        .HasForeignKey("ForeignParticipationId");
 
                     b.HasOne("nscreg.Data.Entities.SectorCode", "InstSectorCode")
                         .WithMany()

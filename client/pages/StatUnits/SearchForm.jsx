@@ -136,7 +136,7 @@ class SearchForm extends React.Component {
     )
 
     return (
-      <Form onSubmit={onSubmit} className={styles.form} loading={disabled} error>
+      <Form onSubmit={onSubmit} className={styles.searchForm} loading={disabled} error>
         <Segment>
           <Grid divided columns="equal">
             <Grid.Row stretched>

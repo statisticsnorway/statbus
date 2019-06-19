@@ -140,7 +140,9 @@ namespace nscreg.Server.DataUploadSvc
                                 if (parsed[i] is string)
                                     return parsed[i][x.source];
                                 var tmp = x.source.Split('.');
-                                return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                                if (parsed[i].ContainsKey(tmp[0]))
+                                    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                                return tmp[0];
                             }));
                     return _queueSvc.LogUnitUpload(
                         dequeued, rawUnit, startedAt, populated, DateTime.Now,

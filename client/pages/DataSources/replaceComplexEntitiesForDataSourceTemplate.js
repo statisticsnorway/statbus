@@ -80,6 +80,11 @@ const ForeignParticipationCountriesUnits = {
   ],
 }
 
+const ForeignParticipation = {
+  ...LookupBase,
+  Code: 'Code',
+}
+
 function pathsOf(shape, prefix) {
   return Object.entries(shape)
     .map(v => v[1])
@@ -149,6 +154,8 @@ function addFlattened(arr) {
         return [...acc, ...transform(CodeLookupBase, 'ReorgType')]
       case 'RegistrationReasonId':
         return [...acc, ...transform(CodeLookupBase, 'RegistrationReason')]
+      case 'ForeignParticipation':
+        return [...acc, ...transform(ForeignParticipation, 'ForeignParticipation')]
       default:
         return [...acc, cur]
     }
