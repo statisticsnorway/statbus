@@ -51,8 +51,8 @@ SELECT  top 10000
 	ac.Name AS ActivityCategoryName,
     ac.ActivityCategoryLevel,
 	ac.Section,
-	--sc.Code,
-	--sc.Name,
+	sc.Code AS SectorCode,
+	sc.Name AS SectorCodeName,
 	lf.Code AS Legal_Form_Code,
 	lf.Name AS Legal_Form,
     us.Name AS Unit_Status
