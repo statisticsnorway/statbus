@@ -270,7 +270,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.DateRange(p => p.Field(f => f.StartPeriod).LessThanOrEquals(lastChangeTo)));
             }
 
-            if (filter.DataSourceClassificationId.HasValue)
+            if (filter.LastChangeFrom.HasValue || filter.LastChangeTo.HasValue)
+            {
+                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Terms(p => p.Field(f => f.ChangeReason).Terms(ChangeReasons.Create)))));
+            }
+
+                if (filter.DataSourceClassificationId.HasValue)
             {
                 int dataSourceClassificationId = filter.DataSourceClassificationId.Value;
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.DataSourceClassificationId).Value(dataSourceClassificationId)));
