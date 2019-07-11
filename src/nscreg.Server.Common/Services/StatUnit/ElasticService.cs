@@ -272,7 +272,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (filter.LastChangeFrom.HasValue || filter.LastChangeTo.HasValue)
             {
-                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Terms(p => p.Field(f => f.ChangeReason).Terms(ChangeReasons.Create)))));
+                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Term(p => p.Field(f => f.ChangeReason).Value(ChangeReasons.Create)))));
             }
 
             if (filter.DataSourceClassificationId.HasValue)
@@ -283,7 +283,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (!filter.IncludeLiquidated.HasValue || !filter.IncludeLiquidated.Value)
             {
-                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Term(t => t.Field(f => f.LiqDate).Value(null)))));
+                mustQueries.Add(m => !m.Exists(e => e.Field(f => f.LiqDate)));
             }
                 
             if (filter.RegMainActivityId.HasValue)

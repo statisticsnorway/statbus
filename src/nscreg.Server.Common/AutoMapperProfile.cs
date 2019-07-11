@@ -163,6 +163,7 @@ namespace nscreg.Server.Common
             CreateMap<StatUnitSearchView, ElasticStatUnit>();
 
             CreateMap<IStatisticalUnit, ElasticStatUnit>()
+                .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as StatisticalUnit).LiqDate))
                 .ForMember(d => d.SectorCodeId, opt => opt.MapFrom(s => s.InstSectorCodeId))
                 .ForMember(d => d.RegionId, opt => opt.ResolveUsing(s => s.Address?.RegionId))
                 .ForMember(d => d.AddressPart1, opt => opt.ResolveUsing(s => s.Address?.AddressPart1))
