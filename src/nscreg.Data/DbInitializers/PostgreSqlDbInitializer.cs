@@ -140,7 +140,7 @@ namespace nscreg.Data.DbInitializers
                                                             $$ language 'plpgsql'";
 
             const string createFunctionGetActivityChildren = @"CREATE OR REPLACE FUNCTION public.""GetActivityChildren""(activityid integer)
-                                                               RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer, ""ActivityCategoryLevel"" integer,) 
+                                                               RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer, ""ActivityCategoryLevel"" integer) 
                                                                LANGUAGE 'plpgsql'
                                                                AS $BODY$
                                                                BEGIN
