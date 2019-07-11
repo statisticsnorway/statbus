@@ -74,7 +74,8 @@ class Search extends React.Component {
     this.setState({ selectedUnit: undefined, showConfirm: false })
     const { query, formData } = this.props
     const queryParams = { ...query, ...formData }
-    this.props.deleteStatUnit(unit.type, unit.regId, queryParams)
+    const unitIndex = this.props.statUnits.indexOf(unit)
+    this.props.deleteStatUnit(unit.type, unit.regId, queryParams, unitIndex)
   }
 
   handleCancel = () => {
