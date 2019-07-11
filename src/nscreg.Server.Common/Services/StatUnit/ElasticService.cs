@@ -260,13 +260,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (filter.LastChangeFrom.HasValue)
             {
-                DateTime lastChangeFrom = filter.LastChangeFrom.Value;
+                DateTime lastChangeFrom = filter.LastChangeFrom.Value.ToUniversalTime();
                 mustQueries.Add(m => m.DateRange(p => p.Field(f => f.StartPeriod).GreaterThanOrEquals(lastChangeFrom)));
             }
 
             if (filter.LastChangeTo.HasValue)
             {
-                DateTime lastChangeTo = filter.LastChangeTo.Value;
+                DateTime lastChangeTo = filter.LastChangeTo.Value.ToUniversalTime().AddHours(23).AddMinutes(59).AddSeconds(59);
                 mustQueries.Add(m => m.DateRange(p => p.Field(f => f.StartPeriod).LessThanOrEquals(lastChangeTo)));
             }
 
