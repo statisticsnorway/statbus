@@ -283,7 +283,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (!filter.IncludeLiquidated.HasValue || !filter.IncludeLiquidated.Value)
             {
-                mustQueries.Add(m => !m.Bool(b => b.MustNot(s => s.Term(t => t.Field(f => f.LiqDate).Value(null)) && s.Exists(p => p.Field(f => f.LiqDate)))));
+                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Term(t => t.Field(f => f.LiqDate).Value(null)))));
             }
                 
             if (filter.RegMainActivityId.HasValue)
