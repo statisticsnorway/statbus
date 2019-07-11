@@ -1516,6 +1516,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("AddressPart3");
 
+                    b.Property<int>("ChangeReason");
+
                     b.Property<int?>("DataSourceClassificationId");
 
                     b.Property<int?>("Employees");

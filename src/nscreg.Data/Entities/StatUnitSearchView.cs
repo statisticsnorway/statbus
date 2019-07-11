@@ -21,6 +21,7 @@ namespace nscreg.Data.Entities
         public int? SectorCodeId { get; set; }
         public int? LegalFormId { get; set; }
         public int? DataSourceClassificationId { get; set; }
+        public int ChangeReason { get; set; }
         public DateTime StartPeriod { get; set; }
         public StatUnitTypes UnitType { get; set; }
         public bool IsDeleted { get; set; }
