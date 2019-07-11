@@ -11,6 +11,8 @@ export const fetchDataStateChanged = createAction('fetch StatUnits status change
 
 export const fetchLookupSucceeded = createAction('fetch Lookup succeeded')
 
+export const deleteStatUnitSuccessed = createAction('delete StatUnit succeeded')
+
 export const setSearchCondition = createAction('set search condition')
 
 const fetchData = queryParams =>
@@ -24,12 +26,12 @@ const fetchData = queryParams =>
     onStart: dispatch => dispatch(fetchDataStateChanged(true)),
   })
 
-const deleteStatUnit = (type, id, queryParams) =>
+const deleteStatUnit = (type, id, queryParams, index) =>
   dispatchRequest({
     url: `/api/statunits/${type}/${id}`,
     method: 'delete',
     onSuccess: (dispatch) => {
-      dispatch(fetchData(queryParams))
+      dispatch(deleteStatUnitSuccessed({ index }))
     },
   })
 

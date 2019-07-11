@@ -31,6 +31,10 @@ const statUnits = createReducer(
       ...state,
       isLoading: data,
     }),
+    [actions.deleteStatUnitSuccessed]: (state, data) => ({
+      ...state,
+      statUnits: state.statUnits.filter((val, i) => i !== data.index),
+    }),
     [actions.fetchLookupSucceeded]: (state, data) => ({
       ...state,
       lookups: {
