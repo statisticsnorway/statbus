@@ -35,6 +35,7 @@ const stateToProps = state => ({
   values: state.dataSources.editFormData,
   columns: state.dataSources.columns,
   localize: getText(state.locale),
+  errors: state.dataSources.errors,
 })
 
 const dispatchToProps = (dispatch, props) =>
@@ -53,5 +54,8 @@ export default pipe(
   createSchemaFormHoc(propsToSchema),
   withSpinnerUnless(assert),
   lifecycle(hooks),
-  connect(stateToProps, dispatchToProps),
+  connect(
+    stateToProps,
+    dispatchToProps,
+  ),
 )(FormBody)
