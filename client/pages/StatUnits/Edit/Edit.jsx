@@ -5,7 +5,7 @@ import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react
 import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
-const { func, number } = PropTypes
+const { func, number, shape, string } = PropTypes
 
 const Mandatory = '1'
 const NotMandatory = '2'
@@ -22,6 +22,13 @@ class EditStatUnitPage extends React.Component {
     submitStatUnit: func.isRequired,
     localize: func.isRequired,
     goBack: func.isRequired,
+    errors: shape({
+      message: string,
+    }),
+  }
+
+  static defaultProps = {
+    errors: undefined,
   }
 
   state = {
@@ -53,7 +60,7 @@ class EditStatUnitPage extends React.Component {
   }
 
   render() {
-    const { localize, type, regId, goBack } = this.props
+    const { localize, type, regId, goBack, errors } = this.props
     const { statUnitToSubmit, editComment, changeReason } = this.state
     const isMandatory = changeReason === Mandatory
     const header = isMandatory ? 'CommentIsMandatory' : 'CommentIsNotMandatory'
@@ -61,6 +68,8 @@ class EditStatUnitPage extends React.Component {
       <div className={styles.root}>
         <ConnectedForm
           onSubmit={this.showModal}
+          localize={localize}
+          errors={errors}
           type={type}
           regId={regId}
           showSummary
