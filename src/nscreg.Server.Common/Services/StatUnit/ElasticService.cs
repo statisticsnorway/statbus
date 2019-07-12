@@ -272,19 +272,20 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (filter.LastChangeFrom.HasValue || filter.LastChangeTo.HasValue)
             {
-                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Terms(p => p.Field(f => f.ChangeReason).Terms(ChangeReasons.Create)))));
+                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Term(p => p.Field(f => f.ChangeReason).Value(ChangeReasons.Create)))));
             }
 
-                if (filter.DataSourceClassificationId.HasValue)
+            if (filter.DataSourceClassificationId.HasValue)
             {
                 int dataSourceClassificationId = filter.DataSourceClassificationId.Value;
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.DataSourceClassificationId).Value(dataSourceClassificationId)));
             }
 
             if (!filter.IncludeLiquidated.HasValue || !filter.IncludeLiquidated.Value)
-                mustQueries.Add(m => !m.Bool(b => b
-                                         .Should(s => s.Term(t => t.Field(f => f.LiqDate).Value(null)))) && !m.Exists(p => p.Field(f => f.LiqDate)));
-
+            {
+                mustQueries.Add(m => !m.Exists(e => e.Field(f => f.LiqDate)));
+            }
+                
             if (filter.RegMainActivityId.HasValue)
             {
                 var regMainActivityIds = new[] { filter.RegMainActivityId.Value };
