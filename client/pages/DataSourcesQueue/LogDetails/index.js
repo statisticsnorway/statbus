@@ -15,6 +15,7 @@ const mapStateToProps = (state, props) => ({
   logId: props.params.logId,
   queueId: props.params.queueId,
   info: state.dataSourcesQueue.details.info,
+  errors: state.dataSourcesQueue.details.errors,
   localize: getText(state.locale),
 })
 
@@ -41,5 +42,8 @@ const assert = props => !props.fetching && hasValue(props.info)
 export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+  ),
 )(Page)
