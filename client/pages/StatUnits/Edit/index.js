@@ -24,9 +24,16 @@ const mapStateToProps = (state, props) => ({
   type: Number(props.params.type),
   localize: getText(state.locale),
   goBack: navigateBack,
+  errors: state.editStatUnit.errors,
 })
 
 const { fetchMeta, submitStatUnit } = actionCreators
 const mapDispatchToProps = dispatch => bindActionCreators({ fetchMeta, submitStatUnit }, dispatch)
 
-export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Edit)
+export default pipe(
+  lifecycle(hooks),
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+  ),
+)(Edit)
