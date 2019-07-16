@@ -119,7 +119,7 @@ export const deleteDataSource = id =>
   dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'delete',
-    onSuccess: () => deleteDataSourceSuccessed({ id }),
+    onSuccess: dispatch => dispatch(deleteDataSourceSuccessed({ id })),
     onFail: (dispatch, errors) => dispatch(fetchError(errors)),
   })
 
