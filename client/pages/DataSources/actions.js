@@ -114,11 +114,12 @@ const editDataSource = id => (data, formikBag) =>
     onFail: (_, errors) => formikBag.failed(errors),
   })
 
+const deleteDataSourceSuccessed = createAction('delete data source sucessed')
 export const deleteDataSource = id =>
   dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'delete',
-    onSuccess: () => window.location.reload(),
+    onSuccess: () => deleteDataSourceSuccessed({ id }),
     onFail: (dispatch, errors) => dispatch(fetchError(errors)),
   })
 
@@ -146,6 +147,7 @@ export default {
   fetchDataSourcesSucceeded,
   fetchDataSourcesListSucceeded,
   fetchDataSourceSucceeded,
+  deleteDataSourceSuccessed,
   uploadFileSucceeded,
   uploadFileError,
 }
