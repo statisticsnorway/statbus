@@ -33,6 +33,12 @@ const handlers = {
     dsList: data.result,
   }),
 
+  [actions.deleteDataSourceSuccessed]: (state, data) => ({
+    ...state,
+    list: state.list.filter(val => val.id !== data.id),
+    totalCount: state.totalCount - 1,
+  }),
+
   [actions.uploadFileSucceeded]: state => ({
     ...state,
   }),

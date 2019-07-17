@@ -31,12 +31,13 @@ class List extends React.Component {
     clear: func.isRequired,
     errors: shape({
       message: string.isRequired,
-    }).isRequired,
+    }),
     fetchError: func.isRequired,
   }
 
   static defaultProps = {
     dataSources: [],
+    errors: undefined,
   }
 
   state = {
