@@ -326,11 +326,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Removing statunit from elastic
         /// </summary>
         /// <param name="elasticItemId">index of item in elastic</param>
-        /// <param name="unitType">type of statunit</param>
+        /// <param name="statUnitTypes">types of statunits</param>
         /// <returns></returns>
-        public Task DeleteUnitFromElasticAsync(string elasticItemId, int unitType)
+        public Task DeleteUnitFromElasticAsync(string elasticItemId, List<StatUnitTypes> statUnitTypes)
         {
-            return _elasticService.DeleteDocumentAsync(elasticItemId, unitType);
+            return _elasticService.DeleteDocumentAsync(elasticItemId, statUnitTypes);
         }
     }
 }
