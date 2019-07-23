@@ -123,23 +123,27 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Removing statunit from elastic
         /// </summary>
         /// <param name="statId">index of item in elastic</param>
-        /// <param name="unitType">type of statunit</param>
+        /// <param name="statUnitTypes">types of statunits</param>
         /// <returns></returns>
-        public async Task DeleteDocumentAsync(string statId, int unitType)
+        public async Task DeleteDocumentAsync(string statId, List<StatUnitTypes> statUnitTypes)
         {
             try
             {
-                var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(StatUnitSearchIndexName,
-                        TypeName.From<ElasticStatUnit>(),
-                        q => q
-                            .Query(rq => rq
-                                .Bool(b => b
-                                    .Must(x => x
-                                            .Term(y => y.Field(f => f.Id).Value(statId)),
-                                        z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
-                    .ConfigureAwait(false);
-                if (!deleteResponse.IsValid)
-                    throw new Exception(deleteResponse.DebugInformation);
+                foreach (var unitType in statUnitTypes)
+                {
+                    var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(
+                            q => q
+                                .Index(StatUnitSearchIndexName)
+                                .Query(rq => rq
+                                    .Bool(b => b
+                                        .Must(x => x.Term(y => y.Field(f => f.StatId).Value(statId)),
+                                            z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
+                        .ConfigureAwait(false);
+                    if (!deleteResponse.IsValid)
+                    {
+                        throw new Exception(deleteResponse.DebugInformation);
+                    }
+                }
             }
             catch (Exception)
             {
