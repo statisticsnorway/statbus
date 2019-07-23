@@ -142,7 +142,7 @@ export const lookups = new Map([
   [13, 'ActivityCategoryLookup'],
 ])
 
-export const dataSourceUploadTypes = new Map([[1, 'StatUnits'], [2, 'Activities']])
+export const dataSourceUploadTypes = new Map([[1, 'StatUnits']])
 
 export const statUnitChangeReasons = new Map([
   [0, 'Create'],
