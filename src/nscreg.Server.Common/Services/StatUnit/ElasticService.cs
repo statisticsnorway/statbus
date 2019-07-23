@@ -187,12 +187,19 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 mustQueries.Add(m => m.Terms(t => t.Field(f => f.RegionId).Terms(regionIds)));
 
-                mustQueries.Add(m => m
-                    .Bool(b => b
-                        .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup))
-                        || s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
-                    )
-                );
+                if (regionIds.Any())
+                {
+                    mustQueries.Add(m => m
+                        .Bool(b => b
+                            .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup))
+                                         || s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
+                        )
+                    );
+                }
+                else
+                {
+                    return SearchVm<ElasticStatUnit>.Create(new ElasticStatUnit[]{}, 0);
+                }
             }
 
             var separators = new[] { ' ', '\t', '\r', '\n', ',', '.', '-' };
