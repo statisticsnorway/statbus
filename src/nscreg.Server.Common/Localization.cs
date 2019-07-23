@@ -20,7 +20,7 @@ namespace nscreg.Server.Common
         private static void AddLanguage(PropertyInfo[] keys, ResourceManager resourceManager, string languageName, string cultureName)
         {
 
-            if (!AllResources.ContainsKey(languageName))
+            if (!AllResources.ContainsKey(languageName) && !string.IsNullOrWhiteSpace(languageName))
                 AllResources.Add(languageName, keys.ToDictionary(
                     key => key.Name,
                     key => resourceManager.GetString(
@@ -32,12 +32,6 @@ namespace nscreg.Server.Common
         {
             if (string.IsNullOrWhiteSpace(LanguagePrimary))
                 LanguagePrimary = "en-GB";
-
-            if (string.IsNullOrWhiteSpace(Language1))
-                Language1 = LanguagePrimary;
-
-            if (string.IsNullOrWhiteSpace(Language2))
-                Language2 = LanguagePrimary;
 
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
