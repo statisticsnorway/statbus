@@ -23,6 +23,8 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class DeleteService
     {
+        private readonly Common _commonSvc;
+        private readonly UserService _userService;
         private readonly Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticService _elasticService;
@@ -33,6 +35,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext = dbContext;
             _elasticService = new ElasticService(dbContext);
             _dataAccessService = new DataAccessService(dbContext);
+            _commonSvc = new Common(dbContext);
+            _userService = new UserService(dbContext);
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
@@ -56,7 +60,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new UnauthorizedAccessException();
             }
 
+            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, false);
+            var regionIds = _dbContext.UserRegions.AsNoTracking().Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
+            bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
+            if (isEmployee && !regionIds.Result.Contains(item.Result.Address.RegionId))
+            {
+                throw new UnauthorizedAccessException();
+            }
             var unit = _deleteUndeleteActions[unitType](id, toDelete, userId);
+            
             _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit)).Wait();
         }
 
