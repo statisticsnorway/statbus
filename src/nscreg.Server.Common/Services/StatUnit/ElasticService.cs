@@ -196,10 +196,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         )
                     );
                 }
-                else
-                {
-                    return SearchVm<ElasticStatUnit>.Create(new ElasticStatUnit[]{}, 0);
-                }
             }
 
             var separators = new[] { ' ', '\t', '\r', '\n', ',', '.', '-' };
