@@ -40,6 +40,7 @@ namespace nscreg.Server.Common.Services
         private readonly string _uploadDir;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private DeleteService _statUnitDeleteService;
+        private readonly ElasticService _elasticService;
 
         public DataSourcesQueueService(NSCRegDbContext ctx,
             CreateService createSvc,
@@ -54,6 +55,7 @@ namespace nscreg.Server.Common.Services
             _uploadDir = config.UploadDir;
             _dbMandatoryFields = dbMandatoryFields;
             _statUnitDeleteService = new DeleteService(ctx);
+            _elasticService = new ElasticService(ctx);
         }
 
         public async Task<SearchVm<QueueVm>> GetAllDataSourceQueues(SearchQueryM query)
@@ -347,6 +349,7 @@ namespace nscreg.Server.Common.Services
                 if (existing.Status == DataUploadingLogStatuses.Done &&
                     existing.StartImportDate != null)
                 {
+                    var unitTypes = GetUnitTypes(existing.TargetStatId, (StatUnitTypes)unitType);
                     switch (unitType)
                     {
                         case (int)StatUnitTypes.LocalUnit:
@@ -361,12 +364,28 @@ namespace nscreg.Server.Common.Services
                         default:
                             throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
                     }
-                    await _statUnitDeleteService.DeleteUnitFromElasticAsync(existing.TargetStatId, unitType).ConfigureAwait(false);
+                    await _statUnitDeleteService.DeleteUnitFromElasticAsync(existing.TargetStatId, unitTypes).ConfigureAwait(false);
                 }
             }
-            
+
             _dbContext.DataUploadingLogs.Remove(existing);
             await _dbContext.SaveChangesAsync();
+        }
+
+        private List<StatUnitTypes> GetUnitTypes(string statId, StatUnitTypes statUnitType)
+        {
+            var statUnitTypes = new List<StatUnitTypes>();
+            var isContainDataSource = _dbContext.StatisticalUnits.AsNoTracking().First(x => x.StatId == statId && x.UnitType == statUnitType).DataSource != null;
+            if (!isContainDataSource)
+            {
+                statUnitTypes.Add(statUnitType);
+            }
+            else
+            {
+                statUnitTypes.AddRange(_dbContext.StatisticalUnits.AsNoTracking().Where(x=>x.StatId == statId && x.DataSource != null).Select(x=>x.UnitType).ToList());
+            }
+
+            return statUnitTypes;
         }
 
         /// <summary>

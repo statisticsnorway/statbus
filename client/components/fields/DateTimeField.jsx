@@ -95,6 +95,7 @@ class DateTimeField extends React.Component {
       onChange: this.onChangeWrapper,
       onChangeRaw: this.onChangeRawWrapper,
       maxDate: dateFns.now(),
+      autoComplete: 'off',
     }
     return (
       <div

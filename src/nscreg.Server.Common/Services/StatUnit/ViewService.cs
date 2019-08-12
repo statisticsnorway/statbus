@@ -72,10 +72,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId, ActionsEnum ignoredActions)
         {
+            var regionIds = await _context.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
+            bool isEmployee = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee);
             var item = id.HasValue
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
-
+            if (isEmployee && !regionIds.Contains(item.Address.RegionId))
+            {
+                throw new BadRequestException(nameof(Resource.NotFoundMessage));
+            }
             if (item==null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
 

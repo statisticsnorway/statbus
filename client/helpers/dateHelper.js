@@ -59,6 +59,6 @@ export function isDatesCorrect(dateFrom, dateTo) {
   return (
     !hasValue(dateFrom) ||
     !hasValue(dateTo) ||
-    (hasValue(dateFrom) && hasValue(dateFrom) && getDate(dateFrom) < getDate(dateTo))
+    (hasValue(dateFrom) && hasValue(dateTo) && getDate(dateFrom) <= getDate(dateTo))
   )
 }

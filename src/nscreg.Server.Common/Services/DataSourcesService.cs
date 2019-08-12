@@ -74,8 +74,13 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="id">Id</param>
         /// <returns></returns>
-        public async Task<DataSourceEditVm> GetById(int id) =>
-            DataSourceEditVm.Create(await _context.DataSources.FindAsync(id));
+        public async Task<DataSourceEditVm> GetById(int id)
+        {
+            var data = await _context.DataSources.FindAsync(id);
+            if (data == null)
+                throw new BadRequestException(nameof(Resource.DataSourceNotFound));
+            return DataSourceEditVm.Create(data);
+        }
 
         /// <summary>
         /// Метод создания источника данных

@@ -123,23 +123,27 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Removing statunit from elastic
         /// </summary>
         /// <param name="statId">index of item in elastic</param>
-        /// <param name="unitType">type of statunit</param>
+        /// <param name="statUnitTypes">types of statunits</param>
         /// <returns></returns>
-        public async Task DeleteDocumentAsync(string statId, int unitType)
+        public async Task DeleteDocumentAsync(string statId, List<StatUnitTypes> statUnitTypes)
         {
             try
             {
-                var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(StatUnitSearchIndexName,
-                        TypeName.From<ElasticStatUnit>(),
-                        q => q
-                            .Query(rq => rq
-                                .Bool(b => b
-                                    .Must(x => x
-                                            .Term(y => y.Field(f => f.Id).Value(statId)),
-                                        z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
-                    .ConfigureAwait(false);
-                if (!deleteResponse.IsValid)
-                    throw new Exception(deleteResponse.DebugInformation);
+                foreach (var unitType in statUnitTypes)
+                {
+                    var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(
+                            q => q
+                                .Index(StatUnitSearchIndexName)
+                                .Query(rq => rq
+                                    .Bool(b => b
+                                        .Must(x => x.Term(y => y.Field(f => f.StatId).Value(statId)),
+                                            z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
+                        .ConfigureAwait(false);
+                    if (!deleteResponse.IsValid)
+                    {
+                        throw new Exception(deleteResponse.DebugInformation);
+                    }
+                }
             }
             catch (Exception)
             {
@@ -183,12 +187,15 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 mustQueries.Add(m => m.Terms(t => t.Field(f => f.RegionId).Terms(regionIds)));
 
-                mustQueries.Add(m => m
-                    .Bool(b => b
-                        .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup))
-                        || s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
-                    )
-                );
+                if (regionIds.Any())
+                {
+                    mustQueries.Add(m => m
+                        .Bool(b => b
+                            .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup))
+                                         || s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
+                        )
+                    );
+                }
             }
 
             var separators = new[] { ' ', '\t', '\r', '\n', ',', '.', '-' };
@@ -260,14 +267,19 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (filter.LastChangeFrom.HasValue)
             {
-                DateTime lastChangeFrom = filter.LastChangeFrom.Value;
+                DateTime lastChangeFrom = filter.LastChangeFrom.Value.ToUniversalTime();
                 mustQueries.Add(m => m.DateRange(p => p.Field(f => f.StartPeriod).GreaterThanOrEquals(lastChangeFrom)));
             }
 
             if (filter.LastChangeTo.HasValue)
             {
-                DateTime lastChangeTo = filter.LastChangeTo.Value;
+                DateTime lastChangeTo = filter.LastChangeTo.Value.ToUniversalTime().AddHours(23).AddMinutes(59).AddSeconds(59);
                 mustQueries.Add(m => m.DateRange(p => p.Field(f => f.StartPeriod).LessThanOrEquals(lastChangeTo)));
+            }
+
+            if (filter.LastChangeFrom.HasValue || filter.LastChangeTo.HasValue)
+            {
+                mustQueries.Add(m => m.Bool(b => b.MustNot(mn => mn.Term(p => p.Field(f => f.ChangeReason).Value(ChangeReasons.Create)))));
             }
 
             if (filter.DataSourceClassificationId.HasValue)
@@ -277,9 +289,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
 
             if (!filter.IncludeLiquidated.HasValue || !filter.IncludeLiquidated.Value)
-                mustQueries.Add(m => !m.Bool(b => b
-                                         .Should(s => s.Term(t => t.Field(f => f.LiqDate).Value(null)))) && !m.Exists(p => p.Field(f => f.LiqDate)));
-
+            {
+                mustQueries.Add(m => !m.Exists(e => e.Field(f => f.LiqDate)));
+            }
+                
             if (filter.RegMainActivityId.HasValue)
             {
                 var regMainActivityIds = new[] { filter.RegMainActivityId.Value };

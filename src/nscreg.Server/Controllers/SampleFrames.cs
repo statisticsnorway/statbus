@@ -46,7 +46,9 @@ namespace nscreg.Server.Controllers
             var preview = await _sampleFramesService.Preview(id, User.GetUserId());
             var csvString = _csvHelper.ConvertToCsv(preview);
             var nameOfFile = _sampleFramesService.GetById(id, User.GetUserId()).Result.Name + ".csv";
-            return File(Encoding.UTF8.GetBytes(csvString), "text/csv", nameOfFile);
+            UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
+            string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
+            return File(lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString), "text/csv;charset=utf-8", nameOfFile);
         }
 
         [HttpPost]

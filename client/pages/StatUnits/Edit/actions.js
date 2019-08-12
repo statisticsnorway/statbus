@@ -7,6 +7,7 @@ import { statUnitTypes } from 'helpers/enums'
 
 const clear = createAction('clear create statunit')
 const setMeta = createAction('fetch model succeeded')
+const fetchError = createAction('fetch error')
 
 const fetchMeta = (type, regId) =>
   dispatchRequest({
@@ -16,6 +17,9 @@ const fetchMeta = (type, regId) =>
     },
     onSuccess: (dispatch, data) => {
       dispatch(setMeta(data))
+    },
+    onFail: (dispatch, errors) => {
+      dispatch(fetchError(errors))
     },
   })
 
@@ -41,6 +45,7 @@ const submitStatUnit = (type, data, formikBag) =>
 
 export const actionTypes = {
   setMeta,
+  fetchError,
   clear,
 }
 

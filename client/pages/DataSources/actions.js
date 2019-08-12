@@ -13,8 +13,14 @@ export const fetchError = createAction('handle error response')
 
 const updateFilter = createAction('update data sources search form')
 const setQuery = pathname => query => (dispatch) => {
-  pipe(updateFilter, dispatch)(query)
-  pipe(push, dispatch)({ pathname, query })
+  pipe(
+    updateFilter,
+    dispatch,
+  )(query)
+  pipe(
+    push,
+    dispatch,
+  )({ pathname, query })
 }
 
 const fetchDataSourcesSucceeded = createAction('fetched data sources')
@@ -64,7 +70,11 @@ const fetchColumns = () =>
   dispatchRequest({
     url: '/api/datasources/MappingProperties',
     onSuccess: (dispatch, response) =>
-      pipe(replaceComplexEntitiesForDataSourceTemplate, fetchColumnsSucceeded, dispatch)(response),
+      pipe(
+        replaceComplexEntitiesForDataSourceTemplate,
+        fetchColumnsSucceeded,
+        dispatch,
+      )(response),
   })
 
 const createDataSource = (data, formikBag) =>
@@ -89,6 +99,9 @@ const fetchDataSource = (id, columns) =>
         fetchDataSourceSucceeded,
         dispatch,
       )(response),
+    onFail: (dispatch, errors) => {
+      dispatch(fetchError(errors))
+    },
   })
 
 const editDataSource = id => (data, formikBag) =>
@@ -101,11 +114,12 @@ const editDataSource = id => (data, formikBag) =>
     onFail: (_, errors) => formikBag.failed(errors),
   })
 
+const deleteDataSourceSuccessed = createAction('delete data source sucessed')
 export const deleteDataSource = id =>
   dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'delete',
-    onSuccess: () => window.location.reload(),
+    onSuccess: dispatch => dispatch(deleteDataSourceSuccessed({ id })),
     onFail: (dispatch, errors) => dispatch(fetchError(errors)),
   })
 
@@ -133,6 +147,7 @@ export default {
   fetchDataSourcesSucceeded,
   fetchDataSourcesListSucceeded,
   fetchDataSourceSucceeded,
+  deleteDataSourceSuccessed,
   uploadFileSucceeded,
   uploadFileError,
 }
