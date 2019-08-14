@@ -2,6 +2,7 @@ import React from 'react'
 import { arrayOf, func, shape, string } from 'prop-types'
 import { Grid, Label, Header, Segment, Message, Popup } from 'semantic-ui-react'
 import R from 'ramda'
+import { groupByToArray } from 'helpers/enumerable'
 
 import ListWithDnd from 'components/ListWithDnd'
 import { hasValue } from 'helpers/validation'
@@ -190,7 +191,7 @@ class MappingsEditor extends React.Component {
       )
     }
     const filteredMappings = mappings.filter(x => columns.some(col => col.name === x[1]))
-
+    const grouppedColumns = groupByToArray(columns, x => x.groupNumber)
     return (
       <Grid>
         <Grid.Row>
@@ -201,7 +202,12 @@ class MappingsEditor extends React.Component {
           <Grid.Column width={11}>
             <Header content={localize('VariablesOfDatabase')} as="h5" />
             <Segment>
-              {columns.map(x => this.renderItem('right', x.name, labelColumn(x.localizeKey)))}
+              {grouppedColumns.map(group => (
+                <div>
+                  {group.value.map(x =>
+                    this.renderItem('right', x.name, labelColumn(x.localizeKey)))}
+                </div>
+              ))}
             </Segment>
           </Grid.Column>
         </Grid.Row>
