@@ -60,10 +60,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new UnauthorizedAccessException();
             }
 
-            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, false);
-            var regionIds = _dbContext.UserRegions.AsNoTracking().Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
+            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, false).Result;
+            var regionIds = _dbContext.UserRegions.AsNoTracking().Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
             bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
-            if (isEmployee && !regionIds.Result.Contains(item.Result.Address.RegionId))
+            if (isEmployee && !regionIds.Contains(item.Address.RegionId))
             {
                 throw new UnauthorizedAccessException();
             }
