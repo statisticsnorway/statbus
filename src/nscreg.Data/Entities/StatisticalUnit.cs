@@ -210,10 +210,6 @@ namespace nscreg.Data.Entities
             new HashSet<PersonStatisticalUnit>();
 
         [JsonIgnore]
-        public IEnumerable<StatisticalUnit> PersonStatUnits => PersonsUnits
-            .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
-
-        [JsonIgnore]
         public IEnumerable<EnterpriseGroup> PersonEnterpriseGroups => PersonsUnits
             .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
 
