@@ -15,50 +15,50 @@ namespace nscreg.Data.Entities
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
 
         [Reference(LookupEnum.EnterpriseGroupLookup)]
-        [Display(Order = 320, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 210, GroupName = GroupNames.LinkInfo)]
         public int? EntGroupId { get; set; }
 
-        [Display(Order = 800, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 220, GroupName = GroupNames.LinkInfo)]
         public DateTime EntGroupIdDate { get; set; }
 
-        [Display(Order = 500, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 215, GroupName = GroupNames.LinkInfo)]
         public string EntGroupRole { get; set; }
 
         [SearchComponent]
-        [Display(Order = 270, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 205, GroupName = GroupNames.LinkInfo)]
         public override int? ParentOrgLink { get; set; }
 
         [Reference(LookupEnum.SectorCodeLookup)]
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 140)]
+        [Display(GroupName = GroupNames.StatUnitInfo, Order = 150)]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;
             set => base.InstSectorCodeId = value;
         }
 
-        [Display(Order = 380, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 892, GroupName = GroupNames.CapitalInfo)]
         public bool Commercial { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 530)]
+        [Display(Order = 845, GroupName = GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 490)]
+        [Display(Order = 825, GroupName = GroupNames.CapitalInfo)]
         public string MunCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 500)]
+        [Display(Order = 830, GroupName = GroupNames.CapitalInfo)]
         public string StateCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 480)]
+        [Display(Order = 820, GroupName = GroupNames.CapitalInfo)]
         public string PrivCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 510)]
+        [Display(Order = 835, GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalShare { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 520)]
+        [Display(Order = 840, GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalCurrency { get; set; }
 
         [Reference(LookupEnum.LegalUnitLookup)]
-        [Display(Order = 260, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; } = new HashSet<LegalUnit>();
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

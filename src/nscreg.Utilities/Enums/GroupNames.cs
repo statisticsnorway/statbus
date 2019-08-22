@@ -14,6 +14,8 @@ namespace nscreg.Utilities.Enums
         public const string CapitalInfo = "CapitalInfo";
         public const string LiquidationInfo = "LiquidationInfo";
         public const string EconomicInformation = "Economic Information";
+        public const string Activities = "Activities";
+        public const string Persons = "Persons";
     }
 
 }
