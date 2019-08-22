@@ -2277,4 +2277,7 @@
   <data name="ShouldBeGreaterThenZero" xml:space="preserve">
     <value>Поле не должно быть пустым</value>
   </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Иностранное участие</value>
+  </data>
 </root>

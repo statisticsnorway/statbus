@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2284,5 +2284,8 @@
   </data>
   <data name="UnitStatus" xml:space="preserve">
     <value>Status</value>
+  </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Foreign participation</value>
   </data>
 </root>
