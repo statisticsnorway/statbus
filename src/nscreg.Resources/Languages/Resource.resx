@@ -727,11 +727,11 @@
     <value>Enterprise units</value>
   </data>
   <data name="LiqDateStart" xml:space="preserve">
-    <value>LiqDateStart</value>
+    <value>Liquidation date start</value>
     <comment>LiqDateStart</comment>
   </data>
   <data name="LiqDateEnd" xml:space="preserve">
-    <value>LiqDateEnd</value>
+    <value>Liquidation date end</value>
     <comment>LiqDateEnd</comment>
   </data>
   <data name="EndPeriod" xml:space="preserve">
