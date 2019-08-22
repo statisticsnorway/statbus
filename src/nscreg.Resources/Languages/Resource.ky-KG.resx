@@ -2277,4 +2277,7 @@
   <data name="ShouldBeGreaterThenZero" xml:space="preserve">
     <value>Талаа бош калтыра албайсыз</value>
   </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Чет элдиктин катышуусунун белгиси</value>
+  </data>
 </root>

@@ -240,6 +240,10 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
         [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
+        public int? ForeignParticipationId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ForeignParticipation ForeignParticipation { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
