@@ -120,21 +120,21 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case StatUnitTypes.EnterpriseGroup:
                     list.AddRange(Common.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
-                            .Where(v => v.EntGroupId == unit.Id).Select(Common.UnitMapping)
+                            .Where(v => v.EntGroupId == unit.Id && v.UnitStatusId == 7).Select(Common.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
                     list.AddRange(Common.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<LegalUnit>(false)
-                            .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
+                            .Where(v => v.EnterpriseUnitRegId == unit.Id && v.UnitStatusId == 7).Select(Common.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.LegalUnit:
                     list.AddRange(Common.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<LocalUnit>(false)
-                            .Where(v => v.LegalUnitId == unit.Id).Select(Common.UnitMapping)
+                            .Where(v => v.LegalUnitId == unit.Id && v.UnitStatusId == 7).Select(Common.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
