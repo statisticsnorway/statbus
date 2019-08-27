@@ -148,6 +148,7 @@ class Create extends React.Component {
             label={localize('UserName')}
             maxLength={64}
             placeholder="e.g. Robert Diggs"
+            autoComplete="off"
             required
           />
           <Form.Input
@@ -157,6 +158,7 @@ class Create extends React.Component {
             onBlur={this.checkExistLogin}
             label={localize('UserLogin')}
             placeholder="e.g. rdiggs"
+            autoComplete="off"
             required
           />
           {loginError && (
@@ -171,6 +173,7 @@ class Create extends React.Component {
             type="email"
             label={localize('UserEmail')}
             placeholder="e.g. robertdiggs@site.domain"
+            autoComplete="off"
             required
           />
           <Popup
@@ -182,6 +185,7 @@ class Create extends React.Component {
                 type="password"
                 label={localize('UserPassword')}
                 placeholder={localize('TypeStrongPasswordHere')}
+                autoComplete="off"
                 required
               />
             }
@@ -198,6 +202,7 @@ class Create extends React.Component {
                 label={localize('ConfirmPassword')}
                 placeholder={localize('TypePasswordAgain')}
                 error={data.confirmPassword !== data.password}
+                autoComplete="off"
                 required
               />
             }
@@ -211,6 +216,7 @@ class Create extends React.Component {
             type="number"
             label={localize('UserPhone')}
             placeholder="555123456"
+            autoComplete="off"
           />
           {fetchingRoles ? (
             <Loader content="fetching roles" active />
@@ -222,6 +228,7 @@ class Create extends React.Component {
               options={rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
               label={localize('AssignedRoles')}
               placeholder={localize('SelectOrSearchRoles')}
+              autoComplete="off"
               search
             />
           )}
@@ -230,37 +237,37 @@ class Create extends React.Component {
             value={data.status}
             onChange={this.handleEdit}
             options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
+            autoComplete="off"
             label={localize('UserStatus')}
           />
-          {activityTree &&
-            data.assignedRole !== roles.admin && (
-              <ActivityTree
-                name="activiyCategoryIds"
-                label="ActivityCategoryLookup"
-                dataTree={activityTree}
-                checked={data.activiyCategoryIds}
-                callBack={this.setActivities}
-                localize={localize}
-                loadNode={this.fetchActivityTree}
-              />
-            )}
-          {regionTree &&
-            data.assignedRole !== roles.admin && (
-              <RegionTree
-                name="RegionTree"
-                label="Regions"
-                dataTree={regionTree}
-                checked={data.userRegions}
-                callBack={this.handleCheck}
-                localize={localize}
-              />
-            )}
+          {activityTree && data.assignedRole !== roles.admin && (
+            <ActivityTree
+              name="activiyCategoryIds"
+              label="ActivityCategoryLookup"
+              dataTree={activityTree}
+              checked={data.activiyCategoryIds}
+              callBack={this.setActivities}
+              localize={localize}
+              loadNode={this.fetchActivityTree}
+            />
+          )}
+          {regionTree && data.assignedRole !== roles.admin && (
+            <RegionTree
+              name="RegionTree"
+              label="Regions"
+              dataTree={regionTree}
+              checked={data.userRegions}
+              callBack={this.handleCheck}
+              localize={localize}
+            />
+          )}
           <Form.Input
             name="description"
             value={data.description}
             onChange={this.handleEdit}
             label={localize('Description')}
             placeholder={localize('NSO_Employee')}
+            autoComplete="off"
             maxLength={64}
           />
           <Button

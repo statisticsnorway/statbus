@@ -32,6 +32,7 @@ const NumberField = ({
     label,
     title,
     placeholder: placeholderKey ? localize(placeholderKey) : label,
+    autoComplete: 'off',
   }
   return popuplocalizedKey ? (
     <div className="field" data-tooltip={localize(popuplocalizedKey)} data-position="top left">

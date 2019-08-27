@@ -26,6 +26,7 @@ const TextField = ({
     label,
     title,
     placeholder: placeholderKey ? localize(placeholderKey) : label,
+    autoComplete: 'off',
   }
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
   return (

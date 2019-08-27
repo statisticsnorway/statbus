@@ -194,6 +194,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.GivenName}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -223,6 +224,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Surname}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -233,6 +235,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.PersonalId}
+                autoComplete="off"
               />
               <Form.Input
                 label={localize('MiddleName')}
@@ -241,6 +244,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.MiddleName}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -286,6 +290,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Telephone1}
+                autoComplete="off"
               />
               <Form.Input
                 label={localize('PhoneNumber1')}
@@ -294,6 +299,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Telephone2}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -304,6 +310,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Address}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
