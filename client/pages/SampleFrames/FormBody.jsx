@@ -65,11 +65,13 @@ const FormBody = ({
               label={localize('Name')}
               placeholder={localize('NameIsRequired')}
               required
+              autoComplete="off"
             />
             <Form.Input
               {...propsFor('description')}
               label={localize('Description')}
               placeholder={localize('Description')}
+              autoComplete="off"
             />
           </Form.Group>
         </Grid.Row>

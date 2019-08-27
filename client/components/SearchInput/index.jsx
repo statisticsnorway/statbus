@@ -114,6 +114,7 @@ class SearchInput extends React.Component {
         disabled={disabled}
         fluid
         required={required}
+        autoComplete="off"
       />
     )
   }
