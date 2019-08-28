@@ -898,7 +898,7 @@
     <value>Статистическая единица</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
-    <value>Имя региона обязательно</value>
+    <value>Имя региона обязательно для заполнения</value>
   </data>
   <data name="RoleNamePlaceholder" xml:space="preserve">
     <value>Название роли</value>
@@ -910,13 +910,13 @@
     <value>Поле обязательно для заполнения</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>Поле "Наименование" обязательное для заполнения</value>
+    <value>Наименование обязательное для заполнения</value>
   </data>
   <data name="CurrentPasswordIsRequired" xml:space="preserve">
-    <value>Поле 'Текущий пароль' обязательно для заполнения</value>
+    <value>Текущий пароль обязателен для заполнения</value>
   </data>
   <data name="EmailIsRequired" xml:space="preserve">
-    <value>Поле 'Электронная почта' обязательно для заполнения</value>
+    <value>Электронная почта обязательна для заполнения</value>
   </data>
   <data name="EmailValueRequired" xml:space="preserve">
     <value>Пожалуйста, укажите электронную почту</value>
@@ -943,7 +943,7 @@
     <value>Главная</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
-    <value>Поле 'Имя' обязательно для заполнения</value>
+    <value>Имя обязательно для заполнения</value>
   </data>
   <data name="Update" xml:space="preserve">
     <value>Обновление</value>
@@ -1561,7 +1561,7 @@
     <value>Поиск по совпадению (среди наименования шаблонов)</value>
   </data>
   <data name="IsRequired" xml:space="preserve">
-    <value>нужно заполнить</value>
+    <value>обязательно для заполнения</value>
   </data>
   <data name="ChangeDate" xml:space="preserve">
     <value>Дата изменения</value>
@@ -2279,5 +2279,8 @@
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Иностранное участие</value>
+  </data>
+  <data name="FixErrorsBeforeSubmit" xml:space="preserve">
+    <value>Заполните все обязательные поля</value>
   </data>
 </root>

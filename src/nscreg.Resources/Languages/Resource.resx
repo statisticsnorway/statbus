@@ -921,13 +921,13 @@
     <value>Field is required</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>Field 'Name' is required</value>
+    <value>Name is required</value>
   </data>
   <data name="CurrentPasswordIsRequired" xml:space="preserve">
-    <value>Field 'Current password' is required</value>
+    <value>Current password is required</value>
   </data>
   <data name="EmailIsRequired" xml:space="preserve">
-    <value>Field 'EmailIsRequired' is required</value>
+    <value>Email is required</value>
   </data>
   <data name="EmailValueRequired" xml:space="preserve">
     <value>Email value required</value>
@@ -936,7 +936,7 @@
     <value>Field is required</value>
   </data>
   <data name="EnterpriseGroupIsRequired" xml:space="preserve">
-    <value>Field is required</value>
+    <value>Enterprise group is required</value>
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
@@ -957,7 +957,7 @@
     <value>Home</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
-    <value>Field 'Name' is required</value>
+    <value>Name is required</value>
   </data>
   <data name="route_account" xml:space="preserve">
     <value>Account</value>
@@ -2287,5 +2287,8 @@
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Foreign participation</value>
+  </data>
+  <data name="FixErrorsBeforeSubmit" xml:space="preserve">
+    <value>Please fill out all required fields</value>
   </data>
 </root>

@@ -102,6 +102,14 @@ class AddressField extends React.Component {
     const label = localize(labelKey)
     const latitudeIsBad = !validateLatitude(value.latitude)
     const longitudeIsBad = !validateLongitude(value.longitude)
+    const isMandatoryFieldEmpty =
+      required &&
+      ((mandatoryField.GeographicalCodes && !value.regionId) ||
+        (mandatoryField.AddressPart1 && !value.addressPart1) ||
+        (mandatoryField.AddressPart2 && !value.addressPart2) ||
+        (mandatoryField.AddressPart3 && !value.addressPart3) ||
+        (mandatoryField.Latitude && !value.latitude) ||
+        (mandatoryField.Longitude && !value.longitude))
 
     return (
       <Segment.Group as={Form.Field}>
@@ -118,7 +126,7 @@ class AddressField extends React.Component {
               onChange={this.regionSelectedHandler}
               value={value.regionId}
               localize={localize}
-              required={mandatoryField.GeographicalCodes}
+              required={required && mandatoryField.GeographicalCodes}
               disabled={disabled || !editing}
             />
             <br />
@@ -129,7 +137,7 @@ class AddressField extends React.Component {
                 label={localize('AddressPart1')}
                 placeholder={localize('AddressPart1')}
                 onChange={this.handleEdit}
-                required={mandatoryField.AddressPart1}
+                required={required && mandatoryField.AddressPart1}
                 disabled={disabled || !editing}
                 autoComplete="off"
               />
@@ -139,7 +147,7 @@ class AddressField extends React.Component {
                 label={localize('AddressPart2')}
                 placeholder={localize('AddressPart2')}
                 onChange={this.handleEdit}
-                required={mandatoryField.AddressPart2}
+                required={required && mandatoryField.AddressPart2}
                 disabled={disabled || !editing}
                 autoComplete="off"
               />
@@ -151,7 +159,7 @@ class AddressField extends React.Component {
                 label={localize('AddressPart3')}
                 placeholder={localize('AddressPart3')}
                 onChange={this.handleEdit}
-                required={mandatoryField.AddressPart3}
+                required={required && mandatoryField.AddressPart3}
                 disabled={disabled || !editing}
                 autoComplete="off"
               />
@@ -172,7 +180,7 @@ class AddressField extends React.Component {
                     onChange={this.handleEdit}
                     label={localize('Latitude')}
                     placeholder={localize('Latitude')}
-                    required={mandatoryField.Latitude}
+                    required={required && mandatoryField.Latitude}
                     disabled={disabled || !editing}
                     maxLength={10}
                     min="-90"
@@ -196,7 +204,7 @@ class AddressField extends React.Component {
                     onChange={this.handleEdit}
                     label={localize('Longitude')}
                     placeholder={localize('Longitude')}
-                    required={mandatoryField.Longitude}
+                    required={required && mandatoryField.Longitude}
                     disabled={disabled || !editing}
                     maxLength={11}
                     min="-180"
@@ -215,34 +223,41 @@ class AddressField extends React.Component {
           </Segment>
           <Segment clearing>
             {editing ? (
-              <Button.Group floated="right">
-                <div data-tooltip={localize('ButtonSave')} data-position="top center">
-                  <Button
-                    type="button"
-                    icon={<Icon name="check" />}
-                    onClick={this.doneEditing}
-                    color="green"
-                    size="small"
-                    disabled={
-                      disabled ||
-                      !value.regionId ||
-                      (value.latitude && latitudeIsBad) ||
-                      (value.longitude && longitudeIsBad) ||
-                      !touched
-                    }
-                  />
-                </div>
-                <div data-tooltip={localize('ButtonCancel')} data-position="top center">
-                  <Button
-                    type="button"
-                    icon={<Icon name="cancel" />}
-                    onClick={this.cancelEditing}
-                    color="red"
-                    size="small"
-                    disabled={disabled}
-                  />
-                </div>
-              </Button.Group>
+              <div>
+                {(isMandatoryFieldEmpty ||
+                  (value.latitude && latitudeIsBad) ||
+                  (value.longitude && longitudeIsBad)) && (
+                  <Message content={localize('FixErrorsBeforeSubmit')} error />
+                )}
+                <Button.Group floated="right">
+                  <div data-tooltip={localize('ButtonSave')} data-position="top center">
+                    <Button
+                      type="button"
+                      icon={<Icon name="check" />}
+                      onClick={this.doneEditing}
+                      color="green"
+                      size="small"
+                      disabled={
+                        disabled ||
+                        isMandatoryFieldEmpty ||
+                        (value.latitude && latitudeIsBad) ||
+                        (value.longitude && longitudeIsBad) ||
+                        !touched
+                      }
+                    />
+                  </div>
+                  <div data-tooltip={localize('ButtonCancel')} data-position="top center">
+                    <Button
+                      type="button"
+                      icon={<Icon name="cancel" />}
+                      onClick={this.cancelEditing}
+                      color="red"
+                      size="small"
+                      disabled={disabled}
+                    />
+                  </div>
+                </Button.Group>
+              </div>
             ) : (
               <Button.Group floated="right">
                 <div data-tooltip={localize('EditButton')} data-position="top center">

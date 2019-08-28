@@ -1322,7 +1322,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;Current password&apos; is required.
+        ///   Looks up a localized string similar to Current password is required.
         /// </summary>
         public static string CurrentPasswordIsRequired {
             get {
@@ -1916,7 +1916,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;EmailIsRequired&apos; is required.
+        ///   Looks up a localized string similar to Email is required.
         /// </summary>
         public static string EmailIsRequired {
             get {
@@ -2069,7 +2069,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field is required.
+        ///   Looks up a localized string similar to Enterprise group is required.
         /// </summary>
         public static string EnterpriseGroupIsRequired {
             get {
@@ -2335,6 +2335,15 @@ namespace nscreg.Resources.Languages {
         public static string FileHasEmptyUnit {
             get {
                 return ResourceManager.GetString("FileHasEmptyUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please fill out all required fields.
+        /// </summary>
+        public static string FixErrorsBeforeSubmit {
+            get {
+                return ResourceManager.GetString("FixErrorsBeforeSubmit", resourceCulture);
             }
         }
         
@@ -3302,7 +3311,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;Name&apos; is required.
+        ///   Looks up a localized string similar to Name is required.
         /// </summary>
         public static string NameIsRequired {
             get {
@@ -6227,7 +6236,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;Name&apos; is required.
+        ///   Looks up a localized string similar to Name is required.
         /// </summary>
         public static string UserNameIsRequired {
             get {

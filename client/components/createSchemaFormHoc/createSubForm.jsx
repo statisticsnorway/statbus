@@ -46,11 +46,8 @@ function createSubForm(Body, showReset) {
             <Header as="h4" content={localize('Summary')} dividing />
             {hasUnmappedErrors && <Message list={unmappedErrors} error />}
             {hasSummaryErrors && <Message list={summary.map(localize)} error />}
-            {showSummary && (
-              <Message
-                content={localize(hasErrors ? 'FixErrorsBeforeSubmit' : 'EnsureErrorsIsFixed')}
-                error
-              />
+            {showSummary && hasErrors && (
+              <Message content={localize('FixErrorsBeforeSubmit')} error />
             )}
           </Segment>
         )}
