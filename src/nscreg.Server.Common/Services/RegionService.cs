@@ -156,7 +156,7 @@ namespace nscreg.Server.Common.Services
             return new RegionNode
             {
                 Id = -1,
-                Name = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.LanguagePrimary)),
+                Name = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(string.Empty)),
                 NameLanguage1 = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.Language1)),
                 NameLanguage2 = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.Language2)),
                 RegionNodes = regionsLookup[null].Select(r => new RegionNode
