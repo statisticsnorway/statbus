@@ -78,10 +78,7 @@ class AddressField extends React.Component {
 
   cancelEditing = (e) => {
     e.preventDefault()
-    const { onChange, name, value } = this.props
-    this.setState({ editing: false }, () => {
-      onChange({ target: { name, value } }, this.props)
-    })
+    this.setState({ editing: false, value: ensureAddress(this.props.value) })
   }
 
   regionSelectedHandler = (_, { value: regionId }) => {
@@ -225,8 +222,8 @@ class AddressField extends React.Component {
             {editing ? (
               <div>
                 {(isMandatoryFieldEmpty ||
-                  (value.latitude && latitudeIsBad) ||
-                  (value.longitude && longitudeIsBad)) && (
+                  (!!value.latitude && latitudeIsBad) ||
+                  (!!value.longitude && longitudeIsBad)) && (
                   <Message content={localize('FixErrorsBeforeSubmit')} error />
                 )}
                 <Button.Group floated="right">
