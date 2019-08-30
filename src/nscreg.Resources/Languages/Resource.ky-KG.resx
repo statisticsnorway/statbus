@@ -2283,4 +2283,22 @@
   <data name="FixErrorsBeforeSubmit" xml:space="preserve">
     <value>Толтурууга милдеттүү талааларды толтурулуш керек</value>
   </data>
+  <data name="EconomicInformation" xml:space="preserve">
+    <value>Economic information</value>
+  </data>
+  <data name="ActivityIdDateRequired" xml:space="preserve">
+    <value>One of the "Activities" has no "Activity registration date" field filled</value>
+  </data>
+  <data name="PersonsRoleRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Person Type" field filled</value>
+  </data>
+  <data name="PersonsCountryIdRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Country" field filled.</value>
+  </data>
+  <data name="PersonsGivenNameRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Name" field filled.</value>
+  </data>
+  <data name="PersonsSurnameRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Surname" field filled.</value>
+  </data>
 </root>

@@ -179,6 +179,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of the Activities has no Activity registration date field filled.
+        /// </summary>
+        public static string ActivityIdDateRequired {
+            get {
+                return ResourceManager.GetString("ActivityIdDateRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Primary actual.
         /// </summary>
         public static string ActivityPrimary {
@@ -1831,6 +1840,15 @@ namespace nscreg.Resources.Languages {
         public static string DuplicateFieldsRulesWarnings {
             get {
                 return ResourceManager.GetString("DuplicateFieldsRulesWarnings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Economic information.
+        /// </summary>
+        public static string EconomicInformation {
+            get {
+                return ResourceManager.GetString("EconomicInformation", resourceCulture);
             }
         }
         
@@ -3815,11 +3833,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of the Persons has no Country field filled..
+        /// </summary>
+        public static string PersonsCountryIdRequired {
+            get {
+                return ResourceManager.GetString("PersonsCountryIdRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to To improve search, input additional parameters.
         /// </summary>
         public static string PersonSearchPopup {
             get {
                 return ResourceManager.GetString("PersonSearchPopup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One of the Persons has no Name field filled..
+        /// </summary>
+        public static string PersonsGivenNameRequired {
+            get {
+                return ResourceManager.GetString("PersonsGivenNameRequired", resourceCulture);
             }
         }
         
@@ -3833,11 +3869,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of the Persons has no Person Type field filled.
+        /// </summary>
+        public static string PersonsRoleRequired {
+            get {
+                return ResourceManager.GetString("PersonsRoleRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Persons Search.
         /// </summary>
         public static string PersonsSearch {
             get {
                 return ResourceManager.GetString("PersonsSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One of the Persons has no Surname field filled..
+        /// </summary>
+        public static string PersonsSurnameRequired {
+            get {
+                return ResourceManager.GetString("PersonsSurnameRequired", resourceCulture);
             }
         }
         
