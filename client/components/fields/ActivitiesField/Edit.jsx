@@ -10,7 +10,11 @@ import { getNewName } from '../../../helpers/locale'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 // eslint-disable-next-line max-len
-const yearsOptions = R.pipe(R.range(1900), R.reverse, R.map(x => ({ value: x, text: x })))(new Date().getFullYear())
+const yearsOptions = R.pipe(
+  R.range(1900),
+  R.reverse,
+  R.map(x => ({ value: x, text: x })),
+)(new Date().getFullYear())
 
 const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
@@ -174,6 +178,7 @@ class ActivityEdit extends React.Component {
                     min={0}
                     required={activityMandatoryFields.Employees}
                     disabled={disabled}
+                    autoComplete="off"
                   />
                 }
                 content={`6 ${localize('MaxLength')}`}
@@ -196,6 +201,7 @@ class ActivityEdit extends React.Component {
                       min={0}
                       disabled={disabled}
                       required={activityMandatoryFields.Turnover}
+                      autoComplete="off"
                     />
                   }
                   content={`10 ${localize('MaxLength')}`}

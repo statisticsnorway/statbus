@@ -131,6 +131,7 @@ class AddressField extends React.Component {
                 onChange={this.handleEdit}
                 required={mandatoryField.AddressPart1}
                 disabled={disabled || !editing}
+                autoComplete="off"
               />
               <Form.Input
                 name="addressPart2"
@@ -140,6 +141,7 @@ class AddressField extends React.Component {
                 onChange={this.handleEdit}
                 required={mandatoryField.AddressPart2}
                 disabled={disabled || !editing}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -151,6 +153,7 @@ class AddressField extends React.Component {
                 onChange={this.handleEdit}
                 required={mandatoryField.AddressPart3}
                 disabled={disabled || !editing}
+                autoComplete="off"
               />
             </Form.Group>
             <Header
@@ -174,6 +177,7 @@ class AddressField extends React.Component {
                     maxLength={10}
                     min="-90"
                     max="90"
+                    autoComplete="off"
                   />
                 }
                 content={localize('BadLatitude')}
@@ -197,6 +201,7 @@ class AddressField extends React.Component {
                     maxLength={11}
                     min="-180"
                     max="180"
+                    autoComplete="off"
                   />
                 }
                 content={localize('BadLongitude')}

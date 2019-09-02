@@ -20,7 +20,7 @@ namespace nscreg.Resources.Languages {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resource {
@@ -458,7 +458,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to EmailAddress field is duplicated.
+        ///   Looks up a localized string similar to Email address field is duplicated.
         /// </summary>
         public static string AnalysisDuplicationEmailAddress {
             get {
@@ -512,7 +512,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to TelephoneNo field is duplicated.
+        ///   Looks up a localized string similar to Telephone number field is duplicated.
         /// </summary>
         public static string AnalysisDuplicationTelephoneNo {
             get {
@@ -1907,7 +1907,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to EmailAddress.
+        ///   Looks up a localized string similar to Email address.
         /// </summary>
         public static string EmailAddress {
             get {
@@ -2132,7 +2132,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to EnterpriseUnitRegId.
+        ///   Looks up a localized string similar to Enterprise unit statistical id.
         /// </summary>
         public static string EnterpriseUnitRegId {
             get {
@@ -2141,7 +2141,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to EnterpriseUnits.
+        ///   Looks up a localized string similar to Enterprise units.
         /// </summary>
         public static string EnterpriseUnits {
             get {
@@ -2150,7 +2150,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Enterprise group id.
+        ///   Looks up a localized string similar to Enterprise group statistical id.
         /// </summary>
         public static string EntGroupId {
             get {
@@ -2159,7 +2159,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Enterprise group id date.
+        ///   Looks up a localized string similar to Enterprise group statistical id date.
         /// </summary>
         public static string EntGroupIdDate {
             get {
@@ -2186,7 +2186,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Enterprise registration id date.
+        ///   Looks up a localized string similar to Enterprise unit statistical id date.
         /// </summary>
         public static string EntRegIdDate {
             get {
@@ -2393,7 +2393,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Foreign Participation.
+        ///   Looks up a localized string similar to Foreign participation.
         /// </summary>
         public static string ForeignParticipationId {
             get {
@@ -2987,7 +2987,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to LiqDateEnd.
+        ///   Looks up a localized string similar to Liquidation date end.
         /// </summary>
         public static string LiqDateEnd {
             get {
@@ -2996,7 +2996,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to LiqDateStart.
+        ///   Looks up a localized string similar to Liquidation date start.
         /// </summary>
         public static string LiqDateStart {
             get {
@@ -3068,7 +3068,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to LocalUnits.
+        ///   Looks up a localized string similar to Local units.
         /// </summary>
         public static string LocalUnits {
             get {
@@ -3275,7 +3275,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Mun Capital Share.
+        ///   Looks up a localized string similar to Mun capital share.
         /// </summary>
         public static string MunCapitalShare {
             get {
@@ -4373,7 +4373,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Reorganization Type.
+        ///   Looks up a localized string similar to Reorganization type.
         /// </summary>
         public static string ReorgTypeId {
             get {
@@ -5732,7 +5732,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Telephone№.
+        ///   Looks up a localized string similar to Telephone number.
         /// </summary>
         public static string TelephoneNo {
             get {

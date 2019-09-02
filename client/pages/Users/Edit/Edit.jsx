@@ -107,6 +107,7 @@ class Edit extends React.Component {
           name="name"
           label={localize('UserName')}
           placeholder={localize('RobertDiggs')}
+          autoComplete="off"
           maxLength={64}
           required
         />
@@ -117,6 +118,7 @@ class Edit extends React.Component {
           name="login"
           label={localize('UserLogin')}
           placeholder={localize('LoginPlaceholder')}
+          autoComplete="off"
           required
         />
         {loginError && (
@@ -131,6 +133,7 @@ class Edit extends React.Component {
           type="email"
           label={localize('UserEmail')}
           placeholder={localize('EmailPlaceholder')}
+          autoComplete="off"
           required
         />
         <Popup
@@ -142,6 +145,7 @@ class Edit extends React.Component {
               type="password"
               label={localize('UsersNewPassword')}
               placeholder={localize('TypeStrongPasswordHere')}
+              autoComplete="off"
             />
           }
           content={localize('PasswordLengthRestriction')}
@@ -157,6 +161,7 @@ class Edit extends React.Component {
               label={localize('ConfirmPassword')}
               placeholder={localize('TypeNewPasswordAgain')}
               error={user.confirmPassword !== user.newPassword}
+              autoComplete="off"
             />
           }
           content={localize('PasswordLengthRestriction')}
@@ -169,6 +174,7 @@ class Edit extends React.Component {
           type="number"
           label={localize('UserPhone')}
           placeholder="555123456"
+          autoComplete="off"
         />
         {this.state.fetchingRoles ? (
           <Loader active />
@@ -180,6 +186,7 @@ class Edit extends React.Component {
             name="assignedRole"
             label={localize('AssignedRoles')}
             placeholder={localize('SelectOrSearchRoles')}
+            autoComplete="off"
             search
           />
         )}
@@ -189,30 +196,29 @@ class Edit extends React.Component {
           onChange={this.handleEdit}
           options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
           label={localize('UserStatus')}
+          autoComplete="off"
         />
-        {activityTree &&
-          user.assignedRole !== roles.admin && (
-            <ActivityTree
-              name="activiyCategoryIds"
-              label="ActivityCategoryLookup"
-              dataTree={activityTree}
-              checked={user.activiyCategoryIds}
-              callBack={this.setActivities}
-              localize={localize}
-              loadNode={this.props.fetchActivityTree}
-            />
-          )}
-        {regionTree &&
-          user.assignedRole !== roles.admin && (
-            <RegionTree
-              name="RegionTree"
-              label="Regions"
-              dataTree={regionTree}
-              checked={user.userRegions}
-              callBack={this.handleCheck}
-              localize={localize}
-            />
-          )}
+        {activityTree && user.assignedRole !== roles.admin && (
+          <ActivityTree
+            name="activiyCategoryIds"
+            label="ActivityCategoryLookup"
+            dataTree={activityTree}
+            checked={user.activiyCategoryIds}
+            callBack={this.setActivities}
+            localize={localize}
+            loadNode={this.props.fetchActivityTree}
+          />
+        )}
+        {regionTree && user.assignedRole !== roles.admin && (
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            dataTree={regionTree}
+            checked={user.userRegions}
+            callBack={this.handleCheck}
+            localize={localize}
+          />
+        )}
         <Form.Input
           value={user.description}
           onChange={this.handleEdit}
@@ -220,6 +226,7 @@ class Edit extends React.Component {
           label={localize('Description')}
           placeholder={localize('NSO_Employee')}
           maxLength={64}
+          autoComplete="off"
         />
         <Button
           content={localize('Back')}
