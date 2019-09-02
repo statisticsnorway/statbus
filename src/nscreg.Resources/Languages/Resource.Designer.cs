@@ -179,7 +179,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the Activities has no Activity registration date field filled.
+        ///   Looks up a localized string similar to One of the &quot;Activities&quot; has no &quot;Activity registration date&quot; field filled.
         /// </summary>
         public static string ActivityIdDateRequired {
             get {
@@ -3050,7 +3050,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You will need to liquidate Legal unit.
+        ///   Looks up a localized string similar to Liquidation rules - to liquidate this local unit (that is the single active local unit of its legal unit) you need to liquidate from its legal unit.
         /// </summary>
         public static string LiquidateLegalUnit {
             get {
@@ -3833,7 +3833,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the Persons has no Country field filled..
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Country&quot; field filled..
         /// </summary>
         public static string PersonsCountryIdRequired {
             get {
@@ -3851,7 +3851,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the Persons has no Name field filled..
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Name&quot; field filled..
         /// </summary>
         public static string PersonsGivenNameRequired {
             get {
@@ -3869,7 +3869,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the Persons has no Person Type field filled.
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Person Type&quot; field filled.
         /// </summary>
         public static string PersonsRoleRequired {
             get {
@@ -3887,7 +3887,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the Persons has no Surname field filled..
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Surname&quot; field filled..
         /// </summary>
         public static string PersonsSurnameRequired {
             get {

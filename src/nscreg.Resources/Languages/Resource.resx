@@ -2265,7 +2265,7 @@
     <value>You cann't liquidate Enterprise unit</value>
   </data>
   <data name="LiquidateLegalUnit" xml:space="preserve">
-    <value>You will need to liquidate Legal unit</value>
+    <value>Liquidation rules - to liquidate this local unit (that is the single active local unit of its legal unit) you need to liquidate from its legal unit</value>
   </data>
   <data name="UnitHasLiquidated" xml:space="preserve">
     <value>Unit has been liquidated</value>
