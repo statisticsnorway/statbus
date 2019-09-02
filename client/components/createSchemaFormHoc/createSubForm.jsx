@@ -29,7 +29,8 @@ function createSubForm(Body, showReset) {
       ...unmappedEntries(errors, props.values),
       ...unmappedEntries(statusErrors, props.values),
       ...unmappedEntries(initialErrors, props.values),
-    ].map(([k, v]) => `${localize(capitalizeFirstLetter(k))}: ${localize(v)}`)
+    ].map(([k, v]) =>
+      k === 'message' ? `${localize(v)}` : `${localize(capitalizeFirstLetter(k))}: ${localize(v)}`)
     const getFieldErrors = key => [
       ...ensureArray(errors[key]),
       ...R.pathOr([], [key], statusErrors),
