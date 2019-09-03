@@ -44,6 +44,8 @@ class Create extends React.Component {
     regionTree: undefined,
     rolesList: [],
     fetchingRoles: true,
+    fetchingRegions: true,
+    fetchingActivities: true,
     rolesFailMessage: undefined,
     activityTree: [],
   }
@@ -78,7 +80,16 @@ class Create extends React.Component {
       url: '/api/Regions/GetAllRegionTree',
       method: 'get',
       onSuccess: (result) => {
-        this.setState({ regionTree: result })
+        this.setState({
+          regionTree: result,
+          fetchingRegions: false,
+        })
+      },
+      onFail: () => {
+        this.setState({
+          rolesFailMessage: 'failed loading regions',
+          fetchingRegions: false,
+        })
       },
     })
 
@@ -100,6 +111,24 @@ class Create extends React.Component {
     })
   }
 
+  fetchActivityTree = (parentId = 0) => {
+    internalRequest({
+      url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
+      onSuccess: (result) => {
+        this.setState({
+          activityTree: distinctBy([...this.state.activityTree, ...result], x => x.id),
+          fetchingActivities: false,
+        })
+      },
+      onFail: () => {
+        this.setState({
+          rolesFailMessage: 'failed loading activities',
+          fetchingActivities: false,
+        })
+      },
+    })
+  }
+
   handleEdit = (e, { name, value }) => {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
@@ -107,17 +136,6 @@ class Create extends React.Component {
   checkExistLogin = (e) => {
     const loginName = e.target.value
     if (loginName.length > 0) this.props.checkExistLogin(loginName)
-  }
-
-  fetchActivityTree = (parentId = 0) => {
-    internalRequest({
-      url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
-      onSuccess: (result) => {
-        this.setState({
-          activityTree: distinctBy([...this.state.activityTree, ...result], x => x.id),
-        })
-      },
-    })
   }
 
   handleSubmit = (e) => {
@@ -132,6 +150,8 @@ class Create extends React.Component {
     const {
       data,
       fetchingRoles,
+      fetchingRegions,
+      fetchingActivities,
       rolesList,
       rolesFailMessage,
       regionTree,
@@ -240,27 +260,25 @@ class Create extends React.Component {
             autoComplete="off"
             label={localize('UserStatus')}
           />
-          {activityTree && data.assignedRole !== roles.admin && (
-            <ActivityTree
-              name="activiyCategoryIds"
-              label="ActivityCategoryLookup"
-              dataTree={activityTree}
-              checked={data.activiyCategoryIds}
-              callBack={this.setActivities}
-              localize={localize}
-              loadNode={this.fetchActivityTree}
-            />
-          )}
-          {regionTree && data.assignedRole !== roles.admin && (
-            <RegionTree
-              name="RegionTree"
-              label="Regions"
-              dataTree={regionTree}
-              checked={data.userRegions}
-              callBack={this.handleCheck}
-              localize={localize}
-            />
-          )}
+          <ActivityTree
+            name="activiyCategoryIds"
+            label="ActivityCategoryLookup"
+            dataTree={activityTree}
+            loaded={!fetchingActivities}
+            checked={data.activiyCategoryIds}
+            callBack={this.setActivities}
+            localize={localize}
+            loadNode={this.fetchActivityTree}
+          />
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            loaded={!fetchingRegions}
+            dataTree={regionTree}
+            checked={data.userRegions}
+            callBack={this.handleCheck}
+            localize={localize}
+          />
           <Form.Input
             name="description"
             value={data.description}
@@ -281,7 +299,7 @@ class Create extends React.Component {
           <Button
             content={localize('Submit')}
             type="submit"
-            disabled={fetchingRoles || loginError}
+            disabled={fetchingRoles || fetchingActivities || fetchingRegions || loginError}
             floated="right"
             primary
           />
