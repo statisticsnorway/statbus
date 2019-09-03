@@ -9,10 +9,18 @@ import { list as actions } from '../actions'
 import List from './List'
 
 const assertProps = props => props.result != null
+const createFilterFromQuery = query =>
+  Object.entries(query).reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {})
 
 const hooks = {
   componentDidMount() {
-    this.props.getSampleFrames(this.props.query)
+    if (this.props.queryString === '') return
+    const newQuery = createFilterFromQuery(this.props.query)
+    if (!equals(this.props.formData, newQuery)) {
+      this.props.updateFilter(newQuery)
+      this.props.getSampleFrames(this.props.query)
+    }
+    window.scrollTo(0, 0)
   },
   componentWillReceiveProps(nextProps) {
     if (!equals(nextProps.query, this.props.query)) {
@@ -33,11 +41,18 @@ const mapStateToProps = (state, props) => ({
 const { setQuery, ...restActions } = actions
 const mapDispatchToProps = (dispatch, props) => ({
   ...bindActionCreators(restActions, dispatch),
-  setQuery: pipe(merge(props.location.query), setQuery(props.location.pathname), dispatch),
+  setQuery: pipe(
+    merge(props.location.query),
+    setQuery(props.location.pathname),
+    dispatch,
+  ),
 })
 
 export default pipe(
   withSpinnerUnless(assertProps),
   lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+  ),
 )(List)
