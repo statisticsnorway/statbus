@@ -19,6 +19,7 @@ const createFilterFromQuery = (query) => {
 const hooks = {
   componentDidMount() {
     this.props.fetchLookup(5)
+    this.props.clear()
     if (this.props.queryString === '') return
     const newQuery = createFilterFromQuery(this.props.query)
     if (!equals(this.props.formData, newQuery)) {
