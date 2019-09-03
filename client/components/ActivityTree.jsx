@@ -1,6 +1,7 @@
 import React from 'react'
-import { func, string, arrayOf, shape } from 'prop-types'
+import { func, string, arrayOf, shape, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
+import { Loader } from 'semantic-ui-react'
 
 import { getNewName } from '../helpers/locale'
 
@@ -32,7 +33,7 @@ const onLoadData = loadNode => (node) => {
   })
 }
 
-const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, loadNode }) => {
+const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, loadNode, loaded }) => {
   const tree = buildTree(
     dataTree.filter(x => x.parentId === 0).map(transform),
     dataTree.map(transform),
@@ -40,11 +41,16 @@ const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, load
   return (
     <div>
       <label htmlFor={name}>{localize(label)}</label>
-      <Tree checkable checkedKeys={checked} onCheck={callBack} loadData={onLoadData(loadNode)}>
-        <TreeNode title={localize('AllActivities')} key="all">
-          {tree}
-        </TreeNode>
-      </Tree>
+      <br />
+      {loaded ? (
+        <Tree checkable checkedKeys={checked} onCheck={callBack} loadData={onLoadData(loadNode)}>
+          <TreeNode title={localize('AllActivities')} key="all">
+            {tree}
+          </TreeNode>
+        </Tree>
+      ) : (
+        <Loader inline active size="small" />
+      )}
     </div>
   )
 }
@@ -57,10 +63,12 @@ ActivityTree.propTypes = {
   dataTree: arrayOf(shape({})).isRequired,
   checked: arrayOf(string),
   loadNode: func.isRequired,
+  loaded: bool,
 }
 
 ActivityTree.defaultProps = {
   checked: [],
+  loaded: true,
 }
 
 export default ActivityTree
