@@ -48,33 +48,20 @@ class DeletedList extends React.Component {
     selectedUnit: undefined,
   }
 
-  componentDidMount() {
-    this.props.actions.fetchData(this.props.query)
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.query, this.props.query)) {
-      nextProps.actions.fetchData(nextProps.query)
-    }
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return (
-      this.props.localize.lang !== nextProps.localize.lang ||
-      !equals(this.props, nextProps) ||
-      !equals(this.state, nextState)
-    )
-  }
-
   handleChangeForm = (name, value) => {
     this.props.actions.updateFilter({ [name]: value })
   }
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { actions: { setQuery }, query, formData } = this.props
+    const {
+      actions: { setQuery },
+      query,
+      formData,
+    } = this.props
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
+      qdata.page = 1
       setQuery(qdata)
     }
   }
