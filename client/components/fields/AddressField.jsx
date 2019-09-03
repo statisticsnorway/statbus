@@ -99,8 +99,9 @@ class AddressField extends React.Component {
     const label = localize(labelKey)
     const latitudeIsBad = !validateLatitude(value.latitude)
     const longitudeIsBad = !validateLongitude(value.longitude)
+    const isShowFieldsRequired = editing || required
     const isMandatoryFieldEmpty =
-      required &&
+      isShowFieldsRequired &&
       ((mandatoryField.GeographicalCodes && !value.regionId) ||
         (mandatoryField.AddressPart1 && !value.addressPart1) ||
         (mandatoryField.AddressPart2 && !value.addressPart2) ||
@@ -123,7 +124,7 @@ class AddressField extends React.Component {
               onChange={this.regionSelectedHandler}
               value={value.regionId}
               localize={localize}
-              required={required && mandatoryField.GeographicalCodes}
+              required={isShowFieldsRequired && mandatoryField.GeographicalCodes}
               disabled={disabled || !editing}
             />
             <br />
@@ -134,7 +135,7 @@ class AddressField extends React.Component {
                 label={localize('AddressPart1')}
                 placeholder={localize('AddressPart1')}
                 onChange={this.handleEdit}
-                required={required && mandatoryField.AddressPart1}
+                required={isShowFieldsRequired && mandatoryField.AddressPart1}
                 disabled={disabled || !editing}
                 autoComplete="off"
               />
@@ -144,7 +145,7 @@ class AddressField extends React.Component {
                 label={localize('AddressPart2')}
                 placeholder={localize('AddressPart2')}
                 onChange={this.handleEdit}
-                required={required && mandatoryField.AddressPart2}
+                required={isShowFieldsRequired && mandatoryField.AddressPart2}
                 disabled={disabled || !editing}
                 autoComplete="off"
               />
@@ -156,7 +157,7 @@ class AddressField extends React.Component {
                 label={localize('AddressPart3')}
                 placeholder={localize('AddressPart3')}
                 onChange={this.handleEdit}
-                required={required && mandatoryField.AddressPart3}
+                required={isShowFieldsRequired && mandatoryField.AddressPart3}
                 disabled={disabled || !editing}
                 autoComplete="off"
               />
@@ -177,7 +178,7 @@ class AddressField extends React.Component {
                     onChange={this.handleEdit}
                     label={localize('Latitude')}
                     placeholder={localize('Latitude')}
-                    required={required && mandatoryField.Latitude}
+                    required={isShowFieldsRequired && mandatoryField.Latitude}
                     disabled={disabled || !editing}
                     maxLength={10}
                     min="-90"
@@ -201,7 +202,7 @@ class AddressField extends React.Component {
                     onChange={this.handleEdit}
                     label={localize('Longitude')}
                     placeholder={localize('Longitude')}
-                    required={required && mandatoryField.Longitude}
+                    required={isShowFieldsRequired && mandatoryField.Longitude}
                     disabled={disabled || !editing}
                     maxLength={11}
                     min="-180"
