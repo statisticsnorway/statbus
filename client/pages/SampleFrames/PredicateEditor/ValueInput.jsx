@@ -104,7 +104,13 @@ const addValueConverting = R.cond([
 ])
 
 const setAdditionalProps = R.cond([
-  [R.where({ field: oneOf(numberFields) }), ({ ...props }) => ({ ...props })],
+  [
+    R.where({ field: oneOf(numberFields), operation: oneOf(listOperations) }),
+    ({ ...props }) => ({
+      ...props,
+      placeholder: 'Values must be separated by a comma.',
+    }),
+  ],
   [
     R.where({ field: R.equals(1) }),
     ({ field, operation, ...props }) => ({
