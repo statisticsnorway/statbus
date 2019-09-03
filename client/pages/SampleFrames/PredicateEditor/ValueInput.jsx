@@ -53,7 +53,7 @@ const getComponent = R.cond([
   [R.where({ field: oneOf([...selectFields]) }), R.always(SelectField)],
   [
     R.where({ field: oneOf(numberFields), operation: oneOf(rangeOperations) }),
-    R.always(withDebounce(RangeField)),
+    R.always(RangeField),
   ],
   [R.T, R.always(withDebounce(TextField2))],
 ])
@@ -132,7 +132,10 @@ const setAdditionalProps = R.cond([
   [R.T, R.omit(['field', 'operation'])],
 ])
 
-const getProps = R.pipe(addValueConverting, setAdditionalProps)
+const getProps = R.pipe(
+  addValueConverting,
+  setAdditionalProps,
+)
 
 export default function ValueInput(props) {
   const Component = getComponent(props)
