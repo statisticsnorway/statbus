@@ -751,7 +751,7 @@
     <value>Сан 0-дон {0}-го чейин болуш керек</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
-    <value>Аты аймак милдеттүү талаасы</value>
+    <value>Aймактын аты толтурууга зарыл</value>
   </data>
   <data name="RoleNamePlaceholder" xml:space="preserve">
     <value>Ролдун аталышы</value>
@@ -760,7 +760,7 @@
     <value>Ролду баяндоо</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>"Ысым" талаасын сөзсүз толтуруу үчүн</value>
+    <value>Аталышы толтурууга зарыл</value>
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Ишканалар группасы</value>
@@ -778,7 +778,7 @@
     <value>Башкы</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
-    <value>Аты талап кылынат</value>
+    <value>Колдонуучунун аты толтурууга зарыл</value>
   </data>
   <data name="AddressList" xml:space="preserve">
     <value>Дарек Тизмеси</value>
@@ -1144,7 +1144,7 @@
     <value>Ысымдардын арасында</value>
   </data>
   <data name="IsRequired" xml:space="preserve">
-    <value>толтурулуш керек</value>
+    <value>толтурууга зарыл</value>
   </data>
   <data name="ChangeDate" xml:space="preserve">
     <value>Оңдоо датасы</value>
@@ -1933,10 +1933,10 @@
     <value>Толтурууга милдеттүү болгон талаа</value>
   </data>
   <data name="CurrentPasswordIsRequired" xml:space="preserve">
-    <value>"Учурдагы паролду" талаасын сөзсүз толтуруу</value>
+    <value>Азыркы пароль толтурууга зарыл</value>
   </data>
   <data name="EmailIsRequired" xml:space="preserve">
-    <value>"Электрондук почта" талаасын милдеттүү түрдо толтуруу үчүн</value>
+    <value>Электрондук дарек толтурууга зарыл</value>
   </data>
   <data name="EmailValueRequired" xml:space="preserve">
     <value>Cураныч,электрондук даректи көрсөтүңүз</value>
@@ -2029,7 +2029,7 @@
     <value>Байланышты өчүрүү</value>
   </data>
   <data name="LinksNameOrStatIdRequred" xml:space="preserve">
-    <value>"Аталышы! Же  'Код ОКПО' толтуруу зарыл</value>
+    <value>"Аталышы" же "Код ОКПО" толтурууга зарыл</value>
   </data>
   <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
     <value>Маалымат булактарына чектөө көрсөтүлгөн</value>
@@ -2098,16 +2098,16 @@
     <value>Кыска аталыш дубликатталууда</value>
   </data>
   <data name="AnalysisMandatoryContactPerson" xml:space="preserve">
-    <value>Байланышуучу адам толтурулушу керек</value>
+    <value>Байланышуучу адам толтурууга зарыл</value>
   </data>
   <data name="AnalysisMandatoryName" xml:space="preserve">
-    <value>Аталыш толтурулушу керек</value>
+    <value>Аталыш толтурууга зарыл</value>
   </data>
   <data name="AnalysisMandatoryRegistrationReason" xml:space="preserve">
-    <value>Каттоонун себеби  толтурулушу керек</value>
+    <value>Каттоонун себеби толтурууга зарыл</value>
   </data>
   <data name="AnalysisMandatoryShortName" xml:space="preserve">
-    <value>Кыска аталыш толтурулушу керек</value>
+    <value>Кыска аталыш толтурууга зарыл</value>
   </data>
   <data name="AnalysisSameNameAsShortName" xml:space="preserve">
     <value>Кыскача аталышы жана аталышы бирдей мааниг</value>
@@ -2279,5 +2279,26 @@
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Чет элдиктин катышуусунун белгиси</value>
+  </data>
+  <data name="FixErrorsBeforeSubmit" xml:space="preserve">
+    <value>Толтурууга милдеттүү талааларды толтурулуш керек</value>
+  </data>
+  <data name="EconomicInformation" xml:space="preserve">
+    <value>Economic information</value>
+  </data>
+  <data name="ActivityIdDateRequired" xml:space="preserve">
+    <value>One of the "Activities" has no "Activity registration date" field filled</value>
+  </data>
+  <data name="PersonsRoleRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Person Type" field filled</value>
+  </data>
+  <data name="PersonsCountryIdRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Country" field filled.</value>
+  </data>
+  <data name="PersonsGivenNameRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Name" field filled.</value>
+  </data>
+  <data name="PersonsSurnameRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Surname" field filled.</value>
   </data>
 </root>

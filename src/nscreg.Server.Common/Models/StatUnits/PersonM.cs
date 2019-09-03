@@ -2,6 +2,7 @@ using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {
@@ -15,7 +16,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string MiddleName { get; set; }
         public DateTime? BirthDate { get; set; }
         public byte Sex { get; set; }
-        public int Role { get; set; }
+        public int? Role { get; set; }
         public int CountryId { get; set; }
         public string PhoneNumber { get; set; }
         public string PhoneNumber1 { get; set; }
@@ -27,11 +28,13 @@ namespace nscreg.Server.Common.Models.StatUnits
         public PersonMValidator()
         {
             RuleFor(v => v.GivenName)
-                .NotEmpty();
+                .NotEmpty().WithMessage(nameof(Resource.PersonsGivenNameRequired));
             RuleFor(v => v.Surname)
-                .NotEmpty();
+                .NotEmpty().WithMessage(nameof(Resource.PersonsSurnameRequired)); ;
             RuleFor(v => v.CountryId)
-                .GreaterThan(0);
+                .GreaterThan(0).WithMessage(nameof(Resource.PersonsCountryIdRequired)); ;
+            RuleFor(v => v.Role)
+                .NotNull().WithMessage(nameof(Resource.PersonsRoleRequired));
         }
     }
 }

@@ -921,13 +921,13 @@
     <value>Field is required</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>Field 'Name' is required</value>
+    <value>Name is required</value>
   </data>
   <data name="CurrentPasswordIsRequired" xml:space="preserve">
-    <value>Field 'Current password' is required</value>
+    <value>Current password is required</value>
   </data>
   <data name="EmailIsRequired" xml:space="preserve">
-    <value>Field 'EmailIsRequired' is required</value>
+    <value>Email is required</value>
   </data>
   <data name="EmailValueRequired" xml:space="preserve">
     <value>Email value required</value>
@@ -936,7 +936,7 @@
     <value>Field is required</value>
   </data>
   <data name="EnterpriseGroupIsRequired" xml:space="preserve">
-    <value>Field is required</value>
+    <value>Enterprise group is required</value>
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
@@ -957,7 +957,7 @@
     <value>Home</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
-    <value>Field 'Name' is required</value>
+    <value>Name is required</value>
   </data>
   <data name="route_account" xml:space="preserve">
     <value>Account</value>
@@ -2265,7 +2265,7 @@
     <value>You cann't liquidate Enterprise unit</value>
   </data>
   <data name="LiquidateLegalUnit" xml:space="preserve">
-    <value>You will need to liquidate Legal unit</value>
+    <value>Liquidation rules - to liquidate this local unit (that is the single active local unit of its legal unit) you need to liquidate from its legal unit</value>
   </data>
   <data name="UnitHasLiquidated" xml:space="preserve">
     <value>Unit has been liquidated</value>
@@ -2287,5 +2287,26 @@
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Foreign participation</value>
+  </data>
+  <data name="FixErrorsBeforeSubmit" xml:space="preserve">
+    <value>Please fill out all required fields</value>
+  </data>
+  <data name="EconomicInformation" xml:space="preserve">
+    <value>Economic information</value>
+  </data>
+  <data name="ActivityIdDateRequired" xml:space="preserve">
+    <value>One of the "Activities" has no "Activity registration date" field filled</value>
+  </data>
+  <data name="PersonsRoleRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Person Type" field filled</value>
+  </data>
+  <data name="PersonsCountryIdRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Country" field filled.</value>
+  </data>
+  <data name="PersonsGivenNameRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Name" field filled.</value>
+  </data>
+  <data name="PersonsSurnameRequired" xml:space="preserve">
+    <value>One of the "Persons" has no "Surname" field filled.</value>
   </data>
 </root>

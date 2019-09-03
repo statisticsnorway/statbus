@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {
@@ -31,7 +32,7 @@ namespace nscreg.Server.Common.Models.StatUnits
             RuleFor(v => v.Employees)
                 .GreaterThanOrEqualTo(0);
             RuleFor(v => v.IdDate)
-                .NotNull();
+                .NotNull().WithMessage(nameof(Resource.ActivityIdDateRequired));
         }
     }
 }
