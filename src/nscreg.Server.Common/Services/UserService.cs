@@ -51,7 +51,7 @@ namespace nscreg.Server.Common.Services
             }
             if (filter.UserName != null)
             {
-                query = query.Where(u => u.Name.Contains(filter.UserName));
+                query = query.Where(u => u.Name.ToLower().Contains(filter.UserName.ToLower()));
             }
             if (filter.Description != null)
             {
