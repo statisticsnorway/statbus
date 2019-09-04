@@ -2288,4 +2288,10 @@
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Foreign participation</value>
   </data>
+  <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
+    <value>You don't have enough rights to work in this Region</value>
+  </data>
+  <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
+    <value>You don't have enough rights to work in activity category</value>
+  </data>
 </root>

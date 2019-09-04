@@ -2280,4 +2280,10 @@
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Чет элдиктин катышуусунун белгиси</value>
   </data>
+  <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
+    <value>Сиз тандалган региондо статистикалдык бирдикти сактоого уруксат жок</value>
+  </data>
+  <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
+    <value>Сиз тандалган иш-аракеттин түрдө статистикалык бирдикти сактоого уруксат жок</value>
+  </data>
 </root>

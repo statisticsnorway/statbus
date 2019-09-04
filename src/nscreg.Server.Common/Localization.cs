@@ -31,7 +31,10 @@ namespace nscreg.Server.Common
         public static void Initialize()
         {
             if (string.IsNullOrWhiteSpace(LanguagePrimary))
+            {
                 LanguagePrimary = "en-GB";
+                CultureInfo.CurrentCulture = new CultureInfo("en-GB");
+            }
 
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)

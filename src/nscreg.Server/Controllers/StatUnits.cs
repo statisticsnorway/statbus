@@ -12,6 +12,7 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Localization;
 using nscreg.Server.Common;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
@@ -198,7 +199,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            var result = await _createService.CreateLegalUnit(data, User.GetUserId());
+            var result = await _createService.CreateLegalUnit(data, User.GetUserId(), HttpContext.Request.Cookies[CookieRequestCultureProvider.DefaultCookieName]);
             if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
