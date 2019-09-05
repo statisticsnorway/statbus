@@ -260,25 +260,29 @@ class Create extends React.Component {
             autoComplete="off"
             label={localize('UserStatus')}
           />
-          <ActivityTree
-            name="activiyCategoryIds"
-            label="ActivityCategoryLookup"
-            dataTree={activityTree}
-            loaded={!fetchingActivities}
-            checked={data.activiyCategoryIds}
-            callBack={this.setActivities}
-            localize={localize}
-            loadNode={this.fetchActivityTree}
-          />
-          <RegionTree
-            name="RegionTree"
-            label="Regions"
-            loaded={!fetchingRegions}
-            dataTree={regionTree}
-            checked={data.userRegions}
-            callBack={this.handleCheck}
-            localize={localize}
-          />
+          {!fetchingRoles && data.assignedRole !== roles.admin && (
+            <ActivityTree
+              name="activiyCategoryIds"
+              label="ActivityCategoryLookup"
+              dataTree={activityTree}
+              loaded={!fetchingActivities}
+              checked={data.activiyCategoryIds}
+              callBack={this.setActivities}
+              localize={localize}
+              loadNode={this.fetchActivityTree}
+            />
+          )}
+          {!fetchingRoles && data.assignedRole !== roles.admin && (
+            <RegionTree
+              name="RegionTree"
+              label="Regions"
+              loaded={!fetchingRegions}
+              dataTree={regionTree}
+              checked={data.userRegions}
+              callBack={this.handleCheck}
+              localize={localize}
+            />
+          )}
           <Form.Input
             name="description"
             value={data.description}
