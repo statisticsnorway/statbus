@@ -199,7 +199,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            var result = await _createService.CreateLegalUnit(data, User.GetUserId(), HttpContext.Request.Cookies[CookieRequestCultureProvider.DefaultCookieName]);
+            var result = await _createService.CreateLegalUnit(data, User.GetUserId());
             if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();

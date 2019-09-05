@@ -49,40 +49,50 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
         }
 
-        private void CheckRegionOrActivityContains(string userId, int? regionId, List<ActivityM> activityCategoryList, string locale)
+        private void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<ActivityM> activityCategoryList)
         {
             if (!_userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result) return;
-            CheckIfRegionContains(userId, regionId);
-            CheckIfActivityContains(userId, activityCategoryList, locale);
+            CheckIfRegionContains(userId, regionId, actualRegionId, postalRegionId);
+            CheckIfActivityContains(userId, activityCategoryList);
         }
 
-        private void CheckIfRegionContains(string userId, int? regionId)
+        private void CheckIfRegionContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId)
         {
             var regionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
-            if (regionIds.Count == 0 || !regionIds.Contains((int)regionId))
-                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsRegion));
+
+            if (regionIds.Count == 0)
+                throw new BadRequestException(Resource.YouDontHaveEnoughtRightsRegion);
+            var listRegions = new List<int>();
+            if (regionId != null && !regionIds.Contains((int) regionId))
+                listRegions.Add((int) regionId);
+            if (actualRegionId != null && !regionIds.Contains((int) actualRegionId))
+                listRegions.Add((int) actualRegionId);
+            if (postalRegionId != null && !regionIds.Contains((int) postalRegionId))
+                listRegions.Add((int) postalRegionId);
+            if (listRegions.Count > 0)
+            {
+                var regionNames = _dbContext.Regions.Where(x => listRegions.Contains(x.Id))
+                    .Select(x => new CodeLookupBase{ Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2}.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
+                throw new BadRequestException($"({Resource.YouDontHaveEnoughtRightsRegion} ({string.Join(",",regionNames.Distinct())})");
+            }
         }
 
-        private void CheckIfActivityContains(string userId, List<ActivityM> activityCategoryList, string locale)
+        private void CheckIfActivityContains(string userId, List<ActivityM> activityCategoryList)
         {
             foreach (var activityCategory in activityCategoryList)
             {
                 if (activityCategory?.ActivityCategoryId == null)
-                    throw new BadRequestException($"{nameof(Resource.YouDontHaveEnoughtRightsActivityCategory)}");
+                    throw new BadRequestException($"{Resource.YouDontHaveEnoughtRightsActivityCategory}");
                 
                 var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
                     .Select(ur => ur.ActivityCategoryId).ToList();
                 if (activityCategoryUserIds.Count == 0 || !activityCategoryUserIds.Contains(activityCategory.ActivityCategoryId))
                 {
                     var activityCategoryNames =
-                        _dbContext.ActivityCategories.Select(x => new { x.Name, x.NameLanguage1, x.NameLanguage2, x.Id }).FirstOrDefault(x => x.Id == activityCategory.ActivityCategoryId);
-                    string langName = "";
-                    if (locale == new CultureInfo(Localization.Language1).TwoLetterISOLanguageName)
-                        langName = activityCategoryNames?.NameLanguage1;
-                    else if (locale == new CultureInfo(Localization.Language2).TwoLetterISOLanguageName)
-                        langName = activityCategoryNames?.NameLanguage2;
-                    else langName = activityCategoryNames?.Name;
-                    throw new BadRequestException($"{nameof(Resource.YouDontHaveEnoughtRightsActivityCategory)} ({langName})");
+                        _dbContext.ActivityCategories.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1,NameLanguage2 = x.NameLanguage2, Id = x.Id }).FirstOrDefault(x => x.Id == activityCategory.ActivityCategoryId);
+
+                    var langName = activityCategoryNames.GetString(CultureInfo.DefaultThreadCurrentCulture);
+                    throw new BadRequestException($"{Resource.YouDontHaveEnoughtRightsActivityCategory} ({langName})");
                 }
             }
         }
@@ -92,10 +102,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId, string locale = null)
+        public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
-                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.Activities, locale);
+                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     if (data.LocalUnits == null) return Task.CompletedTask;
@@ -117,9 +127,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId, string locale = null)
+        public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
         {
-            CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.Activities, locale);
+            CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
             return await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
         }
 
@@ -129,10 +139,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId, string locale = null)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
-                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.Activities, locale);
+                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
                 var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                 foreach (var legalUnit in legalUnits)
                 {
@@ -151,10 +161,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId, string locale = null)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
-                CheckRegionOrActivityContains(userId, data.Address?.RegionId, null, locale);
+                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, null);
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
                     var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId))
