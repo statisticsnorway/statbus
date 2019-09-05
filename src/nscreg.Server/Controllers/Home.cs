@@ -138,7 +138,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [AllowAnonymous]
         [HttpGet("[action]")]
-        public async Task<IActionResult> ChangeCulture(string locale)
+        public IActionResult ChangeCulture(string locale)
         {
             CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(locale);
             Response.Cookies.Append(
