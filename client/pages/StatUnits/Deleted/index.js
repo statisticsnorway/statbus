@@ -18,8 +18,11 @@ const createFilterFromQuery = (query) => {
 
 const hooks = {
   componentDidMount() {
-    this.props.actions.clearSearchFormForDeleted()
-    if (this.props.queryString === '') return
+    if (!this.props.queryString) {
+      this.props.actions.clearSearchFormForDeleted()
+      this.props.actions.fetchData(this.props.query)
+      return
+    }
     const newQuery = createFilterFromQuery(this.props.query)
     if (!equals(this.props.formData, newQuery)) {
       this.props.actions.updateFilter(newQuery)
@@ -41,9 +44,10 @@ const hooks = {
   },
 }
 
-const mapStateToProps = ({ deletedStatUnits, locale }, { location: { query } }) => ({
+const mapStateToProps = ({ deletedStatUnits, locale }, { location: { query, search } }) => ({
   ...deletedStatUnits,
   localize: getText(locale),
+  queryString: search,
   query,
   locale,
 })

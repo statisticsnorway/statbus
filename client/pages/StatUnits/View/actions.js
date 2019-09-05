@@ -12,6 +12,7 @@ export const fetchHistoryDetailsStarted = createAction('fetch History Details st
 export const fetchSectorSucceeded = createAction('fetch Sector succeeded')
 export const fetchLegalFormSucceeded = createAction('fetch LegalForm succeeded')
 export const fetchUnitStatusSucceeded = createAction('fetch UnitStatus succeeded')
+export const clear = createAction('clear')
 
 const fetchSector = sectorCodeId =>
   dispatchRequest({
@@ -101,4 +102,5 @@ export default {
   fetchSector,
   fetchLegalForm,
   fetchUnitStatus,
+  clear,
 }
