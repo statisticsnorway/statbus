@@ -57,6 +57,7 @@ const viewStatUnit = createReducer(
       statUnit: Object,
       errorMessage: data,
     }),
+    [actionTypes.clear]: () => initialState,
   },
   initialState,
 )

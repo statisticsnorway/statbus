@@ -38,6 +38,7 @@ class StatUnitViewPage extends React.Component {
       getUnitLinks: func.isRequired,
       getOrgLinks: func.isRequired,
       navigateBack: func.isRequired,
+      clear: func.isRequired,
     }).isRequired,
     localize: func.isRequired,
   }
@@ -65,6 +66,10 @@ class StatUnitViewPage extends React.Component {
       !R.equals(this.state, nextState) ||
       !R.equals(this.props, nextProps)
     )
+  }
+
+  componentWillUnmount() {
+    this.props.actions.clear()
   }
 
   handleTabClick = (_, { name }) => {
