@@ -12,7 +12,6 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Localization;
 using nscreg.Server.Common;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
