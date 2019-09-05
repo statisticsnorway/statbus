@@ -89,7 +89,7 @@ namespace nscreg.Server
             Localization.Language2 = localization["Language2"];
             Localization.Initialize();
             var supportedCultures = new List<CultureInfo>(new[]
-                {new CultureInfo(Localization.Language1), new CultureInfo(Localization.Language2)});
+                {new CultureInfo(Localization.LanguagePrimary), new CultureInfo(Localization.Language1), new CultureInfo(Localization.Language2)});
             app.UseRequestLocalization(new RequestLocalizationOptions()
             {
                 DefaultRequestCulture = new RequestCulture(Localization.LanguagePrimary),
@@ -181,6 +181,8 @@ namespace nscreg.Server
                     policyBuilder => { policyBuilder.Requirements.Add(new SystemFunctionAuthRequirement()); }))
                 .AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
+                .AddDataAnnotationsLocalization()
+                .AddViewLocalization()
                 .AddViews();
 
             var keysDirectory = new DirectoryInfo(Configuration["DataProtectionKeysDir"]);

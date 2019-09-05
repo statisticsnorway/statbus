@@ -5,7 +5,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
@@ -18,7 +17,6 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common;
-using nscreg.Server.Core;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -143,6 +141,11 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> ChangeCulture(string locale)
         {
             CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(locale);
+            Response.Cookies.Append(
+                CookieRequestCultureProvider.DefaultCookieName,
+                CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),
+                new CookieOptions { Expires = DateTimeOffset.UtcNow.AddMonths(1) }
+            );
             return Ok();
         }
     }

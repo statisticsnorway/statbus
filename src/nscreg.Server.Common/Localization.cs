@@ -34,10 +34,13 @@ namespace nscreg.Server.Common
             if (string.IsNullOrWhiteSpace(LanguagePrimary))
             {
                 LanguagePrimary = "en-GB";
-                CultureInfo.CurrentCulture = new CultureInfo("en-GB");
+                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-GB");
             }
-            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-GB");
-
+            else
+            {
+                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(LanguagePrimary);
+            }
+            
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
                 .Where(x => x.PropertyType == typeof(string))
