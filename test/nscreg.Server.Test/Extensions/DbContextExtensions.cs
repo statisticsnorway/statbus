@@ -53,6 +53,18 @@ namespace nscreg.Server.Test.Extensions
                 };
                 context.Roles.Add(role);
             }
+
+            context.Roles.Add(new Role()
+            {
+                Name = DefaultRoleNames.Employee,
+                Status = RoleStatuses.Active,
+                Description = "Employee",
+                NormalizedName = DefaultRoleNames.Employee.ToUpper(),
+                AccessToSystemFunctionsArray = ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
+                StandardDataAccessArray = new DataAccessPermissions(
+                    new List<string> {"LocalUnit.1", "LegalUnit.2", "EnterpriseUnit.3", "EnterpriseGroup.4"}
+                        .Select(x => new Permission(x, true, true)))
+            });
             var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == role.Id);
             if (anyAdminHere) return;
             var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
