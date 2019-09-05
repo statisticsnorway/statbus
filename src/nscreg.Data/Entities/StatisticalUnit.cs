@@ -209,10 +209,6 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
 
-        [JsonIgnore]
-        public IEnumerable<EnterpriseGroup> PersonEnterpriseGroups => PersonsUnits
-            .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
-
         [NotMapped]
         [Display(Order = 600, GroupName = GroupNames.Persons)]
         public IEnumerable<Person> Persons

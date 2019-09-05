@@ -20,7 +20,7 @@ namespace nscreg.Resources.Languages {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resource {
@@ -6610,6 +6610,24 @@ namespace nscreg.Resources.Languages {
         public static string Yes {
             get {
                 return ResourceManager.GetString("Yes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You don&apos;t have enough rights to work in activity category.
+        /// </summary>
+        public static string YouDontHaveEnoughtRightsActivityCategory {
+            get {
+                return ResourceManager.GetString("YouDontHaveEnoughtRightsActivityCategory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You don&apos;t have enough rights to work in this Region.
+        /// </summary>
+        public static string YouDontHaveEnoughtRightsRegion {
+            get {
+                return ResourceManager.GetString("YouDontHaveEnoughtRightsRegion", resourceCulture);
             }
         }
     }

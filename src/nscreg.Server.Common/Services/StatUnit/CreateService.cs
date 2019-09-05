@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
@@ -46,15 +49,53 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
         }
 
+        private void CheckRegionOrActivityContains(string userId, int? regionId, List<ActivityM> activityCategoryList, string locale)
+        {
+            if (!_userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result) return;
+            CheckIfRegionContains(userId, regionId);
+            CheckIfActivityContains(userId, activityCategoryList, locale);
+        }
+
+        private void CheckIfRegionContains(string userId, int? regionId)
+        {
+            var regionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
+            if (regionIds.Count == 0 || !regionIds.Contains((int)regionId))
+                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsRegion));
+        }
+
+        private void CheckIfActivityContains(string userId, List<ActivityM> activityCategoryList, string locale)
+        {
+            foreach (var activityCategory in activityCategoryList)
+            {
+                if (activityCategory?.ActivityCategoryId == null)
+                    throw new BadRequestException($"{nameof(Resource.YouDontHaveEnoughtRightsActivityCategory)}");
+                
+                var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
+                    .Select(ur => ur.ActivityCategoryId).ToList();
+                if (activityCategoryUserIds.Count == 0 || !activityCategoryUserIds.Contains(activityCategory.ActivityCategoryId))
+                {
+                    var activityCategoryNames =
+                        _dbContext.ActivityCategories.Select(x => new { x.Name, x.NameLanguage1, x.NameLanguage2, x.Id }).FirstOrDefault(x => x.Id == activityCategory.ActivityCategoryId);
+                    string langName = "";
+                    if (locale == new CultureInfo(Localization.Language1).TwoLetterISOLanguageName)
+                        langName = activityCategoryNames?.NameLanguage1;
+                    else if (locale == new CultureInfo(Localization.Language2).TwoLetterISOLanguageName)
+                        langName = activityCategoryNames?.NameLanguage2;
+                    else langName = activityCategoryNames?.Name;
+                    throw new BadRequestException($"{nameof(Resource.YouDontHaveEnoughtRightsActivityCategory)} ({langName})");
+                }
+            }
+        }
         /// <summary>
         /// Метод создания правовой единицы
         /// </summary>
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId, string locale = null)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
+                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.Activities, locale);
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     if (data.LocalUnits == null) return Task.CompletedTask;
@@ -76,8 +117,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
-            => await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
+        public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId, string locale = null)
+        {
+            CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.Activities, locale);
+            return await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
+        }
 
         /// <summary>
         /// Метод создания предприятия
@@ -85,9 +129,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId, string locale = null)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
+                CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.Activities, locale);
                 var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                 foreach (var legalUnit in legalUnits)
                 {
@@ -106,9 +151,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">Данные</param>
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
-        public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId, string locale = null)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
+                CheckRegionOrActivityContains(userId, data.Address?.RegionId, null, locale);
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
                     var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId))
@@ -124,7 +170,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 
                 return Task.CompletedTask;
             });
-
         /// <summary>
         /// Метод создания контекста стат. единицы
         /// </summary>
