@@ -179,6 +179,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of the &quot;Activities&quot; has no &quot;Activity registration date&quot; field filled.
+        /// </summary>
+        public static string ActivityIdDateRequired {
+            get {
+                return ResourceManager.GetString("ActivityIdDateRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Primary actual.
         /// </summary>
         public static string ActivityPrimary {
@@ -1322,7 +1331,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;Current password&apos; is required.
+        ///   Looks up a localized string similar to Current password is required.
         /// </summary>
         public static string CurrentPasswordIsRequired {
             get {
@@ -1835,6 +1844,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Economic information.
+        /// </summary>
+        public static string EconomicInformation {
+            get {
+                return ResourceManager.GetString("EconomicInformation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Edit account.
         /// </summary>
         public static string EditAccount {
@@ -1916,7 +1934,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;EmailIsRequired&apos; is required.
+        ///   Looks up a localized string similar to Email is required.
         /// </summary>
         public static string EmailIsRequired {
             get {
@@ -2069,7 +2087,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field is required.
+        ///   Looks up a localized string similar to Enterprise group is required.
         /// </summary>
         public static string EnterpriseGroupIsRequired {
             get {
@@ -2335,6 +2353,15 @@ namespace nscreg.Resources.Languages {
         public static string FileHasEmptyUnit {
             get {
                 return ResourceManager.GetString("FileHasEmptyUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please fill out all required fields.
+        /// </summary>
+        public static string FixErrorsBeforeSubmit {
+            get {
+                return ResourceManager.GetString("FixErrorsBeforeSubmit", resourceCulture);
             }
         }
         
@@ -3023,7 +3050,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You will need to liquidate Legal unit.
+        ///   Looks up a localized string similar to Liquidation rules - to liquidate this local unit (that is the single active local unit of its legal unit) you need to liquidate from its legal unit.
         /// </summary>
         public static string LiquidateLegalUnit {
             get {
@@ -3302,7 +3329,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;Name&apos; is required.
+        ///   Looks up a localized string similar to Name is required.
         /// </summary>
         public static string NameIsRequired {
             get {
@@ -3806,11 +3833,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Country&quot; field filled..
+        /// </summary>
+        public static string PersonsCountryIdRequired {
+            get {
+                return ResourceManager.GetString("PersonsCountryIdRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to To improve search, input additional parameters.
         /// </summary>
         public static string PersonSearchPopup {
             get {
                 return ResourceManager.GetString("PersonSearchPopup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Name&quot; field filled..
+        /// </summary>
+        public static string PersonsGivenNameRequired {
+            get {
+                return ResourceManager.GetString("PersonsGivenNameRequired", resourceCulture);
             }
         }
         
@@ -3824,11 +3869,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Person Type&quot; field filled.
+        /// </summary>
+        public static string PersonsRoleRequired {
+            get {
+                return ResourceManager.GetString("PersonsRoleRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Persons Search.
         /// </summary>
         public static string PersonsSearch {
             get {
                 return ResourceManager.GetString("PersonsSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Surname&quot; field filled..
+        /// </summary>
+        public static string PersonsSurnameRequired {
+            get {
+                return ResourceManager.GetString("PersonsSurnameRequired", resourceCulture);
             }
         }
         
@@ -6227,7 +6290,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;Name&apos; is required.
+        ///   Looks up a localized string similar to Name is required.
         /// </summary>
         public static string UserNameIsRequired {
             get {

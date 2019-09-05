@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Resources;
+using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common
@@ -35,6 +36,7 @@ namespace nscreg.Server.Common
                 LanguagePrimary = "en-GB";
                 CultureInfo.CurrentCulture = new CultureInfo("en-GB");
             }
+            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-GB");
 
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
@@ -46,6 +48,15 @@ namespace nscreg.Server.Common
             AddLanguage(keys, resourceManager, LanguagePrimary, string.Empty);
             AddLanguage(keys, resourceManager, Language1, Language1);
             AddLanguage(keys, resourceManager, Language2, Language2);
+        }
+
+        public static string GetString(this LookupBase lookupBase, CultureInfo cultureInfo)
+        {
+            if (cultureInfo.Equals(new CultureInfo(Language1)))
+                return lookupBase?.NameLanguage1;
+            if (cultureInfo.Equals(new CultureInfo(Language2)))
+                return lookupBase?.NameLanguage2;
+            return lookupBase?.Name;
         }
     }
 }

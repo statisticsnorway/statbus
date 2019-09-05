@@ -142,11 +142,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         public async Task<IActionResult> ChangeCulture(string locale)
         {
-            Response.Cookies.Append(
-                CookieRequestCultureProvider.DefaultCookieName,
-                CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),
-                new CookieOptions { Expires = DateTimeOffset.UtcNow.AddMonths(1) }
-            );
+            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(locale);
             return Ok();
         }
     }
