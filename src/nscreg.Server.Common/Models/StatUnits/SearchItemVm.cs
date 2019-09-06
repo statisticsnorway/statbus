@@ -9,7 +9,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public static class SearchItemVm
     {
-        public static object Create<T>(T statUnit, StatUnitTypes type, ISet<string> propNames) where T : class
+        public static object Create<T>(T statUnit, StatUnitTypes type, ISet<string> propNames, bool? isReadonly = null) where T : class
         {
             var unitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type);
             if (unitType != typeof(T))
@@ -22,7 +22,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                         .ToList()
                 );
             }
-            return DataAccessResolver.Execute(statUnit, propNames, jo => { jo.Add("type", (int)type); });
+            return DataAccessResolver.Execute(statUnit, propNames, jo => { jo.Add("type", (int)type); jo.Add("readonly", isReadonly); });
         }
     }
 }

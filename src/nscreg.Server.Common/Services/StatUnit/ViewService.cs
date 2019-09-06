@@ -15,6 +15,7 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -76,16 +77,20 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId, ActionsEnum ignoredActions)
         {
-            var regionIds = await _context.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
             bool isEmployee = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee);
             var item = id.HasValue
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
-            if ((ignoredActions == ActionsEnum.Edit || ignoredActions == ActionsEnum.View) && isEmployee && (item.Address == null || !regionIds.Contains(item.Address.RegionId)))
+
+            if (item == null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
+
+            
+            if ((ignoredActions == ActionsEnum.Edit || ignoredActions == ActionsEnum.Create) && isEmployee)
             {
-                throw new BadRequestException(nameof(Resource.NotFoundMessage));
+                var helper = new StatUnitCheckPermissionsHelper(_context);
+                helper.CheckIfRegionContains(userId, item.Address?.RegionId, item.ActualAddress?.RegionId, item.PostalAddress?.RegionId);
             }
-            if (item==null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
+            
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
 
             var config = type == StatUnitTypes.EnterpriseGroup

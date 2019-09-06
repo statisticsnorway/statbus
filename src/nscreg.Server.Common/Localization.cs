@@ -34,11 +34,11 @@ namespace nscreg.Server.Common
             if (string.IsNullOrWhiteSpace(LanguagePrimary))
             {
                 LanguagePrimary = "en-GB";
-                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-GB");
+                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(string.Empty);
             }
             else
             {
-                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(LanguagePrimary);
+                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(LanguagePrimary == "en-GB" ? string.Empty : LanguagePrimary);
             }
             
             var keys = typeof(Resource)
@@ -60,6 +60,13 @@ namespace nscreg.Server.Common
             if (cultureInfo.Equals(new CultureInfo(Language2)))
                 return lookupBase?.NameLanguage2;
             return lookupBase?.Name;
+        }
+
+        public static string GetString(string name)
+        {
+            var resourceManager = new ResourceManager(typeof(Resource));
+            var lang = CultureInfo.DefaultThreadCurrentCulture.ToString();
+            return resourceManager.GetString(name, new CultureInfo(lang == "en-GB" ? string.Empty : lang));
         }
     }
 }

@@ -140,7 +140,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         public IActionResult ChangeCulture(string locale)
         {
-            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(locale);
+            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(locale == "en-GB" ? string.Empty : locale);
             Response.Cookies.Append(
                 CookieRequestCultureProvider.DefaultCookieName,
                 CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),

@@ -5,8 +5,7 @@
     "**/.hg": true,
     "**/CVS": true,
     "**/.DS_Store": true,
-    "src": true,
-    "test": true,
-    "client": true
+    "src": false,
+    "test": true
   }
 }
