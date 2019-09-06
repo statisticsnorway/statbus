@@ -32,6 +32,26 @@ namespace nscreg.Server.Common.Helpers
             CheckIfActivityContains(userId, activityCategoryList);
         }
 
+        public bool IsRegionContains(string userId, int? regionId, int? actualRegionId = null, int? postalRegionId = null)
+        {
+            var regionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
+
+            if (regionIds.Count == 0)
+                return false;
+            var listRegions = new List<int>();
+            if (regionId != null && !regionIds.Contains((int)regionId))
+                listRegions.Add((int)regionId);
+            if (actualRegionId != null && !regionIds.Contains((int)actualRegionId))
+                listRegions.Add((int)actualRegionId);
+            if (postalRegionId != null && !regionIds.Contains((int)postalRegionId))
+                listRegions.Add((int)postalRegionId);
+            if (listRegions.Count > 0)
+            {
+                return false;
+            }
+            return true;
+        }
+
         public void CheckIfRegionContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId)
         {
             var regionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
