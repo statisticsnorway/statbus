@@ -46,7 +46,7 @@ namespace nscreg.Server.Common.Services
 
             var filtered = _context.DataSources
                 .AsNoTracking()
-                .Where(ds => string.IsNullOrEmpty(wildcard) || ds.Name.Contains(wildcard))
+                .Where(ds => string.IsNullOrEmpty(wildcard) || ds.Name.ToLower().Contains(wildcard.ToLower()))
                 .Where(ds => statUnitType == 0 || ds.StatUnitType == (StatUnitTypes) statUnitType)
                 .Where(ds => priority == 0 || ds.Priority == priority)
                 .Where(ds => allowedOperations == 0 || ds.AllowedOperations == allowedOperations)
