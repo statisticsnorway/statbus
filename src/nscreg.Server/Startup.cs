@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -25,6 +27,7 @@ using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Localization;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
@@ -79,9 +82,21 @@ namespace nscreg.Server
                 .AddNLog();
 
             _loggerFactory = loggerFactory;
-
+            
+            var localization = Configuration.GetSection(nameof(LocalizationSettings));
+            Localization.LanguagePrimary = localization["DefaultKey"];
+            Localization.Language1 = localization["Language1"];
+            Localization.Language2 = localization["Language2"];
+            Localization.Initialize();
+            var supportedCultures = new List<CultureInfo>(new[]
+                {new CultureInfo(Localization.LanguagePrimary), new CultureInfo(Localization.Language1), new CultureInfo(Localization.Language2)});
+            app.UseRequestLocalization(new RequestLocalizationOptions()
+            {
+                DefaultRequestCulture = new RequestCulture(Localization.LanguagePrimary),
+                SupportedCultures = supportedCultures,
+                SupportedUICultures = supportedCultures
+            });
             app.UseStaticFiles();
-
             app.UseIdentity()
                 .UseMvc(routes => routes.MapRoute(
                     "default",
@@ -117,11 +132,6 @@ namespace nscreg.Server
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
 
-            var localization = Configuration.GetSection(nameof(LocalizationSettings));
-            Localization.LanguagePrimary = localization["DefaultKey"];
-            Localization.Language1 = localization["Language1"];
-            Localization.Language2 = localization["Language2"];
-            Localization.Initialize();
         }
 
         /// <summary>
@@ -171,6 +181,8 @@ namespace nscreg.Server
                     policyBuilder => { policyBuilder.Requirements.Add(new SystemFunctionAuthRequirement()); }))
                 .AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
+                .AddDataAnnotationsLocalization()
+                .AddViewLocalization()
                 .AddViews();
 
             var keysDirectory = new DirectoryInfo(Configuration["DataProtectionKeysDir"]);

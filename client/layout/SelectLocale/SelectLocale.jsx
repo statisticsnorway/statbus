@@ -2,7 +2,7 @@ import React from 'react'
 import { func, string } from 'prop-types'
 import { Dropdown, Flag } from 'semantic-ui-react'
 
-import { getFlag, setLocale } from 'helpers/locale'
+import { getFlag, setLocale, requestToChangeLocale } from 'helpers/locale'
 import config from 'helpers/config'
 
 const SelectLocale = ({ locale, selectLocale }) => {
@@ -10,6 +10,7 @@ const SelectLocale = ({ locale, selectLocale }) => {
   const handleSelect = value => () => {
     setLocale(value)
     selectLocale(value)
+    requestToChangeLocale(value)
   }
   return (
     <Dropdown trigger={trigger} className="item" icon="caret down" simple>

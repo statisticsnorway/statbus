@@ -59,6 +59,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             await FillRegionParents(item.PostalAddress);
 
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
+            foreach (var person in item.PersonsUnits)
+            {
+                if (person.PersonTypeId != null) person.Person.Role = (int) person.PersonTypeId;
+            }
             return SearchItemVm.Create(item, item.UnitType, dataAttributes.GetReadablePropNames());
         }
 
@@ -77,7 +81,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var item = id.HasValue
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
-            if (isEmployee && !regionIds.Contains(item.Address.RegionId))
+            if ((ignoredActions == ActionsEnum.Edit || ignoredActions == ActionsEnum.View) && isEmployee && (item.Address == null || !regionIds.Contains(item.Address.RegionId)))
             {
                 throw new BadRequestException(nameof(Resource.NotFoundMessage));
             }
