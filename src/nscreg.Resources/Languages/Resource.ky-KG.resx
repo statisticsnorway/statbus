@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2300,5 +2300,11 @@
   </data>
   <data name="PersonsSurnameRequired" xml:space="preserve">
     <value>One of the "Persons" has no "Surname" field filled.</value>
+  </data>
+  <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
+    <value>Сиз тандалган региондо статистикалдык бирдикти сактоого уруксат жок</value>
+  </data>
+  <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
+    <value>Сиз тандалган иш-аракеттин түрдө статистикалык бирдикти сактоого уруксат жок</value>
   </data>
 </root>

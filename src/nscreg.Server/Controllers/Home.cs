@@ -1,20 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common;
-using nscreg.Server.Core;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -128,6 +130,23 @@ namespace nscreg.Server.Controllers
                         operations = x.GetCustomAttribute<OperationAllowedAttribute>().AllowedOperations,
                     });
             }
+        }
+        /// <summary>
+        /// Change global culture
+        /// </summary>
+        /// <param name="locale"></param>
+        /// <returns></returns>
+        [AllowAnonymous]
+        [HttpGet("[action]")]
+        public IActionResult ChangeCulture(string locale)
+        {
+            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(locale == "en-GB" ? string.Empty : locale);
+            Response.Cookies.Append(
+                CookieRequestCultureProvider.DefaultCookieName,
+                CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),
+                new CookieOptions { Expires = DateTimeOffset.UtcNow.AddMonths(1) }
+            );
+            return Ok();
         }
     }
 }

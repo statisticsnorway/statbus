@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Resources;
+using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common
@@ -31,8 +32,15 @@ namespace nscreg.Server.Common
         public static void Initialize()
         {
             if (string.IsNullOrWhiteSpace(LanguagePrimary))
+            {
                 LanguagePrimary = "en-GB";
-
+                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(string.Empty);
+            }
+            else
+            {
+                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(LanguagePrimary == "en-GB" ? string.Empty : LanguagePrimary);
+            }
+            
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
                 .Where(x => x.PropertyType == typeof(string))
@@ -43,6 +51,22 @@ namespace nscreg.Server.Common
             AddLanguage(keys, resourceManager, LanguagePrimary, string.Empty);
             AddLanguage(keys, resourceManager, Language1, Language1);
             AddLanguage(keys, resourceManager, Language2, Language2);
+        }
+
+        public static string GetString(this LookupBase lookupBase, CultureInfo cultureInfo)
+        {
+            if (cultureInfo.Equals(new CultureInfo(Language1)))
+                return lookupBase?.NameLanguage1;
+            if (cultureInfo.Equals(new CultureInfo(Language2)))
+                return lookupBase?.NameLanguage2;
+            return lookupBase?.Name;
+        }
+
+        public static string GetString(string name)
+        {
+            var resourceManager = new ResourceManager(typeof(Resource));
+            var lang = CultureInfo.DefaultThreadCurrentCulture.ToString();
+            return resourceManager.GetString(name, new CultureInfo(lang == "en-GB" ? string.Empty : lang));
         }
     }
 }
