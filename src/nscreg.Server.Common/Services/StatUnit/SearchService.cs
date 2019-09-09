@@ -46,6 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool isDeleted = false)
         {
             bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+            bool isEmployee = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee);
 
             long totalCount;
             List<ElasticStatUnit> units;
@@ -88,7 +89,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],
                     regions.GetValueOrDefault(x.RegionId)))
-                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames(), !helper.IsRegionContains(userId, x.RegionId)));
+                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames(), isEmployee && !helper.IsRegionContains(userId, x.RegionId)));
 
             return SearchVm.Create(result, totalCount);
         }
