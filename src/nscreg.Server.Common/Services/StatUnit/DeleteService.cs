@@ -9,6 +9,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.History;
+using nscreg.Server.Common.Helpers;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
@@ -60,12 +61,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new UnauthorizedAccessException();
             }
 
-            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, false);
-            var regionIds = _dbContext.UserRegions.AsNoTracking().Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
+            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, false).Result;
             bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
-            if (isEmployee && !regionIds.Result.Contains(item.Result.Address.RegionId))
+
+            if (isEmployee)
             {
-                throw new UnauthorizedAccessException();
+                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+                helper.CheckIfRegionContains(userId, item.Address?.RegionId, item.ActualAddress?.RegionId, item.PostalAddress?.RegionId);
             }
             var unit = _deleteUndeleteActions[unitType](id, toDelete, userId);
             

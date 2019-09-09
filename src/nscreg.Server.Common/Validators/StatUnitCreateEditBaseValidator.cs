@@ -16,6 +16,9 @@ namespace nscreg.Server.Common.Validators
             RuleForEach(v => v.Activities)
                 .SetValidator(new ActivityMValidator());
 
+            RuleForEach(v => v.Persons)
+                .SetValidator(new PersonMValidator());
+
             RuleFor(v => v.Address)
                 .SetValidator(new AddressMValidator());
 

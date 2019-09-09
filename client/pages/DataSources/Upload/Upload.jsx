@@ -80,6 +80,7 @@ class Upload extends React.Component {
                 onChange={this.handleEdit('dataSourceId')}
                 options={options}
                 placeholder={localize('SelectDataSource')}
+                autoComplete="off"
                 selection
                 fluid
               />
@@ -89,6 +90,7 @@ class Upload extends React.Component {
                 value={description}
                 onChange={this.handleEdit('description')}
                 placeholder={localize('EnterDescription')}
+                autoComplete="off"
                 fluid
               />
             </Grid.Column>

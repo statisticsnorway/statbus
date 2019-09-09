@@ -19,13 +19,21 @@ const createFilterFromQuery = (query) => {
 const hooks = {
   componentDidMount() {
     this.props.fetchLookup(5)
-    if (this.props.queryString === '') return
+    if (!this.props.queryString) {
+      this.props.clear()
+      return
+    }
     const newQuery = createFilterFromQuery(this.props.query)
     if (!equals(this.props.formData, newQuery)) {
       this.props.updateFilter(newQuery)
       this.props.fetchData(newQuery)
     }
     window.scrollTo(0, 0)
+  },
+  componentWillReceiveProps(nextProps) {
+    if (!equals(nextProps.query, this.props.query)) {
+      nextProps.fetchData(nextProps.query)
+    }
   },
   shouldComponentUpdate(nextProps, nextState) {
     return (

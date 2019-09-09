@@ -5,6 +5,7 @@ const initialState = {
   statUnit: undefined,
   history: {},
   historyDetails: {},
+  errorMessage: undefined,
 }
 
 const viewStatUnit = createReducer(
@@ -12,6 +13,7 @@ const viewStatUnit = createReducer(
     [actionTypes.fetchStatUnitSucceeded]: (state, data) => ({
       ...state,
       statUnit: data,
+      errorMessage: undefined,
     }),
     [actionTypes.fetchHistoryStarted]: state => ({
       ...state,
@@ -55,6 +57,7 @@ const viewStatUnit = createReducer(
       statUnit: Object,
       errorMessage: data,
     }),
+    [actionTypes.clear]: () => initialState,
   },
   initialState,
 )

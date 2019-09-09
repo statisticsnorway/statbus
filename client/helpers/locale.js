@@ -1,11 +1,19 @@
 import { connect } from 'react-redux'
 import { shouldUpdate } from 'recompose'
 import { pipe } from 'ramda'
+import { internalRequest } from 'helpers/request'
 
 import { setMomentLocale } from 'helpers/dateHelper'
 import config from 'helpers/config'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
+export function requestToChangeLocale(locale) {
+  internalRequest({
+    url: '/ChangeCulture',
+    queryParams: { locale },
+    method: 'get',
+  })
+}
 export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
 const removeLocale = () => window.localStorage.removeItem('locale')
 

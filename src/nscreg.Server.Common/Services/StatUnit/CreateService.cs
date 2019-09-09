@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
@@ -46,6 +48,53 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
         }
 
+        private void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<ActivityM> activityCategoryList)
+        {
+            if (!_userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result) return;
+            CheckIfRegionContains(userId, regionId, actualRegionId, postalRegionId);
+            CheckIfActivityContains(userId, activityCategoryList);
+        }
+
+        private void CheckIfRegionContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId)
+        {
+            var regionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
+
+            if (regionIds.Count == 0)
+                throw new BadRequestException(Resource.YouDontHaveEnoughtRightsRegion);
+            var listRegions = new List<int>();
+            if (regionId != null && !regionIds.Contains((int) regionId))
+                listRegions.Add((int) regionId);
+            if (actualRegionId != null && !regionIds.Contains((int) actualRegionId))
+                listRegions.Add((int) actualRegionId);
+            if (postalRegionId != null && !regionIds.Contains((int) postalRegionId))
+                listRegions.Add((int) postalRegionId);
+            if (listRegions.Count > 0)
+            {
+                var regionNames = _dbContext.Regions.Where(x => listRegions.Contains(x.Id))
+                    .Select(x => new CodeLookupBase{ Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2}.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
+                throw new BadRequestException($"{Resource.YouDontHaveEnoughtRightsRegion} ({string.Join(",",regionNames.Distinct())}");
+            }
+        }
+
+        private void CheckIfActivityContains(string userId, List<ActivityM> activityCategoryList)
+        {
+            foreach (var activityCategory in activityCategoryList)
+            {
+                if (activityCategory?.ActivityCategoryId == null)
+                    throw new BadRequestException($"{Resource.YouDontHaveEnoughtRightsActivityCategory}");
+                
+                var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
+                    .Select(ur => ur.ActivityCategoryId).ToList();
+                if (activityCategoryUserIds.Count == 0 || !activityCategoryUserIds.Contains(activityCategory.ActivityCategoryId))
+                {
+                    var activityCategoryNames =
+                        _dbContext.ActivityCategories.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1,NameLanguage2 = x.NameLanguage2, Id = x.Id }).FirstOrDefault(x => x.Id == activityCategory.ActivityCategoryId);
+
+                    var langName = activityCategoryNames.GetString(CultureInfo.DefaultThreadCurrentCulture);
+                    throw new BadRequestException($"{Resource.YouDontHaveEnoughtRightsActivityCategory} ({langName})");
+                }
+            }
+        }
         /// <summary>
         /// Метод создания правовой единицы
         /// </summary>
@@ -55,6 +104,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
+                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
+
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     if (data.LocalUnits == null) return Task.CompletedTask;
@@ -77,7 +129,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
-            => await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
+        {
+            var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+            helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
+
+            return await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
+        }
 
         /// <summary>
         /// Метод создания предприятия
@@ -88,6 +145,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
+                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
+
                 var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                 foreach (var legalUnit in legalUnits)
                 {
@@ -109,6 +169,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
+                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, new List<ActivityM>());
+
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
                     var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId))
@@ -124,7 +187,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 
                 return Task.CompletedTask;
             });
-
         /// <summary>
         /// Метод создания контекста стат. единицы
         /// </summary>

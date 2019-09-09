@@ -60,7 +60,6 @@ class Search extends React.Component {
       const qdata = getCorrectQuery({ ...query, ...formData })
       qdata.page = 1
       setQuery(qdata)
-      fetchData(qdata)
     }
   }
 

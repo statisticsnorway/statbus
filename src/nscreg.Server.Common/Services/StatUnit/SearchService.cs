@@ -12,6 +12,7 @@ using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.StatUnits.Search;
 using nscreg.Utilities.Extensions;
+using nscreg.Server.Common.Helpers;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -45,6 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool isDeleted = false)
         {
             bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+            bool isEmployee = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee);
 
             long totalCount;
             List<ElasticStatUnit> units;
@@ -81,11 +83,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             var regions = await GetRegionsFullPaths(finalRegionIds);
 
             var permissions = await _userService.GetDataAccessAttributes(userId, null);
+            var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],
                     regions.GetValueOrDefault(x.RegionId)))
-                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
+                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames(), isEmployee && !helper.IsRegionContains(userId, x.RegionId)));
 
             return SearchVm.Create(result, totalCount);
         }

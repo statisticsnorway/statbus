@@ -27,41 +27,41 @@ namespace nscreg.Data.Entities
         [Utilities.Attributes.AsyncValidation(ValidationTypeEnum.StatIdUnique)]
         public string StatId { get; set; }
 
-        [Display(Order = 110, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 105, GroupName = GroupNames.StatUnitInfo)]
         public DateTime? StatIdDate { get; set; }
 
         [DataAccessCommon]
-        [Display(Order = 120, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 110, GroupName = GroupNames.StatUnitInfo)]
         public string Name { get; set; }
 
-        [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 115, GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; }
 
         [SearchComponent]
-        [Display(Order = 500, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 210, GroupName = GroupNames.LinkInfo)]
         public virtual int? ParentOrgLink { get; set; }
 
-        [Display(Order = 150, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 120, GroupName = GroupNames.StatUnitInfo)]
         public string TaxRegId { get; set; }
 
-        [Display(Order = 160, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
         public DateTime? TaxRegDate { get; set; }
 
         [Reference(LookupEnum.RegistrationReasonLookup)]
-        [Display(Order = 220, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
         public int? RegistrationReasonId { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual RegistrationReason RegistrationReason { get; set; }
 
-        [Display(Order = 171, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
         public string ExternalId { get; set; }
 
-        [Display(Order = 172, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 131, GroupName = GroupNames.StatUnitInfo)]
         public DateTime? ExternalIdDate { get; set; }
 
-        [Display(Order = 173, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 132, GroupName = GroupNames.StatUnitInfo)]
         public string ExternalIdType { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -70,22 +70,22 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? AddressId { get; set; }
 
-        [Display(Order = 300, GroupName = GroupNames.ContactInfo)]
+        [Display(Order = 310, GroupName = GroupNames.ContactInfo)]
         public virtual Address Address { get; set; }
 
-        [Display(Order = 202, GroupName = GroupNames.ContactInfo)]
+        [Display(Order = 302, GroupName = GroupNames.ContactInfo)]
         public string WebAddress { get; set; }
 
-        [Display(Order = 200, GroupName = GroupNames.ContactInfo)]
+        [Display(Order = 300, GroupName = GroupNames.ContactInfo)]
         public string TelephoneNo { get; set; }
 
-        [Display(Order = 201, GroupName = GroupNames.ContactInfo)]
+        [Display(Order = 301, GroupName = GroupNames.ContactInfo)]
         public string EmailAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ActualAddressId { get; set; }
 
-        [Display(Order = 310, GroupName = GroupNames.ContactInfo)]
+        [Display(Order = 320, GroupName = GroupNames.ContactInfo)]
         public virtual Address ActualAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -94,43 +94,43 @@ namespace nscreg.Data.Entities
         [Display(Order = 320, GroupName = GroupNames.ContactInfo)]
         public virtual Address PostalAddress { get; set; }
 
-        [Display(Order = 540, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 890, GroupName = GroupNames.CapitalInfo)]
         public bool FreeEconZone { get; set; }
 
         [Reference(LookupEnum.CountryLookup)]
-        [Display(Order = 475, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 801, GroupName = GroupNames.CapitalInfo)]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ForeignParticipationCountryId { get; set; }
 
-        [Display(Order = 210, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }
 
-        [Display(Order = 220, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 521, GroupName = GroupNames.EconomicInformation)]
         public int? Employees { get; set; }
 
-        [Display(Order = 221, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 522, GroupName = GroupNames.EconomicInformation)]
         public int? EmployeesYear { get; set; }
 
-        [Display(Order = 222, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 523, GroupName = GroupNames.EconomicInformation)]
         public DateTime? EmployeesDate { get; set; }
 
         [PopupLocalizedKey("InThousandsKGS")]
-        [Display(Order = 180, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 505, GroupName = GroupNames.EconomicInformation)]
         public decimal? Turnover { get; set; }
 
-        [Display(Order = 200, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 515, GroupName = GroupNames.EconomicInformation)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(Order = 190, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 510, GroupName = GroupNames.EconomicInformation)]
         public int? TurnoverYear { get; set; }
 
-        [Display(Order = 570, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 880, GroupName = GroupNames.CapitalInfo)]
         public string Notes { get; set; }
 
-        [Display(Order = 550, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 891, GroupName = GroupNames.CapitalInfo)]
         public bool? Classified { get; set; }
 
-        [Display(Order = 223, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 143, GroupName = GroupNames.StatUnitInfo)]
         public DateTime? StatusDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -146,35 +146,35 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalForm LegalForm { get; set; }
 
-        [Display(Order = 810, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 710, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime RegistrationDate { get; set; }
 
-        [Display(Order = 811, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 711, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime? LiqDate { get; set; }
 
-        [Display(Order = 812, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 712, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public string LiqReason { get; set; }
 
-        [Display(Order = 820, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 720, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime? SuspensionStart { get; set; }
 
-        [Display(Order = 830, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 730, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime? SuspensionEnd { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string ReorgTypeCode { get; set; }
 
-        [Display(Order = 840, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 740, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime? ReorgDate { get; set; }
 
         [SearchComponent]
-        [Display(Order = 850, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 750, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public int? ReorgReferences { get; set; }
 
@@ -197,7 +197,7 @@ namespace nscreg.Data.Entities
             new HashSet<ActivityStatisticalUnit>();
 
         [NotMapped]
-        [Display(Order = 250, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 400, GroupName = GroupNames.Activities)]
         public IEnumerable<Activity> Activities
         {
             get => ActivitiesUnits.Select(v => v.Activity);
@@ -209,16 +209,8 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
 
-        [JsonIgnore]
-        public IEnumerable<StatisticalUnit> PersonStatUnits => PersonsUnits
-            .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
-
-        [JsonIgnore]
-        public IEnumerable<EnterpriseGroup> PersonEnterpriseGroups => PersonsUnits
-            .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
-
         [NotMapped]
-        [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 600, GroupName = GroupNames.Persons)]
         public IEnumerable<Person> Persons
         {
             get => PersonsUnits.Select(v => v.Person);
@@ -235,7 +227,7 @@ namespace nscreg.Data.Entities
         public string EditComment { get; set; }
 
         [Reference(LookupEnum.UnitSizeLookup)]
-        [Display(Order = 175, GroupName = GroupNames.EconomicInformation)]
+        [Display(Order = 500, GroupName = GroupNames.EconomicInformation)]
         public int? SizeId { get; set; }
 
         [JsonIgnore]
@@ -243,11 +235,15 @@ namespace nscreg.Data.Entities
         public virtual UnitSize Size { get; set; }
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
-        [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 800, GroupName = GroupNames.CapitalInfo)]
+        public int? ForeignParticipationId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ForeignParticipation ForeignParticipation { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
-        [Display(Order = 221, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
         public int? DataSourceClassificationId { get; set; }
 
         [JsonIgnore]
@@ -255,7 +251,7 @@ namespace nscreg.Data.Entities
         public virtual DataSourceClassification DataSourceClassification { get; set; }
 
         [Reference(LookupEnum.ReorgTypeLookup)]
-        [Display(Order = 680, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 700, GroupName = GroupNames.RegistrationInfo)]
         public int? ReorgTypeId { get; set; }
 
         [JsonIgnore]
@@ -263,7 +259,7 @@ namespace nscreg.Data.Entities
         public virtual ReorgType ReorgType { get; set; }
 
         [Reference(LookupEnum.UnitStatusLookup)]
-        [Display(Order = 222, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 142, GroupName = GroupNames.StatUnitInfo)]
         public int? UnitStatusId { get; set; }
 
         [JsonIgnore]
@@ -272,7 +268,7 @@ namespace nscreg.Data.Entities
 
         [JsonIgnore]
         [Reference(LookupEnum.CountryLookup)]
-        [Display(Order = 470, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 805, GroupName = GroupNames.CapitalInfo)]
         public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
             new HashSet<CountryStatisticalUnit>();
     }

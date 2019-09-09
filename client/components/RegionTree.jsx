@@ -1,5 +1,6 @@
 import React from 'react'
 import { string, arrayOf, shape, bool, func } from 'prop-types'
+import { Loader } from 'semantic-ui-react'
 import Tree from 'antd/lib/tree'
 
 import { transform } from './ActivityTree'
@@ -17,11 +18,13 @@ class RegionTree extends React.Component {
     isView: bool,
     localize: func,
     callBack: func,
+    loaded: bool,
   }
 
   static defaultProps = {
     checked: [],
     isView: false,
+    loaded: true,
   }
 
   getAllChilds(data) {
@@ -47,17 +50,23 @@ class RegionTree extends React.Component {
   }
 
   render() {
-    const { localize, name, label, checked, callBack, dataTree, isView } = this.props
+    const { localize, name, label, checked, callBack, dataTree, isView, loaded } = this.props
+
     return isView ? (
       <Tree>{this.getFilteredTree(dataTree, new Set(checked))}</Tree>
     ) : (
       <div>
         <label htmlFor={name}>{localize(label)}</label>
-        <Tree checkedKeys={checked} onCheck={callBack} checkable>
-          <TreeNode title={getNewName(dataTree, true)} key={`${dataTree.id}`}>
-            {this.getAllChilds(dataTree.regionNodes.map(transform))}
-          </TreeNode>
-        </Tree>
+        <br />
+        {loaded ? (
+          <Tree checkedKeys={checked} onCheck={callBack} checkable>
+            <TreeNode title={getNewName(dataTree, true)} key={`${dataTree.id}`}>
+              {this.getAllChilds(dataTree.regionNodes.map(transform))}
+            </TreeNode>
+          </Tree>
+        ) : (
+          <Loader inline active size="small" />
+        )}
       </div>
     )
   }

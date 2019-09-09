@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20190821071434_RemoveField")]
+    partial class RemoveField
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.6")
@@ -583,6 +584,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("StatIdDate");
 
+                    b.Property<int?>("StatisticalUnitRegId");
+
                     b.Property<string>("Status");
 
                     b.Property<DateTime>("StatusDate");
@@ -629,6 +632,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("SizeId");
 
                     b.HasIndex("StartPeriod");
+
+                    b.HasIndex("StatisticalUnitRegId");
 
                     b.HasIndex("UnitStatusId");
 
@@ -1987,6 +1992,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.UnitSize", "Size")
                         .WithMany()
                         .HasForeignKey("SizeId");
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit")
+                        .WithMany("PersonEnterpriseGroups")
+                        .HasForeignKey("StatisticalUnitRegId");
 
                     b.HasOne("nscreg.Data.Entities.UnitStatus", "UnitStatus")
                         .WithMany()

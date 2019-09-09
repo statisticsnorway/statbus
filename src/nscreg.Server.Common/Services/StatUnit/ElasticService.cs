@@ -334,7 +334,8 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var searchResponse = await _elasticClient.SearchAsync(searchFunc);
             if (!searchResponse.IsValid)
-                throw new Exception(searchResponse.DebugInformation);
+                return SearchVm<ElasticStatUnit>.Create(new List<ElasticStatUnit>(), 0);
+            //throw new Exception(searchResponse.DebugInformation);
 
             List<ElasticStatUnit> units = searchResponse.Documents.ToList();
             if (filter.SortBy.HasValue)

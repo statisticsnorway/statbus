@@ -160,7 +160,7 @@ class SearchForm extends React.Component {
                   <Form.Field className={styles.selectStyle}>
                     <Form.Select
                       name="sortBy"
-                      value={formData.sortBy}
+                      value={formData.sortBy || null}
                       options={localizedOptions}
                       selection
                       onChange={this.handleChange}

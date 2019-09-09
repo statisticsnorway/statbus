@@ -21,12 +21,12 @@ class PersonEdit extends React.Component {
       givenName: string.isRequired,
       personalId: oneOfType([string, number]),
       surname: string.isRequired,
-      middleName: string.isRequired,
+      middleName: string,
       birthDate: string,
-      sex: oneOfType([string, number]),
+      sex: oneOfType([string, number]).isRequired,
       role: oneOfType([string, number]).isRequired,
       countryId: oneOfType([string, number]).isRequired,
-      phoneNumber: oneOfType([string, number]),
+      phoneNumber: oneOfType([string, number]).isRequired,
       phoneNumber1: oneOfType([string, number]),
       address: oneOfType([string, number]),
     }),
@@ -172,6 +172,19 @@ class PersonEdit extends React.Component {
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
+    const isMandatoryFieldEmpty =
+      (personMandatoryFields.GivenName && !data.givenName) ||
+      (personMandatoryFields.Surname && !data.surname) ||
+      (personMandatoryFields.PersonalId && !data.personalId) ||
+      (personMandatoryFields.MiddleName && !data.middleName) ||
+      (personMandatoryFields.BirthDate && !data.birthDate) ||
+      (personMandatoryFields.Role && !data.role) ||
+      (personMandatoryFields.NationalityCode && !data.countryId) ||
+      (personMandatoryFields.Telephone1 && !data.phoneNumber) ||
+      (personMandatoryFields.Telephone2 && !data.phoneNumber1) ||
+      (personMandatoryFields.Address && !data.address) ||
+      (personMandatoryFields.Sex && !data.sex)
+
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -194,6 +207,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.GivenName}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -223,6 +237,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Surname}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -233,6 +248,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.PersonalId}
+                autoComplete="off"
               />
               <Form.Input
                 label={localize('MiddleName')}
@@ -241,6 +257,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.MiddleName}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -286,6 +303,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Telephone1}
+                autoComplete="off"
               />
               <Form.Input
                 label={localize('PhoneNumber1')}
@@ -294,6 +312,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Telephone2}
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -304,8 +323,17 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
                 required={personMandatoryFields.Address}
+                autoComplete="off"
               />
             </Form.Group>
+
+            <div>
+              {isMandatoryFieldEmpty && (
+                <Message content={localize('FixErrorsBeforeSubmit')} error />
+              )}
+              {isAlreadyExist && <Message list={[localize('PersonAlreadyExists')]} error />}
+            </div>
+
             <Form.Group widths="equal">
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
@@ -316,22 +344,7 @@ class PersonEdit extends React.Component {
                       icon="check"
                       color="green"
                       onClick={this.saveHandler}
-                      disabled={
-                        disabled ||
-                        (personMandatoryFields.GivenName && !data.givenName) ||
-                        (personMandatoryFields.Surname && !data.surname) ||
-                        (personMandatoryFields.PersonalId && !data.personalId) ||
-                        (personMandatoryFields.MiddleName && !data.middleName) ||
-                        (personMandatoryFields.BirthDate && !data.birthDate) ||
-                        (personMandatoryFields.Role && !data.role) ||
-                        (personMandatoryFields.NationalityCode && !data.countryId) ||
-                        (personMandatoryFields.Telephone1 && !data.phoneNumber) ||
-                        (personMandatoryFields.Telephone2 && !data.phoneNumber1) ||
-                        (personMandatoryFields.Address && !data.address) ||
-                        (personMandatoryFields.Sex && !data.sex) ||
-                        !touched ||
-                        isAlreadyExist
-                      }
+                      disabled={disabled || isMandatoryFieldEmpty || !touched || isAlreadyExist}
                     />
                   </div>
                   <div data-tooltip={localize('ButtonCancel')} data-position="top center">
@@ -344,7 +357,6 @@ class PersonEdit extends React.Component {
                   </div>
                 </Button.Group>
               </div>
-              {isAlreadyExist && <Message list={[localize('PersonAlreadyExists')]} compact error />}
             </Form.Group>
           </Form>
         </Table.Cell>
