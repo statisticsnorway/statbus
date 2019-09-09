@@ -1,7 +1,7 @@
 import React from 'react'
 import { number, string, func, shape, bool } from 'prop-types'
 import { Link } from 'react-router'
-import { Button, Table } from 'semantic-ui-react'
+import { Button, Table, Popup } from 'semantic-ui-react'
 
 import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
@@ -42,19 +42,31 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
         </Table.Cell>
         <Table.Cell>{canRead('TaxRegId', statUnit.type) && statUnit.taxRegId}</Table.Cell>
         <Table.Cell singleLine>
-          <div>
-            {checkSF('StatUnitEdit') && (
-              <Button
-                as={Link}
-                to={`/statunits/edit/${statUnit.type}/${statUnit.regId}`}
-                icon="edit"
-                primary
-              />
-            )}
-            {checkSF('StatUnitDelete') && (
-              <Button onClick={() => deleteStatUnit(statUnit)} icon="trash" negative />
-            )}
-          </div>
+          <Popup
+            content={localize('YouDontHaveEnoughtRightsRegion')}
+            disabled={!statUnit.readonly}
+            trigger={
+              <div>
+                {checkSF('StatUnitEdit') && (
+                  <Button
+                    as={Link}
+                    to={`/statunits/edit/${statUnit.type}/${statUnit.regId}`}
+                    icon="edit"
+                    primary
+                    disabled={statUnit.readonly}
+                  />
+                )}
+                {checkSF('StatUnitDelete') && (
+                  <Button
+                    onClick={() => deleteStatUnit(statUnit)}
+                    icon="trash"
+                    negative
+                    disabled={statUnit.readonly}
+                  />
+                )}
+              </div>
+            }
+          />
         </Table.Cell>
       </Table.Row>
     </Table.Body>
