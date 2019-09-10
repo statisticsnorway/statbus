@@ -46,7 +46,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool isDeleted = false)
         {
             bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
-            bool isEmployee = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee);
 
             long totalCount;
             List<ElasticStatUnit> units;
@@ -55,19 +54,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var baseQuery = _dbContext.StatUnitSearchView
                     .Where(s => s.IsDeleted == isDeleted && s.LiqDate == null);
 
-                if (!isAdmin)
-                {
-                    var regionIds = await _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
-                    baseQuery = baseQuery.Where(s => s.RegionId.HasValue && regionIds.Contains(s.RegionId.Value));
-                }
-
                 totalCount = baseQuery.Count();
                 units = (await baseQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToListAsync())
                     .Select(Mapper.Map<StatUnitSearchView, ElasticStatUnit>).ToList();
             }
             else
             {
-                var searchResponse = await _elasticService.Search(filter, userId, isDeleted, isAdmin);
+                var searchResponse = await _elasticService.Search(filter, userId, isDeleted);
                 totalCount = searchResponse.TotalCount;
                 units = searchResponse.Result.ToList();
             }
@@ -89,7 +82,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],
                     regions.GetValueOrDefault(x.RegionId)))
-                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames(), isEmployee && !helper.IsRegionContains(userId, x.RegionId)));
+                .Select(x => SearchItemVm.Create(x, x.UnitType,
+                    permissions.GetReadablePropNames(),
+                    !isAdmin && !helper.IsRgionOrActivityContains(userId, x.RegionId, null, null, x.ActivityCategoryIds)));
 
             return SearchVm.Create(result, totalCount);
         }

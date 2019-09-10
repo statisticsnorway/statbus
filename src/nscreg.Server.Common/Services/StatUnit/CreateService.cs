@@ -105,7 +105,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
+                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities.Select(x => x.ActivityCategoryId).ToList());
 
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
@@ -131,7 +131,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
         {
             var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-            helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
+            helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities.Select(x => x.ActivityCategoryId).ToList());
 
             return await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
         }
@@ -146,7 +146,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities);
+                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities.Select(x => x.ActivityCategoryId).ToList());
 
                 var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                 foreach (var legalUnit in legalUnits)
@@ -170,7 +170,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, new List<ActivityM>());
+                helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, new List<int>());
 
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
