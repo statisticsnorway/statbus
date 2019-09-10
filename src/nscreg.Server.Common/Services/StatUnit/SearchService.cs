@@ -214,8 +214,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 PageSize = limit
             };
 
-            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
-            var searchResponse = await _elasticService.Search(filter, userId, isDeleted, isAdmin);
+            var searchResponse = await _elasticService.Search(filter, userId, isDeleted);
             return searchResponse.Result.Select(u => new UnitLookupVm { Id = u.RegId, Code = u.StatId, Name = u.Name, Type = u.UnitType}).ToList();
             }
 
