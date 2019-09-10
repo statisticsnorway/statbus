@@ -165,7 +165,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
-        public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted, bool isAdmin)
+        public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted)
         {
             await Synchronize();
             var mustQueries =
@@ -173,30 +173,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     m => m.Term(p => p.Field(f => f.IsDeleted).Value(isDeleted))
                 };
-
-            if (!isAdmin)
-            {
-                var regionIdsQuery = _dbContext.UserRegions.Where(au => au.UserId == userId);
-
-                if (filter.RegionId.HasValue)
-                    regionIdsQuery = regionIdsQuery.Where(au => au.RegionId == filter.RegionId.Value);
-
-                var regionIds = await regionIdsQuery.Select(ur => ur.RegionId).ToListAsync();
-
-                var activityIds = await _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId).Select(au => au.ActivityCategoryId).ToListAsync();
-
-                mustQueries.Add(m => m.Terms(t => t.Field(f => f.RegionId).Terms(regionIds)));
-
-                if (regionIds.Any())
-                {
-                    mustQueries.Add(m => m
-                        .Bool(b => b
-                            .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup))
-                                         || s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
-                        )
-                    );
-                }
-            }
 
             var separators = new[] { ' ', '\t', '\r', '\n', ',', '.', '-' };
 
@@ -317,7 +293,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m=>m.Term(p=>p.Field(f=>f.RegId).Value(id)));
             }
 
-            if (isAdmin && filter.RegionId.HasValue)
+            if (filter.RegionId.HasValue)
             {
                 int regionId = filter.RegionId.Value;
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.RegionId).Value(regionId)));

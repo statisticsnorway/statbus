@@ -155,7 +155,7 @@ namespace nscreg.Server.Common
             CreateMap<AnalysisQueue, AnalysisQueueModel>()
                 .ForMember(x => x.UserName, opt => opt.MapFrom(x => x.User.Name));
 
-            CreateMap<StatUnitSearchView, SearchViewAdapterModel>()
+            CreateMap<ElasticStatUnit, SearchViewAdapterModel>()
                 .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(x)))
                 .ForMember(x => x.Persons, opt => opt.Ignore())
                 .ForMember(x => x.Activities, opt => opt.Ignore());
