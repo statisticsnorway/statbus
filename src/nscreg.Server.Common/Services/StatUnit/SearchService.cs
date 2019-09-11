@@ -84,7 +84,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     regions.GetValueOrDefault(x.RegionId)))
                 .Select(x => SearchItemVm.Create(x, x.UnitType,
                     permissions.GetReadablePropNames(),
-                    !isAdmin && !helper.IsRgionOrActivityContains(userId, x.RegionId, null, null, x.ActivityCategoryIds)));
+                    !isAdmin && !helper.IsRegionOrActivityContains(userId, x.RegionId != null ? new List<int> { (int)x.RegionId } : new List<int>(), x.ActivityCategoryIds)));
 
             return SearchVm.Create(result, totalCount);
         }

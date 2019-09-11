@@ -16,6 +16,7 @@ using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
+using AutoMapper;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -83,12 +84,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 : GetDefaultDomainForType(type);
 
             if (item == null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
-
             
-            if ((ignoredActions == ActionsEnum.Edit || ignoredActions == ActionsEnum.Create) && isEmployee)
+            if ((ignoredActions == ActionsEnum.Edit) && isEmployee)
             {
                 var helper = new StatUnitCheckPermissionsHelper(_context);
-                helper.CheckIfRegionContains(userId, item.Address?.RegionId, item.ActualAddress?.RegionId, item.PostalAddress?.RegionId);
+                var mappedItem = new ElasticStatUnit();
+                Mapper.Map(item, mappedItem);
+                helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
             
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
