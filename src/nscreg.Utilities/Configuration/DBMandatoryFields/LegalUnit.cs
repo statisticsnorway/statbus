@@ -5,8 +5,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
     /// </summary>
     public class LegalUnit
     {
-        public bool EnterpriseRegId { get; set; }
-        public bool EnterpriseRegIdDate { get; set; }
         public bool Market { get; set; }
         public bool LegalFormId { get; set; }
         public bool InstSectorCodeId { get; set; }
@@ -16,7 +14,8 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool PrivCapitalShare { get; set; }
         public bool ForeignCapitalShare { get; set; }
         public bool ForeignCapitalCurrency { get; set; }
-        public bool TaxRegId { get; set; }
-        public bool TaxRegDate { get; set; }
+        public bool EnterpriseUnitRegId { get; set; }
+        public bool EntRegIdDate { get; set; }
+        public bool LocalUnits { get; set; }
     }
 }
