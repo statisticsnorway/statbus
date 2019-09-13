@@ -1,7 +1,7 @@
 import React from 'react'
 import { func, arrayOf, shape, string, number, oneOfType, bool } from 'prop-types'
-import { Item, Confirm } from 'semantic-ui-react'
-import { equals, isEmpty } from 'ramda'
+import { Item, Confirm, Modal, Button } from 'semantic-ui-react'
+import { isEmpty } from 'ramda'
 
 import { getSearchFormErrors, getCorrectQuery } from 'helpers/validation'
 import Paginate from 'components/Paginate'
@@ -46,6 +46,7 @@ class DeletedList extends React.Component {
   state = {
     displayConfirm: false,
     selectedUnit: undefined,
+    restoreFailed: undefined,
   }
 
   handleChangeForm = (name, value) => {
@@ -70,16 +71,29 @@ class DeletedList extends React.Component {
     this.setState({ selectedUnit: unit, displayConfirm: true })
   }
 
+  setError = (message) => {
+    this.setState({ restoreFailed: message })
+  }
+
+  clearError = () => {
+    this.setState({ restoreFailed: undefined })
+  }
+
   handleConfirm = () => {
     const unit = this.state.selectedUnit
     const { query, formData } = this.props
     const queryParams = { ...query, ...formData }
     this.setState({ selectedUnit: undefined, displayConfirm: false })
-    this.props.actions.restore(unit.type, unit.regId, queryParams)
+    this.props.actions.restore(unit.type, unit.regId, queryParams, this.setError)
   }
 
   handleCancel = () => {
     this.setState({ selectedUnit: undefined, displayConfirm: false })
+  }
+
+  handleResetForm = () => {
+    this.props.actions.clearSearchFormForDeleted()
+    this.props.actions.setQuery({})
   }
 
   renderConfirm = () => (
@@ -94,6 +108,21 @@ class DeletedList extends React.Component {
     />
   )
 
+  renderErrorModal = () => (
+    <Modal
+      className="errorModal"
+      size="small"
+      open={this.state.restoreFailed !== undefined}
+      onClose={this.clearError}
+    >
+      <Modal.Header>{this.props.localize('Error')}</Modal.Header>
+      <Modal.Content>{this.state.restoreFailed}</Modal.Content>
+      <Modal.Actions>
+        <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
+      </Modal.Actions>
+    </Modal>
+  )
+
   renderRow = item => (
     <ListItem
       key={`${item.regId}_${item.type}`}
@@ -103,11 +132,6 @@ class DeletedList extends React.Component {
     />
   )
 
-  handleResetForm = () => {
-    this.props.actions.clearSearchFormForDeleted()
-    this.props.actions.setQuery({})
-  }
-
   render() {
     const {
       formData,
@@ -116,13 +140,14 @@ class DeletedList extends React.Component {
       statUnits,
       isLoading,
       locale,
-      actions: { setSearchConditionForDeleted },
+      actions: { setSearchConditionForDeleted, updateFilter },
     } = this.props
     const searchFormErrors = getSearchFormErrors(formData, localize)
 
     return (
       <div className={styles.root}>
         {this.state.displayConfirm && this.renderConfirm()}
+        {this.renderErrorModal()}
         <h2>{localize('SearchDeletedStatisticalUnits')}</h2>
         <SearchForm
           formData={formData}
@@ -135,7 +160,7 @@ class DeletedList extends React.Component {
           localize={localize}
           disabled={isLoading}
         />
-        <Paginate totalCount={Number(totalCount)}>
+        <Paginate totalCount={Number(totalCount)} updateFilter={updateFilter}>
           <Item.Group divided className={styles.items}>
             {statUnits.map(this.renderRow)}
           </Item.Group>

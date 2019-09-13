@@ -10,17 +10,28 @@ const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits/deleted',
     queryParams,
-    onSuccess: (dispatch, resp) => pipe(fetchDataSucceeded, dispatch)(resp),
+    onSuccess: (dispatch, resp) =>
+      pipe(
+        fetchDataSucceeded,
+        dispatch,
+      )(resp),
     onStart: dispatch => dispatch(fetchDataStarted()),
   })
 
 export const restoreSucceeded = createAction('restore StatUnit succeeded')
-const restore = (type, regId, queryParams) =>
+const restore = (type, regId, queryParams, onFail) =>
   dispatchRequest({
     method: 'delete',
     url: '/api/statunits/deleted',
     queryParams: { type, regId },
-    onSuccess: dispatch => pipe(fetchData, dispatch)(queryParams),
+    onSuccess: dispatch =>
+      pipe(
+        fetchData,
+        dispatch,
+      )(queryParams),
+    onFail: (_, error) => {
+      onFail(error.message)
+    },
   })
 
 export const clearSearchFormForDeleted = createAction('clear search form for deleted')
