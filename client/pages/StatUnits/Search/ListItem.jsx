@@ -43,7 +43,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
         <Table.Cell>{canRead('TaxRegId', statUnit.type) && statUnit.taxRegId}</Table.Cell>
         <Table.Cell singleLine>
           <Popup
-            content={localize('YouDontHaveEnoughtRightsRegion')}
+            content={localize('YouDontHaveEnoughtRightsRegionOrActivity')}
             disabled={!statUnit.readonly}
             trigger={
               <div>

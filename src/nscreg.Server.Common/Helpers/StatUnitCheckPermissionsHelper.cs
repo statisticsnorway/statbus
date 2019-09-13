@@ -27,16 +27,24 @@ namespace nscreg.Server.Common.Helpers
 
         public void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<int> activityCategoryList)
         {
-            if (!_userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result) return;
-            CheckIfRegionContains(userId, regionId, actualRegionId, postalRegionId);
+            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
+            var regionIds = new List<int?> { regionId, actualRegionId, postalRegionId }.Where(x => x != null).Select(x => (int) x).ToList();
+            CheckIfRegionContains(userId, regionIds);
             CheckIfActivityContains(userId, activityCategoryList);
         }
 
-        public bool IsRgionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<int> activityCategoryList)
+        public void CheckRegionOrActivityContains(string userId, List<int> regionIds, List<int> activityCategoryList)
+        {
+            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
+            CheckIfRegionContains(userId, regionIds);
+            CheckIfActivityContains(userId, activityCategoryList);
+        }
+
+        public bool IsRegionOrActivityContains(string userId, List<int> regionIds, List<int> activityCategoryList)
         {
             try
             {
-                CheckRegionOrActivityContains(userId, regionId, actualRegionId, postalRegionId, activityCategoryList);
+                CheckRegionOrActivityContains(userId, regionIds, activityCategoryList);
                 return true;
             } catch (System.Exception e) when (e is BadRequestException)
             {
@@ -44,19 +52,14 @@ namespace nscreg.Server.Common.Helpers
             }
         }
 
-        public void CheckIfRegionContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId)
+        public void CheckIfRegionContains(string userId, List<int> regionIds)
         {
-            var regionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
+            var userRegionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
 
-            if (regionIds.Count == 0)
+            if (userRegionIds.Count == 0)
                 throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsRegion));
-            var listRegions = new List<int>();
-            if (regionId != null && !regionIds.Contains((int)regionId))
-                listRegions.Add((int)regionId);
-            if (actualRegionId != null && !regionIds.Contains((int)actualRegionId))
-                listRegions.Add((int)actualRegionId);
-            if (postalRegionId != null && !regionIds.Contains((int)postalRegionId))
-                listRegions.Add((int)postalRegionId);
+
+            var listRegions = regionIds.Where(x => !userRegionIds.Contains(x)).ToList();
             if (listRegions.Count > 0)
             {
                 var regionNames = _dbContext.Regions.Where(x => listRegions.Contains(x.Id))
@@ -70,9 +73,12 @@ namespace nscreg.Server.Common.Helpers
             var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
                 .Select(ur => ur.ActivityCategoryId).ToList();
 
+            if (activityCategoryUserIds.Count == 0)
+                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory));
+
             foreach (var activityCategoryId in activityCategoryIds)
             {
-                if (activityCategoryUserIds.Count == 0 || !activityCategoryUserIds.Contains(activityCategoryId))
+                if (!activityCategoryUserIds.Contains(activityCategoryId))
                 {
                     var activityCategoryNames =
                         _dbContext.ActivityCategories.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).FirstOrDefault(x => x.Id == activityCategoryId);
