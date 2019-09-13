@@ -52,5 +52,8 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ReorgTypeId { get; set; }
         public bool UnitStatusId { get; set; }
         public bool PostalAddress { get; set; }
+        public bool ParentOrgLink { get; set; }
+        public bool TaxRegId { get; set; }
+        public bool TaxRegDate { get; set; }
     }
 }
