@@ -2310,4 +2310,7 @@
   <data name="YouDontHaveEnoughtRightsRegionOrActivity" xml:space="preserve">
     <value>Сиз тандалган региондо же  иш-аракеттин түрдө статистикалдык бирдикти сактоого уруксат жок</value>
   </data>
+  <data name="ReorgType" xml:space="preserve">
+    <value>Реогранизация түрү</value>
+  </data>
 </root>

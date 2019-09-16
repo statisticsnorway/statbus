@@ -217,7 +217,7 @@ class ActivityEdit extends React.Component {
                 label="StatUnitActivityDate"
                 disabled={disabled}
                 localize={localize}
-                required={activityMandatoryFields.Date}
+                required={activityMandatoryFields.IdDate}
               />
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
@@ -237,7 +237,7 @@ class ActivityEdit extends React.Component {
                         (activityMandatoryFields.ActivityYear && !value.activityYear) ||
                         (activityMandatoryFields.Employees && !value.employees && employeesIsNaN) ||
                         (activityMandatoryFields.Turnover && !value.turnover) ||
-                        (activityMandatoryFields.Date && !value.idDate) ||
+                        (activityMandatoryFields.IdDate && !value.idDate) ||
                         !touched
                       }
                     />

@@ -1,4 +1,4 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
     /// Класс Деятельности с обязательными полями 
@@ -7,13 +7,10 @@
     {
         public bool Id { get; set; }
         public bool IdDate { get; set; }
-        public bool UnitId { get; set; }
         public bool ActivityCategoryId { get; set; }
         public bool ActivityYear { get; set; }
         public bool ActivityType { get; set; }
         public bool Employees { get; set; }
         public bool Turnover { get; set; }
-        public bool UpdatedBy { get; set; }
-        public bool UpdatedDate { get; set; }
     }
 }

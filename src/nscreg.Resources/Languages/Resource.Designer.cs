@@ -4427,6 +4427,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reorganization type.
+        /// </summary>
+        public static string ReorgType {
+            get {
+                return ResourceManager.GetString("ReorgType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Reorganization type code.
         /// </summary>
         public static string ReorgTypeCode {
