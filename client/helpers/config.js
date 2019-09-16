@@ -25,7 +25,11 @@ export const checkSystemFunction = target => config.systemFunctions.includes(tar
 export const getMandatoryFields = unitTypeId =>
   Object.entries({
     ...config.mandatoryFields.StatUnit,
-    ...config.mandatoryFields[statUnitTypes.get(Number(unitTypeId))],
+    ...config.mandatoryFields[
+      statUnitTypes.get(Number(unitTypeId)) === 'EnterpriseUnit'
+        ? 'Enterprise'
+        : statUnitTypes.get(Number(unitTypeId))
+    ],
   }).reduce((result, [prop, isRequired]) => {
     if (isRequired) result.push(prop)
     return result
