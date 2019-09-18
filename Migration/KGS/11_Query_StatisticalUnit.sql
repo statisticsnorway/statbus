@@ -4,18 +4,21 @@ GO
 
 --ALTER TABLE [dbo].[StatisticalUnits] DROP K_PRED
 
-
 ALTER TABLE [dbo].[StatisticalUnits]
 ALTER COLUMN ExternalIdDate DATETIME NULL
 GO
-
 
 ALTER TABLE [dbo].[StatisticalUnits]
 ALTER COLUMN RegIdDate DATETIME NULL
 GO
 
- DECLARE @guid NVARCHAR(450)
- SELECT @guid = Id FROM [dbo].[AspNetUsers]
+DELETE FROM [StatisticalUnits]
+GO
+DBCC CHECKIDENT ('dbo.StatisticalUnits',RESEED, 1)
+GO
+
+DECLARE @guid NVARCHAR(450)
+SELECT @guid = Id FROM [dbo].[AspNetUsers]
 
 INSERT INTO [dbo].[StatisticalUnits]
     ([ActualAddressId], [AddressId], [ChangeReason], [ContactPerson], [DataSource], [DataSourceClassificationId], [Discriminator], [EditComment], [EmailAddress]
