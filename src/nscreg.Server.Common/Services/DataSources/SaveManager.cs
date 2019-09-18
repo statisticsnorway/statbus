@@ -146,6 +146,7 @@ namespace nscreg.Server.Common.Services.DataSources
             var dataAccess = _usrService.GetDataAccessAttributes(userId, type);
             var mappedActivities = new List<ActivityM>();
             var mappedPersons = new List<PersonM>();
+            var mappedForeignParticipationCountriesUnits = new List<int>();
             var mappedUnit = new StatUnitModelBase();
 
             if (type == StatUnitTypes.LocalUnit && mapperType == "LocalUnitCreateM")
@@ -177,7 +178,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 }
                 mappedPersons.Add(person);
             }
-
+            unit.ForeignParticipationCountriesUnits.ForEach(fpcu => mappedForeignParticipationCountriesUnits.Add(fpcu.Id));
+            mappedUnit.ForeignParticipationCountriesUnits = mappedForeignParticipationCountriesUnits;
+            mappedUnit.ForeignParticipationId = unit.ForeignParticipation?.Id;
             mappedUnit.Activities = mappedActivities;
             mappedUnit.Persons = mappedPersons;
 
