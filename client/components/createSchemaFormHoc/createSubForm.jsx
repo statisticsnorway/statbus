@@ -1,5 +1,5 @@
 import React from 'react'
-import { Form, Segment, Message, Grid, Icon, Header } from 'semantic-ui-react'
+import { Form, Segment, Message, Grid, Icon, Header, Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { ensureArray, hasValue } from 'helpers/validation'
@@ -83,6 +83,9 @@ function createSubForm(Body, showReset) {
               color="green"
               floated="right"
             />
+            <div className="submitLoader">
+              {isSubmitting && <Loader inline active size="small" />}
+            </div>
           </Grid.Column>
         </Grid>
       </Form>

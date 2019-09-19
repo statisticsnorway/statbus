@@ -33,7 +33,17 @@ const onLoadData = loadNode => (node) => {
   })
 }
 
-const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, loadNode, loaded }) => {
+const ActivityTree = ({
+  dataTree,
+  localize,
+  name,
+  label,
+  checked,
+  callBack,
+  loadNode,
+  loaded,
+  disabled,
+}) => {
   const tree = buildTree(
     dataTree.filter(x => x.parentId === 0).map(transform),
     dataTree.map(transform),
@@ -43,7 +53,13 @@ const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, load
       <label htmlFor={name}>{localize(label)}</label>
       <br />
       {loaded ? (
-        <Tree checkable checkedKeys={checked} onCheck={callBack} loadData={onLoadData(loadNode)}>
+        <Tree
+          checkable
+          disabled={disabled}
+          checkedKeys={checked}
+          onCheck={callBack}
+          loadData={onLoadData(loadNode)}
+        >
           <TreeNode title={localize('AllActivities')} key="all">
             {tree}
           </TreeNode>
@@ -64,11 +80,13 @@ ActivityTree.propTypes = {
   checked: arrayOf(string),
   loadNode: func.isRequired,
   loaded: bool,
+  disabled: bool,
 }
 
 ActivityTree.defaultProps = {
   checked: [],
   loaded: true,
+  disabled: false,
 }
 
 export default ActivityTree
