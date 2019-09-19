@@ -36,6 +36,7 @@ namespace nscreg.Data.Entities
     {
         public long Id => ((long)UnitType << 32) + RegId;
         public List<int> ActivityCategoryIds { get; set; }
+        public List<int> RegionIds { get; set; }
         public bool IsLiquidated => LiqDate != null;
     }
 }

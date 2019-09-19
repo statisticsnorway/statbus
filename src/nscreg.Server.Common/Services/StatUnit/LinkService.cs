@@ -173,8 +173,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 DataSourceClassificationId = search.DataSourceClassificationId,
                 PageSize = 20
             };
-            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
-            var searchResponse = await _elasticService.Search(searchModel, userId, false, isAdmin);
+            var searchResponse = await _elasticService.Search(searchModel, userId, false);
             var units = searchResponse.Result.ToList();
             var list = new List<IStatisticalUnit>();
             var listIds = units.Select(x => x.RegId).ToList();

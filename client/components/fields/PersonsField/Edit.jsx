@@ -179,9 +179,9 @@ class PersonEdit extends React.Component {
       (personMandatoryFields.MiddleName && !data.middleName) ||
       (personMandatoryFields.BirthDate && !data.birthDate) ||
       (personMandatoryFields.Role && !data.role) ||
-      (personMandatoryFields.NationalityCode && !data.countryId) ||
-      (personMandatoryFields.Telephone1 && !data.phoneNumber) ||
-      (personMandatoryFields.Telephone2 && !data.phoneNumber1) ||
+      (personMandatoryFields.CountryId && !data.countryId) ||
+      (personMandatoryFields.PhoneNumber && !data.phoneNumber) ||
+      (personMandatoryFields.PhoneNumber1 && !data.phoneNumber1) ||
       (personMandatoryFields.Address && !data.address) ||
       (personMandatoryFields.Sex && !data.sex)
 
@@ -289,7 +289,7 @@ class PersonEdit extends React.Component {
                 value={data.countryId}
                 name="countryId"
                 key="countryId"
-                required={personMandatoryFields.NationalityCode}
+                required={personMandatoryFields.CountryId}
                 search
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -302,7 +302,7 @@ class PersonEdit extends React.Component {
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
                 disabled={disabled}
-                required={personMandatoryFields.Telephone1}
+                required={personMandatoryFields.PhoneNumber}
                 autoComplete="off"
               />
               <Form.Input
@@ -311,7 +311,7 @@ class PersonEdit extends React.Component {
                 value={data.phoneNumber1}
                 onChange={this.onFieldChange}
                 disabled={disabled}
-                required={personMandatoryFields.Telephone2}
+                required={personMandatoryFields.PhoneNumber1}
                 autoComplete="off"
               />
             </Form.Group>

@@ -7,7 +7,5 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
     {
         public bool LegalUnitId { get; set; }
         public bool LegalUnitIdDate { get; set; }
-        public bool TaxRegId { get; set; }
-        public bool TaxRegDate { get; set; }
     }
 }

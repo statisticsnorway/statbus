@@ -1,6 +1,6 @@
 import React from 'react'
 import { number, string, func, shape } from 'prop-types'
-import { Button, Item, Icon } from 'semantic-ui-react'
+import { Button, Item, Icon, Popup } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
@@ -36,12 +36,19 @@ const ListItem = ({ localize, statUnit, restore }) => {
         </Item.Description>
       </Item.Content>
       <Item.Content>
-        <Button
-          onClick={() => restore(statUnit)}
-          floated="right"
-          icon="undo"
-          color="green"
-          size="tiny"
+        <Popup
+          content={localize('YouDontHaveEnoughtRightsRegionOrActivity')}
+          disabled={!statUnit.readonly}
+          trigger={
+            <Button
+              onClick={() => restore(statUnit)}
+              floated="right"
+              icon="undo"
+              color="green"
+              size="tiny"
+              disabled={statUnit.readonly}
+            />
+          }
         />
       </Item.Content>
     </Item>

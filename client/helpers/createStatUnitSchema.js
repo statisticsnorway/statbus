@@ -91,7 +91,9 @@ const base = {
   liqReason: sureString,
   liqDate: nullableDate,
   registrationReasonId: positiveNum,
-  classified: bool(),
+  classified: bool()
+    .nullable(true)
+    .default(false),
   foreignParticipationCountriesUnits: positiveNumArray,
   reorgTypeCode: sureString,
   suspensionEnd: nullableDate,
@@ -107,11 +109,11 @@ const base = {
   externalIdDate: nullableDate,
   statIdDate: currentDate,
   statusDate: currentDate,
+  taxRegId: sureString,
   taxRegDate: nullableDate,
   turnoverDate: currentDate,
   turnoverYear: lastYear,
   statId: statId('statId', config.mandatoryFields.StatUnit.StatId),
-  taxRegId: sureString,
   regMainActivityId: positiveNum,
   externalId: sureString,
   externalIdType: sureString,
@@ -126,6 +128,10 @@ const base = {
   dataSourceClassificationId: positiveNum,
   reorgTypeId: positiveNum,
   unitStatusId: positiveNum,
+  freeEconZone: bool(),
+  countries: nullablePositiveNumArray,
+  activities: activitiesArray,
+  registrationDate: sureDateString,
 }
 
 const byType = {
@@ -133,10 +139,6 @@ const byType = {
   1: {
     legalUnitIdDate: nullableDate,
     legalUnitId: positiveNum,
-    registrationDate: sureDateString,
-    activities: activitiesArray,
-    freeEconZone: bool(),
-    countries: nullablePositiveNumArray,
   },
 
   // Legal Unit
@@ -152,9 +154,6 @@ const byType = {
     foreignCapitalCurrency: sureString,
     enterpriseUnitRegId: positiveNum,
     localUnits: nullablePositiveNumArray,
-    activities: activitiesArray,
-    freeEconZone: bool(),
-    countries: nullablePositiveNumArray,
     market: bool(),
   },
 
@@ -171,10 +170,6 @@ const byType = {
     entGroupRole: sureString,
     legalUnits: positiveNumArray,
     entGroupId: positiveNum,
-    enterpriseUnitRegId: positiveNum,
-    activities: activitiesArray,
-    freeEconZone: bool(),
-    countries: nullablePositiveNumArray,
     commercial: bool(),
   },
 
@@ -182,7 +177,7 @@ const byType = {
   4: {
     statId: statId('statId', config.mandatoryFields.EnterpriseGroup.StatId),
     statIdDate: currentDate,
-    taxRegId: positiveNum,
+    taxRegId: sureString,
     taxRegDate: nullableDate,
     externalId: positiveNum,
     externalIdType: sureString,

@@ -78,6 +78,12 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.Address?.Id == 0)
                     unit.Address = await GetFilledAddress(unit.Address);
 
+                if (unit.PostalAddress?.Id == 0)
+                    unit.PostalAddress = await GetFilledAddress(unit.PostalAddress);
+
+                if (unit.ActualAddress?.Id == 0)
+                    unit.ActualAddress = await GetFilledAddress(unit.ActualAddress);
+
                 if (unit.ForeignParticipationCountry?.Id == 0)
                     unit.ForeignParticipationCountry = await GetFilledCountry(unit.ForeignParticipationCountry);
 
@@ -85,12 +91,19 @@ namespace nscreg.Server.Common.Services.DataSources
                     await unit.ForeignParticipationCountriesUnits.ForEachAsync(async fpcu =>
                     {
                         if (fpcu.Country.Id == 0)
-                            fpcu.Country= await GetFilledCountry(fpcu.Country);
+                        {
+                            var country =  await GetFilledCountry(fpcu.Country);
+                            fpcu.Country = country;
+                            fpcu.CountryId = country.Id;
+                            fpcu.UnitId = unit.RegId;
+                        }
                     });
 
                 if (unit.ForeignParticipation?.Id == 0)
                 {
-                    unit.ForeignParticipation = await GetFilledForeignParticipation(unit.ForeignParticipation);
+                    var fp = await GetFilledForeignParticipation(unit.ForeignParticipation);
+                    unit.ForeignParticipation = fp;
+                    unit.ForeignParticipationId = fp.Id;
                 }
 
                 if (!string.IsNullOrEmpty(unit.LegalForm?.Name) || !string.IsNullOrEmpty(unit.LegalForm?.Code))

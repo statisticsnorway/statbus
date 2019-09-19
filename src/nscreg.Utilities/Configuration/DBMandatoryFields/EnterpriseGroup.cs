@@ -26,6 +26,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool LiqDateStart { get; set; }
         public bool LiqDateEnd { get; set; }
         public bool LiqDateReason { get; set; }
+        public bool LiqReason { get; set; }
         public bool SuspensionStart { get; set; }
         public bool SuspensionEnd { get; set; }
         public bool ReorgTypeCode { get; set; }
@@ -43,11 +44,12 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool Status { get; set; }
         public bool StatusDate { get; set; }
         public bool Notes { get; set; }
-        public bool Size { get; set; }
+        public bool SizeId { get; set; }
         public bool DataSourceClassificationId { get; set; }
         public bool ReorgTypeId { get; set; }
         public bool UnitStatusId { get; set; }
         public bool EnterpriseUnits { get; set; }
         public bool PostalAddress { get; set; }
+        public bool EntGroupType { get; set; }
     }
 }

@@ -1,11 +1,12 @@
-USE [nscreg]
-
 ALTER TABLE [dbo].[StatisticalUnits] DROP CONSTRAINT [FK_StatisticalUnits_DataSourceClassifications_DataSourceClassificationId]
 ALTER TABLE [dbo].[EnterpriseGroups] DROP CONSTRAINT [FK_EnterpriseGroups_DataSourceClassifications_DataSourceClassificationId]
 
 TRUNCATE TABLE [dbo].[DataSourceClassifications]
-INSERT INTO DataSourceClassifications
-  (Name, Code, IsDeleted)
+
+INSERT INTO [dbo].[DataSourceClassifications]
+  ([Name]
+  ,[Code]
+  ,[IsDeleted])
 VALUES
   ('Указ Президента Кыргызской  Республики', '1', 0),
   ('Постановление Правительства Кыргызской Республики', '2', 0),

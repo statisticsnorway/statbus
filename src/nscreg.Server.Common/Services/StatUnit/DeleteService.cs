@@ -61,13 +61,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new UnauthorizedAccessException();
             }
 
-            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, false).Result;
+            var item = Mapper.Map<IStatisticalUnit, ElasticStatUnit>(_commonSvc.GetStatisticalUnitByIdAndType(id, unitType, !toDelete).Result);
             bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
 
             if (isEmployee)
             {
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                helper.CheckIfRegionContains(userId, item.Address?.RegionId, item.ActualAddress?.RegionId, item.PostalAddress?.RegionId);
+                helper.CheckRegionOrActivityContains(userId, item.RegionIds, item.ActivityCategoryIds);
             }
             var unit = _deleteUndeleteActions[unitType](id, toDelete, userId);
             

@@ -1,7 +1,9 @@
-TRUNCATE TABLE [dbo].[UnitStatuses]
+TRUNCATE TABLE [dbo].[Statuses]
 
-INSERT INTO UnitStatuses
-  (Name, Code,IsDeleted)
+INSERT INTO [dbo].[Statuses]
+  ([Name]
+  ,[Code]
+  ,[IsDeleted])
 VALUES
   ('Единица действует (активная)', 1, 0),
   ('Единица простаивает не более 1 года («спящая» единица)', 2, 0),

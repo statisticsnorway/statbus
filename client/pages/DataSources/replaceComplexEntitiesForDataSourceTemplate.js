@@ -158,7 +158,7 @@ function addFlattened(arr) {
         return [...acc, ...transform(CodeLookupBase, 'ReorgType', cur)]
       case 'RegistrationReasonId':
         return [...acc, ...transform(CodeLookupBase, 'RegistrationReason', cur)]
-      case 'ForeignParticipation':
+      case 'ForeignParticipationId':
         return [...acc, ...transform(ForeignParticipation, 'ForeignParticipation', cur)]
       default:
         return [...acc, cur]
@@ -190,7 +190,7 @@ const OrderOfVariablesOfDatabase = [
   ['LegalFormId'],
   ['InstSectorCodeId'],
   ['Persons'],
-  ['ForeignParticipation', 'ForeignParticipationCountriesUnits'],
+  ['ForeignParticipationId', 'ForeignParticipationCountriesUnits'],
   ['Market', 'FreeEconZone', 'Classified'],
   [
     'PrivCapitalShare',

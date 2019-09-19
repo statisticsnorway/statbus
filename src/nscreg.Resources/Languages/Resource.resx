@@ -2315,4 +2315,10 @@
   <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
     <value>You don't have enough rights to work in activity category</value>
   </data>
+  <data name="YouDontHaveEnoughtRightsRegionOrActivity" xml:space="preserve">
+    <value>You don't have enough rights to work in this Region or Activity category</value>
+  </data>
+  <data name="ReorgType" xml:space="preserve">
+    <value>Reorganization type</value>
+  </data>
 </root>

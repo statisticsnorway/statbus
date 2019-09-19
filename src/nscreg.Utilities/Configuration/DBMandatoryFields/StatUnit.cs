@@ -21,6 +21,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool WebAddress { get; set; }
         public bool Activities { get; set; }
         public bool RegistrationDate { get; set; }
+        public bool RegistrationReason { get; set; }
         public bool RegistrationReasonId { get; set; }
         public bool LiqDate { get; set; }
         public bool LiqReason { get; set; }
@@ -46,11 +47,21 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ForeignParticipationCountry { get; set; }
         public bool ForeignParticipationCountriesUnits { get; set; }
         public bool OrgLink { get; set; }
+        public bool Size { get; set; }
         public bool SizeId { get; set; }
+        public bool ForeignParticipation { get; set; }
         public bool ForeignParticipationId { get; set; }
+        public bool DataSourceClassification { get; set; }
         public bool DataSourceClassificationId { get; set; }
+        public bool ReorgType { get; set; }
         public bool ReorgTypeId { get; set; }
+        public bool UnitStatus { get; set; }
         public bool UnitStatusId { get; set; }
         public bool PostalAddress { get; set; }
+        public bool ParentOrgLink { get; set; }
+        public bool TaxRegId { get; set; }
+        public bool TaxRegDate { get; set; }
+        public bool LegalForm { get; set; }
+        public bool InstSectorCode { get; set; }
     }
 }

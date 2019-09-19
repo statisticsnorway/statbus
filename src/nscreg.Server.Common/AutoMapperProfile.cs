@@ -155,12 +155,13 @@ namespace nscreg.Server.Common
             CreateMap<AnalysisQueue, AnalysisQueueModel>()
                 .ForMember(x => x.UserName, opt => opt.MapFrom(x => x.User.Name));
 
-            CreateMap<StatUnitSearchView, SearchViewAdapterModel>()
+            CreateMap<ElasticStatUnit, SearchViewAdapterModel>()
                 .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(x)))
                 .ForMember(x => x.Persons, opt => opt.Ignore())
                 .ForMember(x => x.Activities, opt => opt.Ignore());
 
-            CreateMap<StatUnitSearchView, ElasticStatUnit>();
+            CreateMap<StatUnitSearchView, ElasticStatUnit>()
+                .ForMember(d => d.RegionIds, opt => opt.ResolveUsing(s => s.RegionId != null ? new List<int> { (int)s.RegionId } : new List<int>()));
 
             CreateMap<IStatisticalUnit, ElasticStatUnit>()
                 .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as StatisticalUnit).LiqDate))
@@ -172,6 +173,12 @@ namespace nscreg.Server.Common
                 .ForMember(d => d.ActivityCategoryIds,
                     opt => opt.ResolveUsing(s =>
                         s.ActivitiesUnits?.Select(a => a.Activity.ActivityCategoryId).ToList() ?? new List<int>()
+                    )
+                )
+                .ForMember(d => d.RegionIds,
+                    opt => opt.ResolveUsing(s =>
+                        new List<int?> { s.Address?.RegionId, s.PostalAddress?.RegionId, s.ActualAddress?.RegionId }
+                            .Where(x => x != null).Select(x => (int)x).ToList()
                     )
                 );
 

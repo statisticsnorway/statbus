@@ -2307,4 +2307,10 @@
   <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
     <value> У вас нет прав для работы с видом деятельности</value>
   </data>
+  <data name="YouDontHaveEnoughtRightsRegionOrActivity" xml:space="preserve">
+    <value>У вас нет прав для работы в данном регионе или видом деятельности</value>
+  </data>
+  <data name="ReorgType" xml:space="preserve">
+    <value>Тип реорганизации</value>
+  </data>
 </root>

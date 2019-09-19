@@ -1,3 +1,8 @@
+DELETE FROM [CountryStatisticalUnits]
+GO
+DBCC CHECKIDENT ('dbo.CountryStatisticalUnits',RESEED, 1)
+GO
+
 INSERT INTO [dbo].[CountryStatisticalUnits]
     ([Unit_Id]
     ,[Country_Id])
