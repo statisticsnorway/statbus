@@ -1,5 +1,12 @@
-INSERT INTO RegistrationReasons
-  (Code, Name, IsDeleted)
+DELETE FROM [dbo].[RegistrationReasons]
+GO
+DBCC CHECKIDENT ('dbo.RegistrationReasons',RESEED, 1)
+GO
+
+INSERT INTO [dbo].[RegistrationReasons]
+  ([Code]
+  ,[Name]
+  ,[IsDeleted])
 VALUES
   ('10', 'Создание юридического лица без обособленных подразделений', 0),
   ('11', 'Создание нового юридического лица', 0),

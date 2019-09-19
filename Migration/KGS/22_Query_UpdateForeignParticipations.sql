@@ -1,7 +1,9 @@
 TRUNCATE TABLE [dbo].[ForeignParticipations]
 
-INSERT INTO ForeignParticipations
-  (Name, Code, IsDeleted)
+INSERT INTO [dbo].[ForeignParticipations]
+  ([Name]
+  ,[Code]
+  ,[IsDeleted])
 VALUES
   ('Иностранное участие стран СНГ', '3', 0),
   ('Иностранное участие стран вне СНГ', '4', 0),

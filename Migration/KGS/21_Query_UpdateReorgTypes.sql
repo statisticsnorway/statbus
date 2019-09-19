@@ -1,7 +1,9 @@
 TRUNCATE TABLE [dbo].[ReorgTypes]
 
-INSERT INTO ReorgTypes
-  (Name, Code, IsDeleted)
+INSERT INTO [dbo].[ReorgTypes]
+  ([Name]
+  ,[Code]
+  ,[IsDeleted])
 VALUES
   ('Создание юридического лица без обособленных подразделений', '10', 0),
   ('Создание нового юридического лица', '11', 0),
