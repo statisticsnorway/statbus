@@ -19,12 +19,14 @@ class RegionTree extends React.Component {
     localize: func,
     callBack: func,
     loaded: bool,
+    disabled: bool,
   }
 
   static defaultProps = {
     checked: [],
     isView: false,
     loaded: true,
+    disabled: false,
   }
 
   getAllChilds(data) {
@@ -50,7 +52,17 @@ class RegionTree extends React.Component {
   }
 
   render() {
-    const { localize, name, label, checked, callBack, dataTree, isView, loaded } = this.props
+    const {
+      localize,
+      name,
+      label,
+      checked,
+      callBack,
+      dataTree,
+      isView,
+      loaded,
+      disabled,
+    } = this.props
 
     return isView ? (
       <Tree>{this.getFilteredTree(dataTree, new Set(checked))}</Tree>
@@ -59,7 +71,7 @@ class RegionTree extends React.Component {
         <label htmlFor={name}>{localize(label)}</label>
         <br />
         {loaded ? (
-          <Tree checkedKeys={checked} onCheck={callBack} checkable>
+          <Tree checkedKeys={checked} disabled={disabled} onCheck={callBack} checkable>
             <TreeNode title={getNewName(dataTree, true)} key={`${dataTree.id}`}>
               {this.getAllChilds(dataTree.regionNodes.map(transform))}
             </TreeNode>

@@ -48,6 +48,7 @@ class Create extends React.Component {
     fetchingActivities: true,
     rolesFailMessage: undefined,
     activityTree: [],
+    spinner: false,
   }
 
   componentDidMount() {
@@ -140,6 +141,7 @@ class Create extends React.Component {
 
   handleSubmit = (e) => {
     e.preventDefault()
+    this.setState({ spinner: true })
     this.props.submitUser(this.state.data)
   }
 
@@ -156,6 +158,7 @@ class Create extends React.Component {
       rolesFailMessage,
       regionTree,
       activityTree,
+      spinner,
     } = this.state
     return (
       <div className={styles.root}>
@@ -166,6 +169,7 @@ class Create extends React.Component {
             value={data.name}
             onChange={this.handleEdit}
             label={localize('UserName')}
+            disabled={spinner}
             maxLength={64}
             placeholder="e.g. Robert Diggs"
             autoComplete="off"
@@ -177,6 +181,7 @@ class Create extends React.Component {
             onChange={this.handleEdit}
             onBlur={this.checkExistLogin}
             label={localize('UserLogin')}
+            disabled={spinner}
             placeholder="e.g. rdiggs"
             autoComplete="off"
             required
@@ -192,6 +197,7 @@ class Create extends React.Component {
             onChange={this.handleEdit}
             type="email"
             label={localize('UserEmail')}
+            disabled={spinner}
             placeholder="e.g. robertdiggs@site.domain"
             autoComplete="off"
             required
@@ -204,6 +210,7 @@ class Create extends React.Component {
                 onChange={this.handleEdit}
                 type="password"
                 label={localize('UserPassword')}
+                disabled={spinner}
                 placeholder={localize('TypeStrongPasswordHere')}
                 autoComplete="off"
                 required
@@ -220,6 +227,7 @@ class Create extends React.Component {
                 onChange={this.handleEdit}
                 type="password"
                 label={localize('ConfirmPassword')}
+                disabled={spinner}
                 placeholder={localize('TypePasswordAgain')}
                 error={data.confirmPassword !== data.password}
                 autoComplete="off"
@@ -235,6 +243,7 @@ class Create extends React.Component {
             onChange={this.handleEdit}
             type="number"
             label={localize('UserPhone')}
+            disabled={spinner}
             placeholder="555123456"
             autoComplete="off"
           />
@@ -247,6 +256,7 @@ class Create extends React.Component {
               onChange={this.handleEdit}
               options={rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
               label={localize('AssignedRoles')}
+              disabled={spinner}
               placeholder={localize('SelectOrSearchRoles')}
               autoComplete="off"
               search
@@ -258,6 +268,7 @@ class Create extends React.Component {
             onChange={this.handleEdit}
             options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
             autoComplete="off"
+            disabled={spinner}
             label={localize('UserStatus')}
           />
           {!fetchingRoles && data.assignedRole !== roles.admin && (
@@ -268,6 +279,7 @@ class Create extends React.Component {
               loaded={!fetchingActivities}
               checked={data.activiyCategoryIds}
               callBack={this.setActivities}
+              disabled={spinner}
               localize={localize}
               loadNode={this.fetchActivityTree}
             />
@@ -280,6 +292,7 @@ class Create extends React.Component {
               dataTree={regionTree}
               checked={data.userRegions}
               callBack={this.handleCheck}
+              disabled={spinner}
               localize={localize}
             />
           )}
@@ -288,6 +301,7 @@ class Create extends React.Component {
             value={data.description}
             onChange={this.handleEdit}
             label={localize('Description')}
+            disabled={spinner}
             placeholder={localize('NSO_Employee')}
             autoComplete="off"
             maxLength={64}
@@ -303,10 +317,15 @@ class Create extends React.Component {
           <Button
             content={localize('Submit')}
             type="submit"
-            disabled={fetchingRoles || fetchingActivities || fetchingRegions || loginError}
+            disabled={
+              fetchingRoles || fetchingActivities || fetchingRegions || loginError || spinner
+            }
             floated="right"
             primary
           />
+          <div className="submitUserLoader">
+            {this.state.spinner && <Loader inline active size="small" />}
+          </div>
           {rolesFailMessage && (
             <div>
               <Message content={rolesFailMessage} negative />
