@@ -21,7 +21,7 @@ const StatUnitView = ({ 'data-name': name, 'data-code': code, 'data-type': type,
       {code} - {localize && localize(statUnitTypes.get(type))}
     </strong>
     <br />
-    {name.length > 50 ? (
+    {name && name.length > 50 ? (
       <span title={name}>{`${name.substring(0, 50)}...`}</span>
     ) : (
       <span>{name}</span>
@@ -147,7 +147,6 @@ class UnitSearch extends React.Component {
                 'data-code': v.code,
                 'data-id': v.id,
                 'data-type': v.type,
-                localize: this.props.localize,
               })),
             },
             () => {
