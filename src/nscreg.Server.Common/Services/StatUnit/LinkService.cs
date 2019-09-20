@@ -180,16 +180,39 @@ namespace nscreg.Server.Common.Services.StatUnit
             var type = search.Type;
             if (type == null || type == StatUnitTypes.EnterpriseGroup)
             {
-                list.AddRange(_commonSvc.GetUnitsList<EnterpriseGroup>(false).Where(x=> listIds.Contains(x.RegId)));
+                var entGroup = _commonSvc.GetUnitsList<EnterpriseGroup>(false)
+                    .Where(x=> listIds.Contains(x.RegId))
+                    .Include(x=>x.EnterpriseUnits)
+                    .ThenInclude(x=>x.LegalUnits)
+                    .ThenInclude(x=>x.LocalUnits);
+                list.AddRange(entGroup);
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.SelectMany(y=>y.LegalUnits)));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.SelectMany(y=>y.LegalUnits.SelectMany(z=>z.LocalUnits))));
             }
 
             if (type == null || type == StatUnitTypes.EnterpriseUnit)
             {
-                list.AddRange(_commonSvc.GetUnitsList<EnterpriseUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseGroup));
+                var entUnit = _commonSvc.GetUnitsList<EnterpriseUnit>(false)
+                    .Where(x => listIds.Contains(x.RegId))
+                    .Include(x => x.EnterpriseGroup)
+                    .ThenInclude(x=>x.EnterpriseUnits)
+                    .ThenInclude(x=>x.LegalUnits)
+                    .ThenInclude(x=>x.LocalUnits);
+                list.AddRange(entUnit);
+                list.AddRange(entUnit.Select(x=>x.EnterpriseGroup));
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits));
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.SelectMany(y=>y.LocalUnits)));
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
             {
+                list.AddRange(_commonSvc.GetUnitsList<LocalUnit>(false)
+                    .Where(v => v.LegalUnitId == units.First().RegId).Include(x => x.LegalUnit)
+                    .ThenInclude(x => x.EnterpriseUnit)
+                    .ThenInclude(x => x.EnterpriseGroup)
+                    .Include(x => x.LegalUnit)
+                    );
                 list.AddRange(_commonSvc.GetUnitsList<LegalUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseUnit).ThenInclude(x => x.EnterpriseGroup));
             }
 
@@ -445,6 +468,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                     else
                     {
                         if (node.Children.All(v => v.Id != child.Id && v.Type != child.Type))
+                        {
+                            node.Children.Add(child);
+                        }
+
+                        if (node.Children.All(v => v.Id != child.Id && v.Type == child.Type))
                         {
                             node.Children.Add(child);
                         }
