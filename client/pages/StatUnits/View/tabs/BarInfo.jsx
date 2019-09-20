@@ -11,7 +11,7 @@ const BarInfo = ({ unit, localize }) => (
     <h2>{unit.name}</h2>
     {unit.name === unit.shortName && `(${unit.shortName})`}
     {statUnitTypes.has(unit.unitType) && (
-      <h3 className={styles.unitType}>{statUnitTypes.get(unit.unitType)}</h3>
+      <h3 className={styles.unitType}>{localize(statUnitTypes.get(unit.unitType))}</h3>
     )}
     <Grid container columns="equal">
       <Grid.Row>
