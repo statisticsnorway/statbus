@@ -119,6 +119,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 subConfig.GetType().GetProperties().ForEach(x => mandatoryDict[x.Name] = getValue(x));
             }
 
+            //The LegalUnits field of the EnterpriseUnit type is required by business logic
+            if (type == StatUnitTypes.EnterpriseUnit && mandatoryDict.ContainsKey("LegalUnits"))
+                mandatoryDict["LegalUnits"] = true;
+
             return StatUnitViewModelCreator.Create(item, dataAccess, mandatoryDict, ignoredActions);
 
             Func<PropertyInfo, bool> GetValueFrom(object source) => prop =>

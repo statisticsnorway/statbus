@@ -33,6 +33,7 @@ StatUnitView.propTypes = {
   'data-name': string.isRequired,
   'data-code': string.isRequired,
   'data-type': string.isRequired,
+  localize: func.isRequired,
 }
 
 class UnitSearch extends React.Component {
@@ -83,6 +84,7 @@ class UnitSearch extends React.Component {
                   'data-code': code,
                   'data-name': name,
                   title: id.toString(),
+                  localize: this.props.localize,
                 },
               ],
             },
@@ -147,6 +149,7 @@ class UnitSearch extends React.Component {
                 'data-code': v.code,
                 'data-id': v.id,
                 'data-type': v.type,
+                localize: this.props.localize,
               })),
             },
             () => {
