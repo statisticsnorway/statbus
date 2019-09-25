@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -87,7 +89,7 @@ namespace nscreg.Server.Test
                 {
                     Name = "user",
                     Status = UserStatuses.Active,
-                    Roles = {new IdentityUserRole<string> {RoleId = role.Id}}
+                    UserRoles = new List<UserRole> { new UserRole(){RoleId = role.Id }}
                 };
                 ctx.Users.Add(user);
                 ctx.SaveChanges();
@@ -111,14 +113,14 @@ namespace nscreg.Server.Test
                     Name = "Name",
                     UserName = "Login",
                     Status = UserStatuses.Active,
-                    Roles = {new IdentityUserRole<string> {RoleId = sysRole.Id}}
+                    UserRoles = new List<UserRole> { new UserRole(){RoleId = sysRole.Id }}
                 };
                 var user2 = new User
                 {
                     Name = "Name1",
                     UserName = "Login1",
                     Status = UserStatuses.Active,
-                    Roles = { new IdentityUserRole<string> { RoleId = sysRole.Id } }
+                    UserRoles = new List<UserRole> { new UserRole(){RoleId = sysRole.Id }}
                 };
                 context.Users.AddRange(user, user2);
                 context.SaveChanges();
@@ -142,7 +144,7 @@ namespace nscreg.Server.Test
                     Name = "Name1",
                     UserName = "Login1",
                     Status = UserStatuses.Suspended,
-                    Roles = { new IdentityUserRole<string> { RoleId = sysRole.Id } }
+                    UserRoles = new List<UserRole> { new UserRole(){RoleId = sysRole.Id }}
                 };
                 context.Users.Add(user);
                 context.SaveChanges();

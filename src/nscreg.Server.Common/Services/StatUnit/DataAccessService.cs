@@ -20,7 +20,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public bool CheckWritePermissions(string userId, StatUnitTypes unitType)
         {
-            var roleId = _userService.GetUserById(userId).Roles.Single().RoleId;
+            var roleId = _userService.GetUserById(userId).UserRoles.Single().RoleId;
             var role = _roleService.GetRoleById(roleId);
             return role.IsNotAllowedToWrite(unitType);
         }

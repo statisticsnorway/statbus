@@ -4,6 +4,7 @@ using nscreg.Utilities.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace nscreg.Data.Entities
 {
@@ -38,22 +39,22 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 892, GroupName = GroupNames.CapitalInfo)]
         public bool Commercial { get; set; }
-
+        [Column(nameof(TotalCapital))]
         [Display(Order = 845, GroupName = GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }
-
+        [Column(nameof(MunCapitalShare))]
         [Display(Order = 825, GroupName = GroupNames.CapitalInfo)]
         public string MunCapitalShare { get; set; }
-
+        [Column(nameof(StateCapitalShare))]
         [Display(Order = 830, GroupName = GroupNames.CapitalInfo)]
         public string StateCapitalShare { get; set; }
-
+        [Column(nameof(PrivCapitalShare))]
         [Display(Order = 820, GroupName = GroupNames.CapitalInfo)]
         public string PrivCapitalShare { get; set; }
-
+        [Column(nameof(ForeignCapitalShare))]
         [Display(Order = 835, GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalShare { get; set; }
-
+        [Column(nameof(ForeignCapitalCurrency))]
         [Display(Order = 840, GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalCurrency { get; set; }
 

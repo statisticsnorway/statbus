@@ -21,7 +21,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
     public class SampleFramesService
     {
         private readonly NSCRegDbContext _context;
-        private readonly SampleFrameExecutor _sampleFrameExecutor;
         private readonly IConfiguration _configuration;
         public SampleFramesService(NSCRegDbContext context, IConfiguration configuration)
         {

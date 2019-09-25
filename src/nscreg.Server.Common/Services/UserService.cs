@@ -47,7 +47,7 @@ namespace nscreg.Server.Common.Services
             }
             if (filter.RoleId != null)
             {
-                query = query.Where(u => u.Roles.Any(v => v.RoleId == filter.RoleId));
+                query = query.Where(u => u.UserRoles.Any(v => v.RoleId == filter.RoleId));
             }
             if (filter.UserName != null)
             {
@@ -128,17 +128,16 @@ namespace nscreg.Server.Common.Services
         public UserVm GetUserVmById(string id)
         {
             var user = GetUserById(id);
+            var roleId = _context.UserRoles.First(x => x.UserId == id).RoleId;
+            var roleName = _context.Roles.FirstOrDefault(x => x.Id == roleId)?.Name;
 
-            var roleName = _context.Roles
-                .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id))
-                .Select(r => r.Name).SingleOrDefault();
             return UserVm.Create(user, roleName);
         }
 
         public User GetUserById(string id)
         {
             var user = _context.Users
-                .Include(u => u.Roles)
+                //.Include(u => u.Roles)
                 .Include(u => u.ActivitysCategoryUsers)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
@@ -165,13 +164,13 @@ namespace nscreg.Server.Common.Services
             DateTime? date = null;
             if (isSuspend)
             {
-                var adminRole = await _context.Roles.Include(r => r.Users).FirstOrDefaultAsync(
+                var adminRole = await _context.Roles.Include(r => r.UserRoles).FirstOrDefaultAsync(
                     r => r.Name == DefaultRoleNames.Administrator);
                 if (adminRole == null)
                     throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
-                if (adminRole.Users.Any(ur => ur.UserId == user.Id)
-                    && adminRole.Users.Count(us =>
+                if (adminRole.UserRoles.Any(ur => ur.UserId == user.Id)
+                    && adminRole.UserRoles.Count(us =>
                         _context.Users.Count(u => us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1)
                     throw new Exception(nameof(Resource.DeleteLastSysAdminError));
 
@@ -335,8 +334,7 @@ namespace nscreg.Server.Common.Services
                     for (int i = 0; i < iterations; i++)
                     {
                         string idsToDelete = GetIdsString(itemIdsToDelete, first, first + step < itemIdsToDelete.Count ? step : itemIdsToDelete.Count - first);
-                        await _context.Database.ExecuteSqlCommandAsync(
-                            "DELETE FROM ActivityCategoryUsers WHERE ActivityCategory_Id IN (" + idsToDelete + ")");
+                        await _context.Database.ExecuteSqlCommandAsync($"DELETE FROM ActivityCategoryUsers WHERE ActivityCategory_Id IN ({idsToDelete})");
                         first += step;
                     }
                 }
@@ -383,8 +381,8 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task<bool> IsInRoleAsync(string userId, string role)
         {
-            var roles = await _context.Roles.Include(x => x.Users).SingleAsync(x => x.Name == role);
-            return roles.Users.Any(x => x.UserId == userId);
+            var roles = await _context.Roles.Include(x => x.UserRoles).SingleAsync(x => x.Name == role);
+            return roles.UserRoles.Any(x => x.UserId == userId);
         }
 
         /// <summary>

@@ -80,10 +80,11 @@ namespace nscreg.Server.Controllers
             }
 
             var user = await _ctx.Users
-                .Include(x => x.Roles)
+                .Include(x => x.UserRoles)
+                .ThenInclude(x=>x.Role)
                 .FirstAsync(u => u.Login == User.Identity.Name);
             var roles = await _ctx.Roles
-                .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id)).ToListAsync();
+                .Where(r => user.UserRoles.Any(ur => ur.RoleId == r.Id)).ToListAsync();
             if (user == null || !roles.Any()) return RedirectToAction("LogOut", "Account");
             var dataAccessAttributes = DataAccessPermissions.Combine(
                 roles.Select(r => r.StandardDataAccessArray));

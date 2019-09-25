@@ -75,8 +75,9 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
                     {
-                        var ctx = DbContextHelper.Create(connectionSettings);
-                        var ctxCleanUp = DbContextHelper.Create(connectionSettings);
+                        var dbContextHelper = new DbContextHelper();
+                        var ctx = dbContextHelper.CreateDbContext(new string[]{});
+                        var ctxCleanUp = dbContextHelper.CreateDbContext(new string[]{});
                         // TODO: enhance inmemory db usage
                         if (connectionSettings.ParseProvider() == ConnectionProvider.InMemory)
                         {
