@@ -82,7 +82,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
             var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
             var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
-            new SampleFrameExecutor(_context, _configuration, _servicesSettings).ExecuteToFile(predicateTree, fields);
+            await new SampleFrameExecutor(_context, _configuration, _servicesSettings).ExecuteToFile(predicateTree, fields);
         }
 
         /// <summary>

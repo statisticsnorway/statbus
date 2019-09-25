@@ -58,7 +58,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field)));
         }
 
-        public async void ExecuteToFile(ExpressionGroup tree,
+        public async Task ExecuteToFile(ExpressionGroup tree,
             List<FieldEnum> fields)
         {
             var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
@@ -71,20 +71,20 @@ namespace nscreg.Server.Common.Services.SampleFrames
             
             var filePath = Path.Combine(path, Guid.NewGuid().ToString());
             
-            using (StreamWriter writer = File.AppendText(filePath+".csv"))
+            using (StreamWriter writer = File.AppendText(filePath + ".csv"))
             {
                 const int batchSize = 10000;
                 int currentPage = 0;
                 int currentCount = 0;
                 do
                 {
-                    currentPage++;
-                    var buffer = unitsQuery.Skip(currentPage * batchSize).Take(batchSize).Select(unit =>
-                        fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))).ToList();
-                    var csvString = _csvHelper.ConvertToCsv(buffer, currentPage == 0);
+                    var buffer = await unitsQuery.Skip(currentPage * batchSize).Take(batchSize).ToListAsync();
+                    var csvString = _csvHelper.ConvertToCsv(buffer.Select(unit =>
+                        fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))), currentPage == 0);
                     UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
                     string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
-                    writer.Write(lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString));
+                    //lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString)
+                    writer.Write(csvString);
                     currentCount = buffer.Count;
                 } while (currentCount == batchSize);
             }
