@@ -7,8 +7,10 @@ namespace nscreg.Utilities.Configuration
     {
         public int StatUnitAnalysisServiceDequeueInterval { get; set; }
         public int DataUploadServiceDequeueInterval { get; set; }
+        public int SampleFrameGenerationServiceDequeueInterval { get; set; }
         public int DataUploadServiceCleanupTimeout { get; set; }
         public string RootPath { get; set; }
         public string UploadDir { get; set; }
+        public string SampleFramesDir { get; set; }
     }
 }

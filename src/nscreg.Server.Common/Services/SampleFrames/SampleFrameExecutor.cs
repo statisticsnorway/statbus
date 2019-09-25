@@ -11,7 +11,7 @@ using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Server.Common.Services.SampleFrames
 {
-    internal class SampleFrameExecutor
+    public class SampleFrameExecutor
     {
         private readonly NSCRegDbContext _context;
         private readonly ExpressionTreeParser<EnterpriseGroup> _enterpriseGroupExprParser;
@@ -29,11 +29,34 @@ namespace nscreg.Server.Common.Services.SampleFrames
         public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Execute(ExpressionGroup tree,
             List<FieldEnum> fields, int? count = null)
         {
-            var units = await ExecuteSampleFrameOnStatUnits(count, tree, fields);
-            var groups = await ExecuteSampleFrameOnEnterpriseGroupsAsync(count - units.Count, tree, fields);
+            var rows = GetRows(tree, fields);
 
-            return units.Concat(groups).Select(unit =>
-                fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field)));
+            if (count.HasValue)
+                rows = rows.Take(count.Value);
+            
+            return await rows.Select(unit =>
+                fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))).ToListAsync();
+        }
+
+        public async void ExecuteToFile(ExpressionGroup tree,
+            List<FieldEnum> fields)
+        {
+
+        }
+
+        private IQueryable<IStatisticalUnit> GetRows(ExpressionGroup tree, List<FieldEnum> fields)
+        {
+            var predicate = _statUnitExprParser.Parse(tree);
+            var query = GetQueryForUnits(fields).Where(predicate);
+
+            if (!CheckUnexistingFieldsInEnterpriseGroup(tree))
+            {
+                var predicateEnt = _enterpriseGroupExprParser.Parse(tree);
+                var queryEnt = GetQueryForEnterpriseGroups(fields).Where(predicateEnt);
+                return query.Union<IStatisticalUnit>(queryEnt);
+            }
+
+            return query;
         }
 
         private IQueryable<StatisticalUnit> GetQueryForUnits(IEnumerable<FieldEnum> fields)
@@ -84,25 +107,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
             return expressionGroup.Groups != null && expressionGroup.Groups.Any(x => CheckUnexistingFieldsInEnterpriseGroup(x.Predicate));
         }
 
-        private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnEnterpriseGroupsAsync(int? count, ExpressionGroup expressionGroup, IEnumerable<FieldEnum> fields)
-        {
-            if (CheckUnexistingFieldsInEnterpriseGroup(expressionGroup))
-            {
-                return new List<IStatisticalUnit>();
-            }
-            var predicate = _enterpriseGroupExprParser.Parse(expressionGroup);
-            var entQuery = GetQueryForEnterpriseGroups(fields);
-
-            var query = entQuery
-                .Where(predicate);
-            if (count.HasValue)
-                query = query.Take(count.Value);
-            var groups = await query.AsNoTracking()
-                .Cast<IStatisticalUnit>()
-                .ToListAsync();
-            return groups;
-        }
-
         private IQueryable<EnterpriseGroup> GetQueryForEnterpriseGroups(IEnumerable<FieldEnum> fields)
         {
             var query = _context.EnterpriseGroups.AsQueryable();
@@ -125,22 +129,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
                     .ThenInclude(x => x.Person);
 
             return query;
-        }
-
-        private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnStatUnits(int? count,
-            ExpressionGroup expressionGroup, IEnumerable<FieldEnum> fields)
-        {
-            var predicate = _statUnitExprParser.Parse(expressionGroup);
-            var unitsQuery = GetQueryForUnits(fields);
-
-            var query = unitsQuery
-                .Where(predicate);
-            if (count.HasValue)
-                query = query.Take(count.Value);
-            var units = await query.AsNoTracking()
-                .Cast<IStatisticalUnit>()
-                .ToListAsync();
-            return units;
         }
     }
 }
