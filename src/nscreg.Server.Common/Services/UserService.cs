@@ -137,7 +137,7 @@ namespace nscreg.Server.Common.Services
         public User GetUserById(string id)
         {
             var user = _context.Users
-                //.Include(u => u.Roles)
+                .Include(u => u.UserRoles)
                 .Include(u => u.ActivitysCategoryUsers)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
