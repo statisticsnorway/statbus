@@ -12,6 +12,7 @@ using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Utilities;
 using nscreg.Utilities.Enums.Predicate;
 using Newtonsoft.Json;
+using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Common.Services.SampleFrames
 {
@@ -22,11 +23,13 @@ namespace nscreg.Server.Common.Services.SampleFrames
     {
         private readonly NSCRegDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly ServicesSettings _servicesSettings;
 
-        public SampleFramesService(NSCRegDbContext context, IConfiguration configuration)
+        public SampleFramesService(NSCRegDbContext context, IConfiguration configuration, ServicesSettings servicesSettings)
         {
             _context = context;
             _configuration = configuration;
+            _servicesSettings = servicesSettings;
         }
 
         /// <summary>
@@ -69,7 +72,17 @@ namespace nscreg.Server.Common.Services.SampleFrames
             var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
             var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
-            return await new SampleFrameExecutor(_context, _configuration).Execute(predicateTree, fields, count).ConfigureAwait(false);
+            return await new SampleFrameExecutor(_context, _configuration, _servicesSettings).Execute(predicateTree, fields, count).ConfigureAwait(false);
+        }
+
+        public async Task Download(int id, string userId)
+        {
+            var sampleFrame = await _context.SampleFrames.FindAsync(id);
+            if (sampleFrame == null || sampleFrame.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
+            var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
+
+            new SampleFrameExecutor(_context, _configuration, _servicesSettings).ExecuteToFile(predicateTree, fields);
         }
 
         /// <summary>

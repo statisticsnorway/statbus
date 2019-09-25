@@ -9,6 +9,7 @@ using nscreg.Server.Common.Services.SampleFrames;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Controllers
 {
@@ -18,9 +19,9 @@ namespace nscreg.Server.Controllers
         private readonly SampleFramesService _sampleFramesService;
         private readonly CsvHelper _csvHelper;
 
-        public SampleFramesController(NSCRegDbContext context, IConfiguration configuration)
+        public SampleFramesController(NSCRegDbContext context, IConfiguration configuration, ServicesSettings servicesSettings)
         {
-            _sampleFramesService = new SampleFramesService(context, configuration);
+            _sampleFramesService = new SampleFramesService(context, configuration, servicesSettings);
             _csvHelper = new CsvHelper();
         }
 
@@ -43,12 +44,13 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.SampleFramesPreview)]
         public async Task<IActionResult> DownloadPreview(int id)
         {
-            var preview = await _sampleFramesService.Preview(id, User.GetUserId());
-            var csvString = _csvHelper.ConvertToCsv(preview);
-            var nameOfFile = _sampleFramesService.GetById(id, User.GetUserId()).Result.Name + ".csv";
-            UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
-            string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
-            return File(lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString), "text/csv;charset=utf-8", nameOfFile);
+            await _sampleFramesService.Download(id, User.GetUserId());
+            return Ok();
+            //var csvString = _csvHelper.ConvertToCsv(preview);
+            //var nameOfFile = _sampleFramesService.GetById(id, User.GetUserId()).Result.Name + ".csv";
+            //UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
+            //string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
+            //return File(lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString), "text/csv;charset=utf-8", nameOfFile);
         }
 
         [HttpPost]

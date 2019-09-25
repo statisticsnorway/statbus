@@ -1,12 +1,17 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Business.SampleFrames;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Server.Common.Services.SampleFrames
@@ -17,46 +22,87 @@ namespace nscreg.Server.Common.Services.SampleFrames
         private readonly ExpressionTreeParser<EnterpriseGroup> _enterpriseGroupExprParser;
         private readonly ExpressionTreeParser<StatisticalUnit> _statUnitExprParser;
         private readonly PropertyValuesProvider _propertyValuesProvider;
+        private readonly string _rootPath;
+        private readonly string _sampleFramesDir;
+        private readonly CsvHelper _csvHelper;
 
-        public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration)
+        public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration, ServicesSettings servicesSettings)
         {
             _context = context;
             _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context, configuration);
             _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context, configuration);
             _propertyValuesProvider = new PropertyValuesProvider(context);
+            _rootPath = servicesSettings.RootPath;
+            _sampleFramesDir = servicesSettings.SampleFramesDir;
+            _csvHelper = new CsvHelper();
         }
 
         public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Execute(ExpressionGroup tree,
             List<FieldEnum> fields, int? count = null)
         {
-            var rows = GetRows(tree, fields);
+            var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
+            var units = new List<IStatisticalUnit>();
+            var unitsEnt = new List<IStatisticalUnit>();
 
             if (count.HasValue)
-                rows = rows.Take(count.Value);
-            
-            return await rows.Select(unit =>
-                fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))).ToListAsync();
+            {
+                units = await unitsQuery.Take(count.Value).Cast<IStatisticalUnit>().ToListAsync();
+                var rest = (int)count - units.Count;
+                if (rest > 0)
+                {
+                    unitsEnt = await unitsEntQuery.Take(rest).Cast<IStatisticalUnit>().ToListAsync();
+                }
+            }
+
+            return units.Concat(unitsEnt).Select(unit =>
+                fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field)));
         }
 
         public async void ExecuteToFile(ExpressionGroup tree,
             List<FieldEnum> fields)
         {
+            var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
 
+            var path = Path.Combine(
+                Path.GetFullPath(_rootPath),
+                _sampleFramesDir);
+
+            Directory.CreateDirectory(path);
+            
+            var filePath = Path.Combine(path, Guid.NewGuid().ToString());
+            
+            using (StreamWriter writer = File.AppendText(filePath+".csv"))
+            {
+                const int batchSize = 10000;
+                int currentPage = 0;
+                int currentCount = 0;
+                do
+                {
+                    currentPage++;
+                    var buffer = unitsQuery.Skip(currentPage * batchSize).Take(batchSize).Select(unit =>
+                        fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))).ToList();
+                    var csvString = _csvHelper.ConvertToCsv(buffer, currentPage == 0);
+                    UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
+                    string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
+                    writer.Write(lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString));
+                    currentCount = buffer.Count;
+                } while (currentCount == batchSize);
+            }
         }
 
-        private IQueryable<IStatisticalUnit> GetRows(ExpressionGroup tree, List<FieldEnum> fields)
+        private (IQueryable<StatisticalUnit>, IQueryable<EnterpriseGroup>) GetRows(ExpressionGroup tree, List<FieldEnum> fields)
         {
             var predicate = _statUnitExprParser.Parse(tree);
             var query = GetQueryForUnits(fields).Where(predicate);
 
+            var queryEnt = Enumerable.Empty<EnterpriseGroup>().AsQueryable();
             if (!CheckUnexistingFieldsInEnterpriseGroup(tree))
             {
                 var predicateEnt = _enterpriseGroupExprParser.Parse(tree);
-                var queryEnt = GetQueryForEnterpriseGroups(fields).Where(predicateEnt);
-                return query.Union<IStatisticalUnit>(queryEnt);
+                queryEnt = GetQueryForEnterpriseGroups(fields).Where(predicateEnt);
             }
 
-            return query;
+            return (query.AsNoTracking(), queryEnt.AsNoTracking());
         }
 
         private IQueryable<StatisticalUnit> GetQueryForUnits(IEnumerable<FieldEnum> fields)
