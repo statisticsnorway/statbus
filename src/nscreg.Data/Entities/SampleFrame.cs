@@ -13,7 +13,7 @@ namespace nscreg.Data.Entities
         public string UserId { get; set; }
         public SampleFrameGenerationStatuses Status { get; set; }
         public string FilePath { get; set; }
-        public string FileName { get; set; }
+        public DateTime? GeneratedDateTime { get; set; }
         public User User { get; set; }
         public DateTime CreationDate { get; set; }
         public DateTime? EditingDate { get; set; }

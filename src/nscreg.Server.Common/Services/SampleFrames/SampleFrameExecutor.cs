@@ -58,7 +58,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field)));
         }
 
-        public async Task ExecuteToFile(ExpressionGroup tree,
+        public async Task<string> ExecuteToFile(ExpressionGroup tree,
             List<FieldEnum> fields)
         {
             var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
@@ -69,25 +69,26 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
             Directory.CreateDirectory(path);
             
-            var filePath = Path.Combine(path, Guid.NewGuid().ToString());
+            var filePath = Path.Combine(path, Guid.NewGuid() + ".csv");
             
-            using (StreamWriter writer = File.AppendText(filePath + ".csv"))
+            using (StreamWriter writer = File.AppendText(filePath))
             {
                 const int batchSize = 10000;
                 int currentPage = 0;
-                int currentCount = 0;
+                int bufferCount = 0;
                 do
                 {
-                    var buffer = await unitsQuery.Skip(currentPage * batchSize).Take(batchSize).ToListAsync();
+                    currentPage++;
+                    var buffer = await unitsQuery.Skip((currentPage - 1) * batchSize).Take(batchSize).ToListAsync();
                     var csvString = _csvHelper.ConvertToCsv(buffer.Select(unit =>
-                        fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))), currentPage == 0);
-                    UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
+                        fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))), currentPage == 1);
                     string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
-                    //lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString)
-                    writer.Write(csvString);
-                    currentCount = buffer.Count;
-                } while (currentCount == batchSize);
+                    writer.Write(currentPage == 1 ? lvBOM + csvString : csvString);
+                    bufferCount = buffer.Count;
+                } while (bufferCount == batchSize);
             }
+
+            return filePath;
         }
 
         private (IQueryable<StatisticalUnit>, IQueryable<EnterpriseGroup>) GetRows(ExpressionGroup tree, List<FieldEnum> fields)

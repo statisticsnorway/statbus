@@ -2627,6 +2627,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to In progress.
+        /// </summary>
+        public static string InProgress {
+            get {
+                return ResourceManager.GetString("InProgress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to In queue.
         /// </summary>
         public static string InQueue {
@@ -4999,6 +5008,24 @@ namespace nscreg.Resources.Languages {
         public static string RowIndex {
             get {
                 return ResourceManager.GetString("RowIndex", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enqueue to generate file.
+        /// </summary>
+        public static string SampleFrameGenerationEnqueue {
+            get {
+                return ResourceManager.GetString("SampleFrameGenerationEnqueue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to File generation error.
+        /// </summary>
+        public static string SampleFrameGenerationError {
+            get {
+                return ResourceManager.GetString("SampleFrameGenerationError", resourceCulture);
             }
         }
         

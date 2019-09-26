@@ -62,7 +62,7 @@ namespace nscreg.SampleFrameGenerationSvc
                             new FileGenerationJob(
                                 ctx,
                                 configuration,
-                                servicesSettings.SampleFrameGenerationServiceDequeueInterval,
+                                servicesSettings,
                                 logger
                                 )));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());

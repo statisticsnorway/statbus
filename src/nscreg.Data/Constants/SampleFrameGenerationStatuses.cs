@@ -2,9 +2,11 @@ namespace nscreg.Data.Constants
 {
     public enum SampleFrameGenerationStatuses
     {
-        InQueue = 1,
-        InProgress = 2,
-        GenerationCompleted = 3,
-        GenerationFailed = 4
+        Pending = 1,
+        InQueue = 2,
+        InProgress = 3,
+        GenerationCompleted = 4,
+        GenerationFailed = 5,
+        Downloaded = 6
     }
 }

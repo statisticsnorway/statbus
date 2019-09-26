@@ -10,6 +10,8 @@ using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
+using System.IO;
+using System;
 
 namespace nscreg.Server.Controllers
 {
@@ -44,13 +46,24 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.SampleFramesPreview)]
         public async Task<IActionResult> DownloadPreview(int id)
         {
-            await _sampleFramesService.Download(id, User.GetUserId());
-            return Ok();
-            //var csvString = _csvHelper.ConvertToCsv(preview);
-            //var nameOfFile = _sampleFramesService.GetById(id, User.GetUserId()).Result.Name + ".csv";
-            //UTF8Encoding lvUtf8EncodingWithBOM = new UTF8Encoding(true, true);
-            //string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
-            //return File(lvUtf8EncodingWithBOM.GetBytes(lvBOM + csvString), "text/csv;charset=utf-8", nameOfFile);
+            var item = await _sampleFramesService.GetById(id, User.GetUserId());
+            if(item.Status == SampleFrameGenerationStatuses.GenerationCompleted || item.Status == SampleFrameGenerationStatuses.Downloaded)
+            {
+                try
+                {
+                    var stream = new FileStream(item.FilePath, FileMode.Open);
+                    await _sampleFramesService.SetAsDownloaded(id, User.GetUserId());
+                    return File(stream, "text/csv;charset=utf-8", item.Name + ".csv");
+                }
+                catch (Exception e) {
+                    return NotFound(e);
+                }
+            } else if(item.Status == SampleFrameGenerationStatuses.Pending)
+            {
+                await _sampleFramesService.QueueToDownload(id, User.GetUserId());
+            }
+
+            return NoContent();
         }
 
         [HttpPost]

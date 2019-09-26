@@ -21,9 +21,7 @@ namespace nscreg.Utilities
             var isFirst = true;
             foreach (var item in items)
             {
-                if (!withHeaders)
-                    continue;
-                if (isFirst)
+                if (isFirst && withHeaders)
                 {
                     WriteHeader(item, buffer);
                     isFirst = false;

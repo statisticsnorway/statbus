@@ -2313,4 +2313,13 @@
   <data name="ReorgType" xml:space="preserve">
     <value>Тип реорганизации</value>
   </data>
+  <data name="InProgress" xml:space="preserve">
+    <value>В процессе</value>
+  </data>
+  <data name="SampleFrameGenerationEnqueue" xml:space="preserve">
+    <value>Поставить в очередь на генерацию</value>
+  </data>
+  <data name="SampleFrameGenerationError" xml:space="preserve">
+    <value>Ошибка генерации файла</value>
+  </data>
 </root>
