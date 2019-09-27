@@ -17,7 +17,6 @@ using nscreg.TestUtils;
 using nscreg.Utilities.Enums.Predicate;
 using Newtonsoft.Json;
 using Xunit;
-using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Test
 {

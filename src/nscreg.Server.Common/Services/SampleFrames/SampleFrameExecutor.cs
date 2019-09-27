@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,7 +10,6 @@ using nscreg.Business.SampleFrames;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Utilities;
-using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Server.Common.Services.SampleFrames

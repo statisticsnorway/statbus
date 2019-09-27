@@ -12,7 +12,6 @@ using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Utilities;
 using nscreg.Utilities.Enums.Predicate;
 using Newtonsoft.Json;
-using nscreg.Utilities.Configuration;
 using nscreg.Data.Constants;
 using System.IO;
 
