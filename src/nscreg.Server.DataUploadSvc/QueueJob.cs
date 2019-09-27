@@ -85,7 +85,8 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
-                _logger.LogInformation("populating unit");                
+                _logger.LogInformation("populating unit");
+
                 var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 if (populateError.HasValue())
                 {
@@ -93,6 +94,17 @@ namespace nscreg.Server.DataUploadSvc
                     anyWarnings = true;
                     await LogUpload(LogStatus.Error, populateError);
                     continue;
+                }
+
+                if (dequeued.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter)
+                {
+                    if (!string.IsNullOrWhiteSpace(populated.StatId) && !_analysisSvc.CheckStatUnitIdIsContains(populated))
+                    {
+                        _logger.LogInformation("StatUnit failed with error: {0} ({1})", Resource.StatUnitIdIsNotFound, populated.StatId);
+                        anyWarnings = true;
+                        await LogUpload(LogStatus.Error, nameof(Resource.StatUnitIdIsNotFound));
+                        continue;
+                    }
                 }
 
                 _logger.LogInformation(

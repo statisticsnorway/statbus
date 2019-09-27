@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Business.Analysis.StatUnit;
@@ -36,6 +37,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit)
         {
             return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings));
+        }
+
+        public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)
+        {
+            return _context.StatisticalUnits.Any(x => x.StatId == unit.StatId);
         }
 
         public void AnalyzeStatUnits(AnalysisQueue analysisQueue)

@@ -2333,4 +2333,7 @@
   <data name="FileDoesntExistOrInQueue" xml:space="preserve">
     <value>File does not exist or is being generated</value>
   </data>
+  <data name="StatUnitIdIsNotFound" xml:space="preserve">
+    <value>Statistical unit by stat id not found</value>
+  </data>
 </root>
