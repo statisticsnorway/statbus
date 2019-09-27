@@ -2321,4 +2321,7 @@
   <data name="ReorgType" xml:space="preserve">
     <value>Reorganization type</value>
   </data>
+  <data name="StatUnitIdIsNotFound" xml:space="preserve">
+    <value>Statistical unit by stat id not found</value>
+  </data>
 </root>
