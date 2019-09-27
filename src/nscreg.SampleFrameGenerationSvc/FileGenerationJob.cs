@@ -25,6 +25,8 @@ namespace nscreg.SampleFrameGenerationSvc
         private readonly NSCRegDbContext _ctx;
         private readonly SampleFrameExecutor _sampleFrameExecutor;
         private readonly int _timeoutMilliseconds;
+        private readonly string _rootPath;
+        private readonly string _sampleFramesDir;
         public int Interval { get; }
 
         private readonly ILogger _logger;
@@ -35,9 +37,11 @@ namespace nscreg.SampleFrameGenerationSvc
             ILogger logger)
         {
             _ctx = ctx;
-            _sampleFrameExecutor = new SampleFrameExecutor(ctx, configuration, servicesSettings);
+            _sampleFrameExecutor = new SampleFrameExecutor(ctx, configuration);
             Interval = servicesSettings.SampleFrameGenerationServiceDequeueInterval;
             _timeoutMilliseconds = servicesSettings.SampleFrameGenerationServiceCleanupTimeout;
+            _rootPath = servicesSettings.RootPath;
+            _sampleFramesDir = servicesSettings.SampleFramesDir;
             _logger = logger;
         }
 
@@ -47,46 +51,54 @@ namespace nscreg.SampleFrameGenerationSvc
         /// <param name="cancellationToken"></param>
         public async Task Execute(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("sample frame generation attempt...");
-            var sampleFrameQueue = await _ctx.SampleFrames.LastOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.InQueue, cancellationToken);
-            if (sampleFrameQueue != null)
+            _logger.LogInformation("sample frame generation/clearing attempt...");
+
+            var moment = DateTime.Now.AddMilliseconds(-_timeoutMilliseconds);
+            var sampleFrameToDelete = await _ctx.SampleFrames.LastOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.Downloaded
+                || (sf.Status == SampleFrameGenerationStatuses.GenerationCompleted && sf.GeneratedDateTime < moment),
+                cancellationToken);
+            if (sampleFrameToDelete != null)
             {
-                _logger.LogInformation("sample frame generation: {0}", sampleFrameQueue.Id);
-
-                sampleFrameQueue.Status = SampleFrameGenerationStatuses.InProgress;
+                _logger.LogInformation("sample frame clearing: {0}", sampleFrameToDelete.Id);
+                if (File.Exists(sampleFrameToDelete.FilePath))
+                    File.Delete(sampleFrameToDelete.FilePath);
+                sampleFrameToDelete.FilePath = null;
+                sampleFrameToDelete.GeneratedDateTime = null;
+                sampleFrameToDelete.Status = SampleFrameGenerationStatuses.Pending;
                 _ctx.SaveChanges();
-
-                try
-                {
-                    var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrameQueue.Fields);
-                    var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrameQueue.Predicate);
-                    var filePath = await _sampleFrameExecutor.ExecuteToFile(predicateTree, fields);
-                    sampleFrameQueue.FilePath = filePath;
-                    sampleFrameQueue.GeneratedDateTime = DateTime.Now;
-                    sampleFrameQueue.Status = SampleFrameGenerationStatuses.GenerationCompleted;
-                    _ctx.SaveChanges();
-                }
-                catch (Exception e)
-                {
-                    sampleFrameQueue.Status = SampleFrameGenerationStatuses.GenerationFailed;
-                    _ctx.SaveChanges();
-                    throw new Exception("Error occurred during file generation", e);
-                }
             } else
             {
-                var moment = DateTime.Now.AddMilliseconds(-_timeoutMilliseconds);
-                var sampleFrameToDelete = await _ctx.SampleFrames.LastOrDefaultAsync(
-                    sf => (sf.Status == SampleFrameGenerationStatuses.GenerationCompleted
-                        || sf.Status == SampleFrameGenerationStatuses.Downloaded) && sf.GeneratedDateTime < moment,
-                    cancellationToken);
-                if (sampleFrameToDelete != null && !string.IsNullOrEmpty(sampleFrameToDelete.FilePath))
+                var sampleFrameQueue = await _ctx.SampleFrames.LastOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.InQueue, cancellationToken);
+                if (sampleFrameQueue != null)
                 {
-                    _logger.LogInformation("sample frame clearing: {0}", sampleFrameToDelete.Id);
-                    File.Delete(sampleFrameToDelete.FilePath);
-                    sampleFrameToDelete.FilePath = null;
-                    sampleFrameToDelete.GeneratedDateTime = null;
-                    sampleFrameToDelete.Status = SampleFrameGenerationStatuses.Pending;
+                    _logger.LogInformation("sample frame generation: {0}", sampleFrameQueue.Id);
+
+                    sampleFrameQueue.Status = SampleFrameGenerationStatuses.InProgress;
                     _ctx.SaveChanges();
+
+                    var path = Path.Combine(Path.GetFullPath(_rootPath), _sampleFramesDir);
+                    Directory.CreateDirectory(path);
+                    var filePath = Path.Combine(path, Guid.NewGuid() + ".csv");
+                    try
+                    {
+                        var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrameQueue.Fields);
+                        var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrameQueue.Predicate);
+                        await _sampleFrameExecutor.ExecuteToFile(predicateTree, fields, filePath);
+                        sampleFrameQueue.FilePath = filePath;
+                        sampleFrameQueue.GeneratedDateTime = DateTime.Now;
+                        sampleFrameQueue.Status = SampleFrameGenerationStatuses.GenerationCompleted;
+                        _ctx.SaveChanges();
+                    }
+                    catch (Exception e)
+                    {
+                        sampleFrameQueue.FilePath = null;
+                        sampleFrameQueue.GeneratedDateTime = DateTime.Now;
+                        sampleFrameQueue.Status = SampleFrameGenerationStatuses.GenerationFailed;
+                        _ctx.SaveChanges();
+                        if (File.Exists(filePath))
+                            File.Delete(filePath);
+                        throw new Exception("Error occurred during file generation", e);
+                    }
                 }
             }
         }

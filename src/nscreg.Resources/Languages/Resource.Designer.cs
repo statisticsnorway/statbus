@@ -2348,6 +2348,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to File does not exist or is being generated.
+        /// </summary>
+        public static string FileDoesntExistOrInQueue {
+            get {
+                return ResourceManager.GetString("FileDoesntExistOrInQueue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Uploading file has empty unit.
         /// </summary>
         public static string FileHasEmptyUnit {

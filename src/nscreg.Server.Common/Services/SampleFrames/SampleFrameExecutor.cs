@@ -22,18 +22,14 @@ namespace nscreg.Server.Common.Services.SampleFrames
         private readonly ExpressionTreeParser<EnterpriseGroup> _enterpriseGroupExprParser;
         private readonly ExpressionTreeParser<StatisticalUnit> _statUnitExprParser;
         private readonly PropertyValuesProvider _propertyValuesProvider;
-        private readonly string _rootPath;
-        private readonly string _sampleFramesDir;
         private readonly CsvHelper _csvHelper;
 
-        public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration, ServicesSettings servicesSettings)
+        public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
             _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context, configuration);
             _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context, configuration);
             _propertyValuesProvider = new PropertyValuesProvider(context);
-            _rootPath = servicesSettings.RootPath;
-            _sampleFramesDir = servicesSettings.SampleFramesDir;
             _csvHelper = new CsvHelper();
         }
 
@@ -58,37 +54,31 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field)));
         }
 
-        public async Task<string> ExecuteToFile(ExpressionGroup tree,
-            List<FieldEnum> fields)
+        public async Task ExecuteToFile(ExpressionGroup tree, List<FieldEnum> fields, string filePath)
         {
             var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
-
-            var path = Path.Combine(
-                Path.GetFullPath(_rootPath),
-                _sampleFramesDir);
-
-            Directory.CreateDirectory(path);
-            
-            var filePath = Path.Combine(path, Guid.NewGuid() + ".csv");
             
             using (StreamWriter writer = File.AppendText(filePath))
             {
-                const int batchSize = 10000;
-                int currentPage = 0;
-                int bufferCount = 0;
-                do
-                {
-                    currentPage++;
-                    var buffer = await unitsQuery.Skip((currentPage - 1) * batchSize).Take(batchSize).ToListAsync();
-                    var csvString = _csvHelper.ConvertToCsv(buffer.Select(unit =>
-                        fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))), currentPage == 1);
-                    string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
-                    writer.Write(currentPage == 1 ? lvBOM + csvString : csvString);
-                    bufferCount = buffer.Count;
-                } while (bufferCount == batchSize);
+                await BatchWrite(writer, unitsQuery, fields, true, 50000);
+                await BatchWrite(writer, unitsEntQuery, fields, false, 50000);
             }
+        }
 
-            return filePath;
+        private async Task BatchWrite(StreamWriter writer, IQueryable<IStatisticalUnit> query, List<FieldEnum> fields, bool withHeaders = false, int batchSize = 10000)
+        {
+            int currentPage = 0;
+            int bufferCount = 0;
+            do
+            {
+                currentPage++;
+                var buffer = await query.Skip((currentPage - 1) * batchSize).Take(batchSize).ToListAsync();
+                var csvString = _csvHelper.ConvertToCsv(buffer.Select(unit =>
+                    fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))), withHeaders && currentPage == 1);
+                string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
+                writer.Write(currentPage == 1 ? lvBOM + csvString : csvString);
+                bufferCount = buffer.Count;
+            } while (bufferCount == batchSize);
         }
 
         private (IQueryable<StatisticalUnit>, IQueryable<EnterpriseGroup>) GetRows(ExpressionGroup tree, List<FieldEnum> fields)

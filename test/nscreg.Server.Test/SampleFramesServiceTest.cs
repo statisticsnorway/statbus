@@ -37,7 +37,7 @@ namespace nscreg.Server.Test
 
                 await CreateStatisticalUnitsAsync(context);
 
-                await new SampleFramesService(context, null, new ServicesSettings()).Create(
+                await new SampleFramesService(context, null).Create(
                     new SampleFrameM
                     {
                         Name = "Sample frame name",
@@ -60,7 +60,7 @@ namespace nscreg.Server.Test
                 await CreateStatisticalUnitsAsync(context);
                 var expressionTree = CreateExpressionGroup();
 
-                var service = new SampleFramesService(context, null, new ServicesSettings());
+                var service = new SampleFramesService(context, null);
                 await service.Create(
                     new SampleFrameM
                     {
@@ -95,7 +95,7 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var service = new SampleFramesService(context, null, new ServicesSettings());
+                var service = new SampleFramesService(context, null);
                 var userId = (await context.Users.FirstAsync()).Id;
                 await service.Create(
                     new SampleFrameM
@@ -121,7 +121,7 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 await CreateStatisticalUnitsAsync(context);
-                var service = new SampleFramesService(context, null, new ServicesSettings());
+                var service = new SampleFramesService(context, null);
 
                 await service.Create(
                     new SampleFrameM
@@ -176,7 +176,7 @@ namespace nscreg.Server.Test
                     });
                 await context.SaveChangesAsync();
 
-                actual = await new SampleFramesService(context, null, new ServicesSettings()).GetAll(new SearchQueryM {Page = 1, PageSize = 1}, (await context.Users.FirstAsync()).Id);
+                actual = await new SampleFramesService(context, null).GetAll(new SearchQueryM {Page = 1, PageSize = 1}, (await context.Users.FirstAsync()).Id);
             }
 
             Assert.Single(actual.Result);
@@ -202,7 +202,7 @@ namespace nscreg.Server.Test
                 context.SampleFrames.Add(expected);
                 await context.SaveChangesAsync();
 
-                actual = await new SampleFramesService(context, null, new ServicesSettings()).GetById(expected.Id, (await context.Users.FirstOrDefaultAsync()).Id);
+                actual = await new SampleFramesService(context, null).GetById(expected.Id, (await context.Users.FirstOrDefaultAsync()).Id);
             }
 
             Assert.Equal(expected.Name, actual.Name);

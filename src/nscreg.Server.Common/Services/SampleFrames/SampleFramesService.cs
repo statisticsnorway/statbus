@@ -25,13 +25,11 @@ namespace nscreg.Server.Common.Services.SampleFrames
     {
         private readonly NSCRegDbContext _context;
         private readonly IConfiguration _configuration;
-        private readonly ServicesSettings _servicesSettings;
 
-        public SampleFramesService(NSCRegDbContext context, IConfiguration configuration, ServicesSettings servicesSettings)
+        public SampleFramesService(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
             _configuration = configuration;
-            _servicesSettings = servicesSettings;
         }
 
         /// <summary>
@@ -74,7 +72,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
             var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
             var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
-            return await new SampleFrameExecutor(_context, _configuration, _servicesSettings).Execute(predicateTree, fields, count).ConfigureAwait(false);
+            return await new SampleFrameExecutor(_context, _configuration).Execute(predicateTree, fields, count).ConfigureAwait(false);
         }
 
         public async Task QueueToDownload(int id, string userId)
@@ -121,7 +119,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
         {
             var existing = await _context.SampleFrames.FindAsync(id);
             if (existing == null || existing.UserId != userId) throw new NotFoundException(Resource.SampleFrameNotFound);
-            if (!string.IsNullOrEmpty(existing.FilePath))
+            if (File.Exists(existing.FilePath))
                 File.Delete(existing.FilePath);
             model.UpdateSampleFrame(existing, userId);
             await _context.SaveChangesAsync();
@@ -135,7 +133,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
         {
             var existing = await _context.SampleFrames.FindAsync(id);
             if (existing == null || existing.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
-            if (!string.IsNullOrEmpty(existing.FilePath))
+            if (File.Exists(existing.FilePath))
                 File.Delete(existing.FilePath);
             _context.SampleFrames.Remove(existing);
             await _context.SaveChangesAsync();

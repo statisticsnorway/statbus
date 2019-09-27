@@ -2322,4 +2322,7 @@
   <data name="SampleFrameGenerationError" xml:space="preserve">
     <value>Ошибка генерации файла</value>
   </data>
+  <data name="FileDoesntExistOrInQueue" xml:space="preserve">
+    <value>Файла не существует или в процессе генерации</value>
+  </data>
 </root>

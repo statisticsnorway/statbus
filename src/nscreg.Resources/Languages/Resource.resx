@@ -2330,4 +2330,7 @@
   <data name="SampleFrameGenerationError" xml:space="preserve">
     <value>File generation error</value>
   </data>
+  <data name="FileDoesntExistOrInQueue" xml:space="preserve">
+    <value>File does not exist or is being generated</value>
+  </data>
 </root>

@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -9,9 +8,10 @@ using nscreg.Server.Common.Services.SampleFrames;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities;
-using nscreg.Utilities.Configuration;
 using System.IO;
 using System;
+using nscreg.Server.Common;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Controllers
 {
@@ -21,9 +21,9 @@ namespace nscreg.Server.Controllers
         private readonly SampleFramesService _sampleFramesService;
         private readonly CsvHelper _csvHelper;
 
-        public SampleFramesController(NSCRegDbContext context, IConfiguration configuration, ServicesSettings servicesSettings)
+        public SampleFramesController(NSCRegDbContext context, IConfiguration configuration)
         {
-            _sampleFramesService = new SampleFramesService(context, configuration, servicesSettings);
+            _sampleFramesService = new SampleFramesService(context, configuration);
             _csvHelper = new CsvHelper();
         }
 
@@ -42,23 +42,39 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> Preview(int id) =>
             Ok(await _sampleFramesService.Preview(id, User.GetUserId(), 10));
 
-        [HttpGet("{id:int}/preview/download")]
+        [HttpGet("{id:int}/download")]
         [SystemFunction(SystemFunctions.SampleFramesPreview)]
-        public async Task<IActionResult> DownloadPreview(int id)
+        public async Task<IActionResult> Download(int id)
         {
             var item = await _sampleFramesService.GetById(id, User.GetUserId());
             if(item.Status == SampleFrameGenerationStatuses.GenerationCompleted || item.Status == SampleFrameGenerationStatuses.Downloaded)
             {
                 try
                 {
-                    var stream = new FileStream(item.FilePath, FileMode.Open);
-                    await _sampleFramesService.SetAsDownloaded(id, User.GetUserId());
-                    return File(stream, "text/csv;charset=utf-8", item.Name + ".csv");
+                    if (!System.IO.File.Exists(item.FilePath))
+                    {
+                        await _sampleFramesService.Edit(id, item, User.GetUserId());
+                    } else
+                    {
+                        var stream = new FileStream(item.FilePath, FileMode.Open);
+                        await _sampleFramesService.SetAsDownloaded(id, User.GetUserId());
+                        return File(stream, "text/csv;charset=utf-8", item.Name + ".csv");
+                    }
                 }
                 catch (Exception e) {
-                    return NotFound(e);
+                    throw new BadRequestException("Error occurred during file downloading", e);
                 }
-            } else if(item.Status == SampleFrameGenerationStatuses.Pending)
+            }
+
+            return Ok($"{Localization.GetString(nameof(Resource.FileDoesntExistOrInQueue))}");
+        }
+
+        [HttpGet("{id:int}/enqueue")]
+        [SystemFunction(SystemFunctions.SampleFramesPreview)]
+        public async Task<IActionResult> EnqueueDownload(int id)
+        {
+            var item = await _sampleFramesService.GetById(id, User.GetUserId());
+            if (item.Status == SampleFrameGenerationStatuses.Pending || item.Status == SampleFrameGenerationStatuses.GenerationFailed)
             {
                 await _sampleFramesService.QueueToDownload(id, User.GetUserId());
             }

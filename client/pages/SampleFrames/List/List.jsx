@@ -6,7 +6,6 @@ import { Button, Table, Segment, Form, Confirm } from 'semantic-ui-react'
 import { checkSystemFunction as sF } from 'helpers/config'
 import { internalRequest } from 'helpers/request'
 import Paginate from 'components/Paginate'
-import { dateTimeFormat } from 'helpers/dateHelper'
 
 class List extends React.Component {
   state = { id: undefined }
@@ -29,7 +28,7 @@ class List extends React.Component {
 
   handleDownload = (_, { item }) => {
     internalRequest({
-      url: `/api/sampleframes/${item.id}/preview/download`,
+      url: `/api/sampleframes/${item.id}/enqueue`,
       method: 'get',
       onSuccess: () => {
         this.props.getSampleFrames(this.props.query)
@@ -39,6 +38,10 @@ class List extends React.Component {
 
   handleCheckFileGeneration = () => {
     this.props.getSampleFrames(this.props.query)
+  }
+
+  handleCheckOnClickDownload = () => {
+    setTimeout(this.handleCheckFileGeneration, 3000)
   }
 
   renderConfirm() {
@@ -135,7 +138,7 @@ class List extends React.Component {
                             {[4, 6].includes(Number(x.status)) && (
                               <Button
                                 as="a"
-                                href={`/api/sampleframes/${x.id}/preview/download`}
+                                href={`/api/sampleframes/${x.id}/download`}
                                 target="__blank"
                                 content={localize('DownloadSampleFrame')}
                                 onClick={this.handleCheckFileGeneration}
@@ -147,7 +150,7 @@ class List extends React.Component {
                             )}
                             {[2, 3, 5].includes(Number(x.status)) && (
                               <Button
-                                onClick={this.handleCheckFileGeneration}
+                                onClick={this.handleCheckOnClickDownload}
                                 content={localize('SampleFrameGenerationEnqueue')}
                                 item={x}
                                 loading={x.loading}
@@ -196,7 +199,7 @@ List.propTypes = {
     id: number.isRequired,
     name: string.isRequired,
     status: number.isRequired,
-    generatedDateTime: dateTimeFormat,
+    generatedDateTime: string,
   })).isRequired,
   totalCount: number.isRequired,
   query: shape.isRequired,
