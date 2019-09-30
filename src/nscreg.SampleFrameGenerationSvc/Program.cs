@@ -10,13 +10,13 @@ using NLog.Extensions.Logging;
 namespace nscreg.SampleFrameGenerationSvc
 {
     /// <summary>
-    /// Класс запуска сервиса анализа
+    /// Sample frame generation service startup class
     /// </summary>
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Program
     {
         /// <summary>
-        /// Метод запуска сервиса анализа
+        /// Sample frame generation service startup method
         /// </summary>
         public static void Main()
         {
