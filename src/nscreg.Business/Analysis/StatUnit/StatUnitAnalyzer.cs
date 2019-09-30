@@ -143,7 +143,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <param name="unit">Stat unit</param>
         /// <param name="units">Duplicate units</param>
         /// <returns>Dictionary of messages</returns>
-        public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<IStatisticalUnit> units)
+        public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<AnalysisDublicateResult> units)
         {
             var manager = unit is StatisticalUnit statisticalUnit
                 ? new StatisticalUnitDuplicatesManager(statisticalUnit, _analysisRules, units) as IAnalysisManager
@@ -283,27 +283,44 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>List of duplicates</returns>
-        private List<IStatisticalUnit> GetDuplicateUnits(IStatisticalUnit unit)
+        private List<AnalysisDublicateResult> GetDuplicateUnits(IStatisticalUnit unit)
         {
-            List<IStatisticalUnit> result;
             if (unit is EnterpriseGroup enterpriseGroup)
             {
                 var egPredicateBuilder = new AnalysisPredicateBuilder<EnterpriseGroup>();
-                var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup);
-
-                var enterpriseGroups = _context.EnterpriseGroups.Where(egPredicate).Select(x => (IStatisticalUnit) x).ToList();
-                result = enterpriseGroups;
+                var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup); 
+                var enterpriseGroups = _context.EnterpriseGroups.Where(egPredicate).Select(x => new AnalysisDublicateResult()
+                {
+                    Name = x.Name,
+                    StatId = x.StatId,
+                    TaxRegId = x.TaxRegId,
+                    ExternalId = x.ExternalId,
+                    ShortName = x.ShortName,
+                    TelephoneNo =x.TelephoneNo,
+                    AddressId = x.AddressId,
+                    EmailAddress = x.EmailAddress
+                }).ToList();
+                return enterpriseGroups;
             }
             else
             {
                 var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
                 var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
-
-                var units = _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate).Select(x => (IStatisticalUnit) x).ToList();
-                result = units;
+                var units = _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate)
+                    .Select(x => new AnalysisDublicateResult
+                    {
+                        Name = x.Name,
+                        StatId = x.StatId,
+                        TaxRegId = x.TaxRegId,
+                        ExternalId = x.ExternalId,
+                        ShortName = x.ShortName,
+                        TelephoneNo = x.TelephoneNo,
+                        AddressId = x.AddressId,
+                        EmailAddress = x.EmailAddress
+                    })
+                    .ToList();
+                return units;
             }
-
-            return result;
         }
     }
 }

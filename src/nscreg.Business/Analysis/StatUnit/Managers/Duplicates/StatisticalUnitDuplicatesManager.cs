@@ -17,10 +17,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
     {
         private readonly StatisticalUnit _checkingStatisticalUnit;
         private readonly StatUnitAnalysisRules _analysisRules;
-        private readonly List<IStatisticalUnit> _potentialDuplicates;
+        private readonly List<AnalysisDublicateResult> _potentialDuplicates;
 
         public StatisticalUnitDuplicatesManager(StatisticalUnit enterpriseGroup, StatUnitAnalysisRules analysisRules,
-            List<IStatisticalUnit> potentialDuplicates)
+            List<AnalysisDublicateResult> potentialDuplicates)
         {
             _checkingStatisticalUnit = enterpriseGroup;
             _analysisRules = analysisRules;
@@ -35,9 +35,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
         {
             var messages = new Dictionary<string, string[]>();
 
-            foreach (var unit in _potentialDuplicates)
+            foreach (var potentialDuplicate in _potentialDuplicates)
             {
-                var potentialDuplicate = unit as StatisticalUnit;
                 var unitMessages = new Dictionary<string, string[]>();
                 var sameFieldsCount = 0;
 

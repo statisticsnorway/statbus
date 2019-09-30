@@ -5,7 +5,7 @@
     <NoWarn>$(NoWarn);RECS0145</NoWarn>
     <AssemblyName>nscreg.Resources</AssemblyName>
     <PackageId>nscreg.Resources</PackageId>
-    <NetStandardImplicitPackageVersion>1.6.1</NetStandardImplicitPackageVersion>
+    <NetStandardImplicitPackageVersion>2.0.3</NetStandardImplicitPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
