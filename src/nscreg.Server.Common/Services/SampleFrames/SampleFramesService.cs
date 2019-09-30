@@ -12,6 +12,8 @@ using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Utilities;
 using nscreg.Utilities.Enums.Predicate;
 using Newtonsoft.Json;
+using nscreg.Data.Constants;
+using System.IO;
 
 namespace nscreg.Server.Common.Services.SampleFrames
 {
@@ -22,6 +24,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
     {
         private readonly NSCRegDbContext _context;
         private readonly IConfiguration _configuration;
+
         public SampleFramesService(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
@@ -71,6 +74,24 @@ namespace nscreg.Server.Common.Services.SampleFrames
             return await new SampleFrameExecutor(_context, _configuration).Execute(predicateTree, fields, count).ConfigureAwait(false);
         }
 
+        public async Task QueueToDownload(int id, string userId)
+        {
+            var sampleFrame = await _context.SampleFrames.FindAsync(id);
+            if (sampleFrame == null || sampleFrame.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            sampleFrame.Status = SampleFrameGenerationStatuses.InQueue;
+            sampleFrame.FilePath = null;
+            sampleFrame.GeneratedDateTime = null;
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task SetAsDownloaded(int id, string userId)
+        {
+            var sampleFrame = await _context.SampleFrames.FindAsync(id);
+            if (sampleFrame == null || sampleFrame.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            sampleFrame.Status = SampleFrameGenerationStatuses.Downloaded;
+            await _context.SaveChangesAsync();
+        }
+
         /// <summary>
         /// Creates sample frame
         /// </summary>
@@ -97,6 +118,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
         {
             var existing = await _context.SampleFrames.FindAsync(id);
             if (existing == null || existing.UserId != userId) throw new NotFoundException(Resource.SampleFrameNotFound);
+            if (File.Exists(existing.FilePath))
+                File.Delete(existing.FilePath);
             model.UpdateSampleFrame(existing, userId);
             await _context.SaveChangesAsync();
         }
@@ -109,6 +132,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
         {
             var existing = await _context.SampleFrames.FindAsync(id);
             if (existing == null || existing.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            if (File.Exists(existing.FilePath))
+                File.Delete(existing.FilePath);
             _context.SampleFrames.Remove(existing);
             await _context.SaveChangesAsync();
         }

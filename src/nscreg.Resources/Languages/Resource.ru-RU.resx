@@ -2313,6 +2313,18 @@
   <data name="ReorgType" xml:space="preserve">
     <value>Тип реорганизации</value>
   </data>
+  <data name="InProgress" xml:space="preserve">
+    <value>В процессе</value>
+  </data>
+  <data name="SampleFrameGenerationEnqueue" xml:space="preserve">
+    <value>Поставить в очередь на генерацию</value>
+  </data>
+  <data name="SampleFrameGenerationError" xml:space="preserve">
+    <value>Ошибка генерации файла</value>
+  </data>
+  <data name="FileDoesntExistOrInQueue" xml:space="preserve">
+    <value>Файла не существует или в процессе генерации</value>
+  </data>
   <data name="StatUnitIdIsNotFound" xml:space="preserve">
     <value>Идентификатор статистической единицы не найден</value>
   </data>

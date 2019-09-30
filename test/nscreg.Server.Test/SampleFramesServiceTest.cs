@@ -141,7 +141,7 @@ namespace nscreg.Server.Test
                     new {RegId = units[0].RegId.ToString(), units[0].Name},
                     new {RegId = units[1].RegId.ToString(), units[1].Name}
                 };
-                var actual = (await service.Preview(existing.Id,(await context.Users.FirstAsync()).Id)).ToArray();
+                var actual = (await service.Preview(existing.Id,(await context.Users.FirstAsync()).Id, 2)).ToArray();
 
                 Assert.Equal(expected.Length, actual.Length);
                 Assert.Equal(expected[0].RegId, actual[0][FieldEnum.RegId]);
