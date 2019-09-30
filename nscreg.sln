@@ -59,6 +59,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{2F80E121
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.SampleFrameGenerationSvc", "src\nscreg.SampleFrameGenerationSvc\nscreg.SampleFrameGenerationSvc.csproj", "{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -129,6 +131,10 @@ Global
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -150,6 +156,7 @@ Global
 		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
 		{2486F7B5-C172-40E0-89D2-D338322406D1} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {47D844A4-3677-4448-89A5-03FAA247F022}

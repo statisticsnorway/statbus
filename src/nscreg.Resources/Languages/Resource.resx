@@ -2321,6 +2321,18 @@
   <data name="ReorgType" xml:space="preserve">
     <value>Reorganization type</value>
   </data>
+  <data name="InProgress" xml:space="preserve">
+    <value>In progress</value>
+  </data>
+  <data name="SampleFrameGenerationEnqueue" xml:space="preserve">
+    <value>Enqueue to generate file</value>
+  </data>
+  <data name="SampleFrameGenerationError" xml:space="preserve">
+    <value>File generation error</value>
+  </data>
+  <data name="FileDoesntExistOrInQueue" xml:space="preserve">
+    <value>File does not exist or is being generated</value>
+  </data>
   <data name="StatUnitIdIsNotFound" xml:space="preserve">
     <value>Statistical unit by stat id not found</value>
   </data>

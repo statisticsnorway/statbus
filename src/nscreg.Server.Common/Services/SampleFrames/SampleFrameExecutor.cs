@@ -1,21 +1,25 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Business.SampleFrames;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Utilities;
 using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Server.Common.Services.SampleFrames
 {
-    internal class SampleFrameExecutor
+    public class SampleFrameExecutor
     {
         private readonly NSCRegDbContext _context;
         private readonly ExpressionTreeParser<EnterpriseGroup> _enterpriseGroupExprParser;
         private readonly ExpressionTreeParser<StatisticalUnit> _statUnitExprParser;
         private readonly PropertyValuesProvider _propertyValuesProvider;
+        private readonly CsvHelper _csvHelper;
 
         public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration)
         {
@@ -23,16 +27,70 @@ namespace nscreg.Server.Common.Services.SampleFrames
             _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context, configuration);
             _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context, configuration);
             _propertyValuesProvider = new PropertyValuesProvider(context);
+            _csvHelper = new CsvHelper();
         }
 
         public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Execute(ExpressionGroup tree,
             List<FieldEnum> fields, int? count = null)
         {
-            var units = await ExecuteSampleFrameOnStatUnits(count, tree, fields);
-            var groups = await ExecuteSampleFrameOnEnterpriseGroupsAsync(count - units.Count, tree, fields);
+            var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
+            var units = new List<IStatisticalUnit>();
+            var unitsEnt = new List<IStatisticalUnit>();
 
-            return units.Concat(groups).Select(unit =>
+            if (count.HasValue)
+            {
+                units = await unitsQuery.Take(count.Value).Cast<IStatisticalUnit>().ToListAsync();
+                var rest = (int)count - units.Count;
+                if (rest > 0)
+                {
+                    unitsEnt = await unitsEntQuery.Take(rest).Cast<IStatisticalUnit>().ToListAsync();
+                }
+            }
+
+            return units.Concat(unitsEnt).Select(unit =>
                 fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field)));
+        }
+
+        public async Task ExecuteToFile(ExpressionGroup tree, List<FieldEnum> fields, string filePath)
+        {
+            var (unitsQuery, unitsEntQuery) = GetRows(tree, fields);
+            
+            using (StreamWriter writer = File.AppendText(filePath))
+            {
+                await BatchWrite(writer, unitsQuery, fields, true, 50000);
+                await BatchWrite(writer, unitsEntQuery, fields, false, 50000);
+            }
+        }
+
+        private async Task BatchWrite(StreamWriter writer, IQueryable<IStatisticalUnit> query, List<FieldEnum> fields, bool withHeaders = false, int batchSize = 10000)
+        {
+            int currentPage = 0;
+            int bufferCount = 0;
+            do
+            {
+                currentPage++;
+                var buffer = await query.Skip((currentPage - 1) * batchSize).Take(batchSize).ToListAsync();
+                var csvString = _csvHelper.ConvertToCsv(buffer.Select(unit =>
+                    fields.ToDictionary(field => field, field => _propertyValuesProvider.GetValue(unit, field))), withHeaders && currentPage == 1);
+                string lvBOM = Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
+                writer.Write(currentPage == 1 ? lvBOM + csvString : csvString);
+                bufferCount = buffer.Count;
+            } while (bufferCount == batchSize);
+        }
+
+        private (IQueryable<StatisticalUnit>, IQueryable<EnterpriseGroup>) GetRows(ExpressionGroup tree, List<FieldEnum> fields)
+        {
+            var predicate = _statUnitExprParser.Parse(tree);
+            var query = GetQueryForUnits(fields).Where(predicate);
+
+            var queryEnt = Enumerable.Empty<EnterpriseGroup>().AsQueryable();
+            if (!CheckUnexistingFieldsInEnterpriseGroup(tree))
+            {
+                var predicateEnt = _enterpriseGroupExprParser.Parse(tree);
+                queryEnt = GetQueryForEnterpriseGroups(fields).Where(predicateEnt);
+            }
+
+            return (query.AsNoTracking(), queryEnt.AsNoTracking());
         }
 
         private IQueryable<StatisticalUnit> GetQueryForUnits(IEnumerable<FieldEnum> fields)
@@ -83,25 +141,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
             return expressionGroup.Groups != null && expressionGroup.Groups.Any(x => CheckUnexistingFieldsInEnterpriseGroup(x.Predicate));
         }
 
-        private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnEnterpriseGroupsAsync(int? count, ExpressionGroup expressionGroup, IEnumerable<FieldEnum> fields)
-        {
-            if (CheckUnexistingFieldsInEnterpriseGroup(expressionGroup))
-            {
-                return new List<IStatisticalUnit>();
-            }
-            var predicate = _enterpriseGroupExprParser.Parse(expressionGroup);
-            var entQuery = GetQueryForEnterpriseGroups(fields);
-
-            var query = entQuery
-                .Where(predicate);
-            if (count.HasValue)
-                query = query.Take(count.Value);
-            var groups = await query.AsNoTracking()
-                .Cast<IStatisticalUnit>()
-                .ToListAsync();
-            return groups;
-        }
-
         private IQueryable<EnterpriseGroup> GetQueryForEnterpriseGroups(IEnumerable<FieldEnum> fields)
         {
             var query = _context.EnterpriseGroups.AsQueryable();
@@ -124,22 +163,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
                     .ThenInclude(x => x.Person);
 
             return query;
-        }
-
-        private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnStatUnits(int? count,
-            ExpressionGroup expressionGroup, IEnumerable<FieldEnum> fields)
-        {
-            var predicate = _statUnitExprParser.Parse(expressionGroup);
-            var unitsQuery = GetQueryForUnits(fields);
-
-            var query = unitsQuery
-                .Where(predicate);
-            if (count.HasValue)
-                query = query.Take(count.Value);
-            var units = await query.AsNoTracking()
-                .Cast<IStatisticalUnit>()
-                .ToListAsync();
-            return units;
         }
     }
 }

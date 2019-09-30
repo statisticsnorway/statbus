@@ -15,13 +15,13 @@ namespace nscreg.Utilities
             _localizationProvider = new LocalizationProvider();
         }
 
-        public string ConvertToCsv(IEnumerable<IReadOnlyDictionary<FieldEnum, string>> items)
+        public string ConvertToCsv(IEnumerable<IReadOnlyDictionary<FieldEnum, string>> items, bool withHeaders = true)
         {
             var buffer = new StringBuilder();
             var isFirst = true;
             foreach (var item in items)
             {
-                if (isFirst)
+                if (isFirst && withHeaders)
                 {
                     WriteHeader(item, buffer);
                     isFirst = false;

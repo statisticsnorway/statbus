@@ -11,32 +11,30 @@ namespace nscreg.Server.Common.Services.SampleFrames
 {
     internal class PropertyValuesProvider
     {
-        private readonly NSCRegDbContext _context;
         private readonly Dictionary<FieldEnum, Func<IStatisticalUnit, FieldEnum, string>> _paramExtractors;
 
         public PropertyValuesProvider(NSCRegDbContext context)
         {
-            _context = context;
             _paramExtractors = new Dictionary<FieldEnum, Func<IStatisticalUnit, FieldEnum, string>>
             {
                 
                 [FieldEnum.ActivityCodes] = CreateReferenceValueExtractor(x =>
-                    string.Join(" ", x.ActivitiesUnits.Select(y => y.Activity.ActivityCategory.Code))),
-                [FieldEnum.Region] = CreateReferenceValueExtractor(x => x.Address.Region.FullPath),
+                    string.Join(" ", x.ActivitiesUnits.Select(y => y.Activity?.ActivityCategory.Code))),
+                [FieldEnum.Region] = CreateReferenceValueExtractor(x => x.Address?.Region.FullPath),
                 [FieldEnum.MainActivity] = CreateReferenceValueExtractor(x =>
                 {
                     var activityCategory = x.ActivitiesUnits.Select(y => y.Activity)
-                        .First(y => y.ActivityType == ActivityTypes.Primary).ActivityCategory;
-                    return $"{activityCategory.Code} {activityCategory.Name}";
+                        .FirstOrDefault(y => y.ActivityType == ActivityTypes.Primary)?.ActivityCategory;
+                    return activityCategory == null ? "" : $"{activityCategory?.Code} {activityCategory?.Name}";
                 }),
                 [FieldEnum.ForeignParticipationCountry] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ForeignParticipationCountriesUnits.Select(y => $"{y.Country.IsoCode} {y.Country.Name}"))),
                 [FieldEnum.ContactPerson] = CreateReferenceValueExtractor(x =>string.Join(", ", x.PersonsUnits.Select(z => $"{z.Person.GivenName} {z.Person.Surname} {z.Person.MiddleName}"))),
-                [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm.Code} {x.LegalForm.Name}"),
-                [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode.Code} {x.InstSectorCode.Name}"),
-                [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address.Region.FullPath}, {x.Address.AddressPart1}, {x.Address.AddressPart2}, {x.Address.AddressPart3}"),
-                [FieldEnum.ActualAddress] = CreateReferenceValueExtractor(x => $"{x.ActualAddress.Region.FullPath}, {x.ActualAddress.AddressPart1}, {x.ActualAddress.AddressPart2}, {x.ActualAddress.AddressPart3}"),
-                [FieldEnum.PostalAddress] = CreateReferenceValueExtractor(x => $"{x.PostalAddress.Region.FullPath}, {x.PostalAddress.AddressPart1}, {x.PostalAddress.AddressPart2}, {x.PostalAddress.AddressPart3}"),
+                [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm?.Code} {x.LegalForm?.Name}"),
+                [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode?.Code} {x.InstSectorCode?.Name}"),
+                [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address?.Region.FullPath}, {x.Address?.AddressPart1}, {x.Address?.AddressPart2}, {x.Address?.AddressPart3}"),
+                [FieldEnum.ActualAddress] = CreateReferenceValueExtractor(x => $"{x.ActualAddress?.Region.FullPath}, {x.ActualAddress?.AddressPart1}, {x.ActualAddress?.AddressPart2}, {x.ActualAddress?.AddressPart3}"),
+                [FieldEnum.PostalAddress] = CreateReferenceValueExtractor(x => $"{x.PostalAddress?.Region.FullPath}, {x.PostalAddress?.AddressPart1}, {x.PostalAddress?.AddressPart2}, {x.PostalAddress?.AddressPart3}"),
 
                 //simple fields
                 [FieldEnum.ParentId] = SimpleValueExtractor,
