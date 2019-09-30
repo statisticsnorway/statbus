@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20190925145807_UpdateSampleFrames")]
+    partial class UpdateSampleFrames
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.6")
@@ -1296,9 +1297,9 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Fields")
                         .IsRequired();
 
-                    b.Property<string>("FilePath");
+                    b.Property<string>("FileName");
 
-                    b.Property<DateTime?>("GeneratedDateTime");
+                    b.Property<string>("FilePath");
 
                     b.Property<string>("Name")
                         .IsRequired();

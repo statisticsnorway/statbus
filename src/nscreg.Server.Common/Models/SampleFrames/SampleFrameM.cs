@@ -4,6 +4,7 @@ using nscreg.Business.SampleFrames;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.Predicate;
 using Newtonsoft.Json;
+using nscreg.Data.Constants;
 
 namespace nscreg.Server.Common.Models.SampleFrames
 {
@@ -16,6 +17,10 @@ namespace nscreg.Server.Common.Models.SampleFrames
         public ExpressionGroup Predicate { get; set; }
         public DateTime CreationDate { get; set; }
         public DateTime? EditingDate { get; set; }
+        public SampleFrameGenerationStatuses Status { get; set; }
+        public string FilePath { get; set; }
+        public DateTime? GeneratedDateTime { get; set; }
+
 
         public static SampleFrameM Create(SampleFrame entity)
         {
@@ -25,7 +30,10 @@ namespace nscreg.Server.Common.Models.SampleFrames
                 Name = entity.Name,
                 Description = entity.Description,
                 Predicate = JsonConvert.DeserializeObject<ExpressionGroup>(entity.Predicate),
-                Fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields)
+                Fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields),
+                Status = entity.Status,
+                GeneratedDateTime = entity.GeneratedDateTime,
+                FilePath = entity.FilePath
             };
         }
 
@@ -39,6 +47,9 @@ namespace nscreg.Server.Common.Models.SampleFrames
                 EditingDate = DateTime.Now,
                 Predicate = JsonConvert.SerializeObject(Predicate),
                 Fields = JsonConvert.SerializeObject(Fields),
+                Status = SampleFrameGenerationStatuses.Pending,
+                GeneratedDateTime = null,
+                FilePath = null,
                 UserId = userId
             };
         }
@@ -51,6 +62,9 @@ namespace nscreg.Server.Common.Models.SampleFrames
             item.CreationDate = item.CreationDate == DateTime.MinValue ? DateTime.Now : item.CreationDate;
             item.Predicate = JsonConvert.SerializeObject(Predicate);
             item.Fields = JsonConvert.SerializeObject(Fields);
+            item.Status = SampleFrameGenerationStatuses.Pending;
+            item.GeneratedDateTime = null;
+            item.FilePath = null;
             item.UserId = userId;
         }
     }

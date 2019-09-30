@@ -2348,6 +2348,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to File does not exist or is being generated.
+        /// </summary>
+        public static string FileDoesntExistOrInQueue {
+            get {
+                return ResourceManager.GetString("FileDoesntExistOrInQueue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Uploading file has empty unit.
         /// </summary>
         public static string FileHasEmptyUnit {
@@ -2623,6 +2632,15 @@ namespace nscreg.Resources.Languages {
         public static string InList {
             get {
                 return ResourceManager.GetString("InList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to In progress.
+        /// </summary>
+        public static string InProgress {
+            get {
+                return ResourceManager.GetString("InProgress", resourceCulture);
             }
         }
         
@@ -4999,6 +5017,24 @@ namespace nscreg.Resources.Languages {
         public static string RowIndex {
             get {
                 return ResourceManager.GetString("RowIndex", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enqueue to generate file.
+        /// </summary>
+        public static string SampleFrameGenerationEnqueue {
+            get {
+                return ResourceManager.GetString("SampleFrameGenerationEnqueue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to File generation error.
+        /// </summary>
+        public static string SampleFrameGenerationError {
+            get {
+                return ResourceManager.GetString("SampleFrameGenerationError", resourceCulture);
             }
         }
         
