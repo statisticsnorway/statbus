@@ -195,14 +195,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 var entUnit = _commonSvc.GetUnitsList<EnterpriseUnit>(false)
                     .Where(x => listIds.Contains(x.RegId))
-                    .Include(x => x.EnterpriseGroup)
-                    .ThenInclude(x=>x.EnterpriseUnits)
-                    .ThenInclude(x=>x.LegalUnits)
-                    .ThenInclude(x=>x.LocalUnits);
+                    .Include(x => x.LegalUnits)
+                    .ThenInclude(x => x.LocalUnits);
+
+                list.AddRange(_commonSvc.GetUnitsList<EnterpriseUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseGroup).Select(x => x.EnterpriseGroup));
                 list.AddRange(entUnit);
-                list.AddRange(entUnit.Select(x=>x.EnterpriseGroup));
                 list.AddRange(entUnit.SelectMany(x=>x.LegalUnits));
-                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.SelectMany(y=>y.LocalUnits)));
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.SelectMany(y=>y.LocalUnits)));                
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
@@ -224,7 +223,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .ThenInclude(x => x.EnterpriseGroup)
                     .Include(x => x.LegalUnit));
             }
-            return ToNodeVm(list);
+            return ToNodeVm(list, listIds);
         }
 
         /// <summary>
@@ -437,14 +436,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="nodes">Узлы</param>
         /// <returns></returns>
-        private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes)
+        private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes, List<int> listIds)
         {
             var result = new List<UnitNodeVm>();
             var visited = new Dictionary<Tuple<int, StatUnitTypes>, UnitNodeVm>();
             var stack = new Stack<Tuple<IStatisticalUnit, UnitNodeVm>>();
             foreach (var root in nodes)
             {
-                stack.Push(Tuple.Create(root, (UnitNodeVm)null));
+                if (root != null)
+                    stack.Push(Tuple.Create(root, (UnitNodeVm)null));
             }
             while (stack.Count != 0)
             {
@@ -458,7 +458,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     if (child == null)
                     {
-                        node.Highlight = true;
                         continue;
                     }
                     if (node.Children == null)
@@ -484,7 +483,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     node.Children = new List<UnitNodeVm> { child };
                 }
-                else
+                if (listIds.Contains(unit.RegId))
                 {
                     node.Highlight = true;
                 }
