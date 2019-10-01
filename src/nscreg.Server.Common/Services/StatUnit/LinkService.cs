@@ -186,9 +186,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .ThenInclude(x=>x.LegalUnits)
                     .ThenInclude(x=>x.LocalUnits);
                 list.AddRange(entGroup);
-                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits));
-                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.SelectMany(y=>y.LegalUnits)));
-                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.SelectMany(y=>y.LegalUnits.SelectMany(z=>z.LocalUnits))));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false)));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LegalUnits.Where(z => z.IsDeleted == false))));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LegalUnits.Where(z => z.IsDeleted == false).SelectMany(z=>z.LocalUnits.Where(l => l.IsDeleted == false)))));
             }
 
             if (type == null || type == StatUnitTypes.EnterpriseUnit)
@@ -196,33 +196,43 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var entUnit = _commonSvc.GetUnitsList<EnterpriseUnit>(false)
                     .Where(x => listIds.Contains(x.RegId))
                     .Include(x => x.LegalUnits)
-                    .ThenInclude(x => x.LocalUnits);
+                    .ThenInclude(x => x.LocalUnits)
+                    .Include(x => x.EnterpriseGroup);
 
-                list.AddRange(_commonSvc.GetUnitsList<EnterpriseUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseGroup).Select(x => x.EnterpriseGroup));
+                list.AddRange(entUnit.Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
                 list.AddRange(entUnit);
-                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits));
-                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.SelectMany(y=>y.LocalUnits)));                
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false)));
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LocalUnits.Where(z => z.IsDeleted == false))));                
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
             {
-                list.AddRange(_commonSvc.GetUnitsList<LocalUnit>(false)
-                    .Where(v => v.LegalUnitId == units.First().RegId).Include(x => x.LegalUnit)
-                    .ThenInclude(x => x.EnterpriseUnit)
+                var legalUnit = _commonSvc.GetUnitsList<LegalUnit>(false)
+                    .Where(x => listIds.Contains(x.RegId))
+                    .Include(x => x.EnterpriseUnit)
                     .ThenInclude(x => x.EnterpriseGroup)
-                    .Include(x => x.LegalUnit)
-                    );
-                list.AddRange(_commonSvc.GetUnitsList<LegalUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseUnit).ThenInclude(x => x.EnterpriseGroup));
+                    .Include(x => x.LocalUnits);
+                
+                list.AddRange(legalUnit.Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit).Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
+                list.AddRange(legalUnit.Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit));
+                list.AddRange(legalUnit);
+                list.AddRange(legalUnit.SelectMany(x => x.LocalUnits.Where(y => y.IsDeleted == false)));
             }
 
             if (type == null || type == StatUnitTypes.LocalUnit)
             {
-                list.AddRange(_commonSvc.GetUnitsList<LocalUnit>(false).Where(x => listIds.Contains(x.RegId))
+                var localUnit = _commonSvc.GetUnitsList<LocalUnit>(false)
+                    .Where(x => listIds.Contains(x.RegId))
                     .Include(x => x.LegalUnit)
                     .ThenInclude(x => x.EnterpriseUnit)
-                    .ThenInclude(x => x.EnterpriseGroup)
-                    .Include(x => x.LegalUnit));
+                    .ThenInclude(x => x.EnterpriseGroup);
+
+                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit).Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit).Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
+                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit).Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit));
+                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit));
+                list.AddRange(localUnit);
             }
+
             return ToNodeVm(list, listIds);
         }
 
