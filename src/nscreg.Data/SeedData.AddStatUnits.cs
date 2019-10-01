@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using System.Linq;
 
 // ReSharper disable once CheckNamespace
 namespace nscreg.Data
@@ -12,7 +12,8 @@ namespace nscreg.Data
         public static void AddStatUnits(NSCRegDbContext context)
         {
             var roleId = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator)?.Id;
-            var sysAdminUser = context.Users.FirstOrDefault(u => u.Roles.Any(ur => ur.RoleId == roleId));
+            var adminId = context.UserRoles.FirstOrDefault(x => x.RoleId == roleId)?.UserId;
+            var sysAdminUser = context.Users.FirstOrDefault(u => u.Id == adminId);
 
             context.StatisticalUnits.AddRange(new LocalUnit
             {

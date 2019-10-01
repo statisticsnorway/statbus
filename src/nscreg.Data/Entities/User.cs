@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Identity;
 
 namespace nscreg.Data.Entities
 {
@@ -49,6 +50,7 @@ namespace nscreg.Data.Entities
         public virtual ICollection<UserRegion> UserRegions { get; set; } = new HashSet<UserRegion>();
         public virtual ICollection<AnalysisQueue> AnalysisQueues { get; set; }
         public virtual ICollection<SampleFrame> SampleFrames { get; set; }
+        public virtual ICollection<UserRole> UserRoles { get; set; }
         public virtual ICollection<ActivityCategoryUser> ActivitysCategoryUsers { get; set; } =
             new HashSet<ActivityCategoryUser>();
     }

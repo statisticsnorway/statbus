@@ -142,11 +142,11 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task ToggleSuspend(string id, RoleStatuses status)
         {
-            var role = await _context.Roles.Include(x => x.Users).FirstOrDefaultAsync(r => r.Id == id);
+            var role = await _context.Roles.Include(x => x.UserRoles).FirstOrDefaultAsync(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
-            var userIds = role.Users.Select(ur => ur.UserId).ToArray();
+            var userIds = role.UserRoles.Select(ur => ur.UserId).ToArray();
 
             if (status == RoleStatuses.Suspended && role.Name == DefaultRoleNames.Administrator)
                 throw new Exception(nameof(Resource.DeleteSysAdminRoleError));

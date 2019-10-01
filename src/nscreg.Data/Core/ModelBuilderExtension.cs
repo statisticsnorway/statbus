@@ -22,7 +22,7 @@ namespace nscreg.Data.Core
                 .Where(x => !x.GetTypeInfo().IsAbstract)
                 .Where(x => x.GetInterfaces()
                     .Any(y => y.GetTypeInfo().IsGenericType &&
-                              y.GetGenericTypeDefinition() == typeof(IEntityTypeConfiguration<>)))
+                              y.GetGenericTypeDefinition() == typeof(EntityConfiguration.IEntityTypeConfiguration<>)))
                 .Select(Activator.CreateInstance)
                 .Cast<IEntityTypeConfiguration>();
             foreach (var configuration in configurations)

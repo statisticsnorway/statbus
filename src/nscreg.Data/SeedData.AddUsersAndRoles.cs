@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -131,7 +132,7 @@ namespace nscreg.Data
 
             if (!context.UserRoles.Any(x => x.RoleId == adminRole.Id && x.UserId == sysAdminUser.Id))
             {
-                var adminUserRoleBinding = new IdentityUserRole<string>
+                var adminUserRoleBinding = new UserRole
                 {
                     RoleId = adminRole.Id,
                     UserId = sysAdminUser.Id,

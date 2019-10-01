@@ -26,12 +26,15 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
+using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 
 namespace nscreg.Server
 {
@@ -111,23 +114,26 @@ namespace nscreg.Server
             var reportingSettingsProvider = Configuration
                 .GetSection(nameof(ReportingSettings))
                 .Get<ReportingSettings>();
+            using (var serviceScope = app.ApplicationServices.CreateScope())
+            {
+                var dbContext = serviceScope.ServiceProvider.GetService<NSCRegDbContext>();
+                if (provider == ConnectionProvider.InMemory)
+                {
+                    dbContext.Database.OpenConnection();
+                    dbContext.Database.EnsureCreated();
+                }
+                else
+                {
+                    dbContext.Database.SetCommandTimeout(600);
+                    dbContext.Database.Migrate();
+                }
 
-            var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
-            if (provider == ConnectionProvider.InMemory)
-            {
-                dbContext.Database.OpenConnection();
-                dbContext.Database.EnsureCreated();
+                if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
+                NscRegDbInitializer.CreateViewsProceduresAndFunctions(
+                    dbContext, provider, reportingSettingsProvider);
+                NscRegDbInitializer.EnsureRoles(dbContext);
+                if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
             }
-            else
-            {
-                dbContext.Database.SetCommandTimeout(600);
-                dbContext.Database.Migrate();
-            }
-            if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
-            NscRegDbInitializer.CreateViewsProceduresAndFunctions(
-                dbContext, provider, reportingSettingsProvider);
-            NscRegDbInitializer.EnsureRoles(dbContext);
-            if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
@@ -198,15 +204,21 @@ namespace nscreg.Server
         /// <summary>
         /// Метод запуска приложения
         /// </summary>
-        public static void Main() => new WebHostBuilder()
-            .UseKestrel(options =>
-            {
-                options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(20);
-            })
-            .UseContentRoot(Directory.GetCurrentDirectory())
-            .UseIISIntegration()
-            .UseStartup<Startup>()
-            .Build()
-            .Run();
+        public static void Main()
+        {
+            CreateWebHostBuilder().UseKestrel(options =>
+                {
+                    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1);//20
+                })
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseIISIntegration()
+                .UseStartup<Startup>()
+                /*.UseDefaultServiceProvider(options => 
+                    options.ValidateScopes = false)*/
+                .Build().Run();
+        }
+        public static IWebHostBuilder CreateWebHostBuilder() =>
+            WebHost.CreateDefaultBuilder()
+                .UseStartup<Startup>();
     }
 }
