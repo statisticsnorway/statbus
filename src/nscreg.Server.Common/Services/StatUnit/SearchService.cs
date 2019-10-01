@@ -162,6 +162,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                             break;
                     case StatUnitTypes.EnterpriseUnit:
                         list.AddRange(Common.ToUnitLookupVm(
+                            await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
+                                .Where(v => v.RegId == regId)
+                                .Include(v => v.EnterpriseGroup)
+                                .Select(v => v.EnterpriseGroup)
+                                .Select(Common.UnitMapping)
+                                .ToListAsync()
+                        ));
+                        list.AddRange(Common.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<LegalUnit>(false)
                                 .Where(v => v.EnterpriseUnitRegId == regId)
                                 .Select(Common.UnitMapping)
@@ -169,6 +177,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                         ));
                         break;
                     case StatUnitTypes.LegalUnit:
+                        list.AddRange(Common.ToUnitLookupVm(
+                            await _commonSvc.GetUnitsList<LegalUnit>(false)
+                                .Where(v => v.RegId == regId)
+                                .Include(v => v.EnterpriseUnit)
+                                .Select(v => v.EnterpriseUnit)
+                                .Select(Common.UnitMapping)
+                                .ToListAsync()
+                        ));
                         list.AddRange(Common.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<LocalUnit>(false)
                                 .Where(v => v.LegalUnitId == regId)
@@ -184,7 +200,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
                         break;
                 }
-                    return list;
+
+                return list;
             }
 
             var statUnitTypes = new List<StatUnitTypes>();
