@@ -1,5 +1,8 @@
 DELETE FROM [CountryStatisticalUnits]
 GO
+
+-- The Foreign participation countries field - possible to set multiple countries - connects to Countries catalgoue
+
 DBCC CHECKIDENT ('dbo.CountryStatisticalUnits',RESEED, 1)
 GO
 
@@ -8,7 +11,7 @@ INSERT INTO [dbo].[CountryStatisticalUnits]
     ,[Country_Id])
 SELECT 
 	su.RegId
-	, c.Id	
+	,c.Id	
 FROM [statcom].[dbo].[KATME_LAND] kl
 INNER JOIN [dbo].[Countries] c
 	ON c.[IsoCode] = kl.ZAR_PAR
