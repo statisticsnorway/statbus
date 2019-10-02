@@ -10,10 +10,6 @@
     <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Migrations\20190924045427_newCore.cs" />
-    <Compile Remove="Migrations\20190924045427_newCore.Designer.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
   </ItemGroup>
   <ItemGroup>
