@@ -48,11 +48,21 @@ namespace nscreg.Server.Core
                     }
                 };*/
             };
-
+        private static object _thisLock = new object();
+        private static bool _initialized = false;
         /// <summary>
         /// Метод конфигурации АвтоМэппера
         /// </summary>
         public static void ConfigureAutoMapper()
-            => Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
+        {
+            lock (_thisLock)
+            {
+                if (!_initialized)
+                {
+                    Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
+                    _initialized = true;
+                }
+            }
+        }
     }
 }

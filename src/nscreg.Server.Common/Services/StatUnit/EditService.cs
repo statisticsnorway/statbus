@@ -39,6 +39,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
         private readonly int? _liquidateStatusId;
+        private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
+        private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
@@ -51,8 +53,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticService = new ElasticService(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
-
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
+            _editArrayStatisticalUnits = new List<ElasticStatUnit>();
+            _addArrayStatisticalUnits = new List<ElasticStatUnit>();
         }
 
         /// <summary>
@@ -65,8 +68,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
                 m => m.RegId ?? 0,
-                userId,
-                unit =>
+                userId, unit =>
                 {
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
@@ -84,6 +86,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 enterpriseUnit.UnitStatusId = unit.UnitStatusId;
                                 enterpriseUnit.LiqReason = unit.LiqReason;
                                 enterpriseUnit.LiqDate = unit.LiqDate;
+                                _editArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                             }
                         }
                         
@@ -97,6 +100,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 localUnit.LiqDate = unit.LiqDate;
                             }
                             unit.LocalUnits.Add(localUnit);
+                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
                         }
 
                         if (data.LocalUnits != null)
@@ -154,8 +158,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         foreach (var legalUnit in legalUnits)
                         {
                             unit.LegalUnits.Add(legalUnit);
+                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legalUnit));
                         }
-
                         if (data.LegalUnits != null)
                             unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                     }
@@ -183,6 +187,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         foreach (var enterprise in enterprises)
                         {
                             unit.EnterpriseUnits.Add(enterprise);
+                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterprise));
                         }
 
                         if (data.EnterpriseUnits != null)
@@ -443,6 +448,16 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
                     transaction.Commit();
+                    if (_addArrayStatisticalUnits.Any())
+                        foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
+                        {
+                            await _elasticService.AddDocument(addArrayStatisticalUnit);   
+                        }
+                    if (_addArrayStatisticalUnits.Any())
+                        foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
+                        {
+                            await _elasticService.EditDocument(editArrayStatisticalUnit);
+                        }
                 }
                 catch (Exception e)
                 {
