@@ -1719,19 +1719,25 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("EntGroupRole");
 
-                    b.Property<string>("ForeignCapitalCurrency");
+                    b.Property<string>("ForeignCapitalCurrency")
+                        .HasColumnName("ForeignCapitalCurrency");
 
-                    b.Property<string>("ForeignCapitalShare");
+                    b.Property<string>("ForeignCapitalShare")
+                        .HasColumnName("ForeignCapitalShare");
 
                     b.Property<string>("HistoryLegalUnitIds");
 
-                    b.Property<string>("MunCapitalShare");
+                    b.Property<string>("MunCapitalShare")
+                        .HasColumnName("MunCapitalShare");
 
-                    b.Property<string>("PrivCapitalShare");
+                    b.Property<string>("PrivCapitalShare")
+                        .HasColumnName("PrivCapitalShare");
 
-                    b.Property<string>("StateCapitalShare");
+                    b.Property<string>("StateCapitalShare")
+                        .HasColumnName("StateCapitalShare");
 
-                    b.Property<string>("TotalCapital");
+                    b.Property<string>("TotalCapital")
+                        .HasColumnName("TotalCapital");
 
                     b.HasIndex("EntGroupId");
 
@@ -1749,26 +1755,26 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("EnterpriseUnitRegId");
 
                     b.Property<string>("ForeignCapitalCurrency")
-                        .HasColumnName("LegalUnitHistory_ForeignCapitalCurrency");
+                        .HasColumnName("ForeignCapitalCurrency");
 
                     b.Property<string>("ForeignCapitalShare")
-                        .HasColumnName("LegalUnitHistory_ForeignCapitalShare");
+                        .HasColumnName("ForeignCapitalShare");
 
                     b.Property<string>("HistoryLocalUnitIds");
 
                     b.Property<bool>("Market");
 
                     b.Property<string>("MunCapitalShare")
-                        .HasColumnName("LegalUnitHistory_MunCapitalShare");
+                        .HasColumnName("MunCapitalShare");
 
                     b.Property<string>("PrivCapitalShare")
-                        .HasColumnName("LegalUnitHistory_PrivCapitalShare");
+                        .HasColumnName("PrivCapitalShare");
 
                     b.Property<string>("StateCapitalShare")
-                        .HasColumnName("LegalUnitHistory_StateCapitalShare");
+                        .HasColumnName("StateCapitalShare");
 
                     b.Property<string>("TotalCapital")
-                        .HasColumnName("LegalUnitHistory_TotalCapital");
+                        .HasColumnName("TotalCapital");
 
                     b.HasIndex("EnterpriseUnitRegId");
 
