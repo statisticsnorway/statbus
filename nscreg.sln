@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2027
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29324.140
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{0B5097C0-5CAC-4F4E-AED6-38D3EE654800}"
 	ProjectSection(SolutionItems) = preProject
@@ -60,6 +60,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.SampleFrameGenerationSvc", "src\nscreg.SampleFrameGenerationSvc\nscreg.SampleFrameGenerationSvc.csproj", "{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}"
+EndProject
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "nsc.ImportDataBase", "nsc.ImportDataBase\nsc.ImportDataBase.sqlproj", "{040E482C-1901-4755-8AE2-4BC406C338C0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -135,6 +137,12 @@ Global
 		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{040E482C-1901-4755-8AE2-4BC406C338C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{040E482C-1901-4755-8AE2-4BC406C338C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{040E482C-1901-4755-8AE2-4BC406C338C0}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{040E482C-1901-4755-8AE2-4BC406C338C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{040E482C-1901-4755-8AE2-4BC406C338C0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{040E482C-1901-4755-8AE2-4BC406C338C0}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -157,6 +165,7 @@ Global
 		{2486F7B5-C172-40E0-89D2-D338322406D1} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{1AAA7955-C24E-463A-AAC3-3A45095BB4EC} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+		{040E482C-1901-4755-8AE2-4BC406C338C0} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {47D844A4-3677-4448-89A5-03FAA247F022}
