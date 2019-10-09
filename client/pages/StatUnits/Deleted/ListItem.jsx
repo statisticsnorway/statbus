@@ -26,7 +26,7 @@ const ListItem = ({ localize, statUnit, restore }) => {
         <Item.Meta content={<span>{localize(title)}</span>} />
         <Item.Description>
           <p>
-            {localize('RegId')}: {statUnit.regId}
+            {localize('StatId')}: {statUnit.statId}
           </p>
           {canRead('Address') && (
             <p>

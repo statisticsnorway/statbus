@@ -3,11 +3,8 @@ GO
 DBCC CHECKIDENT ('dbo.Persons',RESEED, 1)
 GO
 
-ALTER TABLE [dbo].[Persons]
-ADD [K_PRED] FLOAT NULL
+ALTER TABLE [dbo].[Persons] ADD [K_PRED] FLOAT NULL
 GO
-
---ALTER TABLE [dbo].[Persons] DROP [K_PRED]
 
 INSERT INTO [dbo].[Persons]
 	([Address]
@@ -22,7 +19,7 @@ INSERT INTO [dbo].[Persons]
 	,[Sex]
 	,[Surname]
 	,[K_PRED])
-SELECT 
+SELECT
 	CASE
 		WHEN [P_ADR] <> '' AND [P_ADR] <> '0' THEN [P_ADR]
 		WHEN [P_ADR1] <> '' AND [P_ADR1] <> '0' THEN [P_ADR1]
@@ -31,40 +28,24 @@ SELECT
 	CASE
 		WHEN c.[Code] IS NULL THEN (SELECT [Id] FROM [dbo].[Countries] WHERE [Code]='KGZ')
 		ELSE c.[Id]
-	END as CountryId,
+	END AS CountryId,
 	CASE
 		WHEN [P_FIO] <> '' AND [P_FIO] <> '0' THEN [P_FIO]
 		WHEN [FIO] <> '' AND [FIO] <> '0' THEN [FIO]
 	END AS GivenName,
 	GETDATE() AS IdDate,
-	'' as MiddleName,
-	[P_NOM] AS PersonalId,	
-	[T_ON] AS PhoneNumber,	
-	'' AS PhoneNumber1,
-	CAST([POL] AS SMALLINT) AS Sex,	
-	'' AS Surname,
+	NULL AS MiddleName,
+	[P_NOM] AS PersonalId,
+	[T_ON] AS PhoneNumber,
+	NULL AS PhoneNumber1,
+	CAST([POL] AS SMALLINT) AS Sex,
+	NULL AS Surname,
 	CAST([K_PRED] AS FLOAT)
 FROM [statcom].[dbo].[KATME] e
 	LEFT JOIN [dbo].[Countries] c
 		ON c.[IsoCode] = CAST(e.[P_GRD] AS NVARCHAR)
 GO
 
--- Add Person Types
-DELETE FROM [dbo].[PersonTypes]
-GO
-DBCC CHECKIDENT ('dbo.PersonTypes',RESEED, 1)
-GO
-
-INSERT INTO [dbo].[PersonTypes]
-  ([IsDeleted]
-  ,[Name])
-SELECT 0, 'Owner'
-UNION ALL
-SELECT 0,'Manager'
-UNION ALL 
-SELECT 0,'Contact person'
- 
-GO
 
 INSERT INTO [dbo].[PersonStatisticalUnits]
 	([Unit_Id]
@@ -75,9 +56,12 @@ INSERT INTO [dbo].[PersonStatisticalUnits]
 SELECT
 	s.[RegId],
 	p.[Id],
-	null as groupUnit_id,
-	1 as PersonTypeId, --Make sure the matches the [PersonType] table value
-	null as StatUnit_Id	--don't know why this is here right now
+	NULL AS groupUnit_id,
+	1 AS PersonTypeId, --Make sure the matches the [PersonType] table value
+	NULL AS StatUnit_Id	-- Will be deleted
 FROM [dbo].[StatisticalUnits] AS s
 	INNER JOIN [dbo].[Persons] AS p
 		ON s.[K_PRED] = p.[K_PRED]
+
+-- Delete unneeded column K_PRED
+--ALTER TABLE [dbo].[Persons] DROP [K_PRED]
