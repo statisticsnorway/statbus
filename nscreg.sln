@@ -61,7 +61,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.SampleFrameGenerationSvc", "src\nscreg.SampleFrameGenerationSvc\nscreg.SampleFrameGenerationSvc.csproj", "{1AAA7955-C24E-463A-AAC3-3A45095BB4EC}"
 EndProject
-Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "nsc.ImportDataBase", "nsc.ImportDataBase\nsc.ImportDataBase.sqlproj", "{040E482C-1901-4755-8AE2-4BC406C338C0}"
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "nsc.ImportDataBase", "src\nscreg.ImportDataBase\nsc.ImportDataBase.sqlproj", "{040E482C-1901-4755-8AE2-4BC406C338C0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -56,24 +56,29 @@
   <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
   <ItemGroup>
     <Folder Include="Properties" />
+    <Folder Include="ReportsSqlWallet" />
+	<Folder Include="ImportingData" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="01_Query_Catalogue_LegalForms.sql" />
-    <None Include="02_Query_Catalogue_SectorCodes.sql" />
-    <None Include="03_Query_Catalogue_Countries.sql" />
-    <None Include="04_Query_Catalogue_ReorgTypes.sql" />
-    <None Include="05_Query_Catalogue_ForeignParticipations.sql" />
-    <None Include="06_Query_Catalogue_DataSourceClassifications.sql" />
-    <None Include="07_Query_Catalogue_Statuses.sql" />
-    <None Include="08_Query_Catalogue_UnitSize.sql" />
-    <None Include="09_Query_Catalogue_RegistrationReason.sql" />
-    <None Include="10_Query_Catalogue_PersonTypes.sql" />
-    <None Include="11_Query_Catalogue_ActivityCategories-Tree.sql" />
-    <None Include="12_Query_Catalogue_Regions-Tree.sql" />
-    <None Include="13_Query_Address.sql" />
-    <None Include="14_Query_StatisticalUnit.sql" />
-    <None Include="15_Query_Persons.sql" />
-    <None Include="16_Query_Activities.sql" />
-    <None Include="17_Query_CountryStatisticalUnits.sql" />
+    <None Include="ImportingData\01_Query_Catalogue_LegalForms.sql" />
+    <None Include="ImportingData\02_Query_Catalogue_SectorCodes.sql" />
+    <None Include="ImportingData\03_Query_Catalogue_Countries.sql" />
+    <None Include="ImportingData\04_Query_Catalogue_ReorgTypes.sql" />
+    <None Include="ImportingData\05_Query_Catalogue_ForeignParticipations.sql" />
+    <None Include="ImportingData\06_Query_Catalogue_DataSourceClassifications.sql" />
+    <None Include="ImportingData\07_Query_Catalogue_Statuses.sql" />
+    <None Include="ImportingData\08_Query_Catalogue_UnitSize.sql" />
+    <None Include="ImportingData\09_Query_Catalogue_RegistrationReason.sql" />
+    <None Include="ImportingData\10_Query_Catalogue_PersonTypes.sql" />
+    <None Include="ImportingData\11_Query_Catalogue_ActivityCategories-Tree.sql" />
+    <None Include="ImportingData\12_Query_Catalogue_Regions-Tree.sql" />
+    <None Include="ImportingData\13_Query_Address.sql" />
+    <None Include="ImportingData\14_Query_StatisticalUnit.sql" />
+    <None Include="ImportingData\15_Query_Persons.sql" />
+    <None Include="ImportingData\16_Query_Activities.sql" />
+    <None Include="ImportingData\17_Query_CountryStatisticalUnits.sql" />
+    <None Include="ReportsSqlWallet\TableA.sql" />
+    <None Include="ReportsSqlWallet\TableB.sql" />
+    <None Include="ReportsSqlWallet\TableC.sql" />
   </ItemGroup>
 </Project>
