@@ -47,7 +47,8 @@ namespace nscreg.SampleFrameGenerationSvc
             var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
 
-            var ctx = DbContextHelper.Create(connectionSettings);
+            var dbContextHelper = new DbContextHelper();
+            var ctx = dbContextHelper.CreateDbContext(new string[] { });
 
             ServiceRunner<JobService>.Run(config =>
             {

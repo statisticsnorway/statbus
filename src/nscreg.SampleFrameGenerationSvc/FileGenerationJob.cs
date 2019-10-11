@@ -54,7 +54,7 @@ namespace nscreg.SampleFrameGenerationSvc
             _logger.LogInformation("sample frame generation/clearing attempt...");
 
             var moment = DateTime.Now.AddMilliseconds(-_timeoutMilliseconds);
-            var sampleFrameToDelete = await _ctx.SampleFrames.LastOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.Downloaded
+            var sampleFrameToDelete = await _ctx.SampleFrames.FirstOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.Downloaded
                 || (sf.Status == SampleFrameGenerationStatuses.GenerationCompleted && sf.GeneratedDateTime < moment),
                 cancellationToken);
             if (sampleFrameToDelete != null)
@@ -68,7 +68,7 @@ namespace nscreg.SampleFrameGenerationSvc
                 _ctx.SaveChanges();
             } else
             {
-                var sampleFrameQueue = await _ctx.SampleFrames.LastOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.InQueue, cancellationToken);
+                var sampleFrameQueue = await _ctx.SampleFrames.FirstOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.InQueue, cancellationToken);
                 if (sampleFrameQueue != null)
                 {
                     _logger.LogInformation("sample frame generation: {0}", sampleFrameQueue.Id);
