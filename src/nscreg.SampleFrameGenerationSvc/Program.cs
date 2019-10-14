@@ -6,6 +6,7 @@ using nscreg.ServicesUtils;
 using nscreg.Utilities.Configuration;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.SampleFrameGenerationSvc
 {
@@ -49,7 +50,7 @@ namespace nscreg.SampleFrameGenerationSvc
 
             var dbContextHelper = new DbContextHelper();
             var ctx = dbContextHelper.CreateDbContext(new string[] { });
-
+            ctx.Database.SetCommandTimeout(900);
             ServiceRunner<JobService>.Run(config =>
             {
                 config.SetName("nscreg.SampleFrameGenerationSvc");
