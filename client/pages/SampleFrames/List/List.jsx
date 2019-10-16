@@ -125,15 +125,17 @@ class List extends React.Component {
                         )}
                         {canPreview && (
                           <div>
-                            {Number(x.status) === 1 && (
+                            {[1, 5].includes(Number(x.status)) && (
                               <Button
                                 onClick={this.handleDownload}
                                 item={x}
-                                content={localize('SampleFrameGenerationEnqueue')}
-                                color="green"
                                 size="mini"
+                                color={Number(x.status) === 5 ? 'red' : 'green'}
                                 floated="right"
-                              />
+                              >
+                                {Number(x.status) === 1 && localize('SampleFrameGenerationEnqueue')}
+                                {Number(x.status) === 5 && localize('SampleFrameGenerationError')}
+                              </Button>
                             )}
                             {[4, 6].includes(Number(x.status)) && (
                               <Button
@@ -148,20 +150,17 @@ class List extends React.Component {
                                 floated="right"
                               />
                             )}
-                            {[2, 3, 5].includes(Number(x.status)) && (
+                            {[2, 3].includes(Number(x.status)) && (
                               <Button
                                 onClick={this.handleCheckOnClickDownload}
-                                content={localize('SampleFrameGenerationEnqueue')}
                                 item={x}
                                 loading={x.loading}
-                                color={Number(x.status) === 5 ? 'red' : null}
-                                disabled={Number(x.status) === 5}
+                                color={null}
                                 size="mini"
                                 floated="right"
                               >
                                 {Number(x.status) === 2 && localize('InQueue')}
                                 {Number(x.status) === 3 && localize('InProgress')}
-                                {Number(x.status) === 5 && localize('SampleFrameGenerationError')}
                               </Button>
                             )}
                           </div>

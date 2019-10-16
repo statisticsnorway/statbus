@@ -62,7 +62,7 @@ namespace nscreg.Server.Controllers
                     }
                 }
                 catch (Exception e) {
-                    throw new BadRequestException("Error occurred during file downloading", e);
+                    throw new BadRequestException("Error occurred during file downloading. " + e.Message);
                 }
             }
 
