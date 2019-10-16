@@ -216,21 +216,6 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         }
 
         [Fact]
-        private void ParseComplexFieldShouldPassForForeignParticipationCoutnry()
-        {
-            const string expected = "some", sourceProp = "foreignParticipation";
-            var propPath = $"{nameof(StatisticalUnit.ForeignParticipationCountry)}.{nameof(Country.Code)}";
-            var unit = new LocalUnit();
-            var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, object> {[sourceProp] = expected};
-
-            StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
-
-            Assert.NotNull(unit.ForeignParticipationCountry);
-            Assert.Equal(expected, unit.ForeignParticipationCountry.Code);
-        }
-
-        [Fact]
         private void ParseComplexFieldShouldPassForInstSectorCode()
         {
             const string expected = "some", sourceProp = "instSectorCode";

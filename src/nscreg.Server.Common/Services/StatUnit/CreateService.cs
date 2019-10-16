@@ -233,14 +233,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                         unit.PersonsUnits.Add(new PersonStatisticalUnit
                         {
                             EnterpriseGroupId = unitM.GroupRegId,
-                            StatUnitId = null,
                             PersonId = null,
                             PersonTypeId = unitM.RoleId
                         });
                     else
                         unit.PersonsUnits.Add(new PersonStatisticalUnit
                         {
-                            StatUnitId = unitM.StatRegId,
                             EnterpriseGroupId = null,
                             PersonId = null,
                             PersonTypeId = unitM.RoleId

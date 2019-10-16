@@ -51,14 +51,12 @@ INSERT INTO [dbo].[PersonStatisticalUnits]
 	([Unit_Id]
 	,[Person_Id]
 	,[GroupUnit_Id]
-	,[PersonTypeId]
-	,[StatUnit_Id])
+	,[PersonTypeId])
 SELECT
 	s.[RegId],
 	p.[Id],
 	NULL AS groupUnit_id,
-	1 AS PersonTypeId, --Make sure the matches the [PersonType] table value
-	NULL AS StatUnit_Id	-- Will be deleted
+	1 AS PersonTypeId --Make sure the matches the [PersonType] table value
 FROM [dbo].[StatisticalUnits] AS s
 	INNER JOIN [dbo].[Persons] AS p
 		ON s.[K_PRED] = p.[K_PRED]
