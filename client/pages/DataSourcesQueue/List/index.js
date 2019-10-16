@@ -4,7 +4,12 @@ import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
 import { getText } from 'helpers/locale'
-import { getDate, getDateSubtractMonth, formatDateTime } from 'helpers/dateHelper'
+import {
+  getDate,
+  getDateSubtractMonth,
+  formatDateTimeStartOfDay,
+  formatDateTimeEndOfDay,
+} from 'helpers/dateHelper'
 import { hasValues } from 'helpers/validation'
 
 import { list } from '../actions'
@@ -25,8 +30,8 @@ const mapDispatchToProps = (dispatch, props) => ({
 })
 
 const defaultQuery = {
-  dateFrom: formatDateTime(getDateSubtractMonth()),
-  dateTo: formatDateTime(getDate()),
+  dateFrom: formatDateTimeStartOfDay(getDateSubtractMonth()),
+  dateTo: formatDateTimeEndOfDay(getDate()),
 }
 
 const hooks = {
@@ -55,4 +60,10 @@ const hooks = {
   },
 }
 
-export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Queue)
+export default pipe(
+  lifecycle(hooks),
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+  ),
+)(Queue)

@@ -50,8 +50,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!force)
                 {
                     int dbCount = await baseQuery.CountAsync();
-                    var elasticsCount =
-                        await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                    var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+
+                    if (!elasticsCount.IsValid)
+                        throw new Exception(elasticsCount.DebugInformation);
+
                     if (dbCount == elasticsCount.Count)
                     {
                         _isSynchronized = true;
@@ -60,7 +63,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
 
                 var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
-                if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
+                if (!deleteResponse.IsValid)
                     throw new Exception(deleteResponse.DebugInformation);
 
                 var activityCategoryStaticalUnits = (await _dbContext.ActivityStatisticalUnits
