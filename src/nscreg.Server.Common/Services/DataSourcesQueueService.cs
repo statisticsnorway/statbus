@@ -350,22 +350,20 @@ namespace nscreg.Server.Common.Services
                     existing.StartImportDate != null)
                 {
                     var unitTypes = GetUnitTypes(existing.TargetStatId, (StatUnitTypes)unitType);
-                    var isDeletedFromDb = false;
                     switch (unitType)
                     {
                         case (int)StatUnitTypes.LocalUnit:
-                            isDeletedFromDb = await _statUnitDeleteService.DeleteLocalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            await _statUnitDeleteService.DeleteLocalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
                             break;
                         case (int)StatUnitTypes.LegalUnit:
-                            isDeletedFromDb = await _statUnitDeleteService.DeleteLegalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            await _statUnitDeleteService.DeleteLegalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
                             break;
                         case (int)StatUnitTypes.EnterpriseUnit:
-                            isDeletedFromDb = await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
                             break;
                         default:
                             throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
                     }
-                    if (isDeletedFromDb) await _statUnitDeleteService.DeleteUnitFromElasticAsync(existing.TargetStatId, unitTypes).ConfigureAwait(false);
                 }
             }
 

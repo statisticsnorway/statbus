@@ -128,24 +128,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statId">index of item in elastic</param>
         /// <param name="statUnitTypes">types of statunits</param>
         /// <returns></returns>
-        public async Task DeleteDocumentAsync(string statId, List<StatUnitTypes> statUnitTypes)
+        public async Task DeleteDocumentAsync(ElasticStatUnit elasticItem)
         {
             try
             {
-                foreach (var unitType in statUnitTypes)
+                var deleteResponse = await _elasticClient.DeleteAsync<ElasticStatUnit>(elasticItem.Id,
+                    u => u.Index(StatUnitSearchIndexName));
+
+                if (!deleteResponse.IsValid)
                 {
-                    var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(
-                            q => q
-                                .Index(StatUnitSearchIndexName)
-                                .Query(rq => rq
-                                    .Bool(b => b
-                                        .Must(x => x.Term(y => y.Field(f => f.StatId).Value(statId)),
-                                            z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
-                        .ConfigureAwait(false);
-                    if (!deleteResponse.IsValid)
-                    {
-                        throw new Exception(deleteResponse.DebugInformation);
-                    }
+                    throw new Exception(deleteResponse.DebugInformation);
                 }
             }
             catch (Exception)
