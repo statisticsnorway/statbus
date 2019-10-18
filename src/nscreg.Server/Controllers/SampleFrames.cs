@@ -12,6 +12,7 @@ using System.IO;
 using System;
 using nscreg.Server.Common;
 using nscreg.Resources.Languages;
+using System.Text.RegularExpressions;
 
 namespace nscreg.Server.Controllers
 {
@@ -58,7 +59,11 @@ namespace nscreg.Server.Controllers
                     {
                         var stream = new FileStream(item.FilePath, FileMode.Open);
                         await _sampleFramesService.SetAsDownloaded(id, User.GetUserId());
-                        return File(stream, "text/csv;charset=utf-8", item.Name + ".csv");
+                        string regexSearch = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
+                        Regex r = new Regex(string.Format("[{0}]", Regex.Escape(regexSearch)));
+                        var filename = r.Replace(item.Name, "");
+                        if (string.IsNullOrWhiteSpace(filename)) filename = item.Id.ToString();
+                        return File(stream, "text/csv;charset=utf-8", filename + ".csv");
                     }
                 }
                 catch (Exception e) {

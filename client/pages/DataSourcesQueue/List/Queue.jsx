@@ -2,7 +2,12 @@ import React from 'react'
 import { func, arrayOf, bool, shape, number, string } from 'prop-types'
 import { Segment, Table } from 'semantic-ui-react'
 
-import { getDate, formatDate, getDateSubtractMonth } from 'helpers/dateHelper'
+import {
+  getDate,
+  getDateSubtractMonth,
+  formatDateTimeEndOfDay,
+  formatDateTimeStartOfDay,
+} from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 import SearchForm from './SearchForm'
@@ -54,7 +59,9 @@ const Queue = ({
           <Table selectable size="small" className="wrap-content" fixed>
             <Table.Header>
               <Table.Row>
-                {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}
+                {headerKeys.map(key => (
+                  <Table.HeaderCell key={key} content={localize(key)} />
+                ))}
                 <Table.HeaderCell />
                 <Table.HeaderCell />
               </Table.Row>
@@ -91,8 +98,8 @@ Queue.propTypes = {
 Queue.defaultProps = {
   query: {
     status: 'any',
-    dateTo: formatDate(getDate()),
-    dateFrom: formatDate(getDateSubtractMonth()),
+    dateTo: formatDateTimeEndOfDay(getDate()),
+    dateFrom: formatDateTimeStartOfDay(getDateSubtractMonth()),
   },
 }
 

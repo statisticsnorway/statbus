@@ -69,6 +69,7 @@ const List = ({ id, sampleFrame, list, localize, error }) => {
               href={`/api/sampleframes/${id}/download`}
               target="__blank"
               content={localize('DownloadSampleFrame')}
+              disabled={![4, 6].includes(Number(sampleFrame.status))}
               icon="download"
               color="blue"
               size="mini"

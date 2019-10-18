@@ -19,6 +19,12 @@ export function formatDateTimeEndOfDay(x, format = dateTimeFormat) {
     .format(format)
 }
 
+export function formatDateTimeStartOfDay(x, format = dateTimeFormat) {
+  return moment(x)
+    .startOf('day')
+    .format(format)
+}
+
 export function getDate(utcString = null) {
   return utcString ? moment(utcString) : moment()
 }
