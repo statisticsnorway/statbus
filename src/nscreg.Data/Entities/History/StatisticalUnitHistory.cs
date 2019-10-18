@@ -65,8 +65,6 @@ namespace nscreg.Data.Entities.History
 
         public bool FreeEconZone { get; set; }
 
-        public int? ForeignParticipationCountryId { get; set; }
-
         public int? NumOfPeopleEmp { get; set; }
 
         public int? Employees { get; set; }
@@ -112,8 +110,6 @@ namespace nscreg.Data.Entities.History
         public DateTime? ReorgDate { get; set; }
 
         public int? ReorgReferences { get; set; }
-
-        public virtual Country ForeignParticipationCountry { get; set; }
 
         public bool IsDeleted { get; set; }
 

@@ -161,9 +161,6 @@ namespace nscreg.Business.DataSources
                             }
                         propValue = fpcPropValue;
                         break;
-                    case nameof(StatisticalUnit.ForeignParticipationCountry):
-                        propValue = ParseCountry(propTail, value, unit.ForeignParticipationCountry);
-                        break;
                     case nameof(StatisticalUnit.Address):
                         propValue = ParseAddress(propTail, value, unit.Address);
                         break;

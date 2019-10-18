@@ -106,8 +106,7 @@ namespace nscreg.Server.Common.Helpers
                     PersonId = x.PersonId,
                     UnitId = statUnitId,
                     PersonTypeId = x.PersonTypeId,
-                    EnterpriseGroupId = x.EnterpriseGroupId,
-                    StatUnitId = x.StatUnitId
+                    EnterpriseGroupId = x.EnterpriseGroupId
                 });
             });
 

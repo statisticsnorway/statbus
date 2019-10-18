@@ -123,7 +123,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var personNames = await _dbContext.PersonStatisticalUnits
                 .Where(x => regIds.Contains(x.UnitId))
-                .Select(x => new {x.UnitId, Name = x.Person.GivenName ?? x.EnterpriseGroup.Name ?? x.StatUnit.Name })
+                .Select(x => new {x.UnitId, Name = x.Person.GivenName ?? x.EnterpriseGroup.Name ?? x.Unit.Name })
                 .ToListAsync();
             return personNames.ToLookup(x => x.UnitId, x => x.Name);
         }

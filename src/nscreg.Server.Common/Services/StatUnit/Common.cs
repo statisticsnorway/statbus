@@ -33,7 +33,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(v => v.PostalAddress)
                 .ThenInclude(a => a.Region)
                 .Include(v => v.PersonsUnits)
-                .ThenInclude(v => v.StatUnit)
+                .ThenInclude(v => v.Unit)
                 .Include(v => v.PersonsUnits)
                 .ThenInclude(v => v.EnterpriseGroup);
         }

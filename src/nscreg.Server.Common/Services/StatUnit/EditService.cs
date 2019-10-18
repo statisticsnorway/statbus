@@ -284,16 +284,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                         Mapper.Map(model, newPerson);
                         persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonTypeId = model.Role });
                     }
-                    var statUnits = unit.PersonsUnits.Where(su => su.StatUnitId != null)
-                        .ToDictionary(su => su.StatUnitId);
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
 
                     foreach (var unitM in statUnitsList)
                     {
-                        if (unitM.StatRegId.HasValue && statUnits.TryGetValue(unitM.StatRegId.Value,
-                                out var personStatisticalUnit))
+                        if (unitM.StatRegId.HasValue )
                         {
-                            var currentUnit = personStatisticalUnit.StatUnit;
+                            var personStatisticalUnit = unit.PersonsUnits.First(x => x.UnitId == unitM.StatRegId.Value);
+                            var currentUnit = personStatisticalUnit.Unit;
                             if (unitM.StatRegId == currentUnit.RegId)
                             {
                                 currentUnit.UpdateProperties(unitM);
@@ -304,7 +302,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         persons.Add(new PersonStatisticalUnit
                         {
                             UnitId = unit.RegId,
-                            StatUnitId = unitM.StatRegId,
                             EnterpriseGroupId = null,
                             PersonId = null,
                             PersonTypeId = unitM.RoleId
@@ -319,7 +316,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         if (unitM.GroupRegId.HasValue &&
                             groupUnits.TryGetValue(unitM.GroupRegId, out var personStatisticalUnit))
                         {
-                            var currentUnit = personStatisticalUnit.StatUnit;
+                            var currentUnit = personStatisticalUnit.Unit;
                             if (unitM.GroupRegId == currentUnit.RegId)
                             {
                                 currentUnit.UpdateProperties(unitM);
@@ -331,7 +328,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             UnitId = unit.RegId,
                             EnterpriseGroupId = unitM.GroupRegId,
-                            StatUnitId = null,
                             PersonId = null
                         });
                     }

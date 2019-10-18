@@ -347,7 +347,6 @@ namespace nscreg.Server.Common
 
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
-                .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
             CreateMap<LegalUnit, LocalUnit>()
@@ -368,7 +367,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
 
                 .ForMember(x => x.LegalForm, x => x.Ignore())
-                .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.LegalUnit, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
@@ -392,7 +390,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LegalForm, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
-                .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
             CreateMap<EnterpriseUnit, EnterpriseGroup>()
