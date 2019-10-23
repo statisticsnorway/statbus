@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { Button, Table, Segment, Form, Confirm } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
+import { internalRequest } from 'helpers/request'
 import Paginate from 'components/Paginate'
 
 class List extends React.Component {
@@ -23,6 +24,24 @@ class List extends React.Component {
   handleSubmit = (e) => {
     e.preventDefault()
     this.props.setQuery(this.props.formData)
+  }
+
+  handleDownload = (_, { item }) => {
+    internalRequest({
+      url: `/api/sampleframes/${item.id}/enqueue`,
+      method: 'get',
+      onSuccess: () => {
+        this.props.getSampleFrames(this.props.query)
+      },
+    })
+  }
+
+  handleCheckFileGeneration = () => {
+    this.props.getSampleFrames(this.props.query)
+  }
+
+  handleCheckOnClickDownload = () => {
+    setTimeout(this.handleCheckFileGeneration, 3000)
   }
 
   renderConfirm() {
@@ -105,16 +124,46 @@ class List extends React.Component {
                           />
                         )}
                         {canPreview && (
-                          <Button
-                            as="a"
-                            href={`/api/sampleframes/${x.id}/preview/download`}
-                            target="__blank"
-                            content={localize('DownloadSampleFrame')}
-                            icon="download"
-                            color="blue"
-                            size="mini"
-                            floated="right"
-                          />
+                          <div>
+                            {[1, 5].includes(Number(x.status)) && (
+                              <Button
+                                onClick={this.handleDownload}
+                                item={x}
+                                size="mini"
+                                color={Number(x.status) === 5 ? 'red' : 'green'}
+                                floated="right"
+                              >
+                                {Number(x.status) === 1 && localize('SampleFrameGenerationEnqueue')}
+                                {Number(x.status) === 5 && localize('SampleFrameGenerationError')}
+                              </Button>
+                            )}
+                            {[4, 6].includes(Number(x.status)) && (
+                              <Button
+                                as="a"
+                                href={`/api/sampleframes/${x.id}/download`}
+                                target="__blank"
+                                content={localize('DownloadSampleFrame')}
+                                onClick={this.handleCheckFileGeneration}
+                                icon="download"
+                                color="blue"
+                                size="mini"
+                                floated="right"
+                              />
+                            )}
+                            {[2, 3].includes(Number(x.status)) && (
+                              <Button
+                                onClick={this.handleCheckOnClickDownload}
+                                item={x}
+                                loading={x.loading}
+                                color={null}
+                                size="mini"
+                                floated="right"
+                              >
+                                {Number(x.status) === 2 && localize('InQueue')}
+                                {Number(x.status) === 3 && localize('InProgress')}
+                              </Button>
+                            )}
+                          </div>
                         )}
                         {canPreview && (
                           <Button
@@ -148,10 +197,14 @@ List.propTypes = {
   result: arrayOf(shape({
     id: number.isRequired,
     name: string.isRequired,
+    status: number.isRequired,
+    generatedDateTime: string,
   })).isRequired,
   totalCount: number.isRequired,
+  query: shape.isRequired,
   setQuery: func.isRequired,
   updateFilter: func.isRequired,
+  getSampleFrames: func.isRequired,
   deleteSampleFrame: func.isRequired,
   localize: func.isRequired,
 }

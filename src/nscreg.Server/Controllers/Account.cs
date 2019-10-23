@@ -43,6 +43,7 @@ namespace nscreg.Server.Controllers
         public IActionResult LogIn(string urlReferrer = null)
         {
             ViewData["RedirectUrl"] = urlReferrer;
+            ViewData["Title"] = Resource.LoginTitle;
             return View("~/Views/LogIn.cshtml");
         }
         /// <summary>

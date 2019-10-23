@@ -84,9 +84,6 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.ActualAddress?.Id == 0)
                     unit.ActualAddress = await GetFilledAddress(unit.ActualAddress);
 
-                if (unit.ForeignParticipationCountry?.Id == 0)
-                    unit.ForeignParticipationCountry = await GetFilledCountry(unit.ForeignParticipationCountry);
-
                 if (unit.ForeignParticipationCountriesUnits?.Any(fpcu => fpcu.Id == 0) == true)
                     await unit.ForeignParticipationCountriesUnits.ForEachAsync(async fpcu =>
                     {

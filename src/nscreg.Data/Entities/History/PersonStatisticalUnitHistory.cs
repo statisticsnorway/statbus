@@ -14,8 +14,6 @@ namespace nscreg.Data.Entities.History
         public int UnitId { get; set; }
         public virtual StatisticalUnitHistory Unit { get; set; }
 
-        public int? StatUnitId { get; set; }
-
         public int? EnterpriseGroupId { get; set; }
 
         public int? PersonId { get; set; }

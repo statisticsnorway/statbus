@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using nscreg.Server.Common;
 
 namespace nscreg.Server.Core
@@ -23,7 +23,7 @@ namespace nscreg.Server.Core
                 op.Password.RequireNonAlphanumeric = false;
                 op.Password.RequireLowercase = false;
                 op.Password.RequireUppercase = false;
-
+/*
                 op.Cookies.ApplicationCookie.CookieHttpOnly = true;
                 op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
                 op.Cookies.ApplicationCookie.LoginPath = "/account/login";
@@ -46,13 +46,23 @@ namespace nscreg.Server.Core
                             ctx.Response.Redirect(ctx.RedirectUri);
                         return Task.FromResult(0);
                     }
-                };
+                };*/
             };
-
+        private static object _thisLock = new object();
+        private static bool _initialized = false;
         /// <summary>
         /// Метод конфигурации АвтоМэппера
         /// </summary>
         public static void ConfigureAutoMapper()
-            => Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
+        {
+            lock (_thisLock)
+            {
+                if (!_initialized)
+                {
+                    Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
+                    _initialized = true;
+                }
+            }
+        }
     }
 }

@@ -100,7 +100,7 @@ namespace nscreg.Data.DbInitializers
 
 
 
-            var createProcedureGetReportsTree = $@"
+            string createProcedureGetReportsTree = $@"
                 CREATE PROCEDURE GetReportsTree 
 	                @user NVARCHAR(100)
                 AS

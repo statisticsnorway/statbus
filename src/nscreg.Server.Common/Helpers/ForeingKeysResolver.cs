@@ -18,46 +18,49 @@ namespace nscreg.Server.Common.Helpers
             {
                 [nameof(LegalUnit.HistoryLocalUnitIds)] = foreignKeyField =>
                 {
+                    var fkv = foreignKeyField.Before.Split(',').Select(int.Parse);
                     if (!string.IsNullOrEmpty(foreignKeyField.Before))
                         foreignKeyField.Before = string.Join(", ",
                             dbContext.LocalUnits
-                                .Where(x => foreignKeyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
+                                .Where(x => fkv.Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                     if (!string.IsNullOrEmpty(foreignKeyField.After))
                         foreignKeyField.After = string.Join(", ",
                             dbContext.LocalUnits
-                                .Where(x => foreignKeyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
+                                .Where(x => fkv.Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                 },
                 [nameof(EnterpriseUnit.HistoryLegalUnitIds)] = foreignKeyField =>
                 {
+                    var fkv = foreignKeyField.Before.Split(',').Select(int.Parse);
                     if (!string.IsNullOrEmpty(foreignKeyField.Before))
                         foreignKeyField.Before = string.Join(", ",
                             dbContext.LegalUnits
-                                .Where(x => foreignKeyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
+                                .Where(x => fkv.Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                     if (!string.IsNullOrEmpty(foreignKeyField.After))
                         foreignKeyField.After = string.Join(", ",
                             dbContext.LegalUnits
-                                .Where(x => foreignKeyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
+                                .Where(x => fkv.Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                 },
                 [nameof(EnterpriseGroup.HistoryEnterpriseUnitIds)] = foreignKeyField =>
                 {
+                    var fkv = foreignKeyField.Before.Split(',').Select(int.Parse);
                     if (!string.IsNullOrEmpty(foreignKeyField.Before))
                         foreignKeyField.Before = string.Join(", ",
                             dbContext.EnterpriseUnits
-                                .Where(x => foreignKeyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
+                                .Where(x => fkv.Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                     if (!string.IsNullOrEmpty(foreignKeyField.After))
                         foreignKeyField.After = string.Join(", ",
                             dbContext.EnterpriseUnits
-                                .Where(x => foreignKeyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
+                                .Where(x => fkv.Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                 },

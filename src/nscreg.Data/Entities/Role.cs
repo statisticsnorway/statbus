@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Newtonsoft.Json;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using Microsoft.AspNetCore.Identity;
 
 namespace nscreg.Data.Entities
 {
@@ -57,5 +57,6 @@ namespace nscreg.Data.Entities
                 StandardDataAccessArray.Permissions.Where(x => x.PropertyName.Split('.')[0] == unitType.ToString());
             return permissions.All(x => x.CanWrite == false);
         }
+        public virtual ICollection<UserRole> UserRoles { get; set; }
     }
 }

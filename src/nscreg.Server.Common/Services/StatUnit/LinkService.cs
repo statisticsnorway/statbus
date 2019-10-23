@@ -180,28 +180,60 @@ namespace nscreg.Server.Common.Services.StatUnit
             var type = search.Type;
             if (type == null || type == StatUnitTypes.EnterpriseGroup)
             {
-                list.AddRange(_commonSvc.GetUnitsList<EnterpriseGroup>(false).Where(x=> listIds.Contains(x.RegId)));
+                var entGroup = _commonSvc.GetUnitsList<EnterpriseGroup>(false)
+                    .Where(x=> listIds.Contains(x.RegId))
+                    .Include(x=>x.EnterpriseUnits)
+                    .ThenInclude(x=>x.LegalUnits)
+                    .ThenInclude(x=>x.LocalUnits);
+                list.AddRange(entGroup);
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false)));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LegalUnits.Where(z => z.IsDeleted == false))));
+                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LegalUnits.Where(z => z.IsDeleted == false).SelectMany(z=>z.LocalUnits.Where(l => l.IsDeleted == false)))));
             }
 
             if (type == null || type == StatUnitTypes.EnterpriseUnit)
             {
-                list.AddRange(_commonSvc.GetUnitsList<EnterpriseUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseGroup));
+                var entUnit = _commonSvc.GetUnitsList<EnterpriseUnit>(false)
+                    .Where(x => listIds.Contains(x.RegId))
+                    .Include(x => x.LegalUnits)
+                    .ThenInclude(x => x.LocalUnits)
+                    .Include(x => x.EnterpriseGroup);
+
+                list.AddRange(entUnit.Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
+                list.AddRange(entUnit);
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false)));
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LocalUnits.Where(z => z.IsDeleted == false))));                
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
             {
-                list.AddRange(_commonSvc.GetUnitsList<LegalUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseUnit).ThenInclude(x => x.EnterpriseGroup));
+                var legalUnit = _commonSvc.GetUnitsList<LegalUnit>(false)
+                    .Where(x => listIds.Contains(x.RegId))
+                    .Include(x => x.EnterpriseUnit)
+                    .ThenInclude(x => x.EnterpriseGroup)
+                    .Include(x => x.LocalUnits);
+                
+                list.AddRange(legalUnit.Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit).Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
+                list.AddRange(legalUnit.Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit));
+                list.AddRange(legalUnit);
+                list.AddRange(legalUnit.SelectMany(x => x.LocalUnits.Where(y => y.IsDeleted == false)));
             }
 
             if (type == null || type == StatUnitTypes.LocalUnit)
             {
-                list.AddRange(_commonSvc.GetUnitsList<LocalUnit>(false).Where(x => listIds.Contains(x.RegId))
+                var localUnit = _commonSvc.GetUnitsList<LocalUnit>(false)
+                    .Where(x => listIds.Contains(x.RegId))
                     .Include(x => x.LegalUnit)
                     .ThenInclude(x => x.EnterpriseUnit)
-                    .ThenInclude(x => x.EnterpriseGroup)
-                    .Include(x => x.LegalUnit));
+                    .ThenInclude(x => x.EnterpriseGroup);
+
+                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit).Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit).Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
+                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit).Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit));
+                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit));
+                list.AddRange(localUnit);
             }
-            return ToNodeVm(list);
+
+            return ToNodeVm(list, listIds);
         }
 
         /// <summary>
@@ -414,14 +446,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="nodes">Узлы</param>
         /// <returns></returns>
-        private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes)
+        private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes, List<int> listIds)
         {
             var result = new List<UnitNodeVm>();
             var visited = new Dictionary<Tuple<int, StatUnitTypes>, UnitNodeVm>();
             var stack = new Stack<Tuple<IStatisticalUnit, UnitNodeVm>>();
             foreach (var root in nodes)
             {
-                stack.Push(Tuple.Create(root, (UnitNodeVm)null));
+                if (root != null)
+                    stack.Push(Tuple.Create(root, (UnitNodeVm)null));
             }
             while (stack.Count != 0)
             {
@@ -435,7 +468,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     if (child == null)
                     {
-                        node.Highlight = true;
                         continue;
                     }
                     if (node.Children == null)
@@ -448,6 +480,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             node.Children.Add(child);
                         }
+
+                        if (node.Children.All(v => v.Id != child.Id && v.Type == child.Type))
+                        {
+                            node.Children.Add(child);
+                        }
                     }
                     continue;
                 }
@@ -456,7 +493,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     node.Children = new List<UnitNodeVm> { child };
                 }
-                else
+                if (listIds.Contains(unit.RegId))
                 {
                     node.Highlight = true;
                 }

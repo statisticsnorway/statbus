@@ -432,10 +432,10 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var user = context.Users.Include(v => v.Roles).Single(v => v.Id == DbContextExtensions.UserId);
+                var user = context.Users.Include(v => v.UserRoles).Single(v => v.Id == DbContextExtensions.UserId);
 
 
-                var roleIds = user.Roles.Select(v => v.RoleId).ToList();
+                var roleIds = user.UserRoles.Select(v => v.RoleId).ToList();
                 var rolesList = context.Roles.Where(v => roleIds.Contains(v.Id)).ToList();
 
                 foreach (var role in rolesList)

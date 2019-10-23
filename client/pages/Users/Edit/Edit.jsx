@@ -36,6 +36,7 @@ class Edit extends React.Component {
     rolesList: [],
     fetchingRoles: true,
     rolesFailMessage: undefined,
+    spinner: false,
   }
 
   componentDidMount() {
@@ -91,6 +92,7 @@ class Edit extends React.Component {
 
   handleSubmit = (e) => {
     e.preventDefault()
+    this.setState({ spinner: true })
     this.props.submitUser(this.props.user)
   }
 
@@ -98,6 +100,7 @@ class Edit extends React.Component {
 
   renderForm() {
     const { user, localize, regionTree, navigateBack, activityTree, loginError } = this.props
+    const { spinner } = this.state
     return (
       <Form className={styles.form} onSubmit={this.handleSubmit}>
         <h2>{localize('EditUser')}</h2>
@@ -106,6 +109,7 @@ class Edit extends React.Component {
           onChange={this.handleEdit}
           name="name"
           label={localize('UserName')}
+          disabled={spinner}
           placeholder={localize('RobertDiggs')}
           autoComplete="off"
           maxLength={64}
@@ -117,6 +121,7 @@ class Edit extends React.Component {
           onBlur={this.checkExistLogin}
           name="login"
           label={localize('UserLogin')}
+          disabled={spinner}
           placeholder={localize('LoginPlaceholder')}
           autoComplete="off"
           required
@@ -132,6 +137,7 @@ class Edit extends React.Component {
           name="email"
           type="email"
           label={localize('UserEmail')}
+          disabled={spinner}
           placeholder={localize('EmailPlaceholder')}
           autoComplete="off"
           required
@@ -144,6 +150,7 @@ class Edit extends React.Component {
               name="newPassword"
               type="password"
               label={localize('UsersNewPassword')}
+              disabled={spinner}
               placeholder={localize('TypeStrongPasswordHere')}
               autoComplete="off"
             />
@@ -159,6 +166,7 @@ class Edit extends React.Component {
               name="confirmPassword"
               type="password"
               label={localize('ConfirmPassword')}
+              disabled={spinner}
               placeholder={localize('TypeNewPasswordAgain')}
               error={user.confirmPassword !== user.newPassword}
               autoComplete="off"
@@ -172,6 +180,7 @@ class Edit extends React.Component {
           onChange={this.handleEdit}
           name="phone"
           type="number"
+          disabled={spinner}
           label={localize('UserPhone')}
           placeholder="555123456"
           autoComplete="off"
@@ -184,6 +193,7 @@ class Edit extends React.Component {
             onChange={this.handleEdit}
             options={this.state.rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
             name="assignedRole"
+            disabled={spinner}
             label={localize('AssignedRoles')}
             placeholder={localize('SelectOrSearchRoles')}
             autoComplete="off"
@@ -195,6 +205,7 @@ class Edit extends React.Component {
           value={user.status}
           onChange={this.handleEdit}
           options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
+          disabled={spinner}
           label={localize('UserStatus')}
           autoComplete="off"
         />
@@ -205,6 +216,7 @@ class Edit extends React.Component {
             dataTree={activityTree}
             checked={user.activiyCategoryIds}
             callBack={this.setActivities}
+            disabled={spinner}
             localize={localize}
             loadNode={this.props.fetchActivityTree}
           />
@@ -216,6 +228,7 @@ class Edit extends React.Component {
             dataTree={regionTree}
             checked={user.userRegions}
             callBack={this.handleCheck}
+            disabled={spinner}
             localize={localize}
           />
         )}
@@ -224,6 +237,7 @@ class Edit extends React.Component {
           onChange={this.handleEdit}
           name="description"
           label={localize('Description')}
+          disabled={spinner}
           placeholder={localize('NSO_Employee')}
           maxLength={64}
           autoComplete="off"
@@ -236,7 +250,14 @@ class Edit extends React.Component {
           color="grey"
           type="button"
         />
-        <Button content={localize('Submit')} floated="right" type="submit" primary />
+        <Button
+          content={localize('Submit')}
+          disabled={spinner}
+          floated="right"
+          type="submit"
+          primary
+        />
+        <div className="submitUserLoader">{spinner && <Loader inline active size="small" />}</div>
         {this.state.rolesFailMessage && (
           <div>
             <Message content={this.state.rolesFailMessage} negative />

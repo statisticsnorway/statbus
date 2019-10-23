@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 
 namespace nscreg.Data
@@ -26,7 +27,6 @@ namespace nscreg.Data
                     true)
                 .AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>();
-
             Configuration = builder.Build();
         }
 
@@ -45,9 +45,11 @@ namespace nscreg.Data
         /// Метод запуска приложения
         /// </summary>
         public static void Main()
-            => new WebHostBuilder()
+            => BuildWebHost();
+
+        public static IWebHost BuildWebHost() =>
+            WebHost.CreateDefaultBuilder()
                 .UseStartup<Startup>()
-                .Build()
-                .Run();
+                .Build();
     }
 }

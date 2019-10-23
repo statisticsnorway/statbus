@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -86,7 +86,7 @@ namespace nscreg.Server.Test.Extensions
                 };
                 context.Users.Add(sysAdminUser);
             }
-            var adminUserRoleBinding = new IdentityUserRole<string>
+            var adminUserRoleBinding = new UserRole
             {
                 RoleId = role.Id,
                 UserId = sysAdminUser.Id

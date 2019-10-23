@@ -313,10 +313,10 @@ namespace nscreg.Server.Common.Services
         /// Checks other logs of data source queue
         /// </summary>
         /// <param name="queueId">Id of data source queue</param>
-        private bool CheckQueueLogs(int queueId)
+        private bool QueueLogsExist(int queueId)
         {
             var existing = _dbContext.DataUploadingLogs.FirstOrDefault(log => log.DataSourceQueueId == queueId);
-            return existing == null;
+            return existing != null;
         }
 
         /// <summary>
@@ -364,7 +364,6 @@ namespace nscreg.Server.Common.Services
                         default:
                             throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
                     }
-                    await _statUnitDeleteService.DeleteUnitFromElasticAsync(existing.TargetStatId, unitTypes).ConfigureAwait(false);
                 }
             }
 
@@ -399,7 +398,7 @@ namespace nscreg.Server.Common.Services
             if (existing == null) throw new NotFoundException(nameof(Resource.QueueLogNotFound));
             var queueId = existing.DataSourceQueueId;
             await DeleteLogById(existing.Id, userId);
-            if (CheckQueueLogs(queueId))
+            if (!QueueLogsExist(queueId))
                 await DeleteQueueById(queueId);
         }
 

@@ -97,11 +97,6 @@ namespace nscreg.Data.Entities
         [Display(Order = 890, GroupName = GroupNames.CapitalInfo)]
         public bool FreeEconZone { get; set; }
 
-        [Reference(LookupEnum.CountryLookup)]
-        [Display(Order = 801, GroupName = GroupNames.CapitalInfo)]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? ForeignParticipationCountryId { get; set; }
-
         [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }
 
@@ -177,9 +172,6 @@ namespace nscreg.Data.Entities
         [Display(Order = 750, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public int? ReorgReferences { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual Country ForeignParticipationCountry { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }

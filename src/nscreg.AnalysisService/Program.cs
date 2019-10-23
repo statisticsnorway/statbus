@@ -46,14 +46,14 @@ namespace nscreg.AnalysisService
 
             var configuration = configBuilder.Build();
 
-            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
             var statUnitAnalysisRules =
                 configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
             var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
-
-            var ctx = DbContextHelper.Create(connectionSettings);
+            var dbContextHelper = new DbContextHelper();
+            var ctx = dbContextHelper.CreateDbContext(new string[]{});
 
             ServiceRunner<JobService>.Run(config =>
             {

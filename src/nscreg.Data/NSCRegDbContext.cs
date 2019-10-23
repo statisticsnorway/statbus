@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Core;
@@ -12,7 +13,7 @@ namespace nscreg.Data
     /// Контекст данных приложения
     /// </summary>
     // ReSharper disable once InconsistentNaming
-    public class NSCRegDbContext : IdentityDbContext<User, Role, string>
+    public class NSCRegDbContext : IdentityDbContext<User, Role, string,IdentityUserClaim<string>, UserRole, IdentityUserLogin<string>, IdentityRoleClaim<string>, IdentityUserToken<string>>
     {
         public NSCRegDbContext(DbContextOptions options) : base(options)
         {
@@ -26,8 +27,25 @@ namespace nscreg.Data
         {
             base.OnModelCreating(builder);
             builder.AddEntityTypeConfigurations(GetType().GetTypeInfo().Assembly);
-        }
+            builder.Entity<User>(b =>
+            {
+                b.HasMany(e => e.UserRoles)
+                    .WithOne(e => e.User)
+                    .HasForeignKey(ur => ur.UserId)
+                    .IsRequired();
+            });
+            builder.Entity<Role>(b =>
+            {
+                b.HasMany(e => e.UserRoles)
+                    .WithOne(e => e.Role)
+                    .HasForeignKey(ur => ur.RoleId)
+                    .IsRequired();
+            });
+            builder.Entity<LegalUnit>().HasBaseType<StatisticalUnit>();
+            builder.Entity<EnterpriseUnit>().HasBaseType<StatisticalUnit>();
+            builder.Entity<LocalUnit>().HasBaseType<StatisticalUnit>();
 
+        }
         public DbSet<StatisticalUnit> StatisticalUnits { get; set; }
         public DbSet<LegalUnit> LegalUnits { get; set; }
         public DbSet<EnterpriseUnit> EnterpriseUnits { get; set; }

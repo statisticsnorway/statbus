@@ -88,7 +88,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public List<PersonStatUnitModel> PersonStatUnits { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
-        public int? ForeignParticipationCountryId { get; set; }
         public List<int> ForeignParticipationCountriesUnits { get; set; }
         public int? SizeId { get; set; }
         public int? ForeignParticipationId { get; set; }
