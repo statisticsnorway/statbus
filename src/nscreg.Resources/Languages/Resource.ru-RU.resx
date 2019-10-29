@@ -2328,4 +2328,7 @@
   <data name="StatUnitIdIsNotFound" xml:space="preserve">
     <value>Идентификатор статистической единицы не найден</value>
   </data>
+  <data name="RejectDataSourceMessage" xml:space="preserve">
+    <value>Reject data source</value>
+  </data>
 </root>

@@ -2328,4 +2328,7 @@
   <data name="StatUnitIdIsNotFound" xml:space="preserve">
     <value>Статистикалык бирдик ОКПО боюнча табылган жок</value>
   </data>
+  <data name="RejectDataSourceMessage" xml:space="preserve">
+    <value>Reject data source</value>
+  </data>
 </root>

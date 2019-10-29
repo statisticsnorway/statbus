@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { func, arrayOf, bool, shape, number, string } from 'prop-types'
-import { Segment, Table } from 'semantic-ui-react'
+import { Segment, Table, Confirm } from 'semantic-ui-react'
 
 import {
   getDate,
@@ -29,6 +29,9 @@ const Queue = ({
   formData,
   actions: { setQuery, updateQueueFilter, deleteDataSourceQueue },
 }) => {
+  const [selectedQueue, setSelectedQueue] = useState(undefined)
+  const [showConfirm, setShowConfirm] = useState(false)
+
   const handleChangeForm = (name, value) => {
     updateQueueFilter({ [name]: value })
   }
@@ -38,13 +41,41 @@ const Queue = ({
     setQuery({ ...query, ...formData })
   }
 
-  const handleClick = (id) => {
-    deleteDataSourceQueue(id)
+  const handleDelete = (queue) => {
+    setSelectedQueue(queue)
+    setShowConfirm(true)
+  }
+
+  const handleCancel = () => {
+    setSelectedQueue(undefined)
+    setShowConfirm(false)
+  }
+
+  const handleConfirm = () => {
+    deleteDataSourceQueue(selectedQueue.id)
+    handleCancel()
+  }
+
+  function renderConfirm() {
+    return (
+      <Confirm
+        open={showConfirm}
+        header={`${localize('AreYouSure')}?`}
+        content={`${localize('RejectDataSourceMessage')} "${
+          selectedQueue.dataSourceTemplateName
+        }"?`}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmButton={localize('Ok')}
+        cancelButton={localize('ButtonCancel')}
+      />
+    )
   }
 
   return (
     <div>
       <h2>{localize('DataSourceQueues')}</h2>
+      {showConfirm && renderConfirm()}
       <Segment loading={fetching}>
         <SearchForm
           searchQuery={formData}
@@ -68,7 +99,7 @@ const Queue = ({
             </Table.Header>
             <Table.Body>
               {result.map(item => (
-                <Item key={item.id} data={item} localize={localize} deleteQueue={handleClick} />
+                <Item key={item.id} data={item} localize={localize} deleteQueue={handleDelete} />
               ))}
             </Table.Body>
           </Table>
