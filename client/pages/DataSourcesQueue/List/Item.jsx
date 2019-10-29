@@ -30,7 +30,7 @@ const DataSourceQueueItem = ({ data, localize, deleteQueue }) => (
     </Table.Cell>
     <Table.Cell className="wrap-content">
       <Button
-        onClick={() => deleteQueue(data.id)}
+        onClick={() => deleteQueue(data)}
         content={localize('Reject')}
         icon="trash"
         disabled={dataSourceQueueStatuses.get(data.status) === 'Loading'}

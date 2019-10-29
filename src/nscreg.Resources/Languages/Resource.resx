@@ -2339,4 +2339,7 @@
   <data name="LoginTitle" xml:space="preserve">
     <value>Enter NSC Registry</value>
   </data>
+  <data name="RejectDataSourceMessage" xml:space="preserve">
+    <value>Reject data source</value>
+  </data>
 </root>

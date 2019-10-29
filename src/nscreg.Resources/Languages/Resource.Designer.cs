@@ -4418,6 +4418,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reject data source.
+        /// </summary>
+        public static string RejectDataSourceMessage {
+            get {
+                return ResourceManager.GetString("RejectDataSourceMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Remember me.
         /// </summary>
         public static string RememberMe {
