@@ -52,6 +52,7 @@ namespace nscreg.Data.Constants
         AddressDelete = 28,
 
         // links
+        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
         LinksView = 29,
         LinksCreate = 30,
         LinksDelete = 31,
