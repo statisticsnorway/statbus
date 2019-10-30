@@ -15,7 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="7.0.1" />
-    <PackageReference Include="EntityFramework.DynamicLinq" Version="1.0.19" />
     <PackageReference Include="FluentValidation.AspNetCore" Version="7.6.105" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="1.0.19" />
     <PackageReference Include="NEST" Version="5.6.3" />
