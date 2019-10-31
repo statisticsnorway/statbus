@@ -12,7 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Serialization;
-using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -46,7 +45,6 @@ namespace nscreg.Server
     {
         private IConfiguration Configuration { get; }
         private IHostingEnvironment CurrentEnvironment { get; }
-        private ILoggerFactory _loggerFactory;
 
         public Startup(IHostingEnvironment env)
         {
@@ -79,13 +77,6 @@ namespace nscreg.Server
         // ReSharper disable once UnusedMember.Global
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
-            loggerFactory
-                .AddConsole(Configuration.GetSection("Logging"))
-                .AddDebug()
-                .AddNLog();
-
-            _loggerFactory = loggerFactory;
-            
             var localization = Configuration.GetSection(nameof(LocalizationSettings));
             Localization.LanguagePrimary = localization["DefaultKey"];
             Localization.Language1 = localization["Language1"];
@@ -100,7 +91,7 @@ namespace nscreg.Server
                 SupportedUICultures = supportedCultures
             });
             app.UseStaticFiles();
-            app.UseIdentity()
+            app.UseAuthentication()
                 .UseMvc(routes => routes.MapRoute(
                     "default",
                     "{*url}",
@@ -163,7 +154,7 @@ namespace nscreg.Server
             services.Configure<ValidationSettings>(Configuration.GetSection(nameof(ValidationSettings)));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ValidationSettings>>().Value);
             services
-                .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
+                .AddAntiforgery(op => op.Cookie.Name = op.HeaderName = "X-XSRF-TOKEN")
                 .AddDbContext<NSCRegDbContext>(DbContextHelper.ConfigureOptions(Configuration))
                 .AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
@@ -180,7 +171,7 @@ namespace nscreg.Server
                             new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
                     op.Filters.Add(new ValidateModelStateAttribute());
                 })
-                .AddMvcOptions(op => op.Filters.Add(new GlobalExceptionFilter(_loggerFactory)))
+                .AddMvcOptions(op => op.Filters.Add<GlobalExceptionFilter>())
                 .AddFluentValidation(op => op.RegisterValidatorsFromAssemblyContaining<IStatUnitM>())
                 .AddAuthorization(options => options.AddPolicy(
                     nameof(SystemFunctions),
@@ -199,6 +190,13 @@ namespace nscreg.Server
                 .PersistKeysToFileSystem(keysDirectory)
                 .SetApplicationName("nscreg")
                 .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
+
+            services.AddLogging(loggingBuilder =>
+            {
+                loggingBuilder.AddConfiguration(Configuration.GetSection("Logging"));
+                loggingBuilder.AddConsole();
+                loggingBuilder.AddDebug();
+            });
         }
 
         /// <summary>
