@@ -17,12 +17,10 @@ namespace nscreg.Server.DataUploadSvc
 
         private readonly int _timeout;
         private readonly ILogger _logger;
-        private readonly QueueService _queueSvc;
 
-        public QueueCleanupJob(NSCRegDbContext ctx, int dequeueInterval, int timeout, ILogger logger)
+        public QueueCleanupJob(int dequeueInterval, int timeout, ILogger logger)
         {
             Interval = dequeueInterval;
-            _queueSvc = new QueueService(ctx);
             _timeout = timeout;
             _logger = logger;
         }
@@ -32,8 +30,10 @@ namespace nscreg.Server.DataUploadSvc
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
+            var dbContextHelper = new DbContextHelper();
+            var ctx = dbContextHelper.CreateDbContext(new string[] { });
             _logger.LogInformation("cleaning up queue...");
-            await _queueSvc.ResetDequeuedByTimeout(_timeout);
+            await new QueueService(ctx).ResetDequeuedByTimeout(_timeout);
         }
 
         /// <summary>
