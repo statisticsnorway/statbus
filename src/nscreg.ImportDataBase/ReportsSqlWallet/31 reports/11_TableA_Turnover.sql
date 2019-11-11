@@ -98,7 +98,7 @@ ResultTableCTE AS
 
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN Address addrh ON addrh.Address_id = asuhCTE.AddressId
-	INNER JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
+	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
     
     WHERE ('+@InStatusId+' = 0 OR su.UnitStatusId = ' + @InStatusId +')
 				

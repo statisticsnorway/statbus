@@ -89,7 +89,7 @@ ResultTableCTE AS
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN LegalForms AS lfh ON lfh.Id = asuhCTE.LegalFormId
 	LEFT JOIN dbo.Address addrh ON addrh.Address_id = asuhCTE.AddressId
-	INNER JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
+	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
     
     WHERE su.UnitStatusId = ' + @InStatusId +'
 )
