@@ -161,7 +161,7 @@ ResultTableCTE AS
 		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id AND ah.Activity_Type = 1 
 		LEFT JOIN #tempActivityCategories AS ach ON ach.Id = ah.ActivityCategoryId
 		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = asuhCTE.AddressId
-		INNER JOIN #tempRegions as trh ON trh.Id = addrh.Region_id		
+		LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id		
 	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND su.UnitStatusId = ' + @InStatusId +'
 )
 
