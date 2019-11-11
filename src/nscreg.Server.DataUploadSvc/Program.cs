@@ -75,26 +75,15 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
                     {
-                        var dbContextHelper = new DbContextHelper();
-                        var ctx = dbContextHelper.CreateDbContext(new string[]{});
-                        var ctxCleanUp = dbContextHelper.CreateDbContext(new string[]{});
-                        // TODO: enhance inmemory db usage
-                        if (connectionSettings.ParseProvider() == ConnectionProvider.InMemory)
-                        {
-                            QueueDbContextHelper.SeedInMemoryData(ctx);
-                            QueueDbContextHelper.SeedInMemoryData(ctxCleanUp);
-                        }
                         return new JobService(
                             logger,
                             new QueueJob(
-                                ctx,
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 logger,
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
                                 validationSettings),
                             new QueueCleanupJob(
-                                ctxCleanUp,
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 servicesSettings.DataUploadServiceCleanupTimeout,
                                 logger));
