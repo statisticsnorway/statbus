@@ -1,6 +1,7 @@
 
 BEGIN /* INPUT PARAMETERS */
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
 DECLARE @cols AS NVARCHAR(MAX), @query  AS NVARCHAR(MAX), @totalSumCols AS NVARCHAR(MAX), @regionLevel AS NVARCHAR(MAX)
@@ -60,14 +61,14 @@ set @query = '
 		LegalFormId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<2019
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,lf.Id, lfh.Id) AS LegalFormId
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,lf.Id, lfh.Id) AS LegalFormId
 	FROM StatisticalUnits su
 	LEFT JOIN LegalForms AS lf ON lf.Id = su.LegalFormId		
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId

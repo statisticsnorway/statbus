@@ -7,25 +7,35 @@
 */
 BEGIN /*INPUT PARAMETERS*/
 	DECLARE @InRegionId INT = $RegionId,
-			@InStatusId NVARCHAR(MAX) = $StatusId
+			    @InStatusId NVARCHAR(MAX) = $StatusId,
+          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
-DECLARE @cols AS NVARCHAR(MAX), 
-		@query AS NVARCHAR(MAX), 
-		@totalSumCols AS NVARCHAR(MAX), 
+DECLARE @cols AS NVARCHAR(MAX),
+    @selCols AS NVARCHAR(MAX),
+		@query AS NVARCHAR(MAX),
+		@totalSumCols AS NVARCHAR(MAX),
 		@regionLevel AS NVARCHAR(MAX),
 		@nameTotalColumn AS NVARCHAR(MAX)
 
 SET @nameTotalColumn  = (SELECT TOP 1 Name FROM Regions WHERE Id = @InRegionId)
 SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
+            FROM Regions r  WHERE (RegionLevel <= 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
+            FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)')
+        ,1,1,'')
+		PRINT @cols
+SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
+		PRINT @selCols
 SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
+            FROM Regions r  WHERE (RegionLevel = 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
+		PRINT @totalSumCols
 SET @regionLevel = 3
 BEGIN /*DECLARE and FILL IerarhyOfRegions*/
 IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
@@ -60,7 +70,6 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel
 END	
 
 
@@ -73,18 +82,18 @@ set @query = '
 		LegalFormId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<2019
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,lf.Id, lfh.Id) AS LegalFormId
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,lf.Id, lfh.Id) AS LegalFormId
 	FROM StatisticalUnits su
 	LEFT JOIN LegalForms AS lf ON lf.Id = su.LegalFormId		
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id				
+	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @RegionId + '
 
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN LegalForms AS lfh ON lfh.Id = asuhCTE.LegalFormId
@@ -93,7 +102,7 @@ ResultTableCTE AS
     
     WHERE su.UnitStatusId = ' + @InStatusId +'
 )
-SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from
+SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from
             (
 				SELECT
 					lf.Name,

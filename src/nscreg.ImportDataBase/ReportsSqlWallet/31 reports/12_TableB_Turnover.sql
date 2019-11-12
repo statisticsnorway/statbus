@@ -6,10 +6,13 @@
 		4 : City / Village
 */
 BEGIN /*INPUT PARAMETERS*/
-	DECLARE @InRegionId INT = $RegionId,
-			@InStatusId NVARCHAR(MAX) = $StatusId
+	DECLARE @InRegionId NVARCHAR(MAX) = $RegionId,
+			    @InStatusId NVARCHAR(MAX) = $StatusId,
+          @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
-DECLARE @cols AS NVARCHAR(MAX), 
+DECLARE @cols AS NVARCHAR(MAX),
+    @selCols AS NVARCHAR(MAX),
 		@selectCols AS NVARCHAR(MAX),
 		@query AS NVARCHAR(MAX), 
 		@totalSumCols AS NVARCHAR(MAX), 
@@ -17,21 +20,24 @@ DECLARE @cols AS NVARCHAR(MAX),
 		@nameTotalColumn AS NVARCHAR(MAX)
 
 SET @selectCols = STUFF((SELECT distinct ','+QUOTENAME(r.Name)
-			FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
+			FROM Regions r  WHERE (RegionLevel <= 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
 			FOR XML PATH(''), TYPE
 			).value('.', 'NVARCHAR(MAX)')
 		,1,1,'')
 SET @nameTotalColumn  = (SELECT TOP 1 Name FROM Regions WHERE Id = @InRegionId)
-SET @cols = STUFF((SELECT distinct ',ISNULL(' + QUOTENAME(r.Name)+',0) AS "' + r.Name + '"'
+
+SET @selCols = STUFF((SELECT distinct ',ISNULL(' + QUOTENAME(r.Name)+',0) AS "' + r.Name + '"'
             FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
+		PRINT @selCols
 SET @totalSumCols = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(r.Name)+',0)'
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
+            FROM Regions r  WHERE (RegionLevel = 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
+		PRINT @totalSumCols
 SET @regionLevel = 3
 BEGIN /*DECLARE and FILL IerarhyOfRegions*/
 IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
@@ -66,7 +72,6 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel
 END	
 
 
@@ -90,21 +95,21 @@ VALUES
 		AddressId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<2019
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,tr.Name, trh.Name) AS NameOblast		
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast		
 	FROM StatisticalUnits su
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id				
+	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @InRegionId + '
 
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN dbo.Address addrh ON addrh.Address_id = asuhCTE.AddressId
 	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id    
-    WHERE su.UnitStatusId = ' + @InStatusId +'
+    WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND ('+@InStatusId+' = 0 OR su.UnitStatusId = ' + @InStatusId +')
 ),
 TurnoverCTE AS
 (
@@ -123,7 +128,7 @@ TurnoverCTE AS
 	FROM ResultTableCTE as rtCTE
 	GROUP BY rtCTE.NameOblast
 )
-SELECT Turnover, ' + @cols + ', ' + @totalSumCols+ ' as [' + @nameTotalColumn+ '] from 
+SELECT Turnover, ' + @selCols + ', ' + @totalSumCols+ ' as [' + @nameTotalColumn+ '] from 
             (
 				SELECT 
 					l.Turnover,
