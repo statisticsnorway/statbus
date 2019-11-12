@@ -1,6 +1,8 @@
 
 BEGIN /* INPUT PARAMETERS */
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+    		  @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
 DECLARE @cols AS NVARCHAR(MAX), 
@@ -85,13 +87,13 @@ VALUES
 		AddressId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<2019
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,tr.Name, trh.Name) AS NameOblast
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast
 	FROM StatisticalUnits su
 	LEFT JOIN Address addr ON addr.Address_id = su.AddressId
 	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id				
@@ -100,7 +102,7 @@ ResultTableCTE AS
 	LEFT JOIN Address addrh ON addrh.Address_id = asuhCTE.AddressId
 	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
     
-    WHERE ('+@InStatusId+' = 0 OR su.UnitStatusId = ' + @InStatusId +')
+   	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND ('+@InStatusId+' = 0 OR su.UnitStatusId = ' + @InStatusId +')
 				
 ),
 TurnoverCTE AS

@@ -1,6 +1,7 @@
 
 BEGIN /* INPUT PARAMETERS */
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
 DECLARE @cols AS NVARCHAR(MAX), 
@@ -64,14 +65,14 @@ set @query = '
 		SizeId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<2019
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,us.Id, ush.Id) AS SizeId
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,us.Id, ush.Id) AS SizeId
 	FROM StatisticalUnits su
 	LEFT JOIN UnitsSize AS us ON us.Id = su.SizeId		
 	LEFT JOIN Address addr ON addr.Address_id = su.AddressId

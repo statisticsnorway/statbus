@@ -8,15 +8,16 @@
 
 BEGIN /*INPUT PARAMETERS*/
 	DECLARE @InRegionId INT = $RegionId,
-			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-    		@InStatusId NVARCHAR(MAX) = $StatusId
+			  @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+    		@InStatusId NVARCHAR(MAX) = $StatusId,
+        @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 BEGIN /*DECLARE variables*/
 
 
 DECLARE 
-	@cols AS NVARCHAR(MAX), 
-    @selCols AS NVARCHAR(MAX),
+	@cols AS NVARCHAR(MAX),
+  @selCols AS NVARCHAR(MAX),
 	@query AS NVARCHAR(MAX), 
 	@totalSumCols AS NVARCHAR(MAX), 
 	@nameTotalColumn AS NVARCHAR(MAX),
@@ -130,7 +131,7 @@ set @query = '
 		AddressId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<2019
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 ActivityCategoriesForResultCTE AS 
 (
@@ -144,9 +145,9 @@ ResultTableCTE AS
 (	            
 	SELECT 
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,ac.Name,ach.Name) AS Name,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,tr.Name,trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<2019 AND DATEPART(YEAR,su.StartPeriod)<2019,ac.ParentId,ach.ParentId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac.Name,ach.Name) AS Name,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name,trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac.ParentId,ach.ParentId) AS ActivityCategoryId,
 		tr.Name as trName,trh.Name as trhName
 	FROM [dbo].[StatisticalUnits] AS su	
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
