@@ -87,13 +87,13 @@ VALUES
 		AddressId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name, trh.Name) AS NameOblast
 	FROM StatisticalUnits su
 	LEFT JOIN Address addr ON addr.Address_id = su.AddressId
 	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id				

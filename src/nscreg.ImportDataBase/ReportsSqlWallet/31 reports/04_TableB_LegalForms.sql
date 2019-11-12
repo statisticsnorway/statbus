@@ -82,14 +82,14 @@ set @query = '
 		LegalFormId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,lf.Id, lfh.Id) AS LegalFormId
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name, trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',lf.Id, lfh.Id) AS LegalFormId
 	FROM StatisticalUnits su
 	LEFT JOIN LegalForms AS lf ON lf.Id = su.LegalFormId		
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId

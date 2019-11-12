@@ -65,14 +65,14 @@ set @query = '
 		SizeId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
 ),
 ResultTableCTE AS
 (	
 	SELECT
 		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,us.Id, ush.Id) AS SizeId
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name, trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',us.Id, ush.Id) AS SizeId
 	FROM StatisticalUnits su
 	LEFT JOIN UnitsSize AS us ON us.Id = su.SizeId		
 	LEFT JOIN Address addr ON addr.Address_id = su.AddressId
