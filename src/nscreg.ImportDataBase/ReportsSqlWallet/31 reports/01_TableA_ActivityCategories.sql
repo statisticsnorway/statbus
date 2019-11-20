@@ -12,10 +12,19 @@ BEGIN /* INPUT PARAMETERS */
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 BEGIN /* DECLARE variables */
-DECLARE @cols AS NVARCHAR(MAX), @query  AS NVARCHAR(MAX), @totalSumCols AS NVARCHAR(MAX),
-@activityCategoryLevel AS NVARCHAR(MAX), @regionLevel AS NVARCHAR(MAX)
+DECLARE @cols AS NVARCHAR(MAX),
+        @selCols AS NVARCHAR(MAX),
+        @query  AS NVARCHAR(MAX),
+        @totalSumCols AS NVARCHAR(MAX),
+        @activityCategoryLevel AS NVARCHAR(MAX),
+        @regionLevel AS NVARCHAR(MAX)
 SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel IN (1,2)
+            FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)')
+        ,1,1,'')
+SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
+            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
@@ -141,7 +150,7 @@ ResultTable AS
 		LEFT JOIN #tempRegions AS trh ON trh.Id = addrh.Region_id
 	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND su.UnitStatusId = ' + @InStatusId +'
 )
-SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as Total from 
+SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as Total from 
             (
 				SELECT 
 					rt.RegId,
