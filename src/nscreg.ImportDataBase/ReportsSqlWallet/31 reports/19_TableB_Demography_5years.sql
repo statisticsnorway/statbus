@@ -1,8 +1,9 @@
 BEGIN /*INPUT PARAMETERS*/
-	DECLARE @InRegionId INT = $RegionId,
-			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-    		  @InStatusId NVARCHAR(MAX) = $StatusId,
-          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+	DECLARE @InRegionId INT = $StatusId,
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+    		@InStatusId NVARCHAR(MAX) = $StatusId,
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
+			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
 END
 
 DECLARE @nameTotalColumn AS NVARCHAR(MAX) = (SELECT TOP 1 Name FROM dbo.Regions WHERE Id = @InRegionId)
@@ -51,7 +52,8 @@ StatisticalUnitHistoryCTE AS (
 		LEFT JOIN ActivityCategoriesHierarchyCTE AS ach ON ach.Id = ah.ActivityCategoryId
 		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = suh.AddressId
 		LEFT JOIN RegionsHierarchyCTE as trh ON trh.Id = addrh.Region_id
-	WHERE DATEPART(YEAR,suh.StartPeriod)<@InCurrentYear AND ah.Activity_Type = 1
+	WHERE 
+	DATEPART(YEAR,RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR, RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,suh.StartPeriod)<@InCurrentYear AND ah.Activity_Type = 1
 ),
 ResultTableCTE AS
 (
@@ -60,9 +62,9 @@ ResultTableCTE AS
 		su.StatId,		
 		suh.RegId as hRegId,
 		a.Activity_Type,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,acc.Name,suh.acchName) AS Name,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,acc.ParentId,suh.achParentId) AS ActivityCategoryId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name,suh.trhParentName) AS NameOblast
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR, su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,acc.Name,suh.acchName) AS Name,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR, su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,acc.ParentId,suh.achParentId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR, su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name,suh.trhParentName) AS NameOblast
 	FROM [dbo].[StatisticalUnits] AS su	
 		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId 
 		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id 
@@ -92,7 +94,7 @@ FROM dbo.ActivityCategories as ac
 
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT 
-	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT',0) + ', ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '] from 
+	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT', 0) + ', ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '] from 
 		(
 				SELECT 
 					RegId,
@@ -103,7 +105,7 @@ SELECT
             PIVOT 
             (
                 COUNT(RegId)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT',1) + ')
+                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT', 1) + ')
             ) PivotTable			
 			'
 execute(@query)

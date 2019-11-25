@@ -24,7 +24,7 @@ SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
 SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
+            FROM Regions r  WHERE RegionLevel = 2
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
