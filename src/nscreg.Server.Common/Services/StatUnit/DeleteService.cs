@@ -80,7 +80,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
                 helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
-            checkBeforeDelete(item, toDelete);
+            CheckBeforeDelete(item, toDelete);
             var deletedUnit = _deleteUndeleteActions[unitType](id, toDelete, userId);
             _postDeleteActions[unitType](deletedUnit, toDelete, userId);
 
