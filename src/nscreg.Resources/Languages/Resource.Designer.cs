@@ -1664,11 +1664,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to To delete this Enterprise unit you must delete its&apos; Legal unit.
+        /// </summary>
+        public static string DeleteEnterpriseUnit {
+            get {
+                return ResourceManager.GetString("DeleteEnterpriseUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Can&apos;t delete very last system administrator.
         /// </summary>
         public static string DeleteLastSysAdminError {
             get {
                 return ResourceManager.GetString("DeleteLastSysAdminError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to To delete this Local unit you must delete its&apos; Legal unit.
+        /// </summary>
+        public static string DeleteLocalUnit {
+            get {
+                return ResourceManager.GetString("DeleteLocalUnit", resourceCulture);
             }
         }
         
@@ -4549,6 +4567,24 @@ namespace nscreg.Resources.Languages {
         public static string Restore {
             get {
                 return ResourceManager.GetString("Restore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to To restore this Enterprise unit you must restore its&apos; Legal unit.
+        /// </summary>
+        public static string RestoreEnterpriseUnit {
+            get {
+                return ResourceManager.GetString("RestoreEnterpriseUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to To restore this Local unit you must restore its&apos; Legal unit.
+        /// </summary>
+        public static string RestoreLocalUnit {
+            get {
+                return ResourceManager.GetString("RestoreLocalUnit", resourceCulture);
             }
         }
         

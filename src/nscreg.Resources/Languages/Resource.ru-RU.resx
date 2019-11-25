@@ -2331,4 +2331,16 @@
   <data name="RejectDataSourceMessage" xml:space="preserve">
     <value>Reject data source</value>
   </data>
+  <data name="DeleteEnterpriseUnit" xml:space="preserve">
+    <value>Вы должны удалить Юридическую единицу</value>
+  </data>
+  <data name="DeleteLocalUnit" xml:space="preserve">
+    <value>Вы должны удалить Юридическую единицу</value>
+  </data>
+  <data name="RestoreEnterpriseUnit" xml:space="preserve">
+    <value>Вы должны восстановить Юридическую единицу</value>
+  </data>
+  <data name="RestoreLocalUnit" xml:space="preserve">
+    <value>Вы должны восстановить Юридическую единицу</value>
+  </data>
 </root>

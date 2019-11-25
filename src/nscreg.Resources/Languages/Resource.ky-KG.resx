@@ -2331,4 +2331,16 @@
   <data name="RejectDataSourceMessage" xml:space="preserve">
     <value>Reject data source</value>
   </data>
+  <data name="DeleteEnterpriseUnit" xml:space="preserve">
+    <value>Биринчиден укуктук бирдикти жок кылыш керек</value>
+  </data>
+  <data name="DeleteLocalUnit" xml:space="preserve">
+    <value>Биринчиден укуктук бирдикти жок кылыш керек</value>
+  </data>
+  <data name="RestoreEnterpriseUnit" xml:space="preserve">
+    <value>Биринчиден укуктук бирдикти кабылына келтириш керек</value>
+  </data>
+  <data name="RestoreLocalUnit" xml:space="preserve">
+    <value>Биринчиден укуктук бирдикти кабылына келтириш керек</value>
+  </data>
 </root>
