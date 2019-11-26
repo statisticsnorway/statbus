@@ -84,7 +84,8 @@ class DeletedList extends React.Component {
     const { query, formData } = this.props
     const queryParams = { ...query, ...formData }
     this.setState({ selectedUnit: undefined, displayConfirm: false })
-    this.props.actions.restore(unit.type, unit.regId, queryParams, this.setError)
+    const unitIndex = this.props.statUnits.indexOf(unit)
+    this.props.actions.restore(unit.type, unit.regId, queryParams, unitIndex, this.setError)
   }
 
   handleCancel = () => {
@@ -116,7 +117,7 @@ class DeletedList extends React.Component {
       onClose={this.clearError}
     >
       <Modal.Header>{this.props.localize('Error')}</Modal.Header>
-      <Modal.Content>{this.state.restoreFailed}</Modal.Content>
+      <Modal.Content>{this.props.localize(this.state.restoreFailed)}</Modal.Content>
       <Modal.Actions>
         <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
       </Modal.Actions>

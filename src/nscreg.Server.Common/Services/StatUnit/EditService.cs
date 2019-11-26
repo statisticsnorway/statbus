@@ -479,12 +479,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         await _dbContext.SaveChangesAsync();
                     }
 
-                    if (isDeleted)
-                    {
-                        _deleteService.StatUnitPostDeleteActions(unit, true, userId);
-                    }
-
                     transaction.Commit();
+
                     if (_addArrayStatisticalUnits.Any())
                         foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
                         {
@@ -497,6 +493,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
 
                     await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+
+                    if (isDeleted)
+                    {
+                        _deleteService.StatUnitPostDeleteActions(unit, true, userId);
+                    }
                 }
                 catch (Exception e)
                 {

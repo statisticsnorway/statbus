@@ -72,7 +72,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new UnauthorizedAccessException();
             }
 
-            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, !toDelete).Result;
+            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, true).Result;
             bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
             var mappedItem = Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item);
             if (isEmployee)
@@ -80,11 +80,17 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
                 helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
-            CheckBeforeDelete(item, toDelete);
-            var deletedUnit = _deleteUndeleteActions[unitType](id, toDelete, userId);
-            _postDeleteActions[unitType](deletedUnit, toDelete, userId);
+            if (item.IsDeleted == toDelete)
+            {
+                _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item)).Wait();
+            } else
+            {
+                CheckBeforeDelete(item, toDelete);
+                var deletedUnit = _deleteUndeleteActions[unitType](id, toDelete, userId);
+                _postDeleteActions[unitType](deletedUnit, toDelete, userId);
 
-            _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+                _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+            }
         }
 
         /// <summary>
@@ -238,7 +244,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     case nameof(LocalUnit):
                     {
                         var localUnit = unit as LocalUnit;
-                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId && !x.IsDeleted);
+                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId);
                         if (legalUnit != null && legalUnit.IsDeleted == true)
                         {
                             throw new BadRequestException(nameof(Resource.RestoreLocalUnit));
@@ -273,11 +279,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (toDelete)
             {
                 var legalStartPeriod = _dbContext.LegalUnitHistory.Where(x => x.ParentId == legalUnit.RegId).OrderBy(x => x.StartPeriod).FirstOrDefault()?.StartPeriod;
-                var localUnits = _dbContext.LocalUnits.Where(x => x.LegalUnitId == legalUnit.RegId);
-                foreach (var localUnit in localUnits)
+                foreach (var localUnit in legalUnit.LocalUnits)
                 {
                     var localStartPeriod = _dbContext.LocalUnitHistory.Where(x => x.ParentId == localUnit.RegId).OrderBy(x => x.StartPeriod).FirstOrDefault()?.StartPeriod;
-                    if (localStartPeriod != null && localStartPeriod == legalStartPeriod)
+                    if (localStartPeriod == legalStartPeriod)
                     {
                         var deletedUnit = DeleteUndeleteLocalUnit(localUnit.RegId, true, userId);
                         _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
@@ -293,13 +298,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
             else
             {
-                var deletedLocalUnits = _dbContext.LocalUnits.Where(x => x.LegalUnitId == legalUnit.RegId && x.IsDeleted == true);
+                var deletedLocalUnits = legalUnit.LocalUnits.Where(x => x.IsDeleted == true);
                 foreach (var localUnit in deletedLocalUnits)
                 {
                     var restoredUnit = DeleteUndeleteLocalUnit(localUnit.RegId, false, userId);
                     _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
                 }
-                if (legalUnit.EnterpriseUnit.IsDeleted == true)
+                var enterpriseUnit = _dbContext.EnterpriseUnits.FirstOrDefault(x => x.RegId == legalUnit.EnterpriseUnitRegId);
+                if (enterpriseUnit != null && enterpriseUnit.IsDeleted == true)
                 {
                     var restoredUnit = DeleteUndeleteEnterpriseUnit(legalUnit.EnterpriseUnit.RegId, false, userId);
                     _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
