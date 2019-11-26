@@ -9,6 +9,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.History;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
@@ -27,8 +28,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Common _commonSvc;
         private readonly UserService _userService;
         private readonly Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>> _deleteUndeleteActions;
+        private readonly Dictionary<StatUnitTypes, Action<IStatisticalUnit, bool, string>> _postDeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticService _elasticService;
+        private readonly int? _deletedStatusId;
         private readonly DataAccessService _dataAccessService;
 
         public DeleteService(NSCRegDbContext dbContext)
@@ -38,12 +41,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
             _commonSvc = new Common(dbContext);
             _userService = new UserService(dbContext);
+            _deletedStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "8")?.Id;
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
                 [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
                 [StatUnitTypes.LocalUnit] = DeleteUndeleteLocalUnit,
                 [StatUnitTypes.LegalUnit] = DeleteUndeleteLegalUnit
+            };
+            _postDeleteActions = new Dictionary<StatUnitTypes, Action<IStatisticalUnit, bool, string>>
+            {
+                [StatUnitTypes.EnterpriseGroup] = PostDeleteEnterpriseGroupUnit,
+                [StatUnitTypes.EnterpriseUnit] = PostDeleteEnterpriseUnit,
+                [StatUnitTypes.LocalUnit] = PostDeleteLocalUnit,
+                [StatUnitTypes.LegalUnit] = PostDeleteLegalUnit
             };
         }
 
@@ -61,17 +72,25 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new UnauthorizedAccessException();
             }
 
-            var item = Mapper.Map<IStatisticalUnit, ElasticStatUnit>(_commonSvc.GetStatisticalUnitByIdAndType(id, unitType, !toDelete).Result);
+            var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, true).Result;
             bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
-
+            var mappedItem = Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item);
             if (isEmployee)
             {
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                helper.CheckRegionOrActivityContains(userId, item.RegionIds, item.ActivityCategoryIds);
+                helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
-            var unit = _deleteUndeleteActions[unitType](id, toDelete, userId);
-            
-            _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit)).Wait();
+            if (item.IsDeleted == toDelete)
+            {
+                _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item)).Wait();
+            } else
+            {
+                CheckBeforeDelete(item, toDelete);
+                var deletedUnit = _deleteUndeleteActions[unitType](id, toDelete, userId);
+                _postDeleteActions[unitType](deletedUnit, toDelete, userId);
+
+                _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+            }
         }
 
         /// <summary>
@@ -87,6 +106,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new EnterpriseGroupHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            if (!toDelete)
+            {
+                unit.UnitStatusId = _dbContext.EnterpriseGroupHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            }
+            else
+            {
+                unit.UnitStatusId = _deletedStatusId;
+            }
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -109,6 +136,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new LegalUnitHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            if (!toDelete)
+            {
+                unit.UnitStatusId = _dbContext.LegalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            } else
+            {
+                unit.UnitStatusId = _deletedStatusId;
+            }
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -131,6 +165,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new LocalUnitHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            if (!toDelete)
+            {
+                unit.UnitStatusId = _dbContext.LocalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            }
+            else
+            {
+                unit.UnitStatusId = _deletedStatusId;
+            }
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -153,6 +195,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new EnterpriseUnitHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            if (!toDelete)
+            {
+                unit.UnitStatusId = _dbContext.EnterpriseUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            }
+            else
+            {
+                unit.UnitStatusId = _deletedStatusId;
+            }
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -160,6 +210,115 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext.SaveChanges();
 
             return unit;
+        }
+
+        public void CheckBeforeDelete(IStatisticalUnit unit, bool toDelete)
+        {
+            if (toDelete) {
+                switch (unit.GetType().Name)
+                {
+                    case nameof(LocalUnit):
+                    {
+                        var localUnit = unit as LocalUnit;
+                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId && !x.IsDeleted);
+                        if (legalUnit != null && legalUnit.LocalUnits.Count == 1)
+                        {
+                            throw new BadRequestException(nameof(Resource.DeleteLocalUnit));
+                        }
+                        break;
+                    }
+                    case nameof(EnterpriseUnit):
+                    {
+                        var entUnit = unit as EnterpriseUnit;
+                        if (entUnit.LegalUnits.Count > 0)
+                        {
+                            throw new BadRequestException(nameof(Resource.DeleteEnterpriseUnit));
+                        }
+                        break;
+                    }
+                }
+            } else
+            {
+                switch (unit.GetType().Name)
+                {
+                    case nameof(LocalUnit):
+                    {
+                        var localUnit = unit as LocalUnit;
+                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId);
+                        if (legalUnit != null && legalUnit.IsDeleted == true)
+                        {
+                            throw new BadRequestException(nameof(Resource.RestoreLocalUnit));
+                        }
+                        break;
+                    }
+                    case nameof(EnterpriseUnit):
+                    {
+                        var entUnit = unit as EnterpriseUnit;
+                        if (entUnit.LegalUnits.Any(x => x.IsDeleted == true))
+                        {
+                            throw new BadRequestException(nameof(Resource.RestoreEnterpriseUnit));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        public void StatUnitPostDeleteActions(IStatisticalUnit unit, bool toDelete, string userId)
+        {
+            _postDeleteActions[unit.UnitType](unit, toDelete, userId);
+        }
+
+        private void PostDeleteLocalUnit(IStatisticalUnit unit, bool toDelete, string userId)
+        {
+        }
+
+        private void PostDeleteLegalUnit(IStatisticalUnit unit, bool toDelete, string userId)
+        {
+            var legalUnit = unit as LegalUnit;
+            if (toDelete)
+            {
+                var legalStartPeriod = _dbContext.LegalUnitHistory.Where(x => x.ParentId == legalUnit.RegId).OrderBy(x => x.StartPeriod).FirstOrDefault()?.StartPeriod;
+                foreach (var localUnit in legalUnit.LocalUnits)
+                {
+                    var localStartPeriod = _dbContext.LocalUnitHistory.Where(x => x.ParentId == localUnit.RegId).OrderBy(x => x.StartPeriod).FirstOrDefault()?.StartPeriod;
+                    if (localStartPeriod == legalStartPeriod)
+                    {
+                        var deletedUnit = DeleteUndeleteLocalUnit(localUnit.RegId, true, userId);
+                        _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+                    }
+                }
+
+                var enterpriseUnit = _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefault(x => x.RegId == legalUnit.EnterpriseUnitRegId);
+                if (enterpriseUnit.LegalUnits.Count == 1)
+                {
+                    var deletedUnit = DeleteUndeleteEnterpriseUnit(enterpriseUnit.RegId, true, userId);
+                    _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+                }
+            }
+            else
+            {
+                var deletedLocalUnits = legalUnit.LocalUnits.Where(x => x.IsDeleted == true);
+                foreach (var localUnit in deletedLocalUnits)
+                {
+                    var restoredUnit = DeleteUndeleteLocalUnit(localUnit.RegId, false, userId);
+                    _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
+                }
+                var enterpriseUnit = _dbContext.EnterpriseUnits.FirstOrDefault(x => x.RegId == legalUnit.EnterpriseUnitRegId);
+                if (enterpriseUnit != null && enterpriseUnit.IsDeleted == true)
+                {
+                    var restoredUnit = DeleteUndeleteEnterpriseUnit(legalUnit.EnterpriseUnit.RegId, false, userId);
+                    _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
+                }
+            }
+        }
+
+        private void PostDeleteEnterpriseUnit(IStatisticalUnit unit, bool toDelete, string userId)
+        {
+        }
+
+        private void PostDeleteEnterpriseGroupUnit(IStatisticalUnit unit, bool toDelete, string userId)
+        {
         }
 
         /// <summary>
