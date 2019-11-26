@@ -252,7 +252,9 @@ namespace nscreg.Data.DbInitializers
             context.Database.ExecuteSqlCommand(createStatUnitSearchView);
             context.Database.ExecuteSqlCommand(dropReportTreeTable);
             context.Database.ExecuteSqlCommand(dropProcedureGetReportsTree);
+#pragma warning disable EF1000 // Possible SQL injection vulnerability.
             context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
+#pragma warning restore EF1000 // Possible SQL injection vulnerability.
             context.Database.ExecuteSqlCommand(dropFunctionGetActivityChildren);
             context.Database.ExecuteSqlCommand(createFunctionGetActivityChildren);
             context.Database.ExecuteSqlCommand(dropFunctionGetRegionChildren);

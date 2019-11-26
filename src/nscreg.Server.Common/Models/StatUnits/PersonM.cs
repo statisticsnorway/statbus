@@ -15,7 +15,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string Surname { get; set; }
         public string MiddleName { get; set; }
         public DateTime? BirthDate { get; set; }
-        public byte Sex { get; set; }
+        public byte? Sex { get; set; }
         public int? Role { get; set; }
         public int CountryId { get; set; }
         public string PhoneNumber { get; set; }
