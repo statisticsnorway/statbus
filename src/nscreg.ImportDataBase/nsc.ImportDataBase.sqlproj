@@ -64,6 +64,8 @@
     <Folder Include="ReportsSqlWallet\Statuses\" />
     <Folder Include="ReportsSqlWallet\UnitSize\" />
     <Folder Include="ReportsSqlWallet\31 reports" />
+    <Folder Include="ReportsSqlWallet\31 reports\Functions" />
+    <Folder Include="ReportsSqlWallet\31 reports\Views" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ImportingData\01_Query_Catalogue_LegalForms.sql" />
@@ -108,5 +110,20 @@
     <None Include="ReportsSqlWallet\31 reports\12_TableB_Turnover.sql" />
     <None Include="ReportsSqlWallet\31 reports\13_TableA_NumberOfEmployees.sql" />
     <None Include="ReportsSqlWallet\31 reports\14_TableB_NumberOfEmployees.sql" />
+    <None Include="ReportsSqlWallet\31 reports\15_TableA_Demography.sql" />
+    <None Include="ReportsSqlWallet\31 reports\16_TableB_Demography.sql" />
+    <None Include="ReportsSqlWallet\31 reports\17_TableC_Demogrphy.sql" />
+    <None Include="ReportsSqlWallet\31 reports\18_TableA_Demography_5years.sql" />
+    <None Include="ReportsSqlWallet\31 reports\19_TableB_Demography_5years.sql" />
+    <None Include="ReportsSqlWallet\31 reports\20_TableC_Demography_5years.sql" />
+    <None Include="ReportsSqlWallet\31 reports\21_TableA_Demography_Growth.sql" />
+    <None Include="ReportsSqlWallet\31 reports\22_TableB_Demography_Growth.sql" />
+    <None Include="ReportsSqlWallet\31 reports\23_TableC_Demography_Growth.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="ReportsSqlWallet\31 reports\Functions\GetNamesRegionsForPivot.sql" />
+    <Build Include="ReportsSqlWallet\31 reports\Views\v_ActivityCategoriesHierarchy.sql" />
+    <Build Include="ReportsSqlWallet\31 reports\Views\v_Regions.sql" />
+    <Build Include="ReportsSqlWallet\31 reports\15_TableA_Demography.sql" />
   </ItemGroup>
 </Project>
