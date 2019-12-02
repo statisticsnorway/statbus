@@ -5,6 +5,8 @@ import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
 
+export const fetchDataFailed = createAction('fetch StatUnits failed')
+
 export const clear = createAction('clear formData filter')
 
 export const fetchDataStateChanged = createAction('fetch StatUnits status changed')
@@ -14,7 +16,7 @@ export const fetchLookupSucceeded = createAction('fetch Lookup succeeded')
 export const deleteStatUnitSuccessed = createAction('delete StatUnit succeeded')
 
 export const setSearchCondition = createAction('set search condition')
-
+export const clearError = createAction('clear error')
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
@@ -22,6 +24,9 @@ const fetchData = queryParams =>
     onSuccess: (dispatch, resp) => {
       dispatch(fetchDataSucceeded({ ...resp, queryObj: queryParams }))
       dispatch(fetchDataStateChanged(false))
+    },
+    onFail: (dispatch, error) => {
+      dispatch(fetchDataFailed(error.message))
     },
     onStart: dispatch => dispatch(fetchDataStateChanged(true)),
   })
@@ -37,7 +42,6 @@ const deleteStatUnit = (type, id, queryParams, index, onFail) =>
       onFail(error.message)
     },
   })
-
 const fetchLookup = id =>
   dispatchRequest({
     url: `/api/lookup/${id}`,
@@ -56,4 +60,6 @@ export default {
   fetchDataStateChanged,
   fetchLookup,
   setSearchCondition,
+  fetchDataFailed,
+  clearError,
 }

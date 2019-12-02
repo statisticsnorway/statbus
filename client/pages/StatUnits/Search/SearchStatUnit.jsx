@@ -15,6 +15,7 @@ class Search extends React.Component {
   static propTypes = {
     fetchData: func.isRequired,
     clear: func.isRequired,
+    clearError: func.isRequired,
     setSearchCondition: func.isRequired,
     updateFilter: func.isRequired,
     setQuery: func.isRequired,
@@ -33,6 +34,7 @@ class Search extends React.Component {
     locale: string.isRequired,
     isLoading: bool.isRequired,
     lookups: shape({}).isRequired,
+    error: string,
   }
 
   static defaultProps = {
@@ -42,12 +44,14 @@ class Search extends React.Component {
     }),
     statUnits: [],
     totalCount: 0,
+    error: undefined,
   }
 
   state = {
     showConfirm: false,
     selectedUnit: undefined,
     deleteFailed: undefined,
+    // error : '',
   }
 
   setError = (message) => {
@@ -56,6 +60,9 @@ class Search extends React.Component {
 
   clearError = () => {
     this.setState({ deleteFailed: undefined })
+    if (this.props.error) {
+      this.props.clearError()
+    }
   }
 
   handleChangeForm = (name, value) => {
@@ -114,11 +121,11 @@ class Search extends React.Component {
     <Modal
       className="errorModal"
       size="small"
-      open={this.state.deleteFailed !== undefined}
+      open={this.state.deleteFailed !== undefined || this.props.error !== undefined}
       onClose={this.clearError}
     >
       <Modal.Header>{this.props.localize('Error')}</Modal.Header>
-      <Modal.Content>{this.props.localize(this.state.deleteFailed)}</Modal.Content>
+      <Modal.Content>{this.props.localize(this.props.error)}</Modal.Content>
       <Modal.Actions>
         <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
       </Modal.Actions>
@@ -136,12 +143,12 @@ class Search extends React.Component {
       setSearchCondition,
       locale,
       updateFilter,
+      error,
     } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
     const searchFormErrors = getSearchFormErrors(formData, localize)
-
     return (
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>
@@ -189,5 +196,4 @@ class Search extends React.Component {
     )
   }
 }
-
 export default Search
