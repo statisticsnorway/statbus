@@ -7,7 +7,6 @@ namespace nscreg.Utilities.Configuration
     public class ValidationSettings
     {
         public bool ValidateStatIdChecksum { get; set; }
-        public bool StatIdOnlyNumber { get; set; }
         public bool StatIdUnique { get; set; }
     }
 }

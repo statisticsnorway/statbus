@@ -20,8 +20,7 @@ const TextField = ({
   const hasErrors = touched !== false && errorKeys.length !== 0
   const props = {
     ...restProps,
-    value:
-      value !== null ? (restProps.name === 'statId' ? value.replace(/[^0-9]/g, '') : value) : '',
+    value: value !== null ? value : '',
     error: error || hasErrors,
     label,
     title,
