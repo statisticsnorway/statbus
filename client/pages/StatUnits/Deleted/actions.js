@@ -42,6 +42,7 @@ export default {
   setQuery,
   fetchData,
   restore,
+  restoreSucceeded,
   clearSearchFormForDeleted,
   setSearchConditionForDeleted,
 }
