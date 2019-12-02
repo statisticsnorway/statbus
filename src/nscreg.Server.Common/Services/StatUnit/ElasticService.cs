@@ -14,6 +14,7 @@ using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Enums.Predicate;
 using Nest;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -338,8 +339,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var connect = await _elasticClient.PingAsync();
             if (!connect.IsValid)
             {
-                throw new Exception("ElasticSearch service is not running, " +
-                                    "please connect to your server' administrator to turn it on");
+                throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable));
             }
         }
     }

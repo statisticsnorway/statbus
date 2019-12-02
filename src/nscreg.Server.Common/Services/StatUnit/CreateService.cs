@@ -25,7 +25,7 @@ using Person = nscreg.Data.Entities.Person;
 namespace nscreg.Server.Common.Services.StatUnit
 {
     /// <summary>
-    /// Класс сервис создания
+    /// Class service creation
     /// </summary>
     public class CreateService
     {
@@ -96,10 +96,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
         /// <summary>
-        /// Метод создания правовой единицы
+        /// Legal unit creation method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="data">Data</param>
+        /// <param name="userId">User Id</param>
         /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
@@ -123,10 +123,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             });
 
         /// <summary>
-        /// Метод создания местной единицы
+        /// Local unit creation method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="data">Data</param>
+        /// <param name="userId">User Id</param>
         /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
         {
@@ -137,10 +137,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод создания предприятия
+        /// Enterprise creation method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="data">Data</param>
+        /// <param name="userId">User Id</param>
         /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
@@ -161,10 +161,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             });
 
         /// <summary>
-        /// Метод создания группы предприятия
+        /// Method for creating an enterprise group
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="data">Data</param>
+        /// <param name="userId">User Id</param>
         /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
@@ -188,11 +188,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
         /// <summary>
-        /// Метод создания контекста стат. единицы
+        /// Static unit context creation method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="work">В работе</param>
+        /// <param name="data">Data</param>
+        /// <param name="userId">User Id</param>
+        /// <param name="work">In work</param>
         /// <returns></returns>
         private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>(
             TModel data,
@@ -256,11 +256,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             });
 
         /// <summary>
-        /// Метод создания контекста
+        /// Context сreation method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="work">В работе</param>
+        /// <param name="data">Data</param>
+        /// <param name="userId">User Id</param>
+        /// <param name="work">In Work</param>
         /// <returns></returns>
         private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>(
             TModel data,
