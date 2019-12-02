@@ -104,11 +104,13 @@ namespace nscreg.Business.Analysis.StatUnit
                 : ((EnterpriseGroup) unit).StatId;
 
             if (string.IsNullOrEmpty(okpo)) return messages;
-
-            if (okpo.Any(x => !char.IsDigit(x)))
-            {
-                messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatIdOnlyNumber)});
-                return messages;
+            
+            if (_validationSettings.StatIdOnlyNumber) {
+                if (okpo.Any(x => !char.IsDigit(x)))
+                {
+                    messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatIdOnlyNumber)});
+                    return messages;
+                }
             }
 
             if (_validationSettings.ValidateStatIdChecksum)
