@@ -217,7 +217,7 @@ namespace nscreg.Server
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
-                /*.UseDefaultServiceProvider(options => 
+               /*.UseDefaultServiceProvider(options => 
                     options.ValidateScopes = false)*/
                 .Build().Run();
         }

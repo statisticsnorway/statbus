@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
+using Elasticsearch.Net;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Server.Common.Models;
 using nscreg.Data;
@@ -34,12 +35,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             var settings = new ConnectionSettings(new Uri(ServiceAddress)).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
         }
-
         public async Task Synchronize(bool force = false)
         {
             if (_isSynchronized && !force)
                 return;
-
             try
             {
                 await Semaphore.WaitAsync();
@@ -50,7 +49,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!force)
                 {
                     int dbCount = await baseQuery.CountAsync();
-                    var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                    var elasticsCount =
+                        await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
 
                     //Tests do not pass trying to access the ElasticSearch (localhost:9200)
                     //if (!elasticsCount.IsValid)
@@ -331,6 +331,16 @@ namespace nscreg.Server.Common.Services.StatUnit
                 units = sortQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToList();
             }
             return SearchVm<ElasticStatUnit>.Create(units, searchResponse.Total);
+        }
+
+        public async Task CheckElasticSearchConnection()
+        {
+            var connect = await _elasticClient.PingAsync();
+            if (!connect.IsValid)
+            {
+                throw new Exception("ElasticSearch service is not running, " +
+                                    "please connect to your server' administrator to turn it on");
+            }
         }
     }
 }

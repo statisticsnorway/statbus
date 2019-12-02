@@ -45,6 +45,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool isDeleted = false)
         {
+            await _elasticService.CheckElasticSearchConnection();
             bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
 
             long totalCount;
@@ -77,7 +78,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var permissions = await _userService.GetDataAccessAttributes(userId, null);
             var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],

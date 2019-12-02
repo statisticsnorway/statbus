@@ -291,7 +291,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
             var helper = new StatUnitCreationHelper(_dbContext);
-
+            await helper.CheckElasticConnect();
             if (unit is LocalUnit)
                 await helper.CreateLocalUnit(unit as LocalUnit);
             else if (unit is LegalUnit)

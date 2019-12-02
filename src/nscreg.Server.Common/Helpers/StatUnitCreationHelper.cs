@@ -159,5 +159,9 @@ namespace nscreg.Server.Common.Helpers
 
             await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterpriseGroup));
         }
+        public async Task CheckElasticConnect()
+        {
+            await _elasticService.CheckElasticSearchConnection();
+        }
     }
 }
