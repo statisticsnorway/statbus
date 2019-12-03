@@ -22,7 +22,7 @@ const handlers = {
     totalCount,
     isLoading: false,
   }),
-  [actions.deleteStatUnitSuccessed]: (state, data) => ({
+  [actions.restoreSucceeded]: (state, data) => ({
     ...state,
     statUnits: state.statUnits.filter((val, i) => i !== data.index),
   }),

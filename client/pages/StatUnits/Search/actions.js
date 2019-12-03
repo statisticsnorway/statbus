@@ -56,4 +56,5 @@ export default {
   fetchDataStateChanged,
   fetchLookup,
   setSearchCondition,
+  deleteStatUnitSuccessed,
 }
