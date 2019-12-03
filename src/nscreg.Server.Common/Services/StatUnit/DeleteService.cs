@@ -21,7 +21,7 @@ using LocalUnit = nscreg.Data.Entities.LocalUnit;
 namespace nscreg.Server.Common.Services.StatUnit
 {
     /// <summary>
-    /// Класс сервис удаления
+    /// Class Service Removal
     /// </summary>
     public class DeleteService
     {
@@ -59,12 +59,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Удаление/Восстановление  стат. единицы
+        /// Delete / Restore stat. units
         /// </summary>
-        /// <param name="unitType">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="toDelete">Флаг удалённости</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="unitType">Type of stat. units</param>
+        /// <param name="id">Id stat. units</param>
+        /// <param name="toDelete">Remoteness flag</param>
+        /// <param name="userId">User ID</param>
         public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
         {
             if (_dataAccessService.CheckWritePermissions(userId, unitType))
@@ -94,11 +94,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Удаление/Восстановление группы предприятия
+        /// Deleting / Restoring an Enterprise Group
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="toDelete">Флаг удалённости</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="id">Id stat. units</param>
+        /// <param name="toDelete">Remoteness flag</param>
+        /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.EnterpriseGroups.Find(id);
@@ -124,11 +124,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Удаление/Восстановление  правовой единицы
+        /// Deleting / Restoring a Legal Unit
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="toDelete">Флаг удалённости</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="id">Id stat. units</param>
+        /// <param name="toDelete">Remoteness flag</param>
+        /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
@@ -153,11 +153,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Удаление/Восстановление  местной единицы
+        /// Delete / Restore Local Unit
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="toDelete">Флаг удалённости</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="id">Id stat. units</param>
+        /// <param name="toDelete">Remoteness flag</param>
+        /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
@@ -183,11 +183,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Удаление/Восстановление  предприятия
+        ///Enterprise Deletion / Restoration
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="toDelete">Флаг удалённости</param>
-        /// <param name="userId">Id пользователя</param>
+        /// <param name="id">Id stat. units</param>
+        /// <param name="toDelete">Remoteness flag</param>
+        /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);

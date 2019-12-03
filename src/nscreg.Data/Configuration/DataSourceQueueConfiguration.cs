@@ -5,12 +5,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации очереди источника данных
+    ///  Data Source Queue Configuration Class
     /// </summary>
     public class DataSourceQueueConfiguration: EntityTypeConfigurationBase<DataSourceQueue>
     {
         /// <summary>
-        ///  Метод конфигурации очереди источника данных
+        ///  Data Source Queue Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<DataSourceQueue> builder)
         {

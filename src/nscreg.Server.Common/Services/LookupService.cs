@@ -13,7 +13,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Сервис поиска
+    /// Search service
     /// </summary>
     public class LookupService
     {
@@ -25,10 +25,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения объекта поиска
+        /// Method to get the search object
         /// </summary>
-        /// <param name="lookup">объекта поиска</param>
-        /// <returns></returns>
+        /// <param name = "lookup"> of the search object </param>
+        /// <returns> </returns>
         public async Task<IEnumerable<CodeLookupVm>> GetLookupByEnum(LookupEnum lookup)
         {
             IQueryable<object> query;
@@ -72,11 +72,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения пагинации поиска объекта
+        /// Method for obtaining object search pagination
         /// </summary>
-        /// <param name="lookup">объекта поиска</param>
-        /// <param name="searchModel">модель поиска</param>
-        /// <returns></returns>
+        /// <param name = "lookup"> of the search object </param>
+        /// <param name = "searchModel"> search model </param>
+        /// <returns> </returns>
         public async Task<IEnumerable<CodeLookupVm>> GetPaginateLookupByEnum(LookupEnum lookup, SearchLookupModel searchModel)
         {
             IQueryable<object> query;
@@ -215,12 +215,12 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения объекта поиска по Id
+        /// Method of obtaining a search object by Id
         /// </summary>
-        /// <param name="lookup">объекта поиска</param>
-        /// <param name="ids">id</param>
-        /// <param name="showDeleted">Флаг удалённости</param>
-        /// <returns></returns>
+        /// <param name = "lookup"> of the search object </param>
+        /// <param name = "ids"> id </param>
+        /// <param name = "showDeleted"> Distance flag </param>
+        /// <returns> </returns>
         public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids,
             bool showDeleted = false)
         {
@@ -313,10 +313,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод выполнения поисковых запросов
+        /// Method for performing search queries
         /// </summary>
-        /// <param name="query"></param>
-        /// <returns></returns>
+        /// <param name = "query"> </param>
+        /// <returns> </returns>
         private static async Task<IEnumerable<CodeLookupVm>> Execute(IQueryable<object> query)
             => Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
     }

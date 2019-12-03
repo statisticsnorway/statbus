@@ -6,12 +6,12 @@ using nscreg.Data.Entities.History;
 namespace nscreg.Data.Configuration.HistoryConfiguration
 {
     /// <summary>
-    ///  Класс конфигурации истории местной единицы
+    ///  Local unit history configuration class
     /// </summary>
     public class LocalUnitHistoryConfiguration : EntityTypeConfigurationBase<LocalUnitHistory>
     {
         /// <summary>
-        ///  Метод конфигурации истории местной единицы
+        ///  Local Unit History Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<LocalUnitHistory> builder)
         {

@@ -18,7 +18,7 @@ using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер очереди источников данных
+    /// Data Source Queue Controller
     /// </summary>
     [Route("api/[controller]")]
     public class DataSourcesQueueController : Controller
@@ -41,7 +41,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод возвращающий список всей очереди источников данных
+        /// Method that returns a list of the entire queue of data sources
         /// </summary>
         /// <param name="query">Запрос</param>
         /// <returns></returns>
@@ -51,7 +51,7 @@ namespace nscreg.Server.Controllers
             Ok(await _svc.GetAllDataSourceQueues(query));
 
         /// <summary>
-        /// Метод создания очереди источников данных
+        /// Method for creating a data source queue
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
@@ -66,10 +66,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения журнала очереди
+        /// Queue Log Retrieval Method
         /// </summary>
-        /// <param name="queueId">Id очереди</param>
-        /// <param name="query">Запрос</param>
+        /// <param name="queueId">queue Id</param>
+        /// <param name="query">query</param>
         /// <returns></returns>
         [HttpGet("{queueId:int}/log")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
@@ -77,9 +77,9 @@ namespace nscreg.Server.Controllers
             Ok(await _svc.GetQueueLog(queueId, query));
 
         /// <summary>
-        /// Метод получения сведения о журнале
+        /// Log Information Method
         /// </summary>
-        /// <param name="logId">Id журнала</param>
+        /// <param name="logId">log id</param>
         /// <returns></returns>
         [HttpGet("logs/{logId:int}")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
@@ -99,10 +99,10 @@ namespace nscreg.Server.Controllers
             Ok(await _svc.GetActivityLogDetailsByStatId(queueId, statId));
 
         /// <summary>
-        /// Метод обновления журнала
+        /// Log Update Method
         /// </summary>
-        /// <param name="logId">Id журнала</param>
-        /// <param name="data">Данные</param>
+        /// <param name="logId">log id</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPut("logs/{logId:int}")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogEdit)]

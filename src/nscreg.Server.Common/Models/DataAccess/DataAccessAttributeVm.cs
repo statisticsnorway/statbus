@@ -1,7 +1,7 @@
 namespace nscreg.Server.Common.Models.DataAccess
 {
     /// <summary>
-    /// Вью модель аттребута доступа к данным
+    /// View data access attrebut model
     /// </summary>
     public class DataAccessAttributeVm : DataAccessAttributeM
     {

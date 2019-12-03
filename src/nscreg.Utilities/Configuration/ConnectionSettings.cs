@@ -4,7 +4,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Utilities.Configuration
 {
     /// <summary>
-    /// Класс настройки соединения
+    /// Connection settings class
     /// </summary>
     public class ConnectionSettings
     {

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models.Account
 {
     /// <summary>
-    /// Вью модель авторизации аккаунта
+    /// View account authorization model
     /// </summary>
     public class LoginVm
     {

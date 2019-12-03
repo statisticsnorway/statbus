@@ -4,7 +4,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.DataSources
 {
     /// <summary>
-    /// Вью модель источника данных
+    /// View data source model
     /// </summary>
     public class DataSourceVm
     {
@@ -22,11 +22,11 @@ namespace nscreg.Server.Common.Models.DataSources
             CsvDelimiter = item.CsvDelimiter;
             CsvSkipCount = item.CsvSkipCount;
         }
-        
+
         /// <summary>
-        /// Метод создания вью модели источника данных
+        /// Method for creating a view of a data source model
         /// </summary>
-        /// <param name="item">Единица</param>
+        /// <param name="item">item</param>
         /// <returns></returns>
         public static DataSourceVm Create(DataSource item) => new DataSourceVm(item);
 

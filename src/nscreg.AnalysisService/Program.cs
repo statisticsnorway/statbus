@@ -12,13 +12,13 @@ using NLog.Extensions.Logging;
 namespace nscreg.AnalysisService
 {
     /// <summary>
-    /// Класс запуска сервиса анализа
+    /// Analysis Service Launch Class
     /// </summary>
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Program
     {
         /// <summary>
-        /// Метод запуска сервиса анализа
+        /// Analysis Service Launch Method
         /// </summary>
         public static void Main()
         {

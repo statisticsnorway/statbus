@@ -10,7 +10,7 @@ using nscreg.Server.Core.Authorize;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    ///  Контроллер адресов
+    ///  Address controller
     /// </summary>
     [Route("api/[controller]")]
     public class AddressesController : Controller
@@ -22,10 +22,10 @@ namespace nscreg.Server.Controllers
             _addressService = new AddressService(context);
         }
         /// <summary>
-        /// Метод возвращающий список всех адесов
+        /// Method that returns a list of all addresses
         /// </summary>
-        /// <param name="page">Страница</param>
-        /// <param name="pageSize">Размер страницы</param>
+        /// <param name="page">Page</param>
+        /// <param name="pageSize">Page size</param>
         /// <param name="searchStr"></param>
         /// <returns></returns>
         // GET: api/address
@@ -35,9 +35,9 @@ namespace nscreg.Server.Controllers
             Ok(await _addressService.GetAsync(page, pageSize, x => searchStr == null || x.AddressPart1.Contains(searchStr)));
 
         /// <summary>
-        /// Метод возвращающий определённый адрес
+        /// Method returning a specific address
         /// </summary>
-        /// <param name="id">id адеса</param>
+        /// <param name="id">id address</param>
         /// <returns></returns>
         // GET api/address/5
         [HttpGet("{id:int}")]
@@ -45,9 +45,9 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> Get(int id) => Ok(await _addressService.GetByIdAsync(id));
 
         /// <summary>
-        /// Метод создания адреса
+        /// Address Creation Method
         /// </summary>
-        /// <param name="model">модель адреса</param>
+        /// <param name="model">address model</param>
         /// <returns></returns>
         // POST api/address
         [HttpPost]
@@ -59,10 +59,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод изменения адреса
+        /// Address Change Method
         /// </summary>
-        /// <param name="id">id адеса</param>
-        /// <param name="model">модель адреса</param>
+        /// <param name="id">address id</param>
+        /// <param name="model">address model</param>
         /// <returns></returns>
         // PUT api/address/5
         [HttpPut("{id}")]
@@ -73,7 +73,7 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
         /// <summary>
-        /// Метод удаления адреса
+        /// Address Removal Method
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>

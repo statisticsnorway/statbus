@@ -3,7 +3,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Модель фильтрации списка пользователей
+    /// User List Filtering Model
     /// </summary>
     public class UserListFilter : PaginatedQueryM
     {

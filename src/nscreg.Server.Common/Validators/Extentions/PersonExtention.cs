@@ -4,16 +4,16 @@ using nscreg.Server.Common.Models.StatUnits;
 namespace nscreg.Server.Common.Validators.Extentions
 {
     /// <summary>
-    /// Класс расширения персоны
+    /// Person extension class
     /// </summary>
     public static class PersonExtention
     {
         /// <summary>
-        /// Метод обновления свойств персоны
+        /// Person property update method
         /// </summary>
-        /// <param name="person">объект персоны</param>
-        /// <param name="model">Модель персоны</param>
-        /// <returns></returns>
+        /// <param name = "person"> person object </param>
+        /// <param name = "model"> Person model </param>
+        /// <returns> </returns>
         public static Person UpdateProperties(this Person person, PersonM model)
         {
             person.Address = model.Address;

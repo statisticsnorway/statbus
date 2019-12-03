@@ -12,7 +12,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="filePath">путь к файлу</param>
+        /// <param name="filePath">file path</param>
         /// <returns></returns>
         public static IEnumerable<IReadOnlyDictionary<string, object>> GetRawEntitiesFromXml(string filePath)
             => XmlParser.GetRawEntities(XDocument.Load(filePath)).Select(XmlParser.ParseRawEntity);

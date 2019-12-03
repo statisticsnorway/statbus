@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Enums
 {
     /// <summary>
-    /// Класс перечисления справочников
+    /// Reference enumeration class
     /// </summary>
     public enum LookupEnum
     {

@@ -7,7 +7,7 @@ using nscreg.ModelGeneration.Validation;
 namespace nscreg.ModelGeneration
 {
     /// <summary>
-    /// Класс фабрика свойств метаданных
+    /// Metadata Property Factory Class
     /// </summary>
     public static class PropertyMetadataFactory
     {
@@ -22,7 +22,7 @@ namespace nscreg.ModelGeneration
         }
 
         /// <summary>
-        /// Метод фабрика свойств метаданных
+        /// Method Factory Metadata Properties
         /// </summary>
         public static PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj, bool writable, bool? mandatory)
         {

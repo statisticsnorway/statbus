@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities.History
 {
     /// <summary>
-    ///  Класс сущность истории стат. еденицы
+    ///  The class is the essence of history units
     /// </summary>
     public abstract class StatisticalUnitHistory : IStatisticalUnitHistory
     {

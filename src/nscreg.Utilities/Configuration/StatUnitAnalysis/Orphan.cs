@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
     /// <summary>
-    /// Класс проверки связи обязательности полей
+    /// Field of checking the binding of fields
     /// </summary>
     public class Orphan
     {

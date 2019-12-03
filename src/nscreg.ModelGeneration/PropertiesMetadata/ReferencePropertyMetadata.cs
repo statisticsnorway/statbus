@@ -3,7 +3,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств ссылки
+    /// Link Property Metadata Class
     /// </summary>
     public class ReferencePropertyMetadata : PropertyMetadataBase
     {

@@ -7,7 +7,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства булева
+    ///     Class creator of a boolean property
     /// </summary>
     public class BooleanPropertyCreator : PropertyCreatorBase
     {
@@ -22,7 +22,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства булева
+        ///     Boolean Property Creator Method
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

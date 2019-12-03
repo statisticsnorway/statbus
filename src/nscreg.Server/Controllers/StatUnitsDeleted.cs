@@ -10,7 +10,7 @@ using nscreg.Server.Core.Authorize;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер удалённых стат. едениц
+    /// Remote Stat Controller units
     /// </summary>
     [Route("api/statunits/deleted")]
     public class StatUnitsDeletedController : Controller
@@ -25,9 +25,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения удалённых стат. единиц
+        /// Method for getting remote stats. units
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
@@ -35,10 +35,10 @@ namespace nscreg.Server.Controllers
             Ok(await _searchService.Search(data, User.GetUserId(), true));
 
         /// <summary>
-        /// Метод сброса удалённой стат. единицы
+        /// Remote Stat Reset Method. units
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="regId">Регистрационный Id</param>
+        /// <param name="type">Stat uint type</param>
+        /// <param name="regId">Registration Id</param>
         /// <returns></returns>
         [HttpDelete]
         [SystemFunction(SystemFunctions.StatUnitDelete)]

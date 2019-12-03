@@ -6,7 +6,7 @@ using nscreg.Resources.Languages;
 namespace nscreg.Server.Common.Models.Links
 {
     /// <summary>
-    /// Модель поиска связи
+    /// Link Search Model
     /// </summary>
     public class LinkSearchM
     {
@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Models.Links
         public int? Id { get; set; }
         public StatUnitTypes? Type { get; set; }
         /// <summary>
-        ///  ID региона
+        ///  Region Id
         /// </summary>
         public int? RegionCode { get; set; }
         public DateTime? LastChangeFrom { get; set; }
@@ -23,7 +23,7 @@ namespace nscreg.Server.Common.Models.Links
     }
 
     /// <summary>
-    /// Вью модель валидатор поиска связи
+    /// View model of communication search validator
     /// </summary>
     internal class LinkSearchMValidator : AbstractValidator<LinkSearchM>
     {

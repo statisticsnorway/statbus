@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Enums
 {
     /// <summary>
-    /// Класс перечисления причины изменения
+    /// Class of enumeration of the reason for the change
     /// </summary>
     public enum ChangeReasons
     {

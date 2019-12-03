@@ -6,7 +6,7 @@ using nscreg.Server.Common.Services;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер персон
+    /// Person Controller
     /// </summary>
     [Route("api/[controller]")]
     public class PersonsController : Controller
@@ -19,9 +19,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод поиска персоны
+        /// Person Search Method
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
+        /// <param name="wildcard">Search pattern</param>
         /// <returns></returns>
         [HttpGet]
         [Route("search")]

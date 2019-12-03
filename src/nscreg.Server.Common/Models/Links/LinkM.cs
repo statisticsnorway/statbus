@@ -4,7 +4,7 @@ using nscreg.Server.Common.Models.Lookup;
 namespace nscreg.Server.Common.Models.Links
 {
     /// <summary>
-    /// Модель связи
+    /// Communication model
     /// </summary>
     public class LinkM
     {

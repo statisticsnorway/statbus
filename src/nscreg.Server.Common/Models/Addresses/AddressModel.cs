@@ -1,7 +1,7 @@
 namespace nscreg.Server.Common.Models.Addresses
 {
     /// <summary>
-    /// Модель адреса
+    /// Address Model
     /// </summary>
     public class AddressModel
     {

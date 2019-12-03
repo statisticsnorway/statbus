@@ -16,7 +16,7 @@ using nscreg.Utilities;
 namespace nscreg.Server.Common.Services.StatUnit
 {
     /// <summary>
-    /// Класс сервис истории
+    /// Class service history
     /// </summary>
     public class HistoryService
     {
@@ -34,11 +34,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        ///  Метод получения истории стат. единицы
+        /// Method for obtaining the history of stat. units
         /// </summary>
-        /// <param name="type">Тип стат. единцы</param>
-        /// <param name="id">Id стат. единцы</param>
-        /// <returns></returns>
+        /// <param name = "type"> Type of stat. Edinet </param>
+        /// <param name = "id"> Id stat. Edinet </param>
+        /// <returns> </returns>
         public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
@@ -49,13 +49,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получения подробной истории стат. единицы
+        /// Method for obtaining a detailed history of stat. units
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="isHistory">Является ли стат. единица исторической</param>
-        /// <returns></returns>
+        /// <param name = "type"> Type of stat. units </param>
+        /// <param name = "id"> Id stat. units </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "isHistory"> Is the stat. historical unit </param>
+        /// <returns> </returns>
         public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId, bool isHistory)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
@@ -65,13 +65,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             return SearchVm.Create(result, result.Length);
         }
 
-        ///  <summary>
-        /// 
-        ///  </summary>
-        ///  <param name="id">Id стат. единицы</param>
-        ///  <param name="userId">Id пользователя</param>
-        /// <param name="isHistory">Является ли стат. единица исторической</param>
-        /// <returns></returns>
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name = "id"> Id stat. units </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "isHistory"> Is the stat. historical unit </param>
+        /// <returns> </returns>
         private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<TUnit, THistory>(int id, string userId, bool isHistory)
             where TUnit : class, IStatisticalUnit
             where THistory : class, IStatisticalUnitHistory
@@ -101,12 +101,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод возвращающий неизменённые обрезанные поля
+        /// Method returning unchanged cropped fields
         /// </summary>
-        /// <param name="after">После</param>
-        /// <param name="before">До</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "after"> After </param>
+        /// <param name = "before"> To </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         private async Task<IEnumerable<ChangedField>> CutUnchangedFields<T>(T after, T before, string userId)
             where T : class, IStatisticalUnit
         {
@@ -137,10 +137,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получения истории стат. единицы
+        /// Method for obtaining the history of stat. units
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id stat. units </param>
+        /// <returns> </returns>
         private async Task<IEnumerable<object>> FetchUnitHistoryAsync<TUnit, THistory>(int id)
             where TUnit : class, IStatisticalUnit
             where THistory : class, IStatisticalUnitHistory

@@ -15,7 +15,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер учётной записи
+    /// Account controller
     /// </summary>
     [Route("api/[controller]/[action]")]
     public class AccountController : Controller
@@ -35,7 +35,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод возвращающий страницу входа в систему
+        /// Method returning the login page
         /// </summary>
         /// <param name="urlReferrer"></param>
         /// <returns></returns>
@@ -105,7 +105,7 @@ namespace nscreg.Server.Controllers
             return BadRequest();
         }
         /// <summary>
-        /// Метод служащий для выхода из системы
+        /// Logout method
         /// </summary>
         /// <returns></returns>
         [Route("/account/logout")]
@@ -115,7 +115,7 @@ namespace nscreg.Server.Controllers
             return RedirectToAction(nameof(LogIn));
         }
         /// <summary>
-        /// Метод возвращающий детальные данные о учётной записи пользователя
+        /// Method returning detailed user account information
         /// </summary>
         /// <returns></returns>
         [SystemFunction(SystemFunctions.AccountView)]
@@ -127,9 +127,9 @@ namespace nscreg.Server.Controllers
                 : Ok(DetailsVm.Create(user));
         }
         /// <summary>
-        /// Метод принимает и записывает данные учётной записи пользователя
+        /// Method accepts and writes user account data
         /// </summary>
-        /// <param name="data">Данные пользователя</param>
+        /// <param name="data">User data</param>
         /// <returns></returns>
         [HttpPost]
         [SystemFunction(SystemFunctions.AccountEdit)]

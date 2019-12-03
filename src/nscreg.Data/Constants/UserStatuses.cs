@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы статусов пользователя
+    /// User Status Constants
     /// </summary>
     public enum UserStatuses
     {

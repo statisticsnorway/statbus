@@ -4,16 +4,16 @@ using nscreg.Server.Common.Models.Regions;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Вью модель списка пользователей
+    /// View user list model
     /// </summary>
     public class UserListVm
     {
         /// <summary>
-        /// Метод создания вью модели списка пользователей
+        /// Method for creating a view model of a user list
         /// </summary>
-        /// <param name="users">пользователи</param>
-        /// <param name="totalCount">Общее количество</param>
-        /// <param name="totalPages">Всего страниц</param>
+        /// <param name="users">users</param>
+        /// <param name="totalCount">total counts</param>
+        /// <param name="totalPages">total pages</param>
         /// <returns></returns>
         public static UserListVm Create(IEnumerable<UserListItemVm> users, RegionNode allRegions, int totalCount, int totalPages)
             => new UserListVm

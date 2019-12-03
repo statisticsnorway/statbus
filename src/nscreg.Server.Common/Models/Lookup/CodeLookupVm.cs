@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models.Lookup
 {
     /// <summary>
-    /// Вью модель поиска кода
+    /// View code search model
     /// </summary>
     public class CodeLookupVm
     {

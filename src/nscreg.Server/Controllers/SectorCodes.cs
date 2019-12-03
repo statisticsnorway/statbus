@@ -7,7 +7,7 @@ using nscreg.Server.Common.Services.CodeLookup;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер кодов секторов
+    /// Sector Code Controller
     /// </summary>
     [Route("api/[controller]")]
     public class SectorCodesController : Controller
@@ -20,18 +20,18 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод поиска кода сектора
+        /// Sector Code Search Method
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
+        /// <param name="wildcard">wildcard</param>
         /// <returns></returns>
         [HttpGet]
         [Route("search")]
         public async Task<IActionResult> Search(string wildcard) => Ok(await _service.Search(wildcard));
 
         /// <summary>
-        /// Метод получения кода сектора
+        /// Sector Code Retrieval Method
         /// </summary>
-        /// <param name="id">Id сектора</param>
+        /// <param name="id">Sector Id</param>
         /// <returns></returns>
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> GetById(int id) => Ok(await _service.GetById(id));

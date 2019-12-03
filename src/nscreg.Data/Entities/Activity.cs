@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность деятельности
+    ///  Class activity essence
     /// </summary>
     public class Activity
     {

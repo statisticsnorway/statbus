@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Класс Предприятие с обязательными полями 
+    /// Class Enterprise with required fields
     /// </summary>
     public class Enterprise
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность регион
+    ///  Class entity region
     /// </summary>
     public class Region : CodeLookupBase
     {

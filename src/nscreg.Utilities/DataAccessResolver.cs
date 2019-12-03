@@ -11,9 +11,9 @@ using Newtonsoft.Json.Serialization;
 namespace nscreg.Utilities
 {
     /// <summary>
-    /// Класс распознования доступа к данным
+    /// Data Access Recognition Class
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name = "T"> </typeparam>
     internal static class DataAccessResolver<T> where T : class
     {
         private static readonly Dictionary<string, DataProperty<T>> Properties

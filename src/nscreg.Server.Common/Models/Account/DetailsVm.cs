@@ -3,7 +3,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.Account
 {
     /// <summary>
-    /// Подробная Вью модель аккаунта
+    /// Detailed View Account Model
     /// </summary>
     public class DetailsVm
     {

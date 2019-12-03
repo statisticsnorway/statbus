@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Класс Деятельности с обязательными полями 
+    /// Activity Class with required fields
     /// </summary>
     public class Activity
     {

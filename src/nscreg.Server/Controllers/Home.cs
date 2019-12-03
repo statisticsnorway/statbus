@@ -28,7 +28,7 @@ using static Newtonsoft.Json.JsonConvert;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Главный контроллер для входа в систему
+    /// Main controller for login
     /// </summary>
     public class HomeController : Controller
     {
@@ -63,7 +63,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Главный метод обработчик для входа в систему
+        /// Main method handler for logging in
         /// </summary>
         /// <returns></returns>
         public async Task<IActionResult> Index()

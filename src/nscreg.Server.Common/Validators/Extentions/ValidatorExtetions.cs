@@ -6,16 +6,16 @@ using Newtonsoft.Json;
 namespace nscreg.Server.Common.Validators.Extentions
 {
     /// <summary>
-    /// Класс расширения валидации
+    /// Validation extension class
     /// </summary>
     public static class ValidatorExtensions
     {
         /// <summary>
-        /// Метод валидатор числа больше чем 0 или меньше значение
+        /// Method validator number greater than 0 or less value
         /// </summary>
-        /// <param name="ruleBuilder">Конструктор правил</param>
-        /// <param name="compareTo">Сравнение с</param>
-        /// <returns></returns>
+        /// <param name = "ruleBuilder"> Rule constructor </param>
+        /// <param name = "compareTo"> Comparison with </param>
+        /// <returns> </returns>
         public static IRuleBuilderOptions<T, int> CheckIntGreaterThan0OrLessThanValueValidator<T>(
             this IRuleBuilder<T, int> ruleBuilder,
             int compareTo = 0)
@@ -33,12 +33,12 @@ namespace nscreg.Server.Common.Validators.Extentions
                                 }));
 
         /// <summary>
-        /// Метод валидатор строки на не пустые и больше значения
+        /// The string validator method on non-empty and larger values
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="ruleBuilder"></param>
-        /// <param name="maxLength"></param>
-        /// <returns></returns>
+        /// <typeparam name = "T"> </typeparam>
+        /// <param name = "ruleBuilder"> </param>
+        /// <param name = "maxLength"> </param>
+        /// <returns> </returns>
         public static IRuleBuilderOptions<T, string> CheckStringNotEmptyAndGreaterThanValidator<T>(
             this IRuleBuilder<T, string> ruleBuilder,
             int maxLength)
@@ -53,23 +53,23 @@ namespace nscreg.Server.Common.Validators.Extentions
                     );
 
         /// <summary>
-        /// Метод валидатор года
+        /// Method validator of the year
         /// </summary>
-        /// <param name="ruleBuilder">Конструктор правил</param>
-        /// <param name="minYear">Наименьший год начала</param>
-        /// <returns></returns>
+        /// <param name = "ruleBuilder"> Rule constructor </param>
+        /// <param name = "minYear"> The least year to start </param>
+        /// <returns> </returns>
         public static IRuleBuilderOptions<T, int> Year<T>(this IRuleBuilder<T, int> ruleBuilder, int minYear = 1900)
             => ruleBuilder
                 .GreaterThan(minYear)
                 .Must(v => v <= DateTime.Today.Year);
 
         /// <summary>
-        /// Метод валидатор формата сообщений
+        /// Message format validator method
         /// </summary>
-        /// <param name="ruleBuilder">Конструктор правил</param>
-        /// <param name="localizedKey">Ключ локализации</param>
-        /// <param name="parameters">Параметр</param>
-        /// <returns></returns>
+        /// <param name = "ruleBuilder"> Rule constructor </param>
+        /// <param name = "localizedKey"> Localization key </param>
+        /// <param name = "parameters"> Parameter </param>
+        /// <returns> </returns>
         public static IRuleBuilderOptions<TModel, TProperty> WithFormatMessage<TModel, TProperty>(
             this IRuleBuilderOptions<TModel, TProperty> ruleBuilder,
             string localizedKey,

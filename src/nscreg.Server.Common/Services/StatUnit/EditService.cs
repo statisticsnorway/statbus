@@ -64,11 +64,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод редактирования правовой единицы
+        /// Method of editing a legal unit
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
@@ -120,11 +120,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования местной единицы
+        /// Local unit editing method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
@@ -149,11 +149,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования предприятия
+        /// Enterprise editing method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
@@ -187,11 +187,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования группы предприятий
+        /// Method of editing a group of enterprises
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
@@ -223,13 +223,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования контекста стат. единцы
+        /// Method for editing the context stat. Edinet
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="idSelector">Id Селектора</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="work">В работе</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "idSelector"> Id Selector </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "work"> At work </param>
+        /// <returns> </returns>
         private async Task<Dictionary<string, string[]>> EditUnitContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
@@ -381,13 +381,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования контекста
+        /// Context editing method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="idSelector">Id Селектора</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="work">В работе</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "idSelector"> Id Selector </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "work"> At work </param>
+        /// <returns> </returns>
         private async Task<Dictionary<string, string[]>> EditContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
@@ -510,10 +510,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод валидации изменений данных
+        /// Method for validating data changes
         /// </summary>
-        /// <param name="regid">Регистрационный Id</param>
-        /// <returns></returns>
+        /// <param name = "regid"> Registration Id </param>
+        /// <returns> </returns>
         private async Task<IStatisticalUnit> ValidateChanges<T>(int regid)
             where T : class, IStatisticalUnit
         {
@@ -526,11 +526,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод проверки на неизменность данных
+        /// Method for checking for data immutability
         /// </summary>
-        /// <param name="unit">Стат. единицы</param>
-        /// <param name="hUnit">История стат. единицы</param>
-        /// <returns></returns>
+        /// <param name = "unit"> Stat. units </param>
+        /// <param name = "hUnit"> History of stat. units </param>
+        /// <returns> </returns>
         private static bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();

@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность журнал загрузки данных
+    ///  Entity class data loading log
     /// </summary>
     public class DataUploadingLog
     {

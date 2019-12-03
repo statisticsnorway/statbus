@@ -4,15 +4,15 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 namespace nscreg.Utilities
 {
     /// <summary>
-    /// Класс сравнения утилит выражений
+    /// Expression utilities comparison class
     /// </summary>
     public static class ExpressionUtils
     {
         /// <summary>
-        /// Метод получения текстового выражения
+        /// Method for obtaining a text expression
         /// </summary>
-        /// <param name="expr">Выражение</param>
-        /// <returns></returns>
+        /// <param name = "expr"> Expression </param>
+        /// <returns> </returns>
         public static string GetExpressionText(LambdaExpression expr) => ExpressionHelper.GetExpressionText(expr);
     }
 }

@@ -8,12 +8,12 @@ using nscreg.Server.Common.Services;
 namespace nscreg.Server.Common.Models.DataSources
 {
     /// <summary>
-    /// Модель информации свойства
+    /// Property Information Model
     /// </summary>
     public class PropertyInfoM
     {
         /// <summary>
-        /// Метод получения свойств
+        /// Property Method
         /// </summary>
         public PropertyInfoM()
         {

@@ -7,7 +7,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     /// <summary>
-    /// Модель поиска запросов
+    /// Query Search Model
     /// </summary>
     public class SearchQueryM
     {
@@ -30,7 +30,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
     }
 
     /// <summary>
-    /// Модель валидации поисковых запросов
+    /// Search Query Validation Model
     /// </summary>
     public class SearchQueryMValidator : AbstractValidator<SearchQueryM>
     {

@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.Localization
 {
     /// <summary>
-    /// Класс настройки локализации
+    /// Class of localization settings
     /// </summary>
     public class LocalizationSettings
     {

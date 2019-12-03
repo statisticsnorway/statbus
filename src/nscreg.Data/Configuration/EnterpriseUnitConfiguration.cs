@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации предприятия
+    ///  Enterprise Configuration Class
     /// </summary>
     public class EnterpriseUnitConfiguration : EntityTypeConfigurationBase<EnterpriseUnit>
     {
         /// <summary>
-        ///  Метод конфигурации предприятия
+        ///  Enterprise Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<EnterpriseUnit> builder)
         {

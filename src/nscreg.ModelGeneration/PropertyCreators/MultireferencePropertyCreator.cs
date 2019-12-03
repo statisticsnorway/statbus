@@ -10,7 +10,7 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства много-ссылочности
+    ///     The class creator of the multi-reference property
     /// </summary>
     public class MultireferencePropertyCreator : PropertyCreatorBase
     {
@@ -20,7 +20,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод проверки создания свойства много-ссылочности
+        ///     Method for checking the creation of a multi-reference property
         /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
@@ -33,7 +33,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства много-ссылочности
+        ///     Method creator of multi-reference property
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

@@ -10,7 +10,7 @@ using nscreg.Data.Entities.History;
 namespace nscreg.Data
 {
     /// <summary>
-    /// Контекст данных приложения
+    /// Application data context
     /// </summary>
     // ReSharper disable once InconsistentNaming
     public class NSCRegDbContext : IdentityDbContext<User, Role, string,IdentityUserClaim<string>, UserRole, IdentityUserLogin<string>, IdentityRoleClaim<string>, IdentityUserToken<string>>
@@ -20,7 +20,7 @@ namespace nscreg.Data
         }
 
         /// <summary>
-        /// Метод обработчик создания модели
+        /// Model creation handler method
         /// </summary>
         /// <param name="builder"></param>
         protected override void OnModelCreating(ModelBuilder builder)

@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Класс Правовой единицы с обязательными полями 
+    /// Legal unit class with required fields
     /// </summary>
     public class LegalUnit
     {

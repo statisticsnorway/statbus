@@ -11,7 +11,7 @@ namespace nscreg.Data.Configuration
     public class CountryStatisticalUnitHistoryConfiguration : EntityTypeConfigurationBase<CountryStatisticalUnitHistory>
     {
         /// <summary>
-        /// Метод конфигурации деятельности стат. еденицы 
+        /// Operation configuration method stat. units
         /// </summary>
         public override void Configure(EntityTypeBuilder<CountryStatisticalUnitHistory> builder)
         {

@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Класс Местной единицы с обязательными полями 
+    /// Local unit class with required fields
     /// </summary>
     public class LocalUnit
     {

@@ -9,7 +9,7 @@ using nscreg.Resources.Languages;
 namespace nscreg.Server.Common
 {
     /// <summary>
-    /// Класс конфигурации локализации языков
+    /// Language localization configuration class
     /// </summary>
     public static class Localization
     {

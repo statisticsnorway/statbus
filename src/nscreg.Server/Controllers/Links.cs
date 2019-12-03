@@ -11,7 +11,7 @@ using nscreg.Server.Core.Authorize;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер связей
+    /// Links controller
     /// </summary>
     [Route("api/[controller]")]
     public class LinksController : Controller
@@ -24,7 +24,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод создания связи
+        /// Link Creation Method
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
@@ -37,9 +37,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод поиска связи
+        /// Link Search Method
         /// </summary>
-        /// <param name="model">Модель поиска связи</param>
+        /// <param name="model">Link Search Model</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
@@ -47,9 +47,9 @@ namespace nscreg.Server.Controllers
             => Ok(await _service.Search(model, User.GetUserId()));
 
         /// <summary>
-        /// Метод проверки на возможность быть связанным 
+        /// The method of checking for the possibility of being connected
         /// </summary>
-        /// <param name="model">Модель</param>
+        /// <param name="model">model</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
@@ -57,9 +57,9 @@ namespace nscreg.Server.Controllers
             => Ok(await _service.LinkCanCreate(model, User.GetUserId()));
 
         /// <summary>
-        /// Метод поиска вложенной связи
+        /// Nested Link Search Method
         /// </summary>
-        /// <param name="model">Модель поиска связи</param>
+        /// <param name="model">Link Search Model</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
@@ -67,9 +67,9 @@ namespace nscreg.Server.Controllers
             => Ok(await _service.LinksNestedList(model));
 
         /// <summary>
-        /// Метод получения списка связей
+        /// Link List Method
         /// </summary>
-        /// <param name="model">Модель поиска связи</param>
+        /// <param name="model">Link Search Model</param>
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.LinksView)]
@@ -77,9 +77,9 @@ namespace nscreg.Server.Controllers
             => Ok(await _service.LinksList(model));
 
         /// <summary>
-        /// Метод удаления связи
+        /// Link Removal Method
         /// </summary>
-        /// <param name="model">Модель поиска связи</param>
+        /// <param name="model">Link Search Model</param>
         /// <returns></returns>
         [HttpDelete]
         [SystemFunction(SystemFunctions.LinksDelete)]

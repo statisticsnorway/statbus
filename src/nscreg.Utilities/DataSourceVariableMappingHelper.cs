@@ -4,15 +4,15 @@ using System.Linq;
 namespace nscreg.Utilities
 {
     /// <summary>
-    /// Класс сопоставления переменных источника данных
+    /// Data source variable mapping class
     /// </summary>
     public static class DataSourceVariableMappingHelper
     {
         /// <summary>
-        /// Метод преобразования строки в словарь
+        /// Method to convert a string to a dictionary
         /// </summary>
-        /// <param name="variablesMapping">Переменная сопоставление</param>
-        /// <returns></returns>
+        /// <param name = "variablesMapping"> Variable mapping </param>
+        /// <returns> </returns>
         public static IReadOnlyDictionary<string, string> ParseStringToDictionary(string variablesMapping)
             => variablesMapping
                 .Split(',')

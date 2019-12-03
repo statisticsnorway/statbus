@@ -10,7 +10,7 @@ using nscreg.Resources.Languages;
 namespace nscreg.Server.Common.Models.DataSources
 {
     /// <summary>
-    /// Модель отправки
+    /// Dispatch model
     /// </summary>
     public class SubmitM
     {
@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public int DataSourceUploadType { get; set; }
 
         /// <summary>
-        /// Метод создания сущности
+        /// Entity Creation Method
         /// </summary>
         /// <returns></returns>
         public DataSource CreateEntity(string userId)
@@ -54,7 +54,7 @@ namespace nscreg.Server.Common.Models.DataSources
         }
 
         /// <summary>
-        /// Метод обновления сущности
+        /// Entity Update Method
         /// </summary>
         /// <returns></returns>
         public void UpdateEntity(DataSource entity, string userId)
@@ -78,7 +78,7 @@ namespace nscreg.Server.Common.Models.DataSources
     }
 
     /// <summary>
-    /// Модель валидации отправки источника данных
+    /// Data Source Submission Validation Model
     /// </summary>
     // ReSharper disable once UnusedMember.Global
     // ReSharper disable once ArrangeTypeModifiers

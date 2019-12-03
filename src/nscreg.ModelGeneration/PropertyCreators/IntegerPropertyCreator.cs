@@ -8,7 +8,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства целого числа
+    ///     Class creator of an integer property
     /// </summary>
     public class IntegerPropertyCreator : PropertyCreatorBase
     {
@@ -25,7 +25,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства целого числа
+        ///     Method creator of an integer property
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory)
         {

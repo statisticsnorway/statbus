@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    /// Класс конфигурации деятельности стат. еденицы 
+    /// Class configuration activity stat. units
     /// </summary>
     public class ActivityStatisticalUnitConfiguration : EntityTypeConfigurationBase<ActivityStatisticalUnit>
     {
         /// <summary>
-        /// Метод конфигурации деятельности стат. еденицы 
+        /// Operation configuration method stat. units
         /// </summary>
         public override void Configure(EntityTypeBuilder<ActivityStatisticalUnit> builder)
         {

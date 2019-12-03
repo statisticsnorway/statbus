@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Агрегирующий класс обязательных сущностей БД 
+    /// Aggregate class of required database entities
     /// </summary>
     public class DbMandatoryFields
     {

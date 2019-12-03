@@ -9,7 +9,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.Utilities
 {
     /// <summary>
-    /// Класс распознаватель динамического контракта
+    /// Class recognizer dynamic contract
     /// </summary>
     public class DynamicContractResolver : CamelCasePropertyNamesContractResolver
     {
@@ -28,11 +28,11 @@ namespace nscreg.Utilities
         }
 
         /// <summary>
-        /// Метод создания свойств
+        /// Property creation method
         /// </summary>
-        /// <param name="member">Участник</param>
-        /// <param name="memberSerialization">Сериализация участника</param>
-        /// <returns></returns>
+        /// <param name = "member"> Member </param>
+        /// <param name = "memberSerialization"> Serialization of the member </param>
+        /// <returns> </returns>
         protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
         {
             var prop = base.CreateProperty(member, memberSerialization);
@@ -42,11 +42,11 @@ namespace nscreg.Utilities
         }
 
         /// <summary>
-        /// Метод создания свойств
+        /// Property creation method
         /// </summary>
-        /// <param name="type">Тип</param>
-        /// <param name="memberSerialization">Сериализация участника</param>
-        /// <returns></returns>
+        /// <param name = "type"> Type </param>
+        /// <param name = "memberSerialization"> Serialization of the member </param>
+        /// <returns> </returns>
         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
             => base.CreateProperties(type, memberSerialization)
                 .Where(p => _type != type || _allowedPropNames.Contains(p.PropertyName))

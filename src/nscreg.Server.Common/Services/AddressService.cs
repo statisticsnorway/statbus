@@ -13,9 +13,9 @@ using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services
 {
-   /// <summary>
-   /// Класс сервис адреса
-   /// </summary>
+    /// <summary>
+    /// Class service address
+    /// </summary>
     public class AddressService : IAddressService
     {
         private readonly NSCRegDbContext _context;
@@ -26,12 +26,12 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод возвращающий список всех адесов
+        /// Method returning a list of all addresses
         /// </summary>
-        /// <param name="page">Страница</param>
-        /// <param name="pageSize">Размер страницы</param>
-        /// <param name="predicate">Предикат</param>
-        /// <returns></returns>
+        /// <param name = "page"> Page </param>
+        /// <param name = "pageSize"> Page size </param>
+        /// <param name = "predicate"> Predicate </param>
+        /// <returns> </returns>
         public async Task<AddressListModel> GetAsync(
             int page,
             int pageSize,
@@ -55,19 +55,19 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод возвращающий определённый адрес
+        /// Method returning a specific address
         /// </summary>
-        /// <param name="id">Id адреса</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id addresses </param>
+        /// <returns> </returns>
         public async Task<AddressModel> GetByIdAsync(int id)
             => Mapper.Map<AddressModel>(
                 await _context.Address.Include(x => x.Region).FirstOrDefaultAsync(x => x.Id == id));
 
         /// <summary>
-        /// Метод создания адреса
+        /// Method for creating an address
         /// </summary>
-        /// <param name="model">Модель</param>
-        /// <returns></returns>
+        /// <param name = "model"> Model </param>
+        /// <returns> </returns>
         public async Task<AddressModel> CreateAsync(AddressModel model)
         {
             var result = Mapper.Map<Address>(model);
@@ -77,11 +77,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод изменения адреса
+        /// Address change method
         /// </summary>
-        /// <param name="id">Id адреса</param>
-        /// <param name="model">Модель</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id addresses </param>
+        /// <param name = "model"> Model </param>
+        /// <returns> </returns>
         public async Task UpdateAsync(int id, AddressModel model)
         {
             var address = Mapper.Map<Address>(model);
@@ -91,10 +91,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод удаления адреса
+        /// Address removal method
         /// </summary>
-        /// <param name="id">Id адреса</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id addresses </param>
+        /// <returns> </returns>
         public async Task DeleteAsync(int id)
         {
             var address = await _context.Address.FirstAsync(x => x.Id == id);

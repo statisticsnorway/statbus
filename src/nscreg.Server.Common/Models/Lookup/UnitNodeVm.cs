@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Server.Common.Models.Lookup
 {
     /// <summary>
-    /// Вью модель единицы узла
+    /// View node unit model
     /// </summary>
     public class UnitNodeVm : UnitLookupVm
     {

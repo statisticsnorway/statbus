@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации правовой единицы
+    ///  Legal Unit Configuration Class
     /// </summary>
     public class LegalUnitConfiguration : EntityTypeConfigurationBase<LegalUnit>
     {
         /// <summary>
-        ///  Метод конфигурации правовой единицы
+        ///  Legal Unit Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<LegalUnit> builder)
         {

@@ -11,7 +11,7 @@ using nscreg.Server.Common.Models.Lookup;
 namespace nscreg.Server.Common.Services.CodeLookup
 {
     /// <summary>
-    /// Сервис
+    /// Service
     /// </summary>
     public class CodeLookupService<T> where T : CodeLookupBase
     {

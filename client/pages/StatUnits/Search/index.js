@@ -50,6 +50,7 @@ const mapStateToProps = (state, props) => ({
   queryString: props.location.search,
   localize: getText(state.locale),
   locale: state.locale,
+  error: state.statUnits.error,
 })
 
 const mapDispatchToProps = (dispatch, props) => ({

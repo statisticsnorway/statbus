@@ -1,7 +1,7 @@
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Вью модель роли пользователя
+    /// View user role model
     /// </summary>
     public class UserRoleVm
     {
