@@ -1,6 +1,6 @@
 
 BEGIN /* INPUT PARAMETERS */
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+	DECLARE @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
@@ -83,7 +83,7 @@ ResultTableCTE AS
 	LEFT JOIN Address addrh ON addrh.Address_id = asuhCTE.AddressId
 	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
     
-    WHERE ('+@InStatusId+' = 0 OR su.UnitStatusId = ' + @InStatusId +')
+    WHERE (''' + @InStatUnitType + ''' = ''All'' OR su.Discriminator = ''' + @InStatUnitType + ''')
 				
 )
 
