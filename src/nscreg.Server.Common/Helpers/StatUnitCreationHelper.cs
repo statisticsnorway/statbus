@@ -71,10 +71,17 @@ namespace nscreg.Server.Common.Helpers
                             createdEnterprise = await CreateEnterpriseForLegalAsync(createdLegal);
                     }
 
-                    var sameStatIdLocalUnits =
-                        _dbContext.LocalUnits.Where(lou => lou.StatId == legalUnit.StatId).ToList();
-
-                    createdLocal = await CreateLocalForLegalAsync(createdLegal);
+                    var addressIds = legalUnit.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
+                    var addresses = _dbContext.Address.Where(x => addressIds.Contains(x.Id)).ToList();
+                    var sameAddresses = addresses.Where(x =>
+                        x.RegionId == legalUnit.Address.RegionId &&
+                        x.AddressPart1 == legalUnit.Address.AddressPart1 &&
+                        x.AddressPart2 == legalUnit.Address.AddressPart2 &&
+                        x.AddressPart3 == legalUnit.Address.AddressPart3 &&
+                        x.Latitude == legalUnit.Address.Latitude &&
+                        x.Longitude == legalUnit.Address.Longitude).ToList();
+                    if (!sameAddresses.Any())
+                        createdLocal = await CreateLocalForLegalAsync(createdLegal);
 
                     transaction.Commit();
                 }

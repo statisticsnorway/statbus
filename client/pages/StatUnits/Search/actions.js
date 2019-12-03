@@ -63,5 +63,6 @@ export default {
   fetchLookup,
   setSearchCondition,
   fetchDataFailed,
+  deleteStatUnitSuccessed,
   clearError,
 }

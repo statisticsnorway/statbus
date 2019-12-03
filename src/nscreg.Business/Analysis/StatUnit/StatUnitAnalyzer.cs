@@ -105,14 +105,14 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (string.IsNullOrEmpty(okpo)) return messages;
 
-            if (okpo.Any(x => !char.IsDigit(x)))
-            {
-                messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatIdOnlyNumber)});
-                return messages;
-            }
-
             if (_validationSettings.ValidateStatIdChecksum)
             {
+                if (okpo.Any(x => !char.IsDigit(x)))
+                {
+                    messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatIdOnlyNumber) });
+                    return messages;
+                }
+
                 if (okpo.Length < 8)
                 {
                     okpo = okpo.PadLeft(8, '0');

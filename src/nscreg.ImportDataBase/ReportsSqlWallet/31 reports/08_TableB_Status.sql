@@ -7,7 +7,7 @@
 */
 BEGIN /*INPUT PARAMETERS*/
 	DECLARE @InRegionId INT = $RegionId,
-			    @InStatusId NVARCHAR(MAX) = $StatusId,
+			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 DECLARE @cols AS NVARCHAR(MAX),
@@ -93,14 +93,14 @@ ResultTableCTE AS
 	FROM StatisticalUnits su
 	LEFT JOIN Statuses AS sc ON sc.Id = su.InstSectorCodeId		
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @RegionId + '			
+	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @regionLevel + '			
 
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN Statuses AS sch ON sch.Id = asuhCTE.InstSectorCodeId
 	LEFT JOIN dbo.Address addrh ON addrh.Address_id = asuhCTE.AddressId
 	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
     
-    WHERE su.UnitStatusId = ' + @InStatusId +'
+    WHERE (''' + @InStatUnitType + ''' = ''All'' OR su.Discriminator = ''' + @InStatUnitType + ''')
 )
 SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from
             (
