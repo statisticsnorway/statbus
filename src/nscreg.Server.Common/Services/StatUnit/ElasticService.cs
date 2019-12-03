@@ -339,7 +339,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var connect = await _elasticClient.PingAsync();
             if (!connect.IsValid)
             {
-                throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable));
+                throw new NotFoundException(nameof(Resource.ElasticSearchIsDisable));
             }
         }
     }
