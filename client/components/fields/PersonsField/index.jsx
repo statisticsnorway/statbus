@@ -71,8 +71,8 @@ class PersonsList extends React.Component {
     this.changeHandler(this.props.value.filter(v => v.id !== id))
   }
 
-  saveHandler = (value) => {
-    this.changeHandler(this.props.value.map(v => (v.id === value.id ? value : v)))
+  saveHandler = (value, id) => {
+    this.changeHandler(this.props.value.map(v => (v.id === id ? value : v)))
     this.setState({ editRow: undefined })
   }
 
@@ -84,7 +84,7 @@ class PersonsList extends React.Component {
     this.setState({ addRow: true })
   }
 
-  addSaveHandler = (value) => {
+  addSaveHandler = (value, id) => {
     this.changeHandler([value, ...this.props.value])
     this.setState(s => ({
       addRow: false,

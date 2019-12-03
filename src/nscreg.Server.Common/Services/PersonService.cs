@@ -34,6 +34,7 @@ namespace nscreg.Server.Common.Services
                     v.Surname.ToLower().StartsWith(loweredwc))
                 .Select(g => new Person
                 {
+                    Id = g.Id,
                     GivenName = g.GivenName,
                     MiddleName = g.MiddleName,
                     Surname = g.Surname,
