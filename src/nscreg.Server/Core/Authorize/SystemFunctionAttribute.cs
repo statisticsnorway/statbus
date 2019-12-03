@@ -5,7 +5,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Server.Core.Authorize
 {
     /// <summary>
-    /// Класс аттрибутов системных функций
+    /// System function attribute class
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
     public class SystemFunctionAttribute : AuthorizeAttribute

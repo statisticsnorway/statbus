@@ -3,7 +3,7 @@ using System;
 namespace nscreg.Utilities.Attributes
 {
     /// <summary>
-    /// Общий класс атрибута источника данных 
+    /// General data source attribute class
     /// </summary>
     public class DataAccessCommonAttribute : Attribute
     {

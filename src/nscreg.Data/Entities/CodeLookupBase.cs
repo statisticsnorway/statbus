@@ -1,7 +1,7 @@
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность базовый справочник кода
+    ///  Class entity base code reference
     /// </summary>
     public class CodeLookupBase : LookupBase
     {

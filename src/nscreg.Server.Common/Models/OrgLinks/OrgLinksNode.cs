@@ -5,7 +5,7 @@ using nscreg.Resources.Languages;
 namespace nscreg.Server.Common.Models.OrgLinks
 {
     /// <summary>
-    /// Модель узла организационной связи
+    /// Organization Communications Node Model
     /// </summary>
     public class OrgLinksNode
     {
@@ -18,10 +18,10 @@ namespace nscreg.Server.Common.Models.OrgLinks
         }
 
         /// <summary>
-        /// Метод создания модели узла организационной связи
+        /// Method for creating a model of an organizational link node
         /// </summary>
-        /// <param name="unit">Единица</param>
-        /// <param name="children">Потомок</param>
+        /// <param name="unit">unit</param>
+        /// <param name="children">children</param>
         /// <returns></returns>
         public static OrgLinksNode Create(StatisticalUnit unit, IEnumerable<OrgLinksNode> children)
         {

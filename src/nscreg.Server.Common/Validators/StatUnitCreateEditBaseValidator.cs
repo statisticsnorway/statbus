@@ -6,7 +6,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Common.Validators
 {
     /// <summary>
-    /// Базовый класс валидации стат. единицы
+    /// Base class of validation stat. units
     /// </summary>
     public class StatUnitModelBaseValidator<T> : AbstractValidator<T> where T : StatUnitModelBase
     {

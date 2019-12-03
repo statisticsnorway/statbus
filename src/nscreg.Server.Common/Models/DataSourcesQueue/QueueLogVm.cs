@@ -7,7 +7,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     /// <summary>
-    /// Вью модель очереди журнала  
+    /// View log queue model  
     /// </summary>
     public class QueueLogVm
     {
@@ -23,9 +23,9 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         }
 
         /// <summary>
-        /// Метод создания вью модели очереди журнала  
+        /// Method for creating a view of a log queue model
         /// </summary>
-        /// <param name="item">Единица</param>
+        /// <param name="item">item</param>
         /// <returns></returns>
         public static QueueLogVm Create(DataUploadingLog item) => new QueueLogVm(item);
 

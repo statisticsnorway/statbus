@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 namespace nscreg.Data
 {
     /// <summary>
-    /// Класс запуска приложения
+    /// Application Launch Class
     /// </summary>
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
@@ -31,7 +31,7 @@ namespace nscreg.Data
         }
 
         /// <summary>
-        /// Метод конфигурации сервисов
+        /// Service Configuration Method
         /// </summary>
         /// <param name="services"></param>
         // ReSharper disable once UnusedMember.Global
@@ -42,7 +42,7 @@ namespace nscreg.Data
         }
 
         /// <summary>
-        /// Метод запуска приложения
+        /// Application Launch Method
         /// </summary>
         public static void Main()
             => BuildWebHost();

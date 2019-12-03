@@ -4,16 +4,16 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.Utilities.Attributes
 {
     /// <summary>
-    /// Класс атрибут печати строки
+    /// Class attribute print string
     /// </summary>
     public class PrintableStringAttribute : ValidationAttribute
     {
         /// <summary>
-        /// Метод валидации результата
+        /// Method for validating the result
         /// </summary>
-        /// <param name="value">Значение</param>
-        /// <param name="validationContext">Контекст валидации</param>
-        /// <returns></returns>
+        /// <param name = "value"> Value </param>
+        /// <param name = "validationContext"> Validation context </param>
+        /// <returns> </returns>
         protected override ValidationResult IsValid(object value, ValidationContext validationContext)
             => ((string)value).IsPrintable()
                 ? ValidationResult.Success

@@ -4,7 +4,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность журнал анализа
+    ///  Entity Log Analysis Class
     /// </summary>
     public class AnalysisLog
     {

@@ -7,7 +7,7 @@ using System.Linq;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность источник данных
+    ///  Class entity data source
     /// </summary>
     public class DataSource
     {

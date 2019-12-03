@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Класс Адресов с обязательными полями 
+    /// Address class with required fields
     /// </summary>
     public class Addresses
     {

@@ -5,7 +5,7 @@ using System.Reflection;
 namespace nscreg.Utilities.Classes
 {
     /// <summary>
-    /// Класс описывающий общее свойство данных
+    /// Class describing a common data property
     /// </summary>
     public class GenericDataProperty<T, TValue>
     {
@@ -31,10 +31,10 @@ namespace nscreg.Utilities.Classes
         }
 
         /// <summary>
-        /// Метод осуществляет создание делегат геттера
+        /// The method creates a delegate getter
         /// </summary>
-        /// <param name="property">Свойство</param>
-        /// <returns></returns>
+        /// <param name = "property"> Property </param>
+        /// <returns> </returns>
         private static Func<T, TValue> MakeGetterDelegate(PropertyInfo property)
         {
             var getMethod = property.GetGetMethod();
@@ -45,10 +45,10 @@ namespace nscreg.Utilities.Classes
         }
 
         /// <summary>
-        /// Метод осуществляет создание делегат сеттера
+        /// The method creates a setter delegate
         /// </summary>
-        /// <param name="property">Свойство</param>
-        /// <returns></returns>
+        /// <param name = "property"> Property </param>
+        /// <returns> </returns>
         private static Action<T, TValue> MakeSetterDelegate(PropertyInfo property)
         {
             var setMethod = property.GetSetMethod();

@@ -9,7 +9,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства даты
+    ///     Date Creator Class
     /// </summary>
     public class DateTimePropertyCreator : PropertyCreatorBase
     {
@@ -24,7 +24,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства даты
+        ///     Method Creator Date Properties
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

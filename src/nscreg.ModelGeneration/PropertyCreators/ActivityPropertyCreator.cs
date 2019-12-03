@@ -9,7 +9,7 @@ using nscreg.ModelGeneration.Validation;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства деятельности
+    ///     Class Creator Activity Properties
     /// </summary>
     public class ActivityPropertyCreator : PropertyCreatorBase
     {
@@ -27,7 +27,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства деятельности
+        ///     Activity Creator Method
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

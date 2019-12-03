@@ -25,7 +25,7 @@ using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
-    /// Класс работы очереди
+    /// Queue class
     /// </summary>
     internal class QueueJob : IJob
     {
@@ -66,7 +66,7 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
-        /// Метод выполнения работы очереди
+        /// Queue execution method
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
@@ -183,7 +183,7 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
-        /// Метод обработчик исключений
+        /// Method exception handler
         /// </summary>
         public void OnException(Exception ex) => _logger.LogError(ex.Message);
 

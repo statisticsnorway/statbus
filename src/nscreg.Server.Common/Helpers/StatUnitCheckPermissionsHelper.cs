@@ -12,7 +12,7 @@ using nscreg.Server.Common.Services;
 namespace nscreg.Server.Common.Helpers
 {
     /// <summary>
-    /// Класс-помощник для создания статистических единиц по правилам
+    /// Helper class for creating statistical units by rules
     /// </summary>
     public partial class StatUnitCheckPermissionsHelper
     {

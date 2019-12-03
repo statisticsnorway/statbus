@@ -2,7 +2,7 @@
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств булево
+    /// Boolean property metadata class
     /// </summary>
     public class BooleanPropertyMetadata : PropertyMetadataBase
     {

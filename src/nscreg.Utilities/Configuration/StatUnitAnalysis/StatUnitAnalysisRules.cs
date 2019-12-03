@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
     /// <summary>
-    /// Класс проверки правил анализа стат. едениц
+    /// Class for checking the rules of analysis stat. unit
     /// </summary>
     public class StatUnitAnalysisRules
     {

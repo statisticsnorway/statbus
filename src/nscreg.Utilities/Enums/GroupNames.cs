@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Enums
 {
     /// <summary>
-    /// Класс перечисления групп имён
+    /// Name group enumeration class
     /// </summary>
     public static class GroupNames
     {

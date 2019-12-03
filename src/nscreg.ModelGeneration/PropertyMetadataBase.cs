@@ -3,7 +3,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration
 {
     /// <summary>
-    /// Базовый класс метаданные свойства
+    /// Base class property metadata
     /// </summary>
     public abstract class PropertyMetadataBase
     {

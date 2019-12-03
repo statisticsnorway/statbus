@@ -9,7 +9,7 @@ using nscreg.ServicesUtils.Interfaces;
 namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
-    /// Класс по работе очистки очереди
+    /// Class on the work of cleaning the queue
     /// </summary>
     internal class QueueCleanupJob : IJob
     {
@@ -26,7 +26,7 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
-        /// Метод выполнения очистки очереди
+        /// Method for performing queue cleanup
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
-        /// Метод обработчик исключений
+        /// Method exception handler
         /// </summary>
         public void OnException(Exception e)
         {

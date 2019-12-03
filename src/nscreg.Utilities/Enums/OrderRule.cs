@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Enums
 {
     /// <summary>
-    /// Класс перечисления правил сортировки
+    /// Class for enumerating sorting rules
     /// </summary>
     public enum OrderRule
     {

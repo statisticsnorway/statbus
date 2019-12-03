@@ -8,7 +8,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации группы предприятия
+    ///  Enterprise Group Configuration Class
     /// </summary>
     public class EnterpriseGroupConfiguration : EntityTypeConfigurationBase<EnterpriseGroup>
     {

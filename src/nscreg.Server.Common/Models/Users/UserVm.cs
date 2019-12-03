@@ -7,12 +7,12 @@ using nscreg.Server.Common.Models.DataAccess;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Вью модель пользователя
+    /// View user model
     /// </summary>
     public class UserVm
     {
         /// <summary>
-        /// Метод создания вью модели пользователя
+        /// Method for creating a user model view
         /// </summary>
         /// <param name="user"></param>
         /// <param name="roles"></param>

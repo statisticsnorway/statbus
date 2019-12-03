@@ -5,7 +5,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность очередь источника данных
+    ///  Class entity data source queue
     /// </summary>
     public class DataSourceQueue
     {

@@ -10,7 +10,7 @@ using nscreg.Server.Common.Services.StatUnit;
 namespace nscreg.Server.Common.Helpers
 {
     /// <summary>
-    /// Класс-помощник для создания статистических единиц по правилам
+    /// Helper class for creating statistical units by rules
     /// </summary>
     public partial class StatUnitCreationHelper
     {
@@ -24,7 +24,7 @@ namespace nscreg.Server.Common.Helpers
         }
 
         /// <summary>
-        /// Создание локальной единицы вместе с правовой единицей, при её отсутствии
+        /// Creation of a local unit together with a legal unit, if there is none
         /// </summary>
         /// <param name="localUnit"></param>
         /// <returns></returns>
@@ -44,7 +44,7 @@ namespace nscreg.Server.Common.Helpers
         }
 
         /// <summary>
-        /// Создние правовой единицы вместе с локальной единицей и предприятием
+        /// Creating a legal unit with a local unit and an enterprise
         /// </summary>
         /// <param name="legalUnit"></param>
         /// <returns></returns>
@@ -92,7 +92,7 @@ namespace nscreg.Server.Common.Helpers
         }
 
         /// <summary>
-        /// Создание предприятия с группой предприятий
+        /// Creating an enterprise with a group of enterprises
         /// </summary>
         /// <param name="enterpriseUnit"></param>
         /// <returns></returns>
@@ -132,7 +132,7 @@ namespace nscreg.Server.Common.Helpers
         }
 
         /// <summary>
-        /// Создание группы предприятий
+        /// Creation of a group of enterprises
         /// </summary>
         /// <param name="enterpriseGroup"></param>
         /// <returns></returns>

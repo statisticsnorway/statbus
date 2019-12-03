@@ -7,12 +7,12 @@ using nscreg.Data.Core.EntityConfiguration;
 namespace nscreg.Data.Core
 {
     /// <summary>
-    /// Класс расширения сборщика модели
+    /// Model Collector Extension Class
     /// </summary>
     public static class ModelBuilderExtension
     {
         /// <summary>
-        /// Метод добавления типа сущности конфигурации
+        /// Method for adding a configuration entity type
         /// </summary>
         /// <param name="builder">Cборщик</param>
         /// <param name="assembly">Сборка</param>

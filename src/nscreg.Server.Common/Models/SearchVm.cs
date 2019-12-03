@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Server.Common.Models
 {
     /// <summary>
-    /// Вью модель поиска
+    /// View search model
     /// </summary>
     public class SearchVm<T> where T : class
     {
@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Models
         }
 
         /// <summary>
-        /// Метод создания вью модели поиска
+        /// Method for creating a view search model
         /// </summary>
         /// <param name="items">Еденицы</param>
         /// <param name="totalCount">Общее количество</param>

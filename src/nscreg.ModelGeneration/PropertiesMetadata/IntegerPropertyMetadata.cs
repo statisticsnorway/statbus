@@ -1,7 +1,7 @@
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств целого числа
+    /// Integer Properties Metadata Class
     /// </summary>
     public class IntegerPropertyMetadata : PropertyMetadataBase
     {

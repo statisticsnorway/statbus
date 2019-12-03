@@ -3,7 +3,7 @@ using System;
 namespace nscreg.Server.Common
 {
     /// <summary>
-    /// Класс обработчик "Не найдено" исключения
+    /// Class handler "Not found" exception
     /// </summary>
     public class NotFoundException : Exception
     {

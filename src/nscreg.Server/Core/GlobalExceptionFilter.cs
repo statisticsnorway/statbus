@@ -7,7 +7,7 @@ using nscreg.Server.Common;
 namespace nscreg.Server.Core
 {
     /// <summary>
-    /// Фильтр глобальных исключений
+    /// Global Exclusion Filter
     /// </summary>
     public class GlobalExceptionFilter : IExceptionFilter
     {
@@ -23,9 +23,9 @@ namespace nscreg.Server.Core
             _logger = logger.CreateLogger("Global Exception Filter");
         }
         /// <summary>
-        /// Метод вызова обработки исключений
+        /// Exception handling call method Exception handling call method
         /// </summary>
-        /// <param name="context">Контекст исключений</param>
+        /// <param name="context">Exception context</param>
         public void OnException(ExceptionContext context)
         {
             if (context.Exception.GetType() == typeof(NotFoundException))

@@ -9,7 +9,7 @@ using nscreg.Server.Core;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер деятельностей
+    /// Activity controller
     /// </summary>
     [Route("api/[controller]")]
     public class ActivitiesController : Controller
@@ -21,9 +21,9 @@ namespace nscreg.Server.Controllers
             _service = new CodeLookupService<ActivityCategory>(db);
         }
         /// <summary>
-        /// Метод поиска активностей
+        /// Activity Search Method
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
+        /// <param name="wildcard">Search pattern</param>
         /// <returns></returns>
         [HttpGet]
         [Route("search")]

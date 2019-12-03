@@ -4,7 +4,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     /// <summary>
-    /// Вью модель очереди
+    /// View queue model
     /// </summary>
     public class QueueVm
     {
@@ -19,9 +19,9 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         }
 
         /// <summary>
-        /// Медод создания вью модель очереди
+        /// Method of creating a view of the queue model
         /// </summary>
-        /// <param name="item">Единица</param>
+        /// <param name="item">item</param>
         /// <returns></returns>
         public static QueueVm Create(DataSourceQueue item) => new QueueVm(item);
 

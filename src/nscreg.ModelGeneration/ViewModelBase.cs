@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace nscreg.ModelGeneration
 {
     /// <summary>
-    /// Базовый класс для вью модели
+    /// Base class for view model
     /// </summary>
     public class ViewModelBase
     {

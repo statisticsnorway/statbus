@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities.History
 {
     /// <summary>
-    ///  Класс сущность история группы предприятий
+    ///  Class entity history group of enterprises
     /// </summary>
     public class EnterpriseGroupHistory : IStatisticalUnitHistory
     {

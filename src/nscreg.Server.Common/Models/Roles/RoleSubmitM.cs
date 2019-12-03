@@ -5,7 +5,7 @@ using nscreg.Server.Common.Models.DataAccess;
 namespace nscreg.Server.Common.Models.Roles
 {
     /// <summary>
-    /// Модель отправки роли
+    /// Role Dispatch Model
     /// </summary>
     public class RoleSubmitM
     {
@@ -21,7 +21,7 @@ namespace nscreg.Server.Common.Models.Roles
     }
 
     /// <summary>
-    /// Модель валидации отправки роли
+    /// Role Dispatch Validation Model
     /// </summary>
     public class RoleSubmitMValidator : AbstractValidator<RoleSubmitM>
     {

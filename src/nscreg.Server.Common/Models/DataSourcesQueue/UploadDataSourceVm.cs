@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     /// <summary>
-    /// Вью модель загрузки очереди единицы 
+    /// View unit queue load model 
     /// </summary>
     public class UploadQueueItemVm
     {

@@ -3,7 +3,7 @@ using System;
 namespace nscreg.Utilities.Enums
 {
     /// <summary>
-    /// Класс перечисления действий
+    /// Action enumeration class
     /// </summary>
     [Flags]
     public enum ActionsEnum

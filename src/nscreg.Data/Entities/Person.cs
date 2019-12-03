@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность персоны
+    ///  Person entity class
     /// </summary>
     public class Person
     {

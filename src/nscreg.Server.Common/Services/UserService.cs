@@ -20,7 +20,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Сервис пользователя
+    /// User service
     /// </summary>
     public class UserService : IUserService
     {
@@ -34,10 +34,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения всех пользователей
+        /// Method to get all users
         /// </summary>
-        /// <param name="filter">Фильтр</param>
-        /// <returns></returns>
+        /// <param name = "filter"> Filter </param>
+        /// <returns> </returns>
         public async Task<UserListVm> GetAllPagedAsync(UserListFilter filter)
         {
             var query = _context.Users.AsNoTracking();
@@ -121,10 +121,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения пользователя
+        /// Method to get the user
         /// </summary>
-        /// <param name="id">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "id"> User Id </param>
+        /// <returns> </returns>
         public UserVm GetUserVmById(string id)
         {
             var user = GetUserById(id);
@@ -148,12 +148,12 @@ namespace nscreg.Server.Common.Services
             return user;
         }
 
-        /// <summary>
-        /// Метод установки статуса пользователю
-        /// </summary>
-        /// <param name="id">Id пользователя</param>
-        /// <param name="isSuspend">Флаг приостановленности</param>
-        /// <returns></returns>
+         /// <summary>
+         /// Method for setting status to user
+         /// </summary>
+         /// <param name = "id"> User Id </param>
+         /// <param name = "isSuspend"> Pause flag </param>
+         /// <returns> </returns>
         public async Task SetUserStatus(string id, bool isSuspend)
         {
             var user = await _context.Users.FindAsync(id);
@@ -183,25 +183,25 @@ namespace nscreg.Server.Common.Services
             await _context.SaveChangesAsync();
         }
 
-        /// <summary>
-        /// Метод сортировки пользователей
-        /// </summary>
-        /// <typeparam name="T">Тип</typeparam>
-        /// <param name="query">Запрос</param>
-        /// <param name="selector">Селектор</param>
-        /// <param name="asceding">Восходящий</param>
-        /// <returns></returns>
+         /// <summary>
+         /// User sorting method
+         /// </summary>
+         /// <typeparam name = "T"> Type </typeparam>
+         /// <param name = "query"> Request </param>
+         /// <param name = "selector"> Selector </param>
+         /// <param name = "asceding"> Ascending </param>
+         /// <returns> </returns>
         private static IQueryable<UserListItemVm> Order<T>(IQueryable<UserListItemVm> query,
             Expression<Func<UserListItemVm, T>> selector, bool asceding)
         {
             return asceding ? query.OrderBy(selector) : query.OrderByDescending(selector);
         }
 
-        /// <summary>
-        /// Метод получения системной функции по Id пользователя
-        /// </summary>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+         /// <summary>
+         /// Method for obtaining a system function by user Id
+         /// </summary>
+         /// <param name = "userId"> User Id </param>
+         /// <returns> </returns>
         public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
         {
             var access = await (from userRoles in _context.UserRoles
@@ -218,12 +218,12 @@ namespace nscreg.Server.Common.Services
                     .ToArray();
         }
 
-        /// <summary>
-        /// Метод получения атрибутов доступа к данным
-        /// </summary>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="type">Тип пользователя</param>
-        /// <returns></returns>
+         /// <summary>
+         /// Method for obtaining data access attributes
+         /// </summary>
+         /// <param name = "userId"> User Id </param>
+         /// <param name = "type"> User type </param>
+         /// <returns> </returns>
         public async Task<DataAccessPermissions> GetDataAccessAttributes(string userId, StatUnitTypes? type)
         {
             var dataAccess = await (
@@ -247,12 +247,12 @@ namespace nscreg.Server.Common.Services
             return permissions;
         }
 
-        /// <summary>
-        /// Метод создания связи пользвателя к региону
-        /// </summary>
-        /// <param name="user">Пользватель</param>
-        /// <param name="data">Данные</param>
-        /// <returns></returns>
+         /// <summary>
+         /// Method for creating a user relationship to a region
+         /// </summary>
+         /// <param name = "user"> User </param>
+         /// <param name = "data"> Data </param>
+         /// <returns> </returns>
         public async Task RelateUserRegionsAsync(User user, IUserSubmit data)
         {
             var oldUserRegions = await _context.UserRegions.Where(x => x.UserId == user.Id).ToListAsync();
@@ -290,11 +290,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Creates/updates relationships between user and activity types
+        /// Creates / updates relationships between user and activity types
         /// </summary>
-        /// <param name="user"></param>
-        /// <param name="data"></param>
-        /// <returns></returns>
+        /// <param name = "user"> </param>
+        /// <param name = "data"> </param>
+        /// <returns> </returns>
         public async Task RelateUserActivityCategoriesAsync(User user, IUserSubmit data)
         {
             var oldActivityCategoryUsersIds =

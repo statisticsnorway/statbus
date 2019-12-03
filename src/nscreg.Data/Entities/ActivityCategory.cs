@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность вид деятельности
+    ///  Class entity type of activity
     /// </summary>
     public class ActivityCategory : CodeLookupBase
     {

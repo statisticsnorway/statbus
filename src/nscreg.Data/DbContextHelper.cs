@@ -11,13 +11,13 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data
 {
     /// <summary>
-    /// Класс конфигурации контекста БД
+    /// DB Context Configuration Class
     /// </summary>
     public class DbContextHelper: IDesignTimeDbContextFactory<NSCRegDbContext>
     {
         public DbContextHelper(){}
         /// <summary>
-        /// Метод конфигурации контекста БД
+        /// DB context configuration method
         /// </summary>
         public static readonly Func<IConfiguration, Action<DbContextOptionsBuilder>> ConfigureOptions =
             config =>

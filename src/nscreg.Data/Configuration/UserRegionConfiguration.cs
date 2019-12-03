@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации региона пользователя
+    ///  User Region Configuration Class
     /// </summary>
     public class UserRegionConfiguration : EntityTypeConfigurationBase<UserRegion>
     {
         /// <summary>
-        ///  Метод конфигурации региона пользователя
+        ///  User Region Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<UserRegion> builder)
         {

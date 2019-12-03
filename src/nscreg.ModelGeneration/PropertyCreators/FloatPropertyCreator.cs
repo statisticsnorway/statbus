@@ -8,7 +8,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства числа с плавающей точкой
+    ///     Class creator floating point property
     /// </summary>
     public class FloatPropertyCreator : PropertyCreatorBase
     {
@@ -23,7 +23,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства числа с плавающей точкой
+        ///     Floating point property creator method
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory)
         {

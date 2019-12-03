@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models.Links
 {
     /// <summary>
-    /// Модель комментирования связи
+    /// Commenting Model
     /// </summary>
     public class LinkCommentM : LinkSubmitM
     {

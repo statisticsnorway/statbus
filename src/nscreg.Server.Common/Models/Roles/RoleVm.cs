@@ -9,14 +9,14 @@ using nscreg.Server.Common.Models.DataAccess;
 namespace nscreg.Server.Common.Models.Roles
 {
     /// <summary>
-    /// Вью модель роли
+    /// View role model
     /// </summary>
     public class RoleVm
     {
         /// <summary>
-        /// Метод создания Вью модели роли
+        /// Method of creating a View role model
         /// </summary>
-        /// <param name="role">Роль</param>
+        /// <param name="role">Role</param>
         /// <returns></returns>
         public static RoleVm Create(Role role) => new RoleVm
         {

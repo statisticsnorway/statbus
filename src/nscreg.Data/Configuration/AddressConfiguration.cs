@@ -6,7 +6,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    /// Класс конфигурации адреса
+    /// Address Configuration Class
     /// </summary>
     public class AddressConfiguration : EntityTypeConfigurationBase<Address>
     {
@@ -17,7 +17,7 @@ namespace nscreg.Data.Configuration
         }
 
         /// <summary>
-        /// Метод установки имени столбца
+        /// Column Name Setting Method
         /// </summary>
         private static void SetColumnNames(EntityTypeBuilder<Address> builder)
         {

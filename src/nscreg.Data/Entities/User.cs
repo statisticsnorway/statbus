@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Identity;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность пользователь
+    ///  User entity class
     /// </summary>
     public class User : IdentityUser
     {

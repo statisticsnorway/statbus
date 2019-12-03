@@ -7,22 +7,22 @@ using nscreg.Server.Common.Models.DataAccess;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Класс сервис атрибутов доступа
+    /// Access attribute service class
     /// </summary>
     public static class AccessAttributesService
     {
         /// <summary>
-        /// Метод получения всех системных функций
+        /// Method for obtaining all system functions
         /// </summary>
-        /// <returns></returns>
+        /// <returns> </returns>
         public static IEnumerable<KeyValuePair<int, string>> GetAllSystemFunctions()
             => ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions)))
                 .Select(x => new KeyValuePair<int, string>((int) x, x.ToString()));
 
         /// <summary>
-        /// Метод получения всех атрибутов доступа к данным
+        /// Method for obtaining all data access attributes
         /// </summary>
-        /// <returns></returns>
+        /// <returns> </returns>
         public static DataAccessModel GetAllDataAccessAttributes() => DataAccessModel.FromString(null);
     }
 }

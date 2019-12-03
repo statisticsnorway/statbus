@@ -11,7 +11,7 @@ using System.Linq;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность стат. еденица
+    ///  Class entity stat. unit
     /// </summary>
     public abstract class StatisticalUnit : IStatisticalUnit
     {

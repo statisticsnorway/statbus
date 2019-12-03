@@ -4,7 +4,7 @@ using nscreg.Data.Entities;
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств деятельности
+    /// Activity property metadata class
     /// </summary>
     public class ActivityPropertyMetadata : PropertyMetadataBase
     {

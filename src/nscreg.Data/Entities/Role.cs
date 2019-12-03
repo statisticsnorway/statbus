@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Identity;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность роль
+    ///  Class entity role
     /// </summary>
     public class Role : IdentityRole
     {

@@ -10,7 +10,7 @@ using nscreg.ModelGeneration;
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     /// <summary>
-    /// Вью модель подробной очереди журнала
+    /// View model of the detailed log queue
     /// </summary>
     public class QueueLogDetailsVm
     {
@@ -37,12 +37,12 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         }
 
         /// <summary>
-        /// Метод создания вью модели подробной очереди журнала
+        ///Method for creating a view model for a detailed log queue
         /// </summary>
-        /// <param name="item">Единица очереди журнала</param>
-        /// <param name="statUnitType">Тип стат. единицы</param>
-        /// <param name="properties">Свойства метада</param>
-        /// <param name="permissions">Правила доступа данных</param>
+        /// <param name="item">item/param>
+        /// <param name="statUnitType">stat unit type</param>
+        /// <param name="properties">propertiesа</param>
+        /// <param name="permissions">permissions</param>
         /// <returns></returns>
         public static QueueLogDetailsVm Create(
             DataUploadingLog item,

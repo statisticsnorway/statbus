@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models.Account
 {
     /// <summary>
-    /// Модель детального редактирования аккаунта
+    /// Detailed account editing model
     /// </summary>
     public class DetailsEditM
     {

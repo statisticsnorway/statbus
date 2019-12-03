@@ -7,7 +7,7 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства строки
+    ///     Class creator of string property
     /// </summary>
     public class StringPropertyCreator : PropertyCreatorBase
     {
@@ -17,7 +17,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод проверки создания свойства строки
+        ///     Verification Method for Creating a String Property
         /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
@@ -25,7 +25,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства строки
+        ///     String Property Creator Method
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

@@ -14,7 +14,7 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 namespace nscreg.AnalysisService
 {
     /// <summary>
-    /// Класс работы анализа
+    /// Analysis work class
     /// </summary>
     internal class AnalysisJob : IJob
     {
@@ -37,7 +37,7 @@ namespace nscreg.AnalysisService
         }
 
         /// <summary>
-        /// Метод обработки анализа
+        /// Analysis processing method
         /// </summary>
         /// <param name="cancellationToken"></param>
         public async Task Execute(CancellationToken cancellationToken)
@@ -50,9 +50,9 @@ namespace nscreg.AnalysisService
                 _analysisService.AnalyzeStatUnits(analysisQueue);
             }
         }
-    
+
         /// <summary>
-        /// Метод обработчик исключений
+        /// Exception handler method
         /// </summary>
         public void OnException(Exception e)
         {

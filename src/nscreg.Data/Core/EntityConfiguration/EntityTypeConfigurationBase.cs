@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace nscreg.Data.Core.EntityConfiguration
 {
     /// <summary>
-    /// Класс конфигурации типов сущности
+    /// Entity Type Configuration Class
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public abstract class EntityTypeConfigurationBase<T> : IEntityTypeConfiguration<T> where T : class
@@ -15,7 +15,7 @@ namespace nscreg.Data.Core.EntityConfiguration
         }
 
         /// <summary>
-        /// Метод конфигурации типов сущности
+        /// Entity Type Configuration Method
         /// </summary>
         /// <param name="builder"></param>
         public abstract void Configure(EntityTypeBuilder<T> builder);

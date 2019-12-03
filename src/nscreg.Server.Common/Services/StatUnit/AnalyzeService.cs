@@ -15,7 +15,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 {
     /// <inheritdoc />
     /// <summary>
-    /// Класс сервис анализа
+    /// Analyze Service class
     /// </summary>
     public class AnalyzeService : IStatUnitAnalyzeService
     {

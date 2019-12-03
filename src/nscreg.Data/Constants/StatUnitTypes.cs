@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы типов стат. единиц
+    /// Stat Type Constants units
     /// </summary>
     public enum StatUnitTypes
     {

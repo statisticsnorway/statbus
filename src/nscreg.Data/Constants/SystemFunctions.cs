@@ -3,7 +3,7 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы системных функций
+    /// System Function Constants
     /// </summary>
     public enum SystemFunctions
     {

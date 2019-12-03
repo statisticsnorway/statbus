@@ -7,7 +7,7 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Модель редактирования пользователя
+    /// User Editing Model
     /// </summary>
     public class UserEditM : IUserSubmit
     {

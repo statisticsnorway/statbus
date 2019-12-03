@@ -4,7 +4,7 @@ using FluentValidation.Validators;
 namespace nscreg.Server.Common.Validators
 {
     /// <summary>
-    /// Класс валидатор строки на не пустые и больше значения
+    /// String validator class on non-empty and larger values
     /// </summary>
     public class CheckIntGreaterThanZeroOrGreaterThanValueValidator : PropertyValidator
     {
@@ -16,10 +16,10 @@ namespace nscreg.Server.Common.Validators
         }
 
         /// <summary>
-        /// Метод проверки на валидность числа
+        /// Method for checking the validity of a number
         /// </summary>
-        /// <param name="context">Контекст валидатора свойств</param>
-        /// <returns></returns>
+        /// <param name = "context"> Context of the property validator </param>
+        /// <returns> </returns>
         protected override bool IsValid(PropertyValidatorContext context)
         {
             var value = Convert.ToInt32(context.PropertyValue);

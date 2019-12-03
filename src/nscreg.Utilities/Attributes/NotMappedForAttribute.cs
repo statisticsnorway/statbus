@@ -4,7 +4,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Utilities.Attributes
 {
     /// <summary>
-    /// Класс не сопоставления атрибутов
+    /// Class not attribute mappings
     /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public class NotMappedForAttribute : Attribute

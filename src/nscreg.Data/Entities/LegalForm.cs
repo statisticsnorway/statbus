@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность правовая форма собственности
+    ///  Class entity legal form of ownership
     /// </summary>
     public class LegalForm : CodeLookupBase
     {

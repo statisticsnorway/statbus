@@ -3,16 +3,16 @@ using System.Collections.Generic;
 namespace nscreg.Server.Common.Models.Roles
 {
     /// <summary>
-    /// Вью модель списка ролей
+    /// View role list model
     /// </summary>
     public class RoleListVm
     {
         /// <summary>
-        /// Метод создания вью модели списка ролей
+        /// Method for creating a view of the role list model
         /// </summary>
-        /// <param name="roles">Роли</param>
-        /// <param name="totalCount">Общее количество</param>
-        /// <param name="totalPages">Всего страниц</param>
+        /// <param name="roles">Roles</param>
+        /// <param name="totalCount">Total count</param>
+        /// <param name="totalPages">Total pages</param>
         /// <returns></returns>
         public static RoleListVm Create(IEnumerable<RoleVm> roles, int totalCount, int totalPages) =>
             new RoleListVm

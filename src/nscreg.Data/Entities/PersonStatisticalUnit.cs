@@ -3,7 +3,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность персоны стат. единицы
+    ///  Class entity person stat. units
     /// </summary>
     public class PersonStatisticalUnit
     {

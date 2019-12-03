@@ -6,16 +6,16 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.Utilities
 {
     /// <summary>
-    /// Класс сравнения объектов
+    /// Object comparison class
     /// </summary>
     public static class ObjectComparer
     {
         /// <summary>
-        /// Метод сравнения очередностей
+        /// Method for comparing queues
         /// </summary>
-        /// <param name="value1">Значение1</param>
-        /// <param name="value2">Значение2</param>
-        /// <returns></returns>
+        /// <param name = "value1"> Value1 </param>
+        /// <param name = "value2"> Value2 </param>
+        /// <returns> </returns>
         public static bool SequentialEquals<TValue1, TValue2>(TValue1 value1, TValue2 value2)
         {
             if (value1 == null) throw new ArgumentNullException(nameof(value1));
@@ -38,10 +38,10 @@ namespace nscreg.Utilities
             return true;
         }
         /// <summary>
-        /// Метод получения базового типа
+        /// Method for obtaining the base type
         /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
+        /// <param name = "type"> </param>
+        /// <returns> </returns>
         private static Type GetUnderlyingType(Type type)
         {
             return Nullable.GetUnderlyingType(type) ?? type;

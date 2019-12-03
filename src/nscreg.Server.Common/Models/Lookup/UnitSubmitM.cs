@@ -3,7 +3,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Server.Common.Models.Lookup
 {
     /// <summary>
-    /// Вью модель единицы
+    /// View unit model
     /// </summary>
     public class UnitSubmitM : IUnitVm
     {

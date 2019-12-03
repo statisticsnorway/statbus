@@ -39,7 +39,7 @@ using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 namespace nscreg.Server
 {
     /// <summary>
-    /// Класс запуска приложения
+    /// Application Launch Class
     /// </summary>
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
@@ -72,10 +72,10 @@ namespace nscreg.Server
         }
 
         /// <summary>
-        /// Метод конфигурации приложения
+        /// Application Configuration Method
         /// </summary>
-        /// <param name="app">Приложение</param>
-        /// <param name="loggerFactory">Журнал записи</param>
+        /// <param name="app">App</param>
+        /// <param name="loggerFactory">loggerFactory</param>
         // ReSharper disable once UnusedMember.Global
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
@@ -145,9 +145,9 @@ namespace nscreg.Server
         }
 
         /// <summary>
-        /// Метод конфигуратор сервисов
+        /// Service Configurator Method
         /// </summary>
-        /// <param name="services">Сервисы</param>
+        /// <param name="services"></param>
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
@@ -206,7 +206,7 @@ namespace nscreg.Server
         }
 
         /// <summary>
-        /// Метод запуска приложения
+        /// Application Launch Method
         /// </summary>
         public static void Main()
         {

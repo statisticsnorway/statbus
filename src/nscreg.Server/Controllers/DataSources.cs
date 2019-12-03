@@ -10,7 +10,7 @@ using nscreg.Server.Core.Authorize;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    ///  Контроллер источников данных
+    ///  Data source controller
     /// </summary>
     [Route("api/[controller]")]
     public class DataSourcesController : Controller
@@ -20,9 +20,9 @@ namespace nscreg.Server.Controllers
         public DataSourcesController(NSCRegDbContext ctx) => _svc = new DataSourcesService(ctx);
 
         /// <summary>
-        /// Метод получения всех источников данных
+        /// The method of obtaining all data sources
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">Data</param>
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.DataSourcesView)]
@@ -30,25 +30,25 @@ namespace nscreg.Server.Controllers
             Ok(await _svc.GetAllDataSources(data));
 
         /// <summary>
-        ///  Метод получения источника данных
+        ///  Data Source Retrieval Method
         /// </summary>
-        /// <param name="id">Id источника данных</param>
+        /// <param name="id">data Id</param>
         /// <returns></returns>
         [HttpGet("{id:int}")]
         [SystemFunction(SystemFunctions.DataSourcesView)]
         public async Task<IActionResult> GetById(int id) => Ok(await _svc.GetById(id));
 
         /// <summary>
-        /// Метод сопоставления свойств источника данных
+        /// Data Source Properties Mapping Method
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]
         public IActionResult MappingProperties() => Ok(new PropertyInfoM());
 
         /// <summary>
-        /// Метод создания источника данных
+        /// Data Source Creation Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPost]
         [SystemFunction(SystemFunctions.DataSourcesCreate)]
@@ -59,10 +59,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования источника данных
+        /// Data Source Editing Method
         /// </summary>
         /// <param name="id">Id</param>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPut("{id:int}")]
         [SystemFunction(SystemFunctions.DataSourcesEdit)]
@@ -73,7 +73,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод удаления источника данных
+        /// Data Source Deletion Method
         /// </summary>
         /// <param name="id">Id</param>
         /// <returns></returns>

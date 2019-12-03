@@ -8,12 +8,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Вью модель списка едениц пользователей
+    /// View user unit list model
     /// </summary>
     public class UserListItemVm
     {
         /// <summary>
-        /// Метод создания вью модели списка едениц пользователей
+        /// Method for creating a view model of a list of user units
         /// </summary>
         public static readonly Expression<Func<User, UserListItemVm>> Creator =
             user => new UserListItemVm

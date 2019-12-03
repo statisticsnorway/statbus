@@ -1,8 +1,8 @@
 namespace nscreg.Utilities.Configuration.Localization
 {
     /// <summary>
-    /// Класс описывающий локаль - ключ и наименование
-    /// например: { Key: "en-GB", Text: "English" }
+    /// Class describing the locale - key and name
+    /// for example: {Key: "en-GB", Text: "English"}
     /// </summary>
     public class Locale
     {

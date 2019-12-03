@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
@@ -11,7 +11,7 @@ namespace nscreg.Data.Configuration
     public class CountryStatisticalUnitConfiguration : EntityTypeConfigurationBase<CountryStatisticalUnit>
     {
         /// <summary>
-        /// Метод конфигурации деятельности стат. еденицы 
+        /// Operation configuration method stat. units 
         /// </summary>
         public override void Configure(EntityTypeBuilder<CountryStatisticalUnit> builder)
         {

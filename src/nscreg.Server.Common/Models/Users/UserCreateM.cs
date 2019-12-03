@@ -7,7 +7,7 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Модель создания пользователя
+    /// User Creation Model
     /// </summary>
     public class UserCreateM : IUserSubmit
     {

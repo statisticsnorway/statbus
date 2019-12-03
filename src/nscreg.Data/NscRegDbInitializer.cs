@@ -9,7 +9,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data
 {
     /// <summary>
-    /// Класс инициализации данных в БД
+    /// DB initialization class
     /// </summary>
     public static class NscRegDbInitializer
     {
@@ -55,7 +55,7 @@ namespace nscreg.Data
         public static void EnsureRoles(NSCRegDbContext context) => SeedData.AddUsersAndRoles(context);
 
         /// <summary>
-        /// Метод инициализации данных в БД
+        /// Method for initializing data in a database
         /// </summary>
         /// <param name="context"></param>
         public static void Seed(NSCRegDbContext context)

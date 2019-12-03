@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы статуса журнала загрузки данных
+    /// Data Download Log Status Constants
     /// </summary>
     public enum DataUploadingLogStatuses
     {
