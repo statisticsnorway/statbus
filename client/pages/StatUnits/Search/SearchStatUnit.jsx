@@ -51,7 +51,6 @@ class Search extends React.Component {
     showConfirm: false,
     selectedUnit: undefined,
     deleteFailed: undefined,
-    // error : '',
   }
 
   setError = (message) => {
@@ -125,7 +124,11 @@ class Search extends React.Component {
       onClose={this.clearError}
     >
       <Modal.Header>{this.props.localize('Error')}</Modal.Header>
-      <Modal.Content>{this.props.localize(this.props.error)}</Modal.Content>
+      <Modal.Content>
+        {this.state.deleteFailed !== undefined
+          ? this.props.localize(this.state.deleteFailed)
+          : this.props.localize(this.props.error)}
+      </Modal.Content>
       <Modal.Actions>
         <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
       </Modal.Actions>

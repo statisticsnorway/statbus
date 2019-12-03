@@ -16,7 +16,9 @@ export const fetchLookupSucceeded = createAction('fetch Lookup succeeded')
 export const deleteStatUnitSuccessed = createAction('delete StatUnit succeeded')
 
 export const setSearchCondition = createAction('set search condition')
+
 export const clearError = createAction('clear error')
+
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
