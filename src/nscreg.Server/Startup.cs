@@ -147,7 +147,7 @@ namespace nscreg.Server
         /// <summary>
         /// Service Configurator Method
         /// </summary>
-        /// <param name="services"></param>
+        /// <param name="services">Services</param>
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {

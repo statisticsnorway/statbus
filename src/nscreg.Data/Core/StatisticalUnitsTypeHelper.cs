@@ -7,7 +7,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Core
 {
     /// <summary>
-    /// Class helper of stat types. units
+    /// Class helper of Stat unit types
     /// </summary>
     public static class StatisticalUnitsTypeHelper
     {
@@ -30,7 +30,7 @@ namespace nscreg.Data.Core
         public static StatUnitTypes GetStatUnitMappingType(Type unitType) => TypeToEnum[unitType];
 
         /// <summary>
-        /// Enumeration Type Method
+        /// Method for getting type by enumeration
         /// </summary>
         /// <param name="type">Type of stat. units</param>
         /// <returns></returns>
