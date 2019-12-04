@@ -215,7 +215,8 @@ class PersonEdit extends React.Component {
                 name="givenName"
                 value={data.givenName}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.GivenName}
                 autoComplete="off"
               />
@@ -245,7 +246,8 @@ class PersonEdit extends React.Component {
                 name="surname"
                 value={data.surname}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.Surname}
                 autoComplete="off"
               />
@@ -256,7 +258,8 @@ class PersonEdit extends React.Component {
                 name="personalId"
                 value={data.personalId}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.PersonalId}
                 autoComplete="off"
               />
@@ -265,7 +268,8 @@ class PersonEdit extends React.Component {
                 name="middleName"
                 value={data.middleName}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.MiddleName}
                 autoComplete="off"
               />
@@ -311,7 +315,8 @@ class PersonEdit extends React.Component {
                 name="phoneNumber"
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.PhoneNumber}
                 autoComplete="off"
               />
@@ -320,7 +325,8 @@ class PersonEdit extends React.Component {
                 name="phoneNumber1"
                 value={data.phoneNumber1}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.PhoneNumber1}
                 autoComplete="off"
               />
@@ -331,7 +337,8 @@ class PersonEdit extends React.Component {
                 name="address"
                 value={data.address}
                 onChange={this.onFieldChange}
-                disabled={disabled || personSelected}
+                disabled={disabled}
+                readOnly={personSelected}
                 required={personMandatoryFields.Address}
                 autoComplete="off"
               />
