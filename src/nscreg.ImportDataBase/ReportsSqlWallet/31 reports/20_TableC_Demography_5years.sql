@@ -1,5 +1,5 @@
 BEGIN /*INPUT PARAMETERS*/
-	DECLARE @InStatUnitType NVARCHAR(MAX) = 'LegalUnit',
+	DECLARE @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
 			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
 END
