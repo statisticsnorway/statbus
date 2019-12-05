@@ -94,17 +94,18 @@ class PersonsList extends React.Component {
 
   isAlreadyExist = value =>
     this.props.value.some(v =>
-      v.givenName === value.givenName &&
-        v.personalId === value.personalId &&
-        v.surname === value.surname &&
-        v.middleName === value.middleName &&
-        v.birthDate === value.birthDate &&
-        v.sex === value.sex &&
-        v.role === value.role &&
-        v.countryId === value.countryId &&
-        v.phoneNumber === value.phoneNumber &&
-        v.phoneNumber1 === value.phoneNumber1 &&
-        v.address === value.address)
+      v.id === value.id ||
+        (v.givenName === value.givenName &&
+          v.personalId === value.personalId &&
+          v.surname === value.surname &&
+          v.middleName === value.middleName &&
+          v.birthDate === value.birthDate &&
+          v.sex === value.sex &&
+          v.role === value.role &&
+          v.countryId === value.countryId &&
+          v.phoneNumber === value.phoneNumber &&
+          v.phoneNumber1 === value.phoneNumber1 &&
+          v.address === value.address))
 
   addCancelHandler = () => {
     this.setState({ addRow: false })
@@ -122,7 +123,7 @@ class PersonsList extends React.Component {
     const renderComponent = x =>
       x.id !== editRow ? (
         <PersonView
-          key={x.id}
+          key={`${x.role} - ${x.id}`}
           data={x}
           onEdit={this.editHandler}
           onDelete={this.deleteHandler}
@@ -134,7 +135,7 @@ class PersonsList extends React.Component {
         />
       ) : (
         <PersonEdit
-          key={x.id}
+          key={`${x.role} - ${x.id}`}
           data={x}
           onSave={this.saveHandler}
           onCancel={this.editCancelHandler}

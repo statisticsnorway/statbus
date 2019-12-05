@@ -221,9 +221,12 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 unit.PersonsUnits.AddRange(personList.Select(v =>
                 {
-                    var person = Mapper.Map<PersonM, Person>(v);
-                    person.Id = 0;
-                    return new PersonStatisticalUnit { Person = person, PersonTypeId = v.Role };
+                    if (v.Id.HasValue && v.Id > 0)
+                    {
+                        return new PersonStatisticalUnit { PersonId = (int)v.Id, PersonTypeId = v.Role };
+                    }
+                    var newPerson = Mapper.Map<PersonM, Person>(v);
+                    return new PersonStatisticalUnit { Person = newPerson, PersonTypeId = v.Role };
                 }));
 
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();

@@ -59,6 +59,7 @@ namespace nscreg.Server.Common.Services
         private static async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
             => await query.Select(v => new PersonM
             {
+                Id = v.Id,
                 Address = v.Address,
                 Surname = v.Surname,
                 MiddleName = v.MiddleName,

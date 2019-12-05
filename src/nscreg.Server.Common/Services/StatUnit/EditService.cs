@@ -294,20 +294,25 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     foreach (var model in personsList)
                     {
-                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value,
-                                out PersonStatisticalUnit personStatisticalUnit))
+                        if (model.Id.HasValue && model.Id > 0)
                         {
-                            var currentPerson = personStatisticalUnit.Person;
-                            if (model.Id == currentPerson.Id )
+                            if (srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
                             {
-                                currentPerson.UpdateProperties(model);
-                                persons.Add(personStatisticalUnit);
+                                var currentPerson = personStatisticalUnit.Person;
+                                if (model.Id == currentPerson.Id)
+                                {
+                                    currentPerson.UpdateProperties(model);
+                                    persons.Add(personStatisticalUnit);
+                                    continue;
+                                }
+                            } else
+                            {
+                                persons.Add(new PersonStatisticalUnit { PersonId = (int)model.Id, PersonTypeId = model.Role });
                                 continue;
                             }
                         }
-                        var newPerson = new Person();
-                        Mapper.Map(model, newPerson);
-                        persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonTypeId = model.Role });
+                        var newPerson = Mapper.Map<PersonM, Person>(model);
+                        persons.Add(new PersonStatisticalUnit { Person = newPerson, PersonTypeId = model.Role });
                     }
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
 
