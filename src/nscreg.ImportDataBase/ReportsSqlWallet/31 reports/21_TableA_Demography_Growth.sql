@@ -1,6 +1,6 @@
 BEGIN /* INPUT PARAMETERS */
-	DECLARE @InStatusId NVARCHAR(MAX) = '1',
-			@InStatUnitType NVARCHAR(MAX) = 'LegalUnit',
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
       @InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
 END
