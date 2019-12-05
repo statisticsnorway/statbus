@@ -7,6 +7,7 @@ END
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
+--table with values for every region with levels(2,3) and ActivityCategory
 CREATE TABLE #tempTableForPivot
 (
 	ActivityCategoryCount INT NULL,
@@ -15,6 +16,7 @@ CREATE TABLE #tempTableForPivot
 	RegionName NVARCHAR(MAX) NULL
 )
 
+--list of categories with level=1, which will be columns in resulting report
 DECLARE @cols NVARCHAR(MAX) = STUFF((SELECT ', ' + QUOTENAME(Name)
 						FROM dbo.ActivityCategories
 						WHERE ActivityCategoryLevel = 1
@@ -24,7 +26,8 @@ DECLARE @cols NVARCHAR(MAX) = STUFF((SELECT ', ' + QUOTENAME(Name)
                    ).value('.', 'NVARCHAR(MAX)'),1,2,''
 );
 
-DECLARE @colsWithoutBrackets NVARCHAR(MAX) = STUFF((SELECT ', ' + QUOTENAME(Name) + N'NVARCHAR(MAX)'
+--list of columns with type definition needed to create result table
+DECLARE @colsWithTypeDefinition NVARCHAR(MAX) = STUFF((SELECT ', ' + QUOTENAME(Name) + N'NVARCHAR(MAX)'
 						FROM dbo.ActivityCategories
 						WHERE ActivityCategoryLevel = 1
 						GROUP BY Name 
@@ -41,7 +44,7 @@ DECLARE @colSum NVARCHAR(MAX) = STUFF((SELECT ', SUM(ISNULL(' + QUOTENAME(Name)+
                    FOR XML PATH(''), TYPE
                    ).value('.', 'NVARCHAR(MAX)'),1,2,''
 );
-PRINT @colSum
+
 DECLARE @colsTotal NVARCHAR(MAX) = STUFF((SELECT '+  SUM(ISNULL(' + QUOTENAME(Name)+',0))'
 						FROM dbo.ActivityCategories
 						WHERE ActivityCategoryLevel = 1
@@ -50,8 +53,9 @@ DECLARE @colsTotal NVARCHAR(MAX) = STUFF((SELECT '+  SUM(ISNULL(' + QUOTENAME(Na
                    FOR XML PATH(''), TYPE
                    ).value('.', 'NVARCHAR(MAX)'),1,2,''
 );
-PRINT @colsTotal
-;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+
+--table where ActivityCategories linked to the top-most ancestor
+WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
 		ParentId,
@@ -60,6 +64,7 @@ PRINT @colsTotal
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
+--table where regions linked to their Rayon(region with level=3) and Oblasts(region with level=2) linked to themselves
 RegionsHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -72,6 +77,7 @@ RegionsHierarchyCTE AS(
 		DesiredLevel  = 2 AND RegionLevel = 2
 		OR DesiredLevel = 3
 ),
+--table where each region linked to its Oblast(region with level 2)
 RegionsTotalHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -93,6 +99,7 @@ StatisticalUnitHistoryCTE AS (
 	WHERE DATEPART(YEAR,StartPeriod) = @InPreviousYear
 	
 ),
+--table with all stat units linked to their primary activities' category with needed StatUnitType 
 ResultTableCTE AS (
 		SELECT 
 			su.RegId,
@@ -111,10 +118,11 @@ ResultTableCTE AS (
 
 	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND a.Activity_Type = 1
 ),
+--table where stat units with the superparent of their ActivityCategory and Rayon and Oblast of their address
 ResultTableCTE2 AS (
 	SELECT
 		r.RegId,
-		ac.ParentId AS ActivityCategoryId, --supercategory
+		ac.ParentId AS ActivityCategoryId, --superparent of ActivityCategory
 		r.AddressId,
 		tr.RegionLevel,
 		tr.Name AS RegionParentName,   --rayon if desired level = 3 or oblast if reg level = 2
@@ -129,6 +137,7 @@ ResultTableCTE2 AS (
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	INNER JOIN RegionsTotalHierarchyCTE AS rthCTE ON rthCTE.Id = addr.Region_id
 ),
+--table where the number of stat unit counted by their oblast and superparent of ActivityCategory
 CountOfActivitiesInRegionCTE AS (
 	SELECT 
 		SUM(IIF(DATEPART(YEAR,RegistrationDate) >= 2018 AND UnitStatusId=1,1,0)) - SUM(IIF(LiqDate IS NOT NULL AND DATEPART(YEAR,LiqDate) >= 2018, 1,0)) AS Count,
@@ -137,8 +146,8 @@ CountOfActivitiesInRegionCTE AS (
 	FROM ResultTableCTE2
 	WHERE ResultTableCTE2.ActivityCategoryId IS NOT NULL
 GROUP BY RegionId, ActivityCategoryId
-)
-,
+),
+--table with all rayons and oblasts, result table will be completed with all regions
 RegionsToAdd AS (
 	SELECT DISTINCT
 		ParentId AS RegionParentId,
@@ -146,6 +155,7 @@ RegionsToAdd AS (
 	FROM RegionsHierarchyCTE
  
 ),
+--table with rayons and oblasts, where we don't have new or liquidated stat units
 RegionsToAddFiltered AS (
 	SELECT
 		rta.RegionParentId,
@@ -160,6 +170,7 @@ RegionsToAddFiltered AS (
 	WHERE rtcte2.RegionParentId IS NULL
 	
 ),
+--table with all ActivityCategories with level=1, will be columns in result table
 SuperActivityCategories AS (
 	SELECT Name AS ActivityCategoryName
 	FROM dbo.ActivityCategories
@@ -167,8 +178,8 @@ SuperActivityCategories AS (
 )
 
 INSERT INTO #tempTableForPivot
-SELECT
-
+--inserting values for oblasts
+SELECT 
 	cofir.Count,
 	cofir.RegionId,
 	ac.Name,	
@@ -179,6 +190,7 @@ FROM CountOfActivitiesInRegionCTE AS cofir
 
 UNION ALL
 
+--inserting values for rayons
 SELECT
 	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) >= 2018 AND rt.UnitStatusId=1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) >= 2018, 1,0)) AS COUNT,
 	rt.RegionParentId,
@@ -196,6 +208,7 @@ FROM ResultTableCTE2 AS rt
 
 UNION ALL
 
+--inserting the ramaining rayons and oblasts with zeros
 SELECT
 	0 AS ActivityCategoryCount,
 	RegionParentId,
@@ -207,16 +220,15 @@ FROM RegionsToAddFiltered
 IF OBJECT_ID ('dbo.tempResultTable') IS NOT NULL
    BEGIN DROP TABLE dbo.tempResultTable END
 
--- Oblast and Rayon are valid names for regions with level=2 and level=3 in KG
+--cretaing temporary table for result
 DECLARE @queryTable NVARCHAR(MAX) = N'
 CREATE TABLE dbo.tempResultTable (
 	Oblast NVARCHAR(MAX),
 	Rayon NVARCHAR(MAX),
 	Total INT,
-	' + @colsWithoutBrackets + N'	
+	' + @colsWithTypeDefinition + N'	
 )
 '
-PRINT(@queryTable)
 EXECUTE (@queryTable);
 		
 DECLARE @query NVARCHAR(MAX) = N'
@@ -238,6 +250,7 @@ SELECT '''' as Oblast, RegionName as Rayon,' + @colsTotal + N' as Total, ' + @co
 			PRINT @query
 EXECUTE (@query);
 
+--making 1st column for oblasts and 2nd column for rayons
 UPDATE dbo.tempResultTable
 SET Oblast = Rayon, Rayon = ''
 WHERE Rayon IN (SELECT DISTINCT Name FROM dbo.Regions WHERE RegionLevel = 2)
