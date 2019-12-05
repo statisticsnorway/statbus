@@ -44,7 +44,7 @@ namespace nscreg.Server.Core.Authorize
             IEnumerable<TAttribute> attributes);
 
         /// <summary>
-        /// Attribute Method
+        /// attribute getting method
         /// </summary>
         /// <param name="memberInfo">Member info</param>
         /// <returns></returns>

@@ -339,8 +339,8 @@ namespace nscreg.Server.Test
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var address = await _helper.CreateAddressAsync(context);
                     await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
-                    Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName
-                                                                             && !x.IsDeleted));
+                    Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName &&
+                                                       x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                 }
             }
             catch(Exception e)

@@ -11,7 +11,7 @@ namespace nscreg.Data.Configuration
     public class CountryStatisticalUnitConfiguration : EntityTypeConfigurationBase<CountryStatisticalUnit>
     {
         /// <summary>
-        /// Operation configuration method stat. units 
+        /// Statistical unit country configuration method
         /// </summary>
         public override void Configure(EntityTypeBuilder<CountryStatisticalUnit> builder)
         {

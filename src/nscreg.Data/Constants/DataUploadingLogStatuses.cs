@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Data Download Log Status Constants
+    /// Data Uploading Log Status Constants
     /// </summary>
     public enum DataUploadingLogStatuses
     {

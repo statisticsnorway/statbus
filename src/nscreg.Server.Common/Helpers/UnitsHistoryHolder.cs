@@ -5,7 +5,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Helpers
 {
     /// <summary>
-    /// Keeper class
+    /// History Holder Class
     /// </summary>
     public class UnitsHistoryHolder
     {

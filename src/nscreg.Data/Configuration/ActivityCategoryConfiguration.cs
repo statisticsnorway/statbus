@@ -5,12 +5,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    /// Activity configuration class
+    /// Activity category configuration class
     /// </summary>
     public class ActivityCategoryConfiguration : EntityTypeConfigurationBase<ActivityCategory>
     {
         /// <summary>
-        /// Activity Configuration Method
+        /// Activity category Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<ActivityCategory> builder)
         {
