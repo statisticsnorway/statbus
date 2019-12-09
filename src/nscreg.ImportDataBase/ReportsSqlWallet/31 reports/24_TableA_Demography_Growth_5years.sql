@@ -87,7 +87,7 @@ INSERT INTO #tempTableForPivot
 SELECT 
 	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND rt.UnitStatusId = 1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1, 1,0)) AS Count,
 	ac.Name,
-	rt.RegionParentName
+	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
 	WHERE ac.ActivityCategoryLevel = 1
