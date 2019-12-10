@@ -70,6 +70,8 @@ class DateTimeField extends React.Component {
       errors: errorKeys,
       localize,
       popuplocalizedKey,
+      disabled,
+      readOnly,
       ...restProps
     } = this.props
     const hasErrors = touched !== false && hasValue(errorKeys)
@@ -88,6 +90,7 @@ class DateTimeField extends React.Component {
       title,
       required,
       as: DatePicker,
+      disabled: disabled || readOnly,
       selected: dateFns.getDateOrNull(value),
       error: error || hasErrors,
       placeholder: placeholderKey ? localize(placeholderKey) : label,
@@ -99,9 +102,10 @@ class DateTimeField extends React.Component {
     }
     return (
       <div
-        className={`field datepicker${required ? ' required' : ''}${
-          hasErrors || !this.state.isDateValid ? ' error' : ''
-        }`}
+        className={`field datepicker${required ? ' required' : ''}
+          ${hasErrors || !this.state.isDateValid ? ' error' : ''}
+          ${disabled ? 'disabled' : ''}
+        `}
       >
         {label !== undefined && <label htmlFor={id}>{label}</label>}
         <Form.Input {...inputProps} />
@@ -128,6 +132,8 @@ DateTimeField.propTypes = {
   errors: arrayOf(string),
   localize: func.isRequired,
   popuplocalizedKey: string,
+  disabled: bool,
+  readOnly: bool,
 }
 
 DateTimeField.defaultProps = {
@@ -143,6 +149,8 @@ DateTimeField.defaultProps = {
   error: false,
   errors: [],
   popuplocalizedKey: undefined,
+  disabled: false,
+  readOnly: false,
 }
 
 export default DateTimeField

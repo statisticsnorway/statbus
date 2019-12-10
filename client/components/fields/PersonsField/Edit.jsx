@@ -29,6 +29,7 @@ class PersonEdit extends React.Component {
       phoneNumber: oneOfType([string, number]).isRequired,
       phoneNumber1: oneOfType([string, number]),
       address: oneOfType([string, number]),
+      personSelected: bool,
     }),
     newRowId: number,
     onSave: func.isRequired,
@@ -55,6 +56,7 @@ class PersonEdit extends React.Component {
       phoneNumber: '',
       phoneNumber1: '',
       address: '',
+      personSelected: false,
     },
     newRowId: -1,
     countries: [],
@@ -82,7 +84,7 @@ class PersonEdit extends React.Component {
     }))
   }
 
-  onPersonChange = (e, { value }) => {
+  onSearchTextChange = (e, { value }) => {
     this.setState({ controlValue: value, isLoading: true }, () => this.searchData(value))
   }
 
@@ -93,12 +95,12 @@ class PersonEdit extends React.Component {
         method: 'get',
         queryParams: { wildcard: value },
         onSuccess: (resp) => {
-          this.setState(s => ({
-            data: { ...s.data },
+          this.setState(() => ({
             results: resp.map(r => ({
               title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
                 r.surname === null ? '' : r.surname
               }`,
+              id: r.id,
               givenName: r.givenName,
               personalId: r.personalId,
               surname: r.surname,
@@ -131,7 +133,7 @@ class PersonEdit extends React.Component {
     this.setState(s => ({
       data: {
         ...s.data,
-        id: this.props.newRowId,
+        id: result.id,
         givenName: result.givenName,
         personalId: result.personalId,
         surname: result.surname,
@@ -143,11 +145,12 @@ class PersonEdit extends React.Component {
         phoneNumber: result.phoneNumber,
         phoneNumber1: result.phoneNumber1,
         address: result.address,
+        personSelected: true,
       },
       touched: true,
       isAlreadyExist: this.props.isAlreadyExist({
         ...s.data,
-        id: this.props.newRowId,
+        id: result.id,
         givenName: result.givenName,
         personalId: result.personalId,
         surname: result.surname,
@@ -164,11 +167,11 @@ class PersonEdit extends React.Component {
   }
 
   saveHandler = () => {
-    this.props.onSave(this.state.data)
+    this.props.onSave(this.state.data, this.props.newRowId)
   }
 
   render() {
-    const { localize, countries, disabled, roles } = this.props
+    const { localize, disabled, countries, roles } = this.props
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
@@ -200,17 +203,6 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
               />
-              <Form.Input
-                label={localize('StatUnitFormPersonName')}
-                name="givenName"
-                value={data.givenName}
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                required={personMandatoryFields.GivenName}
-                autoComplete="off"
-              />
-            </Form.Group>
-            <Form.Group widths="equal">
               <Popup
                 trigger={
                   <Form.Field
@@ -219,7 +211,7 @@ class PersonEdit extends React.Component {
                     loading={isLoading}
                     placeholder={localize('PersonsSearch')}
                     onResultSelect={this.personSelectHandler}
-                    onSearchChange={this.onPersonChange}
+                    onSearchChange={this.onSearchTextChange}
                     results={results}
                     value={controlValue}
                     showNoResults={false}
@@ -230,12 +222,25 @@ class PersonEdit extends React.Component {
                 content={localize('PersonSearchPopup')}
                 position="top left"
               />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Input
+                label={localize('StatUnitFormPersonName')}
+                name="givenName"
+                value={data.givenName}
+                onChange={this.onFieldChange}
+                disabled={disabled}
+                readOnly={data.personSelected}
+                required={personMandatoryFields.GivenName}
+                autoComplete="off"
+              />
               <Form.Input
                 label={localize('Surname')}
                 name="surname"
                 value={data.surname}
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                readOnly={data.personSelected}
                 required={personMandatoryFields.Surname}
                 autoComplete="off"
               />
@@ -246,7 +251,7 @@ class PersonEdit extends React.Component {
                 name="personalId"
                 value={data.personalId}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 required={personMandatoryFields.PersonalId}
                 autoComplete="off"
               />
@@ -255,7 +260,7 @@ class PersonEdit extends React.Component {
                 name="middleName"
                 value={data.middleName}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 required={personMandatoryFields.MiddleName}
                 autoComplete="off"
               />
@@ -266,7 +271,7 @@ class PersonEdit extends React.Component {
                 name="birthDate"
                 value={data.birthDate}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 localize={localize}
                 required={personMandatoryFields.BirthDate}
               />
@@ -277,7 +282,7 @@ class PersonEdit extends React.Component {
                 value={data.sex}
                 onChange={this.onFieldChange}
                 options={options.sex.map(asOption)}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 required={personMandatoryFields.Sex}
               />
             </Form.Group>
@@ -292,7 +297,7 @@ class PersonEdit extends React.Component {
                 required={personMandatoryFields.CountryId}
                 search
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -301,7 +306,7 @@ class PersonEdit extends React.Component {
                 name="phoneNumber"
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 required={personMandatoryFields.PhoneNumber}
                 autoComplete="off"
               />
@@ -310,7 +315,7 @@ class PersonEdit extends React.Component {
                 name="phoneNumber1"
                 value={data.phoneNumber1}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 required={personMandatoryFields.PhoneNumber1}
                 autoComplete="off"
               />
@@ -321,7 +326,7 @@ class PersonEdit extends React.Component {
                 name="address"
                 value={data.address}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                disabled={disabled || data.personSelected}
                 required={personMandatoryFields.Address}
                 autoComplete="off"
               />

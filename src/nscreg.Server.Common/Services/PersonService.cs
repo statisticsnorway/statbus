@@ -34,6 +34,7 @@ namespace nscreg.Server.Common.Services
                     v.Surname.ToLower().StartsWith(loweredwc))
                 .Select(g => new Person
                 {
+                    Id = g.Id,
                     GivenName = g.GivenName,
                     MiddleName = g.MiddleName,
                     Surname = g.Surname,
@@ -58,6 +59,7 @@ namespace nscreg.Server.Common.Services
         private static async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
             => await query.Select(v => new PersonM
             {
+                Id = v.Id,
                 Address = v.Address,
                 Surname = v.Surname,
                 MiddleName = v.MiddleName,
