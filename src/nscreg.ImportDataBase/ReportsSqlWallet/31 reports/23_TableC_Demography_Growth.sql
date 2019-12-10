@@ -140,7 +140,7 @@ ResultTableCTE2 AS (
 --table where the number of stat unit counted by their oblast and superparent of ActivityCategory
 CountOfActivitiesInRegionCTE AS (
 	SELECT 
-		SUM(IIF(DATEPART(YEAR,RegistrationDate) >= 2018 AND UnitStatusId=1,1,0)) - SUM(IIF(LiqDate IS NOT NULL AND DATEPART(YEAR,LiqDate) >= 2018, 1,0)) AS Count,
+		SUM(IIF(DATEPART(YEAR,RegistrationDate) = 2018 AND UnitStatusId=1,1,0)) - SUM(IIF(LiqDate IS NOT NULL AND DATEPART(YEAR,LiqDate) = 2018, 1,0)) AS Count,
 		RegionId,
 		ActivityCategoryId
 	FROM ResultTableCTE2
@@ -180,22 +180,21 @@ SuperActivityCategories AS (
 INSERT INTO #tempTableForPivot
 --inserting values for oblasts
 SELECT 
-	cofir.Count,
-	cofir.RegionId,
-	ac.Name,	
+	cofir.Count AS ActivityCategoryCount,
+	cofir.RegionId AS RegionParentId,
+	ac.Name AS ActivityCategoryName,	
 	dbo.Regions.Name AS RegionName
 FROM CountOfActivitiesInRegionCTE AS cofir
 	INNER JOIN dbo.ActivityCategories as ac ON ac.Id = cofir.ActivityCategoryId	
 	INNER JOIN dbo.Regions ON Regions.Id = cofir.RegionId
 
 UNION ALL
-
 --inserting values for rayons
 SELECT
-	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) >= 2018 AND rt.UnitStatusId=1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) >= 2018, 1,0)) AS COUNT,
+	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) = 2018 AND rt.UnitStatusId=1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) = 2018, 1,0)) AS ActivityCategoryCount,
 	rt.RegionParentId,
-	ac.Name,	
-	rt.RegionParentName
+	ac.Name AS ActivityCategoryName,	
+	rt.RegionParentName AS RegionName
 FROM ResultTableCTE2 AS rt
 	LEFT JOIN dbo.ActivityCategories as ac ON ac.Id = rt.ActivityCategoryId	
 	LEFT JOIN CountOfActivitiesInRegionCTE AS cofir ON cofir.RegionId = rt.RegionId AND cofir.ActivityCategoryId = ac.Id
@@ -207,8 +206,7 @@ FROM ResultTableCTE2 AS rt
 		rt.RegionLevel
 
 UNION ALL
-
---inserting the ramaining rayons and oblasts with zeros
+--inserting the remaining rayons and oblasts with zeros
 SELECT
 	0 AS ActivityCategoryCount,
 	RegionParentId,
@@ -220,7 +218,7 @@ FROM RegionsToAddFiltered
 IF OBJECT_ID ('dbo.tempResultTable') IS NOT NULL
    BEGIN DROP TABLE dbo.tempResultTable END
 
---cretaing temporary table for result
+--creating temporary table for result
 DECLARE @queryTable NVARCHAR(MAX) = N'
 CREATE TABLE dbo.tempResultTable (
 	Oblast NVARCHAR(MAX),
@@ -230,7 +228,7 @@ CREATE TABLE dbo.tempResultTable (
 )
 '
 EXECUTE (@queryTable);
-		
+
 DECLARE @query NVARCHAR(MAX) = N'
 INSERT INTO dbo.tempResultTable
 SELECT '''' as Oblast, RegionName as Rayon,' + @colsTotal + N' as Total, ' + @colSum
