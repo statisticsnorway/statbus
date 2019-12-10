@@ -64,8 +64,8 @@ ResultTableCTE AS
 		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
-			AND a.Activity_Type = 1
+		WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
+				AND a.Activity_Type = 1
 ),
 --table where stat units with the superparent of their ActivityCategory and their oblast
 ResultTableCTE2 AS
@@ -87,7 +87,7 @@ ResultTableCTE2 AS
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	WHERE DATEPART(YEAR, r.RegistrationDate) = @InPreviousYear AND Employees IS NOT NULL
 )
-SELECT * FROM ResultTableCTE
+
 --inserting values for oblast by activity categories
 INSERT INTO #tempTableForPivot
 SELECT 
