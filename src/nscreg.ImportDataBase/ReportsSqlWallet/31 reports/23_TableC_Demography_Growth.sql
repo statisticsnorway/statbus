@@ -101,20 +101,20 @@ StatisticalUnitHistoryCTE AS (
 ),
 --table with all stat units linked to their primary activities' category with needed StatUnitType 
 ResultTableCTE AS (
-		SELECT 
-			su.RegId,
-			IIF(DATEPART(YEAR,su.RegistrationDate)=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)=@InPreviousYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
-			IIF(DATEPART(YEAR,su.RegistrationDate)=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)=@InPreviousYear,su.AddressId,suhCTE.AddressId) AS AddressId,
-			su.RegistrationDate,
-			su.UnitStatusId,
-			su.LiqDate
-		FROM StatisticalUnits AS su	
-		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
-		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
+	SELECT 
+		su.RegId,
+		IIF(DATEPART(YEAR,su.RegistrationDate)=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)=@InPreviousYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR,su.RegistrationDate)=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)=@InPreviousYear,su.AddressId,suhCTE.AddressId) AS AddressId,
+		su.RegistrationDate,
+		su.UnitStatusId,
+		su.LiqDate
+	FROM StatisticalUnits AS su	
+	LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
+	LEFT JOIN Activities a ON a.Id = asu.Activity_Id
 
-		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
-		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
-		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
+	LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
+	LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
+	LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
 
 	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND a.Activity_Type = 1
 ),
@@ -129,18 +129,19 @@ ResultTableCTE2 AS (
 		tr.ParentId AS RegionParentId, --rayon if desired level = 3 or oblast if reg level = 2
 		rthCTE.ParentId AS RegionId,   --oblast
 		r.RegistrationDate,
-		r.UnitStatusId,
+		st.Code AS StatusCode,
 		r.LiqDate
 	FROM ResultTableCTE AS r
 	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
 	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	INNER JOIN RegionsTotalHierarchyCTE AS rthCTE ON rthCTE.Id = addr.Region_id
+	INNER JOIN dbo.Statuses AS st ON st.Id = r.UnitStatusId
 ),
 --table where the number of stat unit counted by their oblast and superparent of ActivityCategory
 CountOfActivitiesInRegionCTE AS (
 	SELECT 
-		SUM(IIF(DATEPART(YEAR,RegistrationDate) = 2018 AND UnitStatusId=1,1,0)) - SUM(IIF(LiqDate IS NOT NULL AND DATEPART(YEAR,LiqDate) = 2018, 1,0)) AS Count,
+		SUM(IIF(DATEPART(YEAR,RegistrationDate) = @InPreviousYear AND StatusCode = '1', 1, 0)) - SUM(IIF(LiqDate IS NOT NULL AND DATEPART(YEAR,LiqDate) = @InPreviousYear, 1, 0)) AS Count,
 		RegionId,
 		ActivityCategoryId
 	FROM ResultTableCTE2
@@ -191,7 +192,7 @@ FROM CountOfActivitiesInRegionCTE AS cofir
 UNION ALL
 --inserting values for rayons
 SELECT
-	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) = 2018 AND rt.UnitStatusId=1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) = 2018, 1,0)) AS ActivityCategoryCount,
+	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) = @InPreviousYear AND rt.StatusCode = '1', 1, 0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) = 2018, 1, 0)) AS ActivityCategoryCount,
 	rt.RegionParentId,
 	ac.Name AS ActivityCategoryName,	
 	rt.RegionParentName AS RegionName

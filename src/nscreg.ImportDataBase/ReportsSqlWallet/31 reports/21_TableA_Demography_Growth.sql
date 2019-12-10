@@ -74,18 +74,19 @@ ResultTableCTE2 AS
 		tr.Name AS RegionParentName,
 		tr.ParentId AS RegionParentId,
 		r.RegistrationDate,
-		r.UnitStatusId,
+		st.Code AS StatusCode,
 		r.LiqDate
 	FROM ResultTableCTE AS r
 	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
 	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
-	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id	
+	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
+	INNER JOIN dbo.Statuses AS st ON st.Id = r.UnitStatusId
 )
 
 --inserting values for oblast by activity categories
 INSERT INTO #tempTableForPivot
 SELECT 
-	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) = @InPreviousYear AND rt.UnitStatusId = 1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) = @InPreviousYear, 1,0)) AS Count,
+	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) = @InPreviousYear AND rt.StatusCode = '1', 1, 0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) = @InPreviousYear, 1, 0)) AS Count,
 	ac.Name,
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
