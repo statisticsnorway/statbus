@@ -56,7 +56,7 @@ StatisticalUnitHistoryCTE AS (
 		AddressId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1
 ),
 --table with all stat units linked to their primary activities' category with given StatUnitType
 ResultTableCTE AS
