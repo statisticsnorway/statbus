@@ -1,11 +1,11 @@
-BEGIN /*INPUT PARAMETERS*/
+BEGIN /* INPUT PARAMETERS */
 	DECLARE @InRegionId INT = $RegionId,
-			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-    		  @InStatusId NVARCHAR(MAX) = $StatusId,
-          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
-		      @InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
+      @InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
 END
 
+-- name of given oblast
 DECLARE @nameTotalColumn AS NVARCHAR(MAX) = (SELECT TOP 1 Name FROM dbo.Regions WHERE Id = @InRegionId)
 
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
@@ -13,10 +13,11 @@ BEGIN DROP TABLE #tempTableForPivot END
 
 CREATE TABLE #tempTableForPivot
 (
-	RegId INT NULL,
+	Count INT NOT NULL DEFAULT 0,
 	Name NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
 )
+--table where ActivityCategories linked to the greatest ancestor
 ;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
@@ -26,6 +27,7 @@ CREATE TABLE #tempTableForPivot
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
+--table where regions linked to their rayon and oblast with given ID
 RegionsHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -36,53 +38,46 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	WHERE DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel  = 2
 ),
+--list of regions in given oblast
+RegionsTotalHierarchyCTE AS(
+	SELECT 
+		Id,
+		ParentId,
+		Name,
+		RegionLevel,
+		DesiredLevel
+	FROM v_Regions
+	WHERE ParentId = @InRegionId AND DesiredLevel  = 2
+),
 StatisticalUnitHistoryCTE AS (
 	SELECT
-		suh.RegId,
-		suh.ParentId,
-		ach.ParentId as achParentId,
-		ach.Name as acchName,
-		trh.Name as trhParentName,
-		suh.AddressId,
-		suh.UnitStatusId,
-		ROW_NUMBER() over (partition by suh.ParentId order by suh.StartPeriod desc) AS RowNumber
-	FROM dbo.StatisticalUnitHistory as suh
-		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suh.RegId
-		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
-		LEFT JOIN ActivityCategoriesHierarchyCTE AS ach ON ach.Id = ah.ActivityCategoryId
-		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = suh.AddressId
-		LEFT JOIN RegionsHierarchyCTE as trh ON trh.Id = addrh.Region_id
-	WHERE 
-	DATEPART(YEAR,suh.StartPeriod)>=@InPreviousYear AND DATEPART(YEAR,suh.StartPeriod)<@InCurrentYear AND ah.Activity_Type = 1
+		RegId,
+		ParentId,	
+		AddressId,
+		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
+	FROM StatisticalUnitHistory
+	WHERE DATEPART(YEAR,StartPeriod) = @InPreviousYear
 ),
+--table with all stat units linked to their primary activities' category with given StatUnitType
 ResultTableCTE AS
 (
-	SELECT 
-		su.RegId,
-		a.Activity_Type,
-		IIF(DATEPART(YEAR,su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
-		IIF(DATEPART(YEAR,su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.AddressId,suhCTE.AddressId) AS AddressId,
+	SELECT
+		su.RegId as RegId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.AddressId,suhCTE.AddressId) AS AddressId,
 		su.RegistrationDate,
 		su.UnitStatusId,
 		su.LiqDate
-	FROM [dbo].[StatisticalUnits] AS su	
-		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId 
-		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id 
+	FROM dbo.StatisticalUnits AS su	
+		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
+		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id
 
 		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
-		
-
-	WHERE (((@InStatUnitType = 'All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId 
-		 AND asu.Unit_Id IS NOT NULL
-		 AND a.Activity_Type = 1)
-		 OR 
-		 ((@InStatUnitType = 'All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId 
-		 AND asu.Unit_Id IS NOT NULL		 
-		 AND a.Activity_Type = 1
-		 AND DATEPART(YEAR,su.StartPeriod) = @InCurrentYear))
+	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND a.Activity_Type = 1
 ),
+--table where stat units with the superparent of their ActivityCategory and their rayon or oblast(if address cannot be linked to rayon)
 ResultTableCTE2 AS
 (
 	SELECT
@@ -93,38 +88,53 @@ ResultTableCTE2 AS
 		tr.Name AS RegionParentName,
 		tr.ParentId AS RegionParentId,
 		r.RegistrationDate,
-		r.UnitStatusId,
+		st.Code AS StatusCode,
 		r.LiqDate
 	FROM ResultTableCTE AS r
 	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
 	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id	
+	INNER JOIN RegionsTotalHierarchyCTE AS tr2 ON tr2.Id = addr.Region_id
+	INNER JOIN dbo.Statuses AS st ON st.Id = r.UnitStatusId
 )
 
+--inserting values for rayon or oblast(if address cannot be linked to rayon) by activity categories
 INSERT INTO #tempTableForPivot
-SELECT
-	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) >= 2018 AND rt.UnitStatusId=1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) >= 2018, 1,0)) AS Count,
+SELECT 
+	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) = @InPreviousYear AND rt.StatusCode = '1', 1, 0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) = @InPreviousYear, 1, 0)) AS Count,
 	ac.Name,
-	rt.RegionParentName
+	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
 	WHERE ac.ActivityCategoryLevel = 1
 	GROUP BY ac.Name, rt.RegionParentName
 
+--replacing NULL values with zeroes for regions and activity categories
+DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
+				FROM dbo.Regions  WHERE ParentId = @InRegionId AND RegionLevel = 3
+				FOR XML PATH(''), TYPE
+				).value('.', 'NVARCHAR(MAX)')
+			,1,2,'');
+
+--total sum of values for oblast for particular activity category
+DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
+				FROM dbo.Regions  WHERE ParentId = @InRegionId AND RegionLevel IN (1,2,3) OR Id = @InRegionId
+				FOR XML PATH(''), TYPE
+				).value('.', 'NVARCHAR(MAX)')
+			,1,1,'')
+			
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT 
-	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT', 0) + ', ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '] from 
-		(
+SELECT Name, ' + @colswithISNULL + ', ' + @total + ' as ' + QUOTENAME(@nameTotalColumn) + ' FROM 
+            (
 				SELECT 
-					RegId,
+					Count,
 					Name,
 					NameOblast
 				FROM #tempTableForPivot
            ) SourceTable
             PIVOT 
             (
-                SUM(RegId)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT', 1) + ')
-            ) PivotTable			
-			'
+                SUM(Count)
+                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT',1) + ')
+            ) PivotTable order by Name'
 execute(@query)
