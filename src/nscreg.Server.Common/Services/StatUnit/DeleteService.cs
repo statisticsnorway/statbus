@@ -282,6 +282,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 foreach (var localUnit in legalUnit.LocalUnits)
                 {
                     var localStartPeriod = _dbContext.LocalUnitHistory.Where(x => x.ParentId == localUnit.RegId).OrderBy(x => x.StartPeriod).FirstOrDefault()?.StartPeriod;
+                    if (localStartPeriod == null) localStartPeriod = localUnit.StartPeriod;
                     if (localStartPeriod == legalStartPeriod)
                     {
                         var deletedUnit = DeleteUndeleteLocalUnit(localUnit.RegId, true, userId);
