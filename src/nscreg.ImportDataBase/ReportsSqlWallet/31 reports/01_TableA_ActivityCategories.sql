@@ -6,8 +6,8 @@
 		4 : City / Village
 */
 
-BEGIN /* INPUT PARAMETERS */
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+BEGIN /* INPUT PARAMETERS from report body */
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId ,
 			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
@@ -22,31 +22,33 @@ SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel IN (1,2)
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+        ,1,1,'') /* COLUMNS VARIABLES - REGIONS, COUNTRY LEVEL */
 SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel = 2
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+        ,1,1,'') /* COLUMNS VARIABLES - REGIONS, OBLASTS LEVEL */
 SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel IN (1,2)
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
 SET @activityCategoryLevel = 1
-SET @regionLevel = 2
+SET @regionLevel = 2 /* SET THIS TO 1 if database has no Country level and begins from the Oblasts/Counties/Regions */
 END
-BEGIN /*DECLARE and FILL IerarhyOfActivityCategories*/
+BEGIN /* DECLARE and FILL Hierarchy Of Activity Categories - Complect the Activity Category tree */
 IF (OBJECT_ID('tempdb..#tempActivityCategories') IS NOT NULL)
-BEGIN DROP TABLE #tempActivityCategories END
-CREATE TABLE #tempActivityCategories
+BEGIN DROP TABLE #tempActivityCategories END /* Delete temporary table for Activity Categories if exists */
+CREATE TABLE #tempActivityCategories /* Create new temporary table for Activity Categories */
 (
     ID INT,
     Level INT,
     ParentId INT,
     Name NVARCHAR(MAX)
 );
-CREATE NONCLUSTERED INDEX ix_tempActivityCategoriesIndex ON #tempActivityCategories ([ID]);
+/* Create an index "ix_tempActivityCategoriesIndex" - to make search faster - Activity Categories */
+CREATE NONCLUSTERED INDEX ix_tempActivityCategoriesIndex ON #tempActivityCategories ([ID]); 
+/* using CTE (Common Table Expressions), revursively collect the Activity Categories tree */
 ;WITH ActivityCategoriesCTE AS (
 	SELECT
 		Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
@@ -60,13 +62,14 @@ CREATE NONCLUSTERED INDEX ix_tempActivityCategoriesIndex ON #tempActivityCategor
 	INNER JOIN ActivityCategoriesCTE itms ON itms.Id = i.ParentId
 ),
 
+/* Select all levels from Activity Categories and order them */
 CTE_RN AS 
 (
     SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
     FROM ActivityCategoriesCTE r
 )
 
-
+/* Fill the temporary table */
 INSERT INTO #tempActivityCategories
 SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN r
@@ -76,7 +79,8 @@ WHERE r.RN = @activityCategoryLevel
 
 END
 
-BEGIN /*DECLARE and FILL IerarhyOfRegions*/
+/* Delete temporary table if exists */
+BEGIN 
 IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
 	BEGIN DROP TABLE #tempRegions END
 CREATE TABLE #tempRegions
@@ -86,7 +90,9 @@ CREATE TABLE #tempRegions
     ParentId INT,
     Name NVARCHAR(MAX)
 );
+/* Create an index "ix_tempRegionsIndex" - to make search faster - Regions */
 CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
+/* using CTE (Common Table Expressions), revursively collect the Regions tree */
 ;WITH RegionsCTE AS (
 	SELECT Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
 	FROM Regions 
@@ -98,12 +104,16 @@ CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
 	INNER JOIN RegionsCTE itms ON itms.Id = i.ParentId
 	WHERE i.ParentId>0
 ),
+
+/* Select all levels from Regions and order them */
 CTE_RN2 AS 
 (
     SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
     FROM RegionsCTE r
     
 )
+
+/* Fill the temporary table */
 INSERT INTO #tempRegions
 SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
@@ -112,6 +122,18 @@ FROM CTE_RN2 r
 WHERE r.RN = @regionLevel
 END
 
+/*
+The resulting query 
+At the first checking the history logs that have StartPeriod less than current year
+and then
+Activity Categories top-level select
+and then
+ResultTable - get the actual state of statistical units where RegistrationDate and StartPeriod less than current year
+and then
+Select by Activity Categories all statistical units
+and then
+Count statistical units using pivot transform regions - from column to row
+*/
 SET @query = '
 ;WITH StatisticalUnitHistoryCTE AS (
 	SELECT
@@ -164,4 +186,4 @@ SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as Total from
                 COUNT(RegId)
                 FOR NameOblast IN (' + @cols + ')
             ) PivotTable order by Name'
-execute(@query)
+execute(@query) /* execution of the query */

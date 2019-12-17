@@ -1,21 +1,26 @@
-BEGIN /*INPUT PARAMETERS*/
+BEGIN /*INPUT PARAMETERS from report body */
 	DECLARE @InRegionId INT = $RegionId,
 			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
     		  @InStatusId NVARCHAR(MAX) = $StatusId,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
+/* Declare Oblast/County/Region - to take only Rayons/Municipalities/Sub-level of Oblast */
 DECLARE @nameTotalColumn AS NVARCHAR(MAX) = (SELECT TOP 1 Name FROM dbo.Regions WHERE Id = @InRegionId)
 
+/* Delete temporary table for Pivot - result table if exists */
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
+/* Create temporary table for Pivot - result table */
 CREATE TABLE #tempTableForPivot
 (
 	RegId INT NULL,
 	Name NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
 )
+
+/* using CTE (Common Table Expressions), revursively collect the Activity Categories tree */
 ;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
@@ -25,6 +30,8 @@ CREATE TABLE #tempTableForPivot
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
+
+/* using CTE (Common Table Expressions), revursively collect the Regions tree */
 RegionsHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -35,6 +42,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	WHERE DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel  = 2
 ),
+
+/* using CTE (Common Table Expressions),  
+Check the history logs by StartPeriod less then current year - 
+to have the actual state of statistical units less than current year
+*/
 StatisticalUnitHistoryCTE AS (
 	SELECT
 		suh.RegId,
@@ -53,6 +65,8 @@ StatisticalUnitHistoryCTE AS (
 		LEFT JOIN RegionsHierarchyCTE as trh ON trh.Id = addrh.Region_id
 	WHERE DATEPART(YEAR,suh.StartPeriod)<@InCurrentYear AND ah.Activity_Type = 1
 ),
+
+/* Get the actual state of statistical units where StartPeriod and registrationDate less than current year, with history logs */
 ResultTableCTE AS
 (
 	SELECT 
@@ -81,6 +95,8 @@ ResultTableCTE AS
 		 AND a.Activity_Type = 1
 		 AND DATEPART(YEAR,su.StartPeriod) = @InCurrentYear))
 )
+
+/* Fill the temporary table to pivot the result */
 INSERT INTO #tempTableForPivot
 SELECT
 	rt.RegId,
@@ -90,6 +106,7 @@ FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE AS rt ON ac.Id = rt.ActivityCategoryId
 	WHERE ac.ActivityCategoryLevel = 1
 
+/* Create a query and pivot the regions */
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT 
 	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT',0) + ', ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '] from 
@@ -106,4 +123,4 @@ SELECT
                 FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT',1) + ')
             ) PivotTable			
 			'
-execute(@query)
+execute(@query) /* execution of the query */

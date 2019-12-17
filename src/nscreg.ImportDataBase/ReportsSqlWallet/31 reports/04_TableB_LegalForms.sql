@@ -4,8 +4,11 @@
 		2 : Area
 		3 : Region
 		4 : City / Village
+
+Row headers - Legal forms
+Column headers - Rayons and in Total Oblast
 */
-BEGIN /*INPUT PARAMETERS*/
+BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InRegionId INT = $RegionId,
 			    @InStatusId NVARCHAR(MAX) = $StatusId,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
@@ -17,27 +20,32 @@ DECLARE @cols AS NVARCHAR(MAX),
 		@regionLevel AS NVARCHAR(MAX),
 		@nameTotalColumn AS NVARCHAR(MAX)
 
+/* Declare Oblast/County/Region - to take only Rayons/Municipalities/Sub-level of Oblast */
 SET @nameTotalColumn  = (SELECT TOP 1 Name FROM Regions WHERE Id = @InRegionId)
 SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE (RegionLevel <= 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
-		PRINT @cols
+		PRINT @cols /* COLUMNS VARIABLES - REGIONS, OBLASTS LEVEL */
 SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
-		PRINT @selCols
+		PRINT @selCols /* COLUMNS VARIABLES - Rayons/Municipalities/Sub-level of Oblast LEVEL */
 SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
             FROM Regions r  WHERE (RegionLevel = 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
 		PRINT @totalSumCols
+
+/* SET THIS TO 2 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 3
-BEGIN /*DECLARE and FILL IerarhyOfRegions*/
+
+/* Delete temporary table for Pivot - result table if exists */
+BEGIN
 IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
 	BEGIN DROP TABLE #tempRegions END
 CREATE TABLE #tempRegions
@@ -47,7 +55,11 @@ CREATE TABLE #tempRegions
     ParentId INT,
     Name NVARCHAR(MAX)
 );
+
+/* Create an index "ix_tempRegionsIndex" - to make search faster - Activity Categories */
 CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
+
+/* using CTE (Common Table Expressions), revursively collect the Regions tree */
 ;WITH RegionsCTE AS (
 	SELECT Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
 	FROM Regions 
@@ -59,12 +71,16 @@ CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
 	INNER JOIN RegionsCTE itms ON itms.Id = i.ParentId
 	WHERE i.ParentId>0
 ),
+
+/* Select all levels from Regions and order them */
 CTE_RN2 AS 
 (
     SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
     FROM RegionsCTE r
     
 )
+
+/* Fill the temporary table */
 INSERT INTO #tempRegions
 SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
@@ -72,7 +88,16 @@ FROM CTE_RN2 r
 	INNER JOIN Regions rc ON rc.Id = r.Id
 END	
 
-
+/*
+The resulting query 
+At the first checking the history logs that have StartPeriod less than current year
+and then
+ResultTable - get the actual state of statistical units where RegistrationDate and StartPeriod less than current year
+and then
+Select by Legal forms all statistical units
+and then
+Count statistical units using pivot transform regions - from column to row
+*/
 set @query = '
 ;WITH StatisticalUnitHistoryCTE AS (
 	SELECT
@@ -93,7 +118,7 @@ ResultTableCTE AS
 	FROM StatisticalUnits su
 	LEFT JOIN LegalForms AS lf ON lf.Id = su.LegalFormId		
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @RegionId + '
+	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @regionLevel + '
 
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN LegalForms AS lfh ON lfh.Id = asuhCTE.LegalFormId
@@ -116,5 +141,4 @@ SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '
                 COUNT(RegId)
                 FOR NameOblast IN (' + @cols + ')
             ) PivotTable'
-
-execute(@query)
+execute(@query) /* execution of the query */

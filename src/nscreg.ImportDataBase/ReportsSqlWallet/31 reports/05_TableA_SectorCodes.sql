@@ -1,6 +1,9 @@
-
-BEGIN /* INPUT PARAMETERS */
+/* Row headers - Institutional Sector Codes
+Column headers - Oblasts/Regions/Counties
+*/
+BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
@@ -13,17 +16,22 @@ SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel IN (1,2)
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+        ,1,1,'') /* COLUMNS VARIABLES - REGIONS, COUNTRYs LEVEL */
 SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
             FROM Regions r  WHERE RegionLevel IN (1,2)
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
+
+/* SET THIS TO 1 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 2
 
-BEGIN /*DECLARE and FILL IerarhyOfRegions*/
+/* Delete temporary table Regions if exists */
+BEGIN 
 IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
 	BEGIN DROP TABLE #tempRegions END
+
+/* Create temporary rable Regions */
 CREATE TABLE #tempRegions
 (
     ID INT,
@@ -31,7 +39,11 @@ CREATE TABLE #tempRegions
     ParentId INT,
     Name NVARCHAR(MAX)
 );
+
+/* Create an index "ix_tempRegionsIndex" - to make search faster - Regions */
 CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
+
+/* using CTE (Common Table Expressions), revursively collect the Regions tree */
 ;WITH RegionsCTE AS (
 	SELECT Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
 	FROM Regions 
@@ -43,12 +55,16 @@ CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
 	INNER JOIN RegionsCTE itms ON itms.Id = i.ParentId
 	WHERE i.ParentId>0
 ),
+
+/* Select all levels from Regions and order them */
 CTE_RN2 AS 
 (
     SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
     FROM RegionsCTE r
     
 )
+
+/* Fill the temporary table */
 INSERT INTO #tempRegions
 SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
@@ -104,4 +120,4 @@ SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as Total from
                 FOR NameOblast IN (' + @cols + ')
             ) PivotTable 
 			'
-execute(@query)
+execute(@query) /* execution of the query */

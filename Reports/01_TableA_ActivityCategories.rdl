@@ -201,7 +201,7 @@ execute(@query)</CommandText>
      
       ,'('+Code+') ' + [Name] AS Text
       
-  FROM [nscreg].[dbo].[Statuses]</CommandText>
+  FROM [dbo].[Statuses]</CommandText>
       </Query>
       <Fields>
         <Field Name="Value">
@@ -294,6 +294,7 @@ execute(@query)</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -395,7 +396,7 @@ execute(@query)</CommandText>
               </TablixMembers>
             </TablixRowHierarchy>
             <DataSetName>DataSetReport</DataSetName>
-            <Height>0.85417in</Height>
+            <Height>0.85416in</Height>
             <Width>2.5625in</Width>
             <Style>
               <Border>
