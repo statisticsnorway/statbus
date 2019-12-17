@@ -1,8 +1,7 @@
 BEGIN /* INPUT PARAMETERS */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
-			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5		
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())	
 END
 
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
@@ -52,15 +51,15 @@ StatisticalUnitHistoryCTE AS (
 		AddressId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,StartPeriod) < @InCurrentYear
 ),
 ResultTableCTE AS
 (
 	SELECT
-		su.RegId as RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name,trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac1.ParentId,ach1.ParentId) AS ActivityCategoryId1,
-		IIF(DATEPART(YEAR, su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac2.ParentId,ach2.ParentId) AS ActivityCategoryId2
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,tr.Name,trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,ac1.ParentId,ach1.ParentId) AS ActivityCategoryId1,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,ac2.ParentId,ach2.ParentId) AS ActivityCategoryId2
 	FROM StatisticalUnits AS su	
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
@@ -102,7 +101,6 @@ SELECT
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE AS rt ON ac.Id = rt.ActivityCategoryId2
 	WHERE ac.ActivityCategoryLevel = 2
-
 
 DECLARE @query AS NVARCHAR(MAX) = '
 	SELECT ActivityCategoryName, ActivitySubCategoryName, ' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',0) + ', ' + dbo.[GetNamesRegionsForPivot](1, 'TOTAL',1) + ' as Total from 
