@@ -10,9 +10,10 @@ BEGIN DROP TABLE #tempTableForPivot END
 CREATE TABLE #tempTableForPivot
 (
 	ActivityCategoryCount INT NULL,
-	RegionParentId INT NULL,
 	ActivityCategoryName NVARCHAR(MAX) NULL,
-	RegionName NVARCHAR(MAX) NULL
+	NameOblast NVARCHAR(MAX) NULL,
+	OblastId INT NULL,
+	NameRayon NVARCHAR(MAX) NULL
 )
 
 DECLARE @cols NVARCHAR(MAX) = STUFF((SELECT ', ' + QUOTENAME(Name)
@@ -32,7 +33,7 @@ DECLARE @colSum NVARCHAR(MAX) = STUFF((SELECT ', SUM(ISNULL(' + QUOTENAME(Name)+
                    FOR XML PATH(''), TYPE
                    ).value('.', 'NVARCHAR(MAX)'),1,1,''
 );
-PRINT @colSum
+
 DECLARE @colsTotal NVARCHAR(MAX) = STUFF((SELECT '+  SUM(ISNULL(' + QUOTENAME(Name)+',0))'
 						FROM dbo.ActivityCategories
 						WHERE ActivityCategoryLevel = 1
@@ -41,8 +42,8 @@ DECLARE @colsTotal NVARCHAR(MAX) = STUFF((SELECT '+  SUM(ISNULL(' + QUOTENAME(Na
                    FOR XML PATH(''), TYPE
                    ).value('.', 'NVARCHAR(MAX)'),1,1,''
 );
-PRINT @colsTotal
-;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+
+WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
 		ParentId,
@@ -105,9 +106,9 @@ ResultTableCTE2 AS (
 		ac.ParentId AS ActivityCategoryId,
 		r.AddressId,
 		tr.RegionLevel,
-		tr.Name AS RegionParentName,
-		tr.ParentId AS RegionParentId,
-		rthCTE.ParentId AS RegionId
+		tr.Name AS NameRayon,
+		tr.ParentId AS RayonId,
+		rthCTE.ParentId AS OblastId
 	FROM ResultTableCTE AS r
 	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
 	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
@@ -116,43 +117,85 @@ ResultTableCTE2 AS (
 ),
 CountOfActivitiesInRegionCTE AS (
 	SELECT 
-		COUNT(ActivityCategoryId) AS Count,
-		RegionId 
+		COUNT(RegId) AS Count,
+		OblastId,
+		ActivityCategoryId
 	FROM ResultTableCTE2
-GROUP BY RegionId
+GROUP BY OblastId, ActivityCategoryId
+),
+AddedRayons AS (
+	SELECT DISTINCT re.Id AS RayonId 
+	FROM dbo.Regions AS re 
+		INNER JOIN ResultTableCTE2 rt2 ON rt2.NameRayon = re.Name
+),
+AddedOblasts AS (
+	SELECT DISTINCT rt2.OblastId 
+	FROM ResultTableCTE2 rt2
 )
+
 INSERT INTO #tempTableForPivot
-SELECT
-	IIF(rt.RegionLevel=2,cofir.Count,COUNT(rt.RegId)),
-	rt.RegionParentId,
+/* inserting values for oblasts */
+SELECT 
+	cofir.Count,
 	ac.Name,	
-	IIF(rt.RegionLevel!=2,'  '+rt.RegionParentName,rt.RegionParentName)
+	re.Name AS NameOblast,
+	cofir.OblastId AS OblastId,
+	'' AS NameRayon
+FROM CountOfActivitiesInRegionCTE AS cofir
+	INNER JOIN dbo.ActivityCategories as ac ON ac.Id = cofir.ActivityCategoryId	
+	INNER JOIN dbo.Regions re ON re.Id = cofir.OblastId
+
+UNION ALL
+/* inserting values for rayons */
+SELECT
+	COUNT(rt.RegId),
+	ac.Name,
+	'' AS NameOblast,
+	rt.OblastId,
+	rt.NameRayon
 FROM ResultTableCTE2 AS rt
 	LEFT JOIN dbo.ActivityCategories as ac ON ac.Id = rt.ActivityCategoryId	
-	LEFT JOIN CountOfActivitiesInRegionCTE AS cofir ON cofir.RegionId = rt.RegionId
-	
+	LEFT JOIN CountOfActivitiesInRegionCTE AS cofir ON cofir.OblastId = rt.OblastId AND cofir.ActivityCategoryId = ac.Id
+	WHERE rt.RegionLevel > 2
 	GROUP BY 
-		rt.RegionParentName,
-		rt.RegionParentId,
-		ac.Name,
-		cofir.Count,
-		rt.RegionLevel
+		rt.NameRayon,
+		rt.OblastId,
+		ac.Name
+
+UNION ALL
+/* inserting values for not added oblasts(regions with level = 2 that will be the first headers column) */
+SELECT 0, ac.Name, re.Name, re.Id, ''
+FROM dbo.Regions AS re
+	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
+WHERE re.RegionLevel = 2 AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
+
+UNION ALL
+/* inserting values for not added rayons(regions with level = 3 that will be the second headers column) */
+SELECT 0, ac.Name, '', re.ParentId, re.Name
+FROM dbo.Regions AS re
+	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
+WHERE re.RegionLevel = 3 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
 
 
+/* count stat units from #tempTableForPivot and perform pivot - transforming names of ActivityCateogries with level=1 to columns */
 DECLARE @query NVARCHAR(MAX) = N'
-SELECT RegionName as Regions,'+ @colsTotal + ' as Total, ' + @colSum
+SELECT NameOblast AS Oblast, NameRayon as Rayon,' + @colsTotal + N' as Total, ' + @colSum
       + N' from 
             (
-				select ActivityCategoryCount,ActivityCategoryName,RegionName,RegionParentId from #tempTableForPivot				
+				SELECT 
+					ActivityCategoryCount,
+					ActivityCategoryName,
+					NameOblast,
+					OblastId,
+					NameRayon 
+				FROM #tempTableForPivot				
            ) SourceTable
             PIVOT
             (
                 SUM(ActivityCategoryCount)
                 FOR ActivityCategoryName IN (' + @cols + N')
-            ) PivotTable GROUP by RegionName,RegionParentId
-			order by RegionParentId
+            ) PivotTable GROUP by OblastId, NameOblast, NameRayon
+			order by OblastId, NameRayon
 			';
 
-
-			PRINT @query
 EXECUTE (@query);
