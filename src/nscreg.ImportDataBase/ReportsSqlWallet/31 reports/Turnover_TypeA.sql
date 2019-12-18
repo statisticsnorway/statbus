@@ -1,4 +1,3 @@
-
 BEGIN /* INPUT PARAMETERS */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
     		  @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
