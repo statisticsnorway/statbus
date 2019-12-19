@@ -14,9 +14,9 @@ CREATE TABLE #tempTableForPivot
 	ActivityCategoryName NVARCHAR(MAX) NULL,
 	ActivitySubCategoryName NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
-)
+);
 
-;WITH ActivityCategoriesTotalHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+WITH ActivityCategoriesTotalHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
 		ParentId,

@@ -10,7 +10,7 @@ BEGIN DROP TABLE #tempTableForPivot END
 
 CREATE TABLE #tempTableForPivot
 (
-	Count INT NULL,
+	Count NVARCHAR(MAX) NULL,
 	Sex TINYINT NULL,
 	Name NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
@@ -91,7 +91,7 @@ ResultTableCTE2 AS
 --inserting values for oblast by activity categories
 INSERT INTO #tempTableForPivot
 SELECT 
-	COUNT(rt.Sex) AS Count,
+	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
 	ac.Name,
 	rt.RegionParentName + IIF(rt.Sex = 1, '1', '2') as NameOblast
@@ -101,21 +101,21 @@ FROM dbo.ActivityCategories as ac
 	GROUP BY ac.Name, rt.RegionParentName, rt.Sex
 
 --replacing NULL values with zeroes for regions and activity categories
-DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name + '1') + ', 0)  AS ' + QUOTENAME(Name + '1') + ', ISNULL(' + QUOTENAME(Name + '2') + ', 0)  AS ' + QUOTENAME(Name + '2')
+DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(ISNULL(' + QUOTENAME(Name + '1') + ', ''0''))  AS ' + QUOTENAME(Name + '1') + ', STR(ISNULL(' + QUOTENAME(Name + '2') + ', ''0''))  AS ' + QUOTENAME(Name + '2')
 				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,2,'');
 
 --total sum of values for particular activity category
-DECLARE @totalMale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(' + QUOTENAME(Name + '1') + ', 0)'
+DECLARE @totalMale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '1') + '), 0)'
 				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3) OR Id = 1
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
 
 --total sum of values for particular activity category
-DECLARE @totalFemale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name + '2') + ', 0)'
+DECLARE @totalFemale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '2') + '), 0)'
 				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3) OR Id = 1
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
@@ -136,7 +136,7 @@ DECLARE @maleFemaleLine AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ''Male'' as
 			,1,1,'');
 
 --columns with type definition for table creation
-DECLARE @colsWithTypeDefinition AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ' + QUOTENAME(Name + '1') + ' INT NULL, ' + QUOTENAME(Name + '2') + ' INT NULL'
+DECLARE @colsWithTypeDefinition AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ' + QUOTENAME(Name + '1') + ' NVARCHAR(MAX) NULL, ' + QUOTENAME(Name + '2') + ' NVARCHAR(MAX) NULL'
 				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
@@ -145,20 +145,10 @@ DECLARE @colsWithTypeDefinition AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ' +
 IF OBJECT_ID ('tempdb..##tempResultTable') IS NOT NULL
    BEGIN DROP TABLE ##tempResultTable END
 
---creating temporary table for result
-DECLARE @createQuery NVARCHAR(MAX) = N'
-CREATE TABLE ##tempResultTable (
-	Name NVARCHAR(MAX) NULL,
-	' + @colsWithTypeDefinition + N',
-	[Total Male] INT NULL,
-	[Total Female] INT NULL
-)
-'
-EXECUTE (@createQuery);
-
 DECLARE @insertQuery AS NVARCHAR(MAX) = N'
-INSERT INTO ##tempResultTable
-SELECT Name, ' + @colswithISNULL + ', ' + @totalMale + ' as [Total Male], ' + @totalFemale + ' as [Total Female] from 
+SELECT '''' as Name, ''Male'' as Total, ''Female'' as ''    '', ' + @maleFemaleLine + '
+UNION ALL
+SELECT Name, STR(' + @totalMale + ') as [Total Male], STR(' + @totalFemale + ') as [Total Female], ' + @colswithISNULL + ' from 
             (
 				SELECT 
 					Count,
@@ -168,22 +158,7 @@ SELECT Name, ' + @colswithISNULL + ', ' + @totalMale + ' as [Total Male], ' + @t
            ) SourceTable
             PIVOT 
             (
-                SUM(Count)
+                MAX(Count)
                 FOR NameOblast IN (' + @namesRegionsForPivot + ')
             ) PivotTable order by Name'
 execute(@insertQuery)
-
---converting Count from int type to string to match them with names of sex
-DECLARE @colsAsString as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(' + QUOTENAME(Name + '1') + ')  AS ' + QUOTENAME(Name) + ', STR(' + QUOTENAME(Name + '2') + ')  AS ''           '' '
-	FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3)
-	FOR XML PATH(''), TYPE
-	).value('.', 'NVARCHAR(MAX)')
-,1,2,'');
-
-DECLARE @resultQuery AS NVARCHAR(MAX) = '
-SELECT '''' as Name, ''Male'' as Total, ''Female'' as ''     '', ' + @maleFemaleLine + '
-UNION ALL
-SELECT Name, STR([Total Male]) as Total, STR([Total Female]) as ''     '', ' + @colsAsString + '
-FROM ##tempResultTable
-'
-EXECUTE (@resultQuery)
