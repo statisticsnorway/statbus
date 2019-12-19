@@ -117,7 +117,7 @@ AddedOblasts AS (
 --inserting values for oblast by activity categories
 INSERT INTO #tempTableForPivot
 SELECT 
-	STR(COUNT(rt.Sex)) AS Count,
+	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
 	ac.Name + IIF(rt.Sex = 1, '1', '2') AS ActivityCategoryName,
 	rt.OblastId,
@@ -131,7 +131,7 @@ FROM dbo.ActivityCategories as ac
 UNION 
 
 SELECT 
-	STR(COUNT(rt.Sex)) AS Count,
+	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
 	ac.Name + IIF(rt.Sex = 1, '1', '2') AS ActivityCategoryName,
 	rt.OblastId,
