@@ -154,7 +154,7 @@ ResultTable AS
 		LEFT JOIN #tempRegions AS trh ON trh.Id = addrh.Region_id
 	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND su.UnitStatusId = ' + @InStatusId +'
 )
-SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as Total from 
+SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from 
             (
 				SELECT
 					acrc.Name,

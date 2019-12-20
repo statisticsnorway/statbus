@@ -109,7 +109,7 @@ FROM dbo.ActivityCategories as ac
 /* Create a query and pivot the regions */
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT 
-	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT',0) + ', ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '] from 
+	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '], ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT',0) + ' from 
 		(
 				SELECT 
 					RegId,

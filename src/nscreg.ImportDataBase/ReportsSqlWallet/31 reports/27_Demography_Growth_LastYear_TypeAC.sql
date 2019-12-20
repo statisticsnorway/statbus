@@ -138,7 +138,7 @@ DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(
 			,1,1,'')
 
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT ActivityCategoryParentName as ActivityCategoryName, ActivityCategoryName as ActivitySubCategoryName, ' + @colswithISNULL + ', ' + @total + ' as Total from 
+SELECT ActivityCategoryParentName as ActivityCategoryName, ActivityCategoryName as ActivitySubCategoryName, ' + @total + ' as Total, ' + @colswithISNULL + ' from 
             (
 				SELECT 
 					Count,
