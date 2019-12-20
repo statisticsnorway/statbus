@@ -1,23 +1,24 @@
-BEGIN /* INPUT PARAMETERS */
+BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
 			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
-			
-			
 END
 
+/* checking if temporary table exists and deleting it if it is true */
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
+/* list of stat units that satisfy necessary requirements with their ActivityCategory name and name of oblast */
 CREATE TABLE #tempTableForPivot
 (
 	RegId INT NULL,
 	Name NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
-)
+);
 
-;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+/* table where ActivityCategories linked to the greatest ancestor */
+WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
 		ParentId,
@@ -26,6 +27,7 @@ CREATE TABLE #tempTableForPivot
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
+/* table where regions linked to their ancestor - oblast(region with level = 2) and superregion with Id = 1(level = 1) linked to itself */
 RegionsHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -36,6 +38,7 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
+/* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
 	SELECT
 		RegId,
@@ -45,6 +48,7 @@ StatisticalUnitHistoryCTE AS (
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR, RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
+/* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
 ResultTableCTE AS
 (
 	SELECT
@@ -69,6 +73,7 @@ ResultTableCTE AS
   AND a.Activity_Type = 1
 )
 
+/* filling temporary table by all ActivityCategories with level=1 and stat units from ResultTableCTE linked to them */
 INSERT INTO #tempTableForPivot
 SELECT 
 	rt.RegId,
@@ -78,6 +83,7 @@ FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE AS rt ON ac.Id = rt.ActivityCategoryId
 	WHERE ac.ActivityCategoryLevel = 1
 
+/* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
 	SELECT Name, ' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',0) + ', ' + dbo.[GetNamesRegionsForPivot](1, 'TOTAL',1) + ' as Total from 
             (
@@ -92,4 +98,5 @@ DECLARE @query AS NVARCHAR(MAX) = '
                 COUNT(RegId)
                 FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',1) + ')
             ) PivotTable order by Name'
+
 execute(@query)
