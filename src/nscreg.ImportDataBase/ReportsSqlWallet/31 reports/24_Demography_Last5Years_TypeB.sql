@@ -104,8 +104,8 @@ FROM dbo.ActivityCategories as ac
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT
-	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT', 0) + ', ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '] from
+SELECT 
+	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '], ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT', 0) + ' from 
 		(
 				SELECT
 					RegId,

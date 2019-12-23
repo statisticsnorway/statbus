@@ -105,7 +105,7 @@ ResultTableCTE AS
 )
 
 
-SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as Total from 
+SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from 
            (		
 				SELECT
 					sc.Name,

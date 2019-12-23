@@ -119,7 +119,7 @@ DECLARE @cols NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Nam
 			,1,1,'');
 
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @cols + ', ' + @total + ' as Total from 
+SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, ' + @cols + ' from 
             (
 				SELECT 
 					Employees,

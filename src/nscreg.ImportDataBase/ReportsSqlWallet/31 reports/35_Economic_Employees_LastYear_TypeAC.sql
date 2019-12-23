@@ -154,7 +154,7 @@ DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(
 
 /* perform pivot on list of number of employees transforming names of regions to columns and summarizing number of employees for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @colswithISNULL + ', ' + @total + ' as Total from 
+SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, ' + @colswithISNULL + ' from 
             (
 				SELECT
 					Count,

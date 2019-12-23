@@ -115,7 +115,7 @@ DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT Name, ' + @colswithISNULL + ', ' + @total + ' as Total from 
+SELECT Name, ' + @total + ' as Total, ' + @colswithISNULL + ' from 
             (
 				SELECT 
 					Count,
