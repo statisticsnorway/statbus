@@ -1,18 +1,23 @@
-BEGIN /*INPUT PARAMETERS from report body */
+/* Table B
+    would get one top level region at the total column
+    And sub-level regions - Rayons level */
+
+/* Input parameters from report body - filters that have to be defined by the user */
+BEGIN
 	DECLARE @InRegionId INT = $RegionId,
 			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
     		  @InStatusId NVARCHAR(MAX) = $StatusId,
           @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
-/* Declare Oblast/County/Region - to take only Rayons/Municipalities/Sub-level of Oblast */
+/* Name of oblast/county for the total column */
 DECLARE @nameTotalColumn AS NVARCHAR(MAX) = (SELECT TOP 1 Name FROM dbo.Regions WHERE Id = @InRegionId)
 
-/* Delete temporary table for Pivot - result table if exists */
+/* Delete #tempTableForPivot temporary table if exists */
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
-/* Create temporary table for Pivot - result table */
+/* Create a temporary table for Pivot - result table */
 CREATE TABLE #tempTableForPivot
 (
 	RegId INT NULL,
@@ -20,31 +25,37 @@ CREATE TABLE #tempTableForPivot
 	NameOblast NVARCHAR(MAX) NULL
 )
 
-/* using CTE (Common Table Expressions), revursively collect the Activity Categories tree */
+/* using CTE (Common Table Expressions), recursively collect the Activity Categories tree */
 ;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
-	SELECT 
+	SELECT
 		Id,
 		ParentId,
 		Name,
 		DesiredLevel
-	FROM v_ActivityCategoriesHierarchy 
+	FROM v_ActivityCategoriesHierarchy
 	WHERE DesiredLevel=1
 ),
 
-/* using CTE (Common Table Expressions), revursively collect the Regions tree */
+/* using CTE (Common Table Expressions), recursively collect the Regions tree */
 RegionsHierarchyCTE AS(
-	SELECT 
+	SELECT
 		Id,
 		ParentId,
 		Name,
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+  /* If there no Country-level at the Regions catalog,
+  "WHERE" condition below from:
+  WHERE DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel  = 2
+  should be just:
+  WHERE Id = @InRegionId AND DesiredLevel = 2
+  */
 	WHERE DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel  = 2
 ),
 
-/* using CTE (Common Table Expressions),  
-Check the history logs by StartPeriod less then current year - 
+/* using CTE (Common Table Expressions),
+Check the history logs by StartPeriod less then current year -
 to have the actual state of statistical units less than current year
 */
 StatisticalUnitHistoryCTE AS (
@@ -66,37 +77,37 @@ StatisticalUnitHistoryCTE AS (
 	WHERE DATEPART(YEAR,suh.StartPeriod)<@InCurrentYear AND ah.Activity_Type = 1
 ),
 
-/* Get the actual state of statistical units where StartPeriod and registrationDate less than current year, with history logs */
+/* Get the actual state of statistical units where StartPeriod and RegistrationDate less than current year, with history logs */
 ResultTableCTE AS
 (
-	SELECT 
+	SELECT
 		su.RegId,
-		su.StatId,		
+		su.StatId,
 		suh.RegId as hRegId,
 		a.Activity_Type,
 		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,acc.Name,suh.acchName) AS Name,
 		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,acc.ParentId,suh.achParentId) AS ActivityCategoryId,
 		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name,suh.trhParentName) AS NameOblast
-	FROM [dbo].[StatisticalUnits] AS su	
-		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId 
-		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id 
+	FROM [dbo].[StatisticalUnits] AS su
+		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
+		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id
 		LEFT JOIN dbo.ActivityCategories AS ac ON ac.Id = a.ActivityCategoryId
 		LEFT JOIN ActivityCategoriesHierarchyCTE acc ON ac.ParentId = acc.Id
 		LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
 		LEFT JOIN RegionsHierarchyCTE as tr ON tr.Id = addr.Region_id
 		LEFT JOIN StatisticalUnitHistoryCTE suh ON suh.ParentId = su.RegId
 
-	WHERE (((@InStatUnitType = 'All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId 
+	WHERE (((@InStatUnitType = 'All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId
 		 AND asu.Unit_Id IS NOT NULL
 		 AND a.Activity_Type = 1)
-		 OR 
-		 ((@InStatUnitType = 'All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId 
-		 AND asu.Unit_Id IS NOT NULL		 
+		 OR
+		 ((@InStatUnitType = 'All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId
+		 AND asu.Unit_Id IS NOT NULL
 		 AND a.Activity_Type = 1
 		 AND DATEPART(YEAR,su.StartPeriod) = @InCurrentYear))
 )
 
-/* Fill the temporary table to pivot the result */
+/* Fill with data the temporary table for pivot */
 INSERT INTO #tempTableForPivot
 SELECT
 	rt.RegId,
@@ -108,19 +119,20 @@ FROM dbo.ActivityCategories as ac
 
 /* Create a query and pivot the regions */
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT 
-	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '], ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT',0) + ' from 
+SELECT
+	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '], ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT',0) + ' from
 		(
-				SELECT 
+				SELECT
 					RegId,
 					Name,
 					NameOblast
 				FROM #tempTableForPivot
            ) SourceTable
-            PIVOT 
+            PIVOT
             (
                 COUNT(RegId)
                 FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT',1) + ')
-            ) PivotTable			
+            ) PivotTable
 			'
-execute(@query) /* execution of the query */
+/* execution of the query */
+execute(@query)
