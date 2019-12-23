@@ -152,7 +152,7 @@ DECLARE @colsInSelect NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTE
                 ).value('.', 'NVARCHAR(MAX)'),1,2,''
 );
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT NameOblast, NameRayon, ' + @colsInSelect + ', ' + @total + ' as Total from 
+SELECT NameOblast, NameRayon, ' + @total + ' as Total, ' + @colsInSelect + ' from 
             (
 				SELECT 
 					Employees,

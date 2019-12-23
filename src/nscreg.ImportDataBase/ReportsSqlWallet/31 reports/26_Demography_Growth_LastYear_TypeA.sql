@@ -116,7 +116,7 @@ DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(
 
 /* count stat units from #tempTableForPivot and perform pivot - transforming names of regions with level=2 to columns */
 DECLARE @query AS NVARCHAR(MAX) = '
-SELECT Name, ' + @colswithISNULL + ', ' + @total + ' as Total from 
+SELECT Name, ' + @total + ' as Total, ' + @colswithISNULL + ' from 
             (
 				SELECT 
 					Count,

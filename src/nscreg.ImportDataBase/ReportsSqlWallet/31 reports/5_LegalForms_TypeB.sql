@@ -127,7 +127,7 @@ ResultTableCTE AS
     
     WHERE su.UnitStatusId = ' + @InStatusId +'
 )
-SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from
+SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @selCols + ' from
             (
 				SELECT
 					lf.Name,

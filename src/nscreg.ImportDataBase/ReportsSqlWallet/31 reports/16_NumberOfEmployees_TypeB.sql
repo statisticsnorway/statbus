@@ -166,7 +166,7 @@ ResultTableCTE AS
 	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND su.UnitStatusId = ' + @InStatusId +'
 )
 
-SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from 
+SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @cols + ' from
 		(
 		SELECT
 			acrc.Name,

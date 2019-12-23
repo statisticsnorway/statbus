@@ -128,7 +128,7 @@ TurnoverCTE AS
 	FROM ResultTableCTE as rtCTE
 	GROUP BY rtCTE.NameOblast
 )
-SELECT Turnover, ' + @selCols + ', ' + @totalSumCols+ ' as [' + @nameTotalColumn+ '] from 
+SELECT Turnover, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @selCols + ' from
             (
 				SELECT 
 					l.Turnover,

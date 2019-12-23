@@ -103,7 +103,7 @@ FROM dbo.ActivityCategories as ac
 	WHERE ac.ActivityCategoryLevel = 2
 
 DECLARE @query AS NVARCHAR(MAX) = '
-	SELECT ActivityCategoryName, ActivitySubCategoryName, ' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',0) + ', ' + dbo.[GetNamesRegionsForPivot](1, 'TOTAL',1) + ' as Total from 
+	SELECT ActivityCategoryName, ActivitySubCategoryName, ' + dbo.[GetNamesRegionsForPivot](1, 'TOTAL',1) + ' as Total, ' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',0) + ' from 
             (
 				SELECT 
 					RegId,

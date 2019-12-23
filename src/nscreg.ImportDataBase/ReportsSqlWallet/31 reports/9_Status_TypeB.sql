@@ -102,7 +102,7 @@ ResultTableCTE AS
     
     WHERE (''' + @InStatUnitType + ''' = ''All'' OR su.Discriminator = ''' + @InStatUnitType + ''')
 )
-SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from
+SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @selCols + ' from
             (
 				SELECT
 					sc.Name,

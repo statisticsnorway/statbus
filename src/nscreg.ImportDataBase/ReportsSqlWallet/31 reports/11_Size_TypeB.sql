@@ -93,7 +93,7 @@ ResultTableCTE AS
 	FROM StatisticalUnits su
 	LEFT JOIN UnitsSize AS us ON us.Id = su.SizeId		
 	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @RegionId + '			
+	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @regionLevel + '			
 
 	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 	LEFT JOIN UnitsSize AS ush ON ush.Id = asuhCTE.SizeId
@@ -102,7 +102,7 @@ ResultTableCTE AS
     
     WHERE su.UnitStatusId = ' + @InStatusId +'
 )
-SELECT Name, ' + @selCols + ', ' + @totalSumCols + ' as [' + @nameTotalColumn+ '] from
+SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @selCols + ' from
             (
 				SELECT
 					us.Name,
