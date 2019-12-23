@@ -75,9 +75,15 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 AND RegionLevel = 2 OR DesiredLevel = 3
+		To:
+		DesiredLevel = 1 AND RegionLevel = 1 OR DesiredLevel = 2
+	*/
 	WHERE 		
-		DesiredLevel  = 2 AND RegionLevel =2
-		OR DesiredLevel  = 3
+		DesiredLevel = 2 AND RegionLevel = 2
+		OR DesiredLevel = 3
 ),
 /* table where regions linked to their oblast(region with level = 2) */
 RegionsTotalHierarchyCTE AS(
@@ -88,8 +94,14 @@ RegionsTotalHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE 		
-		 DesiredLevel  = 2		
+		 DesiredLevel = 2		
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
@@ -179,17 +191,19 @@ SELECT
 FROM ResultTableCTE2 AS rt
 	LEFT JOIN dbo.ActivityCategories as ac ON ac.Id = rt.ActivityCategoryId	
 	LEFT JOIN CountOfActivitiesInRegionCTE AS cofir ON cofir.OblastId = rt.OblastId AND cofir.ActivityCategoryId = ac.Id
-	WHERE rt.RegionLevel > 2
-	GROUP BY 
-		rt.NameRayon,
-		rt.OblastId,
-		ac.Name
+/* set rt.RegionLevel > 1 if there is no Country level at Regions tree */
+WHERE rt.RegionLevel > 2
+GROUP BY 
+	rt.NameRayon,
+	rt.OblastId,
+	ac.Name
 
 UNION ALL
 /* inserting values for not added oblasts(regions with level = 2) that will be the first headers column */
 SELECT 0, ac.Name, re.Name, re.Id, ''
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
+/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
 WHERE re.RegionLevel = 2 AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
 
 UNION ALL
@@ -197,6 +211,7 @@ UNION ALL
 SELECT 0, ac.Name, '', re.ParentId, re.Name
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
+/* set re.RegionLevel = 2 if there is no Country level at Regions tree */
 WHERE re.RegionLevel = 3 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories with both levels 1 and 2 */

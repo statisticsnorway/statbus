@@ -52,6 +52,12 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
@@ -115,8 +121,8 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
-	WHERE ac.ActivityCategoryLevel = 1
-	GROUP BY ac.Name, rt.RegionParentName, ac.Id
+WHERE ac.ActivityCategoryLevel = 1
+GROUP BY ac.Name, rt.RegionParentName, ac.Id
 	
 UNION
 /* inserting values for ActivityCategories with level = 2 */
@@ -128,15 +134,15 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
-	WHERE ac.ActivityCategoryLevel = 2
-	GROUP BY ac.Name, rt.RegionParentName, ac.ParentId
-
+WHERE ac.ActivityCategoryLevel = 2
+GROUP BY ac.Name, rt.RegionParentName, ac.ParentId
 
 /* 
 	list of regions with level=2, that will be columns in report
 	for select statement with replacing NULL values with zeroes
 */
 DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
+				/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
 				FROM dbo.Regions  WHERE RegionLevel = 2
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
@@ -144,6 +150,7 @@ DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + 
 
 /* total sum of values for select statement */
 DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
+				/* set re.RegionLevel = 1 if there is no Country level at Regions tree (without condition Id = 1) */
 				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')

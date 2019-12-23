@@ -45,6 +45,12 @@ RegionsTotalHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
 /* table where regions linked to their ancestor - rayon(region with level = 3) */
@@ -56,6 +62,12 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 3
+		To:
+		DesiredLevel = 2
+	*/
 	WHERE DesiredLevel = 3
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
@@ -137,8 +149,8 @@ SELECT
 	rt.OblastName
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
-	WHERE ac.ActivityCategoryLevel = 1 AND rt.OblastId IS NOT NULL
-	GROUP BY ac.Name, rt.OblastId, rt.Sex, rt.OblastName
+WHERE ac.ActivityCategoryLevel = 1 AND rt.OblastId IS NOT NULL
+GROUP BY ac.Name, rt.OblastId, rt.Sex, rt.OblastName
 
 UNION 
 /* inserting values for rayons */
@@ -151,14 +163,15 @@ SELECT
 	'' AS OblastName
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
-	WHERE ac.ActivityCategoryLevel = 1 AND rt.RayonId IS NOT NULL
-	GROUP BY ac.Name, rt.OblastId, rt.Sex, rt.RayonName
+WHERE ac.ActivityCategoryLevel = 1 AND rt.RayonId IS NOT NULL
+GROUP BY ac.Name, rt.OblastId, rt.Sex, rt.RayonName
 
 UNION
 /* inserting values for not added oblasts(regions with level = 2) that will be the first headers column */
 SELECT '0', 1, ac.Name, re.Id, '', re.Name
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
+/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
 WHERE re.RegionLevel = 2 AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
 
 UNION
@@ -166,6 +179,7 @@ UNION
 SELECT '0', 1, ac.Name, re.ParentId, re.Name, ''
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
+/* set re.RegionLevel = 2 if there is no Country level at Regions tree */
 WHERE re.RegionLevel = 3 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
 
 /* 

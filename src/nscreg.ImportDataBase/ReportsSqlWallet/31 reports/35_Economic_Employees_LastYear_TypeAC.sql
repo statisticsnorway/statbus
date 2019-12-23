@@ -48,6 +48,12 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
@@ -79,8 +85,8 @@ ResultTableCTE AS
 		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
-		WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
-				AND a.Activity_Type = 1
+	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
+			AND a.Activity_Type = 1
 ),
 /* list of stat units linked to their oblast(region with level = 2) */
 ResultTableCTE2 AS
@@ -119,8 +125,8 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryIdLevel1
-	WHERE ac.ActivityCategoryLevel = 1
-	GROUP BY ac.Name, rt.RegionParentName, ac.Id
+WHERE ac.ActivityCategoryLevel = 1
+GROUP BY ac.Name, rt.RegionParentName, ac.Id
 
 UNION
 /* inserting values for ActivityCategories with level = 2 */
@@ -132,14 +138,15 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryIdLevel2
-	WHERE ac.ActivityCategoryLevel = 2
-	GROUP BY ac.Name, rt.RegionParentName, ac.ParentId
+WHERE ac.ActivityCategoryLevel = 2
+GROUP BY ac.Name, rt.RegionParentName, ac.ParentId
 
-/* 
+/*
 	list of regions with level=2, that will be columns in report
 	for select statement with replacing NULL values with zeroes
 */
 DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
+				/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
 				FROM dbo.Regions  WHERE RegionLevel = 2
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
@@ -147,6 +154,7 @@ DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + 
 
 /* total sum of values for select statement */
 DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
+				/* set re.RegionLevel = 1 if there is no Country level at Regions tree (without condition Id = 1) */
 				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')

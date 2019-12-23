@@ -53,6 +53,12 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
@@ -89,7 +95,7 @@ ResultTableCTE AS
 		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = asuhCTE.AddressId
 		LEFT JOIN RegionsHierarchyCTE AS trh ON trh.Id = addrh.Region_id
 	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId)
-  AND a.Activity_Type = 1
+			AND a.Activity_Type = 1
 )
 
 /* filling temporary table by all ActivityCategories with level 1 and 2, oblasts and stat units from ResultTableCTE linked to them */ 
@@ -103,7 +109,7 @@ SELECT
 	rt.NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE AS rt ON ac.Id = rt.ActivityCategoryId1
-	WHERE ac.ActivityCategoryLevel = 1
+WHERE ac.ActivityCategoryLevel = 1
 
 UNION 
 /* inserting values for ActivityCategories with level = 2 */
@@ -115,7 +121,7 @@ SELECT
 	rt.NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE AS rt ON ac.Id = rt.ActivityCategoryId2
-	WHERE ac.ActivityCategoryLevel = 2
+WHERE ac.ActivityCategoryLevel = 2
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories with both levels 1 and 2 */
 DECLARE @query AS NVARCHAR(MAX) = '

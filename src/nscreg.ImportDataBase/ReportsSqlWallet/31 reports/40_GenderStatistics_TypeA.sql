@@ -40,6 +40,12 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
@@ -112,6 +118,7 @@ FROM dbo.ActivityCategories as ac
 	for select statement with replacing NULL values with zeroes as string
 */
 DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(ISNULL(' + QUOTENAME(Name + '1') + ', ''0''))  AS ' + QUOTENAME(Name + '1') + ', STR(ISNULL(' + QUOTENAME(Name + '2') + ', ''0''))  AS ' + QUOTENAME(Name + '2')
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
 				FROM dbo.Regions  WHERE RegionLevel = 2
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
@@ -119,27 +126,31 @@ DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(ISNULL(
 
 /* total sum of male persons for select statement */
 DECLARE @totalMale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '1') + '), 0)'
-				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
 
 /* total sum of female persons for select statement */
 DECLARE @totalFemale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '2') + '), 0)'
-				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
 
 /* list of names of regions that were used in #tempTableForPivot */
 DECLARE @namesRegionsForPivot AS NVARCHAR(MAX) = STUFF((SELECT distinct ',' + QUOTENAME(Name + '1') + ',' + QUOTENAME(Name + '2')
-				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'');
 
 /* second line of headers, that will be used for naming columns as Male and Female */
 DECLARE @maleFemaleLine AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ''Male'' as ' + QUOTENAME(Name) + ', ''Female'' as ''                   '''
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
 				FROM dbo.Regions  WHERE RegionLevel = 2
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')

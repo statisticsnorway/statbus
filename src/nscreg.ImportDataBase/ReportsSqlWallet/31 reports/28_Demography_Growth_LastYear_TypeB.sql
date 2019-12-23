@@ -39,6 +39,12 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel = 2
+		To:
+		DesiredLevel = 2 OR Id = @InRegionId AND DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel  = 2
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
@@ -97,8 +103,8 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
-	WHERE ac.ActivityCategoryLevel = 1
-	GROUP BY ac.Name, rt.RegionParentName
+WHERE ac.ActivityCategoryLevel = 1
+GROUP BY ac.Name, rt.RegionParentName
 
 /* 
 	list of regions with level=3 and ParentId = @InRegionId, that will be columns in report
