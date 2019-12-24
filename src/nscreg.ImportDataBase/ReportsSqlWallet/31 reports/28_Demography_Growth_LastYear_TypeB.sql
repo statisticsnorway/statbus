@@ -8,19 +8,20 @@ END
 /* name of given oblast */
 DECLARE @nameTotalColumn AS NVARCHAR(MAX) = (SELECT TOP 1 Name FROM dbo.Regions WHERE Id = @InRegionId)
 
-/* delete temp table if exists */
+/* checking if temporary table exists and deleting it if it is true */
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
-/* table with values for each ActivityCategory with level = 1 in each Rayon(regions with level = 3) in given Oblast(region with level = 2) with Id = @RegionId */
+/* table with count of stat units for each ActivityCategory with level = 1 in each Oblast(region with level = 2) */
 CREATE TABLE #tempTableForPivot
 (
 	Count INT NOT NULL DEFAULT 0,
 	Name NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
-)
---table where ActivityCategories linked to the greatest ancestor
-;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+);
+
+/* table where ActivityCategories linked to the greatest ancestor */
+WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
 		ParentId,
@@ -29,7 +30,7 @@ CREATE TABLE #tempTableForPivot
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
-/* table where regions linked to their Rayon(region with level = 3) and oblast(region with level = 2) with Id = @RegionId linked to itself */
+/* table where regions linked to their ancestor - rayon(region with level = 3) and region with Id = @InRegionId(level = 2) linked to itself */
 RegionsHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -38,9 +39,15 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel = 2
+		To:
+		DesiredLevel = 2 OR Id = @InRegionId AND DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 3 OR Id = @InRegionId AND DesiredLevel  = 2
 ),
-/* table with needed fields for previous states of stat units that were created and started in given date period */
+/* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
 	SELECT
 		RegId,
@@ -50,7 +57,7 @@ StatisticalUnitHistoryCTE AS (
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1
 ),
-/* table with all stat units with given StatUnitType linked to their primary ActivityCategory */
+/* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
 ResultTableCTE AS
 (
 	SELECT
@@ -69,7 +76,7 @@ ResultTableCTE AS
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
 	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND a.Activity_Type = 1
 ),
-/* table where stat units with the superparent of their ActivityCategory and their rayon or oblast(if address cannot be linked to rayon) */
+/* list of stat units linked to their rayon(region with level = 3) or oblast(region with level = 2) if address cannot be linked to rayon */
 ResultTableCTE2 AS
 (
 	SELECT
@@ -88,7 +95,7 @@ ResultTableCTE2 AS
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 )
 
-/* inserting values for rayon or oblast(if address cannot be linked to rayon) by activity categories */
+/* filling temporary table by all ActivityCategories with level=1 and stat units from ResultTableCTE linked to them */
 INSERT INTO #tempTableForPivot
 SELECT 
 	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND rt.UnitStatusId = 1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1, 1,0)) AS Count,
@@ -96,27 +103,27 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
-	WHERE ac.ActivityCategoryLevel = 1
-	GROUP BY ac.Name, rt.RegionParentName
+WHERE ac.ActivityCategoryLevel = 1
+GROUP BY ac.Name, rt.RegionParentName
 
 /* 
-	declaration list of columns(regions with level = 3(direct children of region with Id = @RegionId)) 
-	for select with replacing NULL values with zeroes
+	list of regions with level=3 and ParentId = @InRegionId, that will be columns in report
+	for select statement with replacing NULL values with zeroes
 */
 DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
-				FROM dbo.Regions  WHERE ParentId = @InRegionId AND RegionLevel = 3
+				FROM dbo.Regions  WHERE ParentId = @InRegionId
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,2,'');
 
-/* declaring total sum of values for particular activity category for select */
+/* total sum of values for select statement */
 DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
-				FROM dbo.Regions  WHERE ParentId = @InRegionId AND RegionLevel IN (1,2,3) OR Id = @InRegionId
+				FROM dbo.Regions  WHERE ParentId = @InRegionId OR Id = @InRegionId
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
 		
-/* count stat units from #tempTableForPivot and perform pivot - transforming names of regions with level=3 to columns */
+/* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT Name, ' + @total + ' as ' + QUOTENAME(@nameTotalColumn) + ', ' + @colswithISNULL + ' FROM 
             (
@@ -131,4 +138,5 @@ SELECT Name, ' + @total + ' as ' + QUOTENAME(@nameTotalColumn) + ', ' + @colswit
                 SUM(Count)
                 FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT',1) + ')
             ) PivotTable order by Name'
+
 execute(@query)

@@ -1,23 +1,28 @@
-BEGIN /* INPUT PARAMETERS */
+BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InPersonTypeId NVARCHAR(MAX) = $PersonTypeId,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
+/* checking if temporary table exists and deleting it if it is true */
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
+/* 
+	table with count of employees of new stat units
+	for each Sex, ActivityCategory with level = 1, and Oblast(region with level = 2) 
+*/
 CREATE TABLE #tempTableForPivot
 (
 	Count NVARCHAR(MAX) NULL,
 	Sex TINYINT NULL,
 	Name NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
-)
+);
 
---table where ActivityCategories linked to the greatest ancestor
-;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+/* table where ActivityCategories linked to the greatest ancestor */
+WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT 
 		Id,
 		ParentId,
@@ -26,7 +31,7 @@ CREATE TABLE #tempTableForPivot
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
---table where regions linked to their oblast and region with Id=1
+/* table where regions linked to their ancestor - oblast(region with level = 2) and superregion with Id = 1(level = 1) linked to itself */
 RegionsHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -35,8 +40,15 @@ RegionsHierarchyCTE AS(
 		RegionLevel,
 		DesiredLevel
 	FROM v_Regions
+	/* 
+		If there no Country level in database, edit WHERE condition below from:
+		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		To:
+		DesiredLevel = 1
+	*/
 	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
 ),
+/* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
 	SELECT
 		RegId,
@@ -46,7 +58,7 @@ StatisticalUnitHistoryCTE AS (
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod) < @InCurrentYear
 ),
---table with all stat units linked to their primary activities' category with given StatUnitType
+/* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
 ResultTableCTE AS
 (
 	SELECT
@@ -71,7 +83,7 @@ ResultTableCTE AS
 			AND (@InPersonTypeId = 0 OR @InPersonTypeId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,psu.PersonTypeId,psuh.PersonTypeId))
 			AND a.Activity_Type = 1
 ),
---table where stat units with the superparent of their ActivityCategory and their oblast
+/* list of stat units linked to their oblast(region with level = 2) */
 ResultTableCTE2 AS
 (
 	SELECT
@@ -88,7 +100,8 @@ ResultTableCTE2 AS
 	INNER JOIN dbo.Persons AS p ON r.PersonId = p.Id 
 	WHERE DATEPART(YEAR, r.RegistrationDate) < @InCurrentYear AND r.PersonId IS NOT NULL
 )
---inserting values for oblast by activity categories
+
+/* filling temporary table by all ActivityCategories with level=1 and number of employees in new stat units from ResultTableCTE linked to them as string, not number */
 INSERT INTO #tempTableForPivot
 SELECT 
 	STR(COUNT(rt.PersonId)) AS Count,
@@ -100,51 +113,54 @@ FROM dbo.ActivityCategories as ac
 	WHERE ac.ActivityCategoryLevel = 1
 	GROUP BY ac.Name, rt.RegionParentName, rt.Sex
 
---replacing NULL values with zeroes for regions and activity categories
+/* 
+	list of regions with level=2, that will be columns in report
+	for select statement with replacing NULL values with zeroes as string
+*/
 DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(ISNULL(' + QUOTENAME(Name + '1') + ', ''0''))  AS ' + QUOTENAME(Name + '1') + ', STR(ISNULL(' + QUOTENAME(Name + '2') + ', ''0''))  AS ' + QUOTENAME(Name + '2')
-				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3)
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel = 2
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,2,'');
 
---total sum of values for particular activity category
+/* total sum of male persons for select statement */
 DECLARE @totalMale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '1') + '), 0)'
-				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3) OR Id = 1
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
 
---total sum of values for particular activity category
+/* total sum of female persons for select statement */
 DECLARE @totalFemale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '2') + '), 0)'
-				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3) OR Id = 1
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
 
---regions that will be used in columns
+/* list of names of regions that were used in #tempTableForPivot */
 DECLARE @namesRegionsForPivot AS NVARCHAR(MAX) = STUFF((SELECT distinct ',' + QUOTENAME(Name + '1') + ',' + QUOTENAME(Name + '2')
-				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3) OR Id = 1
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'');
 
---second line of headers, that will be used for naming columns as male and female statistics
+/* second line of headers, that will be used for naming columns as Male and Female */
 DECLARE @maleFemaleLine AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ''Male'' as ' + QUOTENAME(Name) + ', ''Female'' as ''                   '''
-				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3)
+				/* set RegionLevel = 1 if there is no Country level at Regions tree */
+				FROM dbo.Regions  WHERE RegionLevel = 2
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'');
 
---columns with type definition for table creation
-DECLARE @colsWithTypeDefinition AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ' + QUOTENAME(Name + '1') + ' NVARCHAR(MAX) NULL, ' + QUOTENAME(Name + '2') + ' NVARCHAR(MAX) NULL'
-				FROM dbo.Regions  WHERE ParentId = 1 AND RegionLevel IN (1,2,3)
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,2,'');
-
-IF OBJECT_ID ('tempdb..##tempResultTable') IS NOT NULL
-   BEGIN DROP TABLE ##tempResultTable END
-
+/*
+	perform pivot on list of number of employees of each sex 
+	transforming names of regions to columns
+	and uniting it with line of headers(maleFemaleLine)
+*/
 DECLARE @insertQuery AS NVARCHAR(MAX) = N'
 SELECT '''' as Name, ''Male'' as Total, ''Female'' as ''    '', ' + @maleFemaleLine + '
 UNION ALL
@@ -161,4 +177,5 @@ SELECT Name, STR(' + @totalMale + ') as [Total Male], STR(' + @totalFemale + ') 
                 MAX(Count)
                 FOR NameOblast IN (' + @namesRegionsForPivot + ')
             ) PivotTable order by Name'
+
 execute(@insertQuery)
