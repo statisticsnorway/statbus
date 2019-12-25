@@ -10,9 +10,9 @@
 
 /* Input parameters from report body - filters that have to be defined by the user */
 BEGIN
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId ,
-			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
 
@@ -152,10 +152,9 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel
+WHERE r.RN = @regionLevel OR r.Id = 1
 END
 /* End declare Regions Tree */
-
 
 
 /*
@@ -176,6 +175,8 @@ SET @query = '
 		RegId,
 		ParentId,
 		AddressId,
+		UnitStatusId,
+		Discriminator,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
@@ -186,30 +187,41 @@ ActivityCategoriesForResultCTE AS
 	FROM dbo.ActivityCategories
 	WHERE ActivityCategoryLevel = 1
 ),
-ResultTable AS
+ResultTableCTE AS
 (
 	SELECT
-		su.RegId as RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',ac.Name,ach.Name) AS Name,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name,trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',ac.ParentId,ach.ParentId) AS ActivityCategoryId
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',ac.ParentId,ach.ParentId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',0,1) AS isHistory
 	FROM StatisticalUnits AS su
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
-		LEFT JOIN Activities a ON a.Id = asu.Activity_Id AND a.Activity_Type = 1
+		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
 		LEFT JOIN #tempActivityCategories AS ac ON ac.Id = a.ActivityCategoryId
-		LEFT JOIN dbo.Address AS addr ON addr.Address_id = su.AddressId
-		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
-
+		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
-		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id AND ah.Activity_Type = 1
+		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
 		LEFT JOIN #tempActivityCategories AS ach ON ach.Id = ah.ActivityCategoryId
-		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = asuhCTE.AddressId
-		LEFT JOIN #tempRegions AS trh ON trh.Id = addrh.Region_id
-	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND su.UnitStatusId = ' + @InStatusId +'
-  AND ah.Activity_Type = 1
-)
+),
+ResultTableCTE2 AS
+(
+	SELECT
+		RegId,
+		tr.Name AS NameOblast,
+		ActivityCategoryId
+	FROM ResultTableCTE AS rt
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
 
+	WHERE (''' + @InStatUnitType + ''' = ''All'' OR (rt.isHistory = 0 AND  rt.Discriminator = ''' + @InStatUnitType + ''') 
+				OR (rt.isHistory = 1 AND rt.Discriminator = ''' + @InStatUnitType + 'History' + '''))
+			AND ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
+			AND rt.ActivityType = 1
+)
 SELECT Name, ' + @totalSumCols + ' as Total, ' + @selCols + ' from
             (
 				SELECT
@@ -217,7 +229,7 @@ SELECT Name, ' + @totalSumCols + ' as Total, ' + @selCols + ' from
 					acrc.Name,
 					rt.NameOblast
 				FROM ActivityCategoriesForResultCTE as acrc
-				LEFT JOIN ResultTable AS rt ON acrc.Id = rt.ActivityCategoryId
+				LEFT JOIN ResultTableCTE2 AS rt ON acrc.Id = rt.ActivityCategoryId
            ) SourceTable
             PIVOT
             (
