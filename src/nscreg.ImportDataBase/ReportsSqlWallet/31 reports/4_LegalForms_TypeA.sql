@@ -77,7 +77,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel
+WHERE r.RN = @regionLevel or r.Id = 1
 END
 
 /*
@@ -97,6 +97,7 @@ set @query = '
 		RegId,
 		ParentId,
 		AddressId,
+		UnitStatusId,
 		LegalFormId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
@@ -105,22 +106,28 @@ set @query = '
 ResultTableCTE AS
 (
 	SELECT
-		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',lf.Id, lfh.Id) AS LegalFormId
-	FROM StatisticalUnits su
-	LEFT JOIN LegalForms AS lf ON lf.Id = su.LegalFormId
-	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id
-
-	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-	LEFT JOIN LegalForms AS lfh ON lfh.Id = asuhCTE.LegalFormId
-	LEFT JOIN dbo.Address addrh ON addrh.Address_id = asuhCTE.AddressId
-	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
-
-    WHERE su.UnitStatusId = ' + @InStatusId +'
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',lf.Id, lfh.Id) AS LegalFormId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',0,1) AS isHistory
+	FROM StatisticalUnits AS su
+		LEFT JOIN LegalForms AS lf ON lf.Id = su.LegalFormId
+		
+		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+		LEFT JOIN LegalForms AS lfh ON lfh.Id = su.LegalFormId
+),
+ResultTableCTE2 AS
+(
+	SELECT
+		RegId,
+		tr.Name AS NameOblast,
+		LegalFormId
+	FROM ResultTableCTE AS rt
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
+	WHERE ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
 )
-
 
 SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from
            (
@@ -129,7 +136,7 @@ SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from
 					rtCTE.RegId,
 					rtCTE.NameOblast
 				FROM LegalForms as lf
-				LEFT JOIN ResultTableCTE as rtCTE ON lf.Id = rtCTE.LegalFormId
+				LEFT JOIN ResultTableCTE2 as rtCTE ON lf.Id = rtCTE.LegalFormId
            ) SourceTable
             PIVOT
             (

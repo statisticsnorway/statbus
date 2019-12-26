@@ -14,11 +14,11 @@
 /* Input parameters from report body - filters that have to be defined by the user */
 BEGIN
 	DECLARE @InRegionId INT = $RegionId,
-			    @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 DECLARE @cols AS NVARCHAR(MAX),
-    @selCols AS NVARCHAR(MAX),
+		@selCols AS NVARCHAR(MAX),
 		@query AS NVARCHAR(MAX),
 		@totalSumCols AS NVARCHAR(MAX),
 		@regionLevel AS NVARCHAR(MAX),
@@ -113,6 +113,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
+WHERE r.RN = @regionLevel OR r.Id = @InRegionId
 END
 
 
@@ -130,7 +131,8 @@ set @query = '
 		RegId,
 		ParentId,
 		AddressId,
-		InstSectorCodeId,
+		Discriminator,
+		UnitStatusId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
@@ -138,29 +140,38 @@ set @query = '
 ResultTableCTE AS
 (
 	SELECT
-		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name, trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',sc.Id, sch.Id) AS SectorCodeId
-	FROM StatisticalUnits su
-	LEFT JOIN Statuses AS sc ON sc.Id = su.InstSectorCodeId
-	LEFT JOIN dbo.Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id	AND tr.Level = ' + @regionLevel + '
-
-	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-	LEFT JOIN Statuses AS sch ON sch.Id = asuhCTE.InstSectorCodeId
-	LEFT JOIN dbo.Address addrh ON addrh.Address_id = asuhCTE.AddressId
-	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
-
-    WHERE (''' + @InStatUnitType + ''' = ''All'' OR su.Discriminator = ''' + @InStatUnitType + ''')
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',st.Id, sth.Id) AS StatusId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',0,1) AS isHistory
+	FROM StatisticalUnits AS su
+		LEFT JOIN Statuses AS st ON st.Id = su.UnitStatusId
+		
+		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+		LEFT JOIN Statuses AS sth ON sth.Id = su.UnitStatusId
+),
+ResultTableCTE2 AS
+(
+	SELECT
+		RegId,
+		tr.Name AS NameOblast,
+		rt.StatusId
+	FROM ResultTableCTE AS rt
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
+	WHERE ''' + @InStatUnitType + ''' = ''All'' OR (rt.isHistory = 0 AND  rt.Discriminator = ''' + @InStatUnitType + ''') 
+				OR (rt.isHistory = 1 AND rt.Discriminator = ''' + @InStatUnitType + 'History' + ''')
 )
+
 SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @selCols + ' from
             (
 				SELECT
-					sc.Name,
+					st.Name,
 					rtCTE.RegId,
 					rtCTE.NameOblast
-				FROM Statuses as sc
-				LEFT JOIN ResultTableCTE as rtCTE ON sc.Id = rtCTE.SectorCodeId
+				FROM Statuses as st
+				LEFT JOIN ResultTableCTE2 as rtCTE ON st.Id = rtCTE.StatusId
            ) SourceTable
             PIVOT
             (
