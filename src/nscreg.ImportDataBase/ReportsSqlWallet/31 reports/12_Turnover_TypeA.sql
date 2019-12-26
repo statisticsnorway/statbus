@@ -14,8 +14,8 @@
 /* Input parameters from report body - filters that have to be defined by the user */
 BEGIN
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
-    		  @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-          @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+    		@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
 /* Declare variables */
@@ -98,7 +98,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel
+WHERE r.RN = @regionLevel OR r.Id = 1
 END
 
 /*
@@ -131,6 +131,9 @@ VALUES
 		RegId,
 		ParentId,
 		AddressId,
+		Discriminator,
+		UnitStatusId,
+		Turnover,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
@@ -138,42 +141,51 @@ VALUES
 ResultTableCTE AS
 (
 	SELECT
-		su.RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',tr.Name, trh.Name) AS NameOblast
-	FROM StatisticalUnits su
-	LEFT JOIN Address addr ON addr.Address_id = su.AddressId
-	INNER JOIN #tempRegions as tr ON tr.Id = addr.Region_id
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.Turnover,asuhCTE.Turnover) AS Turnover,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',0,1) AS isHistory
+	FROM StatisticalUnits AS su
+		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+),
+ResultTableCTE2 AS
+(
+	SELECT
+		RegId,
+		tr.Name AS NameOblast,
+		Turnover
+	FROM ResultTableCTE AS rt
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
 
-	LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-	LEFT JOIN Address addrh ON addrh.Address_id = asuhCTE.AddressId
-	LEFT JOIN #tempRegions as trh ON trh.Id = addrh.Region_id
-
-   	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND ('+@InStatusId+' = 0 OR su.UnitStatusId = ' + @InStatusId +')
-
+	WHERE (''' + @InStatUnitType + ''' = ''All'' OR (rt.isHistory = 0 AND  rt.Discriminator = ''' + @InStatUnitType + ''') 
+				OR (rt.isHistory = 1 AND rt.Discriminator = ''' + @InStatUnitType + 'History' + '''))
+			AND ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
 ),
 TurnoverCTE AS
 (
 	SELECT
-		CASE WHEN COUNT(rtCTE.RegId)=0 THEN 0
-				WHEN (COUNT(rtCTE.RegId)>=1 AND COUNT(rtCTE.RegId)<=4) THEN 1
-				WHEN (COUNT(rtCTE.RegId)>=5 AND COUNT(rtCTE.RegId)<=9) THEN 2
-				WHEN (COUNT(rtCTE.RegId)>=10 AND COUNT(rtCTE.RegId)<=19) THEN 3
-				WHEN (COUNT(rtCTE.RegId)>=20 AND COUNT(rtCTE.RegId)<=49) THEN 4
-				WHEN (COUNT(rtCTE.RegId)>=50 AND COUNT(rtCTE.RegId)<=99) THEN 5
-				WHEN (COUNT(rtCTE.RegId)>=100 AND COUNT(rtCTE.RegId)<=99) THEN 6
-				WHEN (COUNT(rtCTE.RegId)>250) THEN 7
+		CASE WHEN (rtCTE.Turnover=0 OR rtCTE.Turnover IS NULL) THEN 0
+				WHEN (rtCTE.Turnover>0 AND rtCTE.Turnover<5) THEN 1
+				WHEN (rtCTE.Turnover>=5 AND rtCTE.Turnover<10) THEN 2
+				WHEN (rtCTE.Turnover>=10 AND rtCTE.Turnover<20) THEN 3
+				WHEN (rtCTE.Turnover>=20 AND rtCTE.Turnover<50) THEN 4
+				WHEN (rtCTE.Turnover>=50 AND rtCTE.Turnover<100) THEN 5
+				WHEN (rtCTE.Turnover>=100 AND rtCTE.Turnover<250) THEN 6
+				WHEN (rtCTE.Turnover>=250) THEN 7
 		ELSE 0 END as TurnoverId,
-		COUNT(rtCTE.RegId) as Count,
 		rtCTE.NameOblast
-	FROM ResultTableCTE as rtCTE
-	GROUP BY rtCTE.NameOblast
+	FROM ResultTableCTE2 as rtCTE
+	WHERE rtCTE.Turnover IS NOT NULL
 )
-SELECT Turnover, ' + @cols + ', ' + @totalSumCols + ' as Total from
+SELECT Turnover, ' + @totalSumCols + ' as Total, ' + @cols + ' from
            (
 				SELECT
                 	l.Turnover,
                     l.Id,
-                    tcte.Count,
+                    tcte.TurnoverId,
                     tcte.NameOblast
                 FROM @listOfResultRows as l
 				LEFT JOIN TurnoverCTE as tcte ON l.Id = tcte.TurnoverId
@@ -181,7 +193,7 @@ SELECT Turnover, ' + @cols + ', ' + @totalSumCols + ' as Total from
            ) SourceTable
             PIVOT
             (
-                SUM(Count)
+                COUNT(TurnoverId)
                 FOR NameOblast IN (' + @selectCols + ')
             ) PivotTable
 			order by Id
