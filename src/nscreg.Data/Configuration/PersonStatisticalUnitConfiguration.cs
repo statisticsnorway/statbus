@@ -6,7 +6,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации персоны стат. единицы
+    ///  Person configuration class stat. units
     /// </summary>
     public class PersonStatisticalUnitConfiguration : EntityTypeConfigurationBase<PersonStatisticalUnit>
     {

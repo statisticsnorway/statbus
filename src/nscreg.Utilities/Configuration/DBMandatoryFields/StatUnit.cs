@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
-    /// Класс Стат. еденицы с обязательными полями 
+    /// Class Stat. units with required fields
     /// </summary>
     public class StatUnit
     {

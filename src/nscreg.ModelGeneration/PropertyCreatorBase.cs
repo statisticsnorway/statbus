@@ -6,7 +6,7 @@ using nscreg.ModelGeneration.Validation;
 namespace nscreg.ModelGeneration
 {
     /// <summary>
-    /// Базовый класс создатель свойства
+    /// Base class property creator
     /// </summary>
     public abstract class PropertyCreatorBase : IPropertyCreator
     {
@@ -22,7 +22,7 @@ namespace nscreg.ModelGeneration
         public abstract PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false);
 
         /// <summary>
-        /// Метод получения атомарного значения
+        /// Method for obtaining atomic value
         /// </summary>
         protected T GetAtomicValue<T>(PropertyInfo propInfo, object obj)
             => (T) (obj == null
@@ -40,7 +40,7 @@ namespace nscreg.ModelGeneration
             propInfo.GetCustomAttribute<DisplayAttribute>()?.Order ?? int.MaxValue;
 
         /// <summary>
-        /// Метод получения типа по умолчанию
+        /// Default Type Method
         /// </summary>
         private static T Default<T>() => default(T);
     }

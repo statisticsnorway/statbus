@@ -38,13 +38,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получения стат. единицы по Id и типу
+        /// Method for getting stat. units by Id and type
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="showDeleted">Флаг удалённости</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id stat. units </param>
+        /// <param name = "type"> Type of stat. units </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "showDeleted"> Distance flag </param>
+        /// <returns> </returns>
         public async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
         {
             var item = await _commonSvc.GetStatisticalUnitByIdAndType(id, type, showDeleted);
@@ -69,13 +69,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получение вью модели
+        /// Method to get view model
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="ignoredActions"></param>
-        /// <returns></returns>
+        /// <param name = "id"> Id stat. units </param>
+        /// <param name = "type"> Type of stat. units </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "ignoredActions"> </param>
+        /// <returns> </returns>
         public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId, ActionsEnum ignoredActions)
         {
             bool isEmployee = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee);
@@ -133,10 +133,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получения дерева организационной связи
+        /// Method for obtaining a tree of organizational communication
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id stat. units </param>
+        /// <returns> </returns>
         public async Task<OrgLinksNode> GetOrgLinksTree(int id)
         {
             var root = OrgLinksNode.Create(await GetOrgLinkNode(id), await GetChildren(id));
@@ -158,11 +158,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получения стат. единицы по Id
+        /// Method for getting stat. units by id
         /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="showDeleted">Флаг удалённости</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id stat. units </param>
+        /// <param name = "showDeleted"> Distance flag </param>
+        /// <returns> </returns>
         public async Task<UnitLookupVm> GetById(int id, bool showDeleted = false)
         {
             var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x =>
@@ -176,10 +176,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод получения домена для типа по умолчанию
+        /// The method of obtaining the domain for the default type
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <returns></returns>
+        /// <param name = "type"> Type of stat. units </param>
+        /// <returns> </returns>
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
             => (IStatisticalUnit) Activator.CreateInstance(StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 

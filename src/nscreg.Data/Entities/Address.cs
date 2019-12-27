@@ -4,7 +4,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность адрес
+    ///  Class entity address
     /// </summary>
     public class Address
     {

@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации правовой формы собственности
+    ///  Legal form configuration class
     /// </summary>
     public class LegalFormConfiguration : EntityTypeConfigurationBase<LegalForm>
     {
         /// <summary>
-        ///  Метод конфигурации правовой формы собственности
+        ///  Legal form configuration method
         /// </summary>
         public override void Configure(EntityTypeBuilder<LegalForm> builder)
         {

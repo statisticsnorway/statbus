@@ -7,14 +7,14 @@ using System.IO;
 namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
-    /// Класс хелпер очереди контекста БД
+    /// DB context queue helper class
     /// </summary>
     internal static class QueueDbContextHelper
     {
         /// <summary>
-        /// Установка начальных данных в ОЗУ
+        /// Setting the initial data in RAM
         /// </summary>
-        /// <param name="ctx">Контекст</param>
+        /// <param name = "ctx"> Context </param>
         public static void SeedInMemoryData(NSCRegDbContext ctx)
         {
             var admin42 = new User {Name = "admin42"};

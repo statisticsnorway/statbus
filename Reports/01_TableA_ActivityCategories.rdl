@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="DataSourceNSCReg">
+      <DataSourceReference>DataSourceNSCReg</DataSourceReference>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>298cce12-0b84-4ab4-886f-11b898f503b5</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="DataSetReport">
+      <Query>
+        <DataSourceName>DataSourceNSCReg</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@InStatUnitType">
+            <Value>=Parameters!InStatUnitType.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@InStatusId">
+            <Value>=Parameters!InStatusId.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+        <CommandText>/*
+	RegionLevel:
+		1 : Kyrgyz Republic
+		2 : Area
+		3 : Region
+		4 : City / Village
+*/
+
+BEGIN /* INPUT PARAMETERS */
+DECLARE @InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+END
+BEGIN /* DECLARE variables */
+DECLARE @cols AS NVARCHAR(MAX),
+        @selCols AS NVARCHAR(MAX),
+        @query  AS NVARCHAR(MAX),
+        @totalSumCols AS NVARCHAR(MAX),
+        @activityCategoryLevel AS NVARCHAR(MAX),
+        @regionLevel AS NVARCHAR(MAX)
+SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
+            FROM Regions r  WHERE RegionLevel IN (1,2)
+            FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)')
+        ,1,1,'')
+SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
+            FROM Regions r  WHERE RegionLevel = 2
+            FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)')
+        ,1,1,'')
+SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
+            FROM Regions r  WHERE RegionLevel IN (1,2)
+            FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)')
+        ,1,1,'')
+SET @activityCategoryLevel = 1
+SET @regionLevel = 2
+END
+BEGIN /*DECLARE and FILL IerarhyOfActivityCategories*/
+IF (OBJECT_ID('tempdb..#tempActivityCategories') IS NOT NULL)
+BEGIN DROP TABLE #tempActivityCategories END
+CREATE TABLE #tempActivityCategories
+(
+    ID INT,
+    Level INT,
+    ParentId INT,
+    Name NVARCHAR(MAX)
+);
+CREATE NONCLUSTERED INDEX ix_tempActivityCategoriesIndex ON #tempActivityCategories ([ID]);
+;WITH ActivityCategoriesCTE AS (
+	SELECT
+		Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
+	FROM ActivityCategories 
+
+	UNION ALL
+
+	SELECT 
+		i.Id, Level + 1, CAST(itms.ParentId AS VARCHAR(255))
+	FROM ActivityCategories i
+	INNER JOIN ActivityCategoriesCTE itms ON itms.Id = i.ParentId
+),
+
+CTE_RN AS 
+(
+    SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
+    FROM ActivityCategoriesCTE r
+)
+
+
+INSERT INTO #tempActivityCategories
+SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
+FROM CTE_RN r
+INNER JOIN ActivityCategories rp ON rp.Id = r.ParentId
+INNER JOIN ActivityCategories rc ON rc.Id = r.Id
+WHERE r.RN = @activityCategoryLevel
+
+END
+
+BEGIN /*DECLARE and FILL IerarhyOfRegions*/
+IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
+	BEGIN DROP TABLE #tempRegions END
+CREATE TABLE #tempRegions
+(
+    ID INT,
+    Level INT,
+    ParentId INT,
+    Name NVARCHAR(MAX)
+);
+CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
+;WITH RegionsCTE AS (
+	SELECT Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
+	FROM Regions 
+
+	UNION ALL
+
+	SELECT i.Id, Level + 1, CAST(itms.ParentId AS VARCHAR(255))
+	FROM Regions i
+	INNER JOIN RegionsCTE itms ON itms.Id = i.ParentId
+	WHERE i.ParentId&gt;0
+),
+CTE_RN2 AS 
+(
+    SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
+    FROM RegionsCTE r
+    
+)
+INSERT INTO #tempRegions
+SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
+FROM CTE_RN2 r
+	INNER JOIN Regions rp ON rp.Id = r.ParentId
+	INNER JOIN Regions rc ON rc.Id = r.Id
+WHERE r.RN = @regionLevel
+END
+
+SET @query = '
+;WITH StatisticalUnitHistoryCTE AS (
+	SELECT
+		RegId,
+		ParentId,	
+		AddressId,
+		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
+	FROM StatisticalUnitHistory
+	WHERE DATEPART(YEAR,StartPeriod)&lt;'+@InCurrentYear+'
+),
+ActivityCategoriesForResultCTE AS 
+(
+	SELECT Id,Name
+	FROM dbo.ActivityCategories 
+	WHERE ActivityCategoryLevel = 1
+),
+ResultTable AS
+(
+	SELECT
+		su.RegId as RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)&lt;'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)&lt;'+@InCurrentYear+',ac.Name,ach.Name) AS Name,
+		IIF(DATEPART(YEAR, su.RegistrationDate)&lt;'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)&lt;'+@InCurrentYear+',tr.Name,trh.Name) AS NameOblast,
+		IIF(DATEPART(YEAR, su.RegistrationDate)&lt;'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)&lt;'+@InCurrentYear+',ac.ParentId,ach.ParentId) AS ActivityCategoryId
+	FROM StatisticalUnits AS su	
+		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
+		LEFT JOIN Activities a ON a.Id = asu.Activity_Id AND a.Activity_Type = 1
+		LEFT JOIN #tempActivityCategories AS ac ON ac.Id = a.ActivityCategoryId
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = su.AddressId
+		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
+
+		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
+		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id AND ah.Activity_Type = 1 
+		LEFT JOIN #tempActivityCategories AS ach ON ach.Id = ah.ActivityCategoryId
+		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = asuhCTE.AddressId
+		LEFT JOIN #tempRegions AS trh ON trh.Id = addrh.Region_id
+	WHERE ('''+@InStatUnitType+''' = ''All'' OR su.Discriminator = '''+@InStatUnitType+''') AND su.UnitStatusId = ' + @InStatusId +'
+)
+SELECT 
+					rt.RegId,
+					acrc.Name,
+					rt.NameOblast
+				FROM ActivityCategoriesForResultCTE as acrc
+				LEFT JOIN ResultTable AS rt ON acrc.Id = rt.ActivityCategoryId'
+execute(@query)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="RegId">
+          <DataField>RegId</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="Name">
+          <DataField>Name</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="NameOblast">
+          <DataField>NameOblast</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="DataSetStatuses">
+      <Query>
+        <DataSourceName>DataSourceNSCReg</DataSourceName>
+        <CommandText>  SELECT TOP (1000) [Id] AS Value
+     
+      ,'('+Code+') ' + [Name] AS Text
+      
+  FROM [dbo].[Statuses]</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="Value">
+          <DataField>Value</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="Text">
+          <DataField>Text</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Tablix Name="Tablix2">
+            <TablixCorner>
+              <TablixCornerRows>
+                <TablixCornerRow>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox11">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Name</Value>
+                                <Style />
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox11</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                </TablixCornerRow>
+              </TablixCornerRows>
+            </TablixCorner>
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1.28125in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.42708in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="RegId">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Count(Fields!RegId.Value)</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>RegId</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                        <rd:Selected>true</rd:Selected>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="NameOblast">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!NameOblast.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!NameOblast.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>0.42708in</Size>
+                    <CellContents>
+                      <Textbox Name="NameOblast">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!NameOblast.Value</Value>
+                                <Style />
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>NameOblast</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="Name">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!Name.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!Name.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>1.28125in</Size>
+                    <CellContents>
+                      <Textbox Name="Name">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!Name.Value</Value>
+                                <Style />
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Name</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>DataSetReport</DataSetName>
+            <Height>0.85416in</Height>
+            <Width>2.5625in</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+        </ReportItems>
+        <Height>2in</Height>
+        <Style />
+      </Body>
+      <Width>6.92583in</Width>
+      <Page>
+        <LeftMargin>1in</LeftMargin>
+        <RightMargin>1in</RightMargin>
+        <TopMargin>1in</TopMargin>
+        <BottomMargin>1in</BottomMargin>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="InStatUnitType">
+      <DataType>String</DataType>
+      <Prompt>Statistical unit type</Prompt>
+      <ValidValues>
+        <ParameterValues>
+          <ParameterValue>
+            <Value>All</Value>
+            <Label>All</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>LocalUnit</Value>
+            <Label>Local Unit</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>LegalUnit</Value>
+            <Label>Legal Unit</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>EnterpriseUnit</Value>
+            <Label>Enterprise Unit</Label>
+          </ParameterValue>
+        </ParameterValues>
+      </ValidValues>
+    </ReportParameter>
+    <ReportParameter Name="InStatusId">
+      <DataType>String</DataType>
+      <Prompt>Status</Prompt>
+      <ValidValues>
+        <DataSetReference>
+          <DataSetName>DataSetStatuses</DataSetName>
+          <ValueField>Value</ValueField>
+          <LabelField>Text</LabelField>
+        </DataSetReference>
+      </ValidValues>
+    </ReportParameter>
+  </ReportParameters>
+  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>InStatUnitType</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>InStatusId</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>55a2d3a7-61b6-4468-a001-dc4f384b0e9d</rd:ReportID>
+</Report>

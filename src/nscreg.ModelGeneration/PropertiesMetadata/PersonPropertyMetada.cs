@@ -4,7 +4,7 @@ using nscreg.Data.Entities;
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств персоны
+    /// Person Property Metadata Class
     /// </summary>
     public class PersonPropertyMetada : PropertyMetadataBase
     {

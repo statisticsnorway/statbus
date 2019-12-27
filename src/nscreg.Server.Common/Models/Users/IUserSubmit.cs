@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Server.Common.Models.Users
 {
     /// <summary>
-    /// Модель отправки пользователя
+    ///User Submission Model
     /// </summary>
     public interface IUserSubmit
     {

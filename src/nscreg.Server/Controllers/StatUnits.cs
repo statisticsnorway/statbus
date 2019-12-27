@@ -24,7 +24,7 @@ namespace nscreg.Server.Controllers
 {
     /// <inheritdoc />
     /// <summary>
-    /// Контроллер статистических единиц
+    /// Statistical Unit Controller
     /// </summary>
     [Route("api/[controller]")]
     public class StatUnitsController : Controller
@@ -48,25 +48,25 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения организационной связи
+        /// The method of obtaining organizational communication
         /// </summary>
-        /// <param name="id">Id организационной связи</param>
+        /// <param name="id">Organization Communication Id</param>
         /// <returns></returns>
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> GetStatUnitById(int id) => Ok(await _viewService.GetStatUnitById(id));
 
         /// <summary>
-        /// Метод получения стат. единицы по Id
+        /// Method for getting stat. units by id
         /// </summary>
-        /// <param name="id">Id стат. еденицы</param>
+        /// <param name="id">Id stat. units</param>
         /// <returns></returns>
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> GetById(int id) => Ok(await _viewService.GetById(id));
 
         /// <summary>
-        /// Метод поиска стат. единицы
+        /// Stat search method. units
         /// </summary>
-        /// <param name="query">Запрос поиска</param>
+        /// <param name="query">Search query</param>
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -74,12 +74,12 @@ namespace nscreg.Server.Controllers
             Ok(await _searchService.Search(query, User.GetUserId()));
 
         /// <summary>
-        /// Метод поиска стат. единицы по коду
+        /// Stat search method. units by code
         /// </summary>
-        /// <param name="type">Тип стат юнита</param>
-        /// <param name="code">Код поиска</param>
-        /// <param name="regId">Регистрационный Id</param>
-        /// <param name="isDeleted">Флаг удаления</param>
+        /// <param name="type">Unit Stat Type</param>
+        /// <param name="code">Search code</param>
+        /// <param name="regId">Registration Id</param>
+        /// <param name="isDeleted">Delete flag</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
@@ -87,9 +87,9 @@ namespace nscreg.Server.Controllers
             Ok(await _searchService.Search(type, code, User.GetUserId(), regId, isDeleted));
 
         /// <summary>
-        /// Метод поиска стат. единицы по имени
+        /// Stat search method. units by name
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
+        /// <param name="wildcard">Search pattern</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -97,7 +97,7 @@ namespace nscreg.Server.Controllers
             Ok(await _searchService.SearchByWildcard(wildcard));
 
         /// <summary>
-        /// Метод получения дерева организационной связи
+        /// The method of obtaining the organizational communication tree
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
@@ -107,10 +107,10 @@ namespace nscreg.Server.Controllers
             Ok(await _viewService.GetOrgLinksTree(id));
 
         /// <summary>
-        /// Метод получения истории стат. единицы
+        /// The method of obtaining the history of stat. units
         /// </summary>
-        /// <param name="type">Тип стат. еденицы</param>
-        /// <param name="id">Id стат. еденицы</param>
+        /// <param name="type">Type of stat. units</param>
+        /// <param name="id">Id stat. units</param>
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -118,11 +118,11 @@ namespace nscreg.Server.Controllers
             Ok(await _historyService.ShowHistoryAsync(type, id));
 
         /// <summary>
-        /// Метод получения подробной истории стат. единицы
+        /// A method of obtaining a detailed history of stat. units
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="isHistory">Является ли стат. единица исторической</param>
+        /// <param name="type">Type of stat. units</param>
+        /// <param name="id">Id stat. units</param>
+        /// <param name="isHistory">Is the stat. historical unit</param>
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}/{isHistory}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -130,9 +130,9 @@ namespace nscreg.Server.Controllers
             Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId(), isHistory));
 
         /// <summary>
-        /// Метод получения новой сущности
+        /// Method for obtaining a new entity
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
+        /// <param name="type">Type of stat. units</param>
         /// <returns></returns>
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
@@ -140,10 +140,10 @@ namespace nscreg.Server.Controllers
             Ok(await _viewService.GetViewModel(null, type, User.GetUserId(), ActionsEnum.Create));
 
         /// <summary>
-        /// Метод получения стат. единицы по Id
+        /// Method for getting stat. units by id
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
+        /// <param name="type">Type of stat. units</param>
+        /// <param name="id">Id stat. units</param>
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -154,10 +154,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения стат. единицы по Id и типу
+        /// Method for getting stat. units by Id and type
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
+        /// <param name="type">Type of stat. units</param>
+        /// <param name="id">Id stat. units</param>
         /// <returns></returns>
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -168,10 +168,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод удаления стат. единицы
+        /// Stat removal method. units
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
+        /// <param name="type">Type of stat. units</param>
+        /// <param name="id">Id stat. units</param>
         /// <returns></returns>
         [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
@@ -190,9 +190,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод создания правовой единицы
+        /// Legal Unit Creation Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPost(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
@@ -207,9 +207,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод создания местной единицы
+        /// Local Unit Creation Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPost(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
@@ -224,9 +224,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод создания предприятия
+        /// Enterprise Creation Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPost(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
@@ -241,9 +241,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод создания группы предприятия
+        /// Method for creating an enterprise group
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPost(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
@@ -258,9 +258,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования правовой единицы
+        /// Legal Unit Editing Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPut(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
@@ -275,9 +275,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования местной единицы
+        /// Local Unit Editing Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPut(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
@@ -292,9 +292,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования предприятия
+        /// Enterprise Editing Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPut(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
@@ -309,9 +309,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования группы предприятия
+        /// Enterprise Group Editing Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPut(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
@@ -326,9 +326,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения кода и имени сектора
+        /// Method for obtaining code and sector name
         /// </summary>
-        /// <param name="sectorCodeId">Id сектора</param>
+        /// <param name="sectorCodeId">Sector Id</param>
         /// <returns></returns>
         [HttpGet("[action]/{sectorCodeId}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -336,9 +336,9 @@ namespace nscreg.Server.Controllers
             Ok(await _viewService.GetSectorCodeNameBySectorId(sectorCodeId));
 
         /// <summary>
-        /// Метод получения кода и имени легал формы
+        /// The method of obtaining the code and name of the legal form
         /// </summary>
-        /// <param name="legalFormId">Id легал формы</param>
+        /// <param name="legalFormId">Id Legal Form</param>
         /// <returns></returns>
         [HttpGet("[action]/{legalFormId}")]
         [SystemFunction(SystemFunctions.StatUnitView)]

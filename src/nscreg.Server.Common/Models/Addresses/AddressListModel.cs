@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Server.Common.Models.Addresses
 {
     /// <summary>
-    /// Модель списка адреса
+    /// Address List Model
     /// </summary>
     public class AddressListModel
     {

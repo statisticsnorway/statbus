@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Server.Common.Models.Regions
 {
     /// <summary>
-    /// Модель узла региона
+    /// Region Node model
     /// </summary>
     public class RegionNode
         {

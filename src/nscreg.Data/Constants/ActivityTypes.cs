@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы типов деятельности
+    /// Activity Type Constants
     /// </summary>
     public enum ActivityTypes
     {

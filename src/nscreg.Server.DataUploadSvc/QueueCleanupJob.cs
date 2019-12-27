@@ -9,7 +9,7 @@ using nscreg.ServicesUtils.Interfaces;
 namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
-    /// Класс по работе очистки очереди
+    /// Class on the work of cleaning the queue
     /// </summary>
     internal class QueueCleanupJob : IJob
     {
@@ -17,27 +17,27 @@ namespace nscreg.Server.DataUploadSvc
 
         private readonly int _timeout;
         private readonly ILogger _logger;
-        private readonly QueueService _queueSvc;
 
-        public QueueCleanupJob(NSCRegDbContext ctx, int dequeueInterval, int timeout, ILogger logger)
+        public QueueCleanupJob(int dequeueInterval, int timeout, ILogger logger)
         {
             Interval = dequeueInterval;
-            _queueSvc = new QueueService(ctx);
             _timeout = timeout;
             _logger = logger;
         }
 
         /// <summary>
-        /// Метод выполнения очистки очереди
+        /// Method for performing queue cleanup
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
+            var dbContextHelper = new DbContextHelper();
+            var ctx = dbContextHelper.CreateDbContext(new string[] { });
             _logger.LogInformation("cleaning up queue...");
-            await _queueSvc.ResetDequeuedByTimeout(_timeout);
+            await new QueueService(ctx).ResetDequeuedByTimeout(_timeout);
         }
 
         /// <summary>
-        /// Метод обработчик исключений
+        /// Method exception handler
         /// </summary>
         public void OnException(Exception e)
         {

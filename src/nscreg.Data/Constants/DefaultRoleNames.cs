@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы по умолчанию имён ролей
+    /// Role Name Default Constants
     /// </summary>
     public static class DefaultRoleNames
     {

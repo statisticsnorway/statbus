@@ -7,7 +7,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Common.Models.DataSources
 {
     /// <summary>
-    /// Модель поисковых запросов
+    /// Search Query Model
     /// </summary>
     public class SearchQueryM
     {
@@ -32,7 +32,7 @@ namespace nscreg.Server.Common.Models.DataSources
     }
 
     /// <summary>
-    /// Модель валидации поисковых запросов
+    /// Search Query Validation Model
     /// </summary>
     // ReSharper disable once ArrangeTypeModifiers
     class SearchQueryMValidator : AbstractValidator<SearchQueryM>

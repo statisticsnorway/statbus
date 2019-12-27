@@ -39,7 +39,7 @@ using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 namespace nscreg.Server
 {
     /// <summary>
-    /// Класс запуска приложения
+    /// Application Launch Class
     /// </summary>
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
@@ -72,17 +72,19 @@ namespace nscreg.Server
         }
 
         /// <summary>
-        /// Метод конфигурации приложения
+        /// Application Configuration Method
         /// </summary>
-        /// <param name="app">Приложение</param>
-        /// <param name="loggerFactory">Журнал записи</param>
+        /// <param name="app">App</param>
+        /// <param name="loggerFactory">loggerFactory</param>
         // ReSharper disable once UnusedMember.Global
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
+#pragma warning disable CS0618 // Type or member is obsolete
             loggerFactory
                 .AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug()
                 .AddNLog();
+#pragma warning restore CS0618 // Type or member is obsolete
 
             _loggerFactory = loggerFactory;
             
@@ -100,7 +102,9 @@ namespace nscreg.Server
                 SupportedUICultures = supportedCultures
             });
             app.UseStaticFiles();
+#pragma warning disable CS0618 // Type or member is obsolete
             app.UseIdentity()
+#pragma warning restore CS0618 // Type or member is obsolete
                 .UseMvc(routes => routes.MapRoute(
                     "default",
                     "{*url}",
@@ -141,9 +145,9 @@ namespace nscreg.Server
         }
 
         /// <summary>
-        /// Метод конфигуратор сервисов
+        /// Service Configurator Method
         /// </summary>
-        /// <param name="services">Сервисы</param>
+        /// <param name="services">Services</param>
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
@@ -163,7 +167,7 @@ namespace nscreg.Server
             services.Configure<ValidationSettings>(Configuration.GetSection(nameof(ValidationSettings)));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ValidationSettings>>().Value);
             services
-                .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
+                .AddAntiforgery(op => op.Cookie.Name = op.HeaderName = "X-XSRF-TOKEN")
                 .AddDbContext<NSCRegDbContext>(DbContextHelper.ConfigureOptions(Configuration))
                 .AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
@@ -202,7 +206,7 @@ namespace nscreg.Server
         }
 
         /// <summary>
-        /// Метод запуска приложения
+        /// Application Launch Method
         /// </summary>
         public static void Main()
         {
@@ -213,7 +217,7 @@ namespace nscreg.Server
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
-                /*.UseDefaultServiceProvider(options => 
+               /*.UseDefaultServiceProvider(options => 
                     options.ValidateScopes = false)*/
                 .Build().Run();
         }

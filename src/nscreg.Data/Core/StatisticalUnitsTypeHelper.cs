@@ -7,7 +7,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Core
 {
     /// <summary>
-    /// Класс хелпер типов стат. единицы
+    /// Class helper of Stat unit types
     /// </summary>
     public static class StatisticalUnitsTypeHelper
     {
@@ -23,16 +23,16 @@ namespace nscreg.Data.Core
             TypeToEnum.ToDictionary(v => v.Value, v => v.Key);
 
         /// <summary>
-        /// Метод получения типов по стат. единице
+        /// Method for obtaining types by stat. unit
         /// </summary>
-        /// <param name="unitType">Тип стат. единицы</param>
+        /// <param name="unitType">Type of stat. units</param>
         /// <returns></returns>
         public static StatUnitTypes GetStatUnitMappingType(Type unitType) => TypeToEnum[unitType];
 
         /// <summary>
-        /// Метод получения типов  по перечислению
+        /// Method for getting type by enumeration
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
+        /// <param name="type">Type of stat. units</param>
         /// <returns></returns>
         public static Type GetStatUnitMappingType(StatUnitTypes type) => EnumToType[type];
     }

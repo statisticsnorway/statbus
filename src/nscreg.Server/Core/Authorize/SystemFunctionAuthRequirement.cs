@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace nscreg.Server.Core.Authorize
 {
     /// <summary>
-    /// Класс системной функции требования авторизации
+    /// Authorization Requirement System Function Class
     /// </summary>
     public class SystemFunctionAuthRequirement : IAuthorizationRequirement
     {

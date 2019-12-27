@@ -15,7 +15,7 @@ using nscreg.Utilities;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Сервис роли
+    /// Role service
     /// </summary>
     public class RoleService
     {
@@ -27,11 +27,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения списка всех ролей
+        /// Method for getting a list of all roles
         /// </summary>
-        /// <param name="model">Модель поиска</param>
-        /// <param name="onlyActive">Флаг активности</param>
-        /// <returns></returns>
+        /// <param name = "model"> Search Model </param>
+        /// <param name = "onlyActive"> Activity flag </param>
+        /// <returns> </returns>
         public RoleListVm GetAllPaged(PaginatedQueryM model, bool onlyActive)
         {
             var listRoles = onlyActive
@@ -66,10 +66,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения роли
+        /// Method for getting the role
         /// </summary>
-        /// <param name="id">Id</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id </param>
+        /// <returns> </returns>
         public RoleVm GetRoleVmById(string id)
         {
             var role = GetRoleById(id);
@@ -85,10 +85,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод создания роли
+        /// Role creation method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <returns> </returns>
         public RoleVm Create(RoleSubmitM data)
         {
             if (_context.Roles.Any(r => r.Name == data.Name))
@@ -112,10 +112,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод редактирования роли
+        /// Role editing method
         /// </summary>
-        /// <param name="id">Id</param>
-        /// <param name="data">Данные</param>
+        /// <param name = "id"> Id </param>
+        /// <param name = "data"> Data </param>
         public void Edit(string id, RoleSubmitM data)
         {
             var role = _context.Roles.Find(id);
@@ -135,11 +135,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод переключения статуса роли
+        /// Method for switching role status
         /// </summary>
-        /// <param name="id">Id</param>
-        /// <param name="status">Статус роли</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id </param>
+        /// <param name = "status"> Role status </param>
+        /// <returns> </returns>
         public async Task ToggleSuspend(string id, RoleStatuses status)
         {
             var role = await _context.Roles.Include(x => x.UserRoles).FirstOrDefaultAsync(r => r.Id == id);
@@ -165,10 +165,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения активности дерева ролей
+        /// Method for obtaining the activity of the role tree
         /// </summary>
-        /// <param name="parentId"></param>
-        /// <returns></returns>
+        /// <param name = "parentId"> </param>
+        /// <returns> </returns>
         public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync(int parentId) => _context.ActivityCategories
             .Where(x => x.ParentId == parentId)
             .OrderBy(x => x.Code)

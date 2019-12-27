@@ -7,7 +7,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Entities.History
 {
     /// <summary>
-    ///  Класс сущность история персоны стат. единицы
+    ///  Class entity story person stat. units
     /// </summary>
     public class PersonStatisticalUnitHistory
     {

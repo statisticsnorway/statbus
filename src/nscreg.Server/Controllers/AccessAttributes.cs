@@ -4,20 +4,20 @@ using nscreg.Server.Common.Services;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер аттрибута доступа
+    /// Access attribute controller
     /// </summary>
     [Route("api/[controller]")]
     public class AccessAttributesController : Controller
     {
         /// <summary>
-        /// Метод возвращающий все системные функции
+        /// Method returning all system functions
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]
         public IActionResult SystemFunctions() => Ok(AccessAttributesService.GetAllSystemFunctions());
 
         /// <summary>
-        /// Метод возвращающий все аттрибуты доступа данных
+        /// Method returning all data access attributes
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]

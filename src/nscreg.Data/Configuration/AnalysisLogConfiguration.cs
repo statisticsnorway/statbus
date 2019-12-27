@@ -6,13 +6,13 @@ namespace nscreg.Data.Configuration
 {
     /// <inheritdoc />
     /// <summary>
-    ///  Класс конфигурации журнала анализа
+    ///  Analysis Log Configuration Class
     /// </summary>
     public class AnalysisLogConfiguration : EntityTypeConfigurationBase<AnalysisLog>
     {
         /// <inheritdoc />
         /// <summary>
-        ///  Метод конфигурации журнала анализа
+        ///  Analysis Log Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<AnalysisLog> builder)
         {

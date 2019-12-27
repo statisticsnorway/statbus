@@ -7,7 +7,7 @@ using nscreg.ModelGeneration.Validation;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства адреса
+    ///     Class creator of an address property
     /// </summary>
     public class AddressPropertyCreator : PropertyCreatorBase
     {
@@ -22,7 +22,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства адреса
+        ///     Method Creator Address Properties
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

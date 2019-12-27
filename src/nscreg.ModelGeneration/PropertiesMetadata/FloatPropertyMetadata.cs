@@ -1,7 +1,7 @@
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств числа с плавающей точкой
+    /// Floating Point Property Metadata Class
     /// </summary>
     public class FloatPropertyMetadata : PropertyMetadataBase
     {

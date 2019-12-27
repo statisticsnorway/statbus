@@ -8,7 +8,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер поиска объекта
+    /// Object Search Controller
     /// </summary>
     [Route("api/[controller]")]
     public class LookupController : Controller
@@ -21,7 +21,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения объекта поиска
+        /// Method to get the search object
         /// </summary>
         /// <param name="lookup"></param>
         /// <returns></returns>
@@ -30,19 +30,19 @@ namespace nscreg.Server.Controllers
             Ok(await _lookupService.GetLookupByEnum(lookup));
 
         /// <summary>
-        /// Метод получения пагинации поиска объекта
+        /// Method for obtaining object search pagination
         /// </summary>
-        /// <param name="lookup">Объект поиска</param>
-        /// <param name="searchModel">Поиск модели</param>
+        /// <param name="lookup">Search Object</param>
+        /// <param name="searchModel">Model search</param>
         /// <returns></returns>
         [HttpGet("paginated/{lookup}")]
         public async Task<IActionResult> GetPaginateLookup(LookupEnum lookup, [FromQuery] SearchLookupModel searchModel) =>
             Ok(await _lookupService.GetPaginateLookupByEnum(lookup, searchModel));
 
         /// <summary>
-        /// Метод получения объекта поиска по Id
+        /// Method for obtaining the search object by Id
         /// </summary>
-        /// <param name="lookup">Объект поиска</param>
+        /// <param name="lookup">Search Object</param>
         /// <param name="ids">Id</param>
         /// <returns></returns>
         [HttpGet("{lookup}/[action]")]

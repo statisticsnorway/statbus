@@ -10,7 +10,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства персоны
+    ///     Person Creator Class
     /// </summary>
     public class PersonPropertyCreator : PropertyCreatorBase
     {
@@ -20,7 +20,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод проверки создания персоны
+        ///     Person Creation Verification Method
         /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
@@ -31,7 +31,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства персоны
+        ///     Person Property Creator Method
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

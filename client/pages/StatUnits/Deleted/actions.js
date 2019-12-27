@@ -19,16 +19,16 @@ const fetchData = queryParams =>
   })
 
 export const restoreSucceeded = createAction('restore StatUnit succeeded')
-const restore = (type, regId, queryParams, onFail) =>
+const restore = (type, regId, queryParams, index, onFail) =>
   dispatchRequest({
     method: 'delete',
     url: '/api/statunits/deleted',
     queryParams: { type, regId },
-    onSuccess: dispatch =>
-      pipe(
-        fetchData,
-        dispatch,
-      )(queryParams),
+    onSuccess: (dispatch) => {
+      setTimeout(() => {
+        dispatch(fetchData(queryParams))
+      }, 250)
+    },
     onFail: (_, error) => {
       onFail(error.message)
     },
@@ -42,6 +42,7 @@ export default {
   setQuery,
   fetchData,
   restore,
+  restoreSucceeded,
   clearSearchFormForDeleted,
   setSearchConditionForDeleted,
 }

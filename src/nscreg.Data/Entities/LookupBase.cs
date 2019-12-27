@@ -1,7 +1,7 @@
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность базовый справочник
+    ///  Class entity base reference
     /// </summary>
     public abstract class LookupBase
     {

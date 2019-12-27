@@ -3,7 +3,7 @@ using nscreg.Server.Common.Models.Lookup;
 namespace nscreg.Server.Common.Models.ActivityCategories
 {
     /// <summary>
-    /// Вью модель видов деятельности
+    /// View model of activities
     /// </summary>
     public class ActivityCategoryVm : CodeLookupVm
     {

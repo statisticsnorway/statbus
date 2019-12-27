@@ -9,6 +9,7 @@ const initialState = {
   totalCount: 0,
   isLoading: false,
   lookups: { 5: [] },
+  error: undefined,
 }
 
 const statUnits = createReducer(
@@ -42,6 +43,16 @@ const statUnits = createReducer(
         ...state.lookups,
         [data.id]: data.lookup,
       },
+    }),
+
+    [actions.fetchDataFailed]: (state, message) => ({
+      ...state,
+      error: message,
+      isLoading: false,
+    }),
+    [actions.clearError]: state => ({
+      ...state,
+      error: undefined,
     }),
     [actions.setSearchCondition]: (state, condition) => ({
       ...state,

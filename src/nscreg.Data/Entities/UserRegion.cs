@@ -1,7 +1,7 @@
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность регион пользователя
+    ///  Class entity user region
     /// </summary>
     public class UserRegion
     {

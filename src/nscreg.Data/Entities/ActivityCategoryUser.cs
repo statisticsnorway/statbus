@@ -2,7 +2,7 @@
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность роль вид деятельности
+    ///  Class entity role type of activity
     /// </summary>
     public class ActivityCategoryUser
     {

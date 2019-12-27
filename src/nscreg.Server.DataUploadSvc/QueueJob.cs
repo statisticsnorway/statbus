@@ -25,18 +25,21 @@ using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
-    /// Класс работы очереди
+    /// Queue class
     /// </summary>
     internal class QueueJob : IJob
     {
         private readonly ILogger _logger;
         public int Interval { get; }
-        private readonly QueueService _queueSvc;
-        private readonly AnalyzeService _analysisSvc;
-        private readonly SaveManager _saveManager;
+        private QueueService _queueSvc;
+        private AnalyzeService _analysisSvc;
+        private SaveManager _saveManager;
+
+        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
+        private readonly DbMandatoryFields _dbMandatoryFields;
+        private readonly ValidationSettings _validationSettings;
 
         public QueueJob(
-            NSCRegDbContext ctx,
             int dequeueInterval,
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
@@ -45,19 +48,29 @@ namespace nscreg.Server.DataUploadSvc
         {
             _logger = logger;
             Interval = dequeueInterval;
-            _queueSvc = new QueueService(ctx);
-            _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
+            _statUnitAnalysisRules = statUnitAnalysisRules;
+            _dbMandatoryFields = dbMandatoryFields;
+            _validationSettings = validationSettings;
+            AddScopedServices();
+        }
 
-            var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
-            var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
+        private void AddScopedServices()
+        {
+            var dbContextHelper = new DbContextHelper();
+            var ctx = dbContextHelper.CreateDbContext(new string[] { });
+            _queueSvc = new QueueService(ctx);
+            _analysisSvc = new AnalyzeService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var createSvc = new CreateService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var editSvc = new EditService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _saveManager = new SaveManager(ctx, _queueSvc, createSvc, editSvc);
         }
 
         /// <summary>
-        /// Метод выполнения работы очереди
+        /// Queue execution method
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
+            AddScopedServices();
             _logger.LogInformation("dequeue attempt...");
             var (dequeueError, dequeued) = await Dequeue();
             if (dequeueError.HasValue())
@@ -170,7 +183,7 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
-        /// Метод обработчик исключений
+        /// Method exception handler
         /// </summary>
         public void OnException(Exception ex) => _logger.LogError(ex.Message);
 

@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность местная еденица
+    ///  Class entity local unit
     /// </summary>
     public class LocalUnit : StatisticalUnit
     {

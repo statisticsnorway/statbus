@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2327,5 +2327,23 @@
   </data>
   <data name="StatUnitIdIsNotFound" xml:space="preserve">
     <value>Идентификатор статистической единицы не найден</value>
+  </data>
+  <data name="RejectDataSourceMessage" xml:space="preserve">
+    <value>Reject data source</value>
+  </data>
+  <data name="DeleteEnterpriseUnit" xml:space="preserve">
+    <value>Вы должны удалить Юридическую единицу</value>
+  </data>
+  <data name="DeleteLocalUnit" xml:space="preserve">
+    <value>Вы должны удалить Юридическую единицу</value>
+  </data>
+  <data name="RestoreEnterpriseUnit" xml:space="preserve">
+    <value>Вы должны восстановить Юридическую единицу</value>
+  </data>
+  <data name="RestoreLocalUnit" xml:space="preserve">
+    <value>Вы должны восстановить Юридическую единицу</value>
+  </data>
+  <data name="ElasticSearchIsDisable" xml:space="preserve">
+    <value>Служба ElasticSearch была отключена, обратитесь к администратору сервера для устранения неполадок</value>
   </data>
 </root>

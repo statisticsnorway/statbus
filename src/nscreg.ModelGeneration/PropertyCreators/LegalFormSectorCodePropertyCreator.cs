@@ -8,7 +8,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства сектора кода правовой формы собственности
+    ///    Class creator property sector code of legal ownership
     /// </summary>
     public class LegalFormSectorCodePropertyCreator : PropertyCreatorBase
     {
@@ -18,7 +18,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод проверки на создание свойства сектора кода правовой формы собственности
+        ///     Method for checking on the creation of a property of a sector of a code of a legal form of ownership
         /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
@@ -26,7 +26,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства сектора кода правовой формы собственности
+        ///     Method creator property sector code legal form of ownership
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

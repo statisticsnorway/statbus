@@ -9,7 +9,7 @@ using nscreg.Server.Common.Models.StatUnits;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Сервис персон
+    /// Person service
     /// </summary>
     public class PersonService
     {
@@ -21,11 +21,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        ///  Метод поиска персоны
+        /// Person search method
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
-        /// <param name="limit">Ограничение</param>
-        /// <returns></returns>
+        /// <param name = "wildcard"> Search template </param>
+        /// <param name = "limit"> Restriction </param>
+        /// <returns> </returns>
         public async Task<List<PersonM>> Search(string wildcard, int limit = 10)
         {
             var loweredwc = wildcard.ToLower();
@@ -34,6 +34,7 @@ namespace nscreg.Server.Common.Services
                     v.Surname.ToLower().StartsWith(loweredwc))
                 .Select(g => new Person
                 {
+                    Id = g.Id,
                     GivenName = g.GivenName,
                     MiddleName = g.MiddleName,
                     Surname = g.Surname,
@@ -51,13 +52,14 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод преобразования данных ко вью модели
+        /// Method for transforming data to model model
         /// </summary>
-        /// <param name="query">Запрос</param>
-        /// <returns></returns>
+        /// <param name = "query"> Request </param>
+        /// <returns> </returns>
         private static async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
             => await query.Select(v => new PersonM
             {
+                Id = v.Id,
                 Address = v.Address,
                 Surname = v.Surname,
                 MiddleName = v.MiddleName,

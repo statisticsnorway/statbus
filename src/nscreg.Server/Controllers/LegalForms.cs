@@ -7,7 +7,7 @@ using nscreg.Server.Common.Services.CodeLookup;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер правовой формы собственности
+    /// Legal Controller
     /// </summary>
     [Route("api/[controller]")]
     public class LegalFormsController:Controller
@@ -20,18 +20,18 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод поиска правовой формы собственности
+        /// Legal ownership method
         /// </summary>
-        /// <param name="wildcard">Шаблон запроса</param>
+        /// <param name="wildcard">Request Template</param>
         /// <returns></returns>
         [HttpGet]
         [Route("search")]
         public async Task<IActionResult> Search(string wildcard) => Ok(await _service.Search(wildcard));
 
         /// <summary>
-        /// Метод получения правовой формы собственности
+        /// Method of obtaining legal form of ownership
         /// </summary>
-        /// <param name="id">Id правовой формы собственности</param>
+        /// <param name="id">Id of legal form of ownership</param>
         /// <returns></returns>
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> GetById(int id) => Ok(await _service.GetById(id));

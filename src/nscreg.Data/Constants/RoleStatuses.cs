@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы статусов ролей
+    /// Role Status Constants
     /// </summary>
     public enum RoleStatuses
     {

@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность персоны
+    ///  Person entity class
     /// </summary>
     public class Person
     {
@@ -27,7 +27,7 @@ namespace nscreg.Data.Entities
         [MaxLength(150)]
         public string MiddleName { get; set; }
         public DateTime? BirthDate { get; set; }
-        public byte Sex { get; set; }
+        public byte? Sex { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int CountryId { get; set; }

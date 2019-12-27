@@ -19,6 +19,7 @@ using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -38,7 +39,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly ElasticService _elasticService;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
+        private readonly DeleteService _deleteService;
         private readonly int? _liquidateStatusId;
+        private readonly int? _deletedStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
 
@@ -53,23 +56,30 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticService = new ElasticService(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
+            _deleteService = new DeleteService(dbContext);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
+            _deletedStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "8")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
         }
 
         /// <summary>
-        /// Метод редактирования правовой единицы
+        /// Method of editing a legal unit
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
                 m => m.RegId ?? 0,
                 userId, unit =>
                 {
+                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
+                    {
+                        _deleteService.CheckBeforeDelete(unit, true);
+                    }
+
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
@@ -110,11 +120,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования местной единицы
+        /// Local unit editing method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
@@ -122,6 +132,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
+                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
+                    {
+                        _deleteService.CheckBeforeDelete(unit, true);
+                    }
+
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => unit.LegalUnitId == x.RegId && !x.IsDeleted);
@@ -134,11 +149,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования предприятия
+        /// Enterprise editing method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
@@ -146,6 +161,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
+                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
+                    {
+                        _deleteService.CheckBeforeDelete(unit, true);
+                    }
+
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
@@ -167,11 +187,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования группы предприятий
+        /// Method of editing a group of enterprises
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "userId"> User Id </param>
+        /// <returns> </returns>
         public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
@@ -179,6 +199,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 (unit, oldUnit) =>
                 {
+                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
+                    {
+                        _deleteService.CheckBeforeDelete(unit, true);
+                    }
+
                     if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
                         var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
@@ -198,13 +223,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования контекста стат. единцы
+        /// Method for editing the context stat. Edinet
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="idSelector">Id Селектора</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="work">В работе</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "idSelector"> Id Selector </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "work"> At work </param>
+        /// <returns> </returns>
         private async Task<Dictionary<string, string[]>> EditUnitContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
@@ -269,20 +294,25 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     foreach (var model in personsList)
                     {
-                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value,
-                                out PersonStatisticalUnit personStatisticalUnit))
+                        if (model.Id.HasValue && model.Id > 0)
                         {
-                            var currentPerson = personStatisticalUnit.Person;
-                            if (model.Id == currentPerson.Id )
+                            if (srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
                             {
-                                currentPerson.UpdateProperties(model);
-                                persons.Add(personStatisticalUnit);
+                                var currentPerson = personStatisticalUnit.Person;
+                                if (model.Id == currentPerson.Id)
+                                {
+                                    currentPerson.UpdateProperties(model);
+                                    persons.Add(personStatisticalUnit);
+                                    continue;
+                                }
+                            } else
+                            {
+                                persons.Add(new PersonStatisticalUnit { PersonId = (int)model.Id, PersonTypeId = model.Role });
                                 continue;
                             }
                         }
-                        var newPerson = new Person();
-                        Mapper.Map(model, newPerson);
-                        persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonTypeId = model.Role });
+                        var newPerson = Mapper.Map<PersonM, Person>(model);
+                        persons.Add(new PersonStatisticalUnit { Person = newPerson, PersonTypeId = model.Role });
                     }
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
 
@@ -356,13 +386,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
 
         /// <summary>
-        /// Метод редактирования контекста
+        /// Context editing method
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <param name="idSelector">Id Селектора</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="work">В работе</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <param name = "idSelector"> Id Selector </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "work"> At work </param>
+        /// <returns> </returns>
         private async Task<Dictionary<string, string[]>> EditContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
@@ -388,6 +418,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             Mapper.Map(data, unit);
             
             var deleteEnterprise = false;
+            var isDeleted = false;
             var existingLeuEntRegId = (int?) 0;
             if (unit is LegalUnit)
             {
@@ -414,8 +445,18 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;
-            unit.ChangeReason = data.ChangeReason;
-            unit.EditComment = data.EditComment;
+            if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
+            {
+                unit.IsDeleted = true;
+                unit.ChangeReason = ChangeReasons.Delete;
+                unit.EditComment = null;
+                isDeleted = true;
+
+            } else
+            {
+                unit.ChangeReason = data.ChangeReason;
+                unit.EditComment = data.EditComment;
+            }
 
             IStatUnitAnalyzeService analysisService =
                 new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
@@ -444,33 +485,40 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
                     transaction.Commit();
+
                     if (_addArrayStatisticalUnits.Any())
                         foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
                         {
                             await _elasticService.AddDocument(addArrayStatisticalUnit);   
                         }
-                    if (_addArrayStatisticalUnits.Any())
+                    if (_editArrayStatisticalUnits.Any())
                         foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
                         {
                             await _elasticService.EditDocument(editArrayStatisticalUnit);
                         }
+
+                    await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+
+                    if (isDeleted)
+                    {
+                        _deleteService.StatUnitPostDeleteActions(unit, true, userId);
+                    }
                 }
                 catch (Exception e)
                 {
                     //TODO: Processing Validation Errors
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
-                await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
             }
 
             return null;
         }
 
         /// <summary>
-        /// Метод валидации изменений данных
+        /// Method for validating data changes
         /// </summary>
-        /// <param name="regid">Регистрационный Id</param>
-        /// <returns></returns>
+        /// <param name = "regid"> Registration Id </param>
+        /// <returns> </returns>
         private async Task<IStatisticalUnit> ValidateChanges<T>(int regid)
             where T : class, IStatisticalUnit
         {
@@ -483,11 +531,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод проверки на неизменность данных
+        /// Method for checking for data immutability
         /// </summary>
-        /// <param name="unit">Стат. единицы</param>
-        /// <param name="hUnit">История стат. единицы</param>
-        /// <returns></returns>
+        /// <param name = "unit"> Stat. units </param>
+        /// <param name = "hUnit"> History of stat. units </param>
+        /// <returns> </returns>
         private static bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();

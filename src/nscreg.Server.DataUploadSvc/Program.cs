@@ -19,13 +19,13 @@ namespace nscreg.Server.DataUploadSvc
     // ReSharper disable once ClassNeverInstantiated.Global
 #pragma warning disable CA1052 // Static holder types should be Static or NotInheritable
     /// <summary>
-    /// Класс запуска сервиса загрузки данных
+    /// Data load service launch class
     /// </summary>
     public class Program
 #pragma warning restore CA1052 // Static holder types should be Static or NotInheritable
     {
         /// <summary>
-        /// Метод запуска сервиса загрузки данных
+        /// Method for starting the data loading service
         /// </summary>
         // ReSharper disable once UnusedMember.Global
         public static void Main()
@@ -75,26 +75,15 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
                     {
-                        var dbContextHelper = new DbContextHelper();
-                        var ctx = dbContextHelper.CreateDbContext(new string[]{});
-                        var ctxCleanUp = dbContextHelper.CreateDbContext(new string[]{});
-                        // TODO: enhance inmemory db usage
-                        if (connectionSettings.ParseProvider() == ConnectionProvider.InMemory)
-                        {
-                            QueueDbContextHelper.SeedInMemoryData(ctx);
-                            QueueDbContextHelper.SeedInMemoryData(ctxCleanUp);
-                        }
                         return new JobService(
                             logger,
                             new QueueJob(
-                                ctx,
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 logger,
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
                                 validationSettings),
                             new QueueCleanupJob(
-                                ctxCleanUp,
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 servicesSettings.DataUploadServiceCleanupTimeout,
                                 logger));

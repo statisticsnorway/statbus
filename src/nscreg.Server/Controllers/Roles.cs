@@ -10,7 +10,7 @@ using nscreg.Server.Core.Authorize;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер ролей пользователя
+    /// User role controller
     /// </summary>
     [Route("api/[controller]")]
     public class RolesController : Controller
@@ -23,10 +23,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения списка ролей
+        /// Role List Method
         /// </summary>
-        /// <param name="model">Модель запроса</param>
-        /// <param name="onlyActive">Флаг активности роли</param>
+        /// <param name="model">Request Model</param>
+        /// <param name="onlyActive">Role Activity Flag</param>
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.RoleView, SystemFunctions.UserEdit, SystemFunctions.UserCreate, SystemFunctions.UserView)]
@@ -36,18 +36,18 @@ namespace nscreg.Server.Controllers
             Ok(_roleService.GetAllPaged(model, onlyActive));
 
         /// <summary>
-        /// Метод получения роли
+        /// Role acquisition method
         /// </summary>
-        /// <param name="id">Id роли</param>
+        /// <param name="id">role Id</param>
         /// <returns></returns>
         [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.RoleView)]
         public IActionResult GetRoleById(string id) => Ok(_roleService.GetRoleVmById(id));
 
         /// <summary>
-        /// Метод создания роли
+        /// Role Creation Method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">data</param>
         /// <returns></returns>
         [HttpPost]
         [SystemFunction(SystemFunctions.RoleCreate)]
@@ -58,10 +58,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования роли
+        /// Role Editing Method
         /// </summary>
-        /// <param name="id">Id роли</param>
-        /// <param name="data">Данные</param>
+        /// <param name="id">Role Id</param>
+        /// <param name="data">Data</param>
         /// <returns></returns>
         [HttpPut("{id}")]
         [SystemFunction(SystemFunctions.RoleEdit)]
@@ -72,10 +72,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод переключения удалённости роли
+        /// Role remoting method
         /// </summary>
-        /// <param name="id">Id роли</param>
-        /// <param name="status">Статус роли</param>
+        /// <param name="id">Role Id</param>
+        /// <param name="status">Role status</param>
         /// <returns></returns>
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.RoleDelete)]
@@ -86,7 +86,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения активности дерева ролей
+        /// The method of obtaining the activity of the role tree
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]

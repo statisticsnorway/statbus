@@ -8,12 +8,12 @@ using nscreg.Server.Common;
 namespace nscreg.Server.Core
 {
     /// <summary>
-    /// Класс конфигурации запуска приложения
+    /// Application Launch Configuration Class
     /// </summary>
     public static class StartupConfiguration
     {
         /// <summary>
-        /// Метод конфигурации Identity
+        /// Identity Configuration Method
         /// </summary>
         public static readonly Action<IdentityOptions> ConfigureIdentity =
             op =>
@@ -51,7 +51,7 @@ namespace nscreg.Server.Core
         private static object _thisLock = new object();
         private static bool _initialized = false;
         /// <summary>
-        /// Метод конфигурации АвтоМэппера
+        /// AutoMapper Configuration Method
         /// </summary>
         public static void ConfigureAutoMapper()
         {

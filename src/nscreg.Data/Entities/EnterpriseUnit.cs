@@ -9,7 +9,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность предприятие
+    ///  Entity class Enterprise Unit
     /// </summary>
     public class EnterpriseUnit : StatisticalUnit
     {

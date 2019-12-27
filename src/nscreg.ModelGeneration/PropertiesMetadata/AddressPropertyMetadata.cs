@@ -3,7 +3,7 @@ using nscreg.Data.Entities;
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств адреса
+    /// Address Property Metadata Class
     /// </summary>
     public class AddressPropertyMetadata :PropertyMetadataBase
     {

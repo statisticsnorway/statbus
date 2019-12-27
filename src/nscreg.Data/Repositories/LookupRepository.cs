@@ -6,7 +6,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Repositories
 {
     /// <summary>
-    /// Класс репозиторий справочников
+    /// Reference Repository Class
     /// </summary>
     /// <typeparam name="TEntity"></typeparam>
     public class LookupRepository<TEntity> where TEntity : LookupBase
@@ -19,27 +19,27 @@ namespace nscreg.Data.Repositories
         }
 
         /// <summary>
-        /// Find метод находит список сущностей по id
+        /// Find method finds a list of entities by id
         /// </summary>
-        /// <param name="id">id сущности</param>
-        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <param name="id">entity id</param>
+        /// <param name="showDeleted">Remoteness flag</param>
         /// <returns></returns>
         public virtual async Task<TEntity> Find(int id, bool showDeleted = false)
             => await List(showDeleted).FirstAsync(v => v.Id == id);
 
         /// <summary>
-        /// Метод получения списка сущностей
+        /// Entity List Retrieval Method
         /// </summary>
-        /// <param name="id">id сущности</param>
-        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <param name="id">entity id</param>
+        /// <param name="showDeleted">Remoteness flag</param>
         /// <returns></returns>
         public virtual async Task<TEntity> Get(int id, bool showDeleted = false)
             => await List(showDeleted).SingleAsync(v => v.Id == id);
 
         /// <summary>
-        /// Метод получения списка
+        /// Listing Method
         /// </summary>
-        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <param name="showDeleted">Remoteness flag</param>
         /// <returns></returns>
         public virtual IQueryable<TEntity> List(bool showDeleted = false)
         {

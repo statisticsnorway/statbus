@@ -7,12 +7,12 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Configuration.HistoryConfiguration
 {
     /// <summary>
-    ///  Класс конфигурации стат. единицы
+    ///  Statistical units configuration class
     /// </summary>
     public class StatisticalUnitHistoryConfiguration : EntityTypeConfigurationBase<StatisticalUnitHistory>
     {
         /// <summary>
-        ///  Метод конфигурации истории стат. единицы
+        ///  Statistical unit history configuration method
         /// </summary>
         public override void Configure(EntityTypeBuilder<StatisticalUnitHistory> builder)
         {

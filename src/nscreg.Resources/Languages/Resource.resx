@@ -2339,4 +2339,22 @@
   <data name="LoginTitle" xml:space="preserve">
     <value>Enter NSC Registry</value>
   </data>
+  <data name="RejectDataSourceMessage" xml:space="preserve">
+    <value>Reject data source</value>
+  </data>
+  <data name="DeleteEnterpriseUnit" xml:space="preserve">
+    <value>To delete this Enterprise unit you must delete its' Legal unit</value>
+  </data>
+  <data name="DeleteLocalUnit" xml:space="preserve">
+    <value>To delete this Local unit you must delete its' Legal unit</value>
+  </data>
+  <data name="RestoreEnterpriseUnit" xml:space="preserve">
+    <value>To restore this Enterprise unit you must restore its' Legal unit</value>
+  </data>
+  <data name="RestoreLocalUnit" xml:space="preserve">
+    <value>To restore this Local unit you must restore its' Legal unit</value>
+  </data>
+  <data name="ElasticSearchIsDisable" xml:space="preserve">
+    <value>Elasticsearch service is not running, please connect to your server' administrator to turn it on</value>
+  </data>
 </root>

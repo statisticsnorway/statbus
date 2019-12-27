@@ -5,7 +5,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств множественной ссылки
+    /// Multiple Link Property Metadata Class
     /// </summary>
     public class MultiReferenceProperty : PropertyMetadataBase
     {

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace nscreg.Data.Entities.History
 {
     /// <summary>
-    /// Binding entity with Statistical Unit and Country history
+    /// Binding entity with statistical unit and country history
     /// </summary>
     public class CountryStatisticalUnitHistory
     {

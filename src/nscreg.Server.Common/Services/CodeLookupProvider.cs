@@ -6,9 +6,9 @@ using nscreg.Server.Common.Models.Lookup;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Класс провайдер кода справочника
+    /// Class reference code provider
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name = "T"> </typeparam>
     public class CodeLookupProvider<T> where T: CodeLookupVm
     {
         private readonly string _referenceName;
@@ -21,10 +21,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения данных справочника
+        /// Method of obtaining data from the directory
         /// </summary>
-        /// <param name="code">RКод</param>
-        /// <returns></returns>
+        /// <param name = "code"> R Code </param>
+        /// <returns> </returns>
         public T Get(string code)
         {
             T data;

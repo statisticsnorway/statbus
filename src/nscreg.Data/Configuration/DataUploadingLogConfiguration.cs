@@ -5,12 +5,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации журнала загрузки данных
+    ///  Data Uploading Log Configuration Class
     /// </summary>
     public class DataUploadingLogConfiguration: EntityTypeConfigurationBase<DataUploadingLog>
     {
         /// <summary>
-        ///  Метод конфигурации журнала загрузки данных
+        ///  Data Uploading Log Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<DataUploadingLog> builder)
         {

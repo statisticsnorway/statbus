@@ -1,6 +1,6 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
-import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
+import { Confirm, Header, Loader, Table, Modal, Button } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
@@ -15,6 +15,7 @@ class Search extends React.Component {
   static propTypes = {
     fetchData: func.isRequired,
     clear: func.isRequired,
+    clearError: func.isRequired,
     setSearchCondition: func.isRequired,
     updateFilter: func.isRequired,
     setQuery: func.isRequired,
@@ -33,6 +34,7 @@ class Search extends React.Component {
     locale: string.isRequired,
     isLoading: bool.isRequired,
     lookups: shape({}).isRequired,
+    error: string,
   }
 
   static defaultProps = {
@@ -42,11 +44,24 @@ class Search extends React.Component {
     }),
     statUnits: [],
     totalCount: 0,
+    error: undefined,
   }
 
   state = {
     showConfirm: false,
     selectedUnit: undefined,
+    deleteFailed: undefined,
+  }
+
+  setError = (message) => {
+    this.setState({ deleteFailed: message })
+  }
+
+  clearError = () => {
+    this.setState({ deleteFailed: undefined })
+    if (this.props.error) {
+      this.props.clearError()
+    }
   }
 
   handleChangeForm = (name, value) => {
@@ -55,7 +70,7 @@ class Search extends React.Component {
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { fetchData, setQuery, formData, query } = this.props
+    const { setQuery, formData, query } = this.props
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
       qdata.page = 1
@@ -74,7 +89,7 @@ class Search extends React.Component {
     const { query, formData } = this.props
     const queryParams = { ...query, ...formData }
     const unitIndex = this.props.statUnits.indexOf(unit)
-    this.props.deleteStatUnit(unit.type, unit.regId, queryParams, unitIndex)
+    this.props.deleteStatUnit(unit.type, unit.regId, queryParams, unitIndex, this.setError)
   }
 
   handleCancel = () => {
@@ -101,6 +116,25 @@ class Search extends React.Component {
     )
   }
 
+  renderErrorModal = () => (
+    <Modal
+      className="errorModal"
+      size="small"
+      open={this.state.deleteFailed !== undefined || this.props.error !== undefined}
+      onClose={this.clearError}
+    >
+      <Modal.Header>{this.props.localize('Error')}</Modal.Header>
+      <Modal.Content>
+        {this.state.deleteFailed !== undefined
+          ? this.props.localize(this.state.deleteFailed)
+          : this.props.localize(this.props.error)}
+      </Modal.Content>
+      <Modal.Actions>
+        <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
+      </Modal.Actions>
+    </Modal>
+  )
+
   render() {
     const {
       statUnits,
@@ -112,16 +146,17 @@ class Search extends React.Component {
       setSearchCondition,
       locale,
       updateFilter,
+      error,
     } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
     const searchFormErrors = getSearchFormErrors(formData, localize)
-
     return (
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>
         {this.state.showConfirm && this.renderConfirm()}
+        {this.renderErrorModal()}
         <br />
         <SearchForm
           formData={formData}
@@ -164,5 +199,4 @@ class Search extends React.Component {
     )
   }
 }
-
 export default Search

@@ -24,7 +24,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Common
 {
     /// <summary>
-    /// Класс профиля авто-сопоставления
+    /// Auto-match profile class
     /// </summary>
     public class AutoMapperProfile : Profile
     {

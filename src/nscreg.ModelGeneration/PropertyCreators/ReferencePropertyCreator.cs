@@ -9,7 +9,7 @@ using nscreg.Utilities.Extensions;
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    ///     Класс создатель свойства ссылки
+    ///     Link Creator Class
     /// </summary>
     public class ReferencePropertyCreator : PropertyCreatorBase
     {
@@ -19,7 +19,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод проверки создания свойства ссылки
+        ///     Verification Method for Link Property Creation
         /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
@@ -29,7 +29,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        ///     Метод создатель свойства ссылки
+        ///     Link Property Creator Method
         /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)

@@ -1,7 +1,7 @@
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    /// Константы источников данных позволенных оппераций
+    /// Constants of data sources of allowed operations
     /// </summary>
     public enum DataSourceAllowedOperation
     {

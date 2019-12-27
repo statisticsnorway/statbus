@@ -10,7 +10,7 @@ namespace nscreg.Server.Core.Authorize
 {
     // ReSharper disable once ClassNeverInstantiated.Global
     /// <summary>
-    /// Класс обработчик авторизации системной функции 
+    /// Class handler authorization system function
     /// </summary>
     public class SystemFunctionAuthHandler :
         AttributeAuthorizationHandler<SystemFunctionAuthRequirement, SystemFunctionAttribute>
@@ -22,11 +22,11 @@ namespace nscreg.Server.Core.Authorize
             _userService = userService;
         }
         /// <summary>
-        /// Метод обработчик требований
+        /// Requirement Handler Method
         /// </summary>
-        /// <param name="context">Контекст данных</param>
-        /// <param name="requirement">Требование</param>
-        /// <param name="attributes">Аттрибуты</param>
+        /// <param name="context">context</param>
+        /// <param name="requirement">requirement</param>
+        /// <param name="attributes">attributes</param>
         /// <returns></returns>
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context,
             SystemFunctionAuthRequirement requirement,
@@ -41,10 +41,10 @@ namespace nscreg.Server.Core.Authorize
             context.Succeed(requirement);
         }
         /// <summary>
-        /// Метод авторизации 
+        /// Authorization Method
         /// </summary>
-        /// <param name="user">Пользователь</param>
-        /// <param name="permissions">Разрешения</param>
+        /// <param name="user">user</param>
+        /// <param name="permissions">permissions</param>
         /// <returns></returns>
         private async Task<bool> AuthorizeAsync(ClaimsPrincipal user, SystemFunctions[] permissions)
             => (await _userService.GetSystemFunctionsByUserId(user.GetUserId())).Intersect(permissions).Any();

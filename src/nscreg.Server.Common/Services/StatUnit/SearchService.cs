@@ -17,7 +17,7 @@ using nscreg.Server.Common.Helpers;
 namespace nscreg.Server.Common.Services.StatUnit
 {
     /// <summary>
-    /// Класс сервис поиска
+    /// Class search service
     /// </summary>
     public class SearchService
     {
@@ -37,14 +37,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод поиска стат. единицы
+        /// Stat search method. units
         /// </summary>
-        /// <param name="filter">Запрос</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="isDeleted">Флаг удалённости</param>
-        /// <returns></returns>
+        /// <param name = "filter"> Request </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "isDeleted"> Distance flag </param>
+        /// <returns> </returns>
         public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool isDeleted = false)
         {
+            await _elasticService.CheckElasticSearchConnection();
             bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
 
             long totalCount;
@@ -77,7 +78,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var permissions = await _userService.GetDataAccessAttributes(userId, null);
             var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],
@@ -129,16 +129,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Метод поиска стат. единицы по коду
+        /// Stat search method. units by code
         /// </summary>
-        /// <param name="type">Тип статической единицы</param>
-        /// <param name="code">Код</param>
-        /// <param name="isDeleted">Флаг на удаление</param>
-        /// <param name="limit">Ограничение отображаемости</param>
-        /// <param name="userId">Id пользователя</param>
-        /// <param name="regId">Регистрационный Id</param>
-        /// <param name="page">Текущая страница</param>
-        /// <returns></returns>
+        /// <param name = "type"> Type of static unit </param>
+        /// <param name = "code"> Code </param>
+        /// <param name = "isDeleted"> Delete flag </param>
+        /// <param name = "limit"> Display limitation </param>
+        /// <param name = "userId"> User Id </param>
+        /// <param name = "regId"> Registration Id </param>
+        /// <param name = "page"> Current page </param>
+        /// <returns> </returns>
         public async Task<List<UnitLookupVm>> Search(StatUnitTypes type, string code, string userId, int regId,  bool isDeleted, int limit = 5, int page = 1)
         {
             if (isDeleted)
@@ -236,11 +236,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
 
         /// <summary>
-        /// Метод поиска стат. единицы по имени
+        /// Stat search method. units by name
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
-        /// <param name="limit">Ограничение отображаемости</param>
-        /// <returns></returns>
+        /// <param name = "wildcard"> Search template </param>
+        /// <param name = "limit"> Display limitation </param>
+        /// <returns> </returns>
         public async Task<List<UnitLookupVm>> SearchByWildcard(string wildcard, int limit = 5)
         {
             var loweredwc = wildcard.ToLower();
@@ -258,10 +258,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <summary>
         /// Validates provided statId uniqueness
         /// </summary>
-        /// <param name="unitType"></param>
-        /// <param name="statId"></param>
-        /// <param name="unitId"></param>
-        /// <returns></returns>
+        /// <param name = "unitType"> </param>
+        /// <param name = "statId"> </param>
+        /// <param name = "unitId"> </param>
+        /// <returns> </returns>
         public async Task<bool> ValidateStatIdUniquenessAsync(int? unitId, StatUnitTypes unitType, string statId)
         {
             if (unitType == StatUnitTypes.EnterpriseGroup)

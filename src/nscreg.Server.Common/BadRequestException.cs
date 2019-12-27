@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 namespace nscreg.Server.Common
 {
     /// <summary>
-    /// Класс обработчик исключения на плохой запрос
+    /// Bad exception class handler
     /// </summary>
     public class BadRequestException : Exception
     {

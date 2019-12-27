@@ -1060,7 +1060,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("PhoneNumber1");
 
-                    b.Property<byte>("Sex");
+                    b.Property<byte?>("Sex");
 
                     b.Property<string>("Surname")
                         .HasMaxLength(150);

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models
 {
     /// <summary>
-    /// Модель запросов пагинации
+    /// Pagination Request Model
     /// </summary>
     public class PaginatedQueryM
     {

@@ -13,7 +13,7 @@ using nscreg.Server.Core.Authorize;
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    /// Контроллер регионов
+    /// Region controller
     /// </summary>
     [Route("api/[controller]")]
     public class RegionsController : Controller
@@ -26,9 +26,9 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения списка регионов
+        /// Method to get a list of regions
         /// </summary>
-        /// <param name="model">Модель запроса</param>
+        /// <param name="model">Request Model</param>
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(
@@ -40,7 +40,7 @@ namespace nscreg.Server.Controllers
             Ok(await _regionsService.ListAsync(model));
 
         /// <summary>
-        /// Метод получения региона
+        /// Region acquisition method
         /// </summary>
         /// <param name="id">Id</param>
         /// <returns></returns>
@@ -49,9 +49,9 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> List(int id) => Ok(await _regionsService.GetAsync(id));
 
         /// <summary>
-        /// Метод создания региона
+        /// Region creation method
         /// </summary>
-        /// <param name="data">Данные</param>
+        /// <param name="data">Data</param>
         /// <returns></returns>
         [HttpPost]
         [SystemFunction(SystemFunctions.RegionsCreate, SystemFunctions.RegionsView)]
@@ -62,10 +62,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод редактирования региона
+        /// Region Editing Method
         /// </summary>
         /// <param name="id">Id</param>
-        /// <param name="data">Данные</param>
+        /// <param name="data">Data</param>
         /// <returns></returns>
         [HttpPut("{id}")]
         [SystemFunction(SystemFunctions.RegionsEdit)]
@@ -76,10 +76,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод переключения удалённости
+        /// Distance Switching Method
         /// </summary>
         /// <param name="id">Id</param>
-        /// <param name="delete">Флаг удалённости</param>
+        /// <param name="delete">Remoteness flag</param>
         /// <returns></returns>
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.RegionsDelete)]
@@ -90,10 +90,10 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод поиска региона
+        /// Region Search Method
         /// </summary>
-        /// <param name="wildcard">Шаблон поиска</param>
-        /// <param name="limit">Ограничение</param>
+        /// <param name="wildcard">Search pattern</param>
+        /// <param name="limit">Limitation</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         public async Task<IActionResult> Search(string wildcard, int limit = 10) =>
@@ -105,9 +105,9 @@ namespace nscreg.Server.Controllers
                 limit));
 
         /// <summary>
-        /// Метод получения списка адресов
+        /// Address List Method
         /// </summary>
-        /// <param name="code">Код региона</param>
+        /// <param name="code">Region code</param>
         /// <returns></returns>
         [HttpGet("{code}")]
         public async Task<IActionResult> GetAddress(string code)
@@ -126,7 +126,7 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод полечения всего дерева регионов
+        /// Method for treating the entire tree of regions
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]

@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации сектора кода
+    ///  Code Sector Configuration Class
     /// </summary>
     public class SectorCodesConfiguration : EntityTypeConfigurationBase<SectorCode>
     {
         /// <summary>
-        ///  Метод конфигурации сектора кода
+        ///  Code Sector Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<SectorCode> builder)
         {

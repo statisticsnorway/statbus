@@ -5,7 +5,7 @@ namespace nscreg.Server.Common.Models.DataAccess
     public class DataAccessAttributeM
     {
         /// <summary>
-        /// Модель аттребута доступа к данным
+        /// Data Access Attribute Model
         /// </summary>
         [Required]
         public string Name { get; set; }

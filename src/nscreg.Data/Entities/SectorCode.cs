@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность сектор код
+    ///  Class entity sector code
     /// </summary>
     public class SectorCode : CodeLookupBase
     {

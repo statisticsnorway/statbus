@@ -13,7 +13,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Сервис источника данных
+    /// Data source service
     /// </summary>
     public class DataSourcesService
     {
@@ -25,10 +25,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения всех источников данных
+        /// Method for obtaining all data sources
         /// </summary>
-        /// <param name="query">Запрос</param>
-        /// <returns></returns>
+        /// <param name = "query"> Request </param>
+        /// <returns> </returns>
         public async Task<SearchVm<DataSourceVm>> GetAllDataSources(SearchQueryM query)
         {
             var wildcard = query.Wildcard;
@@ -70,10 +70,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        ///  Метод получения источника данных
+        /// Method of obtaining a data source
         /// </summary>
-        /// <param name="id">Id</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id </param>
+        /// <returns> </returns>
         public async Task<DataSourceEditVm> GetById(int id)
         {
             var data = await _context.DataSources.FindAsync(id);
@@ -83,10 +83,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод создания источника данных
+        /// Method for creating a data source
         /// </summary>
-        /// <param name="data">Данные</param>
-        /// <returns></returns>
+        /// <param name = "data"> Data </param>
+        /// <returns> </returns>
         public async Task<DataSourceVm> Create(SubmitM data, string userId)
         {
             var entity = data.CreateEntity(userId);
@@ -98,11 +98,11 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод редактирования источника данных
+        /// Data source editing method
         /// </summary>
-        /// <param name="id">Id</param>
-        /// <param name="data">Данные</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id </param>
+        /// <param name = "data"> Data </param>
+        /// <returns> </returns>
         public async Task Edit(int id, SubmitM data, string userId)
         {
             var existing = await _context.DataSources.FindAsync(id);
@@ -113,10 +113,10 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод удаления источника данных
+        /// Method for deleting a data source
         /// </summary>
-        /// <param name="id">Id</param>
-        /// <returns></returns>
+        /// <param name = "id"> Id </param>
+        /// <returns> </returns>
         public async Task Delete(int id)
         {
             var entity = await _context.DataSources.FindAsync(id);

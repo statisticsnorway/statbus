@@ -3,26 +3,26 @@ using System;
 namespace nscreg.Utilities
 {
     /// <summary>
-    /// Класс хелпер атрибутов доступа к данным
+    /// Data Access Attributes Helper Class
     /// </summary>
     public static class DataAccessAttributesHelper
     {
         /// <summary>
-        /// Метод получения имени атрибута доступа к данным
+        /// Method for obtaining the name of the data access attribute
         /// </summary>
-        /// <param name="propName">Имя свойства</param>
-        /// <returns></returns>
+        /// <param name = "propName"> Property name </param>
+        /// <returns> </returns>
         public static string GetName<T>(string propName)
         {
             return GetName(typeof(T), propName);
         }
 
         /// <summary>
-        /// Метод получения имени атрибута доступа к данным
+        /// Method for obtaining the name of the data access attribute
         /// </summary>
-        /// <param name="type">Тип свойства</param>
-        /// <param name="propName">Имя свойства</param>
-        /// <returns></returns>
+        /// <param name = "type"> Property type </param>
+        /// <param name = "propName"> Property name </param>
+        /// <returns> </returns>
         public static string GetName(Type type, string propName)
         {
             return $"{type.Name}.{propName}";

@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность страна
+    ///  Class entity country
     /// </summary>
     public class Country : CodeLookupBase
     {

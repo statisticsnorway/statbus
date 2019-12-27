@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 namespace nscreg.Data.Entities
 {
     /// <summary>
-    ///  Класс сущность деятельность стат. еденицы
+    ///  Class entity activity stat. units
     /// </summary>
     public class ActivityStatisticalUnit
     {

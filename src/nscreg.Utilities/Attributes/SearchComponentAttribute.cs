@@ -3,7 +3,7 @@ using System;
 namespace nscreg.Utilities.Attributes
 {
     /// <summary>
-    /// Класс атрибут поиска
+    /// Class attribute search
     /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public class SearchComponentAttribute : Attribute

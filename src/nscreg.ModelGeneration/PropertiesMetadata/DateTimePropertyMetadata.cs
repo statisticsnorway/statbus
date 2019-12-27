@@ -3,7 +3,7 @@ using System;
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств даты
+    /// Date Property Metadata Class
     /// </summary>
     public class DateTimePropertyMetadata : PropertyMetadataBase
     {

@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
     /// <summary>
-    /// Класс связи полей
+    /// Field Link Class
     /// </summary>
     public class Connections
     {

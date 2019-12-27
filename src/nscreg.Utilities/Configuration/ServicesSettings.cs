@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration
 {
     /// <summary>
-    /// Класс настройки сервисов
+    /// Class of service settings
     /// </summary>
     public class ServicesSettings
     {

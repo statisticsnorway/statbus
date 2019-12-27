@@ -10,19 +10,19 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace nscreg.Server.Core.Authorize
 {
     /// <summary>
-    /// Класс обработчик атрибутов авторизации
+    /// Authorization Attribute Handler Class
     /// </summary>
-    /// <typeparam name="TRequirement">Требование</typeparam>
-    /// <typeparam name="TAttribute">Аттрибут</typeparam>
+    /// <typeparam name="TRequirement">Requirement</typeparam>
+    /// <typeparam name="TAttribute">Attribute</typeparam>
     public abstract class AttributeAuthorizationHandler<TRequirement, TAttribute> : AuthorizationHandler<TRequirement>
         where TRequirement : IAuthorizationRequirement
         where TAttribute : Attribute
     {
         /// <summary>
-        /// Метод обработчик требования
+        /// Requirement Handler Method
         /// </summary>
-        /// <param name="context">Контекст</param>
-        /// <param name="requirement">Требование</param>
+        /// <param name="context">context</param>
+        /// <param name="requirement">requirement</param>
         /// <returns></returns>
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, TRequirement requirement)
             => HandleRequirementAsync(
@@ -32,11 +32,11 @@ namespace nscreg.Server.Core.Authorize
                     .ActionDescriptor as ControllerActionDescriptor)?.MethodInfo));
 
         /// <summary>
-        /// Метод обработчик требования
+        /// Requirement Handler Method
         /// </summary>
-        /// <param name="context">Контекст</param>
-        /// <param name="requirement">Требование</param>
-        /// <param name="attributes">Аттрибут</param>
+        /// <param name="context">context</param>
+        /// <param name="requirement">requirement</param>
+        /// <param name="attributes">attributes</param>
         /// <returns></returns>
         protected abstract Task HandleRequirementAsync(
             AuthorizationHandlerContext context,
@@ -44,9 +44,9 @@ namespace nscreg.Server.Core.Authorize
             IEnumerable<TAttribute> attributes);
 
         /// <summary>
-        /// Метод получения аттрибутов
+        /// attribute getting method
         /// </summary>
-        /// <param name="memberInfo">Информация участника</param>
+        /// <param name="memberInfo">Member info</param>
         /// <returns></returns>
         private static IEnumerable<TAttribute> GetAttributes(MemberInfo memberInfo) =>
             memberInfo?.GetCustomAttributes(typeof(TAttribute), false).Cast<TAttribute>() ??

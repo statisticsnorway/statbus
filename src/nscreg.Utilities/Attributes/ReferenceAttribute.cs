@@ -4,7 +4,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Utilities.Attributes
 {
     /// <summary>
-    /// Класс атребут ссылки на справочник
+    /// Class atrebut reference links
     /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public class ReferenceAttribute : Attribute

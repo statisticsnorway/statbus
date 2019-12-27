@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Data.Entities.History
 {
     /// <summary>
-    ///  Класс сущность история местной еденицы
+    ///  Class entity history of the local unit
     /// </summary>
     public class LocalUnitHistory : StatisticalUnitHistory
     {

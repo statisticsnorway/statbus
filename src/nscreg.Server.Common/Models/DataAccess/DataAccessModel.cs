@@ -10,7 +10,7 @@ using nscreg.Server.Common.Services;
 namespace nscreg.Server.Common.Models.DataAccess
 {
     /// <summary>
-    /// Модель доступа к данным
+    /// Data access model
     /// </summary>
     public class DataAccessModel
     {
@@ -20,9 +20,9 @@ namespace nscreg.Server.Common.Models.DataAccess
         public List<DataAccessAttributeVm> LocalUnit { get; set; }
 
         /// <summary>
-        /// Метод преобразования в коллекции строк
+        /// Convert method to string collection
         /// </summary>
-        /// <param name="validate">Флаг валидности</param>
+        /// <param name="validate">Flag of validity</param>
         /// <returns></returns>
         public IEnumerable<string> ToStringCollection(bool validate = true)
         {
@@ -39,7 +39,7 @@ namespace nscreg.Server.Common.Models.DataAccess
         }
 
         /// <summary>
-        /// Метод преобразования в строку
+        /// String conversion method
         /// </summary>
         /// <returns></returns>
         public override string ToString()
@@ -48,7 +48,7 @@ namespace nscreg.Server.Common.Models.DataAccess
         }
 
         /// <summary>
-        /// Метод преобразования из строки
+        /// String Conversion Method
         /// </summary>
         /// <returns></returns>
         public static DataAccessModel FromString(string dataAccess)
@@ -64,7 +64,7 @@ namespace nscreg.Server.Common.Models.DataAccess
         }
 
         /// <summary>
-        /// Метод получения списка атрибутов доступа к данным
+        /// Method for obtaining a list of data access attributes
         /// </summary>
         /// <returns></returns>
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(ISet<string> dataAccess) where T: IStatisticalUnit

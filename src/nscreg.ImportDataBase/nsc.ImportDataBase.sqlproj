@@ -57,7 +57,15 @@
   <ItemGroup>
     <Folder Include="Properties" />
     <Folder Include="ReportsSqlWallet" />
-	<Folder Include="ImportingData" />
+    <Folder Include="ImportingData" />
+    <Folder Include="ReportsSqlWallet\ActivityCategories\" />
+    <Folder Include="ReportsSqlWallet\LegalForms\" />
+    <Folder Include="ReportsSqlWallet\SectorCodes\" />
+    <Folder Include="ReportsSqlWallet\Statuses\" />
+    <Folder Include="ReportsSqlWallet\UnitSize\" />
+    <Folder Include="ReportsSqlWallet\31 reports" />
+    <Folder Include="ReportsSqlWallet\31 reports\Functions" />
+    <Folder Include="ReportsSqlWallet\31 reports\Views" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ImportingData\01_Query_Catalogue_LegalForms.sql" />
@@ -77,8 +85,45 @@
     <None Include="ImportingData\15_Query_Persons.sql" />
     <None Include="ImportingData\16_Query_Activities.sql" />
     <None Include="ImportingData\17_Query_CountryStatisticalUnits.sql" />
-    <None Include="ReportsSqlWallet\TableA.sql" />
-    <None Include="ReportsSqlWallet\TableB.sql" />
-    <None Include="ReportsSqlWallet\TableC.sql" />
+    <None Include="ReportsSqlWallet\ActivityCategories\TableA.sql" />
+    <None Include="ReportsSqlWallet\ActivityCategories\TableB.sql" />
+    <None Include="ReportsSqlWallet\ActivityCategories\TableC.sql" />
+    <None Include="ReportsSqlWallet\LegalForms\TableA.sql" />
+    <None Include="ReportsSqlWallet\LegalForms\TableB.sql" />
+    <None Include="ReportsSqlWallet\SectorCodes\TableA.sql" />
+    <None Include="ReportsSqlWallet\SectorCodes\TableB.sql" />
+    <None Include="ReportsSqlWallet\Statuses\TableA.sql" />
+    <None Include="ReportsSqlWallet\Statuses\TableB.sql" />
+    <None Include="ReportsSqlWallet\UnitSize\TableA.sql" />
+    <None Include="ReportsSqlWallet\UnitSize\TableB.sql" />
+    <None Include="ReportsSqlWallet\31 reports\01_TableA_ActivityCategories.sql" />
+    <None Include="ReportsSqlWallet\31 reports\02_TableB_ActivityCategorie.sql" />
+    <None Include="ReportsSqlWallet\31 reports\03_TableA_LegalForms.sql" />
+    <None Include="ReportsSqlWallet\31 reports\04_TableB_LegalForms.sql" />
+    <None Include="ReportsSqlWallet\31 reports\05_TableA_SectorCodes.sql" />
+    <None Include="ReportsSqlWallet\31 reports\06_TableB_SectorCodes.sql" />
+    <None Include="ReportsSqlWallet\31 reports\07_TableA_Status.sql" />
+    <None Include="ReportsSqlWallet\31 reports\08_TableB_Status.sql" />
+    <None Include="ReportsSqlWallet\31 reports\09_TableA_Size.sql" />
+    <None Include="ReportsSqlWallet\31 reports\10_TableB_Size.sql" />
+    <None Include="ReportsSqlWallet\31 reports\11_TableA_Turnover.sql" />
+    <None Include="ReportsSqlWallet\31 reports\12_TableB_Turnover.sql" />
+    <None Include="ReportsSqlWallet\31 reports\13_TableA_NumberOfEmployees.sql" />
+    <None Include="ReportsSqlWallet\31 reports\14_TableB_NumberOfEmployees.sql" />
+    <None Include="ReportsSqlWallet\31 reports\15_TableA_Demography.sql" />
+    <None Include="ReportsSqlWallet\31 reports\16_TableB_Demography.sql" />
+    <None Include="ReportsSqlWallet\31 reports\17_TableC_Demogrphy.sql" />
+    <None Include="ReportsSqlWallet\31 reports\18_TableA_Demography_5years.sql" />
+    <None Include="ReportsSqlWallet\31 reports\19_TableB_Demography_5years.sql" />
+    <None Include="ReportsSqlWallet\31 reports\20_TableC_Demography_5years.sql" />
+    <None Include="ReportsSqlWallet\31 reports\21_TableA_Demography_Growth.sql" />
+    <None Include="ReportsSqlWallet\31 reports\22_TableB_Demography_Growth.sql" />
+    <None Include="ReportsSqlWallet\31 reports\23_TableC_Demography_Growth.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="ReportsSqlWallet\31 reports\Functions\GetNamesRegionsForPivot.sql" />
+    <Build Include="ReportsSqlWallet\31 reports\Views\v_ActivityCategoriesHierarchy.sql" />
+    <Build Include="ReportsSqlWallet\31 reports\Views\v_Regions.sql" />
+    <Build Include="ReportsSqlWallet\31 reports\15_TableA_Demography.sql" />
   </ItemGroup>
 </Project>

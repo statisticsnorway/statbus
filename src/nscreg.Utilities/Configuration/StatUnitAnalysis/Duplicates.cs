@@ -1,7 +1,7 @@
 namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
     /// <summary>
-    /// Класс дублирование полей
+    /// Class duplication of fields
     /// </summary>
     public class Duplicates
     {

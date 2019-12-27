@@ -1,7 +1,7 @@
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     /// <summary>
-    /// Класс метаданные свойств правовой формы собственности
+    /// Property metadata class
     /// </summary>
     public class LegalFormSectorCodePropertyMetadata : PropertyMetadataBase
     {

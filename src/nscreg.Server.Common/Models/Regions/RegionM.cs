@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace nscreg.Server.Common.Models.Regions
 {
     /// <summary>
-    /// Модель региона
+    ///Region model
     /// </summary>
     public class RegionM
     {

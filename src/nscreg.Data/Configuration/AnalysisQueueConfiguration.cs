@@ -6,12 +6,12 @@ using nscreg.Data.Entities;
 namespace nscreg.Data.Configuration
 {
     /// <summary>
-    ///  Класс конфигурации журнала анализа
+    ///  Analysis Log Configuration Class
     /// </summary>
     public class AnalysisQueueConfiguration : EntityTypeConfigurationBase<AnalysisQueue>
     {
         /// <summary>
-        ///  Метод конфигурации журнала анализа
+        ///  Analysis Log Configuration Method
         /// </summary>
         public override void Configure(EntityTypeBuilder<AnalysisQueue> builder)
         {

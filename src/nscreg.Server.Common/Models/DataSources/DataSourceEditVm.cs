@@ -7,7 +7,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.DataSources
 {
     /// <summary>
-    /// Вью модель редактирования доступа к данным
+    /// View data access editing model
     /// </summary>
     public class DataSourceEditVm
     {
@@ -28,9 +28,9 @@ namespace nscreg.Server.Common.Models.DataSources
 
 
         /// <summary>
-        /// Метод создания вью модели редактирования источника данных
+        /// Method for creating a view model for editing a data source
         /// </summary>
-        /// <param name="item">Единица</param>
+        /// <param name="item">item</param>
         /// <returns></returns>
         public static DataSourceEditVm Create(DataSource item) => new DataSourceEditVm(item);
 

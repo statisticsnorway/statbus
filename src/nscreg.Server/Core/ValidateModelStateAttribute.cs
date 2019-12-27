@@ -6,14 +6,14 @@ using ServiceStack;
 namespace nscreg.Server.Core
 {
     /// <summary>
-    ///  Класс валидации модели
+    ///  Model Validation Class
     /// </summary>
     public class ValidateModelStateAttribute : ActionFilterAttribute
     {
         /// <summary>
-        ///     Метод валидирует модель в Action методы конструктора
+        ///     Method validates model in Action constructor methods
         /// </summary>
-        /// <param name="context">Контекст данных</param>
+        /// <param name="context">Data context</param>
         public override void OnActionExecuting(ActionExecutingContext context)
         {
             if (context.Filters.Any(x => x is DisableValidateModelStateAttribute))

@@ -15,12 +15,12 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.Server.Common.Services
 {
     /// <summary>
-    /// Сервис очереди источников данных
+    /// Data source queue service
     /// </summary>
     public static class DataAccessAttributesProvider<T> where T : IStatisticalUnit
     {
         /// <summary>
-        /// Метод преобразования 
+        /// Conversion Method
         /// </summary>
         public static List<DataAccessAttributeM> CommonAttributes => ToDataAccessAttributeM(
             typeof(T).GetProperties()

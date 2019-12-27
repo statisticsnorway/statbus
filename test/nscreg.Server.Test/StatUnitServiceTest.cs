@@ -9,6 +9,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Data.Entities.History;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.OrgLinks;
 using nscreg.Server.Common.Models.StatUnits;
@@ -328,96 +329,122 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task CreateLegalUnit()
         {
-            var unitName = Guid.NewGuid().ToString();
-
-            using (var context = CreateDbContext())
+            try
             {
-                context.Initialize();
+                var unitName = Guid.NewGuid().ToString();
 
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var address = await _helper.CreateAddressAsync(context);
-                await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
-
-                Assert.IsType<LegalUnit>(
-                    context.LegalUnits.Single(x => x.Name == unitName &&
-                                                   x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
-
+                using (var context = CreateDbContext())
+                {
+                    context.Initialize();
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var address = await _helper.CreateAddressAsync(context);
+                    await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
+                    Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName &&
+                                                       x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
+                }
+            }
+            catch(Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
         }
 
         [Fact]
         public async Task CreateLocalUnit()
         {
-            var unitName = Guid.NewGuid().ToString();
-
-            using (var context = CreateDbContext())
+            try
             {
-                context.Initialize();
+                var unitName = Guid.NewGuid().ToString();
 
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var address = await _helper.CreateAddressAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
+                using (var context = CreateDbContext())
+                {
+                    context.Initialize();
 
-                await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var address = await _helper.CreateAddressAsync(context);
+                    var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
 
-                Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName &&
-                                                                        x.Address.AddressPart1 ==
-                                                                        address.AddressPart1 && !x.IsDeleted));
+                    await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
+                    Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName &&
+                                                                            x.Address.AddressPart1 ==
+                                                                            address.AddressPart1 && !x.IsDeleted));
 
-                await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
-                Assert.Single(activities);
+                    await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
+                    Assert.Single(activities);
+
+                }
+            }
+            catch(Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
         }
 
         [Fact]
         public async Task CreateEnterpriseUnit()
         {
-            var unitName = Guid.NewGuid().ToString();
-
-            using (var context = CreateDbContext())
+            try
             {
-                context.Initialize();
-                var address = await _helper.CreateAddressAsync(context);
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit =
-                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
-                var legalUnitIds = new[] {legalUnit.RegId};
-                var enterpriseGroup =
-                    await _helper.CreateEnterpriseGroupAsync(context, null, unitName, Array.Empty<int>(), legalUnitIds);
+                var unitName = Guid.NewGuid().ToString();
 
-                await _helper.CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
-                    enterpriseGroup?.RegId);
+                using (var context = CreateDbContext())
+                {
+                    context.Initialize();
+                    var address = await _helper.CreateAddressAsync(context);
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var legalUnit =
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                    var legalUnitIds = new[] { legalUnit.RegId };
+                    var enterpriseGroup =
+                        await _helper.CreateEnterpriseGroupAsync(context, null, unitName, Array.Empty<int>(), legalUnitIds);
 
-                Assert.IsType<EnterpriseUnit>(
-                    context.EnterpriseUnits.Single(x => x.Name == unitName &&
-                                                        x.Address.AddressPart1 == address.AddressPart1 &&
-                                                        !x.IsDeleted));
+                    await _helper.CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
+                        enterpriseGroup?.RegId);
 
+                    Assert.IsType<EnterpriseUnit>(
+                        context.EnterpriseUnits.Single(x => x.Name == unitName &&
+                                                            x.Address.AddressPart1 == address.AddressPart1 &&
+                                                            !x.IsDeleted));
+
+                }
             }
+            catch(Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
+            }
+            
         }
 
         [Fact]
         public async Task CreateEnterpriseGroup()
         {
-            var unitName = Guid.NewGuid().ToString();
-
-            using (var context = CreateDbContext())
+            try
             {
-                context.Initialize();
+                var unitName = Guid.NewGuid().ToString();
 
-                var address = await _helper.CreateAddressAsync(context);
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit =
-                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
-                var legalUnitIds = new[] {legalUnit.RegId};
-                await _helper.CreateEnterpriseGroupAsync(context, address, unitName, Array.Empty<int>(), legalUnitIds);
+                using (var context = CreateDbContext())
+                {
+                    context.Initialize();
 
-                Assert.IsType<EnterpriseGroup>(
-                    context.EnterpriseGroups.Single(x => x.Name == unitName &&
-                                                         x.Address.AddressPart1 == address.AddressPart1 &&
-                                                         !x.IsDeleted));
+                    var address = await _helper.CreateAddressAsync(context);
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var legalUnit =
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                    var legalUnitIds = new[] { legalUnit.RegId };
+                    await _helper.CreateEnterpriseGroupAsync(context, address, unitName, Array.Empty<int>(), legalUnitIds);
 
+                    Assert.IsType<EnterpriseGroup>(
+                        context.EnterpriseGroups.Single(x => x.Name == unitName &&
+                                                             x.Address.AddressPart1 == address.AddressPart1 &&
+                                                             !x.IsDeleted));
+
+                }
             }
+            catch(Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
+            }
+            
         }
 
         #endregion
@@ -619,183 +646,212 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditLegalUnit()
         {
-            var unitName = Guid.NewGuid().ToString();
-            var unitNameEdit = Guid.NewGuid().ToString();
-            var duplicateName = Guid.NewGuid().ToString();
-
-            using (var context = CreateDbContext())
+            try
             {
-                context.Initialize();
+                var unitName = Guid.NewGuid().ToString();
+                var unitNameEdit = Guid.NewGuid().ToString();
+                var duplicateName = Guid.NewGuid().ToString();
 
-                var activities = await _helper.CreateActivitiesAsync(context);
-                await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
-                await _helper.CreateLegalUnitAsync(context, activities, null, duplicateName);
-
-                var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
-
-                await _helper.EditLegalUnitAsync(context, activities, unitId, unitNameEdit);
-
-                Assert.IsType<LegalUnit>(
-                    context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<LegalUnitHistory>(
-                    context.LegalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
-
-                Type actual = null;
-                try
+                using (var context = CreateDbContext())
                 {
-                    await _helper.EditLegalUnitAsync(context, activities, unitId, duplicateName);
+                    context.Initialize();
+
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
+                    await _helper.CreateLegalUnitAsync(context, activities, null, duplicateName);
+
+                    var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
+
+                    await _helper.EditLegalUnitAsync(context, activities, unitId, unitNameEdit);
+
+                    Assert.IsType<LegalUnit>(
+                        context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                    Assert.IsType<LegalUnitHistory>(
+                        context.LegalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
+
+                    Type actual = null;
+                    try
+                    {
+                        await _helper.EditLegalUnitAsync(context, activities, unitId, duplicateName);
+                    }
+                    catch (Exception e)
+                    {
+                        actual = e.GetType();
+                    }
+                    Assert.Equal(typeof(BadRequestException), actual);
                 }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
+            }
+            catch (Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
         }
 
         [Fact]
         private async Task EditLocalUnit()
         {
-            var unitName = Guid.NewGuid().ToString();
-            var unitNameEdit = Guid.NewGuid().ToString();
-            var dublicateName = Guid.NewGuid().ToString();
-
-            using (var context = CreateDbContext())
+            try
             {
-                context.Initialize();
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit =
-                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var unitName = Guid.NewGuid().ToString();
+                var unitNameEdit = Guid.NewGuid().ToString();
+                var dublicateName = Guid.NewGuid().ToString();
 
-                await _helper.CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
-                await _helper.CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
-
-                var unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
-
-                await _helper.EditLocalUnitAsync(context, activities, unitId, unitNameEdit, legalUnit.RegId);
-
-                Assert.IsType<LocalUnit>(
-                    context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<LocalUnitHistory>(
-                    context.LocalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
-
-                Type actual = null;
-                try
+                using (var context = CreateDbContext())
                 {
-                    await _helper.EditLocalUnitAsync(context, activities, unitId, dublicateName, legalUnit.RegId);
+                    context.Initialize();
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var legalUnit =
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+
+                    await _helper.CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
+                    await _helper.CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
+
+                    var unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
+
+                    await _helper.EditLocalUnitAsync(context, activities, unitId, unitNameEdit, legalUnit.RegId);
+
+                    Assert.IsType<LocalUnit>(
+                        context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                    Assert.IsType<LocalUnitHistory>(
+                        context.LocalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
+
+                    Type actual = null;
+                    try
+                    {
+                        await _helper.EditLocalUnitAsync(context, activities, unitId, dublicateName, legalUnit.RegId);
+                    }
+                    catch (Exception e)
+                    {
+                        actual = e.GetType();
+                    }
+                    Assert.Equal(typeof(BadRequestException), actual);
                 }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
             }
+            catch (Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
+            }
+
         }
 
         [Fact]
         private async Task EditEnterpriseUnit()
         {
-            var unitName = Guid.NewGuid().ToString();
-            var unitNameEdit = Guid.NewGuid().ToString();
-            var duplicateName = Guid.NewGuid().ToString();
+            try {
+                var unitName = Guid.NewGuid().ToString();
+                var unitNameEdit = Guid.NewGuid().ToString();
+                var duplicateName = Guid.NewGuid().ToString();
 
-            using (var context = CreateDbContext())
-            {
-                context.Initialize();
-
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit =
-                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
-                var legalUnitIds = new[] {legalUnit.RegId};
-                var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
-                    context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitIds);
-
-                await _helper.CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitIds,
-                    enterpriseGroup?.RegId);
-                await _helper.CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitIds,
-                    enterpriseGroup?.RegId);
-
-                var editUnitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-
-                await _helper.EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, unitNameEdit,
-                    enterpriseGroup?.RegId);
-
-                Assert.IsType<EnterpriseUnit>(
-                    context.EnterpriseUnits.Single(
-                        x => x.RegId == editUnitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<EnterpriseUnitHistory>(
-                    context.EnterpriseUnitHistory.Single(
-                        x => x.ParentId == editUnitId && x.Name == unitName));
-                Assert.Equal(1,
-                    context.EnterpriseUnits.Single(x => x.Name == unitNameEdit).LegalUnits.Count);
-
-                Type actual = null;
-                try
+                using (var context = CreateDbContext())
                 {
-                    await _helper.EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, duplicateName,
+                    context.Initialize();
+
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var legalUnit =
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                    var legalUnitIds = new[] { legalUnit.RegId };
+                    var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
+                        context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitIds);
+
+                    await _helper.CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitIds,
                         enterpriseGroup?.RegId);
+                    await _helper.CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitIds,
+                        enterpriseGroup?.RegId);
+
+                    var editUnitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
+
+                    await _helper.EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, unitNameEdit,
+                        enterpriseGroup?.RegId);
+
+                    Assert.IsType<EnterpriseUnit>(
+                        context.EnterpriseUnits.Single(
+                            x => x.RegId == editUnitId && x.Name == unitNameEdit && !x.IsDeleted));
+                    Assert.IsType<EnterpriseUnitHistory>(
+                        context.EnterpriseUnitHistory.Single(
+                            x => x.ParentId == editUnitId && x.Name == unitName));
+                    Assert.Equal(1,
+                        context.EnterpriseUnits.Single(x => x.Name == unitNameEdit).LegalUnits.Count);
+
+                    Type actual = null;
+                    try
+                    {
+                        await _helper.EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, duplicateName,
+                            enterpriseGroup?.RegId);
+                    }
+                    catch (Exception e)
+                    {
+                        actual = e.GetType();
+                    }
+                    Assert.Equal(typeof(BadRequestException), actual);
                 }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
             }
+            catch (Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
+            }
+
         }
 
         [Fact]
         public async Task EditEnterpriseGroup()
         {
-            var unitName = Guid.NewGuid().ToString();
-            var unitNameEdit = Guid.NewGuid().ToString();
-            var duplicateName = Guid.NewGuid().ToString();
+            try {
+                var unitName = Guid.NewGuid().ToString();
+                var unitNameEdit = Guid.NewGuid().ToString();
+                var duplicateName = Guid.NewGuid().ToString();
 
-            using (var context = CreateDbContext())
-            {
-                context.Initialize();
-
-                var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit =
-                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
-                var legalUnitsIds = new[] {legalUnit.RegId};
-                var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
-                    context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitsIds);
-
-                await _helper.CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitsIds,
-                    enterpriseGroup?.RegId);
-                await _helper.CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitsIds,
-                    enterpriseGroup?.RegId);
-
-                var enterpriseUnitsIds = context.EnterpriseUnits.Select(eu => eu.RegId).ToArray();
-
-                await _helper.CreateEnterpriseGroupAsync(context, null, unitName, enterpriseUnitsIds, legalUnitsIds);
-                await _helper.CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds,
-                    legalUnitsIds);
-
-                var unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-
-                await _helper.EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds,
-                    legalUnitsIds);
-
-                Assert.IsType<EnterpriseGroup>(
-                    context.EnterpriseGroups.Single(
-                        x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<EnterpriseGroupHistory>(
-                    context.EnterpriseGroupHistory.Single(
-                        x => x.ParentId == unitId && x.Name == unitName));
-
-                Type actual = null;
-                try
+                using (var context = CreateDbContext())
                 {
-                    await _helper.EditEnterpriseGroupAsync(context, unitId, duplicateName, enterpriseUnitsIds,
+                    context.Initialize();
+
+                    var activities = await _helper.CreateActivitiesAsync(context);
+                    var legalUnit =
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                    var legalUnitsIds = new[] { legalUnit.RegId };
+                    var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
+                        context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitsIds);
+
+                    await _helper.CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitsIds,
+                        enterpriseGroup?.RegId);
+                    await _helper.CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitsIds,
+                        enterpriseGroup?.RegId);
+
+                    var enterpriseUnitsIds = context.EnterpriseUnits.Select(eu => eu.RegId).ToArray();
+
+                    await _helper.CreateEnterpriseGroupAsync(context, null, unitName, enterpriseUnitsIds, legalUnitsIds);
+                    await _helper.CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds,
                         legalUnitsIds);
+
+                    var unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
+
+                    await _helper.EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds,
+                        legalUnitsIds);
+
+                    Assert.IsType<EnterpriseGroup>(
+                        context.EnterpriseGroups.Single(
+                            x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                    Assert.IsType<EnterpriseGroupHistory>(
+                        context.EnterpriseGroupHistory.Single(
+                            x => x.ParentId == unitId && x.Name == unitName));
+
+                    Type actual = null;
+                    try
+                    {
+                        await _helper.EditEnterpriseGroupAsync(context, unitId, duplicateName, enterpriseUnitsIds,
+                            legalUnitsIds);
+                    }
+                    catch (Exception e)
+                    {
+                        actual = e.GetType();
+                    }
+                    Assert.Equal(typeof(BadRequestException), actual);
                 }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
             }
+            catch (Exception e)
+            {
+                Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
+            }
+            
         }
 
         #endregion
