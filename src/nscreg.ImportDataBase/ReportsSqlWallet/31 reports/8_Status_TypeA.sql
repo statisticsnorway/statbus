@@ -89,7 +89,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel
+WHERE r.RN = @regionLevel OR r.Id = 1
 END
 
 
@@ -125,7 +125,7 @@ ResultTableCTE AS
 		LEFT JOIN Statuses AS st ON st.Id = su.UnitStatusId
 		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-		LEFT JOIN Statuses AS sth ON sth.Id = su.UnitStatusId
+		LEFT JOIN Statuses AS sth ON sth.Id = asuhCTE.UnitStatusId
 ),
 ResultTableCTE2 AS
 (
