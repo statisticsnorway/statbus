@@ -113,7 +113,7 @@ ResultTableCTE AS
 		LEFT JOIN SectorCodes AS sc ON sc.Id = su.InstSectorCodeId
 		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-		LEFT JOIN SectorCodes AS sch ON sch.Id = su.InstSectorCodeId
+		LEFT JOIN SectorCodes AS sch ON sch.Id = asuhCTE.InstSectorCodeId
 ),
 ResultTableCTE2 AS
 (

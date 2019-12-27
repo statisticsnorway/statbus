@@ -49,34 +49,48 @@ StatisticalUnitHistoryCTE AS (
 	SELECT
 		RegId,
 		ParentId,	
-		AddressId,
+		AddressId,		
+		UnitStatusId,
+		Discriminator,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR, RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,StartPeriod)>=@InPreviousYear AND DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 /* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
 ResultTableCTE AS
 (
 	SELECT
-		su.RegId as RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR, su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac.Name,ach.Name) AS Name,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR, su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,tr.Name,trh.Name) AS NameOblast,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR, su.RegistrationDate)>=@InPreviousYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac.ParentId,ach.ParentId) AS ActivityCategoryId
-	FROM StatisticalUnits AS su	
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,ac.ParentId,ach.ParentId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,0,1) AS isHistory
+	FROM StatisticalUnits AS su
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
 		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = a.ActivityCategoryId
-		LEFT JOIN dbo.Address AS addr ON addr.Address_id = su.AddressId
-		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-
+		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
 		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
 		LEFT JOIN ActivityCategoriesHierarchyCTE AS ach ON ach.Id = ah.ActivityCategoryId
-		LEFT JOIN dbo.Address AS addrh ON addrh.Address_id = asuhCTE.AddressId
-		LEFT JOIN RegionsHierarchyCTE AS trh ON trh.Id = addrh.Region_id
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND su.UnitStatusId = @InStatusId
-			AND a.Activity_Type = 1
+),
+ResultTableCTE2 AS
+(
+	SELECT
+		RegId,
+		tr.Name AS NameOblast,
+		rt.ActivityCategoryId
+	FROM ResultTableCTE AS rt
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
+
+	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  rt.Discriminator = @InStatUnitType) 
+				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
+			AND (@InStatusId = 0 OR rt.UnitStatusId = @InStatusId)
+			AND rt.ActivityType = 1
 )
 
 /* filling temporary table by all ActivityCategories with level=1 and stat units from ResultTableCTE linked to them */
@@ -86,8 +100,9 @@ SELECT
 	ac.Name,
 	rt.NameOblast
 FROM dbo.ActivityCategories as ac
-	LEFT JOIN ResultTableCTE AS rt ON ac.Id = rt.ActivityCategoryId
+	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
 WHERE ac.ActivityCategoryLevel = 1
+
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '

@@ -105,7 +105,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel OR r.Id = @RegionLevel
+WHERE r.RN = @regionLevel OR (r.Id = @InRegionId AND r.RN = 2)
 END
 
 /*

@@ -33,7 +33,7 @@ SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             to:
             RegionLevel <= 2
              */
-            FROM Regions r  WHERE (RegionLevel <= 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
+            FROM Regions r  WHERE r.ParentId = @InRegionId OR r.Id = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
@@ -46,7 +46,7 @@ SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
             to:
             RegionLevel = 2
              */
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
+            FROM Regions r  WHERE r.ParentId = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
@@ -59,7 +59,7 @@ SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
             to:
             RegionLevel = 2
              */
-            FROM Regions r  WHERE (RegionLevel = 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
+            FROM Regions r  WHERE r.ParentId = @InRegionId OR r.Id = @InRegionId
             FOR XML PATH(''), TYPE
             ).value('.', 'NVARCHAR(MAX)')
         ,1,1,'')
@@ -113,7 +113,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel OR r.Id = @InRegionId
+WHERE r.RN = @regionLevel OR (r.Id = @InRegionId AND r.RN = 2)
 END
 
 
@@ -135,7 +135,7 @@ set @query = '
 		UnitStatusId,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
+	WHERE DATEPART(YEAR,RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
 ),
 ResultTableCTE AS
 (
@@ -149,7 +149,7 @@ ResultTableCTE AS
 		LEFT JOIN Statuses AS st ON st.Id = su.UnitStatusId
 		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-		LEFT JOIN Statuses AS sth ON sth.Id = su.UnitStatusId
+		LEFT JOIN Statuses AS sth ON sth.Id = asuhCTE.UnitStatusId
 ),
 ResultTableCTE2 AS
 (

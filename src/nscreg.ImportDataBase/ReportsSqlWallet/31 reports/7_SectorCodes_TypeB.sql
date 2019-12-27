@@ -113,7 +113,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel OR r.Id = @InRegionId
+WHERE r.RN = @regionLevel OR (r.Id = @InRegionId AND r.RN = 2)
 END
 
 /*
@@ -152,7 +152,7 @@ ResultTableCTE AS
 		LEFT JOIN SectorCodes AS sc ON sc.Id = su.InstSectorCodeId
 		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
-		LEFT JOIN SectorCodes AS sch ON sch.Id = su.InstSectorCodeId
+		LEFT JOIN SectorCodes AS sch ON sch.Id = asuhCTE.InstSectorCodeId
 ),
 ResultTableCTE2 AS
 (
