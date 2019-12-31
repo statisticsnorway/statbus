@@ -55,11 +55,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2 OR Id = 1
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
