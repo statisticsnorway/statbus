@@ -36,7 +36,7 @@ WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
-/* table where regions linked to their ancestor - oblast(region with level = 2) and superregion with Id = 1(level = 1) linked to itself */
+/* table where regions linked to their ancestor - oblast(region with level = 2) */
 RegionsTotalHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -47,11 +47,11 @@ RegionsTotalHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2
 ),
 /* table where regions linked to their ancestor - rayon(region with level = 3) */
 RegionsHierarchyCTE AS(
