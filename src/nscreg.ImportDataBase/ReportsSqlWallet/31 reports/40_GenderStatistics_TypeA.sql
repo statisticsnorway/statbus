@@ -42,11 +42,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2 OR Id = 1
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
@@ -54,6 +54,8 @@ StatisticalUnitHistoryCTE AS (
 		RegId,
 		ParentId,	
 		AddressId,
+		UnitStatusId,
+		Discriminator,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod) < @InCurrentYear
@@ -66,9 +68,9 @@ ResultTableCTE AS
 		IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
 		IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.AddressId,suhCTE.AddressId) AS AddressId,
 		IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,psu.Person_Id, psuh.Person_Id) AS PersonId,
-		su.RegistrationDate,
-		su.UnitStatusId,
-		su.LiqDate
+		IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.RegistrationDate,suhCTE.RegistrationDate) AS RegistrationDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.UnitStatusId,suhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.LiqDate,suhCTE.LiqDate) AS LiqDate
 	FROM dbo.StatisticalUnits AS su	
 		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id
@@ -78,10 +80,10 @@ ResultTableCTE AS
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
 		LEFT JOIN dbo.PersonStatisticalUnitHistory psuh ON psuh.Unit_Id = su.RegId
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) 
-			AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
+	WHERE (@InStatUnitType ='All' OR @InStatUnitType = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.Discriminator,suhCTE.Discriminator)) 
+			AND (@InStatusId = 0 OR @InStatusId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.UnitStatusId,suhCTE.UnitStatusId)) 
 			AND (@InPersonTypeId = 0 OR @InPersonTypeId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,psu.PersonTypeId,psuh.PersonTypeId))
-			AND a.Activity_Type = 1
+			AND IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,a.Activity_Type,ah.Activity_Type) = 1
 ),
 /* list of stat units linked to their oblast(region with level = 2) */
 ResultTableCTE2 AS
@@ -94,10 +96,10 @@ ResultTableCTE2 AS
 		tr.Name AS RegionParentName,
 		tr.ParentId AS RegionParentId
 	FROM ResultTableCTE AS r
-	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
-	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
-	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-	INNER JOIN dbo.Persons AS p ON r.PersonId = p.Id 
+		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
+		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
+		INNER JOIN dbo.Persons AS p ON r.PersonId = p.Id 
 	WHERE DATEPART(YEAR, r.RegistrationDate) < @InCurrentYear AND r.PersonId IS NOT NULL
 )
 

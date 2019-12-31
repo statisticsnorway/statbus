@@ -70,11 +70,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
   /* If there no Country-level at the Regions catalog,
   "WHERE" condition below from:
-  WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+  WHERE DesiredLevel = 2 OR Id = 1
   should be just:
   WHERE DesiredLevel = 1
   */
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 
 /* using CTE (Common Table Expressions),

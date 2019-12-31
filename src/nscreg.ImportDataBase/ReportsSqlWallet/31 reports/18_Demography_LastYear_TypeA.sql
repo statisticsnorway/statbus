@@ -38,11 +38,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2 OR Id = 1
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
@@ -86,7 +86,6 @@ ResultTableCTE2 AS
 	FROM ResultTableCTE AS rt
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-
 	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  rt.Discriminator = @InStatUnitType) 
 				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
 			AND (@InStatusId = 0 OR rt.UnitStatusId = @InStatusId)

@@ -108,28 +108,34 @@ StatisticalUnitHistoryCTE AS (
 		RegId,
 		ParentId,	
 		AddressId,
+		Discriminator,
+		UnitStatusId,
+		RegistrationDate,
+		LiqDate,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod) = @InPreviousYear	
+	WHERE DATEPART(YEAR,RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1
 ),
 /* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
-ResultTableCTE AS (
-		SELECT 
-			su.RegId,
-			IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear, a.ActivityCategoryId, ah.ActivityCategoryId) AS ActivityCategoryId,
-			IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear, su.AddressId, suhCTE.AddressId) AS AddressId,
-			su.RegistrationDate,
-			su.UnitStatusId,
-			su.LiqDate
-		FROM StatisticalUnits AS su	
-		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
-		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
+ResultTableCTE AS
+(
+	SELECT
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.RegId,suhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.AddressId,suhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.RegistrationDate,suhCTE.RegistrationDate) AS RegistrationDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.UnitStatusId,suhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.LiqDate,suhCTE.LiqDate) AS LiqDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.Discriminator,suhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1 OR DATEPART(YEAR,su.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1,0,1) AS isHistory
+	FROM dbo.StatisticalUnits AS su	
+		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
+		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id
 
 		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
-		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
-		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
-
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND a.Activity_Type = 1
+		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
+		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
 ),
 /* list of stat units linked to their rayon(region with level = 3) and oblast(region with level = 2) */
 ResultTableCTE2 AS (
@@ -145,10 +151,13 @@ ResultTableCTE2 AS (
 		r.UnitStatusId,
 		r.LiqDate
 	FROM ResultTableCTE AS r
-	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
-	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
-	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-	INNER JOIN RegionsTotalHierarchyCTE AS rthCTE ON rthCTE.Id = addr.Region_id
+		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
+		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
+		INNER JOIN RegionsTotalHierarchyCTE AS rthCTE ON rthCTE.Id = addr.Region_id
+	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  r.Discriminator = @InStatUnitType) 
+				OR (r.isHistory = 1 AND r.Discriminator = @InStatUnitType + 'History'))
+			AND r.ActivityType = 1
 ),
 /* count stat units from ResultTableCTE2 for oblasts and ActivityCategories */
 CountOfActivitiesInRegionCTE AS (

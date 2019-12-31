@@ -36,7 +36,7 @@ WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	FROM v_ActivityCategoriesHierarchy 
 	WHERE DesiredLevel=1
 ),
-/* table where regions linked to their ancestor - oblast(region with level = 2) and superregion with Id = 1(level = 1) linked to itself */
+/* table where regions linked to their ancestor - oblast(region with level = 2) */
 RegionsTotalHierarchyCTE AS(
 	SELECT 
 		Id,
@@ -47,11 +47,11 @@ RegionsTotalHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2
 ),
 /* table where regions linked to their ancestor - rayon(region with level = 3) */
 RegionsHierarchyCTE AS(
@@ -76,6 +76,8 @@ StatisticalUnitHistoryCTE AS (
 		RegId,
 		ParentId,	
 		AddressId,
+		UnitStatusId,
+		Discriminator,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod) < @InCurrentYear
@@ -100,10 +102,10 @@ ResultTableCTE AS
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
 		LEFT JOIN dbo.PersonStatisticalUnitHistory psuh ON psuh.Unit_Id = su.RegId
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) 
-			AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
+	WHERE (@InStatUnitType ='All' OR @InStatUnitType = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.Discriminator,suhCTE.Discriminator)) 
+			AND (@InStatusId = 0 OR @InStatusId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.UnitStatusId,suhCTE.UnitStatusId)) 
 			AND (@InPersonTypeId = 0 OR @InPersonTypeId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,psu.PersonTypeId,psuh.PersonTypeId))
-			AND a.Activity_Type = 1
+			AND IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,a.Activity_Type,ah.Activity_Type) = 1
 ),
 /* list of stat units linked to their rayon(region with level = 3) and oblast(region with level = 2) */
 ResultTableCTE2 AS

@@ -50,11 +50,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2 OR Id = 1
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
@@ -63,6 +63,10 @@ StatisticalUnitHistoryCTE AS (
 		ParentId,	
 		AddressId,
 		Employees,
+		UnitStatusId,
+		Discriminator,
+		RegistrationDate,
+		LiqDate,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,StartPeriod) = @InPreviousYear
@@ -71,13 +75,16 @@ StatisticalUnitHistoryCTE AS (
 ResultTableCTE AS
 (
 	SELECT
-		su.RegId as RegId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.RegId,suhCTE.RegId) AS RegId,
 		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.Discriminator,suhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,a.Activity_Type,ah.Activity_Type) AS ActivityType,
 		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.AddressId,suhCTE.AddressId) AS AddressId,
 		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.Employees,suhCTE.Employees) AS Employees,
-		su.RegistrationDate,
-		su.UnitStatusId,
-		su.LiqDate
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.RegistrationDate,suhCTE.RegistrationDate) AS RegistrationDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.UnitStatusId,suhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.LiqDate,suhCTE.LiqDate) AS LiqDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,0,1) AS isHistory
 	FROM dbo.StatisticalUnits AS su	
 		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id
@@ -85,16 +92,14 @@ ResultTableCTE AS
 		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
-			AND a.Activity_Type = 1
 ),
 /* list of stat units linked to their oblast(region with level = 2) */
 ResultTableCTE2 AS
 (
 	SELECT
 		r.RegId,
-		ac2.ParentId AS ActivityCategoryIdLevel2,
-		ac1.ParentId AS ActivityCategoryIdLevel1,
+		ac1.ParentId AS ActivityCategoryId1,
+		ac2.ParentId AS ActivityCategoryId2,
 		r.AddressId,
 		tr.RegionLevel,
 		tr.Name AS RegionParentName,
@@ -104,13 +109,15 @@ ResultTableCTE2 AS
 		r.LiqDate,
 		r.Employees
 	FROM ResultTableCTE AS r
-	LEFT JOIN ActivityCategoriesTotalHierarchyCTE ac1 ON ac1.Id = r.ActivityCategoryId
-	LEFT JOIN ActivityCategoriesHierarchyCTE AS ac2 ON ac2.Id = r.ActivityCategoryId
-	LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
-	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
+		LEFT JOIN ActivityCategoriesTotalHierarchyCTE ac1 ON ac1.Id = r.ActivityCategoryId
+		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac2 ON ac2.Id = r.ActivityCategoryId
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
+		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	WHERE DATEPART(YEAR, r.RegistrationDate) = @InPreviousYear AND Employees IS NOT NULL
+			AND (@InStatUnitType ='All' OR (isHistory = 0 AND  r.Discriminator = @InStatUnitType) 
+					OR (isHistory = 1 AND r.Discriminator = @InStatUnitType + 'History'))
+			AND r.ActivityType = 1
 )
-
 /* 
 	filling temporary table by all ActivityCategories with level 1 and 2,
 	and number of employees in new stat units from ResultTableCTE linked to them 
@@ -124,7 +131,7 @@ SELECT
 	'' AS ActivitySubCategoryName,
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
-	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryIdLevel1
+	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
 WHERE ac.ActivityCategoryLevel = 1
 GROUP BY ac.Name, rt.RegionParentName, ac.Id
 
@@ -137,7 +144,7 @@ SELECT
 	ac.Name AS Name2,
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
-	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryIdLevel2
+	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
 WHERE ac.ActivityCategoryLevel = 2
 GROUP BY ac.Name, rt.RegionParentName, ac.ParentId
 
