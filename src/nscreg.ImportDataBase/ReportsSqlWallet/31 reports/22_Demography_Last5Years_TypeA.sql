@@ -86,7 +86,6 @@ ResultTableCTE2 AS
 	FROM ResultTableCTE AS rt
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-
 	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  rt.Discriminator = @InStatUnitType) 
 				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
 			AND (@InStatusId = 0 OR rt.UnitStatusId = @InStatusId)

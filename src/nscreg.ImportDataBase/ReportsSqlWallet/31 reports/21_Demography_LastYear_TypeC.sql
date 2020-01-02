@@ -120,7 +120,7 @@ ResultTableCTE AS (
 		SELECT 
 			su.RegId,
 			IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
-			IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+			IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.Discriminator,suhCTE.Discriminator) AS Discriminator,
 			IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,a.Activity_Type,ah.Activity_Type) AS ActivityType,
 			IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.AddressId,suhCTE.AddressId) AS AddressId,
 			IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,0,1) AS isHistory
@@ -132,7 +132,7 @@ ResultTableCTE AS (
 		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
 ),
-/* list of stat units linked to their rayon(region with level = 3) and oblast (region with level = 2) */
+/* list of stat units linked to their rayon(region with level = 3) and oblast(region with level = 2) */
 ResultTableCTE2 AS (
 	SELECT
 		r.RegId,
@@ -147,9 +147,9 @@ ResultTableCTE2 AS (
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 		INNER JOIN RegionsTotalHierarchyCTE AS rthCTE ON rthCTE.Id = addr.Region_id
-	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  rt.Discriminator = @InStatUnitType) 
-				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
-			AND rt.ActivityType = 1
+	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  r.Discriminator = @InStatUnitType) 
+				OR (isHistory = 1 AND r.Discriminator = @InStatUnitType + 'History'))
+			AND r.ActivityType = 1
 ),
 /* count stat units from ResultTableCTE2 for oblasts and ActivityCategories */
 CountOfActivitiesInRegionCTE AS (
