@@ -1,7 +1,6 @@
 BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InRegionId INT = $RegionId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-			@InStatusId NVARCHAR(MAX) = $StatusId,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
 			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
 END
@@ -89,10 +88,11 @@ ResultTableCTE2 AS
 		rt.ActivityCategoryId
 	FROM ResultTableCTE AS rt
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		LEFT JOIN dbo.Statuses AS st ON st.Id = rt.UnitStatusId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  rt.Discriminator = @InStatUnitType) 
 				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
-			AND (@InStatusId = 0 OR rt.UnitStatusId = @InStatusId)
+			AND st.Code IN (1,3,4)
 			AND rt.ActivityType = 1
 )
 
