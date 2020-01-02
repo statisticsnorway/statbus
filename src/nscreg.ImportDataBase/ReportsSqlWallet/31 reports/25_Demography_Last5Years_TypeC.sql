@@ -127,23 +127,24 @@ ResultTableCTE AS (
 		FROM StatisticalUnits AS su	
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
+		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = a.ActivityCategoryId
 
-		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
-		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
+		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
 		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
+		LEFT JOIN ActivityCategoriesHierarchyCTE AS ach ON ach.Id = ah.ActivityCategoryId
 ),
 /* list of stat units linked to their rayon(region with level = 3) and oblast(region with level = 2) */
 ResultTableCTE2 AS (
 	SELECT
 		r.RegId,
-		ac.ParentId AS ActivityCategoryId,
+		r.ActivityCategoryId,
 		r.AddressId,
 		tr.RegionLevel,
 		tr.Name AS NameRayon,
 		tr.ParentId AS RayonId,
 		rthCTE.ParentId AS OblastId
 	FROM ResultTableCTE AS r
-		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac ON ac.Id = r.ActivityCategoryId
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 		INNER JOIN RegionsTotalHierarchyCTE AS rthCTE ON rthCTE.Id = addr.Region_id
