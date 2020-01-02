@@ -117,34 +117,43 @@ ResultTableCTE2 AS
 	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  r.Discriminator = @InStatUnitType) 
 				OR (r.isHistory = 1 AND r.Discriminator = @InStatUnitType + 'History'))
 			AND r.ActivityType = 1
+),
+ActivityCategoriesOrder AS (
+	SELECT
+		ac.Id,
+		ROW_NUMBER() over (order BY ac.Name asc) AS OrderId
+	FROM dbo.ActivityCategories AS ac
+	WHERE ac.ActivityCategoryLevel = 1
 )
 
-/* filling temporary table by all ActivityCategories with level 1 and 2, oblasts and stat units from ResultTableCTE linked to them */
+/* filling temporary table by all ActivityCategories with level 1 and 2, oblasts and stat units from ResultTableCTE linked to them */ 
 INSERT INTO #tempTableForPivot
 /* inserting values for ActivityCategories with level = 1 */
 SELECT 
 	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND rt.UnitStatusId = 1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1, 1,0)) AS Count,
-	ac.Id,
+	aco.OrderId,
 	ac.Name,
 	' ',
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.Id
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
 WHERE ac.ActivityCategoryLevel = 1
-GROUP BY ac.Name, rt.RegionParentName, ac.Id
+GROUP BY ac.Name, rt.RegionParentName, aco.OrderId
 	
 UNION
 /* inserting values for ActivityCategories with level = 2 */
 SELECT 
 	SUM(IIF(DATEPART(YEAR,rt.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND rt.UnitStatusId = 1,1,0)) - SUM(IIF(rt.LiqDate IS NOT NULL AND DATEPART(YEAR,rt.LiqDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1, 1,0)) AS Count,
-	ac.ParentId,
+	aco.OrderId,
 	' ',
 	ac.Name,
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.ParentId
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
 WHERE ac.ActivityCategoryLevel = 2
-GROUP BY ac.Name, rt.RegionParentName, ac.ParentId
+GROUP BY ac.Name, rt.RegionParentName, aco.OrderId
 
 /* 
 	list of regions with level=2, that will be columns in report

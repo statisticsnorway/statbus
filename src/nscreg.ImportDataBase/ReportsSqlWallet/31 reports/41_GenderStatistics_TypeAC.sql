@@ -117,7 +117,15 @@ ResultTableCTE2 AS
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	INNER JOIN dbo.Persons AS p ON r.PersonId = p.Id 
 	WHERE DATEPART(YEAR, r.RegistrationDate) < @InCurrentYear AND r.PersonId IS NOT NULL
+),
+ActivityCategoriesOrder AS (
+	SELECT
+		ac.Id,
+		ROW_NUMBER() over (order BY ac.Name asc) AS OrderId
+	FROM dbo.ActivityCategories AS ac
+	WHERE ac.ActivityCategoryLevel = 1
 )
+
 /* 
 	filling temporary table by all ActivityCategories with level 1 and 2 
 	and number of employees in new stat units from ResultTableCTE linked to them as string, not number
@@ -127,28 +135,30 @@ INSERT INTO #tempTableForPivot
 SELECT 
 	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
-	ac.Id AS ActivityParentId,
+	aco.OrderId AS ActivityParentId,
 	ac.Name AS ActivityCategoryName,
 	'' AS ActivitySubCategoryName,
 	rt.RegionParentName + IIF(rt.Sex = 1, '1', '2') as NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.Id
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
 WHERE ac.ActivityCategoryLevel = 1
-GROUP BY ac.Name, rt.RegionParentName, rt.Sex, ac.Id
+GROUP BY ac.Name, rt.RegionParentName, rt.Sex, aco.OrderId
 
 UNION ALL
 /* inserting values for ActivityCategories with level = 2 */
 SELECT 
 	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
-	ac.ParentId,
+	aco.OrderId,
 	'' AS ActivityCategoryName,
 	ac.Name AS ActivitySubCategoryName,
 	rt.RegionParentName + IIF(rt.Sex = 1, '1', '2') as NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.ParentId
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
 WHERE ac.ActivityCategoryLevel = 2
-GROUP BY ac.Name, rt.RegionParentName, rt.Sex, ac.ParentId
+GROUP BY ac.Name, rt.RegionParentName, rt.Sex, aco.OrderId
 
 /* 
 	list of regions with level=2, that will be columns in report
