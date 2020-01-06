@@ -56,11 +56,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
 	/* 
 		If there no Country level in database, edit WHERE condition below from:
-		DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+		DesiredLevel = 2 OR Id = 1
 		To:
 		DesiredLevel = 1
 	*/
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 /* table with needed fields for previous states of stat units that were active in given dateperiod */
 StatisticalUnitHistoryCTE AS (
@@ -68,6 +68,8 @@ StatisticalUnitHistoryCTE AS (
 		RegId,
 		ParentId,	
 		AddressId,
+		UnitStatusId,
+		Discriminator,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
 	WHERE DATEPART(YEAR,StartPeriod) < @InCurrentYear
@@ -92,10 +94,10 @@ ResultTableCTE AS
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
 		LEFT JOIN dbo.PersonStatisticalUnitHistory psuh ON psuh.Unit_Id = su.RegId
-	WHERE (@InStatUnitType ='All' OR su.Discriminator = @InStatUnitType) 
-			AND (@InStatusId = 0 OR su.UnitStatusId = @InStatusId) 
+	WHERE (@InStatUnitType ='All' OR @InStatUnitType = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.Discriminator,suhCTE.Discriminator)) 
+			AND (@InStatusId = 0 OR @InStatusId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.UnitStatusId,suhCTE.UnitStatusId)) 
 			AND (@InPersonTypeId = 0 OR @InPersonTypeId = IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,psu.PersonTypeId,psuh.PersonTypeId))
-			AND a.Activity_Type = 1
+			AND IIF(DATEPART(YEAR,su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,a.Activity_Type,ah.Activity_Type) = 1
 ),
 /* list of stat units linked to their oblast(region with level = 2) */
 ResultTableCTE2 AS
@@ -115,7 +117,15 @@ ResultTableCTE2 AS
 	INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
 	INNER JOIN dbo.Persons AS p ON r.PersonId = p.Id 
 	WHERE DATEPART(YEAR, r.RegistrationDate) < @InCurrentYear AND r.PersonId IS NOT NULL
+),
+ActivityCategoriesOrder AS (
+	SELECT
+		ac.Id,
+		ROW_NUMBER() over (order BY ac.Name asc) AS OrderId
+	FROM dbo.ActivityCategories AS ac
+	WHERE ac.ActivityCategoryLevel = 1
 )
+
 /* 
 	filling temporary table by all ActivityCategories with level 1 and 2 
 	and number of employees in new stat units from ResultTableCTE linked to them as string, not number
@@ -125,28 +135,30 @@ INSERT INTO #tempTableForPivot
 SELECT 
 	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
-	ac.Id AS ActivityParentId,
+	aco.OrderId AS ActivityParentId,
 	ac.Name AS ActivityCategoryName,
 	'' AS ActivitySubCategoryName,
 	rt.RegionParentName + IIF(rt.Sex = 1, '1', '2') as NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.Id
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
 WHERE ac.ActivityCategoryLevel = 1
-GROUP BY ac.Name, rt.RegionParentName, rt.Sex, ac.Id
+GROUP BY ac.Name, rt.RegionParentName, rt.Sex, aco.OrderId
 
 UNION ALL
 /* inserting values for ActivityCategories with level = 2 */
 SELECT 
 	STR(COUNT(rt.PersonId)) AS Count,
 	rt.Sex,
-	ac.ParentId,
+	aco.OrderId,
 	'' AS ActivityCategoryName,
 	ac.Name AS ActivitySubCategoryName,
 	rt.RegionParentName + IIF(rt.Sex = 1, '1', '2') as NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.ParentId
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
 WHERE ac.ActivityCategoryLevel = 2
-GROUP BY ac.Name, rt.RegionParentName, rt.Sex, ac.ParentId
+GROUP BY ac.Name, rt.RegionParentName, rt.Sex, aco.OrderId
 
 /* 
 	list of regions with level=2, that will be columns in report

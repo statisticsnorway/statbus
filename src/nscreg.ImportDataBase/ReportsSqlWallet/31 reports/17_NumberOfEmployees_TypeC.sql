@@ -56,11 +56,11 @@ RegionsTotalHierarchyCTE AS(
 		DesiredLevel /*  */
 	FROM v_Regions
   /* If there no Country level, edit the "WHERE" condition below from:
-  DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+  DesiredLevel = 2
   To:
   DesiredLevel = 1
   */
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2
 ),
 
 /* Regions Sub-level */

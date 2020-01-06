@@ -1,8 +1,7 @@
 BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InRegionId INT = $RegionId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-    		@InStatusId NVARCHAR(MAX) = $StatusId,
-			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
+    		@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
 			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
 END
 
@@ -58,19 +57,19 @@ StatisticalUnitHistoryCTE AS (
 		Discriminator,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,StartPeriod)>=@InPreviousYear AND DATEPART(YEAR,StartPeriod)<@InCurrentYear
+	WHERE DATEPART(YEAR,RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1
 ),
 /* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
 ResultTableCTE AS
 (
 	SELECT
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.RegId, asuhCTE.RegId) AS RegId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,ac.ParentId,ach.ParentId) AS ActivityCategoryId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.AddressId,asuhCTE.AddressId) AS AddressId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,a.Activity_Type,ah.Activity_Type) AS ActivityType,
-		IIF(DATEPART(YEAR, su.RegistrationDate)<@InCurrentYear AND DATEPART(YEAR,su.StartPeriod)<@InCurrentYear,0,1) AS isHistory
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,ac.ParentId,ach.ParentId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,0,1) AS isHistory
 	FROM StatisticalUnits AS su
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
@@ -89,11 +88,11 @@ ResultTableCTE2 AS
 		rt.ActivityCategoryId
 	FROM ResultTableCTE AS rt
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		LEFT JOIN dbo.Statuses AS st ON st.Id = rt.UnitStatusId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-
 	WHERE (@InStatUnitType ='All' OR (isHistory = 0 AND  rt.Discriminator = @InStatUnitType) 
 				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
-			AND (@InStatusId = 0 OR rt.UnitStatusId = @InStatusId)
+			AND st.Code IN (1,3,4)
 			AND rt.ActivityType = 1
 )
 

@@ -70,11 +70,11 @@ RegionsHierarchyCTE AS(
 	FROM v_Regions
   /* If there no Country-level at the Regions catalog,
   "WHERE" condition below from:
-  WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+  WHERE DesiredLevel = 2 OR Id = 1
   should be just:
   WHERE DesiredLevel = 1
   */
-	WHERE DesiredLevel = 2 OR Id = 1 AND DesiredLevel  = 1
+	WHERE DesiredLevel = 2 OR Id = 1
 ),
 
 /* using CTE (Common Table Expressions),
@@ -135,6 +135,13 @@ ResultTableCTE2 AS
 				OR (isHistory = 1 AND rt.Discriminator = @InStatUnitType + 'History'))
 			AND (@InStatusId = 0 OR rt.UnitStatusId = @InStatusId)
 			AND rt.ActivityType = 1
+),
+ActivityCategoriesOrder AS (
+	SELECT
+		ac.Id,
+		ROW_NUMBER() over (order BY ac.Name asc) AS OrderId
+	FROM dbo.ActivityCategories AS ac
+	WHERE ac.ActivityCategoryLevel = 1
 )
 
 /* Fill with data the #tempTableForPivot */
@@ -142,24 +149,27 @@ INSERT INTO #tempTableForPivot
 SELECT
 	rt.RegId,
 	rt.Employees,
-	ac.Id AS ActivityCategoryId,
+	aco.OrderId AS ActivityParentId,
 	ac.Name AS ActivityCategoryName,
 	'' AS ActivitySubCategoryName,
 	rt.NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.Id
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
-	WHERE ac.ActivityCategoryLevel = 1
+WHERE ac.ActivityCategoryLevel = 1
+
 UNION
 SELECT
 	rt.RegId,
 	rt.Employees,
-	ac.ParentId AS ActivityCategoryId,
+	aco.OrderId AS ActivityParentId,
 	'' AS ActivityCategoryName,
 	ac.Name AS ActivitySubCategoryName,
 	rt.NameOblast
 FROM dbo.ActivityCategories as ac
+	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.ParentId
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
-	WHERE ac.ActivityCategoryLevel = 2
+WHERE ac.ActivityCategoryLevel = 2
 
 
 DECLARE @cols NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0) AS ' + QUOTENAME(Name)
