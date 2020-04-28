@@ -161,7 +161,8 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_analysisRules.Orphan.CheckRelatedEnterpriseGroup && unit.EntGroupId == null)
+            if (_analysisRules.Orphan.CheckRelatedEnterpriseGroup &&
+                (_mandatoryFields.Enterprise.EntGroupId == true && unit.EntGroupId == null))
                 messages.Add(nameof(EnterpriseUnit.EntGroupId),
                     new[] { nameof(Resource.AnalysisOrphanEnterprise)});
 
