@@ -122,8 +122,8 @@
   </ItemGroup>
   <ItemGroup>
     <Build Include="ReportsSqlWallet\31 reports\Functions\GetNamesRegionsForPivot.sql" />
-    <Build Include="ReportsSqlWallet\31 reports\Views\v_ActivityCategoriesHierarchy.sql" />
-    <Build Include="ReportsSqlWallet\31 reports\Views\v_Regions.sql" />
+    <None Include="ReportsSqlWallet\31 reports\Views\v_ActivityCategoriesHierarchy.sql" />
+    <None Include="ReportsSqlWallet\31 reports\Views\v_Regions.sql" />
     <Build Include="ReportsSqlWallet\31 reports\15_TableA_Demography.sql" />
   </ItemGroup>
 </Project>
