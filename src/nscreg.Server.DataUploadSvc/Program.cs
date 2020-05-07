@@ -1,17 +1,16 @@
-using System.IO;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using nscreg.Data;
+using NLog.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using nscreg.Utilities.Enums;
 using PeterKottas.DotNetCore.WindowsService;
-using NLog.Extensions.Logging;
+using System.IO;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -55,12 +54,24 @@ namespace nscreg.Server.DataUploadSvc
 
             var configuration = configBuilder.Build();
 
-            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
-            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
-            var statUnitAnalysisRules =
-                configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
-            var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
-            var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
+            var connectionSettings = configuration
+                .GetSection(nameof(ConnectionSettings))
+                .Validate<ConnectionSettings>(logger)
+                .Get<ConnectionSettings>();
+            var servicesSettings = configuration
+                .GetSection(nameof(ServicesSettings))
+                .Validate<ServicesSettings>(logger)
+                .Get<ServicesSettings>();
+            var statUnitAnalysisRules = configuration
+                .GetSection(nameof(StatUnitAnalysisRules))
+                .Validate<ServicesSettings>(logger)
+                .Get<StatUnitAnalysisRules>();
+            var dbMandatoryFields = configuration
+                .GetSection(nameof(DbMandatoryFields))
+                .Get<DbMandatoryFields>();
+            var validationSettings = configuration
+                .GetSection(nameof(ValidationSettings))
+                .Get<ValidationSettings>();
             ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 

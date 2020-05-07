@@ -1,12 +1,13 @@
-using System.IO;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.ServicesUtils;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using PeterKottas.DotNetCore.WindowsService;
-using NLog.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace nscreg.SampleFrameGenerationSvc
 {
@@ -45,8 +46,14 @@ namespace nscreg.SampleFrameGenerationSvc
 
             var configuration = configBuilder.Build();
 
-            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
-            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
+            var connectionSettings = configuration
+                .GetSection(nameof(ConnectionSettings))
+                .Validate<ConnectionSettings>(logger)
+                .Get<ConnectionSettings>();
+            var servicesSettings = configuration
+                .GetSection(nameof(ServicesSettings))
+                .Validate<ServicesSettings>(logger)
+                .Get<ServicesSettings>();
 
             var dbContextHelper = new DbContextHelper();
             var ctx = dbContextHelper.CreateDbContext(new string[] { });

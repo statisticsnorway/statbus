@@ -8,6 +8,7 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
+using nscreg.Utilities;
 
 namespace nscreg.AnalysisService
 {
@@ -47,11 +48,20 @@ namespace nscreg.AnalysisService
             var configuration = configBuilder.Build();
 
             
-            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
-            var statUnitAnalysisRules =
-                configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
-            var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
-            var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
+            var servicesSettings = configuration
+                .GetSection(nameof(ServicesSettings))
+                .Validate<ServicesSettings>(logger)
+                .Get<ServicesSettings>();
+            var statUnitAnalysisRules = configuration
+                .GetSection(nameof(StatUnitAnalysisRules))
+                .Get<StatUnitAnalysisRules>();
+            var dbMandatoryFields = configuration
+                .GetSection(nameof(DbMandatoryFields))
+                .Get<DbMandatoryFields>();
+            var validationSettings = configuration
+                .GetSection(nameof(ValidationSettings))
+                .Validate<ISettings>(logger)
+                .Get<ValidationSettings>();
             var dbContextHelper = new DbContextHelper();
             var ctx = dbContextHelper.CreateDbContext(new string[]{});
 
