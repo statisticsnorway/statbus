@@ -129,7 +129,8 @@ namespace nscreg.Data.Entities
         public DateTime? StatusDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? RefNo { get; set; }
+        [MaxLength(25)]
+        public string RefNo { get; set; }
 
         public virtual int? InstSectorCodeId { get; set; }
 

@@ -85,7 +85,8 @@ namespace nscreg.Data.Entities.History
 
         public DateTime? StatusDate { get; set; }
 
-        public int? RefNo { get; set; }
+        [MaxLength(25)]
+        public string RefNo { get; set; }
 
         public virtual int? InstSectorCodeId { get; set; }
 
