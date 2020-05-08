@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public DateTime? ExternalIdDate { get; set; }
 
         public string DataSource { get; set; }
-        public int? RefNo { get; set; }
+        public string RefNo { get; set; }
 
         public string Name { get; set; }
 
