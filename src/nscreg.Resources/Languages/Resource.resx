@@ -574,7 +574,7 @@
     <value>Turnover</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
-    <value>Turnover year</value>
+    <value>Activity year</value>
   </data>
   <data name="TurnoverDate" xml:space="preserve">
     <value>Turnover date</value>
