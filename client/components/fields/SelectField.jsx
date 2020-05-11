@@ -206,10 +206,7 @@ class SelectField extends React.Component {
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options =
-          multiselect || !required || optionsFetched
-            ? [{ id: notSelected.value, name: notSelected.text }, ...data]
-            : [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options = [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           this.setState({ options: this.state.options.concat(options) }, () => {
