@@ -208,7 +208,7 @@ class SelectField extends React.Component {
       onSuccess: (data) => {
         let options =
           multiselect || !required || optionsFetched
-            ? data
+            ? [{ id: notSelected.value, name: notSelected.text }, ...data]
             : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
@@ -324,6 +324,7 @@ class SelectField extends React.Component {
           autoComplete="off"
           openOnFocus
         />
+        TEST SELECT FIELD
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
         )}
