@@ -170,6 +170,9 @@ namespace nscreg.Server.Common
                 .ForMember(d => d.AddressPart1, opt => opt.ResolveUsing(s => s.Address?.AddressPart1))
                 .ForMember(d => d.AddressPart2, opt => opt.ResolveUsing(s => s.Address?.AddressPart2))
                 .ForMember(d => d.AddressPart3, opt => opt.ResolveUsing(s => s.Address?.AddressPart3))
+                .ForMember(d => d.ActualAddressPart1, opt => opt.ResolveUsing(s => s.ActualAddress?.AddressPart1))
+                .ForMember(d => d.ActualAddressPart2, opt => opt.ResolveUsing(s => s.ActualAddress?.AddressPart2))
+                .ForMember(d => d.ActualAddressPart3, opt => opt.ResolveUsing(s => s.ActualAddress?.AddressPart3))
                 .ForMember(d => d.ActivityCategoryIds,
                     opt => opt.ResolveUsing(s =>
                         s.ActivitiesUnits?.Select(a => a.Activity.ActivityCategoryId).ToList() ?? new List<int>()

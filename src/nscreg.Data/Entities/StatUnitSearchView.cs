@@ -16,6 +16,7 @@ namespace nscreg.Data.Entities
         public string TaxRegId { get; set; }
         public string ExternalId { get; set; }
         public int? RegionId { get; set; }
+        public int? ActualAddressRegionId { get; set; }
         public decimal? Turnover { get; set; }
         public int? Employees { get; set; }
         public int? SectorCodeId { get; set; }
@@ -27,9 +28,14 @@ namespace nscreg.Data.Entities
         public bool IsDeleted { get; set; }
         public string LiqReason { get; set; }
         public DateTime? LiqDate { get; set; }
+        public int? AddressId { get; set; }
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
+        public int? ActualAddressId { get; set; }
+        public string ActualAddressPart1 { get; set; }
+        public string ActualAddressPart2 { get; set; }
+        public string ActualAddressPart3 { get; set; }
     }
 
     public class ElasticStatUnit : StatUnitSearchView

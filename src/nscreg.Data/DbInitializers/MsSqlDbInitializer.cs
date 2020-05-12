@@ -35,7 +35,8 @@ namespace nscreg.Data.DbInitializers
                     TaxRegId,
                     StatId,
                     ExternalId,
-                    Region_id AS RegionId,
+                    addr.Region_id AS RegionId,
+                    act_addr.Region_id AS ActualAddressRegionId,
                     Employees,
                     Turnover,
                     InstSectorCodeId AS SectorCodeId,
@@ -46,19 +47,25 @@ namespace nscreg.Data.DbInitializers
                     IsDeleted,
                     LiqReason,
                     LiqDate,
-                    Address_part1 AS AddressPart1,
-                    Address_part2 AS AddressPart2,
-                    Address_part3 AS AddressPart3,
+                    addr.Address_id AS AddressId,
+                    addr.Address_part1 AS AddressPart1,
+                    addr.Address_part2 AS AddressPart2,
+                    addr.Address_part3 AS AddressPart3,
+                    act_addr.Address_id AS ActualAddressId,
+                    act_addr.Address_part1 AS ActualAddressPart1,
+                    act_addr.Address_part2 AS ActualAddressPart2,
+                    act_addr.Address_part3 AS ActualAddressPart3,
                     CASE
                         WHEN Discriminator = 'LocalUnit' THEN 1
                         WHEN Discriminator = 'LegalUnit' THEN 2
                         WHEN Discriminator = 'EnterpriseUnit' THEN 3
-
                     END
                     AS UnitType
-                FROM	dbo.StatisticalUnits
-                    LEFT JOIN dbo.Address
-                        ON AddressId = Address_id
+                FROM	StatisticalUnits
+                    LEFT JOIN Address as addr 
+                        ON AddressId = addr.Address_id
+                    LEFT JOIN Address as act_addr
+                        ON ActualAddressId = act_addr.Address_id
 
                 UNION ALL
 
@@ -68,7 +75,8 @@ namespace nscreg.Data.DbInitializers
                     TaxRegId,
                     StatId,
                     ExternalId,
-                    Region_id AS RegionId,
+                    addr.Region_id AS RegionId,
+                    act_addr.Region_id AS ActualAddressRegionId,
                     Employees,
                     Turnover,
                     InstSectorCodeId AS SectorCodeId,
@@ -79,13 +87,20 @@ namespace nscreg.Data.DbInitializers
                     IsDeleted,
                     LiqReason,
                     LiqDateEnd,
-                    Address_part1 AS AddressPart1,
-                    Address_part2 AS AddressPart2,
-                    Address_part3 AS AddressPart3,
+                    addr.Address_id AS AddressId,
+                    addr.Address_part1 AS AddressPart1,
+                    addr.Address_part2 AS AddressPart2,
+                    addr.Address_part3 AS AddressPart3,
+                    act_addr.Address_id AS ActualAddressId,
+                    act_addr.Address_part1 AS ActualAddressPart1,
+                    act_addr.Address_part2 AS ActualAddressPart2,
+                    act_addr.Address_part3 AS ActualAddressPart3,
                     4 AS UnitType
-                FROM	dbo.EnterpriseGroups
-                    LEFT JOIN dbo.Address
-                        ON AddressId = Address_id
+                FROM	EnterpriseGroups
+                    LEFT JOIN Address as addr
+                        ON AddressId = addr.Address_id
+                    LEFT JOIN Address as act_addr
+                        ON ActualAddressId = act_addr.Address_id;
             ";
 
 
