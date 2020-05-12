@@ -94,7 +94,7 @@ class PersonsList extends React.Component {
 
   isAlreadyExist = value =>
     this.props.value.some(v =>
-      v.id === value.id ||
+      (v.id === value.id && v.role === value.role) ||
         (v.givenName === value.givenName &&
           v.personalId === value.personalId &&
           v.surname === value.surname &&
