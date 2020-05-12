@@ -76,18 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 var unitForAnalysis = _helper.GetStatisticalUnitForAnalysis(analysisQueue);
                 if (unitForAnalysis == null) break;
-
-                var analyzeResult = AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
-                _context.AnalysisLogs.Add(new AnalysisLog
-                {
-                    AnalysisQueueId = analysisQueue.Id,
-                    AnalyzedUnitId = unitForAnalysis.RegId,
-                    AnalyzedUnitType = unitForAnalysis.UnitType,
-                    IssuedAt = DateTime.Now,
-                    SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
-                    ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
-                });
-                _context.SaveChanges();
+                AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
         }
 
@@ -102,11 +91,18 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 var unitForAnalysis = _helper.GetEnterpriseGroupForAnalysis(analysisQueue);
                 if (unitForAnalysis == null) break;
+                AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
+            }
+        }
 
-                var analyzeResult = AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
+        private void AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
+        {
+            var analyzeResult = AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
+            if (analyzeResult.Messages.Any() || analyzeResult.SummaryMessages.Any())
+            {
                 _context.AnalysisLogs.Add(new AnalysisLog
                 {
-                    AnalysisQueueId = analysisQueue.Id,
+                    AnalysisQueueId = analysisQueueId,
                     AnalyzedUnitId = unitForAnalysis.RegId,
                     AnalyzedUnitType = unitForAnalysis.UnitType,
                     IssuedAt = DateTime.Now,
