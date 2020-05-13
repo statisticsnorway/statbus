@@ -101,7 +101,6 @@ class PersonsList extends React.Component {
           v.middleName === value.middleName &&
           v.birthDate === value.birthDate &&
           v.sex === value.sex &&
-          v.role === value.role &&
           v.countryId === value.countryId &&
           v.phoneNumber === value.phoneNumber &&
           v.phoneNumber1 === value.phoneNumber1 &&
