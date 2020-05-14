@@ -17,7 +17,8 @@ const TextField = ({
 }) => {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
-  const hasErrors = touched !== false && errorKeys.length !== 0
+  const hasErrors =
+    (touched !== false && errorKeys.length !== 0) || (error === true && errorKeys.length !== 0)
   const props = {
     ...restProps,
     value: value !== null ? value : '',
