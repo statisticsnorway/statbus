@@ -85,10 +85,6 @@ class AddressField extends React.Component {
     this.setState(s => ({ value: { ...s.value, regionId }, touched: true }))
   }
 
-  componentDidUpdate() {
-    // console.log(errorKeys)
-  }
-
   render() {
     const {
       localize,
@@ -277,7 +273,6 @@ class AddressField extends React.Component {
           </Segment>
         </Segment.Group>
         {msgFailFetchAddress && <Message content={msgFailFetchAddress} error />}
-        <p>errorKeys {errorKeys}</p>
         {hasValue(errorKeys) && <Message title={label} list={errorKeys.map(localize)} error />}
       </Segment.Group>
     )

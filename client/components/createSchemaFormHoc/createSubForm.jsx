@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Form, Segment, Message, Grid, Icon, Header, Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -10,11 +10,6 @@ import styles from './styles.pcss'
 const unmappedEntries = (from = [], to = []) =>
   Object.entries(from).filter(([key]) => !R.has(key, to))
 
-function useForceUpdate() {
-  const [value, setValue] = useState(0) // integer state
-  return () => setValue(value => ++value) // update the state to force render
-}
-
 function createSubForm(Body, showReset) {
   function SubForm(props) {
     const {
@@ -24,14 +19,12 @@ function createSubForm(Body, showReset) {
       isSubmitting,
       dirty,
       handleSubmit,
-      handleReset,
       onCancel,
       showSummary,
       localize,
-      // setStatus,
+      setErrors,
+      resetForm,
     } = props
-
-    // console.log('props', props)
 
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
     const unmappedErrors = [
@@ -46,20 +39,14 @@ function createSubForm(Body, showReset) {
       ...R.pathOr([], [key], initialErrors),
     ]
     const hasSummaryErrors = hasValue(summary)
-    let hasErrors = hasValue(errors)
+    const hasErrors = hasValue(errors)
     const hasUnmappedErrors = hasValue(unmappedErrors)
 
-    // console.log('ОШИБКИ ФОРМ', errors)
-    // console.log('unmappedErrors', unmappedErrors)
-    // console.log(this)
-
     const onReset = () => {
-      console.log('resetValidation')
-      hasErrors = false
-      // setStatus({})
-      // this.forceUpdate()
-      // useForceUpdate()
-      console.log('props on reset', props)
+      resetForm()
+      setTimeout(() => {
+        setErrors({})
+      }, 0)
     }
 
     return (
@@ -88,17 +75,10 @@ function createSubForm(Body, showReset) {
             />
           </Grid.Column>
           <Grid.Column textAlign="center" width={6}>
-            {('this.hasErrors', `${hasErrors}`)}
-            СБРОС
             {showReset && (
               <Form.Button
-                type="button"
-                onClick={() => {
-                  handleReset()
-                  onReset()
-                  useForceUpdate()
-                }}
-                // onClick={handleReset}
+                type="reset"
+                onClick={onReset}
                 disabled={!dirty || isSubmitting}
                 content={localize('Reset')}
                 icon="undo"

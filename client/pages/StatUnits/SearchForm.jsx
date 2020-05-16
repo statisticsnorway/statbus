@@ -103,7 +103,6 @@ class SearchForm extends React.Component {
 
   handleReset = () => {
     this.props.onReset()
-    console.log('RESET')
   }
 
   handleChangeCheckbox = (_, { name, checked }) => {

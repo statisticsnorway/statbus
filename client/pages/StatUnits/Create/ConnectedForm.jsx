@@ -61,9 +61,6 @@ const mapDispatchToProps = (dispatch, { type }) =>
 
 const assert = props => !props.spinner
 
-// console.log('getSchema', getSchema)
-// console.log('mapPropsToValues', mapPropsToValues)
-
 const enhance = pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
   withSpinnerUnless(assert),
