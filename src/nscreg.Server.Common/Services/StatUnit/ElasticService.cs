@@ -184,13 +184,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Terms(p => p.Field(f => f.UnitType).Terms(filter.Type)));
 
             if (!string.IsNullOrWhiteSpace(filter.StatId))
-                mustQueries.Add(m => m.Prefix(p => p.Field(f => f.StatId).Value(filter.StatId.ToLower())));
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.StatId).Terms(filter.StatId)));
 
             if (!string.IsNullOrWhiteSpace(filter.ExternalId))
-                mustQueries.Add(m => m.Prefix(p => p.Field(f => f.ExternalId).Value(filter.ExternalId.ToLower())));
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.ExternalId).Terms(filter.ExternalId)));
 
             if (!string.IsNullOrWhiteSpace(filter.TaxRegId))
-                mustQueries.Add(m => m.Prefix(p => p.Field(f => f.TaxRegId).Value(filter.TaxRegId.ToLower())));
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.TaxRegId).Terms(filter.TaxRegId)));
 
             if (!string.IsNullOrWhiteSpace(filter.Address))
             {
