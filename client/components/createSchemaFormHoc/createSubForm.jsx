@@ -19,11 +19,13 @@ function createSubForm(Body, showReset) {
       isSubmitting,
       dirty,
       handleSubmit,
-      handleReset,
       onCancel,
       showSummary,
       localize,
+      setErrors,
+      resetForm,
     } = props
+
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
     const unmappedErrors = [
       ...unmappedEntries(errors, props.values),
@@ -39,9 +41,18 @@ function createSubForm(Body, showReset) {
     const hasSummaryErrors = hasValue(summary)
     const hasErrors = hasValue(errors)
     const hasUnmappedErrors = hasValue(unmappedErrors)
+
+    const onReset = () => {
+      resetForm()
+      setTimeout(() => {
+        setErrors({})
+      }, 0)
+    }
+
     return (
       <Form onSubmit={handleSubmit} error style={{ width: '100%' }}>
         <Body {...props} getFieldErrors={getFieldErrors} />
+
         {(hasUnmappedErrors || hasSummaryErrors || (hasErrors && showSummary)) && (
           <Segment>
             <Header as="h4" content={localize('Summary')} dividing />
@@ -66,8 +77,8 @@ function createSubForm(Body, showReset) {
           <Grid.Column textAlign="center" width={6}>
             {showReset && (
               <Form.Button
-                type="button"
-                onClick={handleReset}
+                type="reset"
+                onClick={onReset}
                 disabled={!dirty || isSubmitting}
                 content={localize('Reset')}
                 icon="undo"

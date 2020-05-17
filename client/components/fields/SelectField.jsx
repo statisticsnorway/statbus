@@ -208,7 +208,10 @@ class SelectField extends React.Component {
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options = [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options =
+          multiselect || !required || optionsFetched
+            ? data
+            : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           this.setState({ options: this.state.options.concat(options) }, () => {
@@ -322,9 +325,7 @@ class SelectField extends React.Component {
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
-          openOnFocus
         />
-        TEST SELECT FIELD
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
         )}
