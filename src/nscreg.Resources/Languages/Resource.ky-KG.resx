@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2345,5 +2345,8 @@
   </data>
   <data name="ElasticSearchIsDisable" xml:space="preserve">
     <value>ElasticSearch кызматы майып болуп калды, жоюу сервер администратору менен байланышуу</value>
+  </data>
+  <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
+    <value>ИНН дублируется</value>
   </data>
 </root>

@@ -1,20 +1,22 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Business.Analysis.Contracts;
+using nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks;
 using nscreg.Business.Analysis.StatUnit.Managers.Duplicates;
 using nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields;
+using nscreg.Business.PredicateBuilders;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
-using Microsoft.EntityFrameworkCore;
-using nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks;
-using nscreg.Business.PredicateBuilders;
-using nscreg.Resources.Languages;
-using nscreg.Utilities.Configuration;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Business.Analysis.StatUnit
@@ -29,6 +31,7 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly NSCRegDbContext _context;
         private readonly ValidationSettings _validationSettings;
+        private readonly IEnumerable<PropertyInfo> _orphanProperties;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
             NSCRegDbContext context, ValidationSettings validationSettings)
@@ -37,6 +40,8 @@ namespace nscreg.Business.Analysis.StatUnit
             _mandatoryFields = mandatoryFields;
             _context = context;
             _validationSettings = validationSettings;
+            _orphanProperties = _analysisRules.Orphan.GetType().GetProperties()
+                .Where(x => (bool)x.GetValue(_analysisRules.Orphan, null) == true);
         }
 
         /// <inheritdoc />
@@ -53,23 +58,23 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 var hasRelatedLegalUnit = unit is LocalUnit localUnit
                     ? localUnit.LegalUnitId != null
-                    : !(unit is EnterpriseUnit) || ((EnterpriseUnit) unit).LegalUnits.Any();
+                    : !(unit is EnterpriseUnit) || ((EnterpriseUnit)unit).LegalUnits.Any();
 
                 if (!hasRelatedLegalUnit)
                     messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
-                        new[] { nameof(Resource.AnalysisRelatedLegalUnit)});
+                        new[] { nameof(Resource.AnalysisRelatedLegalUnit) });
             }
 
             if (_analysisRules.Connections.CheckRelatedActivities && _mandatoryFields.StatUnit.Activities)
             {
                 var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
-                                           ((StatisticalUnit) unit).ActivitiesUnits.Any();
+                                           ((StatisticalUnit)unit).ActivitiesUnits.Any();
                 if (!hasRelatedActivities)
                     messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
             }
 
             if (_analysisRules.Connections.CheckAddress && unit.Address == null && _mandatoryFields.StatUnit.Address)
-                messages.Add(nameof(StatisticalUnit.Address), new[] {nameof(Resource.AnalysisRelatedAddress)});
+                messages.Add(nameof(StatisticalUnit.Address), new[] { nameof(Resource.AnalysisRelatedAddress) });
 
             return messages;
         }
@@ -101,7 +106,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             var okpo = unit is StatisticalUnit statisticalUnit
                 ? statisticalUnit.StatId
-                : ((EnterpriseGroup) unit).StatId;
+                : ((EnterpriseGroup)unit).StatId;
 
             if (string.IsNullOrEmpty(okpo)) return messages;
 
@@ -132,7 +137,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 if (!(remainder == checkNumber || remainder == 10))
                     messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId) });
             }
-            
+
             return messages;
         }
 
@@ -151,22 +156,87 @@ namespace nscreg.Business.Analysis.StatUnit
 
             return manager.CheckFields();
         }
-        
+
         /// <summary>
         /// Check statistical unit for orphanness
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>Dictionary of messages</returns>
-        public Dictionary<string, string[]> CheckOrphanUnits(EnterpriseUnit unit)
+        public Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
-
-            if (_analysisRules.Orphan.CheckRelatedEnterpriseGroup &&
-                (_mandatoryFields.Enterprise.EntGroupId == true && unit.EntGroupId == null))
-                messages.Add(nameof(EnterpriseUnit.EntGroupId),
-                    new[] { nameof(Resource.AnalysisOrphanEnterprise)});
-
+            foreach (var orphanProperty in _orphanProperties)
+            {
+                if (unit is EnterpriseUnit enterpriseUnit)
+                {
+                    CheckUnit(enterpriseUnit, orphanProperty.Name, messages);
+                }
+                else if (unit is LegalUnit legalUnit)
+                {
+                    CheckUnit(legalUnit, orphanProperty.Name, messages);
+                }
+                else if (unit is LocalUnit localUnit)
+                {
+                    CheckUnit(localUnit, orphanProperty.Name, messages);
+                }
+            }
             return messages;
+        }
+
+        private void CheckUnit(EnterpriseUnit unit, string propertyName, Dictionary<string, string[]> messages)
+        {
+            switch (propertyName)
+            {
+                case nameof(Orphan.CheckRelatedEnterpriseGroup):
+                    if (_mandatoryFields.Enterprise.EntGroupId == true && unit.EntGroupId == null)
+                    {
+                        messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
+                    }
+
+                    break;
+                case nameof(Orphan.CheckEnterpriseRelatedLegalUnits):
+                    if (!unit.LegalUnits.Any())
+                    {
+                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                    }
+                    break;
+                case nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises):
+                    if (!unit.EnterpriseGroup.EnterpriseUnits.Any())
+                    {
+                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                    }
+                    break;
+            }
+        }
+
+        private void CheckUnit(LegalUnit unit, string propertyName, Dictionary<string, string[]> messages)
+        {
+            switch (propertyName)
+            {
+                case nameof(Orphan.CheckOrphanLegalUnits):
+                    if (_mandatoryFields.LegalUnit.EnterpriseUnitRegId && unit.EnterpriseUnitRegId == null)
+                    {
+                        messages.Add(nameof(LegalUnit.EnterpriseUnitRegId), new[] { nameof(Resource.AnalysisOrphanLegalUnits) });
+                    }
+                    break;
+                case nameof(Orphan.CheckLegalUnitRelatedLocalUnits):
+                    if (!unit.LocalUnits.Any())
+                    {
+                        messages.Add(nameof(LegalUnit.LocalUnits), new[] { nameof(Resource.AnalysisOrphanLocalUnits) });
+                    }
+                    break;
+            }
+        }
+
+        private void CheckUnit(LocalUnit unit, string propertyName, Dictionary<string, string[]> messages)
+        {
+            if (propertyName == nameof(Orphan.CheckOrphanLocalUnits))
+            {
+                if (_mandatoryFields.LocalUnit.LegalUnitId == true && unit.LegalUnitId == null)
+                {
+                    messages.Add(nameof(LocalUnit.LegalUnitId), new[] { nameof(Resource.AnalysisOrphanLocalUnits) });
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -247,14 +317,11 @@ namespace nscreg.Business.Analysis.StatUnit
                 });
             }
 
-            if (unit is EnterpriseUnit)
+            var ophanUnitsResult = CheckOrphanUnits(unit);
+            if (ophanUnitsResult.Any())
             {
-                var ophanUnitsResult = CheckOrphanUnits((EnterpriseUnit) unit);
-                if (ophanUnitsResult.Any())
-                {
-                    summaryMessages.Add(nameof(Resource.OrphanUnitsRulesWarnings));
-                    messages.AddRange(ophanUnitsResult);
-                }
+                summaryMessages.Add(nameof(Resource.OrphanUnitsRulesWarnings));
+                messages.AddRange(ophanUnitsResult);
             }
 
             return new AnalysisResult
@@ -289,7 +356,7 @@ namespace nscreg.Business.Analysis.StatUnit
             if (unit is EnterpriseGroup enterpriseGroup)
             {
                 var egPredicateBuilder = new AnalysisPredicateBuilder<EnterpriseGroup>();
-                var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup); 
+                var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup);
                 var enterpriseGroups = _context.EnterpriseGroups.Where(egPredicate).Select(x => new AnalysisDublicateResult()
                 {
                     Name = x.Name,
@@ -297,7 +364,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     TaxRegId = x.TaxRegId,
                     ExternalId = x.ExternalId,
                     ShortName = x.ShortName,
-                    TelephoneNo =x.TelephoneNo,
+                    TelephoneNo = x.TelephoneNo,
                     AddressId = x.AddressId,
                     EmailAddress = x.EmailAddress
                 }).ToList();

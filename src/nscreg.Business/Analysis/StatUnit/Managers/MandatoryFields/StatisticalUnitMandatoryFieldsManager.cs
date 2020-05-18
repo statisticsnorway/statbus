@@ -1,11 +1,8 @@
-using System.Linq;
-using nscreg.Data.Entities;
-using nscreg.Data.Constants;
-using System.Collections.Generic;
 using nscreg.Business.Analysis.Contracts;
+using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
-using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using System.Collections.Generic;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 {
@@ -64,7 +61,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 
             if (_mandatoryFields.StatUnit.SizeId && _statisticalUnit.SizeId == null)
             {
-                messages.Add(nameof(_statisticalUnit.SizeId), new []{nameof(Resource.AnalysisMandatorySize)});
+                messages.Add(nameof(_statisticalUnit.SizeId), new[] { nameof(Resource.AnalysisMandatorySize) });
             }
 
             if (_mandatoryFields.StatUnit.UnitStatusId && _statisticalUnit.UnitStatusId == null)

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2356,5 +2356,23 @@
   </data>
   <data name="ElasticSearchIsDisable" xml:space="preserve">
     <value>Elasticsearch service is not running, please connect to your server' administrator to turn it on</value>
+  </data>
+  <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
+    <value>TaxRegId field is duplicated</value>
   </data>
 </root>
