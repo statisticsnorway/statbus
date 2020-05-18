@@ -4,6 +4,7 @@ using nscreg.Utilities.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
@@ -149,9 +150,6 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.EconomicInformation, Order = 515)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 800)]
-        public string Status { get; set; }
-
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 152)]
         public DateTime StatusDate { get; set; }
 
@@ -192,7 +190,8 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [UsedByServerSide]
         public string HistoryEnterpriseUnitIds { get; set; }
-
+        [JsonIgnore]
+        [NotMapped]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? RegMainActivityId
         {
@@ -200,14 +199,16 @@ namespace nscreg.Data.Entities
             // ReSharper disable once ValueParameterNotUsed
             set { }
         }
-
+        [JsonIgnore]
+        [NotMapped]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? InstSectorCodeId
         {
             get => null;
             set { }
         }
-
+        [JsonIgnore]
+        [NotMapped]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? LegalFormId
         {
@@ -248,6 +249,7 @@ namespace nscreg.Data.Entities
         public virtual UnitStatus UnitStatus { get; set; }
 
         [JsonIgnore]
+        [NotMapped]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public SectorCode InstSectorCode { get; set; }
 
@@ -260,6 +262,7 @@ namespace nscreg.Data.Entities
         public ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
 
         [JsonIgnore]
+        [NotMapped]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public LegalForm LegalForm { get; set; }
     }

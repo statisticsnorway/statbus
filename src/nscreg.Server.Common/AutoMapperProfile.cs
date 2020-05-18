@@ -112,8 +112,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore()));
+                .ForMember(x => x.EnterpriseUnits, x => x.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
@@ -165,7 +164,6 @@ namespace nscreg.Server.Common
 
             CreateMap<IStatisticalUnit, ElasticStatUnit>()
                 .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as StatisticalUnit).LiqDate))
-                .ForMember(d => d.SectorCodeId, opt => opt.MapFrom(s => s.InstSectorCodeId))
                 .ForMember(d => d.RegionId, opt => opt.ResolveUsing(s => s.Address?.RegionId))
                 .ForMember(d => d.AddressPart1, opt => opt.ResolveUsing(s => s.Address?.AddressPart1))
                 .ForMember(d => d.AddressPart2, opt => opt.ResolveUsing(s => s.Address?.AddressPart2))
@@ -396,7 +394,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.StatusDate, x => x.MapFrom(y => y.StatusDate ?? DateTime.Now))
-                .ForMember(x => x.Status, x => x.UseValue(string.Empty))
                 .ForMember(x => x.RegMainActivityId, x => x.UseValue((int?) null))
                 .ForMember(x => x.LiqDateStart, x => x.UseValue((DateTime?) null))
                 .ForMember(x => x.LiqDateEnd, x => x.UseValue((DateTime?) null))

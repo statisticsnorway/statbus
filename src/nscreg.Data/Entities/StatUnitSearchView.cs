@@ -18,8 +18,6 @@ namespace nscreg.Data.Entities
         public int? RegionId { get; set; }
         public decimal? Turnover { get; set; }
         public int? Employees { get; set; }
-        public int? SectorCodeId { get; set; }
-        public int? LegalFormId { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int ChangeReason { get; set; }
         public DateTime StartPeriod { get; set; }

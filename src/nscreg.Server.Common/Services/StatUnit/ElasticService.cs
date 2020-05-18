@@ -272,18 +272,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Terms(p => p.Field(f => f.ActivityCategoryIds).Terms(regMainActivityIds)));
             }
 
-            if (filter.SectorCodeId.HasValue)
-            {
-                int sectorCodeId = filter.SectorCodeId.Value;
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.SectorCodeId).Value(sectorCodeId)));
-            }
-
-            if (filter.LegalFormId.HasValue)
-            {
-                int legalFormId = filter.LegalFormId.Value;
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.LegalFormId).Value(legalFormId)));
-            }
-
             if (filter.RegId.HasValue)
             {
                 int id = filter.RegId.Value;
