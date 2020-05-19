@@ -191,23 +191,6 @@ namespace nscreg.Data.Entities
         [UsedByServerSide]
         public string HistoryEnterpriseUnitIds { get; set; }
 
-        [JsonIgnore]
-        [NotMapped]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? InstSectorCodeId
-        {
-            get => null;
-            set { }
-        }
-        [JsonIgnore]
-        [NotMapped]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? LegalFormId
-        {
-            get => null;
-            set { }
-        }
-
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 500)]
         public int? SizeId { get; set; }
