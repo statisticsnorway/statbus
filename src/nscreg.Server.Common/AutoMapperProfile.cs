@@ -394,7 +394,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.StatusDate, x => x.MapFrom(y => y.StatusDate ?? DateTime.Now))
-                .ForMember(x => x.RegMainActivityId, x => x.UseValue((int?) null))
                 .ForMember(x => x.LiqDateStart, x => x.UseValue((DateTime?) null))
                 .ForMember(x => x.LiqDateEnd, x => x.UseValue((DateTime?) null))
                 .ForMember(x => x.HistoryEnterpriseUnitIds, x => x.UseValue(string.Empty))

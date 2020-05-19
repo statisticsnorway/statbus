@@ -190,15 +190,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [UsedByServerSide]
         public string HistoryEnterpriseUnitIds { get; set; }
-        [JsonIgnore]
-        [NotMapped]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? RegMainActivityId
-        {
-            get => null;
-            // ReSharper disable once ValueParameterNotUsed
-            set { }
-        }
+
         [JsonIgnore]
         [NotMapped]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
