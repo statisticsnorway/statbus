@@ -2361,16 +2361,16 @@
     <value>This local unit does not belong to a legal unit</value>
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
-    <value></value>
+    <value>This legal unit does not belong to an enterprise</value>
   </data>
   <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
     <value>This legal unit has no local units</value>
   </data>
   <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
-    <value></value>
+    <value>This enterprise has no legal units</value>
   </data>
   <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
-    <value></value>
+    <value>This enterprise group has no enterprises</value>
   </data>
   <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
     <value>TaxRegId field is duplicated</value>

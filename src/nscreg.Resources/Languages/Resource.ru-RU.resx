@@ -2355,4 +2355,14 @@
   <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
     <value>Эта местная единица не принадлежит к правовой единице</value>
   </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
+    <value>В этой группе предприятий нет ни одного предприятия</value>
+  </data>
+  <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
+    <value>В этом предприятии нет ни одной правовой единицы
+</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
+    <value>Эта правовая единица не принадлежит к предприятию </value>
+  </data>
 </root>

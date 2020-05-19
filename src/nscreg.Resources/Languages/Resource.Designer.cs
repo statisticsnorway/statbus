@@ -538,7 +538,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to This enterprise group has no enterprises.
         /// </summary>
         public static string AnalysisEnterpriseGroupRelatedEnterprises {
             get {
@@ -547,7 +547,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to This enterprise has no legal units.
         /// </summary>
         public static string AnalysisEnterpriseRelatedLegalUnits {
             get {
@@ -691,7 +691,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to This legal unit does not belong to an enterprise.
         /// </summary>
         public static string AnalysisOrphanLegalUnits {
             get {
