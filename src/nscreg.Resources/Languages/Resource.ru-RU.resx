@@ -2349,4 +2349,10 @@
   <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
     <value>ИНН дублируется</value>
   </data>
+  <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
+    <value>У этой правовой единицы нет ни одной местной единицы </value>
+  </data>
+  <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
+    <value>Эта местная единица не принадлежит к правовой единице</value>
+  </data>
 </root>

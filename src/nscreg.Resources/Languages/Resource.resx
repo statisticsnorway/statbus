@@ -2358,13 +2358,13 @@
     <value>Elasticsearch service is not running, please connect to your server' administrator to turn it on</value>
   </data>
   <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
-    <value></value>
+    <value>This local unit does not belong to a legal unit</value>
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
     <value></value>
   </data>
   <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
-    <value></value>
+    <value>This legal unit has no local units</value>
   </data>
   <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
     <value></value>

@@ -556,7 +556,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to This legal unit has no local units.
         /// </summary>
         public static string AnalysisLegalUnitRelatedLocalUnits {
             get {
@@ -700,7 +700,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to This local unit does not belong to a legal unit.
         /// </summary>
         public static string AnalysisOrphanLocalUnits {
             get {
