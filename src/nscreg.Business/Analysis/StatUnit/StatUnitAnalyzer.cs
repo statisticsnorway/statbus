@@ -188,7 +188,7 @@ namespace nscreg.Business.Analysis.StatUnit
             switch (propertyName)
             {
                 case nameof(Orphan.CheckRelatedEnterpriseGroup):
-                    if (_mandatoryFields.Enterprise.EntGroupId == true && unit.EntGroupId == null)
+                    if (unit.EntGroupId == null)
                     {
                         messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
                     }
@@ -214,7 +214,7 @@ namespace nscreg.Business.Analysis.StatUnit
             switch (propertyName)
             {
                 case nameof(Orphan.CheckOrphanLegalUnits):
-                    if (_mandatoryFields.LegalUnit.EnterpriseUnitRegId && unit.EnterpriseUnitRegId == null)
+                    if (unit.EnterpriseUnitRegId == null)
                     {
                         messages.Add(nameof(LegalUnit.EnterpriseUnitRegId), new[] { nameof(Resource.AnalysisOrphanLegalUnits) });
                     }
@@ -232,7 +232,7 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             if (propertyName == nameof(Orphan.CheckOrphanLocalUnits))
             {
-                if (_mandatoryFields.LocalUnit.LegalUnitId == true && unit.LegalUnitId == null)
+                if (unit.LegalUnitId == null)
                 {
                     messages.Add(nameof(LocalUnit.LegalUnitId), new[] { nameof(Resource.AnalysisOrphanLocalUnits) });
                 }
