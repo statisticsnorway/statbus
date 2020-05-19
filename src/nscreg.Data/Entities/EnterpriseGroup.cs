@@ -224,21 +224,11 @@ namespace nscreg.Data.Entities
         public virtual UnitStatus UnitStatus { get; set; }
 
         [JsonIgnore]
-        [NotMapped]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public SectorCode InstSectorCode { get; set; }
-
-        [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
-
-        [JsonIgnore]
-        [NotMapped]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public LegalForm LegalForm { get; set; }
     }
 }
