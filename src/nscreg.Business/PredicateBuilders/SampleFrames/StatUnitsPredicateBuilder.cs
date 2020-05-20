@@ -70,7 +70,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         }
 
         /// <summary>
-        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategoryId == value)"
+        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategory.Code == value)"
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <param name="operation"></param>
@@ -109,13 +109,20 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
-            var categoryId = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
-            categoryId = Expression.Property(categoryId, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
+            var categoryId = Expression
+                .Property(innerParameter, typeof(ActivityStatisticalUnit)
+                    .GetProperty(nameof(ActivityStatisticalUnit.Activity)));
 
+            categoryId = Expression
+                    .Property(categoryId, typeof(Activity)
+                        .GetProperty(nameof(Activity.ActivityCategoryId)));
+
+          
             var value = GetConstantValue(subCategoriesIds, categoryId,
                 operation == OperationEnum.Equal
                 ? OperationEnum.InList : operation == OperationEnum.NotEqual
                 ? OperationEnum.NotInList : operation);
+
             var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
