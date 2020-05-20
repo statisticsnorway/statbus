@@ -5,7 +5,7 @@ namespace nscreg.Data.DbInitializers
 {
     public class MsSqlDbInitializer : IDbInitializer
     {
-        
+
         public void Initialize(NSCRegDbContext context, ReportingSettings reportingSettings = null)
         {
             #region Scripts

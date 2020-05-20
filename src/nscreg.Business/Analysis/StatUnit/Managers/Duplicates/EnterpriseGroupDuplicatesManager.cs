@@ -1,9 +1,8 @@
-using System.Collections.Generic;
 using nscreg.Business.Analysis.Contracts;
-using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
+using System.Collections.Generic;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
@@ -48,15 +47,22 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                             new[] { nameof(Resource.AnalysisDuplicationName) });
                 }
 
-                if (_analysisRules.Duplicates.CheckStatIdTaxRegId &&
-                    (potentialDuplicate.StatId == _checkingEnterpriseGroup.StatId &&
-                     potentialDuplicate.TaxRegId == _checkingEnterpriseGroup.TaxRegId) &&
-                    _checkingEnterpriseGroup.StatId != null && _checkingEnterpriseGroup.TaxRegId != null)
+                if (_analysisRules.Duplicates.CheckStatId &&
+                    potentialDuplicate.StatId == _checkingEnterpriseGroup.StatId && _checkingEnterpriseGroup.StatId != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.StatId)))
                         unitMessages.Add(nameof(potentialDuplicate.StatId),
                             new[] { nameof(Resource.AnalysisDuplicationStatId) });
+                }
+
+                if (_analysisRules.Duplicates.CheckTaxRegId &&
+                    potentialDuplicate.TaxRegId == _checkingEnterpriseGroup.TaxRegId && _checkingEnterpriseGroup.TaxRegId != null)
+                {
+                    sameFieldsCount++;
+                    if (!messages.ContainsKey(nameof(potentialDuplicate.TaxRegId)))
+                        unitMessages.Add(nameof(potentialDuplicate.TaxRegId),
+                            new[] { nameof(Resource.AnalysisDuplicationTaxRegId) });
                 }
 
                 if (_analysisRules.Duplicates.CheckExternalId &&
