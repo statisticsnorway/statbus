@@ -201,9 +201,9 @@ namespace nscreg.Business.Analysis.StatUnit
                     }
                     break;
                 case nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises):
-                    if (!unit.EnterpriseGroup.EnterpriseUnits.Any())
+                    if (!_context.EnterpriseUnits.Any(x=>x.EntGroupId == unit.EntGroupId))
                     {
-                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseGroupRelatedEnterprises) });
                     }
                     break;
             }
