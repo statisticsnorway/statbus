@@ -1,4 +1,6 @@
 import React from 'react'
+import moment from 'moment'
+
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
@@ -17,8 +19,17 @@ class DateTimeField extends React.Component {
   }
 
   onChangeWrapper = (ambiguousValue) => {
+    console.log(this.props.value)
+    console.log(this.state)
+
+    // console.log(dateFns.toUtc(ambiguousValue))
+    // console.log(hasValue(ambiguousValue))
+
+    console.log(moment(ambiguousValue))
+    // moment
+
     const { name, onChange } = this.props
-    const nextValue = this.ensure(ambiguousValue)
+    const nextValue = dateFns.toUtc(ambiguousValue)
     this.setState({ isDateValid: true, errorMessages: [] })
     onChange({ target: { name, value: nextValue } }, { ...this.props, value: nextValue })
   }
@@ -82,6 +93,7 @@ class DateTimeField extends React.Component {
       ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
     const filteredErrorMessages = errorKeys.filter(erKey => this.state.errorMessages.filter(stateKey => stateKey === erKey).length !== 1)
     filteredErrorMessages.forEach(el => this.state.errorMessages.push(el))
+    console.log('moment(value).toDate()', moment(value).toDate())
 
     const inputProps = {
       ...restProps,
@@ -91,15 +103,18 @@ class DateTimeField extends React.Component {
       required,
       as: DatePicker,
       disabled: disabled || readOnly,
+      // selected: moment(value).toDate(),
       selected: dateFns.getDateOrNull(value),
       error: error || hasErrors,
       placeholder: placeholderKey ? localize(placeholderKey) : label,
       className: 'ui input',
       onChange: this.onChangeWrapper,
       onChangeRaw: this.onChangeRawWrapper,
-      maxDate: dateFns.now(),
+      // maxDate: new Date(),
+      // maxDate: dateFns.now(),
       autoComplete: 'off',
     }
+
     return (
       <div
         className={`field datepicker${required ? ' required' : ''}
@@ -108,6 +123,7 @@ class DateTimeField extends React.Component {
         `}
       >
         {label !== undefined && <label htmlFor={id}>{label}</label>}
+        DATETIME PICKER
         <Form.Input {...inputProps} />
         {(hasErrors || !this.state.isDateValid) && (
           <Message title={label} list={this.state.errorMessages.map(localize)} compact error />
@@ -143,7 +159,7 @@ DateTimeField.defaultProps = {
   title: undefined,
   placeholder: undefined,
   dateFormat: dateFns.dateFormat,
-  value: null,
+  value: undefined,
   required: false,
   touched: undefined,
   error: false,

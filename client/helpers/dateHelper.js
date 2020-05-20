@@ -2,8 +2,8 @@ import moment from 'moment'
 
 import { hasValue } from 'helpers/validation'
 
-export const dateFormat = 'YYYY-MM-DD'
-export const dateTimeFormat = 'YYYY-MM-DD HH:mm'
+export const dateFormat = 'yyyy-mm-dd'
+export const dateTimeFormat = 'yyyy-mm-dd HH:mm'
 
 export function formatDate(x, format = dateFormat) {
   return moment(x).format(format)
@@ -34,7 +34,7 @@ export function getDateSubtractMonth() {
 }
 
 export function getDateOrNull(raw) {
-  return hasValue(raw) ? moment(raw) : null
+  return hasValue(raw) ? moment(raw).toDate() : undefined
 }
 
 export function toUtc(value) {
