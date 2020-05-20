@@ -203,6 +203,22 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 150)]
         public int? DataSourceClassificationId { get; set; }
 
+        [NotMapped]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? InstSectorCodeId
+        {
+            get => null;
+            set { }
+        }
+
+        [NotMapped]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? LegalFormId
+        {
+            get => null;
+            set { }
+        }
+
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual DataSourceClassification DataSourceClassification { get; set; }
@@ -225,10 +241,18 @@ namespace nscreg.Data.Entities
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public SectorCode InstSectorCode { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public LegalForm LegalForm { get; set; }
     }
 }

@@ -29,9 +29,13 @@ namespace nscreg.Data.Entities
         int? Employees { get; set; }
         string TaxRegId { get; set; }
         string ExternalId { get; set; }
+        int? InstSectorCodeId { get; set; }
+        int? LegalFormId { get; set; }
         string LiqReason { get; set; }
+        SectorCode InstSectorCode { get; set; }
         ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
         ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
         ICollection<PersonStatisticalUnit> PersonsUnits { get; set; }
+        LegalForm LegalForm { get; set; }
     }
 }

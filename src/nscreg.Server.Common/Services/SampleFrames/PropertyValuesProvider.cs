@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -30,6 +29,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 [FieldEnum.ForeignParticipationCountry] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ForeignParticipationCountriesUnits.Select(y => $"{y.Country.IsoCode} {y.Country.Name}"))),
                 [FieldEnum.ContactPerson] = CreateReferenceValueExtractor(x =>string.Join(", ", x.PersonsUnits.Select(z => $"{z.Person.GivenName} {z.Person.Surname} {z.Person.MiddleName}"))),
+                [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm?.Code} {x.LegalForm?.Name}"),
+                [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode?.Code} {x.InstSectorCode?.Name}"),
                 [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address?.Region.FullPath}, {x.Address?.AddressPart1}, {x.Address?.AddressPart2}, {x.Address?.AddressPart3}"),
                 [FieldEnum.ActualAddress] = CreateReferenceValueExtractor(x => $"{x.ActualAddress?.Region.FullPath}, {x.ActualAddress?.AddressPart1}, {x.ActualAddress?.AddressPart2}, {x.ActualAddress?.AddressPart3}"),
                 [FieldEnum.PostalAddress] = CreateReferenceValueExtractor(x => $"{x.PostalAddress?.Region.FullPath}, {x.PostalAddress?.AddressPart1}, {x.PostalAddress?.AddressPart2}, {x.PostalAddress?.AddressPart3}"),

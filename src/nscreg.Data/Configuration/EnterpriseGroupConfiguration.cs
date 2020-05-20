@@ -23,6 +23,9 @@ namespace nscreg.Data.Configuration
             builder.Property(x => x.Name).HasMaxLength(400);
             builder.HasIndex(x => x.Name);
             builder.HasIndex(x => x.StartPeriod);
+
+            builder.Ignore(x => x.LegalForm);
+            builder.Ignore(x => x.InstSectorCode);
             builder.Ignore(x => x.ActivitiesUnits);
             builder.Ignore(x => x.ForeignParticipationCountriesUnits);
         }
