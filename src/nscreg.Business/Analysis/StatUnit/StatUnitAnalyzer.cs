@@ -29,14 +29,16 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly NSCRegDbContext _context;
         private readonly ValidationSettings _validationSettings;
+        private readonly bool _isAlterDataSourceAllowedOperation;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
-            NSCRegDbContext context, ValidationSettings validationSettings)
+            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false)
         {
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _context = context;
             _validationSettings = validationSettings;
+            _isAlterDataSourceAllowedOperation = isAlterDataSourceAllowedOperation;
         }
 
         /// <inheritdoc />
@@ -83,10 +85,12 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
             var manager = unit is StatisticalUnit statisticalUnit
-                ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields) as IAnalysisManager
+                ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields) as IMandatoryFieldsAnalysisManager
                 : new EnterpriseGroupMandatoryFieldsManager(unit as EnterpriseGroup, _mandatoryFields);
 
-            return manager.CheckFields();
+            return _isAlterDataSourceAllowedOperation == false
+                ? manager.CheckFields()
+                : manager.CheckOnlyIdentifiersFields();
         }
 
         /// <inheritdoc />
@@ -175,7 +179,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>Dictionary of messages</returns>
-        public virtual AnalysisResult CheckAll(IStatisticalUnit unit)
+        public AnalysisResult CheckAll(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
             var summaryMessages = new List<string>();

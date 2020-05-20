@@ -10,7 +10,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
     /// <summary>
     /// Analysis enterprise group mandatory fields manager
     /// </summary>
-    public class EnterpriseGroupMandatoryFieldsManager : IAnalysisManager
+    public class EnterpriseGroupMandatoryFieldsManager : IMandatoryFieldsAnalysisManager
     {
         private readonly EnterpriseGroup _enterpriseGroup;
         private readonly DbMandatoryFields _mandatoryFields;
@@ -53,6 +53,11 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_enterpriseGroup.ContactPerson), new[] {nameof(Resource.AnalysisMandatoryContactPerson)});
 
             return messages;
+        }
+
+        public Dictionary<string, string[]> CheckOnlyIdentifiersFields()
+        {
+            throw new System.NotImplementedException();
         }
     }
 }

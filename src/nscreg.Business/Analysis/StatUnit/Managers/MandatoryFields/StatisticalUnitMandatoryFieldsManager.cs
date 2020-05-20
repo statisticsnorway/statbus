@@ -6,6 +6,8 @@ using nscreg.Business.Analysis.Contracts;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 {
@@ -13,7 +15,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
     /// <summary>
     /// Analysis statistical unit mandatory fields manager
     /// </summary>
-    public class StatisticalUnitMandatoryFieldsManager : IAnalysisManager
+    public class StatisticalUnitMandatoryFieldsManager : IMandatoryFieldsAnalysisManager
     {
         private readonly StatisticalUnit _statisticalUnit;
         private readonly DbMandatoryFields _mandatoryFields;
@@ -77,6 +79,23 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.ReorgTypeId), new[] { nameof(Resource.AnalysisMandatoryReorgType) });
             }
 
+            return messages;
+        }
+
+        public Dictionary<string, string[]> CheckOnlyIdentifiersFields()
+        {
+            var messages = new Dictionary<string, string[]>();
+            var suStatUnitBools = new[]
+            {
+                _statisticalUnit.StatId != null,
+                _statisticalUnit.RegId != null,
+                _statisticalUnit.TaxRegId != null,
+                _statisticalUnit.ExternalId != null
+            };
+            if (!suStatUnitBools.Contains(true))
+            {
+                messages.Add(nameof(_statisticalUnit.RegId), new []{""});
+            }
             return messages;
         }
     }
