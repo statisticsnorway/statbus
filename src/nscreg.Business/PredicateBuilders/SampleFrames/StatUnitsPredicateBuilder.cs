@@ -115,18 +115,15 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
 
             categoryId = Expression
                     .Property(categoryId, typeof(Activity)
-                        .GetProperty(nameof(Activity.ActivityCategory)));
+                        .GetProperty(nameof(Activity.ActivityCategoryId)));
 
-            categoryId = Expression
-                .Property(categoryId, typeof(ActivityCategory)
-                    .GetProperty(nameof(ActivityCategory.Code)));
+          
             var value = GetConstantValue(subCategoriesIds, categoryId,
                 operation == OperationEnum.Equal
                 ? OperationEnum.InList : operation == OperationEnum.NotEqual
                 ? OperationEnum.NotInList : operation);
 
-            var substringExpression = Expression.Call(categoryId, "Substring", null, Expression.Constant(1));
-            var innerExpression = GetExpressionForMultiselectFields(substringExpression, value, operation);
+            var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
                 Expression.Lambda<Func<ActivityStatisticalUnit, bool>>(innerExpression, innerParameter));
