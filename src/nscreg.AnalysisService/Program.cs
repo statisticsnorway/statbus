@@ -1,14 +1,14 @@
-using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.ServicesUtils;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using PeterKottas.DotNetCore.WindowsService;
-using NLog.Extensions.Logging;
-using nscreg.Utilities;
+using System.IO;
 
 namespace nscreg.AnalysisService
 {
@@ -47,7 +47,7 @@ namespace nscreg.AnalysisService
 
             var configuration = configBuilder.Build();
 
-            
+
             var servicesSettings = configuration
                 .GetSection(nameof(ServicesSettings))
                 .Validate<ServicesSettings>(logger)
@@ -63,7 +63,7 @@ namespace nscreg.AnalysisService
                 .Validate<ISettings>(logger)
                 .Get<ValidationSettings>();
             var dbContextHelper = new DbContextHelper();
-            var ctx = dbContextHelper.CreateDbContext(new string[]{});
+            var ctx = dbContextHelper.CreateDbContext(new string[] { });
 
             ServiceRunner<JobService>.Run(config =>
             {

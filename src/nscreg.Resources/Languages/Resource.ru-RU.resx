@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2345,5 +2345,24 @@
   </data>
   <data name="ElasticSearchIsDisable" xml:space="preserve">
     <value>Служба ElasticSearch была отключена, обратитесь к администратору сервера для устранения неполадок</value>
+  </data>
+  <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
+    <value>ИНН дублируется</value>
+  </data>
+  <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
+    <value>У этой правовой единицы нет ни одной местной единицы </value>
+  </data>
+  <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
+    <value>Эта местная единица не принадлежит к правовой единице</value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
+    <value>В этой группе предприятий нет ни одного предприятия</value>
+  </data>
+  <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
+    <value>В этом предприятии нет ни одной правовой единицы
+</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
+    <value>Эта правовая единица не принадлежит к предприятию </value>
   </data>
 </root>

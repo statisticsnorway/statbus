@@ -1,11 +1,9 @@
-using System.Collections.Generic;
-using System.Linq;
-using nscreg.Data.Constants;
+using nscreg.Business.Analysis.Contracts;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
-using nscreg.Business.Analysis.Contracts;
-using nscreg.Resources.Languages;
+using System.Collections.Generic;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
 {
@@ -49,15 +47,22 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                             new[] { nameof(Resource.AnalysisDuplicationName) });
                 }
 
-                if (_analysisRules.Duplicates.CheckStatIdTaxRegId &&
-                    (potentialDuplicate.StatId == _checkingStatisticalUnit.StatId &&
-                     potentialDuplicate.TaxRegId == _checkingStatisticalUnit.TaxRegId) &&
-                    _checkingStatisticalUnit.StatId != null && _checkingStatisticalUnit.TaxRegId != null)
+                if (_analysisRules.Duplicates.CheckStatId &&
+                    potentialDuplicate.StatId == _checkingStatisticalUnit.StatId && _checkingStatisticalUnit.StatId != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.StatId)))
                         unitMessages.Add(nameof(potentialDuplicate.StatId),
                             new[] { nameof(Resource.AnalysisDuplicationStatId) });
+                }
+
+                if (_analysisRules.Duplicates.CheckTaxRegId &&
+                    potentialDuplicate.TaxRegId == _checkingStatisticalUnit.TaxRegId && _checkingStatisticalUnit.TaxRegId != null)
+                {
+                    sameFieldsCount++;
+                    if (!messages.ContainsKey(nameof(potentialDuplicate.TaxRegId)))
+                        unitMessages.Add(nameof(potentialDuplicate.TaxRegId),
+                            new[] { nameof(Resource.AnalysisDuplicationTaxRegId) });
                 }
 
                 if (_analysisRules.Duplicates.CheckExternalId &&
