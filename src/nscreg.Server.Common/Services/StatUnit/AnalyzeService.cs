@@ -37,7 +37,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation)
         {
-            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings));
+            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation));
         }
 
         public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)
@@ -61,12 +61,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             _context.SaveChanges();
         }
 
-        private static AnalysisResult AnalyzeSingleStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer, bool isAlterDataSourceAllowedOperation = false)
+        private static AnalysisResult AnalyzeSingleStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer)
         {
-            if (isAlterDataSourceAllowedOperation)
-            {
-                //return analyzer.
-            }
             return analyzer.CheckAll(unit);
         }
 
