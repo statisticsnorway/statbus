@@ -25,7 +25,6 @@ function createSubForm(Body, showReset) {
       setErrors,
       resetForm,
     } = props
-
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
     const unmappedErrors = [
       ...unmappedEntries(errors, props.values),

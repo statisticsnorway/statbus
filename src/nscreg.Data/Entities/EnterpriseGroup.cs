@@ -76,8 +76,13 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? PostalAddressId { get; set; }
 
+        [Reference(LookupEnum.EntGroupTypeLookup)]
         [Display(Order = 725, GroupName = GroupNames.RegistrationInfo)]
-        public string EntGroupType { get; set; }
+        public int? EntGroupTypeId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public EnterpriseGroupType EntGroupType { get; set; }
 
         [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }

@@ -3,6 +3,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
+import moment from 'moment'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc/'
 import FormBody from 'components/StatUnitFormBody'
@@ -72,7 +73,8 @@ const enhance = pipe(
 
 export default enhance((props) => {
   const { values } = props
-  const currentDate = toUtc(getDate().toDate())
+  const currentDate = moment(getDate(), 'YYYY-MM-DD')
+  const lastYear = moment().format('YYYY') - 1
   if (values.taxRegId) {
     values.taxRegDate = values.taxRegDate || currentDate
   }
@@ -84,6 +86,17 @@ export default enhance((props) => {
   }
   if (values.legalUnitId) {
     values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+  }
+  if (values.enterpriseUnitRegId) {
+    values.entRegIdDate = values.entRegIdDate || currentDate
+  }
+  if (values.turnover) {
+    values.turnoverYear = values.turnoverYear || lastYear
+    values.turnoverDate = values.turnoverDate || currentDate
+  }
+  if (values.employees) {
+    values.employeesYear = values.turnoverYear || lastYear
+    values.employeesDate = values.turnoverDate || currentDate
   }
   return <FormBody {...{ ...props }} />
 })
