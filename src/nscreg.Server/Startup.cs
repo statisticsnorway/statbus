@@ -1,10 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -16,23 +17,22 @@ using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Common;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.Contracts;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using System.IO;
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Localization;
-using nscreg.Server.Common;
-using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using static nscreg.Server.Core.StartupConfiguration;
 using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 
@@ -55,14 +55,13 @@ namespace nscreg.Server
             if (env.IsDevelopment())
             {
                 builder.AddJsonFile(
-                    Path.Combine(env.ContentRootPath, "..", "..", "appsettings.Shared.json"),
+                    Path.Combine(env.ContentRootPath, "..", "..", "appsettings.json"),
                     true);
             }
 
             builder
-                .AddJsonFile("appsettings.Shared.json", true)
-                .AddJsonFile("appsettings.json", true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
+                .AddJsonFile("appsettings.json", true, reloadOnChange: true)
+                .AddJsonFile(path: $"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables();
 
             if (env.IsDevelopment()) builder.AddUserSecrets<Startup>();
@@ -87,7 +86,7 @@ namespace nscreg.Server
 #pragma warning restore CS0618 // Type or member is obsolete
 
             _loggerFactory = loggerFactory;
-            
+
             var localization = Configuration.GetSection(nameof(LocalizationSettings));
             Localization.LanguagePrimary = localization["DefaultKey"];
             Localization.Language1 = localization["Language1"];
@@ -108,7 +107,7 @@ namespace nscreg.Server
                 .UseMvc(routes => routes.MapRoute(
                     "default",
                     "{*url}",
-                    new {controller = "Home", action = "Index"}));
+                    new { controller = "Home", action = "Index" }));
 
             var provider = Configuration
                 .GetSection(nameof(ConnectionSettings))
@@ -196,7 +195,7 @@ namespace nscreg.Server
                 .AddViews();
 
             var keysDirectory = new DirectoryInfo(Configuration["DataProtectionKeysDir"]);
-            if(!keysDirectory.Exists)
+            if (!keysDirectory.Exists)
                 keysDirectory.Create();
 
             services.AddDataProtection()
@@ -217,8 +216,8 @@ namespace nscreg.Server
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
-               /*.UseDefaultServiceProvider(options => 
-                    options.ValidateScopes = false)*/
+                /*.UseDefaultServiceProvider(options => 
+                     options.ValidateScopes = false)*/
                 .Build().Run();
         }
         public static IWebHostBuilder CreateWebHostBuilder() =>

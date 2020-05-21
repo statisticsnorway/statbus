@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Utilities.Configuration;
 
@@ -9,7 +5,7 @@ namespace nscreg.Data.DbInitializers
 {
     public class MsSqlDbInitializer : IDbInitializer
     {
-        
+
         public void Initialize(NSCRegDbContext context, ReportingSettings reportingSettings = null)
         {
             #region Scripts
@@ -71,8 +67,8 @@ namespace nscreg.Data.DbInitializers
                     Region_id AS RegionId,
                     Employees,
                     Turnover,
-                    InstSectorCodeId AS SectorCodeId,
-                    LegalFormId,
+                    NULL AS SectorCodeId,
+                    NULL AS LegalFormId,
                     DataSourceClassificationId,
                     ChangeReason,
                     StartPeriod,

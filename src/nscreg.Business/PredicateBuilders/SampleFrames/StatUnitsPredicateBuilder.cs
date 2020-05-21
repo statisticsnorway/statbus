@@ -1,8 +1,3 @@
-using System;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
@@ -11,6 +6,9 @@ using nscreg.Data.Entities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Enums.Predicate;
+using System;
+using System.Linq;
+using System.Linq.Expressions;
 
 namespace nscreg.Business.PredicateBuilders.SampleFrames
 {
@@ -61,9 +59,9 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                 .Where(x => x != typeof(EnterpriseGroup))
                 .Aggregate<Type, Expression>(null, (current, type) =>
                 {
-                    var typeIsExp = (Expression) Expression.TypeIs(parameter, type);
+                    var typeIsExp = (Expression)Expression.TypeIs(parameter, type);
                     return current == null ? typeIsExp : Expression.OrElse(typeIsExp, current);
-                })??Expression.Constant(false);
+                }) ?? Expression.Constant(false);
 
             if (operation == OperationEnum.NotEqual || operation == OperationEnum.NotInList)
                 expression = Expression.Not(expression);
@@ -72,7 +70,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         }
 
         /// <summary>
-        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategoryId == value)"
+        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategory.Code == value)"
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <param name="operation"></param>
@@ -88,14 +86,17 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                     .Get<ConnectionSettings>()
                     .ParseProvider();
                 IDbDataProvider dataProvider;
-                
+
                 switch (provider)
                 {
-                    case ConnectionProvider.SqlServer: dataProvider = new MsSqlDbDataProvider();
+                    case ConnectionProvider.SqlServer:
+                        dataProvider = new MsSqlDbDataProvider();
                         break;
-                    case ConnectionProvider.PostgreSql: dataProvider = new PostgreSqlDbDataProvider();
+                    case ConnectionProvider.PostgreSql:
+                        dataProvider = new PostgreSqlDbDataProvider();
                         break;
-                    case ConnectionProvider.MySql: dataProvider = new MySqlDataProvider();
+                    case ConnectionProvider.MySql:
+                        dataProvider = new MySqlDataProvider();
                         break;
                     default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
                 }
@@ -108,13 +109,20 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
-            var categoryId = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
-            categoryId = Expression.Property(categoryId, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
+            var categoryId = Expression
+                .Property(innerParameter, typeof(ActivityStatisticalUnit)
+                    .GetProperty(nameof(ActivityStatisticalUnit.Activity)));
 
+            categoryId = Expression
+                    .Property(categoryId, typeof(Activity)
+                        .GetProperty(nameof(Activity.ActivityCategoryId)));
+
+          
             var value = GetConstantValue(subCategoriesIds, categoryId,
                 operation == OperationEnum.Equal
                 ? OperationEnum.InList : operation == OperationEnum.NotEqual
                 ? OperationEnum.NotInList : operation);
+
             var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
@@ -179,15 +187,15 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             var queryableValues = Expression.Convert(Expression.Call(typeof(Queryable), "AsQueryable", null, value),
                 typeof(IQueryable<>).MakeGenericType(addressWhereProperty.Type));
             var addressWhereLambda = Expression.Lambda<Func<Address, Boolean>>(Expression.Call(typeof(Queryable), "Contains", new[] { addressWhereProperty.Type }, queryableValues, addressWhereProperty), addressWhereParameter);
-            var addressWhereExpression = Expression.Call(typeof(Queryable), "Where", new []{typeof(Address)}, addresses, addressWhereLambda);
-            var addressDistinctExpression = Expression.Call(typeof(Queryable), "Distinct", new []{typeof(Address)}, addressWhereExpression);
+            var addressWhereExpression = Expression.Call(typeof(Queryable), "Where", new[] { typeof(Address) }, addresses, addressWhereLambda);
+            var addressDistinctExpression = Expression.Call(typeof(Queryable), "Distinct", new[] { typeof(Address) }, addressWhereExpression);
             Expression<Func<Address, int>> addressSelectLambda = y => y.RegionId;
-            var addressSelectExpression = Expression.Call(typeof(Queryable), "Select", new[] {typeof(Address), typeof(int)}, addressDistinctExpression, addressSelectLambda);
+            var addressSelectExpression = Expression.Call(typeof(Queryable), "Select", new[] { typeof(Address), typeof(int) }, addressDistinctExpression, addressSelectLambda);
 
             var containsAddressParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var containsAddressProperty = Expression.Property(containsAddressParameter, nameof(Address));
             var containsAddressRegionIdProperty = Expression.Property(containsAddressProperty, nameof(Address.RegionId));
-            var containsAddressExpression = Expression.Call(typeof(Queryable), "Contains", new[] {typeof(int)},
+            var containsAddressExpression = Expression.Call(typeof(Queryable), "Contains", new[] { typeof(int) },
                 addressSelectExpression, containsAddressRegionIdProperty);
             Expression<Func<StatisticalUnit, bool>> expr;
             if (operation == OperationEnum.NotEqual || operation == OperationEnum.NotInList)
@@ -199,7 +207,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             {
                 expr = Expression.Lambda<Func<StatisticalUnit, bool>>(containsAddressExpression,
                     containsAddressParameter);
-            }           
+            }
             return expr;
         }
 

@@ -5,12 +5,12 @@ using NLog.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
+using PeterKottas.DotNetCore.WindowsService;
+using System.IO;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using PeterKottas.DotNetCore.WindowsService;
-using System.IO;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -40,7 +40,7 @@ namespace nscreg.Server.DataUploadSvc
                 var rootSettingsPath = Path.Combine(workDir, "..", "..");
                 if (rootSettingsPath != null)
                     configBuilder.AddJsonFile(
-                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
+                        Path.Combine(rootSettingsPath, "appsettings.json"),
                         true);
             }
             catch
@@ -49,7 +49,6 @@ namespace nscreg.Server.DataUploadSvc
             }
 
             configBuilder
-                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
                 .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
 
             var configuration = configBuilder.Build();
@@ -64,7 +63,6 @@ namespace nscreg.Server.DataUploadSvc
                 .Get<ServicesSettings>();
             var statUnitAnalysisRules = configuration
                 .GetSection(nameof(StatUnitAnalysisRules))
-                .Validate<ServicesSettings>(logger)
                 .Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration
                 .GetSection(nameof(DbMandatoryFields))

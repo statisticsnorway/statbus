@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
@@ -21,6 +16,11 @@ using nscreg.Server.Test.Extensions;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 using static nscreg.TestUtils.InMemoryDbSqlite;
@@ -49,6 +49,9 @@ namespace nscreg.Server.Test
                     true);
             var configuration = builder.Build();
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+            _analysisRules.Orphan.CheckEnterpriseGroupRelatedEnterprises = false;
+            _analysisRules.Orphan.CheckOrphanLegalUnits = false;
+            _analysisRules.Orphan.CheckLegalUnitRelatedLocalUnits = false;
             _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
             _validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
             _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields, _validationSettings);
@@ -58,17 +61,17 @@ namespace nscreg.Server.Test
 
         #region SearchTests
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        //        [Theory]
+        //        [InlineData(StatUnitTypes.LegalUnit)]
+        //        [InlineData(StatUnitTypes.LocalUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task SearchByNameOrAddressTest(StatUnitTypes unitType)
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
-            var region = new Region {Name = Guid.NewGuid().ToString()};
-            var address = new Address {AddressPart1 = addressPart, Region = region};
+            var region = new Region { Name = Guid.NewGuid().ToString() };
+            var address = new Address { AddressPart1 = addressPart, Region = region };
 
             using (var context = CreateSqliteDbContext())
             {
@@ -87,7 +90,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        await context.LocalUnits.AddAsync((LocalUnit) unit);
+                        await context.LocalUnits.AddAsync((LocalUnit)unit);
                         break;
                     case StatUnitTypes.LegalUnit:
                         unit = new LegalUnit
@@ -97,7 +100,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        await context.LegalUnits.AddAsync((LegalUnit) unit);
+                        await context.LegalUnits.AddAsync((LegalUnit)unit);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
                         unit = new EnterpriseUnit
@@ -107,7 +110,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        await context.EnterpriseUnits.AddAsync((EnterpriseUnit) unit);
+                        await context.EnterpriseUnits.AddAsync((EnterpriseUnit)unit);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
                         unit = new EnterpriseGroup
@@ -117,7 +120,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        await context.EnterpriseGroups.AddAsync((EnterpriseGroup) unit);
+                        await context.EnterpriseGroups.AddAsync((EnterpriseGroup)unit);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
@@ -127,17 +130,17 @@ namespace nscreg.Server.Test
                 await Task.Delay(2000);
                 var service = new SearchService(context);
 
-                var query = new SearchQueryM {Name = unitName.Remove(unitName.Length - 1)};
+                var query = new SearchQueryM { Name = unitName.Remove(unitName.Length - 1) };
                 var result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
 
-                query = new SearchQueryM {Address = addressPart.Remove(addressPart.Length - 1)};
+                query = new SearchQueryM { Address = addressPart.Remove(addressPart.Length - 1) };
                 result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
             }
         }
 
-//        [Fact]
+        //        [Fact]
         private async Task SearchByNameMultiplyResultTest()
         {
             var commonName = Guid.NewGuid().ToString();
@@ -148,10 +151,10 @@ namespace nscreg.Server.Test
 
                 var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
 
-                var legal = new LegalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
-                var local = new LocalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
-                var enterprise = new EnterpriseUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
-                var group = new EnterpriseGroup {Name = commonName + Guid.NewGuid(), UserId = userId};
+                var legal = new LegalUnit { Name = commonName + Guid.NewGuid(), UserId = userId };
+                var local = new LocalUnit { Name = commonName + Guid.NewGuid(), UserId = userId };
+                var enterprise = new EnterpriseUnit { Name = commonName + Guid.NewGuid(), UserId = userId };
+                var group = new EnterpriseGroup { Name = commonName + Guid.NewGuid(), UserId = userId };
 
                 await context.LegalUnits.AddAsync(legal);
                 await context.LocalUnits.AddAsync(local);
@@ -161,16 +164,16 @@ namespace nscreg.Server.Test
                 await new ElasticService(context).Synchronize(true);
                 await Task.Delay(2000);
 
-                var query = new SearchQueryM {Name = commonName};
+                var query = new SearchQueryM { Name = commonName };
                 var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(4, result.TotalCount);
             }
         }
 
-//        [Theory]
-//        [InlineData("2017", 3)]
-//        [InlineData("2016", 1)]
+        //        [Theory]
+        //        [InlineData("2017", 3)]
+        //        [InlineData("2016", 1)]
         private async Task SearchUnitsByCode(string code, int rows, string userId, int regId)
         {
             using (var context = CreateDbContext())
@@ -183,7 +186,7 @@ namespace nscreg.Server.Test
                     new LocalUnit {StatId = "201702", Name = "Unit3"}
                 };
                 await context.StatisticalUnits.AddRangeAsync(list);
-                var group = new EnterpriseGroup {StatId = "201703", Name = "Unit4"};
+                var group = new EnterpriseGroup { StatId = "201703", Name = "Unit4" };
                 await context.EnterpriseGroups.AddAsync(group);
                 await context.SaveChangesAsync();
                 await new ElasticService(context).Synchronize(true);
@@ -194,10 +197,10 @@ namespace nscreg.Server.Test
                 Assert.Equal(rows, result.Count);
             }
         }
-//
-//        [Theory]
-//        [InlineData(1, 1)]
-//        [InlineData(2, 2)]
+        //
+        //        [Theory]
+        //        [InlineData(1, 1)]
+        //        [InlineData(2, 2)]
         private async Task SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
             using (var context = CreateSqliteDbContext())
@@ -224,7 +227,7 @@ namespace nscreg.Server.Test
                 };
                 await context.StatisticalUnits.AddRangeAsync(list);
 
-                var group = new EnterpriseGroup {Name = "Unit5", UserId = userId};
+                var group = new EnterpriseGroup { Name = "Unit5", UserId = userId };
                 await context.EnterpriseGroups.AddAsync(group);
 
                 await context.SaveChangesAsync();
@@ -242,9 +245,9 @@ namespace nscreg.Server.Test
             }
         }
 
-//        [Theory]
-//        [InlineData(1, 1)]
-//        [InlineData(2, 0)]
+        //        [Theory]
+        //        [InlineData(1, 1)]
+        //        [InlineData(2, 0)]
         private async Task SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
             using (var context = CreateSqliteDbContext())
@@ -254,9 +257,9 @@ namespace nscreg.Server.Test
 
                 var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
 
-                var legalForm = new LegalForm {Name = "qwe"};
+                var legalForm = new LegalForm { Name = "qwe" };
                 await context.LegalForms.AddAsync(legalForm);
-                var sectorCode = new SectorCode {Name = "qwe"};
+                var sectorCode = new SectorCode { Name = "qwe" };
                 await context.SectorCodes.AddAsync(sectorCode);
                 await context.SaveChangesAsync();
 
@@ -269,7 +272,7 @@ namespace nscreg.Server.Test
                 };
                 await context.StatisticalUnits.AddRangeAsync(list);
 
-                var group = new EnterpriseGroup {Name = "Unit5", UserId = userId};
+                var group = new EnterpriseGroup { Name = "Unit5", UserId = userId };
                 await context.EnterpriseGroups.AddAsync(group);
 
                 context.SaveChanges();
@@ -287,11 +290,11 @@ namespace nscreg.Server.Test
             }
         }
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        //        [Theory]
+        //        [InlineData(StatUnitTypes.LegalUnit)]
+        //        [InlineData(StatUnitTypes.LocalUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task SearchUsingUnitTypeTest(StatUnitTypes type)
         {
             using (var context = CreateSqliteDbContext())
@@ -299,10 +302,10 @@ namespace nscreg.Server.Test
                 context.Initialize();
                 var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
                 var unitName = Guid.NewGuid().ToString();
-                var legal = new LegalUnit {Name = unitName, UserId = userId};
-                var local = new LocalUnit {Name = unitName, UserId = userId};
-                var enterprise = new EnterpriseUnit {Name = unitName, UserId = userId};
-                var group = new EnterpriseGroup {Name = unitName, UserId = userId};
+                var legal = new LegalUnit { Name = unitName, UserId = userId };
+                var local = new LocalUnit { Name = unitName, UserId = userId };
+                var enterprise = new EnterpriseUnit { Name = unitName, UserId = userId };
+                var group = new EnterpriseGroup { Name = unitName, UserId = userId };
                 await context.LegalUnits.AddAsync(legal);
                 await context.LocalUnits.AddAsync(local);
                 await context.EnterpriseUnits.AddAsync(enterprise);
@@ -314,7 +317,7 @@ namespace nscreg.Server.Test
                 var query = new SearchQueryM
                 {
                     Name = unitName,
-                    Type = new List<StatUnitTypes>{type}
+                    Type = new List<StatUnitTypes> { type }
                 };
 
                 var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
@@ -343,7 +346,7 @@ namespace nscreg.Server.Test
                                                        x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
@@ -374,7 +377,7 @@ namespace nscreg.Server.Test
 
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
@@ -408,11 +411,11 @@ namespace nscreg.Server.Test
 
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
-            
+
         }
 
         [Fact]
@@ -440,11 +443,11 @@ namespace nscreg.Server.Test
 
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
-            
+
         }
 
         #endregion
@@ -516,7 +519,7 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 666,
                 Turnover = 1000000,
-                ActivityCategory = new ActivityCategory {Code = "01.12.0", Name = "����������� ����", Section = "A"},
+                ActivityCategory = new ActivityCategory { Code = "01.12.0", Name = "����������� ����", Section = "A" },
                 ActivityType = ActivityTypes.Primary
             };
 
@@ -737,7 +740,8 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task EditEnterpriseUnit()
         {
-            try {
+            try
+            {
                 var unitName = Guid.NewGuid().ToString();
                 var unitNameEdit = Guid.NewGuid().ToString();
                 var duplicateName = Guid.NewGuid().ToString();
@@ -795,7 +799,8 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditEnterpriseGroup()
         {
-            try {
+            try
+            {
                 var unitName = Guid.NewGuid().ToString();
                 var unitNameEdit = Guid.NewGuid().ToString();
                 var duplicateName = Guid.NewGuid().ToString();
@@ -851,18 +856,18 @@ namespace nscreg.Server.Test
             {
                 Assert.True(e.Message == nameof(Resource.ElasticSearchIsDisable));
             }
-            
+
         }
 
         #endregion
 
         #region DeleteTest
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        //        [Theory]
+        //        [InlineData(StatUnitTypes.LegalUnit)]
+        //        [InlineData(StatUnitTypes.LocalUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task DeleteTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
@@ -947,11 +952,11 @@ namespace nscreg.Server.Test
 
         #region UndeleteTest
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        //        [Theory]
+        //        [InlineData(StatUnitTypes.LegalUnit)]
+        //        [InlineData(StatUnitTypes.LocalUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        //        [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task UndeleteTest(StatUnitTypes type)
         {
 
@@ -1043,8 +1048,8 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task GetOrgLinksWithParent()
         {
-            var expectedRoot = new LegalUnit {Name = "le0"};
-            var childNode = new LocalUnit {Name = "lo1"};
+            var expectedRoot = new LegalUnit { Name = "le0" };
+            var childNode = new LocalUnit { Name = "lo1" };
             OrgLinksNode actualRoot;
             using (var ctx = CreateDbContext())
             {
@@ -1067,15 +1072,15 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task GetOrgLinksWithChildNodes()
         {
-            var expectedRoot = new LegalUnit {Name = "42", ParentOrgLink = null};
+            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
             OrgLinksNode actualRoot;
             using (var ctx = CreateDbContext())
             {
                 ctx.LegalUnits.Add(expectedRoot);
                 await ctx.SaveChangesAsync();
                 ctx.LocalUnits.AddRange(
-                    new LocalUnit {Name = "17", ParentOrgLink = expectedRoot.RegId},
-                    new LocalUnit {Name = "3.14", ParentOrgLink = expectedRoot.RegId});
+                    new LocalUnit { Name = "17", ParentOrgLink = expectedRoot.RegId },
+                    new LocalUnit { Name = "3.14", ParentOrgLink = expectedRoot.RegId });
                 await ctx.SaveChangesAsync();
 
                 actualRoot = await new ViewService(ctx, _mandatoryFields).GetOrgLinksTree(expectedRoot.RegId);
@@ -1097,7 +1102,7 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task GetOrgLinksWithNoChildNodes()
         {
-            var expectedRoot = new LegalUnit {Name = "42", ParentOrgLink = null};
+            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
             OrgLinksNode actualRoot;
             using (var ctx = CreateDbContext())
             {
