@@ -70,7 +70,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         }
 
         /// <summary>
-        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategory.Code == value)"
+        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategoryId == value)"
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <param name="operation"></param>
@@ -88,11 +88,14 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                 
                 switch (provider)
                 {
-                    case ConnectionProvider.SqlServer: dataProvider = new MsSqlDbDataProvider();
+                    case ConnectionProvider.SqlServer:
+                        dataProvider = new MsSqlDbDataProvider();
                         break;
-                    case ConnectionProvider.PostgreSql: dataProvider = new PostgreSqlDbDataProvider();
+                    case ConnectionProvider.PostgreSql:
+                        dataProvider = new PostgreSqlDbDataProvider();
                         break;
-                    case ConnectionProvider.MySql: dataProvider = new MySqlDataProvider();
+                    case ConnectionProvider.MySql:
+                        dataProvider = new MySqlDataProvider();
                         break;
                     default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
                 }
