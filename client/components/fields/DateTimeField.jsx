@@ -110,7 +110,6 @@ class DateTimeField extends React.Component {
         `}
       >
         {label !== undefined && <label htmlFor={id}>{label}</label>}
-        DATETIME PICKER
         <Form.Input {...inputProps} />
         {(hasErrors || !this.state.isDateValid) && (
           <Message title={label} list={this.state.errorMessages.map(localize)} compact error />
