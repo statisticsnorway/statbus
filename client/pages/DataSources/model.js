@@ -82,7 +82,6 @@ export const createSchema = columns =>
       .required()
       .default(defaults.csvDelimiter),
     csvSkipCount: number()
-      .positive()
       .default(defaults.csvSkipCount)
       .required(),
   })
