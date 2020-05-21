@@ -93,7 +93,7 @@ class DateTimeField extends React.Component {
       ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
     const filteredErrorMessages = errorKeys.filter(erKey => this.state.errorMessages.filter(stateKey => stateKey === erKey).length !== 1)
     filteredErrorMessages.forEach(el => this.state.errorMessages.push(el))
-    console.log('moment(value).toDate()', moment(value).toDate())
+    // console.log('moment(value).toDate()', moment(value).toDate())
 
     const inputProps = {
       ...restProps,
@@ -103,15 +103,13 @@ class DateTimeField extends React.Component {
       required,
       as: DatePicker,
       disabled: disabled || readOnly,
-      // selected: moment(value).toDate(),
       selected: dateFns.getDateOrNull(value),
       error: error || hasErrors,
       placeholder: placeholderKey ? localize(placeholderKey) : label,
       className: 'ui input',
       onChange: this.onChangeWrapper,
       onChangeRaw: this.onChangeRawWrapper,
-      // maxDate: new Date(),
-      // maxDate: dateFns.now(),
+      maxDate: dateFns.now(),
       autoComplete: 'off',
     }
 

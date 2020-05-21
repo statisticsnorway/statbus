@@ -46,6 +46,12 @@ function createSubForm(Body, showReset) {
     useEffect(() => {
       console.log(props)
       // setValues(setValues)
+      const propsValues = props.values
+      if (propsValues.taxRegId) {
+        // if (props.values.taxRegId.value && props.values.taxRegId.value) {
+        console.log('HAVE')
+        // }
+      }
     })
 
     const onReset = () => {
