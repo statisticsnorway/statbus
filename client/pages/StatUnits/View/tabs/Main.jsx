@@ -90,34 +90,38 @@ const Main = ({ unit, localize, activeTab }) => {
               </Label>
             </Grid.Column>
           </Grid.Row>
-          <Grid.Row>
-            <Grid.Column width={3} verticalAlign="middle">
-              <label className={styles.boldText}>{localize('LegalForm')}</label>
-            </Grid.Column>
-            <Grid.Column width={7} verticalAlign="middle">
-              <Label
-                className={styles[`${unit && unit.legalForm ? 'labelStyle' : 'emptyLabel'}`]}
-                basic
-                size="large"
-              >
-                {unit && hasValue(unit.legalForm) && getNewName(unit.legalForm)}
-              </Label>
-            </Grid.Column>
-          </Grid.Row>
-          <Grid.Row verticalAlign="middle">
-            <Grid.Column width={3}>
-              <label className={styles.boldText}>{localize('InstSectorCode')}</label>
-            </Grid.Column>
-            <Grid.Column width={8}>
-              <Label
-                className={styles[`${unit && unit.instSectorCode ? 'labelStyle' : 'emptyLabel'}`]}
-                basic
-                size="large"
-              >
-                {unit && hasValue(unit.instSectorCode) && getNewName(unit.instSectorCode)}
-              </Label>
-            </Grid.Column>
-          </Grid.Row>
+          {unit.unitType !== 4 ? (
+            <Grid.Row>
+              <Grid.Column width={3} verticalAlign="middle">
+                <label className={styles.boldText}>{localize('LegalForm')}</label>
+              </Grid.Column>
+              <Grid.Column width={7} verticalAlign="middle">
+                <Label
+                  className={styles[`${unit && unit.legalForm ? 'labelStyle' : 'emptyLabel'}`]}
+                  basic
+                  size="large"
+                >
+                  {unit && hasValue(unit.legalForm) && getNewName(unit.legalForm)}
+                </Label>
+              </Grid.Column>
+            </Grid.Row>
+          ) : null}
+          {unit.unitType !== 4 ? (
+            <Grid.Row verticalAlign="middle">
+              <Grid.Column width={3}>
+                <label className={styles.boldText}>{localize('InstSectorCode')}</label>
+              </Grid.Column>
+              <Grid.Column width={8}>
+                <Label
+                  className={styles[`${unit && unit.instSectorCode ? 'labelStyle' : 'emptyLabel'}`]}
+                  basic
+                  size="large"
+                >
+                  {unit && hasValue(unit.instSectorCode) && getNewName(unit.instSectorCode)}
+                </Label>
+              </Grid.Column>
+            </Grid.Row>
+          ) : null}
           <br />
           <br />
           <br />

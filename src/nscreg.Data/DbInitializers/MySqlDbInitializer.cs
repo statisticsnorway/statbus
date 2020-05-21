@@ -80,7 +80,7 @@ namespace nscreg.Data.DbInitializers
             const string dropProcedureGetActivityChildren = @"DROP PROCEDURE IF EXISTS GetActivityChildren;";
 
             const string createProcedureGetActivityChildren = @"
-                CREATE PROCEDURE GetActivityChildren (activityId INT)
+                CREATE PROCEDURE GetActivityChildren (activityId INT, activitiesIds VARCHAR(400))
                 BEGIN
                 WITH RECURSIVE ActivityCte (Id, Code, DicParentId, IsDeleted, Name, NameLanguage1, NameLanguage2, ParentId, Section, VersionId, ActivityCategoryLevel) AS 
 	                  (
@@ -97,7 +97,7 @@ namespace nscreg.Data.DbInitializers
 		                  ,VersionId
                           ,ActivityCategoryLevel
 		                FROM ActivityCategories
-		                WHERE Id = activityId
+		                WHERE CONCAT(',', activitiesIds, ',') LIKE CONCAT('%,',Id, ',%') OR Id = activityId
 
 		                UNION ALL
 
