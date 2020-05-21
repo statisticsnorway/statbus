@@ -110,7 +110,9 @@ class StatusField extends React.Component {
     initialValue: this.props.multiselect ? [] : null,
     value: hasValue(this.props.value)
       ? this.props.value
-      : this.props.multiselect ? [] : notSelected.value,
+      : this.props.multiselect
+        ? []
+        : notSelected.value,
     optionsFetched: false,
     options: [],
   }
@@ -180,10 +182,7 @@ class StatusField extends React.Component {
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options =
-          multiselect || !required || optionsFetched
-            ? data
-            : [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options = data
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           this.setState({ options: this.state.options.concat(options) }, () => {
@@ -251,10 +250,7 @@ class StatusField extends React.Component {
           onChange: this.handlePlainSelect,
           error: hasErrors,
           multiple: multiselect,
-          options:
-              multiselect || !required
-                ? options
-                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+          options,
           required,
           title,
           inline,

@@ -2,18 +2,14 @@ import { number, object, string, array, bool, mixed } from 'yup'
 import R from 'ramda'
 
 import config, { getMandatoryFields } from 'helpers/config'
-import { formatDate, getDate } from 'helpers/dateHelper'
+import { getDate } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
 const { validationSettings } = config
 
-const defaultDate = formatDate(new Date())
 const sureString = string()
   .ensure()
   .default(undefined)
-const sureDateString = string()
-  .ensure()
-  .default(defaultDate)
 const nullableDate = mixed().nullable(true)
 const currentDate = mixed().default(getDate())
 const positiveNum = number()
@@ -24,13 +20,6 @@ const positiveNumArray = array(positiveNum)
   .nullable(true)
   .ensure()
   .default([])
-const lastYear = number()
-  .positive()
-  .nullable(true)
-  .notRequired()
-  .default(getDate()
-    .subtract(1, 'years')
-    .year())
 const activitiesArray = array(object()).default(undefined)
 const personsArray = array(object()).default(undefined)
 const nullablePositiveNumArray = array(positiveNum)
@@ -104,15 +93,15 @@ const base = {
   reorgReferences: positiveNum,
   reorgDate: nullableDate,
   notes: sureString,
-  employeesDate: currentDate,
-  employeesYear: lastYear,
+  employeesDate: nullableDate,
+  employeesYear: nullableDate,
   externalIdDate: nullableDate,
   statIdDate: currentDate,
   statusDate: currentDate,
   taxRegId: sureString,
   taxRegDate: nullableDate,
-  turnoverDate: currentDate,
-  turnoverYear: lastYear,
+  turnoverDate: nullableDate,
+  turnoverYear: nullableDate,
   statId: statId('statId', config.mandatoryFields.StatUnit.StatId),
   regMainActivityId: positiveNum,
   externalId: sureString,
@@ -131,7 +120,7 @@ const base = {
   freeEconZone: bool(),
   countries: nullablePositiveNumArray,
   activities: activitiesArray,
-  registrationDate: sureDateString,
+  registrationDate: nullableDate,
 }
 
 const byType = {
@@ -143,7 +132,7 @@ const byType = {
 
   // Legal Unit
   2: {
-    entRegIdDate: currentDate,
+    entRegIdDate: nullableDate,
     legalFormId: positiveNum,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
@@ -189,7 +178,7 @@ const byType = {
     emailAddress: sureString,
     wbAddress: sureString,
     entGroupType: sureString,
-    registrationDate: sureDateString,
+    registrationDate: nullableDate,
     registrationReasonId: positiveNum,
     liqReason: sureString,
     suspensionStart: sureString,
@@ -200,11 +189,11 @@ const byType = {
     contactPerson: sureString,
     employees: positiveNum,
     numOfPeopleEmp: positiveNum,
-    employeesYear: lastYear,
-    employeesDate: currentDate,
+    employeesYear: nullableDate,
+    employeesDate: nullableDate,
     turnover: positiveNum,
-    turnoverYear: lastYear,
-    turnoverDate: currentDate,
+    turnoverYear: nullableDate,
+    turnoverDate: nullableDate,
     statusDate: currentDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,
