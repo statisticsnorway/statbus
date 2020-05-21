@@ -16,9 +16,9 @@ namespace nscreg.Data.DbDataProviders
             return await sqlWalletProvider.GetReportsTree(context, sqlWalletUser, config);
         }
 
-        public int[] GetActivityChildren(NSCRegDbContext context, object fieldValue)
+        public int[] GetActivityChildren(NSCRegDbContext context, object fieldValue, object fieldValues)
         {
-            return context.ActivityCategories.FromSql("CALL GetActivityChildren({0})", fieldValue).Select(x => x.Id)
+            return context.ActivityCategories.FromSql("CALL GetActivityChildren({0},{1})", fieldValue, fieldValues).Select(x => x.Id)
                 .ToArray();
         }
 
