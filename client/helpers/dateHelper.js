@@ -2,8 +2,8 @@ import moment from 'moment'
 
 import { hasValue } from 'helpers/validation'
 
-export const dateFormat = 'yyyy-mm-dd'
-export const dateTimeFormat = 'yyyy-mm-dd HH:mm'
+export const dateFormat = 'yyyy-MM-dd'
+export const dateTimeFormat = 'yyyy-MM-dd HH:mm'
 
 export function formatDate(x, format = dateFormat) {
   return moment(x).format(format)

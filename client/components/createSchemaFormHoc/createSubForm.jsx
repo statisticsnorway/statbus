@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { Form, Segment, Message, Grid, Icon, Header, Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -24,9 +24,7 @@ function createSubForm(Body, showReset) {
       localize,
       setErrors,
       resetForm,
-      setValues,
     } = props
-    // externalIdDate
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
     const unmappedErrors = [
       ...unmappedEntries(errors, props.values),
@@ -42,17 +40,6 @@ function createSubForm(Body, showReset) {
     const hasSummaryErrors = hasValue(summary)
     const hasErrors = hasValue(errors)
     const hasUnmappedErrors = hasValue(unmappedErrors)
-
-    useEffect(() => {
-      console.log(props)
-      // setValues(setValues)
-      const propsValues = props.values
-      if (propsValues.taxRegId) {
-        // if (props.values.taxRegId.value && props.values.taxRegId.value) {
-        console.log('HAVE')
-        // }
-      }
-    })
 
     const onReset = () => {
       resetForm()

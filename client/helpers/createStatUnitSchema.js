@@ -2,18 +2,14 @@ import { number, object, string, array, bool, mixed } from 'yup'
 import R from 'ramda'
 
 import config, { getMandatoryFields } from 'helpers/config'
-import { formatDate, getDate } from 'helpers/dateHelper'
+import { getDate } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
 const { validationSettings } = config
 
-const defaultDate = formatDate(new Date())
 const sureString = string()
   .ensure()
   .default(undefined)
-const sureDateString = string()
-  .ensure()
-  .default(defaultDate)
 const nullableDate = mixed().nullable(true)
 const currentDate = mixed().default(getDate())
 const positiveNum = number()
@@ -24,13 +20,6 @@ const positiveNumArray = array(positiveNum)
   .nullable(true)
   .ensure()
   .default([])
-const lastYear = number()
-  .positive()
-  .nullable(true)
-  .notRequired()
-  .default(getDate()
-    .subtract(1, 'years')
-    .year())
 const activitiesArray = array(object()).default(undefined)
 const personsArray = array(object()).default(undefined)
 const nullablePositiveNumArray = array(positiveNum)
@@ -112,7 +101,7 @@ const base = {
   taxRegId: sureString,
   taxRegDate: nullableDate,
   turnoverDate: nullableDate,
-  turnoverYear: lastYear,
+  turnoverYear: nullableDate,
   statId: statId('statId', config.mandatoryFields.StatUnit.StatId),
   regMainActivityId: positiveNum,
   externalId: sureString,
@@ -131,7 +120,7 @@ const base = {
   freeEconZone: bool(),
   countries: nullablePositiveNumArray,
   activities: activitiesArray,
-  registrationDate: sureDateString,
+  registrationDate: nullableDate,
 }
 
 const byType = {
@@ -189,7 +178,7 @@ const byType = {
     emailAddress: sureString,
     wbAddress: sureString,
     entGroupType: sureString,
-    registrationDate: sureDateString,
+    registrationDate: nullableDate,
     registrationReasonId: positiveNum,
     liqReason: sureString,
     suspensionStart: sureString,

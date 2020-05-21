@@ -1,5 +1,4 @@
 import React from 'react'
-import moment from 'moment'
 
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
@@ -19,15 +18,6 @@ class DateTimeField extends React.Component {
   }
 
   onChangeWrapper = (ambiguousValue) => {
-    console.log(this.props.value)
-    console.log(this.state)
-
-    // console.log(dateFns.toUtc(ambiguousValue))
-    // console.log(hasValue(ambiguousValue))
-
-    console.log(moment(ambiguousValue))
-    // moment
-
     const { name, onChange } = this.props
     const nextValue = dateFns.toUtc(ambiguousValue)
     this.setState({ isDateValid: true, errorMessages: [] })
@@ -93,7 +83,6 @@ class DateTimeField extends React.Component {
       ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
     const filteredErrorMessages = errorKeys.filter(erKey => this.state.errorMessages.filter(stateKey => stateKey === erKey).length !== 1)
     filteredErrorMessages.forEach(el => this.state.errorMessages.push(el))
-    // console.log('moment(value).toDate()', moment(value).toDate())
 
     const inputProps = {
       ...restProps,
