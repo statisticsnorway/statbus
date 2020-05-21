@@ -2374,4 +2374,7 @@
   <data name="EntGroupTypeId" xml:space="preserve">
     <value>Enterprise group type</value>
   </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Last change date</value>
+  </data>
 </root>

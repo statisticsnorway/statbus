@@ -2869,6 +2869,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Last change date.
+        /// </summary>
+        public static string LastChangeDate {
+            get {
+                return ResourceManager.GetString("LastChangeDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Last change from value is later than &apos;last change to&apos;.
         /// </summary>
         public static string LastChangeFromError {

@@ -2365,4 +2365,7 @@
   <data name="EntGroupTypeId" xml:space="preserve">
     <value>Ишканалар группасы түрү</value>
   </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Акыркы өзгөртүү күнү</value>
+  </data>
 </root>

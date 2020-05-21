@@ -2365,4 +2365,7 @@
   <data name="EntGroupTypeId" xml:space="preserve">
     <value>Тип группы предприятий</value>
   </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Дата последнего изменения</value>
+  </data>
 </root>
