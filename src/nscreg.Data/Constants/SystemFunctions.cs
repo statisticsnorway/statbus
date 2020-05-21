@@ -63,6 +63,7 @@ namespace nscreg.Data.Constants
         // data source queues
         [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueView = 36,
+        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueLogView = 37,
         DataSourcesQueueLogEdit = 38,
         DataSourcesQueueAdd = 39,
