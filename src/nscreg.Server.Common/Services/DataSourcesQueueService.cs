@@ -64,7 +64,7 @@ namespace nscreg.Server.Common.Services
                 ? "Id"
                 : query.SortBy;
 
-            var orderRule = query.OrderByValue == OrderRule.Asc
+            var orderRule = query.OrderByValue == OrderRule.Asc && !string.IsNullOrEmpty(query.SortBy)
                 ? "ASC"
                 : "DESC";
 
