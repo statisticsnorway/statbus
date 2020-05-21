@@ -398,7 +398,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LiqDateStart, x => x.UseValue((DateTime?) null))
                 .ForMember(x => x.LiqDateEnd, x => x.UseValue((DateTime?) null))
                 .ForMember(x => x.HistoryEnterpriseUnitIds, x => x.UseValue(string.Empty))
-                .ForMember(x => x.EntGroupType, x => x.UseValue(string.Empty))
+                .ForMember(x => x.EntGroupType, x => x.Ignore())
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())

@@ -716,10 +716,6 @@
   <data name="LocalUnits" xml:space="preserve">
     <value>Local units</value>
   </data>
-  <data name="EntGroupType" xml:space="preserve">
-    <value>Enterprise group type</value>
-    <comment>EntGroupType</comment>
-  </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>EmployeesFte</value>
   </data>
@@ -2374,5 +2370,8 @@
   </data>
   <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
     <value>TaxRegId field is duplicated</value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value>Enterprise group type</value>
   </data>
 </root>

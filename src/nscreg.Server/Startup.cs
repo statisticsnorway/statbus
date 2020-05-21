@@ -135,6 +135,7 @@ namespace nscreg.Server
                 NscRegDbInitializer.CreateViewsProceduresAndFunctions(
                     dbContext, provider, reportingSettingsProvider);
                 NscRegDbInitializer.EnsureRoles(dbContext);
+                NscRegDbInitializer.EnsureEntGroupTypes(dbContext);
                 if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
             }
 

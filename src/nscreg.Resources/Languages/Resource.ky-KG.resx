@@ -1662,9 +1662,6 @@
   <data name="ReorgTypeCode" xml:space="preserve">
     <value>Реогранизация түрү код</value>
   </data>
-  <data name="EntGroupType" xml:space="preserve">
-    <value>Ишканалар группасы түрү</value>
-  </data>
   <data name="ExternalId" xml:space="preserve">
     <value>Сырткы Id</value>
   </data>
@@ -2364,5 +2361,8 @@
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
     <value>Эта правовая единица не принадлежит к предприятию </value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value>Ишканалар группасы түрү</value>
   </data>
 </root>
