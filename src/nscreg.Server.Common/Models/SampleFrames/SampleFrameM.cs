@@ -27,6 +27,7 @@ namespace nscreg.Server.Common.Models.SampleFrames
             return new SampleFrameM
             {
                 Id = entity.Id,
+                EditingDate = entity.EditingDate,
                 Name = entity.Name,
                 Description = entity.Description,
                 Predicate = JsonConvert.DeserializeObject<ExpressionGroup>(entity.Predicate),

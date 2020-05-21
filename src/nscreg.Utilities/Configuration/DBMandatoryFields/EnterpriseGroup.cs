@@ -20,7 +20,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool TelephoneNo { get; set; }
         public bool EmailAddress { get; set; }
         public bool WebAddress { get; set; }
-        public bool EnterpriseGroupType { get; set; }
+        public bool EntGroupTypeId { get; set; }
         public bool RegistrationDate { get; set; }
         public bool RegistrationReasonId { get; set; }
         public bool LiqDateStart { get; set; }
@@ -50,6 +50,5 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool UnitStatusId { get; set; }
         public bool EnterpriseUnits { get; set; }
         public bool PostalAddress { get; set; }
-        public bool EntGroupType { get; set; }
     }
 }
