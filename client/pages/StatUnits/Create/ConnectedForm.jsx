@@ -77,26 +77,38 @@ export default enhance((props) => {
   const lastYear = moment().format('YYYY') - 1
   if (values.taxRegId) {
     values.taxRegDate = values.taxRegDate || currentDate
+  } else {
+    values.taxRegDate = undefined
   }
   if (values.externalId) {
     values.externalIdDate = values.externalIdDate || currentDate
+  } else {
+    values.externalIdDate = undefined
   }
-  if (values.entGroupId) {
-    values.entGroupIdDate = values.entGroupIdDate || currentDate
-  }
-  if (values.legalUnitId) {
+  if (values.legalUnitId && values.legalUnitId) {
     values.legalUnitIdDate = values.legalUnitIdDate || currentDate
   }
-  if (values.enterpriseUnitRegId) {
-    values.entRegIdDate = values.entRegIdDate || currentDate
-  }
+
   if (values.turnover) {
     values.turnoverYear = values.turnoverYear || lastYear
     values.turnoverDate = values.turnoverDate || currentDate
+  } else {
+    values.turnoverYear = undefined
+    values.turnoverDate = undefined
   }
   if (values.employees) {
     values.employeesYear = values.turnoverYear || lastYear
     values.employeesDate = values.turnoverDate || currentDate
+  } else {
+    values.employeesYear = undefined
+    values.employeesDate = undefined
+  }
+
+  if (values.entGroupId && values.entGroupId) {
+    values.entGroupIdDate = values.entGroupIdDate || currentDate
+  }
+  if (values.enterpriseUnitRegId && values.enterpriseUnitRegId) {
+    values.entRegIdDate = values.entRegIdDate || currentDate
   }
   return <FormBody {...{ ...props }} />
 })
