@@ -1,5 +1,4 @@
 import React from 'react'
-
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
@@ -19,7 +18,7 @@ class DateTimeField extends React.Component {
 
   onChangeWrapper = (ambiguousValue) => {
     const { name, onChange } = this.props
-    const nextValue = dateFns.toUtc(ambiguousValue)
+    const nextValue = this.ensure(ambiguousValue)
     this.setState({ isDateValid: true, errorMessages: [] })
     onChange({ target: { name, value: nextValue } }, { ...this.props, value: nextValue })
   }
@@ -101,7 +100,6 @@ class DateTimeField extends React.Component {
       maxDate: dateFns.now(),
       autoComplete: 'off',
     }
-
     return (
       <div
         className={`field datepicker${required ? ' required' : ''}
@@ -145,7 +143,7 @@ DateTimeField.defaultProps = {
   title: undefined,
   placeholder: undefined,
   dateFormat: dateFns.dateFormat,
-  value: undefined,
+  value: null,
   required: false,
   touched: undefined,
   error: false,
