@@ -13,6 +13,7 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Enums;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 
 namespace nscreg.Server.Controllers
@@ -34,7 +35,7 @@ namespace nscreg.Server.Controllers
         {
             _svc = new DataSourcesQueueService(
                 ctx,
-                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings),
+                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings, StatUnitTypeOfSave.WebApplication),
                 new EditService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings),
                 servicesSettings,
                 mandatoryFields);
