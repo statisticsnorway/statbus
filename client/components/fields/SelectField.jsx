@@ -200,6 +200,10 @@ class SelectField extends React.Component {
     this.handleLoadOptions.cancel()
   }
 
+  componentDidUpdate() {
+    console.log('this state', this.state.options)
+  }
+
   loadOptions = (wildcard, page, callback) => {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
     const { optionsFetched } = this.state
@@ -208,10 +212,10 @@ class SelectField extends React.Component {
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options =
-          multiselect || !required || optionsFetched
-            ? data
-            : [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options = data
+        // multiselect || !required || optionsFetched
+        //   ? data
+        //   : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           this.setState({ options: this.state.options.concat(options) }, () => {
@@ -280,10 +284,10 @@ class SelectField extends React.Component {
           onChange: this.handlePlainSelect,
           error: hasErrors,
           multiple: multiselect,
-          options:
-              multiselect || !required
-                ? options
-                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+          options,
+          // multiselect || !required
+          //   ? options
+          //   : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
           required,
           title,
           inline,
@@ -313,18 +317,25 @@ class SelectField extends React.Component {
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
+
+    // console.log('this state', this.state)
+    console.log('this props', this.props)
+    // console.log('multiselect', multiselect)
+
     return (
       <div className={className} style={{ opacity: `${disabled ? 0.25 : 1}` }}>
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
           value={this.state.value}
-          options={this.props.options ? this.props.options : this.state.options}
+          // options={this.props.options ? this.props.options : this.state.options}
+          options={this.state.options}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
+          // openOnFocus
         />
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
