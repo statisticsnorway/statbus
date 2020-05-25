@@ -55,16 +55,6 @@ class DateTimeField extends React.Component {
       [R.T, R.identity],
     ])(x)
 
-  onClickOutsideCustom = () => {
-    console.log('onClickOutsideCustom')
-    console.log('this.state', this.state)
-    console.log('this props', this.props)
-    console.log(this)
-
-    // setOpen(false)
-    // this.current.setOpen(false)
-  }
-
   render() {
     const {
       id: ambiguousId,
@@ -109,8 +99,6 @@ class DateTimeField extends React.Component {
       onChangeRaw: this.onChangeRawWrapper,
       maxDate: dateFns.now(),
       autoComplete: 'off',
-      onClickOutside: this.onClickOutsideCustom,
-      // setOpen: this.setOpenCustom,
     }
     return (
       <div
