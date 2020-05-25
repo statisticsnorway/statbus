@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 
@@ -47,26 +48,14 @@ namespace nscreg.Data
         public NSCRegDbContext CreateDbContext(string[] args)
         {
             var configBuilder = new ConfigurationBuilder();
-            var workDir = Directory.GetCurrentDirectory();
-            try
-            {
-                var rootSettingsPath = Path.Combine(workDir, "..", "..");
-                if (rootSettingsPath != null)
-                    configBuilder.AddJsonFile(
-                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
-                        true);
-            }
-            catch
-            {
-                // ignored
-            }
-
+            var baseDirectory = AppContext.BaseDirectory;
             configBuilder
-                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
-                .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
+                .SetBasePath(baseDirectory)
+                .AddJsonFile(Path.Combine(baseDirectory, "appsettings.Shared.json"), true);
 
             var configuration = configBuilder.Build();
-            var config = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            var config = configuration.GetSection(nameof(ConnectionSettings))
+                .Get<ConnectionSettings>();
             return Create(config);
         }
 

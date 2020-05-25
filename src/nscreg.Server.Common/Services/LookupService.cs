@@ -157,6 +157,10 @@ namespace nscreg.Server.Common.Services
                 case LookupEnum.ReorgTypeLookup:
                     query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
                     break;
+                case LookupEnum.EntGroupTypeLookup:
+                    query = _dbContext.EnterpriseGroupTypes.Where(x => !x.IsDeleted)
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name}", NameLanguage1 = $"{x.NameLanguage1}", NameLanguage2 = $"{x.NameLanguage2}" });
+                    break;
                 case LookupEnum.UnitStatusLookup:
                     query = _dbContext.Statuses.Where(x => !x.IsDeleted);
                     break;
@@ -267,6 +271,10 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.ReorgTypeLookup:
                     query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.EntGroupTypeLookup:
+                    query = _dbContext.EnterpriseGroupTypes.Where(lookupSearchCriteia)
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name}", NameLanguage1 = $"{x.NameLanguage1}", NameLanguage2 = $"{x.NameLanguage2}" });
                     break;
                 case LookupEnum.UnitStatusLookup:
                     query = _dbContext.Statuses.Where(lookupSearchCriteia);

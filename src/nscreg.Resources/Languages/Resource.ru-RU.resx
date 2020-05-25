@@ -711,9 +711,6 @@
   <data name="LocalUnits" xml:space="preserve">
     <value>Местные единицы</value>
   </data>
-  <data name="EntGroupType" xml:space="preserve">
-    <value>Тип группы предприятий</value>
-  </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>Число работников, эквивалент полной занятости</value>
   </data>
@@ -2364,5 +2361,11 @@
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
     <value>Эта правовая единица не принадлежит к предприятию </value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value>Тип группы предприятий</value>
+  </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Дата последнего изменения</value>
   </data>
 </root>

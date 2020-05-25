@@ -40,7 +40,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
         {
             var query = _context.SampleFrames
                 .Where(x => x.UserId == userId && (string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower())))
-                .OrderBy(y => y.EditingDate);
+                .OrderByDescending(y => y.CreationDate);
 
             var total = await query.CountAsync<SampleFrame>();
             return SearchVm<SampleFrameM>.Create(
