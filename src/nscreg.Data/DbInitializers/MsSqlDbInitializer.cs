@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Utilities.Configuration;
 
@@ -9,7 +5,7 @@ namespace nscreg.Data.DbInitializers
 {
     public class MsSqlDbInitializer : IDbInitializer
     {
-        
+
         public void Initialize(NSCRegDbContext context, ReportingSettings reportingSettings = null)
         {
             #region Scripts
@@ -71,8 +67,8 @@ namespace nscreg.Data.DbInitializers
                     Region_id AS RegionId,
                     Employees,
                     Turnover,
-                    InstSectorCodeId AS SectorCodeId,
-                    LegalFormId,
+                    NULL AS SectorCodeId,
+                    NULL AS LegalFormId,
                     DataSourceClassificationId,
                     ChangeReason,
                     StartPeriod,
@@ -144,7 +140,8 @@ namespace nscreg.Data.DbInitializers
             const string createFunctionGetActivityChildren = @"
                 CREATE FUNCTION [dbo].[GetActivityChildren] 
                 (	
-	                @activityId INT
+	                @activityId INT,
+                    @activitiesIds NVARCHAR(max)
                 )
                 RETURNS TABLE 
                 AS
@@ -165,7 +162,7 @@ namespace nscreg.Data.DbInitializers
 		                  ,[VersionId]
                           ,[ActivityCategoryLevel]
 		                FROM [dbo].[ActivityCategories]
-		                WHERE [Id] = @activityId
+		                WHERE CONCAT(',', @activitiesIds, ',') LIKE CONCAT('%,',[Id], ',%') OR [Id] = @activityId
 
 		                UNION ALL
 
@@ -189,7 +186,6 @@ namespace nscreg.Data.DbInitializers
 
 	                SELECT * FROM ActivityCte
                 )";
-
             const string dropFunctionGetRegionChildren = @"
                 IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'GetRegionChildren' AND ROUTINE_TYPE = 'FUNCTION')
                 DROP FUNCTION GetRegionChildren";

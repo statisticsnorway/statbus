@@ -61,7 +61,5 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ParentOrgLink { get; set; }
         public bool TaxRegId { get; set; }
         public bool TaxRegDate { get; set; }
-        public bool LegalForm { get; set; }
-        public bool InstSectorCode { get; set; }
     }
 }

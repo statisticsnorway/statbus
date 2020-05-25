@@ -14,9 +14,9 @@ namespace nscreg.Data.DbDataProviders
             return await context.ReportTree.FromSql("GetReportsTree @p0", sqlWalletUser).ToListAsync();
         }
 
-        public int[] GetActivityChildren(NSCRegDbContext context, object fieldValue)
+        public int[] GetActivityChildren(NSCRegDbContext context, object fieldValue, object fieldValues)
         {
-            return context.ActivityCategories.FromSql("SELECT * FROM [dbo].[GetActivityChildren]({0})", fieldValue).Select(x => x.Id)
+            return context.ActivityCategories.FromSql("SELECT * FROM [dbo].[GetActivityChildren]({0},{1})", fieldValue, fieldValues).Select(x => x.Id)
                 .ToArray();
         }
 

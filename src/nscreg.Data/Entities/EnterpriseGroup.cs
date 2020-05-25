@@ -4,6 +4,7 @@ using nscreg.Utilities.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
@@ -75,8 +76,13 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? PostalAddressId { get; set; }
 
+        [Reference(LookupEnum.EntGroupTypeLookup)]
         [Display(Order = 725, GroupName = GroupNames.RegistrationInfo)]
-        public string EntGroupType { get; set; }
+        public int? EntGroupTypeId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public EnterpriseGroupType EntGroupType { get; set; }
 
         [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }
@@ -149,9 +155,6 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.EconomicInformation, Order = 515)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 800)]
-        public string Status { get; set; }
-
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 152)]
         public DateTime StatusDate { get; set; }
 
@@ -193,28 +196,6 @@ namespace nscreg.Data.Entities
         [UsedByServerSide]
         public string HistoryEnterpriseUnitIds { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? RegMainActivityId
-        {
-            get => null;
-            // ReSharper disable once ValueParameterNotUsed
-            set { }
-        }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? InstSectorCodeId
-        {
-            get => null;
-            set { }
-        }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? LegalFormId
-        {
-            get => null;
-            set { }
-        }
-
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 500)]
         public int? SizeId { get; set; }
@@ -226,6 +207,22 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 150)]
         public int? DataSourceClassificationId { get; set; }
+
+        [NotMapped]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? InstSectorCodeId
+        {
+            get => null;
+            set { }
+        }
+
+        [NotMapped]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? LegalFormId
+        {
+            get => null;
+            set { }
+        }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

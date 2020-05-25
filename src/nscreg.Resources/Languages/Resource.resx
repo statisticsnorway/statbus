@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -574,7 +574,7 @@
     <value>Turnover</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
-    <value>Turnover year</value>
+    <value>Activity year</value>
   </data>
   <data name="TurnoverDate" xml:space="preserve">
     <value>Turnover date</value>
@@ -715,10 +715,6 @@
   </data>
   <data name="LocalUnits" xml:space="preserve">
     <value>Local units</value>
-  </data>
-  <data name="EntGroupType" xml:space="preserve">
-    <value>Enterprise group type</value>
-    <comment>EntGroupType</comment>
   </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>EmployeesFte</value>
@@ -2356,5 +2352,29 @@
   </data>
   <data name="ElasticSearchIsDisable" xml:space="preserve">
     <value>Elasticsearch service is not running, please connect to your server' administrator to turn it on</value>
+  </data>
+  <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
+    <value>This local unit does not belong to a legal unit</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
+    <value>This legal unit does not belong to an enterprise</value>
+  </data>
+  <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
+    <value>This legal unit has no local units</value>
+  </data>
+  <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
+    <value>This enterprise has no legal units</value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
+    <value>This enterprise group has no enterprises</value>
+  </data>
+  <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
+    <value>TaxRegId field is duplicated</value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value>Enterprise group type</value>
+  </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Last change date</value>
   </data>
 </root>

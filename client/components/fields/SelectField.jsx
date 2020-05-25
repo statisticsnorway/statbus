@@ -62,6 +62,7 @@ class SelectField extends React.Component {
     value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
     onChange: func.isRequired,
     onBlur: func,
+    error: bool,
     errors: arrayOf(string),
     label: string,
     title: string,
@@ -96,6 +97,7 @@ class SelectField extends React.Component {
     placeholder: undefined,
     multiselect: false,
     required: false,
+    error: false,
     errors: [],
     disabled: false,
     inline: false,
@@ -252,6 +254,7 @@ class SelectField extends React.Component {
       name,
       label: labelKey,
       touched,
+      error,
       errors: errorKeys,
       options,
       multiselect,
@@ -265,7 +268,7 @@ class SelectField extends React.Component {
       onBlur,
       localize,
     } = this.props
-    const hasErrors = touched && hasValue(errorKeys)
+    const hasErrors = (touched && hasValue(errorKeys)) || (error && hasValue(errorKeys))
     const label = labelKey !== undefined ? localize(labelKey) : undefined
     const title = titleKey ? localize(titleKey) : label
     const placeholder = placeholderKey ? localize(placeholderKey) : label
@@ -322,7 +325,6 @@ class SelectField extends React.Component {
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
-          openOnFocus
         />
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />

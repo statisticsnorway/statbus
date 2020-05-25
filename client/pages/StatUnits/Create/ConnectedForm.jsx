@@ -3,6 +3,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
+import moment from 'moment'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc/'
 import FormBody from 'components/StatUnitFormBody'
@@ -64,23 +65,50 @@ const assert = props => !props.spinner
 const enhance = pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
   withSpinnerUnless(assert),
-  connect(createMapStateToProps, mapDispatchToProps),
+  connect(
+    createMapStateToProps,
+    mapDispatchToProps,
+  ),
 )
 
 export default enhance((props) => {
   const { values } = props
-  const currentDate = toUtc(getDate().toDate())
+  const currentDate = moment(getDate(), 'YYYY-MM-DD')
+  const lastYear = moment().format('YYYY') - 1
   if (values.taxRegId) {
     values.taxRegDate = values.taxRegDate || currentDate
+  } else {
+    values.taxRegDate = undefined
   }
   if (values.externalId) {
     values.externalIdDate = values.externalIdDate || currentDate
+  } else {
+    values.externalIdDate = undefined
   }
-  if (values.entGroupId) {
+  if (values.legalUnitId && values.legalUnitId) {
+    values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+  }
+
+  if (values.turnover) {
+    values.turnoverYear = values.turnoverYear || lastYear
+    values.turnoverDate = values.turnoverDate || currentDate
+  } else {
+    values.turnoverYear = undefined
+    values.turnoverDate = undefined
+  }
+  if (values.employees) {
+    values.employeesYear = values.turnoverYear || lastYear
+    values.employeesDate = values.turnoverDate || currentDate
+  } else {
+    values.employeesYear = undefined
+    values.employeesDate = undefined
+  }
+
+  if (values.entGroupId && values.entGroupId) {
     values.entGroupIdDate = values.entGroupIdDate || currentDate
   }
-  if (values.legalUnitId) {
-    values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+  if (values.enterpriseUnitRegId && values.enterpriseUnitRegId) {
+    values.entRegIdDate = values.entRegIdDate || currentDate
   }
   return <FormBody {...{ ...props }} />
 })

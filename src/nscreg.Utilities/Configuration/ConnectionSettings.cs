@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Utilities.Configuration
@@ -6,9 +7,11 @@ namespace nscreg.Utilities.Configuration
     /// <summary>
     /// Connection settings class
     /// </summary>
-    public class ConnectionSettings
+    public class ConnectionSettings: ISettings
     {
+        [Required]
         public string ConnectionString { get; set; }
+        [Required]
         public string Provider { get; set; }
 
         public ConnectionProvider ParseProvider()

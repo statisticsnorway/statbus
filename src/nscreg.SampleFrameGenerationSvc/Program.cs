@@ -1,12 +1,14 @@
-using System.IO;
+using System;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.ServicesUtils;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using PeterKottas.DotNetCore.WindowsService;
-using NLog.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace nscreg.SampleFrameGenerationSvc
 {
@@ -25,37 +27,28 @@ namespace nscreg.SampleFrameGenerationSvc
                 .AddNLog()
                 .CreateLogger<Program>();
             var configBuilder = new ConfigurationBuilder();
-            var workDir = Directory.GetCurrentDirectory();
-            try
-            {
-                var rootSettingsPath = Path.Combine(workDir, "..", "..");
-                if (rootSettingsPath != null)
-                    configBuilder.AddJsonFile(
-                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
-                        true);
-            }
-            catch
-            {
-                // ignored
-            }
+            var baseDirectory = AppContext.BaseDirectory;
 
-            configBuilder
-                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
-                .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
+            var configuration = configBuilder
+                .SetBasePath(baseDirectory)
+                .AddJsonFile("appsettings.Shared.json", true)
+                .Build();
 
-            var configuration = configBuilder.Build();
-
-            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
-            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
+            var servicesSettings = configuration
+                .GetSection(nameof(ServicesSettings))
+                .Validate<ServicesSettings>(logger)
+                .Get<ServicesSettings>();
 
             var dbContextHelper = new DbContextHelper();
             var ctx = dbContextHelper.CreateDbContext(new string[] { });
             ctx.Database.SetCommandTimeout(900);
+
+            const string serviceName = "nscreg.SampleFrameGenerationSvc";
             ServiceRunner<JobService>.Run(config =>
             {
-                config.SetName("nscreg.SampleFrameGenerationSvc");
-                config.SetDisplayName("nscreg.SampleFrameGenerationSvc");
-                config.SetDescription("nscreg.SampleFrameGenerationSvc");
+                config.SetName(serviceName);
+                config.SetDisplayName(serviceName);
+                config.SetDescription(serviceName);
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
@@ -69,7 +62,10 @@ namespace nscreg.SampleFrameGenerationSvc
                                 )));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
-                    svcConfig.OnError(e => { });
+                    svcConfig.OnError(e =>
+                    {
+                        logger.LogError("Service errored with exception : {0}", e.Message);
+                    });
                 });
             });
         }

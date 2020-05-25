@@ -1,17 +1,17 @@
-using System.IO;
+using System;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using nscreg.Data;
+using NLog.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
+using PeterKottas.DotNetCore.WindowsService;
+using System.IO;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using nscreg.Utilities.Enums;
-using PeterKottas.DotNetCore.WindowsService;
-using NLog.Extensions.Logging;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -35,32 +35,14 @@ namespace nscreg.Server.DataUploadSvc
                 .CreateLogger<Program>();
 
             var configBuilder = new ConfigurationBuilder();
-            var workDir = Directory.GetCurrentDirectory();
-            try
-            {
-                var rootSettingsPath = Path.Combine(workDir, "..", "..");
-                if (rootSettingsPath != null)
-                    configBuilder.AddJsonFile(
-                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
-                        true);
-            }
-            catch
-            {
-                // ignored
-            }
+            var baseDirectory = AppContext.BaseDirectory;
+            var configuration = configBuilder
+                .SetBasePath(baseDirectory)
+                .AddJsonFile("appsettings.Shared.json", true)
+                .Build();
 
-            configBuilder
-                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
-                .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
+            const string serviceName = "nscreg.Server.DataUploadSvc";
 
-            var configuration = configBuilder.Build();
-
-            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
-            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
-            var statUnitAnalysisRules =
-                configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
-            var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
-            var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
             ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 
@@ -68,13 +50,25 @@ namespace nscreg.Server.DataUploadSvc
 
             ServiceRunner<JobService>.Run(config =>
             {
-                config.SetName("nscreg.Server.DataUploadSvc");
-                config.SetDisplayName("nscreg.Server.DataUploadSvc");
-                config.SetDescription("nscreg.Server.DataUploadSvc");
+                config.SetName(serviceName);
+                config.SetDisplayName(serviceName);
+                config.SetDescription(serviceName);
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
                     {
+                        var servicesSettings = configuration
+                            .GetSection(nameof(ServicesSettings))
+                            .Get<ServicesSettings>();
+                        var statUnitAnalysisRules = configuration
+                            .GetSection(nameof(StatUnitAnalysisRules))
+                            .Get<StatUnitAnalysisRules>();
+                        var dbMandatoryFields = configuration
+                            .GetSection(nameof(DbMandatoryFields))
+                            .Get<DbMandatoryFields>();
+                        var validationSettings = configuration
+                            .GetSection(nameof(ValidationSettings))
+                            .Get<ValidationSettings>();
                         return new JobService(
                             logger,
                             new QueueJob(
@@ -90,7 +84,10 @@ namespace nscreg.Server.DataUploadSvc
                     });
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
-                    svcConfig.OnError(e => { });
+                    svcConfig.OnError(e =>
+                    {
+                        logger.LogError("Service errored with exception : {0}", e.Message);
+                    });
                 });
             });
         }

@@ -18,7 +18,12 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\appsettings.Shared.json" Link="appsettings.Shared.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
-    <None Update="appsettings.json">
+    <Content Include="..\..\appsettings.Production.json" Link="appsettings.Production.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <None Update="appsettings.Production.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+    <None Update="appsettings.Shared.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </None>

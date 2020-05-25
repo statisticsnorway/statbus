@@ -30,10 +30,15 @@ const withConnect = connect(
       ],
       (locale, type, errors, properties, permissions, unitId) => {
         const schema = createStatUnitSchema(type, permissions, properties, unitId)
-        const updatedProperties = updateProperties(
+        let updatedProperties = updateProperties(
           schema.cast(createModel(permissions, properties)),
           properties,
         )
+        updatedProperties = updatedProperties.map(obj => ({
+          ...obj,
+          error: errors[obj.name] !== undefined,
+          errors: errors[obj.name] !== undefined ? errors[obj.name] : null,
+        }))
         return {
           schema,
           values: createValues(updatedProperties),
@@ -55,4 +60,8 @@ const withConnect = connect(
     ),
 )
 
-export default pipe(withRouter, withSchemaForm, withConnect)
+export default pipe(
+  withRouter,
+  withSchemaForm,
+  withConnect,
+)

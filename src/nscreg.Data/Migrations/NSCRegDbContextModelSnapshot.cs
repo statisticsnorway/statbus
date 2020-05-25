@@ -530,7 +530,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EndPeriod");
 
-                    b.Property<string>("EntGroupType");
+                    b.Property<int?>("EntGroupTypeId");
 
                     b.Property<string>("ExternalId");
 
@@ -540,11 +540,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("HistoryEnterpriseUnitIds");
 
-                    b.Property<int?>("InstSectorCodeId");
-
                     b.Property<bool>("IsDeleted");
-
-                    b.Property<int?>("LegalFormId");
 
                     b.Property<DateTime?>("LiqDateEnd");
 
@@ -562,8 +558,6 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("PostalAddressId");
 
                     b.Property<DateTime>("RegIdDate");
-
-                    b.Property<int?>("RegMainActivityId");
 
                     b.Property<DateTime>("RegistrationDate");
 
@@ -586,8 +580,6 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("StatId");
 
                     b.Property<DateTime?>("StatIdDate");
-
-                    b.Property<string>("Status");
 
                     b.Property<DateTime>("StatusDate");
 
@@ -622,6 +614,8 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("DataSourceClassificationId");
 
+                    b.HasIndex("EntGroupTypeId");
+
                     b.HasIndex("Name");
 
                     b.HasIndex("PostalAddressId");
@@ -637,6 +631,25 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("UnitStatusId");
 
                     b.ToTable("EnterpriseGroups");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroupType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+
+                    b.Property<bool>("IsDeleted");
+
+                    b.Property<string>("Name");
+
+                    b.Property<string>("NameLanguage1");
+
+                    b.Property<string>("NameLanguage2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EnterpriseGroupTypes");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.ForeignParticipation", b =>
@@ -923,7 +936,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("PostalAddressId");
 
-                    b.Property<int?>("RefNo");
+                    b.Property<string>("RefNo")
+                        .HasMaxLength(25);
 
                     b.Property<DateTime>("RegIdDate");
 
@@ -1471,7 +1485,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("PostalAddressId");
 
-                    b.Property<int?>("RefNo");
+                    b.Property<string>("RefNo")
+                        .HasMaxLength(25);
 
                     b.Property<DateTime>("RegIdDate");
 
@@ -2019,6 +2034,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.DataSourceClassification", "DataSourceClassification")
                         .WithMany()
                         .HasForeignKey("DataSourceClassificationId");
+
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroupType", "EntGroupType")
+                        .WithMany("EnterpriseGroups")
+                        .HasForeignKey("EntGroupTypeId");
 
                     b.HasOne("nscreg.Data.Entities.Address", "PostalAddress")
                         .WithMany()

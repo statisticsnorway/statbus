@@ -55,6 +55,12 @@ namespace nscreg.Data
         public static void EnsureRoles(NSCRegDbContext context) => SeedData.AddUsersAndRoles(context);
 
         /// <summary>
+        /// Add or ensure Enterprise Group Types
+        /// </summary>
+        /// <param name="context"></param>
+        public static void EnsureEntGroupTypes(NSCRegDbContext context) => SeedData.AddEnterpriseGroupTypes(context);
+
+        /// <summary>
         /// Method for initializing data in a database
         /// </summary>
         /// <param name="context"></param>
@@ -91,6 +97,8 @@ namespace nscreg.Data
             if (!context.Statuses.Any()) SeedData.AddStatuses(context);
 
             if (!context.PersonTypes.Any()) SeedData.AddPersonTypes(context);
+
+            SeedData.AddEnterpriseGroupTypes(context);
         }
     }
 }

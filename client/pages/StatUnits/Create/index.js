@@ -27,4 +27,10 @@ const mapStateToProps = ({ createStatUnit: { isSubmitting }, locale }, { params:
 const { changeType, fetchMeta } = actionCreators
 const mapDispatchToProps = dispatch => bindActionCreators({ changeType, fetchMeta }, dispatch)
 
-export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Create)
+export default pipe(
+  lifecycle(hooks),
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+  ),
+)(Create)

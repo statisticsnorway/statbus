@@ -520,11 +520,47 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на TaxRegId field is duplicated.
+        /// </summary>
+        public static string AnalysisDuplicationTaxRegId {
+            get {
+                return ResourceManager.GetString("AnalysisDuplicationTaxRegId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Telephone number field is duplicated.
         /// </summary>
         public static string AnalysisDuplicationTelephoneNo {
             get {
                 return ResourceManager.GetString("AnalysisDuplicationTelephoneNo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This enterprise group has no enterprises.
+        /// </summary>
+        public static string AnalysisEnterpriseGroupRelatedEnterprises {
+            get {
+                return ResourceManager.GetString("AnalysisEnterpriseGroupRelatedEnterprises", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This enterprise has no legal units.
+        /// </summary>
+        public static string AnalysisEnterpriseRelatedLegalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisEnterpriseRelatedLegalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This legal unit has no local units.
+        /// </summary>
+        public static string AnalysisLegalUnitRelatedLocalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisLegalUnitRelatedLocalUnits", resourceCulture);
             }
         }
         
@@ -651,6 +687,24 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisOrphanEnterprise {
             get {
                 return ResourceManager.GetString("AnalysisOrphanEnterprise", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This legal unit does not belong to an enterprise.
+        /// </summary>
+        public static string AnalysisOrphanLegalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisOrphanLegalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This local unit does not belong to a legal unit.
+        /// </summary>
+        public static string AnalysisOrphanLocalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisOrphanLocalUnits", resourceCulture);
             }
         }
         
@@ -1940,6 +1994,7 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("ElasticSearchIsDisable", resourceCulture);
             }
         }
+        
         /// <summary>
         ///   Ищет локализованную строку, похожую на Email.
         /// </summary>
@@ -2222,9 +2277,9 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Ищет локализованную строку, похожую на Enterprise group type.
         /// </summary>
-        public static string EntGroupType {
+        public static string EntGroupTypeId {
             get {
-                return ResourceManager.GetString("EntGroupType", resourceCulture);
+                return ResourceManager.GetString("EntGroupTypeId", resourceCulture);
             }
         }
         
@@ -2810,6 +2865,15 @@ namespace nscreg.Resources.Languages {
         public static string LastActivityByTurnover {
             get {
                 return ResourceManager.GetString("LastActivityByTurnover", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Last change date.
+        /// </summary>
+        public static string LastChangeDate {
+            get {
+                return ResourceManager.GetString("LastChangeDate", resourceCulture);
             }
         }
         
@@ -6072,7 +6136,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Turnover year.
+        ///   Ищет локализованную строку, похожую на Activity year.
         /// </summary>
         public static string TurnoverYear {
             get {

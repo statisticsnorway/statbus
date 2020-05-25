@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Utilities.Configuration;
 
@@ -57,8 +53,8 @@ namespace nscreg.Data.DbInitializers
                                                          ""Region_id"" AS ""RegionId"",
                                                          ""Employees"",
                                                          ""Turnover"",
-                                                         ""InstSectorCodeId"" AS ""SectorCodeId"",
-                                                         ""LegalFormId"",
+                                                        ""InstSectorCodeId"" AS ""SectorCodeId"",
+                                                        ""LegalFormId"",
                                                          ""DataSourceClassificationId"",
                                                          ""ChangeReason"",
                                                          ""StartPeriod"",
@@ -90,8 +86,8 @@ namespace nscreg.Data.DbInitializers
                                                          ""Region_id"" AS ""RegionId"",
                                                          ""Employees"",
                                                          ""Turnover"",
-                                                         ""InstSectorCodeId"" AS ""SectorCodeId"",
-                                                         ""LegalFormId"",
+                                                           NULL AS ""SectorCodeId"",
+                                                           NULL AS ""LegalFormId"",
                                                          ""DataSourceClassificationId"",
                                                          ""ChangeReason"",
                                                          ""StartPeriod"",
@@ -139,7 +135,7 @@ namespace nscreg.Data.DbInitializers
                                                             END
                                                             $$ language 'plpgsql'";
 
-            const string createFunctionGetActivityChildren = @"CREATE OR REPLACE FUNCTION public.""GetActivityChildren""(activityid integer)
+            const string createFunctionGetActivityChildren = @"CREATE OR REPLACE FUNCTION public.""GetActivityChildren""(activityid integer,activitiesids varchar(400))
                                                                RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer, ""ActivityCategoryLevel"" integer) 
                                                                LANGUAGE 'plpgsql'
                                                                AS $BODY$
@@ -160,7 +156,7 @@ namespace nscreg.Data.DbInitializers
                                                                        , ac.""VersionId""
                                                                        , ac.""ActivityCategoryLevel""
                                                                        FROM ""ActivityCategories"" ac
-                                                                       WHERE ac.""Id"" = activityId
+                                                                       WHERE CONCAT(',', activitiesids, ',') LIKE CONCAT('%,',ac.""Id"", ',%') OR ac.""Id"" = activityid
 
                                                                    UNION ALL
 

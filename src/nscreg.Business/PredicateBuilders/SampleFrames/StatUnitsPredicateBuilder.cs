@@ -1,8 +1,6 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
@@ -80,8 +78,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         private Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue, OperationEnum operation)
         {
             var subCategoriesIds = fieldValue;
-
-            if (operation == OperationEnum.Equal || operation == OperationEnum.NotEqual)
+            if (operation == OperationEnum.Equal || operation == OperationEnum.NotEqual || operation == OperationEnum.InList)
             {
                 var provider = Configuration
                     .GetSection(nameof(ConnectionSettings))
@@ -91,30 +88,41 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                 
                 switch (provider)
                 {
-                    case ConnectionProvider.SqlServer: dataProvider = new MsSqlDbDataProvider();
+                    case ConnectionProvider.SqlServer:
+                        dataProvider = new MsSqlDbDataProvider();
                         break;
-                    case ConnectionProvider.PostgreSql: dataProvider = new PostgreSqlDbDataProvider();
+                    case ConnectionProvider.PostgreSql:
+                        dataProvider = new PostgreSqlDbDataProvider();
                         break;
-                    case ConnectionProvider.MySql: dataProvider = new MySqlDataProvider();
+                    case ConnectionProvider.MySql:
+                        dataProvider = new MySqlDataProvider();
                         break;
                     default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
                 }
 
-                subCategoriesIds = string.Join(",", dataProvider.GetActivityChildren(DbContext, fieldValue));
-
+                subCategoriesIds = string.Join(",", operation == OperationEnum.InList
+                    ? dataProvider.GetActivityChildren(DbContext, null, fieldValue)
+                    : dataProvider.GetActivityChildren(DbContext, fieldValue, null));
             }
+
 
             var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
-            var categoryId = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
-            categoryId = Expression.Property(categoryId, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
+            var categoryId = Expression
+                .Property(innerParameter, typeof(ActivityStatisticalUnit)
+                    .GetProperty(nameof(ActivityStatisticalUnit.Activity)));
+
+            categoryId = Expression
+                    .Property(categoryId, typeof(Activity)
+                        .GetProperty(nameof(Activity.ActivityCategoryId)));
 
             var value = GetConstantValue(subCategoriesIds, categoryId,
                 operation == OperationEnum.Equal
                 ? OperationEnum.InList : operation == OperationEnum.NotEqual
                 ? OperationEnum.NotInList : operation);
+
             var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,

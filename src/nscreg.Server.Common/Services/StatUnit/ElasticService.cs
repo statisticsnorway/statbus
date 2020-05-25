@@ -184,13 +184,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Terms(p => p.Field(f => f.UnitType).Terms(filter.Type)));
 
             if (!string.IsNullOrWhiteSpace(filter.StatId))
-                mustQueries.Add(m => m.Prefix(p => p.Field(f => f.StatId).Value(filter.StatId.ToLower())));
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.StatId).Terms(filter.StatId)));
 
             if (!string.IsNullOrWhiteSpace(filter.ExternalId))
-                mustQueries.Add(m => m.Prefix(p => p.Field(f => f.ExternalId).Value(filter.ExternalId.ToLower())));
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.ExternalId).Terms(filter.ExternalId)));
 
             if (!string.IsNullOrWhiteSpace(filter.TaxRegId))
-                mustQueries.Add(m => m.Prefix(p => p.Field(f => f.TaxRegId).Value(filter.TaxRegId.ToLower())));
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.TaxRegId).Terms(filter.TaxRegId)));
 
             if (!string.IsNullOrWhiteSpace(filter.Address))
             {
@@ -272,6 +272,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Terms(p => p.Field(f => f.ActivityCategoryIds).Terms(regMainActivityIds)));
             }
 
+            if (filter.RegId.HasValue)
+            {
+                int id = filter.RegId.Value;
+                mustQueries.Add(m=>m.Term(p=>p.Field(f=>f.RegId).Value(id)));
+            }
             if (filter.SectorCodeId.HasValue)
             {
                 int sectorCodeId = filter.SectorCodeId.Value;
@@ -282,12 +287,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 int legalFormId = filter.LegalFormId.Value;
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.LegalFormId).Value(legalFormId)));
-            }
-
-            if (filter.RegId.HasValue)
-            {
-                int id = filter.RegId.Value;
-                mustQueries.Add(m=>m.Term(p=>p.Field(f=>f.RegId).Value(id)));
             }
 
             if (filter.RegionId.HasValue)
