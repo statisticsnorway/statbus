@@ -100,8 +100,12 @@ export default enhance((props) => {
     values.employeesDate = undefined
   }
 
-  if (values.legalUnitId && values.legalUnitId) {
-    values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+  if (props.type === 1) {
+    if (values.legalUnitId) {
+      values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+    } else {
+      values.legalUnitIdDate = undefined
+    }
   }
 
   if (props.type === 2) {
