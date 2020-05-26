@@ -203,6 +203,34 @@ class SearchForm extends React.Component {
             </Grid.Row>
           </Grid>
         </Segment>
+        <div className={styles.extendedTaskbar}>
+          <Button
+            content={localize('Search')}
+            icon="search"
+            labelPosition="left"
+            type="submit"
+            floated="right"
+            primary
+          />
+          <Button
+            onClick={this.onSearchModeToggle}
+            content={localize(extended ? 'SearchDefault' : 'SearchExtended')}
+            icon={extended ? 'angle double up' : 'angle double down'}
+            labelPosition="left"
+            type="button"
+            floated="right"
+          />
+          <Button
+            onClick={this.handleReset}
+            content={localize('Reset')}
+            disabled={confirmIsEmpty(formData) || confirmHasOnlySortRule(formData)}
+            icon="undo"
+            labelPosition="left"
+            type="button"
+            floated="right"
+            primary
+          />
+        </div>
 
         {extended && (
           <div>
@@ -427,32 +455,6 @@ class SearchForm extends React.Component {
             <br />
           </div>
         )}
-        <Button
-          content={localize('Search')}
-          icon="search"
-          labelPosition="left"
-          type="submit"
-          floated="right"
-          primary
-        />
-        <Button
-          onClick={this.onSearchModeToggle}
-          content={localize(extended ? 'SearchDefault' : 'SearchExtended')}
-          icon={extended ? 'angle double up' : 'angle double down'}
-          labelPosition="left"
-          type="button"
-          floated="right"
-        />
-        <Button
-          onClick={this.handleReset}
-          content={localize('Reset')}
-          disabled={confirmIsEmpty(formData) || confirmHasOnlySortRule(formData)}
-          icon="undo"
-          labelPosition="left"
-          type="button"
-          floated="right"
-          primary
-        />
       </Form>
     )
   }
