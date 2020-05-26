@@ -124,6 +124,118 @@ class SelectField extends React.Component {
         : notSelected.value,
     optionsFetched: false,
     options: [],
+    test: [
+      {
+        id: 15,
+        code: '10000',
+        name: 'Nhkqoer',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 15,
+        value: 15,
+        label: '10000 Nhkqoer',
+        text: '10000 Nhkqoer',
+      },
+      {
+        id: 18,
+        code: '10001',
+        name: 'Gurulpm',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 18,
+        value: 18,
+        label: '10001 Gurulpm',
+        text: '10001 Gurulpm',
+      },
+      {
+        id: 21,
+        code: '10002',
+        name: 'Mlfoauh mqjjg',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 21,
+        value: 21,
+        label: '10002 Mlfoauh mqjjg',
+        text: '10002 Mlfoauh mqjjg',
+      },
+      {
+        id: 24,
+        code: '10003',
+        name: 'QbdsvtaVnshiex',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 24,
+        value: 24,
+        label: '10003 QbdsvtaVnshiex',
+        text: '10003 QbdsvtaVnshiex',
+      },
+      {
+        id: 27,
+        code: '10004',
+        name: 'Qsznivl brdwn',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 27,
+        value: 27,
+        label: '10004 Qsznivl brdwn',
+        text: '10004 Qsznivl brdwn',
+      },
+      {
+        id: 30,
+        code: '10005',
+        name: 'BJD',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 30,
+        value: 30,
+        label: '10005 BJD',
+        text: '10005 BJD',
+      },
+      {
+        id: 33,
+        code: '10006',
+        name: 'Wauddqn xHcgutka y',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 33,
+        value: 33,
+        label: '10006 Wauddqn xHcgutka y',
+        text: '10006 Wauddqn xHcgutka y',
+      },
+      {
+        id: 36,
+        code: '10007',
+        name: 'LCBVW',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 36,
+        value: 36,
+        label: '10007 LCBVW',
+        text: '10007 LCBVW',
+      },
+      {
+        id: 39,
+        code: '10008',
+        name: 'Qromwjf ptuzh',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 39,
+        value: 39,
+        label: '10008 Qromwjf ptuzh',
+        text: '10008 Qromwjf ptuzh',
+      },
+      {
+        id: 42,
+        code: '10009',
+        name: 'Hcgutka y',
+        nameLanguage1: null,
+        nameLanguage2: null,
+        key: 42,
+        value: 42,
+        label: '10009 Hcgutka y',
+        text: '10009 Hcgutka y',
+      },
+    ],
   }
 
   componentDidMount() {
@@ -201,11 +313,19 @@ class SelectField extends React.Component {
   }
 
   componentDidUpdate() {
-    console.log('this state', this.state.options)
+    if (this.props.multiselect) {
+      console.log('this props', this.props)
+
+      console.log('this state', this.state.options)
+    }
   }
 
   loadOptions = (wildcard, page, callback) => {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
+
+    // console.log('page', page)
+    console.log('loadOptions')
+
     const { optionsFetched } = this.state
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
@@ -213,9 +333,6 @@ class SelectField extends React.Component {
       method: 'get',
       onSuccess: (data) => {
         let options = data
-        // multiselect || !required || optionsFetched
-        //   ? data
-        //   : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           this.setState({ options: this.state.options.concat(options) }, () => {
@@ -314,13 +431,10 @@ class SelectField extends React.Component {
           clearable: false,
           filterOptions: R.identity,
           required,
+          removeSelected: true,
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
-
-    // console.log('this state', this.state)
-    console.log('this props', this.props)
-    // console.log('multiselect', multiselect)
 
     return (
       <div className={className} style={{ opacity: `${disabled ? 0.25 : 1}` }}>
@@ -335,6 +449,8 @@ class SelectField extends React.Component {
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
+          // removeSelected: true,
+          // removeSelected={this.state.removeSelected}
           // openOnFocus
         />
         {hasErrors && (
