@@ -24,17 +24,21 @@ namespace nscreg.Data.Entities
 
         [DataAccessCommon]
         [Display(Order = 100, GroupName = GroupNames.StatUnitInfo)]
-        [Utilities.Attributes.AsyncValidation(ValidationTypeEnum.StatIdUnique)]
+        [AsyncValidation(ValidationTypeEnum.StatIdUnique)]
+        [PopupLocalizedKey("StatIdTooltip")]
         public string StatId { get; set; }
 
         [Display(Order = 105, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("StatIdDateTooltip")]
         public DateTime? StatIdDate { get; set; }
 
         [DataAccessCommon]
         [Display(Order = 110, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("StatNameTooltip")]
         public string Name { get; set; }
 
         [Display(Order = 115, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("ShortNameTooltip")]
         public string ShortName { get; set; }
 
         [SearchComponent]
@@ -42,13 +46,16 @@ namespace nscreg.Data.Entities
         public virtual int? ParentOrgLink { get; set; }
 
         [Display(Order = 120, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("TaxRegIdTooltip")]
         public string TaxRegId { get; set; }
 
         [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("TaxRegDateTooltip")]
         public DateTime? TaxRegDate { get; set; }
 
         [Reference(LookupEnum.RegistrationReasonLookup)]
         [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("RegistrationReasonTooltip")]
         public int? RegistrationReasonId { get; set; }
 
         [JsonIgnore]
@@ -56,12 +63,15 @@ namespace nscreg.Data.Entities
         public virtual RegistrationReason RegistrationReason { get; set; }
 
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("ExternalIdTooltip")]
         public string ExternalId { get; set; }
 
         [Display(Order = 131, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("ExternalIdDateTooltip")]
         public DateTime? ExternalIdDate { get; set; }
 
         [Display(Order = 132, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("ExternalIdTypeTooltip")]
         public string ExternalIdType { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -71,58 +81,72 @@ namespace nscreg.Data.Entities
         public int? AddressId { get; set; }
 
         [Display(Order = 310, GroupName = GroupNames.ContactInfo)]
+        [PopupLocalizedKey("AddressTooltip")]
         public virtual Address Address { get; set; }
 
         [Display(Order = 302, GroupName = GroupNames.ContactInfo)]
+        [PopupLocalizedKey("WebAddressTooltip")]
         public string WebAddress { get; set; }
 
         [Display(Order = 300, GroupName = GroupNames.ContactInfo)]
+        [PopupLocalizedKey("TelephoneNoTooltip")]
         public string TelephoneNo { get; set; }
 
         [Display(Order = 301, GroupName = GroupNames.ContactInfo)]
+        [PopupLocalizedKey("EmailAddressTooltip")]
         public string EmailAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ActualAddressId { get; set; }
 
         [Display(Order = 320, GroupName = GroupNames.ContactInfo)]
+        [PopupLocalizedKey("ActualAddressTooltip")]
         public virtual Address ActualAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? PostalAddressId { get; set; }
 
         [Display(Order = 320, GroupName = GroupNames.ContactInfo)]
+        [PopupLocalizedKey("PostalAddressTooltip")]
         public virtual Address PostalAddress { get; set; }
 
         [Display(Order = 890, GroupName = GroupNames.CapitalInfo)]
         public bool FreeEconZone { get; set; }
 
         [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("NumOfPeopleEmpTooltip")]
         public int? NumOfPeopleEmp { get; set; }
 
         [Display(Order = 521, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("EmployeesTooltip")]
         public int? Employees { get; set; }
 
         [Display(Order = 522, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("EmployeesYearTooltip")]
         public int? EmployeesYear { get; set; }
 
         [Display(Order = 523, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("EmployeesDateTooltip")]
         public DateTime? EmployeesDate { get; set; }
 
-        [PopupLocalizedKey("InThousandsKGS")]
+        [PopupLocalizedKey("TurnoverTooltip")]
         [Display(Order = 505, GroupName = GroupNames.EconomicInformation)]
         public decimal? Turnover { get; set; }
 
         [Display(Order = 515, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("TurnoverTooltip")]
         public DateTime? TurnoverDate { get; set; }
 
         [Display(Order = 510, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("TurnoverYearTooltip")]
         public int? TurnoverYear { get; set; }
 
         [Display(Order = 880, GroupName = GroupNames.CapitalInfo)]
+        [PopupLocalizedKey("NotesTooltip")]
         public string Notes { get; set; }
 
         [Display(Order = 891, GroupName = GroupNames.CapitalInfo)]
+        [PopupLocalizedKey("ClassifiedTooltip")]
         public bool? Classified { get; set; }
 
         [Display(Order = 143, GroupName = GroupNames.StatUnitInfo)]
@@ -191,6 +215,7 @@ namespace nscreg.Data.Entities
 
         [NotMapped]
         [Display(Order = 400, GroupName = GroupNames.Activities)]
+        [PopupLocalizedKey("ActivitiesTooltip")]
         public IEnumerable<Activity> Activities
         {
             get => ActivitiesUnits.Select(v => v.Activity);
@@ -204,6 +229,7 @@ namespace nscreg.Data.Entities
 
         [NotMapped]
         [Display(Order = 600, GroupName = GroupNames.Persons)]
+        [PopupLocalizedKey("PersonsTooltip")]
         public IEnumerable<Person> Persons
         {
             get => PersonsUnits.Select(v => v.Person);
@@ -221,6 +247,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(Order = 500, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey("UnitSizeTooltip")]
         public int? SizeId { get; set; }
 
         [JsonIgnore]
@@ -229,6 +256,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
         [Display(Order = 800, GroupName = GroupNames.CapitalInfo)]
+        [PopupLocalizedKey("ForeignParticipationTooltip")]
         public int? ForeignParticipationId { get; set; }
 
         [JsonIgnore]
@@ -237,6 +265,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("DataSourceClassificationTooltip")]
         public int? DataSourceClassificationId { get; set; }
 
         [JsonIgnore]
@@ -245,6 +274,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.ReorgTypeLookup)]
         [Display(Order = 700, GroupName = GroupNames.RegistrationInfo)]
+        [PopupLocalizedKey("ReorgTypeTooltip")]
         public int? ReorgTypeId { get; set; }
 
         [JsonIgnore]
@@ -253,6 +283,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(Order = 142, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey("UnitStatusTooltip")]
         public int? UnitStatusId { get; set; }
 
         [JsonIgnore]
@@ -262,6 +293,7 @@ namespace nscreg.Data.Entities
         [JsonIgnore]
         [Reference(LookupEnum.CountryLookup)]
         [Display(Order = 805, GroupName = GroupNames.CapitalInfo)]
+        [PopupLocalizedKey("ForeignParticipationCountriesTooltip")]
         public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
             new HashSet<CountryStatisticalUnit>();
     }
