@@ -15,11 +15,11 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("LegalUnitIdTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdTooltip))]
         public int? LegalUnitId { get; set; }
 
         [Display(Order = 201, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("LegalUnitIdDateTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdDateTooltip))]
         public DateTime LegalUnitIdDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -41,7 +41,7 @@ namespace nscreg.Data.Entities
 
         [SearchComponent]
         [Display(Order = 202, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("ParentOrgLinkTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ParentOrgLinkTooltip))]
         public override int? ParentOrgLink { get; set; }
     }
 }

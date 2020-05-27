@@ -17,25 +17,25 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.EnterpriseGroupLookup)]
         [Display(Order = 210, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("EnterpriseGroupTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EnterpriseGroupTooltip))]
         public int? EntGroupId { get; set; }
 
         [Display(Order = 220, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("EntGroupIdDateTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupIdDateTooltip))]
         public DateTime EntGroupIdDate { get; set; }
 
         [Display(Order = 215, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("EntGroupRoleTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupRoleTooltip))]
         public string EntGroupRole { get; set; }
 
         [SearchComponent]
         [Display(Order = 205, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("ParentOrgLinkTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ParentOrgLinkTooltip))]
         public override int? ParentOrgLink { get; set; }
 
         [Reference(LookupEnum.SectorCodeLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 150)]
-        [PopupLocalizedKey("InstSectorCodeIdTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.InstSectorCodeIdTooltip))]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;
@@ -43,36 +43,36 @@ namespace nscreg.Data.Entities
         }
 
         [Display(Order = 892, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("CommercialTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.CommercialTooltip))]
         public bool Commercial { get; set; }
         [Column(nameof(TotalCapital))]
         [Display(Order = 845, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("TotalCapitalTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TotalCapitalTooltip))]
         public string TotalCapital { get; set; }
         [Column(nameof(MunCapitalShare))]
         [Display(Order = 825, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("MunCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.MunCapitalShareTooltip))]
         public string MunCapitalShare { get; set; }
         [Column(nameof(StateCapitalShare))]
         [Display(Order = 830, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("StateCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StateCapitalShareTooltip))]
         public string StateCapitalShare { get; set; }
         [Column(nameof(PrivCapitalShare))]
         [Display(Order = 820, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("PrivCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.PrivCapitalShareTooltip))]
         public string PrivCapitalShare { get; set; }
         [Column(nameof(ForeignCapitalShare))]
         [Display(Order = 835, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("ForeignCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignCapitalShareTooltip))]
         public string ForeignCapitalShare { get; set; }
         [Column(nameof(ForeignCapitalCurrency))]
         [Display(Order = 840, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("ForeignCapitalCurrencyTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignCapitalCurrencyTooltip))]
         public string ForeignCapitalCurrency { get; set; }
 
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("LegalUnitsTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitsTooltip))]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; } = new HashSet<LegalUnit>();
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

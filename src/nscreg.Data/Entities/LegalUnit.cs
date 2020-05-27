@@ -17,16 +17,16 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("EnterpriseUnitRegIdTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EnterpriseUnitRegIdTooltip))]
         public int? EnterpriseUnitRegId { get; set; }
 
         [Display(Order = 201, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey("EntRegIdDateTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntRegIdDateTooltip))]
         public DateTime? EntRegIdDate { get; set; }
 
         [Reference(LookupEnum.LegalFormLookup)]
         [Display(Order = 150, GroupName = GroupNames.StatUnitInfo)]
-        [PopupLocalizedKey("LegalFormIdTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalFormIdTooltip))]
         public override int? LegalFormId
         {
             get => base.LegalFormId;
@@ -35,7 +35,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.SectorCodeLookup)]
         [Display(Order = 155, GroupName = GroupNames.StatUnitInfo)]
-        [PopupLocalizedKey("InstSectorCodeIdTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.InstSectorCodeIdTooltip))]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;
@@ -43,31 +43,31 @@ namespace nscreg.Data.Entities
         }
 
         [Display(Order = 892, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("MarketTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.MarketTooltip))]
         public bool Market { get; set; }
         [Column(nameof(TotalCapital))]
         [Display(Order = 845, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("TotalCapitalTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TotalCapitalTooltip))]
         public string TotalCapital { get; set; }
         [Column(nameof(MunCapitalShare))]
         [Display(Order = 825, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("MunCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.MunCapitalShareTooltip))]
         public string MunCapitalShare { get; set; }
         [Column(nameof(StateCapitalShare))]
         [Display(Order = 830, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("StateCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StateCapitalShareTooltip))]
         public string StateCapitalShare { get; set; }
         [Column(nameof(PrivCapitalShare))]
         [Display(Order = 820, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("PrivCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.PrivCapitalShareTooltip))]
         public string PrivCapitalShare { get; set; }
         [Column(nameof(ForeignCapitalShare))]
         [Display(Order = 835, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("ForeignCapitalShareTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignCapitalShareTooltip))]
         public string ForeignCapitalShare { get; set; }
         [Column(nameof(ForeignCapitalCurrency))]
         [Display(Order = 840, GroupName = GroupNames.CapitalInfo)]
-        [PopupLocalizedKey("ForeignCapitalCurrencyTooltip")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignCapitalCurrencyTooltip))]
         public string ForeignCapitalCurrency { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
