@@ -23,7 +23,6 @@ const DebouncedTextField = withDebounce(TextField)
 
 const Field = ({ fieldType, setFieldValue, validationUrl, ...restProps }) => {
   const props = { ...restProps, onChange: handlerFor(setFieldValue) }
-  console.log(props)
 
   switch (statUnitFormFieldTypes.get(fieldType)) {
     case 'Boolean':
