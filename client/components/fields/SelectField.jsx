@@ -314,7 +314,6 @@ class SelectField extends React.Component {
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
-    console.log('this.props.popuplocalizedKey', name, popuplocalizedKey)
 
     return (
       <div
