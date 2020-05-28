@@ -343,35 +343,53 @@ class PersonEdit extends React.Component {
               </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Input
-                label={localize('PhoneNumber')}
-                name="phoneNumber"
-                value={data.phoneNumber}
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-                required={personMandatoryFields.PhoneNumber}
-                autoComplete="off"
-              />
-              <Form.Input
-                label={localize('PhoneNumber1')}
-                name="phoneNumber1"
-                value={data.phoneNumber1}
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-                required={personMandatoryFields.PhoneNumber1}
-                autoComplete="off"
-              />
+              <div
+                className="field"
+                data-tooltip={localize('PhoneNumberTooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('PhoneNumber')}
+                  name="phoneNumber"
+                  value={data.phoneNumber}
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                  required={personMandatoryFields.PhoneNumber}
+                  autoComplete="off"
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('PhoneNumber1Tooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('PhoneNumber1')}
+                  name="phoneNumber1"
+                  value={data.phoneNumber1}
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                  required={personMandatoryFields.PhoneNumber1}
+                  autoComplete="off"
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Input
-                label={localize('Address')}
-                name="address"
-                value={data.address}
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-                required={personMandatoryFields.Address}
-                autoComplete="off"
-              />
+              <div
+                className="field"
+                data-tooltip={localize('AddressTooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('Address')}
+                  name="address"
+                  value={data.address}
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                  required={personMandatoryFields.Address}
+                  autoComplete="off"
+                />
+              </div>
             </Form.Group>
 
             <div>
