@@ -153,8 +153,7 @@ class MappingsEditor extends React.Component {
         color={
           prop === 'left' || index >= 0
             ? this.getAttributeColor(prop, value)
-            : isRequired &&
-              this.functionTryFieldIsRequired(this.props.columns, value, this.props.mapping.value)
+            : isRequired && this.functionTryFieldIsRequired(this.props.columns, value, this.props.mapping.value)
             ? 'red'
             : 'grey'
         }
