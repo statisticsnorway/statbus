@@ -18,7 +18,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool WebAddress { get; set; }
         public bool Activities { get; set; }
         public bool RegistrationDate { get; set; }
-        public bool RegistrationReason { get; set; }
         public bool ActualAddress { get; set; }
         public bool Persons { get; set; }
         public bool Employees { get; set; }
@@ -35,5 +34,9 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool PostalAddress { get; set; }
         public bool TaxRegId { get; set; }
         public bool TaxRegDate { get; set; }
+        public bool DataSourceClassificationId { get; set; }
+        public bool RegistrationReasonId { get; set; }
+        public bool SizeId { get; set; }
+        public bool UnitStatusId { get; set; }
     }
 }

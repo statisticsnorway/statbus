@@ -29,7 +29,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_mandatoryFields.EnterpriseGroup.DataSourceClassification && _enterpriseGroup.DataSourceClassificationId == null)
+            if (_mandatoryFields.EnterpriseGroup.DataSourceClassificationId && _enterpriseGroup.DataSourceClassificationId == null)
                 messages.Add(nameof(_enterpriseGroup.DataSource), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
 
             if (_mandatoryFields.EnterpriseGroup.Name && string.IsNullOrEmpty(_enterpriseGroup.Name))

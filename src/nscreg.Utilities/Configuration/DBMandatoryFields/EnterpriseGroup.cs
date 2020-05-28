@@ -31,9 +31,9 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool TurnoverDate { get; set; }
         public bool StatusDate { get; set; }
         public bool Notes { get; set; }
-        public bool Size { get; set; }
-        public bool DataSourceClassification { get; set; }
-        public bool UnitStatus { get; set; }
+        public bool SizeId { get; set; }
+        public bool DataSourceClassificationId { get; set; }
+        public bool UnitStatusId { get; set; }
         public bool EnterpriseUnits { get; set; }
         public bool PostalAddress { get; set; }
     }
