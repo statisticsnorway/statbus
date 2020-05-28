@@ -282,7 +282,7 @@ class StatusField extends React.Component {
       <div
         className={className}
         style={{ opacity: `${disabled ? 0.25 : 1}` }}
-        data-tooltip={localize(popuplocalizedKey)}
+        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
         data-position="top left"
       >
         {label !== undefined && <label htmlFor={name}>{label}</label>}

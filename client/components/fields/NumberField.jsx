@@ -35,12 +35,20 @@ const NumberField = ({
     autoComplete: 'off',
   }
   return popuplocalizedKey ? (
-    <div className="field" data-tooltip={localize(popuplocalizedKey)} data-position="top left">
+    <div
+      className="field"
+      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+      data-position="top left"
+    >
       <Form.Input {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   ) : (
-    <div className="field">
+    <div
+      className="field"
+      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+      data-position="top left"
+    >
       <Form.Input {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>

@@ -81,7 +81,7 @@ class SearchField extends React.Component {
     return (
       <div
         className={`ui field ${hasErrors ? 'error' : ''}`}
-        data-tooltip={localize(this.props.popuplocalizedKey)}
+        data-tooltip={this.props.popuplocalizedKey ? localize(this.props.popuplocalizedKey) : null}
         data-position="top left"
       >
         <SearchInput

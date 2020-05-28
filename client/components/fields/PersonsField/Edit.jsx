@@ -191,16 +191,22 @@ class PersonEdit extends React.Component {
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <Form.Select
-                label={localize('PersonType')}
-                placeholder={localize('PersonType')}
-                options={roles}
-                value={data.role}
-                name="role"
-                required={personMandatoryFields.Role}
-                onChange={this.onFieldChange}
-                disabled={disabled}
-              />
+              <div
+                className="field"
+                data-tooltip={localize('PersonTypeTooltip')}
+                data-position="top left"
+              >
+                <Form.Select
+                  label={localize('PersonType')}
+                  placeholder={localize('PersonType')}
+                  options={roles}
+                  value={data.role}
+                  name="role"
+                  required={personMandatoryFields.Role}
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                />
+              </div>
               <Popup
                 trigger={
                   <Form.Field
@@ -222,81 +228,119 @@ class PersonEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Input
-                label={localize('StatUnitFormPersonName')}
-                name="givenName"
-                value={data.givenName}
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                readOnly={data.personSelected}
-                required={personMandatoryFields.GivenName}
-                autoComplete="off"
-              />
-              <Form.Input
-                label={localize('Surname')}
-                name="surname"
-                value={data.surname}
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                readOnly={data.personSelected}
-                required={personMandatoryFields.Surname}
-                autoComplete="off"
-              />
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitFormPersonNameTooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('StatUnitFormPersonName')}
+                  name="givenName"
+                  value={data.givenName}
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                  readOnly={data.personSelected}
+                  required={personMandatoryFields.GivenName}
+                  autoComplete="off"
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('SurnameTooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('Surname')}
+                  name="surname"
+                  value={data.surname}
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                  readOnly={data.personSelected}
+                  required={personMandatoryFields.Surname}
+                  autoComplete="off"
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Input
-                label={localize('PersonalId')}
-                name="personalId"
-                value={data.personalId}
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-                required={personMandatoryFields.PersonalId}
-                autoComplete="off"
-              />
-              <Form.Input
-                label={localize('MiddleName')}
-                name="middleName"
-                value={data.middleName}
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-                required={personMandatoryFields.MiddleName}
-                autoComplete="off"
-              />
+              <div
+                className="field"
+                data-tooltip={localize('PersonalIdTooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('PersonalId')}
+                  name="personalId"
+                  value={data.personalId}
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                  required={personMandatoryFields.PersonalId}
+                  autoComplete="off"
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('MiddleNameTooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  label={localize('MiddleName')}
+                  name="middleName"
+                  value={data.middleName}
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                  required={personMandatoryFields.MiddleName}
+                  autoComplete="off"
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <DateTimeField
-                label="BirthDate"
-                name="birthDate"
-                value={data.birthDate}
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-                localize={localize}
-                required={personMandatoryFields.BirthDate}
-              />
-              <Form.Select
-                name="sex"
-                label={localize('Sex')}
-                placeholder={localize('Sex')}
-                value={data.sex}
-                onChange={this.onFieldChange}
-                options={options.sex.map(asOption)}
-                disabled={disabled || data.personSelected}
-                required={personMandatoryFields.Sex}
-              />
+              <div
+                className="field"
+                data-tooltip={localize('BirthDateTooltip')}
+                data-position="top left"
+              >
+                <DateTimeField
+                  label="BirthDate"
+                  name="birthDate"
+                  value={data.birthDate}
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                  localize={localize}
+                  required={personMandatoryFields.BirthDate}
+                />
+              </div>
+              <div className="field" data-tooltip={localize('SexTooltip')} data-position="top left">
+                <Form.Select
+                  name="sex"
+                  label={localize('Sex')}
+                  placeholder={localize('Sex')}
+                  value={data.sex}
+                  onChange={this.onFieldChange}
+                  options={options.sex.map(asOption)}
+                  disabled={disabled || data.personSelected}
+                  required={personMandatoryFields.Sex}
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Select
-                label={localize('CountryId')}
-                placeholder={localize('CountryId')}
-                options={countries}
-                value={data.countryId}
-                name="countryId"
-                key="countryId"
-                required={personMandatoryFields.CountryId}
-                search
-                onChange={this.onFieldChange}
-                disabled={disabled || data.personSelected}
-              />
+              <div
+                className="field"
+                data-tooltip={localize('CountryIdTooltip')}
+                data-position="top left"
+              >
+                <Form.Select
+                  label={localize('CountryId')}
+                  placeholder={localize('CountryId')}
+                  options={countries}
+                  value={data.countryId}
+                  name="countryId"
+                  key="countryId"
+                  required={personMandatoryFields.CountryId}
+                  search
+                  onChange={this.onFieldChange}
+                  disabled={disabled || data.personSelected}
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
               <Form.Input

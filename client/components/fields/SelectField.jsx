@@ -267,6 +267,7 @@ class SelectField extends React.Component {
       width,
       onBlur,
       localize,
+      popuplocalizedKey,
     } = this.props
     const hasErrors = (touched && hasValue(errorKeys)) || (error && hasValue(errorKeys))
     const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -313,13 +314,13 @@ class SelectField extends React.Component {
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
-    console.log('this.props.popuplocalizedKey', this.props.popuplocalizedKey)
+    console.log('this.props.popuplocalizedKey', name, popuplocalizedKey)
 
     return (
       <div
         className={className}
         style={{ opacity: `${disabled ? 0.25 : 1}` }}
-        data-tooltip={localize(this.props.popuplocalizedKey)}
+        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
         data-position="top left"
       >
         {label !== undefined && <label htmlFor={name}>{label}</label>}
