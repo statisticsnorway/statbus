@@ -29,7 +29,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_mandatoryFields.EnterpriseGroup.DataSourceClassificationId && _enterpriseGroup.DataSourceClassificationId == null)
+            if (_mandatoryFields.EnterpriseGroup.DataSourceClassification && _enterpriseGroup.DataSourceClassificationId == null)
                 messages.Add(nameof(_enterpriseGroup.DataSource), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
 
             if (_mandatoryFields.EnterpriseGroup.Name && string.IsNullOrEmpty(_enterpriseGroup.Name))
@@ -46,7 +46,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             if (_mandatoryFields.EnterpriseGroup.TelephoneNo && string.IsNullOrEmpty(_enterpriseGroup.TelephoneNo))
                 messages.Add(nameof(_enterpriseGroup.TelephoneNo), new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
-            if (_mandatoryFields.EnterpriseGroup.RegistrationReasonId && !(_enterpriseGroup.RegistrationReasonId > 0))
+            if (!(_enterpriseGroup.RegistrationReasonId > 0))
                 messages.Add(nameof(_enterpriseGroup.RegistrationReasonId), new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
             if (_mandatoryFields.EnterpriseGroup.ContactPerson && string.IsNullOrEmpty(_enterpriseGroup.ContactPerson))
