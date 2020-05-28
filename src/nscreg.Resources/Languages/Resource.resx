@@ -2377,4 +2377,226 @@
   <data name="LastChangeDate" xml:space="preserve">
     <value>Last change date</value>
   </data>
+  <data name="ActivitiesTooltip" xml:space="preserve">
+    <value>Activities</value>
+  </data>
+  <data name="ActualAddressTooltip" xml:space="preserve">
+    <value>Actual Address</value>
+  </data>
+  <data name="AddressTooltip" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="ClassifiedTooltip" xml:space="preserve">
+    <value>Classified</value>
+  </data>
+  <data name="CommercialTooltip" xml:space="preserve">
+    <value>Commercial</value>
+  </data>
+  <data name="ContactPersonTooltip" xml:space="preserve">
+    <value>Contact Person</value>
+  </data>
+  <data name="DataSourceClassificationTooltip" xml:space="preserve">
+    <value>Data source classification</value>
+  </data>
+  <data name="EmailAddressTooltip" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="EmployeesDateTooltip" xml:space="preserve">
+    <value>Employees Date</value>
+  </data>
+  <data name="EmployeesTooltip" xml:space="preserve">
+    <value>Employees</value>
+  </data>
+  <data name="EmployeesYearTooltip" xml:space="preserve">
+    <value>Employees Year</value>
+  </data>
+  <data name="EndPeriodTooltip" xml:space="preserve">
+    <value>End Period</value>
+  </data>
+  <data name="EnterpriseGroupTooltip" xml:space="preserve">
+    <value>Enterprise group</value>
+  </data>
+  <data name="EnterpriseUnitRegIdTooltip" xml:space="preserve">
+    <value>Enterprise Unit</value>
+  </data>
+  <data name="EnterpriseUnitTooltip" xml:space="preserve">
+    <value>Enterprise units</value>
+  </data>
+  <data name="EntGroupIdDateTooltip" xml:space="preserve">
+    <value>EntGroup id date</value>
+  </data>
+  <data name="EntGroupRoleTooltip" xml:space="preserve">
+    <value>Ent Group Role</value>
+  </data>
+  <data name="EntGroupTypeIdTooltip" xml:space="preserve">
+    <value>Ent Group Type</value>
+  </data>
+  <data name="EntRegIdDateTooltip" xml:space="preserve">
+    <value>Enterprise reg Date</value>
+  </data>
+  <data name="ExternalIdDateTooltip" xml:space="preserve">
+    <value>External Id Date</value>
+  </data>
+  <data name="ExternalIdTooltip" xml:space="preserve">
+    <value>External Id</value>
+  </data>
+  <data name="ExternalIdTypeTooltip" xml:space="preserve">
+    <value>External Id Type</value>
+  </data>
+  <data name="ForeignCapitalCurrencyTooltip" xml:space="preserve">
+    <value>Foreign Capital Currency</value>
+  </data>
+  <data name="ForeignCapitalShareTooltip" xml:space="preserve">
+    <value>Foreign Capital Share</value>
+  </data>
+  <data name="ForeignParticipationCountriesTooltip" xml:space="preserve">
+    <value>Foreign participation countries</value>
+  </data>
+  <data name="ForeignParticipationTooltip" xml:space="preserve">
+    <value>Foreign participation</value>
+  </data>
+  <data name="InstSectorCodeIdTooltip" xml:space="preserve">
+    <value>Sector code</value>
+  </data>
+  <data name="LegalFormIdTooltip" xml:space="preserve">
+    <value>Legal Form</value>
+  </data>
+  <data name="LegalUnitIdDateTooltip" xml:space="preserve">
+    <value>Legal Unit Date</value>
+  </data>
+  <data name="LegalUnitIdTooltip" xml:space="preserve">
+    <value>Legal Unit</value>
+  </data>
+  <data name="LegalUnitsTooltip" xml:space="preserve">
+    <value>Legal Units</value>
+  </data>
+  <data name="LiqDateEndTooltip" xml:space="preserve">
+    <value>Liq Date End</value>
+  </data>
+  <data name="LiqDateStartTooltip" xml:space="preserve">
+    <value>Liq Date Start</value>
+  </data>
+  <data name="LiqReasonTooltip" xml:space="preserve">
+    <value>Liq Reason</value>
+  </data>
+  <data name="MarketTooltip" xml:space="preserve">
+    <value>Market</value>
+  </data>
+  <data name="MunCapitalShareTooltip" xml:space="preserve">
+    <value>Mun Capital Share</value>
+  </data>
+  <data name="NotesTooltip" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="NumOfPeopleEmpTooltip" xml:space="preserve">
+    <value>Number of people</value>
+  </data>
+  <data name="ParentOrgLinkTooltip" xml:space="preserve">
+    <value>Parent Org Link</value>
+  </data>
+  <data name="PersonsTooltip" xml:space="preserve">
+    <value>Persons</value>
+  </data>
+  <data name="PostalAddressTooltip" xml:space="preserve">
+    <value>Postal Address</value>
+  </data>
+  <data name="PrivCapitalShareTooltip" xml:space="preserve">
+    <value>Priv Capital Share</value>
+  </data>
+  <data name="RegDateTooltip" xml:space="preserve">
+    <value>Registration Date</value>
+  </data>
+  <data name="RegistrationReasonTooltip" xml:space="preserve">
+    <value>Registration reason</value>
+  </data>
+  <data name="ReorgDateTooltip" xml:space="preserve">
+    <value>Reorg Date</value>
+  </data>
+  <data name="ReorgReferencesTooltip" xml:space="preserve">
+    <value>Reorg References</value>
+  </data>
+  <data name="ReorgTypeCodeTooltip" xml:space="preserve">
+    <value>Reorg Type Code</value>
+  </data>
+  <data name="ReorgTypeTooltip" xml:space="preserve">
+    <value>Reorg type</value>
+  </data>
+  <data name="ShortNameTooltip" xml:space="preserve">
+    <value>Short name</value>
+  </data>
+  <data name="StartPeriodTooltip" xml:space="preserve">
+    <value>Start Period</value>
+  </data>
+  <data name="StateCapitalShareTooltip" xml:space="preserve">
+    <value>State Capital Share</value>
+  </data>
+  <data name="StatIdDateTooltip" xml:space="preserve">
+    <value>Statistical id date</value>
+  </data>
+  <data name="StatIdTooltip" xml:space="preserve">
+    <value>Statistical Id</value>
+  </data>
+  <data name="StatNameTooltip" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="StatusDateTooltip" xml:space="preserve">
+    <value>Status Date</value>
+  </data>
+  <data name="SuspensionStartTooltip" xml:space="preserve">
+    <value>Suspension Start</value>
+  </data>
+  <data name="TaxRegDateTooltip" xml:space="preserve">
+    <value>Tax reg date</value>
+  </data>
+  <data name="TaxRegIdTooltip" xml:space="preserve">
+    <value>Tax reg id</value>
+  </data>
+  <data name="TelephoneNoTooltip" xml:space="preserve">
+    <value>Telephone number</value>
+  </data>
+  <data name="TotalCapitalTooltip" xml:space="preserve">
+    <value>Total Capital</value>
+  </data>
+  <data name="TurnoverDateTooltip" xml:space="preserve">
+    <value>Turnover date</value>
+  </data>
+  <data name="TurnoverTooltip" xml:space="preserve">
+    <value>Turnover</value>
+  </data>
+  <data name="TurnoverYearTooltip" xml:space="preserve">
+    <value>Activity year</value>
+  </data>
+  <data name="UnitSizeTooltip" xml:space="preserve">
+    <value>Unit size</value>
+  </data>
+  <data name="UnitStatusTooltip" xml:space="preserve">
+    <value>Unit status</value>
+  </data>
+  <data name="WebAddressTooltip" xml:space="preserve">
+    <value>Web address</value>
+  </data>
+  <data name="AddressPart1Tooltip" xml:space="preserve">
+    <value>Apartment number</value>
+  </data>
+  <data name="AddressPart2Tooltip" xml:space="preserve">
+    <value>Street and house number</value>
+  </data>
+  <data name="AddressPart3Tooltip" xml:space="preserve">
+    <value>Postal address Id</value>
+  </data>
+  <data name="FreeEconZoneTooltip" xml:space="preserve">
+    <value>Free econ zone</value>
+  </data>
+  <data name="LatitudeTooltip" xml:space="preserve">
+    <value>N/S</value>
+  </data>
+  <data name="LocalUnitsTooltip" xml:space="preserve">
+    <value>Local Units</value>
+  </data>
+  <data name="LongitudeTooltip" xml:space="preserve">
+    <value>W/E</value>
+  </data>
+  <data name="RegionIdTooltip" xml:space="preserve">
+    <value>Region</value>
+  </data>
 </root>

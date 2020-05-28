@@ -32,9 +32,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool Notes { get; set; }
         public bool FreeEconZone { get; set; }
         public bool Classified { get; set; }
-        public bool Size { get; set; }
-        public bool DataSourceClassification { get; set; }
-        public bool UnitStatus { get; set; }
         public bool PostalAddress { get; set; }
         public bool TaxRegId { get; set; }
         public bool TaxRegDate { get; set; }
