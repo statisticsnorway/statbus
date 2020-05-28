@@ -178,6 +178,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Activity code.
+        /// </summary>
+        public static string ActivityCategoryIdTooltip {
+            get {
+                return ResourceManager.GetString("ActivityCategoryIdTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Activity types.
         /// </summary>
         public static string ActivityCategoryLookup {
@@ -961,6 +970,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Birth date.
+        /// </summary>
+        public static string BirthDateTooltip {
+            get {
+                return ResourceManager.GetString("BirthDateTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Add.
         /// </summary>
         public static string ButtonAdd {
@@ -1299,6 +1317,15 @@ namespace nscreg.Resources.Languages {
         public static string CountryId {
             get {
                 return ResourceManager.GetString("CountryId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Country id.
+        /// </summary>
+        public static string CountryIdTooltip {
+            get {
+                return ResourceManager.GetString("CountryIdTooltip", resourceCulture);
             }
         }
         
@@ -3796,6 +3823,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Middle name.
+        /// </summary>
+        public static string MiddleNameTooltip {
+            get {
+                return ResourceManager.GetString("MiddleNameTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Mun capital share.
         /// </summary>
         public static string MunCapitalShare {
@@ -4336,6 +4372,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Personal id.
+        /// </summary>
+        public static string PersonalIdTooltip {
+            get {
+                return ResourceManager.GetString("PersonalIdTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Person with same requisites already exists in Statistical Unit.
         /// </summary>
         public static string PersonAlreadyExists {
@@ -4444,6 +4489,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Person type.
+        /// </summary>
+        public static string PersonTypeTooltip {
+            get {
+                return ResourceManager.GetString("PersonTypeTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Phone.
         /// </summary>
         public static string Phone {
@@ -4467,6 +4521,24 @@ namespace nscreg.Resources.Languages {
         public static string PhoneNumber1 {
             get {
                 return ResourceManager.GetString("PhoneNumber1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Phone number.
+        /// </summary>
+        public static string PhoneNumber1Tooltip {
+            get {
+                return ResourceManager.GetString("PhoneNumber1Tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Phone number.
+        /// </summary>
+        public static string PhoneNumberTooltip {
+            get {
+                return ResourceManager.GetString("PhoneNumberTooltip", resourceCulture);
             }
         }
         
@@ -5929,6 +6001,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Sex.
+        /// </summary>
+        public static string SexTooltip {
+            get {
+                return ResourceManager.GetString("SexTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на And.
         /// </summary>
         public static string SfAnd {
@@ -6235,11 +6316,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Activity Date.
+        /// </summary>
+        public static string StatUnitActivityDateTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitActivityDateTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Employees number.
         /// </summary>
         public static string StatUnitActivityEmployeesNumber {
             get {
                 return ResourceManager.GetString("StatUnitActivityEmployeesNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Employees number.
+        /// </summary>
+        public static string StatUnitActivityEmployeesNumberTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitActivityEmployeesNumberTooltip", resourceCulture);
             }
         }
         
@@ -6289,6 +6388,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Activity type.
+        /// </summary>
+        public static string StatUnitActivityTypeTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitActivityTypeTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Year.
         /// </summary>
         public static string StatUnitActivityYear {
@@ -6330,6 +6438,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitFormPersonName {
             get {
                 return ResourceManager.GetString("StatUnitFormPersonName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Person name.
+        /// </summary>
+        public static string StatUnitFormPersonNameTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitFormPersonNameTooltip", resourceCulture);
             }
         }
         
@@ -6474,6 +6591,15 @@ namespace nscreg.Resources.Languages {
         public static string Surname {
             get {
                 return ResourceManager.GetString("Surname", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Surname.
+        /// </summary>
+        public static string SurnameTooltip {
+            get {
+                return ResourceManager.GetString("SurnameTooltip", resourceCulture);
             }
         }
         

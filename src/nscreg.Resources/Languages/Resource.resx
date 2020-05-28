@@ -2599,4 +2599,46 @@
   <data name="RegionIdTooltip" xml:space="preserve">
     <value>Region</value>
   </data>
+  <data name="ActivityCategoryIdTooltip" xml:space="preserve">
+    <value>Activity code</value>
+  </data>
+  <data name="StatUnitActivityTypeTooltip" xml:space="preserve">
+    <value>Activity type</value>
+  </data>
+  <data name="BirthDateTooltip" xml:space="preserve">
+    <value>Birth date</value>
+  </data>
+  <data name="CountryIdTooltip" xml:space="preserve">
+    <value>Country id</value>
+  </data>
+  <data name="MiddleNameTooltip" xml:space="preserve">
+    <value>Middle name</value>
+  </data>
+  <data name="PersonalIdTooltip" xml:space="preserve">
+    <value>Personal id</value>
+  </data>
+  <data name="PersonTypeTooltip" xml:space="preserve">
+    <value>Person type</value>
+  </data>
+  <data name="PhoneNumber1Tooltip" xml:space="preserve">
+    <value>Phone number</value>
+  </data>
+  <data name="PhoneNumberTooltip" xml:space="preserve">
+    <value>Phone number</value>
+  </data>
+  <data name="SexTooltip" xml:space="preserve">
+    <value>Sex</value>
+  </data>
+  <data name="StatUnitActivityDateTooltip" xml:space="preserve">
+    <value>Activity Date</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumberTooltip" xml:space="preserve">
+    <value>Employees number</value>
+  </data>
+  <data name="StatUnitFormPersonNameTooltip" xml:space="preserve">
+    <value>Person name</value>
+  </data>
+  <data name="SurnameTooltip" xml:space="preserve">
+    <value>Surname</value>
+  </data>
 </root>
