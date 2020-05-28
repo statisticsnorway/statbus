@@ -45,26 +45,32 @@ namespace nscreg.Data.Entities
         [Display(Order = 892, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.MarketTooltip))]
         public bool Market { get; set; }
+
         [Column(nameof(TotalCapital))]
         [Display(Order = 845, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.TotalCapitalTooltip))]
         public string TotalCapital { get; set; }
+
         [Column(nameof(MunCapitalShare))]
         [Display(Order = 825, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.MunCapitalShareTooltip))]
         public string MunCapitalShare { get; set; }
+
         [Column(nameof(StateCapitalShare))]
         [Display(Order = 830, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.StateCapitalShareTooltip))]
         public string StateCapitalShare { get; set; }
+
         [Column(nameof(PrivCapitalShare))]
         [Display(Order = 820, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.PrivCapitalShareTooltip))]
         public string PrivCapitalShare { get; set; }
+
         [Column(nameof(ForeignCapitalShare))]
         [Display(Order = 835, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignCapitalShareTooltip))]
         public string ForeignCapitalShare { get; set; }
+
         [Column(nameof(ForeignCapitalCurrency))]
         [Display(Order = 840, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignCapitalCurrencyTooltip))]
@@ -75,6 +81,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.LocalUnitLookup)]
         [Display(GroupName = GroupNames.LinkInfo, Order = 202)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LocalUnitsTooltip))]
         public virtual ICollection<LocalUnit> LocalUnits { get; set; } = new HashSet<LocalUnit>();
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

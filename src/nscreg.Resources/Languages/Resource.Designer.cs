@@ -349,6 +349,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Apartment number.
+        /// </summary>
+        public static string AddressPart1Tooltip {
+            get {
+                return ResourceManager.GetString("AddressPart1Tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Street and house number.
         /// </summary>
         public static string AddressPart2 {
@@ -358,11 +367,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Street and house number.
+        /// </summary>
+        public static string AddressPart2Tooltip {
+            get {
+                return ResourceManager.GetString("AddressPart2Tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Postal address Id.
         /// </summary>
         public static string AddressPart3 {
             get {
                 return ResourceManager.GetString("AddressPart3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Postal address Id.
+        /// </summary>
+        public static string AddressPart3Tooltip {
+            get {
+                return ResourceManager.GetString("AddressPart3Tooltip", resourceCulture);
             }
         }
         
@@ -2779,6 +2806,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Free econ zone.
+        /// </summary>
+        public static string FreeEconZoneTooltip {
+            get {
+                return ResourceManager.GetString("FreeEconZoneTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Given name.
         /// </summary>
         public static string GivenName {
@@ -3144,6 +3180,15 @@ namespace nscreg.Resources.Languages {
         public static string Latitude {
             get {
                 return ResourceManager.GetString("Latitude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на N/S.
+        /// </summary>
+        public static string LatitudeTooltip {
+            get {
+                return ResourceManager.GetString("LatitudeTooltip", resourceCulture);
             }
         }
         
@@ -3517,6 +3562,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Local Units.
+        /// </summary>
+        public static string LocalUnitsTooltip {
+            get {
+                return ResourceManager.GetString("LocalUnitsTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Address contains a least than two fields.
         /// </summary>
         public static string LogicalChecksAddressTooFewInfo {
@@ -3648,6 +3702,15 @@ namespace nscreg.Resources.Languages {
         public static string Longitude {
             get {
                 return ResourceManager.GetString("Longitude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на W/E.
+        /// </summary>
+        public static string LongitudeTooltip {
+            get {
+                return ResourceManager.GetString("LongitudeTooltip", resourceCulture);
             }
         }
         
@@ -4728,6 +4791,15 @@ namespace nscreg.Resources.Languages {
         public static string RegionDeleteMessage {
             get {
                 return ResourceManager.GetString("RegionDeleteMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Region.
+        /// </summary>
+        public static string RegionIdTooltip {
+            get {
+                return ResourceManager.GetString("RegionIdTooltip", resourceCulture);
             }
         }
         
