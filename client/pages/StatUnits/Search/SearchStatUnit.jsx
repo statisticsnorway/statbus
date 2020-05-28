@@ -79,8 +79,11 @@ class Search extends React.Component {
   }
 
   handleResetForm = () => {
+    console.log('сброс')
+
     this.props.clear()
     this.props.setQuery({})
+    console.log('this.props', this.props)
   }
 
   handleConfirm = () => {

@@ -32,7 +32,9 @@ const hooks = {
   },
   componentWillReceiveProps(nextProps) {
     if (!equals(nextProps.query, this.props.query)) {
-      nextProps.fetchData(nextProps.query)
+      console.log('componentWillReceiveProps(nextProps)', nextProps)
+
+      // nextProps.fetchData(nextProps.query)
     }
   },
   shouldComponentUpdate(nextProps, nextState) {
@@ -51,6 +53,7 @@ const mapStateToProps = (state, props) => ({
   localize: getText(state.locale),
   locale: state.locale,
   error: state.statUnits.error,
+  // setIsReset: this.setIsReset,
 })
 
 const mapDispatchToProps = (dispatch, props) => ({
