@@ -43,7 +43,11 @@ export default function RangeField({
     style,
   }
   return (
-    <div className="field">
+    <div
+      className="field"
+      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+      data-position="top left"
+    >
       {label && <label htmlFor={id}>{label}</label>}
       <Input fluid>
         {from > to && (

@@ -127,63 +127,87 @@ class ActivityEdit extends React.Component {
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <SelectField
-                name="activityCategoryId"
-                label="StatUnitActivityRevX"
-                lookup={13}
-                onChange={this.activitySelectedHandler}
-                value={value.activityCategoryId}
-                localize={localize}
-                locale={locale}
-                required={activityMandatoryFields.ActivityCategoryId}
-              />
+              <div
+                className="field"
+                data-tooltip={localize('ActivityCategoryIdTooltip')}
+                data-position="top left"
+              >
+                <SelectField
+                  name="activityCategoryId"
+                  label="StatUnitActivityRevX"
+                  lookup={13}
+                  onChange={this.activitySelectedHandler}
+                  value={value.activityCategoryId}
+                  localize={localize}
+                  locale={locale}
+                  required={activityMandatoryFields.ActivityCategoryId}
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Select
-                label={localize('StatUnitActivityType')}
-                placeholder={localize('StatUnitActivityType')}
-                options={activities.map(a => ({
-                  value: a.key,
-                  text: localize(a.value),
-                }))}
-                value={value.activityType}
-                error={!value.activityType}
-                name="activityType"
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                required={activityMandatoryFields.ActivityType}
-              />
-              <Form.Select
-                label={localize('TurnoverYear')}
-                placeholder={localize('TurnoverYear')}
-                options={[notSelected, ...yearsOptions]}
-                value={value.activityYear}
-                name="activityYear"
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                required={activityMandatoryFields.ActivityYear}
-                search
-              />
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitActivityTypeTooltip')}
+                data-position="top left"
+              >
+                <Form.Select
+                  label={localize('StatUnitActivityType')}
+                  placeholder={localize('StatUnitActivityType')}
+                  options={activities.map(a => ({
+                    value: a.key,
+                    text: localize(a.value),
+                  }))}
+                  value={value.activityType}
+                  error={!value.activityType}
+                  name="activityType"
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                  required={activityMandatoryFields.ActivityType}
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('TurnoverYearTooltip')}
+                data-position="top left"
+              >
+                <Form.Select
+                  label={localize('TurnoverYear')}
+                  placeholder={localize('TurnoverYear')}
+                  options={[notSelected, ...yearsOptions]}
+                  value={value.activityYear}
+                  name="activityYear"
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                  required={activityMandatoryFields.ActivityYear}
+                  search
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Popup
-                trigger={
-                  <Form.Input
-                    label={localize('StatUnitActivityEmployeesNumber')}
-                    placeholder={localize('StatUnitActivityEmployeesNumber')}
-                    type="number"
-                    name="employees"
-                    value={value.employees}
-                    onChange={this.onFieldChange}
-                    min={0}
-                    required={activityMandatoryFields.Employees}
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                }
-                content={`6 ${localize('MaxLength')}`}
-                open={value.employees.length > 6}
-              />
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitActivityEmployeesNumberTooltip')}
+                data-position="top left"
+              >
+                <Popup
+                  trigger={
+                    <Form.Input
+                      label={localize('StatUnitActivityEmployeesNumber')}
+                      placeholder={localize('StatUnitActivityEmployeesNumber')}
+                      type="number"
+                      name="employees"
+                      value={value.employees}
+                      onChange={this.onFieldChange}
+                      min={0}
+                      required={activityMandatoryFields.Employees}
+                      disabled={disabled}
+                      autoComplete="off"
+                    />
+                  }
+                  content={`6 ${localize('MaxLength')}`}
+                  open={value.employees.length > 6}
+                />
+              </div>
               <div
                 data-tooltip={localize('InThousandsKGS')}
                 data-position="top left"
@@ -210,15 +234,21 @@ class ActivityEdit extends React.Component {
               </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <DateTimeField
-                value={value.idDate}
-                onChange={this.onFieldChange}
-                name="idDate"
-                label="StatUnitActivityDate"
-                disabled={disabled}
-                localize={localize}
-                required={activityMandatoryFields.IdDate}
-              />
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitActivityDateTooltip')}
+                data-position="top left"
+              >
+                <DateTimeField
+                  value={value.idDate}
+                  onChange={this.onFieldChange}
+                  name="idDate"
+                  label="StatUnitActivityDate"
+                  disabled={disabled}
+                  localize={localize}
+                  required={activityMandatoryFields.IdDate}
+                />
+              </div>
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>

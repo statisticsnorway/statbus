@@ -30,7 +30,11 @@ const TextField = ({
   }
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
   return (
-    <div className={cssClass}>
+    <div
+      className={cssClass}
+      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+      data-position="top left"
+    >
       {restProps.name === 'name' ? <Form.TextArea {...props} /> : <Form.Input {...props} />}
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
