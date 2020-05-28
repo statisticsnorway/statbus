@@ -43,6 +43,7 @@ namespace nscreg.Data.Entities
 
         [SearchComponent]
         [Display(Order = 210, GroupName = GroupNames.LinkInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ParentOrgLinkTooltip))]
         public virtual int? ParentOrgLink { get; set; }
 
         [Display(Order = 120, GroupName = GroupNames.StatUnitInfo)]
@@ -111,6 +112,7 @@ namespace nscreg.Data.Entities
         public virtual Address PostalAddress { get; set; }
 
         [Display(Order = 890, GroupName = GroupNames.CapitalInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.FreeEconZoneTooltip))]
         public bool FreeEconZone { get; set; }
 
         [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
@@ -150,17 +152,20 @@ namespace nscreg.Data.Entities
         public bool? Classified { get; set; }
 
         [Display(Order = 143, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatusDateTooltip))]
         public DateTime? StatusDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [MaxLength(25)]
         public string RefNo { get; set; }
 
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.InstSectorCodeIdTooltip))]
         public virtual int? InstSectorCodeId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual SectorCode InstSectorCode { get; set; }
 
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalFormIdTooltip))]
         public virtual int? LegalFormId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
