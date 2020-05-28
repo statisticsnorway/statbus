@@ -38,7 +38,7 @@ export const getFieldsForActivityUpload = () => [
 ]
 
 function getColsWithPoints(cols, fieldName) {
-  return cols.filter(x => x.split('.').length > 1 && x.split('.')[0] === fieldName);
+  return cols.filter(x => x.split('.').length > 1 && x.split('.')[0] === fieldName)
 }
 
 function filterNameAndCode(value: string, isEqual: Boolean) {
@@ -50,25 +50,34 @@ function filterNameAndCode(value: string, isEqual: Boolean) {
 }
 
 export function tryFieldIsRequired(cols: Array, field: string, variablesMapping) {
-  return cols.includes(field) && !variablesMapping.map(([, prop]) => prop).includes(field) ||
-  getColsWithPoints(cols, field).length > 0 &&
-    getColsWithPoints(cols, field).filter(x => filterNameAndCode(x, false))
-      .filter(s => !variablesMapping.map(([, vari]) => vari)
-        .filter(x => filterNameAndCode(x, false)).includes(s)).length > 0 ||
-  getColsWithPoints(cols, field).length > 0 &&
-    getColsWithPoints(cols, field).filter(x => filterNameAndCode(x, true))
-      .filter(s => !variablesMapping.map(([, vari]) => vari)
-        .filter(x => x.split('.')[0] === field && filterNameAndCode(x, true)).includes(s)).length > 1
+  return (
+    (cols.includes(field) && !variablesMapping.map(([, prop]) => prop).includes(field)) ||
+    (getColsWithPoints(cols, field).length > 0 &&
+      getColsWithPoints(cols, field)
+        .filter(x => filterNameAndCode(x, false))
+        .filter(s =>
+          !variablesMapping
+            .map(([, vari]) => vari)
+            .filter(x => filterNameAndCode(x, false))
+            .includes(s)).length > 0) ||
+    (getColsWithPoints(cols, field).length > 0 &&
+      getColsWithPoints(cols, field)
+        .filter(x => filterNameAndCode(x, true))
+        .filter(s =>
+          !variablesMapping
+            .map(([, vari]) => vari)
+            .filter(x => x.split('.')[0] === field && filterNameAndCode(x, true))
+            .includes(s)).length > 1)
+  )
 }
 
 function testStatUnitMappings(context, columns) {
   const cols = columns[
     toCamelCase(enums.statUnitTypes.get(Number(context.parent.statUnitType)))
   ].map(col => col.name)
-  const mandatoryFields = getMandatoryFields(context.parent.statUnitType);
+  const mandatoryFields = getMandatoryFields(context.parent.statUnitType)
   const message = mandatoryFields
-    .filter(field =>
-      tryFieldIsRequired(cols, field, context.parent.variablesMapping))
+    .filter(field => tryFieldIsRequired(cols, field, context.parent.variablesMapping))
     .map(field => `${field}IsRequired`)
   return message.length > 0 ? { ...context.createError('', 'variablesMapping'), message } : true
 }
