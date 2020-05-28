@@ -106,6 +106,8 @@ class DateTimeField extends React.Component {
           ${hasErrors || !this.state.isDateValid ? ' error' : ''}
           ${disabled ? 'disabled' : ''}
         `}
+        data-tooltip={localize(popuplocalizedKey)}
+        data-position="top left"
       >
         {label !== undefined && <label htmlFor={id}>{label}</label>}
         <Form.Input {...inputProps} />
