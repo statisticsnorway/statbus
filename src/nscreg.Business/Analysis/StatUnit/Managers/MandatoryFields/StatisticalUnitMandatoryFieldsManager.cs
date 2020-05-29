@@ -84,7 +84,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             var suStatUnitBools = new[]
             {
                 _statisticalUnit.StatId != null,
-                _statisticalUnit.RegId != null,
                 _statisticalUnit.TaxRegId != null,
                 _statisticalUnit.ExternalId != null
             };

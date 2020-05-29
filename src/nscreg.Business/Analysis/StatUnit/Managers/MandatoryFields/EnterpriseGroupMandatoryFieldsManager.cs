@@ -3,6 +3,7 @@ using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Collections.Generic;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using System.Linq;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 {
@@ -57,7 +58,18 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 
         public Dictionary<string, string[]> CheckOnlyIdentifiersFields()
         {
-            throw new System.NotImplementedException();
+            var messages = new Dictionary<string, string[]>();
+            var suStatUnitBools = new[]
+            {
+                _enterpriseGroup.StatId != null,
+                _enterpriseGroup.TaxRegId != null,
+                _enterpriseGroup.ExternalId != null
+            };
+            if (!suStatUnitBools.Contains(true))
+            {
+                messages.Add(nameof(_enterpriseGroup.RegId), new[] { "" });
+            }
+            return messages;
         }
     }
 }
