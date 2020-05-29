@@ -1,6 +1,6 @@
 import React from 'react'
 import { arrayOf, func, shape, string } from 'prop-types'
-import { Grid, Label, Header, Segment, Message, Popup } from 'semantic-ui-react'
+import { Grid, Label, Header, Segment, Message } from 'semantic-ui-react'
 import R from 'ramda'
 import { groupByToArray } from 'helpers/enumerable'
 
@@ -8,6 +8,7 @@ import ListWithDnd from 'components/ListWithDnd'
 import { hasValue } from 'helpers/validation'
 import colors from 'helpers/colors'
 import Item from './Item'
+import { tryFieldIsRequired } from '../model'
 import styles from './styles.pcss'
 
 const resetSelection = ({ hovered }) => ({
@@ -105,6 +106,11 @@ class MappingsEditor extends React.Component {
     this.setState(resetSelection)
   }
 
+  // eslint-disable-next-line class-methods-use-this
+  functionTryFieldIsRequired(cols: Array, field: string, variablesMapping) {
+    return tryFieldIsRequired(cols.map(x => x.name), field.split('.')[0], variablesMapping)
+  }
+
   handleMouseEnter = (prop, value) => () => {
     this.setState({ hovered: { [prop]: value } }, () => {
       if (this.mouseUpIsBeingTracked(prop)) {
@@ -147,7 +153,8 @@ class MappingsEditor extends React.Component {
         color={
           prop === 'left' || index >= 0
             ? this.getAttributeColor(prop, value)
-            : isRequired
+            : isRequired &&
+              this.functionTryFieldIsRequired(this.props.columns, value, this.props.mapping.value)
             ? 'red'
             : 'grey'
         }

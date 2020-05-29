@@ -49,7 +49,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.TelephoneNo),
                     new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
-            if ((_mandatoryFields.StatUnit.RegistrationReasonId || _mandatoryFields.StatUnit.RegistrationReason) && _statisticalUnit.RegistrationReasonId == null)
+            if (_mandatoryFields.StatUnit.RegistrationReasonId && _statisticalUnit.RegistrationReasonId == null)
                 messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
@@ -69,7 +69,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.UnitStatusId), new[] { nameof(Resource.AnalysisMandatoryUnitStatus) });
             }
 
-            if (_mandatoryFields.StatUnit.ReorgTypeId && _statisticalUnit.ReorgTypeId == null)
+            if (_statisticalUnit.ReorgTypeId == null)
             {
                 messages.Add(nameof(_statisticalUnit.ReorgTypeId), new[] { nameof(Resource.AnalysisMandatoryReorgType) });
             }
