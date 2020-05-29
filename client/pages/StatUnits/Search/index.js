@@ -30,11 +30,6 @@ const hooks = {
     }
     window.scrollTo(0, 0)
   },
-  componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.query, this.props.query)) {
-      nextProps.fetchData(nextProps.query)
-    }
-  },
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
