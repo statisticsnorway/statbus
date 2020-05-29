@@ -3,9 +3,7 @@ import { func, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Loader } from 'semantic-ui-react'
 import { equals } from 'ramda'
-
 import UnitNode from './UnitNode'
-import LinksGrid from '../LinksGrid'
 
 const patchTree = (tree, node, children) => {
   const dfs = nodes =>
@@ -88,25 +86,18 @@ class LinksTree extends React.Component {
           }))
         })
 
-  onSelect = (keys, { selected, node: { props: { node: { id, type } } } }) => {
-    this.setState(
-      {
-        selectedKeys: keys,
-        links: [],
+  onSelect = (
+    keys,
+    {
+      node: {
+        props: {
+          node: { id, type },
+        },
       },
-      () => {
-        if (selected) {
-          this.props
-            .getUnitLinks({ id, type })
-            .then((response) => {
-              this.setState({ links: response })
-            })
-            .catch(() => {
-              this.setState({ selectedKeys: [] })
-            })
-        }
-      },
-    )
+    },
+  ) => {
+    this.setState({ selectedKeys: keys, links: [] })
+    window.open(`/statunits/view/${type}/${id}`, '_blank')
   }
 
   onExpand = (expandedKeys) => {
@@ -153,7 +144,7 @@ class LinksTree extends React.Component {
   }
 
   render() {
-    const { tree, links, selectedKeys, expandedKeys, isLoading } = this.state
+    const { tree, selectedKeys, expandedKeys, isLoading } = this.state
     return isLoading ? (
       <Loader active inline="centered" />
     ) : (
@@ -171,7 +162,6 @@ class LinksTree extends React.Component {
             {this.renderChildren(tree)}
           </Tree>
         )}
-        <LinksGrid localize={this.props.localize} data={links} readOnly />
       </div>
     )
   }

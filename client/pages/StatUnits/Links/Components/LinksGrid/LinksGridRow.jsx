@@ -1,5 +1,4 @@
 import React from 'react'
-import { Link } from 'react-router'
 import { func, shape, string, number, bool } from 'prop-types'
 import { Table, Icon, Popup } from 'semantic-ui-react'
 
@@ -38,18 +37,10 @@ class LinksGridRow extends React.Component {
     return (
       <Table.Row>
         <Table.Cell>{index}</Table.Cell>
-        <Table.Cell>
-          <Link to={`/statunits/view/${source1.type}/${source1.id}`} target="_blank">
-            {source1.name}
-          </Link>
-        </Table.Cell>
+        <Table.Cell>{source1.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source1.type))}</Table.Cell>
         <Table.Cell>{source1.code}</Table.Cell>
-        <Table.Cell>
-          <Link to={`/statunits/view/${source2.type}/${source2.id}`} target="_blank">
-            {source2.name}
-          </Link>
-        </Table.Cell>
+        <Table.Cell> {source2.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
         {!readOnly && (
