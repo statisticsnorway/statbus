@@ -2,6 +2,7 @@ import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
 import { Confirm, Header, Loader, Table, Modal, Button } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
+import actionCreators from './actions'
 
 import { statUnitTypes } from 'helpers/enums'
 import { getCorrectQuery, getSearchFormErrors } from 'helpers/validation'
@@ -79,11 +80,8 @@ class Search extends React.Component {
   }
 
   handleResetForm = () => {
-    console.log('сброс')
-
     this.props.clear()
     this.props.setQuery({})
-    console.log('this.props', this.props)
   }
 
   handleConfirm = () => {

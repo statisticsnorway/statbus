@@ -30,13 +30,6 @@ const hooks = {
     }
     window.scrollTo(0, 0)
   },
-  componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.query, this.props.query)) {
-      console.log('componentWillReceiveProps(nextProps)', nextProps)
-
-      // nextProps.fetchData(nextProps.query)
-    }
-  },
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
@@ -53,7 +46,6 @@ const mapStateToProps = (state, props) => ({
   localize: getText(state.locale),
   locale: state.locale,
   error: state.statUnits.error,
-  // setIsReset: this.setIsReset,
 })
 
 const mapDispatchToProps = (dispatch, props) => ({
