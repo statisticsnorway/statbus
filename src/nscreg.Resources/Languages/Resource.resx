@@ -2375,4 +2375,7 @@
   <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
     <value>TaxRegId field is duplicated</value>
   </data>
+  <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
+    <value>One of these fields (StatId/TaxRegId/ExternalId) -  should be filled </value>
+  </data>
 </root>

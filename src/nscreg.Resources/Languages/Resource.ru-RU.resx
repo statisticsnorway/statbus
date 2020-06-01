@@ -2365,4 +2365,7 @@
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
     <value>Эта правовая единица не принадлежит к предприятию </value>
   </data>
+  <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
+    <value>Одно из идентификационных полей (StatId/TaxRegId/ExternalId) должно быть заполнено</value>
+  </data>
 </root>

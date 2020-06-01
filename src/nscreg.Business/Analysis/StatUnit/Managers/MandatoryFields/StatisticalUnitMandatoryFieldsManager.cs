@@ -89,7 +89,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             };
             if (!suStatUnitBools.Contains(true))
             {
-                messages.Add(nameof(_statisticalUnit.RegId), new[] { "" });
+                messages.Add(nameof(_statisticalUnit.RegId), new[] { Resource.AnalysisOneOfTheseFieldsShouldBeFilled });
             }
             return messages;
         }

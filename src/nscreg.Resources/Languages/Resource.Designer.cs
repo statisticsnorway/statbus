@@ -682,6 +682,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One of these fields (StatId/TaxRegId/ExternalId) -  should be filled .
+        /// </summary>
+        public static string AnalysisOneOfTheseFieldsShouldBeFilled {
+            get {
+                return ResourceManager.GetString("AnalysisOneOfTheseFieldsShouldBeFilled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Enterprise has no associated with it enterprise group.
         /// </summary>
         public static string AnalysisOrphanEnterprise {
