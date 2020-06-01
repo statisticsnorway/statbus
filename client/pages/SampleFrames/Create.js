@@ -23,6 +23,9 @@ const dispatchToProps = dispatch =>
 
 export default pipe(
   createSchemaFormHoc(schema),
-  defaultProps({ values: createDefaults() }),
-  connect(stateToProps, dispatchToProps),
+  defaultProps({ values: createDefaults(), validateOnBlur: false, validateOnChange: false }),
+  connect(
+    stateToProps,
+    dispatchToProps,
+  ),
 )(FormBody)
