@@ -8,7 +8,7 @@ using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using PeterKottas.DotNetCore.WindowsService;
-using System.IO;
+using System;
 
 namespace nscreg.AnalysisService
 {
@@ -27,26 +27,11 @@ namespace nscreg.AnalysisService
                 .AddNLog()
                 .CreateLogger<Program>();
             var configBuilder = new ConfigurationBuilder();
-            var workDir = Directory.GetCurrentDirectory();
-            try
-            {
-                var rootSettingsPath = Path.Combine(workDir, "..", "..");
-                if (rootSettingsPath != null)
-                    configBuilder.AddJsonFile(
-                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
-                        true);
-            }
-            catch
-            {
-                // ignored
-            }
-
-            configBuilder
-                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
-                .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
-
-            var configuration = configBuilder.Build();
-
+            var baseDirectory = AppContext.BaseDirectory;
+            var configuration = configBuilder
+                .SetBasePath(baseDirectory)
+                .AddJsonFile("appsettings.Shared.json", true)
+                .Build();
 
             var servicesSettings = configuration
                 .GetSection(nameof(ServicesSettings))
@@ -64,12 +49,13 @@ namespace nscreg.AnalysisService
                 .Get<ValidationSettings>();
             var dbContextHelper = new DbContextHelper();
             var ctx = dbContextHelper.CreateDbContext(new string[] { });
+            const string serviceName = "nscreg.AnalysisService";
 
             ServiceRunner<JobService>.Run(config =>
             {
-                config.SetName("nscreg.AnalysisService");
-                config.SetDisplayName("nscreg.AnalysisService");
-                config.SetDescription("nscreg.AnalysisService");
+                config.SetName(serviceName);
+                config.SetDisplayName(serviceName);
+                config.SetDescription(serviceName);
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
@@ -85,7 +71,10 @@ namespace nscreg.AnalysisService
                                 )));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
-                    svcConfig.OnError(e => { });
+                    svcConfig.OnError(e =>
+                    {
+                        logger.LogError("Service errored with exception : {0}", e.Message);
+                    });
                 });
             });
         }

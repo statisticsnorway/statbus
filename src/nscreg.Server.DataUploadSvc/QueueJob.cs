@@ -60,7 +60,7 @@ namespace nscreg.Server.DataUploadSvc
             var ctx = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(ctx);
             _analysisSvc = new AnalyzeService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var createSvc = new CreateService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var createSvc = new CreateService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, StatUnitTypeOfSave.Service);
             var editSvc = new EditService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _saveManager = new SaveManager(ctx, _queueSvc, createSvc, editSvc);
         }

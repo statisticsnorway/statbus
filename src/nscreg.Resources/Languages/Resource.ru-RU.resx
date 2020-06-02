@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -710,9 +710,6 @@
   </data>
   <data name="LocalUnits" xml:space="preserve">
     <value>Местные единицы</value>
-  </data>
-  <data name="EntGroupType" xml:space="preserve">
-    <value>Тип группы предприятий</value>
   </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>Число работников, эквивалент полной занятости</value>
@@ -2367,5 +2364,11 @@
   </data>
   <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
     <value>Одно из идентификационных полей (StatId/TaxRegId/ExternalId) должно быть заполнено</value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value>Тип группы предприятий</value>
+  </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Дата последнего изменения</value>
   </data>
 </root>

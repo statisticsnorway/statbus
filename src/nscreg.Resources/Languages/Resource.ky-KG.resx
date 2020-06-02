@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1662,9 +1662,6 @@
   <data name="ReorgTypeCode" xml:space="preserve">
     <value>Реогранизация түрү код</value>
   </data>
-  <data name="EntGroupType" xml:space="preserve">
-    <value>Ишканалар группасы түрү</value>
-  </data>
   <data name="ExternalId" xml:space="preserve">
     <value>Сырткы Id</value>
   </data>
@@ -2367,5 +2364,11 @@
   </data>
   <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
     <value>Одно из идентификационных полей (StatId/TaxRegId/ExternalId) должно быть заполнено (KG)</value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value>Ишканалар группасы түрү</value>
+  </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value>Акыркы өзгөртүү күнү</value>
   </data>
 </root>

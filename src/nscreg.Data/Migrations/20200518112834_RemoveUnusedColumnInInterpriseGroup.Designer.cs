@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using nscreg.Data;
 
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20200518112834_RemoveUnusedColumnInInterpriseGroup")]
+    partial class RemoveUnusedColumnInInterpriseGroup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -530,7 +532,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EndPeriod");
 
-                    b.Property<int?>("EntGroupTypeId");
+                    b.Property<string>("EntGroupType");
 
                     b.Property<string>("ExternalId");
 
@@ -614,8 +616,6 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("DataSourceClassificationId");
 
-                    b.HasIndex("EntGroupTypeId");
-
                     b.HasIndex("Name");
 
                     b.HasIndex("PostalAddressId");
@@ -631,25 +631,6 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("UnitStatusId");
 
                     b.ToTable("EnterpriseGroups");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroupType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
-
-                    b.Property<bool>("IsDeleted");
-
-                    b.Property<string>("Name");
-
-                    b.Property<string>("NameLanguage1");
-
-                    b.Property<string>("NameLanguage2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("EnterpriseGroupTypes");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.ForeignParticipation", b =>
@@ -2034,10 +2015,6 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.DataSourceClassification", "DataSourceClassification")
                         .WithMany()
                         .HasForeignKey("DataSourceClassificationId");
-
-                    b.HasOne("nscreg.Data.Entities.EnterpriseGroupType", "EntGroupType")
-                        .WithMany("EnterpriseGroups")
-                        .HasForeignKey("EntGroupTypeId");
 
                     b.HasOne("nscreg.Data.Entities.Address", "PostalAddress")
                         .WithMany()

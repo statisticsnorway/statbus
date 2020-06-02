@@ -3,6 +3,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
+import moment from 'moment'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc/'
 import FormBody from 'components/StatUnitFormBody'
@@ -72,18 +73,69 @@ const enhance = pipe(
 
 export default enhance((props) => {
   const { values } = props
-  const currentDate = toUtc(getDate().toDate())
+  const currentDate = moment(getDate(), 'YYYY-MM-DD')
+  const lastYear = moment().format('YYYY') - 1
   if (values.taxRegId) {
     values.taxRegDate = values.taxRegDate || currentDate
+  } else {
+    values.taxRegDate = undefined
   }
   if (values.externalId) {
     values.externalIdDate = values.externalIdDate || currentDate
+  } else {
+    values.externalIdDate = undefined
   }
-  if (values.entGroupId) {
-    values.entGroupIdDate = values.entGroupIdDate || currentDate
+  if (values.turnover) {
+    values.turnoverYear = values.turnoverYear || lastYear
+    values.turnoverDate = values.turnoverDate || currentDate
+  } else {
+    values.turnoverYear = undefined
+    values.turnoverDate = undefined
   }
-  if (values.legalUnitId) {
-    values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+  if (values.employees) {
+    values.employeesYear = values.turnoverYear || lastYear
+    values.employeesDate = values.turnoverDate || currentDate
+  } else {
+    values.employeesYear = undefined
+    values.employeesDate = undefined
   }
+
+  if (props.type === 1) {
+    if (values.legalUnitId) {
+      values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+    } else {
+      values.legalUnitIdDate = undefined
+    }
+  }
+
+  if (props.type === 2) {
+    if (values.enterpriseUnitRegId) {
+      values.entRegIdDate = values.entRegIdDate || currentDate
+    } else {
+      values.entRegIdDate = undefined
+    }
+  }
+
+  if (props.type === 3) {
+    if (values.entGroupId) {
+      values.entGroupIdDate = values.entGroupIdDate || currentDate
+    } else {
+      values.entGroupIdDate = undefined
+    }
+  }
+
+  if (props.type === 4) {
+    if (values.reorgTypeId) {
+      values.registrationDate = values.registrationDate || currentDate
+    } else {
+      values.registrationDate = undefined
+    }
+    if (values.reorgTypeCode) {
+      values.reorgDate = values.reorgDate || currentDate
+    } else {
+      values.reorgDate = undefined
+    }
+  }
+
   return <FormBody {...{ ...props }} />
 })

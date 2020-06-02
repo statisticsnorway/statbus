@@ -8,7 +8,7 @@ namespace nscreg.Data.DbDataProviders
     public interface IDbDataProvider
     {
         Task<List<ReportTree>> GetReportsTree(NSCRegDbContext context, string sqlWalletUser, IConfiguration config);
-        int[] GetActivityChildren(NSCRegDbContext context, object fieldValue);
+        int[] GetActivityChildren(NSCRegDbContext context, object fieldValue, object fieldValues);
         int[] GetRegionChildren(NSCRegDbContext context, object fieldValue);
     }
 }

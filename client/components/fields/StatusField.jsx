@@ -103,14 +103,16 @@ class StatusField extends React.Component {
     responseToOption: NameCodeOption.transform,
     options: undefined,
     touched: false,
-    popuplocalizedKey: undefined,
+    popuplocalizedKey: null,
   }
 
   state = {
     initialValue: this.props.multiselect ? [] : null,
     value: hasValue(this.props.value)
       ? this.props.value
-      : this.props.multiselect ? [] : notSelected.value,
+      : this.props.multiselect
+        ? []
+        : notSelected.value,
     optionsFetched: false,
     options: [],
   }
@@ -180,10 +182,7 @@ class StatusField extends React.Component {
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options =
-          multiselect || !required || optionsFetched
-            ? data
-            : [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options = data
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           this.setState({ options: this.state.options.concat(options) }, () => {
@@ -238,6 +237,7 @@ class StatusField extends React.Component {
       width,
       onBlur,
       localize,
+      popuplocalizedKey,
     } = this.props
     const hasErrors = touched && hasValue(errorKeys)
     const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -251,10 +251,7 @@ class StatusField extends React.Component {
           onChange: this.handlePlainSelect,
           error: hasErrors,
           multiple: multiselect,
-          options:
-              multiselect || !required
-                ? options
-                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+          options,
           required,
           title,
           inline,
@@ -282,7 +279,12 @@ class StatusField extends React.Component {
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
     return (
-      <div className={className} style={{ opacity: `${disabled ? 0.25 : 1}` }}>
+      <div
+        className={className}
+        style={{ opacity: `${disabled ? 0.25 : 1}` }}
+        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+        data-position="top left"
+      >
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}

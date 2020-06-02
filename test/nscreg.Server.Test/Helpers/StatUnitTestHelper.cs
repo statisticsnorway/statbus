@@ -15,6 +15,7 @@ using System.Linq;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using nscreg.Utilities.Enums;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -39,7 +40,7 @@ namespace nscreg.Server.Test
         public async Task<LegalUnit> CreateLegalUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             AddressM address, string unitName)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings).CreateLegalUnit(new LegalUnitCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, StatUnitTypeOfSave.WebApplication).CreateLegalUnit(new LegalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                 Name = unitName,
@@ -71,7 +72,7 @@ namespace nscreg.Server.Test
         public async Task CreateLocalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, AddressM address,
             string unitName, int legalUnitRegId)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings).CreateLocalUnit(new LocalUnitCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, StatUnitTypeOfSave.WebApplication).CreateLocalUnit(new LocalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                 Name = unitName,
@@ -102,7 +103,7 @@ namespace nscreg.Server.Test
         public async Task CreateEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             AddressM address, string unitName, int[] legalUnitIds, int? enterpriseGroupId)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, StatUnitTypeOfSave.WebApplication).CreateEnterpriseUnit(new EnterpriseUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                 Name = unitName,
@@ -124,7 +125,7 @@ namespace nscreg.Server.Test
         public async Task<EnterpriseGroup> CreateEnterpriseGroupAsync(NSCRegDbContext context, AddressM address,
             string unitName, int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings).CreateEnterpriseGroup(new EnterpriseGroupCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, StatUnitTypeOfSave.WebApplication).CreateEnterpriseGroup(new EnterpriseGroupCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                 Name = unitName,

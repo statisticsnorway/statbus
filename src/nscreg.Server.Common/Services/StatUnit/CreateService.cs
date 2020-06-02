@@ -16,6 +16,7 @@ using nscreg.Utilities.Extensions;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Enums;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -36,8 +37,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Common _commonSvc;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
+        private readonly StatUnitTypeOfSave _statUnitTypeOfSave;
 
-        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
+        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings, StatUnitTypeOfSave statUnitTypeOfSave)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -46,6 +48,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
+            _statUnitTypeOfSave = statUnitTypeOfSave;
         }
 
         private void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<ActivityM> activityCategoryList)
@@ -289,9 +292,12 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
-            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+            if (_statUnitTypeOfSave == StatUnitTypeOfSave.Service)
+            {
+                IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
+                var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+                if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+            }
 
             var helper = new StatUnitCreationHelper(_dbContext);
             await helper.CheckElasticConnect();

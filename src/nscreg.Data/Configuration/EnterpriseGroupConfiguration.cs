@@ -16,6 +16,7 @@ namespace nscreg.Data.Configuration
         {
             builder.HasKey(x => x.RegId);
             builder.HasMany(x => x.EnterpriseUnits).WithOne(x => x.EnterpriseGroup).HasForeignKey(x => x.EntGroupId).IsRequired(false);
+            builder.HasOne(c => c.EntGroupType).WithMany(c => c.EnterpriseGroups).HasForeignKey(x => x.EntGroupTypeId);
             builder.ToTable("EnterpriseGroups");
             builder.Property(x => x.UserId).IsRequired();
             builder.Property(x => x.ChangeReason).IsRequired().HasDefaultValue(ChangeReasons.Create);

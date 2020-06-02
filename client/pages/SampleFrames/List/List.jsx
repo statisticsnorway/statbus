@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table, Segment, Form, Confirm } from 'semantic-ui-react'
+import config from 'helpers/config'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import { internalRequest } from 'helpers/request'
@@ -100,8 +101,9 @@ class List extends React.Component {
             <Table selectable size="small" fixed>
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell content={localize('Name')} width="5" />
-                  <Table.HeaderCell content={localize('Description')} width="5" />
+                  <Table.HeaderCell content={localize('Name')} width="3" />
+                  <Table.HeaderCell content={localize('Description')} width="4" />
+                  <Table.HeaderCell content={localize('LastChangeDate')} width="2" />
                   {(canPreview || canDelete) && <Table.HeaderCell />}
                 </Table.Row>
               </Table.Header>
@@ -112,6 +114,16 @@ class List extends React.Component {
                       {canEdit ? <Link to={`/sampleframes/${x.id}`}>{x.name}</Link> : x.name}
                     </Table.Cell>
                     <Table.Cell>{x.description}</Table.Cell>
+                    <Table.Cell>
+                      {new Intl.DateTimeFormat(
+                        localStorage.getItem('locale') || config.defaultLocale,
+                        {
+                          month: 'long',
+                          day: '2-digit',
+                          year: 'numeric',
+                        },
+                      ).format(new Date(x.editingDate))}
+                    </Table.Cell>
                     {(canDelete || canPreview) && (
                       <Table.Cell>
                         {canDelete && (

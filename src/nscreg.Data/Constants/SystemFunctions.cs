@@ -30,14 +30,11 @@ namespace nscreg.Data.Constants
         [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
         StatUnitView = 10,
 
-        [AllowedTo(DefaultRoleNames.Employee)]
-        StatUnitCreate = 11,
+        [AllowedTo(DefaultRoleNames.Employee)] StatUnitCreate = 11,
 
-        [AllowedTo(DefaultRoleNames.Employee)]
-        StatUnitEdit = 12,
+        [AllowedTo(DefaultRoleNames.Employee)] StatUnitEdit = 12,
 
-        [AllowedTo(DefaultRoleNames.Employee)]
-        StatUnitDelete = 13,
+        [AllowedTo(DefaultRoleNames.Employee)] StatUnitDelete = 13,
 
         // regions
         RegionsView = 17,
@@ -64,7 +61,9 @@ namespace nscreg.Data.Constants
         DataSourcesDelete = 35,
 
         // data source queues
+        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueView = 36,
+        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueLogView = 37,
         DataSourcesQueueLogEdit = 38,
         DataSourcesQueueAdd = 39,
@@ -79,12 +78,13 @@ namespace nscreg.Data.Constants
         AnalysisQueueLogUpdate = 44,
 
         //Sample Frames
-        SampleFramesCreate = 45,
-        SampleFramesEdit = 46,
-        SampleFramesDelete = 47,
-        SampleFramesView = 48,
-        SampleFramesPreview = 49,
+        [AllowedTo(DefaultRoleNames.Employee)] SampleFramesCreate = 45,
+        [AllowedTo(DefaultRoleNames.Employee)] SampleFramesEdit = 46,
+        [AllowedTo(DefaultRoleNames.Employee)] SampleFramesDelete = 47,
+        [AllowedTo(DefaultRoleNames.Employee)] SampleFramesView = 48,
+        [AllowedTo(DefaultRoleNames.Employee)] SampleFramesPreview = 49,
 
+        [AllowedTo(DefaultRoleNames.Employee)]
         Reports = 50,
     }
 }

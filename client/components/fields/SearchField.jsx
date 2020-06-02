@@ -31,6 +31,7 @@ class SearchField extends React.Component {
     onChange: func.isRequired,
     localize: func.isRequired,
     required: bool.isRequired,
+    popuplocalizedKey: string,
   }
 
   static defaultProps = {
@@ -38,6 +39,7 @@ class SearchField extends React.Component {
     errors: [],
     disabled: false,
     required: false,
+    popuplocalizedKey: null,
   }
 
   state = {
@@ -77,7 +79,11 @@ class SearchField extends React.Component {
     const searchData = { ...getSearchData(name), value }
     const hasErrors = errorKeys.length > 0
     return (
-      <div className={`ui field ${hasErrors ? 'error' : ''}`}>
+      <div
+        className={`ui field ${hasErrors ? 'error' : ''}`}
+        data-tooltip={this.props.popuplocalizedKey ? localize(this.props.popuplocalizedKey) : null}
+        data-position="top left"
+      >
         <SearchInput
           searchData={searchData}
           onValueChanged={this.handleChange}

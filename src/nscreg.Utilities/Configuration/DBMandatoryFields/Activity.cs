@@ -5,7 +5,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
     /// </summary>
     public class Activity
     {
-        public bool Id { get; set; }
         public bool IdDate { get; set; }
         public bool ActivityCategoryId { get; set; }
         public bool ActivityYear { get; set; }
