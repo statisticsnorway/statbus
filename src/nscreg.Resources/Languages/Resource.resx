@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2370,6 +2370,9 @@
   </data>
   <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
     <value>TaxRegId field is duplicated</value>
+  </data>
+  <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
+    <value>One of these fields (StatId/TaxRegId/ExternalId) -  should be filled </value>
   </data>
   <data name="EntGroupTypeId" xml:space="preserve">
     <value>Enterprise group type</value>

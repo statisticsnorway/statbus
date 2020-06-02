@@ -9,4 +9,9 @@ namespace nscreg.Business.Analysis.Contracts
     {
         Dictionary<string, string[]> CheckFields();
     }
+
+    public interface IMandatoryFieldsAnalysisManager : IAnalysisManager
+    {
+        Dictionary<string, string[]> CheckOnlyIdentifiersFields();
+    }
 }
