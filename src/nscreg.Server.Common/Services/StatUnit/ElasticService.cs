@@ -198,10 +198,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                 foreach (var addressFilter in addressFilters)
                 {
                     mustQueries.Add(m => m
-                        .Bool(b => b
-                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
-                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
-                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
+                        .Bool(b => b.Must(ti=>ti.Script(s=>s.Inline("doc['AddressId'].value != doc['ActualAddressId'].value")))
+                            /*.Should(s => s.Term(t=>t.Field(f=>f.AddressId).Value(t.Field(f=>f.ActualAddressId)))
+                                         && (s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
+                                         || s.Prefix(t => t.Field(f => f.ActualAddressPart2).Value(addressFilter))
+                                         || s.Prefix(t => t.Field(f => f.ActualAddressPart3).Value(addressFilter)))
+                                         || (s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
+                                             || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
+                                             || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
+                                         )*/
                         )
                     );
                 }

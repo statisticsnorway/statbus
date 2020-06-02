@@ -8,12 +8,10 @@ namespace nscreg.Server.Common.Models.StatUnits.Search
         {
             AddressPart1 = statUnit.AddressPart1;
             AddressPart2 = statUnit.AddressPart2;
-            AddressPart3 = statUnit.AddressPart3;
-        }
 
+        }
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
-        public string AddressPart3 { get; set; }
         public string FullPath { get; set; }
         public string FullPathLanguage1 { get; set; }
         public string FullPathLanguage2 { get; set; }
