@@ -47,7 +47,6 @@ namespace nscreg.Server.Common.Models.StatUnits
                 && !TurnoverTo.HasValue && !LastChangeFrom.HasValue && !LastChangeTo.HasValue && !LegalFormId.HasValue
                 && !SectorCodeId.HasValue && !RegMainActivityId.HasValue && !RegionId.HasValue
                 && !DataSourceClassificationId.HasValue
-                && !IncludeLiquidated.HasValue
                 && !Comparison.HasValue && !SortBy.HasValue;
         }
     }

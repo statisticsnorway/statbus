@@ -155,7 +155,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.UserName, opt => opt.MapFrom(x => x.User.Name));
 
             CreateMap<ElasticStatUnit, SearchViewAdapterModel>()
-                .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(x)))
+                .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(
+                    new StatUnitSearchView()){AddressPart1 = x.ActualAddressPart1 == null ?  x.AddressPart1 : x.AddressPart1 != x.ActualAddressPart1 ? x.ActualAddressPart1 : x.AddressPart1, AddressPart2 = x.ActualAddressPart2 == null ? x.AddressPart2 : x.AddressPart2 != x.ActualAddressPart2 ? x.ActualAddressPart2 : x.AddressPart2}))
                 .ForMember(x => x.Persons, opt => opt.Ignore())
                 .ForMember(x => x.Activities, opt => opt.Ignore());
 

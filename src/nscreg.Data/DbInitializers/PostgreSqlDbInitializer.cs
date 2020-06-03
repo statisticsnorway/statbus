@@ -50,7 +50,10 @@ namespace nscreg.Data.DbInitializers
                                                          ""TaxRegId"",
                                                          ""StatId"",
                                                          ""ExternalId"",
-                                                         ""addr"".""Region_id"" AS ""RegionId"",
+                                                        CASE
+						                                    WHEN ""act_addr"".""Region_id"" IS NULL THEN  ""addr"".""Region_id""
+						                                    ELSE ""act_addr"".""Region_id""
+						                                    END AS ""RegionId"",
                                                          ""act_addr"".""Region_id"" AS ""ActualAddressRegionId"",
                                                          ""Employees"",
                                                          ""Turnover"",
@@ -91,7 +94,10 @@ namespace nscreg.Data.DbInitializers
                                                          ""TaxRegId"",
                                                          ""StatId"",
                                                          ""ExternalId"",
-                                                         ""addr"".""Region_id"" AS ""RegionId"",
+                                                        CASE
+						                                    WHEN ""act_addr"".""Region_id"" IS NULL THEN  ""addr"".""Region_id""
+						                                    ELSE ""act_addr"".""Region_id""
+						                                    END AS ""RegionId"",
                                                          ""act_addr"".""Region_id"" AS ""ActualAddressRegionId"",
                                                          ""Employees"",
                                                          ""Turnover"",
