@@ -10,6 +10,7 @@ import { internalRequest } from 'helpers/request'
 import { getNewName } from 'helpers/locale'
 
 import styles from './styles.pcss'
+import './SelectField.css'
 
 const notSelected = { value: undefined, text: 'NotSelected' }
 
@@ -90,29 +91,29 @@ class SelectField extends React.Component {
   }
 
   static defaultProps = {
-    value: undefined,
+    value: null,
     onBlur: R.identity,
-    label: undefined,
-    title: undefined,
-    placeholder: undefined,
+    label: null,
+    title: null,
+    placeholder: null,
     multiselect: false,
     required: false,
     error: false,
     errors: [],
     disabled: false,
     inline: false,
-    width: undefined,
+    width: null,
     createOptionComponent: NameCodeOption.render,
     pageSize: 10,
     waitTime: 250,
-    lookup: undefined,
+    lookup: null,
     responseToOption: NameCodeOption.transform,
-    options: undefined,
+    options: null,
     isEdit: false,
     locale: '',
     url: '',
     touched: false,
-    popuplocalizedKey: undefined,
+    popuplocalizedKey: null,
   }
 
   state = {
@@ -124,123 +125,15 @@ class SelectField extends React.Component {
         : notSelected.value,
     optionsFetched: false,
     options: [],
-    test: [
-      {
-        id: 15,
-        code: '10000',
-        name: 'Nhkqoer',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 15,
-        value: 15,
-        label: '10000 Nhkqoer',
-        text: '10000 Nhkqoer',
-      },
-      {
-        id: 18,
-        code: '10001',
-        name: 'Gurulpm',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 18,
-        value: 18,
-        label: '10001 Gurulpm',
-        text: '10001 Gurulpm',
-      },
-      {
-        id: 21,
-        code: '10002',
-        name: 'Mlfoauh mqjjg',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 21,
-        value: 21,
-        label: '10002 Mlfoauh mqjjg',
-        text: '10002 Mlfoauh mqjjg',
-      },
-      {
-        id: 24,
-        code: '10003',
-        name: 'QbdsvtaVnshiex',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 24,
-        value: 24,
-        label: '10003 QbdsvtaVnshiex',
-        text: '10003 QbdsvtaVnshiex',
-      },
-      {
-        id: 27,
-        code: '10004',
-        name: 'Qsznivl brdwn',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 27,
-        value: 27,
-        label: '10004 Qsznivl brdwn',
-        text: '10004 Qsznivl brdwn',
-      },
-      {
-        id: 30,
-        code: '10005',
-        name: 'BJD',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 30,
-        value: 30,
-        label: '10005 BJD',
-        text: '10005 BJD',
-      },
-      {
-        id: 33,
-        code: '10006',
-        name: 'Wauddqn xHcgutka y',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 33,
-        value: 33,
-        label: '10006 Wauddqn xHcgutka y',
-        text: '10006 Wauddqn xHcgutka y',
-      },
-      {
-        id: 36,
-        code: '10007',
-        name: 'LCBVW',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 36,
-        value: 36,
-        label: '10007 LCBVW',
-        text: '10007 LCBVW',
-      },
-      {
-        id: 39,
-        code: '10008',
-        name: 'Qromwjf ptuzh',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 39,
-        value: 39,
-        label: '10008 Qromwjf ptuzh',
-        text: '10008 Qromwjf ptuzh',
-      },
-      {
-        id: 42,
-        code: '10009',
-        name: 'Hcgutka y',
-        nameLanguage1: null,
-        nameLanguage2: null,
-        key: 42,
-        value: 42,
-        label: '10009 Hcgutka y',
-        text: '10009 Hcgutka y',
-      },
-    ],
+    isLoading: false,
+    page: 0,
+    wildcard: '',
   }
 
   componentDidMount() {
     if (hasValue(this.props.options)) return
     const { value: ids, lookup, multiselect, responseToOption } = this.props
+    this.setState({ isLoading: true })
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },
@@ -262,7 +155,7 @@ class SelectField extends React.Component {
       .then((result) => {
         const options =
           Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
-        this.setState({ options })
+        this.setState({ options, isLoading: false, page: this.state.page + 1 })
       })
   }
 
@@ -312,37 +205,24 @@ class SelectField extends React.Component {
     this.handleLoadOptions.cancel()
   }
 
-  componentDidUpdate() {
-    if (this.props.multiselect) {
-      console.log('this props', this.props)
-
-      console.log('this state', this.state.options)
-    }
-  }
-
-  loadOptions = (wildcard, page, callback) => {
+  loadOptions = (callback) => {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
+    const { wildcard, page } = this.state
 
-    // console.log('page', page)
-    console.log('loadOptions')
+    console.log('this.props', this.props)
 
-    const { optionsFetched } = this.state
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
-      queryParams: { page: page - 1, pageSize, wildcard },
+      queryParams: { page, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options = data
+        let options = [...data]
+
         if (responseToOption) options = options.map(responseToOption)
-        if (optionsFetched) {
-          this.setState({ options: this.state.options.concat(options) }, () => {
-            callback(null, { options })
-          })
-        } else {
-          this.setState({ optionsFetched: true }, () => {
-            callback(null, { options })
-          })
-        }
+        this.setState({
+          options: this.state.options.concat(options),
+          page: this.state.page + 1,
+        })
       },
     })
   }
@@ -354,19 +234,45 @@ class SelectField extends React.Component {
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? R.uniq(raw.map(x => x.value)) : raw.value
     if (!R.equals(this.state.value, value)) {
-      this.setState(
-        {
-          value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
-        },
-        () => onChange(undefined, { ...this.props, value }, data),
-      )
+      this.setState({
+        value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
+      })
+      onChange(undefined, { ...this.props, value }, data)
     }
+    this.setState({
+      value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
+    })
   }
 
   handlePlainSelect = (event, { value, ...data }) => {
     const nextData = { ...data, ...this.props, value }
     if (!R.equals(this.state.value, value)) {
       this.setState({ value }, () => this.props.onChange(event, nextData))
+    }
+  }
+
+  handleInputChange = (newValue) => {
+    console.log(newValue)
+    const { lookup, pageSize, responseToOption } = this.props
+
+    if (newValue && lookup !== null) {
+      this.setState({ isLoading: true })
+
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page: 0, pageSize, wildcard: newValue },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
+
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options,
+            page: 0,
+            isLoading: false,
+          })
+        },
+      })
     }
   }
 
@@ -388,70 +294,62 @@ class SelectField extends React.Component {
       width,
       onBlur,
       localize,
+      popuplocalizedKey,
     } = this.props
     const hasErrors = (touched && hasValue(errorKeys)) || (error && hasValue(errorKeys))
-    const label = labelKey !== undefined ? localize(labelKey) : undefined
+    const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
     const title = titleKey ? localize(titleKey) : label
-    const placeholder = placeholderKey ? localize(placeholderKey) : label
+    const placeholder = placeholderKey
+      ? localize(placeholderKey)
+      : placeholderKey !== null
+        ? label
+        : null
     const hasOptions = hasValue(options)
-    const [Select, ownProps] = hasOptions
-      ? [
-        SemanticUiSelect,
-        {
-          onChange: this.handlePlainSelect,
-          error: hasErrors,
-          multiple: multiselect,
-          options,
-          // multiselect || !required
-          //   ? options
-          //   : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
-          required,
-          title,
-          inline,
-          width,
-        },
-      ]
-      : [
-        ReactSelect.Async,
-        {
-          onChange: this.handleAsyncSelect,
-          loadOptions: this.handleLoadOptions,
-          getOptionLabel: option => option.name,
-          getOptionValue: option => option.key,
-          valueComponent: multiselect
-            ? createRemovableValueComponent(localize)
-            : createValueComponent(localize),
-          optionRenderer: createOptionComponent,
-          inputProps: { type: 'react-select', name },
-          className: hasErrors ? 'react-select--error' : '',
-          multi: multiselect,
-          backspaceRemoves: true,
-          searchable: true,
-          pagination: true,
-          clearable: false,
-          filterOptions: R.identity,
-          required,
-          removeSelected: true,
-        },
-      ]
+    const [Select, ownProps] = [
+      ReactSelect,
+      {
+        onChange: this.handleAsyncSelect,
+        loadOptions: this.loadOptions,
+        getOptionLabel: option => option.text,
+        getOptionValue: option => option.value,
+        valueComponent: multiselect
+          ? createRemovableValueComponent(localize)
+          : createValueComponent(localize),
+        optionRenderer: createOptionComponent,
+        inputProps: { type: 'react-select', name },
+        className: hasErrors ? 'react-select--error' : '',
+        multi: multiselect,
+        removeSelected: multiselect,
+        backspaceRemoves: true,
+        searchable: true,
+        pagination: true,
+        // clearable: true,
+        isLoading: this.state.isLoading,
+        // filterOptions: R.identity,
+        onMenuScrollToBottom: this.loadOptions,
+        onInputChange: this.handleInputChange,
+        required,
+      },
+    ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
 
     return (
-      <div className={className} style={{ opacity: `${disabled ? 0.25 : 1}` }}>
+      <div
+        className={className}
+        style={{ opacity: `${disabled ? 0.25 : 1}` }}
+        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+        data-position="top left"
+      >
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
           value={this.state.value}
-          // options={this.props.options ? this.props.options : this.state.options}
-          options={this.state.options}
+          options={this.props.options ? this.props.options : this.state.options}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
-          // removeSelected: true,
-          // removeSelected={this.state.removeSelected}
-          // openOnFocus
         />
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
