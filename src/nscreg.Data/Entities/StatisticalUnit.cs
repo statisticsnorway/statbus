@@ -59,6 +59,10 @@ namespace nscreg.Data.Entities
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegistrationReasonTooltip))]
         public int? RegistrationReasonId { get; set; }
 
+        [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
+        [NotMappedFor(ActionsEnum.Create)]
+        public DateTime RegistrationDate { get; set; }
+
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual RegistrationReason RegistrationReason { get; set; }
@@ -170,10 +174,6 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalForm LegalForm { get; set; }
-
-        [Display(Order = 710, GroupName = GroupNames.RegistrationInfo)]
-        [NotMappedFor(ActionsEnum.Create)]
-        public DateTime RegistrationDate { get; set; }
 
         [Display(Order = 711, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]

@@ -43,7 +43,7 @@ namespace nscreg.Data.Entities
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ShortNameTooltip))]
         public string ShortName { get; set; }
 
-        [Display(Order = 705, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 142, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegDateTooltip))]
         public DateTime RegistrationDate { get; set; }
 
@@ -125,10 +125,6 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 710)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgTypeCodeTooltip))]
         public string ReorgTypeCode { get; set; }
-
-        [Display(GroupName = GroupNames.RegistrationInfo, Order = 715)]
-        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgDateTooltip))]
-        public DateTime? ReorgDate { get; set; }
 
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 720)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgReferencesTooltip))]
@@ -272,6 +268,10 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 700)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgTypeTooltip))]
         public int? ReorgTypeId { get; set; }
+
+        [Display(GroupName = GroupNames.RegistrationInfo, Order = 702)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgDateTooltip))]
+        public DateTime? ReorgDate { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
