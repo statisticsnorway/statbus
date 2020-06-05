@@ -60,7 +60,7 @@ namespace nscreg.Data.Entities
         public int? RegistrationReasonId { get; set; }
 
         [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
-        [NotMappedFor(ActionsEnum.Create)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegDateTooltip))]
         public DateTime RegistrationDate { get; set; }
 
         [JsonIgnore]
