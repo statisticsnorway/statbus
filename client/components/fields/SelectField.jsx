@@ -15,26 +15,17 @@ import './SelectField.css'
 const notSelected = { value: undefined, text: 'NotSelected' }
 
 const NameCodeOption = {
-  transform: x => (
-    console.log(x),
-    {
-      ...x,
-      key: x.id,
-      value: x.id,
-      label: getNewName(x),
-      text: getNewName(x),
-    }
-  ),
+  transform: x => ({
+    ...x,
+    key: x.id,
+    value: x.id,
+    label: getNewName(x),
+    text: getNewName(x),
+  }),
   // eslint-disable-next-line react/prop-types
   render: params => (
-    // () => console.log('params', params);
-
     <div className="content">
       <div className="title">
-        {/* <div className={styles["select-field-code"]}>{params.text}</div> */}
-        {/* {params.text} */}
-        {/* {params.value} */}
-
         {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
         {params.code && <br />}
         {getNewName(params, false)}
@@ -59,8 +50,6 @@ const createRemovableValueComponent = localize => ({ value, onRemove }) => (
 const createValueComponent = localize => ({ value: { value, label, text } }) => (
   <div className="Select-value">
     <span className="Select-value-label" role="option" aria-selected="true">
-      {value} {text}
-      {/* {console.log(value)} */}
       {value === notSelected.value ? localize(notSelected.text) : label}
     </span>
   </div>
@@ -139,13 +128,6 @@ class SelectField extends React.Component {
     isLoading: false,
     page: 0,
     wildcard: '',
-  }
-
-  //
-  componentDidUpdate(prevState) {
-    if (prevState.value !== this.state.value) {
-      console.log('this.state.value', this.state.value)
-    }
   }
 
   componentDidMount() {
@@ -227,8 +209,6 @@ class SelectField extends React.Component {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
     const { wildcard, page } = this.state
 
-    console.log('this.props', this.props)
-
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
       queryParams: { page, pageSize, wildcard },
@@ -251,8 +231,6 @@ class SelectField extends React.Component {
     const { multiselect, onChange, responseToOption } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? R.uniq(raw.map(x => x.value)) : raw.value
-
-    console.log('handleAsyncSelect')
 
     if (!R.equals(this.state.value, value)) {
       this.setState(
@@ -324,31 +302,53 @@ class SelectField extends React.Component {
         ? label
         : null
     const hasOptions = hasValue(options)
-    const [Select, ownProps] = [
-      ReactSelect,
-      {
-        onChange: this.handleAsyncSelect,
-        loadOptions: this.loadOptions,
-        getOptionLabel: option => option.text,
-        getOptionValue: option => option.value,
-        valueComponent: multiselect
-          ? createRemovableValueComponent(localize)
-          : createValueComponent(localize),
-        optionRenderer: createOptionComponent,
-        inputProps: { type: 'react-select', name },
-        className: hasErrors ? 'react-select--error' : '',
-        multi: multiselect,
-        removeSelected: multiselect,
-        backspaceRemoves: true,
-        searchable: true,
-        pagination: true,
-        // clearable: true,
-        isLoading: this.state.isLoading,
-        onMenuScrollToBottom: this.loadOptions,
-        onInputChange: this.handleInputChange,
-        required,
-      },
-    ]
+    const [Select, ownProps] = hasOptions
+      ? [
+        SemanticUiSelect,
+        {
+          onChange: this.handlePlainSelect,
+          error: hasErrors,
+          multiple: multiselect,
+          options:
+              multiselect || !required
+                ? options
+                : [
+                  {
+                    value: notSelected.value,
+                    text: localize(notSelected.text),
+                  },
+                  ...options,
+                ],
+          required,
+          title,
+          inline,
+          width,
+        },
+      ]
+      : [
+        ReactSelect,
+        {
+          onChange: this.handleAsyncSelect,
+          loadOptions: this.loadOptions,
+          getOptionLabel: option => option.text,
+          getOptionValue: option => option.value,
+          valueComponent: multiselect
+            ? createRemovableValueComponent(localize)
+            : createValueComponent(localize),
+          optionRenderer: createOptionComponent,
+          inputProps: { type: 'react-select', name },
+          className: hasErrors ? 'react-select--error' : '',
+          multi: multiselect,
+          removeSelected: multiselect,
+          backspaceRemoves: true,
+          searchable: true,
+          pagination: true,
+          isLoading: this.state.isLoading,
+          onMenuScrollToBottom: this.loadOptions,
+          onInputChange: this.handleInputChange,
+          required,
+        },
+      ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
 
     return (
