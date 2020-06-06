@@ -2371,4 +2371,10 @@
   <data name="LastChangeDate" xml:space="preserve">
     <value>Акыркы өзгөртүү күнү</value>
   </data>
+  <data name="ActivityYear" xml:space="preserve">
+    <value>Ишмердиктин жылы</value>
+  </data>
+  <data name="ActivityYearTooltip" xml:space="preserve">
+    <value>Ишмердиктин жылы</value>
+  </data>
 </root>

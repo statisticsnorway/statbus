@@ -574,7 +574,7 @@
     <value>Turnover</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
-    <value>Activity year</value>
+    <value>Turnover Year</value>
   </data>
   <data name="TurnoverDate" xml:space="preserve">
     <value>Turnover date</value>
@@ -2567,7 +2567,7 @@
     <value>Turnover</value>
   </data>
   <data name="TurnoverYearTooltip" xml:space="preserve">
-    <value>Activity year</value>
+    <value>Turnover Year</value>
   </data>
   <data name="UnitSizeTooltip" xml:space="preserve">
     <value>Unit size</value>
@@ -2643,5 +2643,11 @@
   </data>
   <data name="SurnameTooltip" xml:space="preserve">
     <value>Surname</value>
+  </data>
+  <data name="ActivityYear" xml:space="preserve">
+    <value>Activity year</value>
+  </data>
+  <data name="ActivityYearTooltip" xml:space="preserve">
+    <value>Activity Year</value>
   </data>
 </root>

@@ -167,12 +167,12 @@ class ActivityEdit extends React.Component {
               </div>
               <div
                 className="field"
-                data-tooltip={localize('TurnoverYearTooltip')}
+                data-tooltip={localize('ActivityYearTooltip')}
                 data-position="top left"
               >
                 <Form.Select
-                  label={localize('TurnoverYear')}
-                  placeholder={localize('TurnoverYear')}
+                  label={localize('ActivityYear')}
+                  placeholder={localize('ActivityYear')}
                   options={[notSelected, ...yearsOptions]}
                   value={value.activityYear}
                   name="activityYear"

@@ -135,6 +135,18 @@ export default enhance((props) => {
     } else {
       values.reorgDate = undefined
     }
+
+    if (values.registrationReasonId) {
+      values.registrationDate = values.registrationDate || currentDate
+    } else {
+      values.registrationDate = undefined
+    }
+
+    if (values.reorgTypeId) {
+      values.reorgDate = values.reorgDate || currentDate
+    } else {
+      values.reorgDate = undefined
+    }
   }
 
   return <FormBody {...{ ...props }} />
