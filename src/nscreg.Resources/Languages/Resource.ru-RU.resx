@@ -2371,4 +2371,10 @@
   <data name="LastChangeDate" xml:space="preserve">
     <value>Дата последнего изменения</value>
   </data>
+  <data name="ActivityYear" xml:space="preserve">
+    <value>Год деятельности</value>
+  </data>
+  <data name="ActivityYearTooltip" xml:space="preserve">
+    <value>Год деятельности</value>
+  </data>
 </root>
