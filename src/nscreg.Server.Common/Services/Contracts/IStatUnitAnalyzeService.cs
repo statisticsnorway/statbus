@@ -12,7 +12,7 @@ namespace nscreg.Server.Common.Services.Contracts
         /// Analyzes stat unit
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit);
+        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation = false);
 
         /// <summary>
         /// Analyzes stat units

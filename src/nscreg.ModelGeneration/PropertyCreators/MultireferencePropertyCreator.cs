@@ -52,7 +52,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 mandatory,
                 GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
-                writable: writable);
+                writable: writable,
+                popupLocalizedKey: propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);
         }
     }
 }

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Elasticsearch.Net;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Server.Common.Models;
 using nscreg.Data;
@@ -199,12 +198,35 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     mustQueries.Add(m => m
                         .Bool(b => b
-                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
-                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
-                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
+                            .Should(s =>
+                                            s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart2).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart3).Value(addressFilter)))
                         )
                     );
                 }
+                //string[] addressFilters = filter.Address.ToLower().Split(separators, StringSplitOptions.RemoveEmptyEntries);
+                //foreach (var addressFilter in addressFilters)
+                //{
+                //    mustQueries.Add(m => m
+                //        .Bool(b => b
+                //                .Must(ti=>ti
+                //                    .Script(s=>s.
+                //                        Inline("doc['AddressId'].value != doc['ActualAddressId'].value")))
+                //            /*.Should(s => s.Term(t=>t.Field(f=>f.AddressId).Value(t.Field(f=>f.ActualAddressId)))
+                //                         && (s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
+                //                         || s.Prefix(t => t.Field(f => f.ActualAddressPart2).Value(addressFilter))
+                //                         || s.Prefix(t => t.Field(f => f.ActualAddressPart3).Value(addressFilter)))
+                //                         || (s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
+                //                             || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
+                //                             || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
+                //                         )*/
+                //        )
+                //    );
+                //}
             }
 
             var turnoverQueries = new List<Func<QueryContainerDescriptor<ElasticStatUnit>, QueryContainer>>();

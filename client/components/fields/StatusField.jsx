@@ -103,7 +103,7 @@ class StatusField extends React.Component {
     responseToOption: NameCodeOption.transform,
     options: undefined,
     touched: false,
-    popuplocalizedKey: undefined,
+    popuplocalizedKey: null,
   }
 
   state = {
@@ -237,6 +237,7 @@ class StatusField extends React.Component {
       width,
       onBlur,
       localize,
+      popuplocalizedKey,
     } = this.props
     const hasErrors = touched && hasValue(errorKeys)
     const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -278,7 +279,12 @@ class StatusField extends React.Component {
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
     return (
-      <div className={className} style={{ opacity: `${disabled ? 0.25 : 1}` }}>
+      <div
+        className={className}
+        style={{ opacity: `${disabled ? 0.25 : 1}` }}
+        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+        data-position="top left"
+      >
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}

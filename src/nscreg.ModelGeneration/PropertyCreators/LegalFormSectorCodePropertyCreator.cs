@@ -37,7 +37,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 GetAtomicValue<int?>(propInfo, obj),
                 GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
-                writable: writable);
+                writable: writable,
+                popupLocalizedKey: propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);
         }
     }
 }
