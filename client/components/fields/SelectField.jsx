@@ -15,17 +15,26 @@ import './SelectField.css'
 const notSelected = { value: undefined, text: 'NotSelected' }
 
 const NameCodeOption = {
-  transform: x => ({
-    ...x,
-    key: x.id,
-    value: x.id,
-    label: getNewName(x),
-    text: getNewName(x),
-  }),
+  transform: x => (
+    console.log(x),
+    {
+      ...x,
+      key: x.id,
+      value: x.id,
+      label: getNewName(x),
+      text: getNewName(x),
+    }
+  ),
   // eslint-disable-next-line react/prop-types
   render: params => (
+    // () => console.log('params', params);
+
     <div className="content">
       <div className="title">
+        {/* <div className={styles["select-field-code"]}>{params.text}</div> */}
+        {/* {params.text} */}
+        {/* {params.value} */}
+
         {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
         {params.code && <br />}
         {getNewName(params, false)}
@@ -47,9 +56,11 @@ const createRemovableValueComponent = localize => ({ value, onRemove }) => (
 )
 
 // eslint-disable-next-line react/prop-types
-const createValueComponent = localize => ({ value: { value, label } }) => (
+const createValueComponent = localize => ({ value: { value, label, text } }) => (
   <div className="Select-value">
     <span className="Select-value-label" role="option" aria-selected="true">
+      {value} {text}
+      {/* {console.log(value)} */}
       {value === notSelected.value ? localize(notSelected.text) : label}
     </span>
   </div>
@@ -128,6 +139,13 @@ class SelectField extends React.Component {
     isLoading: false,
     page: 0,
     wildcard: '',
+  }
+
+  //
+  componentDidUpdate(prevState) {
+    if (prevState.value !== this.state.value) {
+      console.log('this.state.value', this.state.value)
+    }
   }
 
   componentDidMount() {
@@ -233,15 +251,17 @@ class SelectField extends React.Component {
     const { multiselect, onChange, responseToOption } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? R.uniq(raw.map(x => x.value)) : raw.value
+
+    console.log('handleAsyncSelect')
+
     if (!R.equals(this.state.value, value)) {
-      this.setState({
-        value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
-      })
-      onChange(undefined, { ...this.props, value }, data)
+      this.setState(
+        {
+          value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
+        },
+        () => onChange(undefined, { ...this.props, value }, data),
+      )
     }
-    this.setState({
-      value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
-    })
   }
 
   handlePlainSelect = (event, { value, ...data }) => {
@@ -252,10 +272,9 @@ class SelectField extends React.Component {
   }
 
   handleInputChange = (newValue) => {
-    console.log(newValue)
     const { lookup, pageSize, responseToOption } = this.props
 
-    if (newValue && lookup !== null) {
+    if (newValue && lookup !== null && newValue.length > 2) {
       this.setState({ isLoading: true })
 
       internalRequest({
@@ -325,7 +344,6 @@ class SelectField extends React.Component {
         pagination: true,
         // clearable: true,
         isLoading: this.state.isLoading,
-        // filterOptions: R.identity,
         onMenuScrollToBottom: this.loadOptions,
         onInputChange: this.handleInputChange,
         required,
