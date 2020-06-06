@@ -10,6 +10,7 @@ import { internalRequest } from 'helpers/request'
 import { getNewName } from 'helpers/locale'
 
 import styles from './styles.pcss'
+import './SelectField.css'
 
 const notSelected = { value: undefined, text: 'NotSelected' }
 
@@ -46,7 +47,7 @@ const createRemovableValueComponent = localize => ({ value, onRemove }) => (
 )
 
 // eslint-disable-next-line react/prop-types
-const createValueComponent = localize => ({ value: { value, label } }) => (
+const createValueComponent = localize => ({ value: { value, label, text } }) => (
   <div className="Select-value">
     <span className="Select-value-label" role="option" aria-selected="true">
       {value === notSelected.value ? localize(notSelected.text) : label}
@@ -90,24 +91,24 @@ class SelectField extends React.Component {
   }
 
   static defaultProps = {
-    value: undefined,
+    value: null,
     onBlur: R.identity,
-    label: undefined,
-    title: undefined,
-    placeholder: undefined,
+    label: null,
+    title: null,
+    placeholder: null,
     multiselect: false,
     required: false,
     error: false,
     errors: [],
     disabled: false,
     inline: false,
-    width: undefined,
+    width: null,
     createOptionComponent: NameCodeOption.render,
     pageSize: 10,
     waitTime: 250,
-    lookup: undefined,
+    lookup: null,
     responseToOption: NameCodeOption.transform,
-    options: undefined,
+    options: null,
     isEdit: false,
     locale: '',
     url: '',
@@ -124,11 +125,15 @@ class SelectField extends React.Component {
         : notSelected.value,
     optionsFetched: false,
     options: [],
+    isLoading: false,
+    page: 0,
+    wildcard: '',
   }
 
   componentDidMount() {
     if (hasValue(this.props.options)) return
     const { value: ids, lookup, multiselect, responseToOption } = this.props
+    this.setState({ isLoading: true })
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },
@@ -150,7 +155,7 @@ class SelectField extends React.Component {
       .then((result) => {
         const options =
           Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
-        this.setState({ options })
+        this.setState({ options, isLoading: false, page: this.state.page + 1 })
       })
   }
 
@@ -200,28 +205,22 @@ class SelectField extends React.Component {
     this.handleLoadOptions.cancel()
   }
 
-  loadOptions = (wildcard, page, callback) => {
+  loadOptions = (callback) => {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
-    const { optionsFetched } = this.state
+    const { wildcard, page } = this.state
+
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
-      queryParams: { page: page - 1, pageSize, wildcard },
+      queryParams: { page, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options =
-          multiselect || !required || optionsFetched
-            ? data
-            : [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options = [...data]
+
         if (responseToOption) options = options.map(responseToOption)
-        if (optionsFetched) {
-          this.setState({ options: this.state.options.concat(options) }, () => {
-            callback(null, { options })
-          })
-        } else {
-          this.setState({ optionsFetched: true }, () => {
-            callback(null, { options })
-          })
-        }
+        this.setState({
+          options: this.state.options.concat(options),
+          page: this.state.page + 1,
+        })
       },
     })
   }
@@ -232,6 +231,7 @@ class SelectField extends React.Component {
     const { multiselect, onChange, responseToOption } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? R.uniq(raw.map(x => x.value)) : raw.value
+
     if (!R.equals(this.state.value, value)) {
       this.setState(
         {
@@ -246,6 +246,30 @@ class SelectField extends React.Component {
     const nextData = { ...data, ...this.props, value }
     if (!R.equals(this.state.value, value)) {
       this.setState({ value }, () => this.props.onChange(event, nextData))
+    }
+  }
+
+  handleInputChange = (newValue) => {
+    const { lookup, pageSize, responseToOption } = this.props
+
+    if (newValue && lookup !== null && newValue.length > 2) {
+      this.setState({ isLoading: true })
+
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page: 0, pageSize, wildcard: newValue },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
+
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options,
+            page: 0,
+            isLoading: false,
+          })
+        },
+      })
     }
   }
 
@@ -270,9 +294,13 @@ class SelectField extends React.Component {
       popuplocalizedKey,
     } = this.props
     const hasErrors = (touched && hasValue(errorKeys)) || (error && hasValue(errorKeys))
-    const label = labelKey !== undefined ? localize(labelKey) : undefined
+    const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
     const title = titleKey ? localize(titleKey) : label
-    const placeholder = placeholderKey ? localize(placeholderKey) : label
+    const placeholder = placeholderKey
+      ? localize(placeholderKey)
+      : placeholderKey !== null
+        ? label
+        : null
     const hasOptions = hasValue(options)
     const [Select, ownProps] = hasOptions
       ? [
@@ -284,7 +312,13 @@ class SelectField extends React.Component {
           options:
               multiselect || !required
                 ? options
-                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+                : [
+                  {
+                    value: notSelected.value,
+                    text: localize(notSelected.text),
+                  },
+                  ...options,
+                ],
           required,
           title,
           inline,
@@ -292,12 +326,12 @@ class SelectField extends React.Component {
         },
       ]
       : [
-        ReactSelect.Async,
+        ReactSelect,
         {
           onChange: this.handleAsyncSelect,
-          loadOptions: this.handleLoadOptions,
-          getOptionLabel: option => option.name,
-          getOptionValue: option => option.key,
+          loadOptions: this.loadOptions,
+          getOptionLabel: option => option.text,
+          getOptionValue: option => option.value,
           valueComponent: multiselect
             ? createRemovableValueComponent(localize)
             : createValueComponent(localize),
@@ -305,11 +339,13 @@ class SelectField extends React.Component {
           inputProps: { type: 'react-select', name },
           className: hasErrors ? 'react-select--error' : '',
           multi: multiselect,
+          removeSelected: multiselect,
           backspaceRemoves: true,
           searchable: true,
           pagination: true,
-          clearable: false,
-          filterOptions: R.identity,
+          isLoading: this.state.isLoading,
+          onMenuScrollToBottom: this.loadOptions,
+          onInputChange: this.handleInputChange,
           required,
         },
       ]

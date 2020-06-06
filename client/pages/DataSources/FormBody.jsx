@@ -52,7 +52,10 @@ const FormBody = ({
       url: pathname,
     }
     if (props.options) {
-      props.options = props.options.map(x => ({ ...x, text: localize(x.text) }))
+      props.options = props.options.map(x => ({
+        ...x,
+        text: localize(x.text),
+      }))
     }
     return props
   }

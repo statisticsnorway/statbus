@@ -1,5 +1,7 @@
 export default function handlerFor(setFieldValue) {
   return function onChange(event, props) {
-    setFieldValue(props.name, props.value)
+    const propsValue = props.value === undefined ? null : props.value
+
+    setFieldValue(props.name, propsValue)
   }
 }

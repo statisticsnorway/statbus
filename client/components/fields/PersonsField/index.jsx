@@ -32,7 +32,7 @@ class PersonsList extends React.Component {
     errors: [],
     disabled: false,
     required: false,
-    regId: undefined,
+    regId: null,
   }
 
   state = {
@@ -49,7 +49,11 @@ class PersonsList extends React.Component {
       method: 'get',
       onSuccess: (data) => {
         this.setState({
-          countries: data.map(x => ({ value: x.id, text: getNewName(x, false), ...x })),
+          countries: data.map(x => ({
+            value: x.id,
+            text: getNewName(x, false),
+            ...x,
+          })),
         })
       },
     })
@@ -58,7 +62,13 @@ class PersonsList extends React.Component {
       url: '/api/lookup/15',
       method: 'get',
       onSuccess: (data) => {
-        this.setState({ roles: data.map(x => ({ value: x.id, text: getNewName(x, false), ...x })) })
+        this.setState({
+          roles: data.map(x => ({
+            value: x.id,
+            text: getNewName(x, false),
+            ...x,
+          })),
+        })
       },
     })
   }

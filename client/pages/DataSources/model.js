@@ -127,18 +127,27 @@ export const meta = new Map([
   ['description', { type: 'text', label: 'Description' }],
   [
     'allowedOperations',
-    { label: 'AllowedOperations', options: unmap([...enums.dataSourceOperations]) },
+    {
+      label: 'AllowedOperations',
+      options: unmap([...enums.dataSourceOperations]),
+    },
   ],
   ['priority', { label: 'Priority', options: unmap([...enums.dataSourcePriorities]) }],
   [
     'statUnitType',
-    { label: 'StatUnit', options: unmap([...enums.statUnitTypes]).filter(x => x.value < 4) },
+    {
+      label: 'StatUnit',
+      options: unmap([...enums.statUnitTypes]).filter(x => x.value < 4),
+    },
   ],
   ['csvDelimiter', { type: 'text', label: 'CsvDelimiter' }],
   ['csvSkipCount', { label: 'CsvSkipCount' }],
   [
     'dataSourceUploadType',
-    { label: 'DataSourceUploadType', options: unmap([...enums.dataSourceUploadTypes]) },
+    {
+      label: 'DataSourceUploadType',
+      options: unmap([...enums.dataSourceUploadTypes]),
+    },
   ],
 ])
 
