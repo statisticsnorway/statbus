@@ -208,25 +208,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         )
                     );
                 }
-                //string[] addressFilters = filter.Address.ToLower().Split(separators, StringSplitOptions.RemoveEmptyEntries);
-                //foreach (var addressFilter in addressFilters)
-                //{
-                //    mustQueries.Add(m => m
-                //        .Bool(b => b
-                //                .Must(ti=>ti
-                //                    .Script(s=>s.
-                //                        Inline("doc['AddressId'].value != doc['ActualAddressId'].value")))
-                //            /*.Should(s => s.Term(t=>t.Field(f=>f.AddressId).Value(t.Field(f=>f.ActualAddressId)))
-                //                         && (s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
-                //                         || s.Prefix(t => t.Field(f => f.ActualAddressPart2).Value(addressFilter))
-                //                         || s.Prefix(t => t.Field(f => f.ActualAddressPart3).Value(addressFilter)))
-                //                         || (s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
-                //                             || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
-                //                             || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
-                //                         )*/
-                //        )
-                //    );
-                //}
             }
 
             var turnoverQueries = new List<Func<QueryContainerDescriptor<ElasticStatUnit>, QueryContainer>>();
@@ -314,7 +295,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (filter.RegionId.HasValue)
             {
                 int regionId = filter.RegionId.Value;
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.RegionId).Value(regionId)));
+                mustQueries.Add(m =>
+                    m.Term(p => p.Field(f => f.RegionId).Value(regionId))
+                     || m.Term(p => p.Field(f => f.ActualAddressRegionId).Value(regionId)));
             }
 
             Func<SearchDescriptor<ElasticStatUnit>, ISearchRequest> searchFunc;
