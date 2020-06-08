@@ -181,14 +181,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (type == null || type == StatUnitTypes.EnterpriseGroup)
             {
                 var entGroup = _commonSvc.GetUnitsList<EnterpriseGroup>(false)
-                    .Where(x=> listIds.Contains(x.RegId))
-                    .Include(x=>x.EnterpriseUnits)
-                    .ThenInclude(x=>x.LegalUnits)
-                    .ThenInclude(x=>x.LocalUnits);
+                    .Where(x => listIds.Contains(x.RegId))
+                    .Include(x => x.EnterpriseUnits)
+                    .ThenInclude(x => x.LegalUnits)
+                    .ThenInclude(x => x.LocalUnits);
                 list.AddRange(entGroup);
-                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false)));
-                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LegalUnits.Where(z => z.IsDeleted == false))));
-                list.AddRange(entGroup.SelectMany(x=>x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LegalUnits.Where(z => z.IsDeleted == false).SelectMany(z=>z.LocalUnits.Where(l => l.IsDeleted == false)))));
+                list.AddRange(entGroup.SelectMany(x => x.EnterpriseUnits.Where(y => y.IsDeleted == false)));
+                list.AddRange(entGroup.SelectMany(x => x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y => y.LegalUnits.Where(z => z.IsDeleted == false))));
+                list.AddRange(entGroup.SelectMany(x => x.EnterpriseUnits.Where(y => y.IsDeleted == false).SelectMany(y => y.LegalUnits.Where(z => z.IsDeleted == false).SelectMany(z => z.LocalUnits.Where(l => l.IsDeleted == false)))));
             }
 
             if (type == null || type == StatUnitTypes.EnterpriseUnit)
@@ -199,10 +199,26 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .ThenInclude(x => x.LocalUnits)
                     .Include(x => x.EnterpriseGroup);
 
-                list.AddRange(entUnit.Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
+                list.AddRange(entUnit.Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .Select(x => x.EnterpriseGroup));
+
+                list.AddRange(entUnit
+                    .Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .SelectMany(x => x.EnterpriseGroup.EnterpriseUnits.Where(c => c.IsDeleted == false)));
+
+                list.AddRange(entUnit
+                    .Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .SelectMany(x => x.EnterpriseGroup.EnterpriseUnits.Where(c => c.IsDeleted == false)
+                        .SelectMany(c => c.LegalUnits.Where(z => z.IsDeleted == false))));
+
+                list.AddRange(entUnit.Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .SelectMany(x => x.EnterpriseGroup.EnterpriseUnits.Where(c => c.IsDeleted == false)
+                        .SelectMany(c => c.LegalUnits.Where(z => z.IsDeleted == false)
+                            .SelectMany(y => y.LocalUnits.Where(j => j.IsDeleted == false)))));
+
                 list.AddRange(entUnit);
                 list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false)));
-                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LocalUnits.Where(z => z.IsDeleted == false))));                
+                list.AddRange(entUnit.SelectMany(x=>x.LegalUnits.Where(y => y.IsDeleted == false).SelectMany(y=>y.LocalUnits.Where(z => z.IsDeleted == false))));
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
@@ -212,9 +228,24 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .Include(x => x.EnterpriseUnit)
                     .ThenInclude(x => x.EnterpriseGroup)
                     .Include(x => x.LocalUnits);
+
                 
                 list.AddRange(legalUnit.Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit).Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
-                list.AddRange(legalUnit.Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit));
+
+                list.AddRange(legalUnit.Where(x => !x.EnterpriseUnit.IsDeleted)
+                    .SelectMany(x => x.EnterpriseUnit.EnterpriseGroup.EnterpriseUnits.Where(z => !z.IsDeleted)));
+
+                list.AddRange(legalUnit
+                    .Where(x => !x.EnterpriseUnit.IsDeleted)
+                    .SelectMany(x => x.EnterpriseUnit.EnterpriseGroup.EnterpriseUnits.Where(c => c.IsDeleted == false))
+                    .SelectMany(c => c.LegalUnits.Where(x => x.IsDeleted == false)));
+
+                list.AddRange(legalUnit
+                    .Where(x => !x.EnterpriseUnit.IsDeleted)
+                    .SelectMany(x => x.EnterpriseUnit.EnterpriseGroup.EnterpriseUnits.Where(c => c.IsDeleted == false))
+                    .SelectMany(c => c.LegalUnits.Where(x => x.IsDeleted == false))
+                    .SelectMany(z => z.LocalUnits.Where(x => x.IsDeleted == false)));
+
                 list.AddRange(legalUnit);
                 list.AddRange(legalUnit.SelectMany(x => x.LocalUnits.Where(y => y.IsDeleted == false)));
             }
@@ -227,8 +258,47 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .ThenInclude(x => x.EnterpriseUnit)
                     .ThenInclude(x => x.EnterpriseGroup);
 
-                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit).Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit).Where(x => x.EnterpriseGroup.IsDeleted == false).Select(x => x.EnterpriseGroup));
-                list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit).Where(x => x.EnterpriseUnit.IsDeleted == false).Select(x => x.EnterpriseUnit));
+                list.AddRange(localUnit
+                    .Where(x => x.LegalUnit.IsDeleted == false)
+                    .Select(x => x.LegalUnit)
+                    .Where(x => x.EnterpriseUnit.IsDeleted == false)
+                    .Select(x => x.EnterpriseUnit)
+                    .Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .Select(x => x.EnterpriseGroup));
+
+                list.AddRange(localUnit
+                    .Where(x => x.LegalUnit.IsDeleted == false)
+                    .Select(x => x.LegalUnit)
+                    .Where(x => x.EnterpriseUnit.IsDeleted == false)
+                    .Select(x => x.EnterpriseUnit)
+                    .Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .SelectMany(x => x.EnterpriseGroup.EnterpriseUnits
+                        .Where(c => c.IsDeleted == false)));
+
+                list.AddRange(localUnit
+                    .Where(x => x.LegalUnit.IsDeleted == false)
+                    .Select(x => x.LegalUnit)
+                    .Where(x => x.EnterpriseUnit.IsDeleted == false)
+                    .Select(x => x.EnterpriseUnit)
+                    .Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .SelectMany(x => x.EnterpriseGroup.EnterpriseUnits
+                        .Where(c => c.IsDeleted == false)
+                        .SelectMany(z => z.LegalUnits
+                            .Where(c => c.IsDeleted == false))));
+
+                list.AddRange(localUnit
+                    .Where(x => x.LegalUnit.IsDeleted == false)
+                    .Select(x => x.LegalUnit)
+                    .Where(x => x.EnterpriseUnit.IsDeleted == false)
+                    .Select(x => x.EnterpriseUnit)
+                    .Where(x => x.EnterpriseGroup.IsDeleted == false)
+                    .SelectMany(x => x.EnterpriseGroup.EnterpriseUnits
+                        .Where(c => c.IsDeleted == false)
+                        .SelectMany(z => z.LegalUnits
+                            .Where(c => c.IsDeleted == false)
+                            .SelectMany(j => j.LocalUnits
+                                .Where(c => c.IsDeleted == false)))));
+
                 list.AddRange(localUnit.Where(x => x.LegalUnit.IsDeleted == false).Select(x => x.LegalUnit));
                 list.AddRange(localUnit);
             }

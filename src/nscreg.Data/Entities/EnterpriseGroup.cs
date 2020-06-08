@@ -25,40 +25,51 @@ namespace nscreg.Data.Entities
         public DateTime RegIdDate { get; set; }
 
         [DataAccessCommon]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatIdTooltip))]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 100)]
         [AsyncValidation(ValidationTypeEnum.StatIdUnique)]
         public string StatId { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 105)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatIdDateTooltip))]
         public DateTime? StatIdDate { get; set; }
 
         [DataAccessCommon]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 110)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatNameTooltip))]
         public string Name { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 115)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ShortNameTooltip))]
         public string ShortName { get; set; }
 
-        [Display(Order = 705, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 142, GroupName = GroupNames.StatUnitInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegDateTooltip))]
         public DateTime RegistrationDate { get; set; }
 
         [Reference(LookupEnum.RegistrationReasonLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 140)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegistrationReasonTooltip))]
         public int? RegistrationReasonId { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 120)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TaxRegIdTooltip))]
         public string TaxRegId { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 125)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TaxRegDateTooltip))]
         public DateTime? TaxRegDate { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 130)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ExternalIdTooltip))]
         public string ExternalId { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 131)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ExternalIdTypeTooltip))]
         public string ExternalIdType { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 132)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ExternalIdDateTooltip))]
         public DateTime? ExternalIdDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -78,6 +89,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.EntGroupTypeLookup)]
         [Display(Order = 725, GroupName = GroupNames.RegistrationInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupTypeIdTooltip))]
         public int? EntGroupTypeId { get; set; }
 
         [JsonIgnore]
@@ -85,80 +97,98 @@ namespace nscreg.Data.Entities
         public EnterpriseGroupType EntGroupType { get; set; }
 
         [Display(Order = 520, GroupName = GroupNames.EconomicInformation)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.NumOfPeopleEmpTooltip))]
         public int? NumOfPeopleEmp { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 300)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TelephoneNoTooltip))]
         public string TelephoneNo { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 301)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EmailAddressTooltip))]
         public string EmailAddress { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 302)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.WebAddressTooltip))]
         public string WebAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 770)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LiqDateStartTooltip))]
         public DateTime? LiqDateStart { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 780)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LiqDateEndTooltip))]
         public DateTime? LiqDateEnd { get; set; }
 
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 710)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgTypeCodeTooltip))]
         public string ReorgTypeCode { get; set; }
 
-        [Display(GroupName = GroupNames.RegistrationInfo, Order = 715)]
-        public DateTime? ReorgDate { get; set; }
-
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 720)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgReferencesTooltip))]
         public string ReorgReferences { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 303)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ContactPersonTooltip))]
         public string ContactPerson { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [Display(GroupName = GroupNames.LinkInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StartPeriodTooltip))]
         public DateTime StartPeriod { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [Display(GroupName = GroupNames.LinkInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EndPeriodTooltip))]
         public DateTime EndPeriod { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 760)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.LiqReasonTooltip))]
         public string LiqReason { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 765)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.SuspensionStartTooltip))]
         public string SuspensionStart { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 775)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.SuspensionStartTooltip))]
         public string SuspensionEnd { get; set; }
 
         [Display(GroupName = GroupNames.EconomicInformation, Order = 521)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EmployeesTooltip))]
         public int? Employees { get; set; }
 
         [Display(GroupName = GroupNames.EconomicInformation, Order = 522)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EmployeesYearTooltip))]
         public int? EmployeesYear { get; set; }
 
         [Display(GroupName = GroupNames.EconomicInformation, Order = 523)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EmployeesDateTooltip))]
         public DateTime? EmployeesDate { get; set; }
 
-        [PopupLocalizedKey("InThousandsKGS")]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TurnoverTooltip))]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 505)]
         public decimal? Turnover { get; set; }
 
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TurnoverYearTooltip))]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 510)]
         public int? TurnoverYear { get; set; }
 
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.TurnoverDateTooltip))]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 515)]
         public DateTime? TurnoverDate { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 152)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatusDateTooltip))]
         public DateTime StatusDate { get; set; }
 
         [Display(GroupName = GroupNames.CapitalInfo, Order = 801)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.NotesTooltip))]
         public string Notes { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -171,16 +201,20 @@ namespace nscreg.Data.Entities
         public string EditComment { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 310)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.AddressTooltip))]
         public virtual Address Address { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 320)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ActualAddressTooltip))]
         public virtual Address ActualAddress { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 330)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.PostalAddressTooltip))]
         public virtual Address PostalAddress { get; set; }
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EnterpriseUnitTooltip))]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; } = new HashSet<EnterpriseUnit>();
 
         [JsonIgnore]
@@ -198,6 +232,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 500)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.UnitSizeTooltip))]
         public int? SizeId { get; set; }
 
         [JsonIgnore]
@@ -206,6 +241,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 150)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.DataSourceClassificationTooltip))]
         public int? DataSourceClassificationId { get; set; }
 
         [NotMapped]
@@ -230,7 +266,12 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.ReorgTypeLookup)]
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 700)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgTypeTooltip))]
         public int? ReorgTypeId { get; set; }
+
+        [Display(GroupName = GroupNames.RegistrationInfo, Order = 702)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ReorgDateTooltip))]
+        public DateTime? ReorgDate { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -238,6 +279,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 151)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.UnitStatusTooltip))]
         public int? UnitStatusId { get; set; }
 
         [JsonIgnore]

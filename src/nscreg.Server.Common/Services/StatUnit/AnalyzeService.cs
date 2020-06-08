@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Business.Analysis.Contracts;
+using nscreg.Data.Constants;
 using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -34,9 +35,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             _validationSettings = validationSettings;
         }
 
-        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit)
+        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation)
         {
-            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings));
+            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation));
         }
 
         public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)

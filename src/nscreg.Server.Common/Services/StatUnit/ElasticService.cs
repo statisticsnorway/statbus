@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Elasticsearch.Net;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Server.Common.Models;
 using nscreg.Data;
@@ -199,9 +198,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     mustQueries.Add(m => m
                         .Bool(b => b
-                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
-                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
-                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
+                            .Should(s =>
+                                            s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart2).Value(addressFilter))
+                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart3).Value(addressFilter)))
                         )
                     );
                 }
@@ -292,7 +295,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (filter.RegionId.HasValue)
             {
                 int regionId = filter.RegionId.Value;
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.RegionId).Value(regionId)));
+                mustQueries.Add(m =>
+                    m.Term(p => p.Field(f => f.RegionId).Value(regionId))
+                     || m.Term(p => p.Field(f => f.ActualAddressRegionId).Value(regionId)));
             }
 
             Func<SearchDescriptor<ElasticStatUnit>, ISearchRequest> searchFunc;

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2362,10 +2362,19 @@
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
     <value>Эта правовая единица не принадлежит к предприятию </value>
   </data>
+  <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
+    <value>Одно из идентификационных полей (StatId/TaxRegId/ExternalId) должно быть заполнено (KG)</value>
+  </data>
   <data name="EntGroupTypeId" xml:space="preserve">
     <value>Ишканалар группасы түрү</value>
   </data>
   <data name="LastChangeDate" xml:space="preserve">
     <value>Акыркы өзгөртүү күнү</value>
+  </data>
+  <data name="ActivityYear" xml:space="preserve">
+    <value>Ишмердиктин жылы</value>
+  </data>
+  <data name="ActivityYearTooltip" xml:space="preserve">
+    <value>Ишмердиктин жылы</value>
   </data>
 </root>

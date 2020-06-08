@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <NoWarn>$(NoWarn);RECS0145</NoWarn>
@@ -32,5 +32,11 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\appsettings.Shared.json" Link="appsettings.Shared.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <None Update="appsettings.Shared.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

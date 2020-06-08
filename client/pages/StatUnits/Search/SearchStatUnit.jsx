@@ -74,7 +74,13 @@ class Search extends React.Component {
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
       qdata.page = 1
+
       setQuery(qdata)
+      const fetchDataTimeout = setTimeout(() => {
+        this.props.fetchData(this.props.query)
+      }, 0)
+
+      return () => clearTimeout(fetchDataTimeout)
     }
   }
 

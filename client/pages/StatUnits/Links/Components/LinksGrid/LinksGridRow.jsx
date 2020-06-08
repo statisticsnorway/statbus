@@ -28,14 +28,19 @@ class LinksGridRow extends React.Component {
     deleteLink(data)
   }
   render() {
-    const { index, data: { source1, source2 }, localize, readOnly } = this.props
+    const {
+      index,
+      data: { source1, source2 },
+      localize,
+      readOnly,
+    } = this.props
     return (
       <Table.Row>
         <Table.Cell>{index}</Table.Cell>
         <Table.Cell>{source1.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source1.type))}</Table.Cell>
         <Table.Cell>{source1.code}</Table.Cell>
-        <Table.Cell>{source2.name}</Table.Cell>
+        <Table.Cell> {source2.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
         {!readOnly && (

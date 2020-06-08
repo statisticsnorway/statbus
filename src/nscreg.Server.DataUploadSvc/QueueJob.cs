@@ -285,7 +285,7 @@ namespace nscreg.Server.DataUploadSvc
             AnalysisResult analysisResult;
             try
             {
-                analysisResult = _analysisSvc.AnalyzeStatUnit(unit);
+                analysisResult = _analysisSvc.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter);
             }
             catch (Exception ex)
             {

@@ -5,8 +5,6 @@ import { updateFilter } from '../actions'
 
 const initialState = {
   formData: { sortRule: 1 },
-  statUnits: [],
-  totalCount: 0,
   isLoading: false,
   lookups: { 5: [] },
   error: undefined,
@@ -27,7 +25,10 @@ const statUnits = createReducer(
       statUnits: result,
       totalCount,
     }),
-    [actions.clear]: () => initialState,
+    [actions.clear]: state => ({
+      ...state,
+      ...initialState,
+    }),
     [actions.fetchDataStateChanged]: (state, data) => ({
       ...state,
       isLoading: data,

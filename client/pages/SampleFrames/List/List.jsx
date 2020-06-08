@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table, Segment, Form, Confirm } from 'semantic-ui-react'
+import config from 'helpers/config'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import { internalRequest } from 'helpers/request'
@@ -114,11 +115,14 @@ class List extends React.Component {
                     </Table.Cell>
                     <Table.Cell>{x.description}</Table.Cell>
                     <Table.Cell>
-                      {new Intl.DateTimeFormat(localStorage.getItem('locale'), {
-                        month: 'long',
-                        day: '2-digit',
-                        year: 'numeric',
-                      }).format(new Date(x.editingDate))}
+                      {new Intl.DateTimeFormat(
+                        localStorage.getItem('locale') || config.defaultLocale,
+                        {
+                          month: 'long',
+                          day: '2-digit',
+                          year: 'numeric',
+                        },
+                      ).format(new Date(x.editingDate))}
                     </Table.Cell>
                     {(canDelete || canPreview) && (
                       <Table.Cell>

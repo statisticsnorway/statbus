@@ -116,51 +116,72 @@ class AddressField extends React.Component {
         </label>
         <Segment.Group>
           <Segment>
-            <SelectField
-              name="regionId"
-              label="Region"
-              lookup={12}
-              locale={locale}
-              onChange={this.regionSelectedHandler}
-              value={value.regionId}
-              localize={localize}
-              required={isShowFieldsRequired && mandatoryField.GeographicalCodes}
-              disabled={disabled || !editing}
-            />
+            <div data-tooltip={localize('RegionIdTooltip')} data-position="top left">
+              <SelectField
+                name="regionId"
+                label="Region"
+                lookup={12}
+                locale={locale}
+                onChange={this.regionSelectedHandler}
+                value={value.regionId}
+                localize={localize}
+                required={isShowFieldsRequired && mandatoryField.GeographicalCodes}
+                disabled={disabled || !editing}
+              />
+            </div>
+
             <br />
             <Form.Group widths="equal">
-              <Form.Input
-                name="addressPart1"
-                value={value.addressPart1 || ''}
-                label={localize('AddressPart1')}
-                placeholder={localize('AddressPart1')}
-                onChange={this.handleEdit}
-                required={isShowFieldsRequired && mandatoryField.AddressPart1}
-                disabled={disabled || !editing}
-                autoComplete="off"
-              />
-              <Form.Input
-                name="addressPart2"
-                value={value.addressPart2 || ''}
-                label={localize('AddressPart2')}
-                placeholder={localize('AddressPart2')}
-                onChange={this.handleEdit}
-                required={isShowFieldsRequired && mandatoryField.AddressPart2}
-                disabled={disabled || !editing}
-                autoComplete="off"
-              />
+              <div
+                className="field"
+                data-tooltip={localize('AddressPart1Tooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  name="addressPart1"
+                  value={value.addressPart1 || ''}
+                  label={localize('AddressPart1')}
+                  placeholder={localize('AddressPart1')}
+                  onChange={this.handleEdit}
+                  required={isShowFieldsRequired && mandatoryField.AddressPart1}
+                  disabled={disabled || !editing}
+                  autoComplete="off"
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('AddressPart2Tooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  name="addressPart2"
+                  value={value.addressPart2 || ''}
+                  label={localize('AddressPart2')}
+                  placeholder={localize('AddressPart2')}
+                  onChange={this.handleEdit}
+                  required={isShowFieldsRequired && mandatoryField.AddressPart2}
+                  disabled={disabled || !editing}
+                  autoComplete="off"
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Input
-                name="addressPart3"
-                value={value.addressPart3 || ''}
-                label={localize('AddressPart3')}
-                placeholder={localize('AddressPart3')}
-                onChange={this.handleEdit}
-                required={isShowFieldsRequired && mandatoryField.AddressPart3}
-                disabled={disabled || !editing}
-                autoComplete="off"
-              />
+              <div
+                className="field"
+                data-tooltip={localize('AddressPart3Tooltip')}
+                data-position="top left"
+              >
+                <Form.Input
+                  name="addressPart3"
+                  value={value.addressPart3 || ''}
+                  label={localize('AddressPart3')}
+                  placeholder={localize('AddressPart3')}
+                  onChange={this.handleEdit}
+                  required={isShowFieldsRequired && mandatoryField.AddressPart3}
+                  disabled={disabled || !editing}
+                  autoComplete="off"
+                />
+              </div>
             </Form.Group>
             <Header
               as="h5"
@@ -169,54 +190,66 @@ class AddressField extends React.Component {
               dividing
             />
             <Form.Group widths="equal">
-              <Popup
-                trigger={
-                  <Form.Input
-                    name="latitude"
-                    type="text"
-                    value={value.latitude || ''}
-                    onChange={this.handleEdit}
-                    label={localize('Latitude')}
-                    placeholder={localize('Latitude')}
-                    required={isShowFieldsRequired && mandatoryField.Latitude}
-                    disabled={disabled || !editing}
-                    maxLength={10}
-                    min="-90"
-                    max="90"
-                    autoComplete="off"
-                  />
-                }
-                content={localize('BadLatitude')}
-                open={
-                  hasValue(value.latitude) &&
-                  editing &&
-                  (value.latitude.length === 10 || latitudeIsBad)
-                }
-              />
-              <Popup
-                trigger={
-                  <Form.Input
-                    name="longitude"
-                    type="text"
-                    value={value.longitude || ''}
-                    onChange={this.handleEdit}
-                    label={localize('Longitude')}
-                    placeholder={localize('Longitude')}
-                    required={isShowFieldsRequired && mandatoryField.Longitude}
-                    disabled={disabled || !editing}
-                    maxLength={11}
-                    min="-180"
-                    max="180"
-                    autoComplete="off"
-                  />
-                }
-                content={localize('BadLongitude')}
-                open={
-                  hasValue(value.longitude) &&
-                  editing &&
-                  (value.longitude.length === 11 || longitudeIsBad)
-                }
-              />
+              <div
+                className="field"
+                data-tooltip={localize('LatitudeTooltip')}
+                data-position="top left"
+              >
+                <Popup
+                  trigger={
+                    <Form.Input
+                      name="latitude"
+                      type="text"
+                      value={value.latitude || ''}
+                      onChange={this.handleEdit}
+                      label={localize('Latitude')}
+                      placeholder={localize('Latitude')}
+                      required={isShowFieldsRequired && mandatoryField.Latitude}
+                      disabled={disabled || !editing}
+                      maxLength={10}
+                      min="-90"
+                      max="90"
+                      autoComplete="off"
+                    />
+                  }
+                  content={localize('BadLatitude')}
+                  open={
+                    hasValue(value.latitude) &&
+                    editing &&
+                    (value.latitude.length === 10 || latitudeIsBad)
+                  }
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('LongitudeTooltip')}
+                data-position="top left"
+              >
+                <Popup
+                  trigger={
+                    <Form.Input
+                      name="longitude"
+                      type="text"
+                      value={value.longitude || ''}
+                      onChange={this.handleEdit}
+                      label={localize('Longitude')}
+                      placeholder={localize('Longitude')}
+                      required={isShowFieldsRequired && mandatoryField.Longitude}
+                      disabled={disabled || !editing}
+                      maxLength={11}
+                      min="-180"
+                      max="180"
+                      autoComplete="off"
+                    />
+                  }
+                  content={localize('BadLongitude')}
+                  open={
+                    hasValue(value.longitude) &&
+                    editing &&
+                    (value.longitude.length === 11 || longitudeIsBad)
+                  }
+                />
+              </div>
             </Form.Group>
           </Segment>
           <Segment clearing>

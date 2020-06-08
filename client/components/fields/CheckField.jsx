@@ -32,7 +32,11 @@ const CheckField = ({
     error: error || hasErrors,
   }
   return (
-    <div className="field">
+    <div
+      className="field"
+      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+      data-position="top left"
+    >
       <label htmlFor={id}>&nbsp;</label>
       <Form.Checkbox {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}

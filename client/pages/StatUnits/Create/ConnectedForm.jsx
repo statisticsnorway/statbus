@@ -85,10 +85,6 @@ export default enhance((props) => {
   } else {
     values.externalIdDate = undefined
   }
-  if (values.legalUnitId && values.legalUnitId) {
-    values.legalUnitIdDate = values.legalUnitIdDate || currentDate
-  }
-
   if (values.turnover) {
     values.turnoverYear = values.turnoverYear || lastYear
     values.turnoverDate = values.turnoverDate || currentDate
@@ -104,11 +100,60 @@ export default enhance((props) => {
     values.employeesDate = undefined
   }
 
-  if (values.entGroupId && values.entGroupId) {
-    values.entGroupIdDate = values.entGroupIdDate || currentDate
+  if (values.registrationReasonId) {
+    values.registrationDate = values.registrationDate || currentDate
+  } else {
+    values.registrationDate = undefined
   }
-  if (values.enterpriseUnitRegId && values.enterpriseUnitRegId) {
-    values.entRegIdDate = values.entRegIdDate || currentDate
+
+  if (props.type === 1) {
+    if (values.legalUnitId) {
+      values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+    } else {
+      values.legalUnitIdDate = undefined
+    }
   }
+
+  if (props.type === 2) {
+    if (values.enterpriseUnitRegId) {
+      values.entRegIdDate = values.entRegIdDate || currentDate
+    } else {
+      values.entRegIdDate = undefined
+    }
+  }
+
+  if (props.type === 3) {
+    if (values.entGroupId) {
+      values.entGroupIdDate = values.entGroupIdDate || currentDate
+    } else {
+      values.entGroupIdDate = undefined
+    }
+  }
+
+  if (props.type === 4) {
+    if (values.reorgTypeId) {
+      values.registrationDate = values.registrationDate || currentDate
+    } else {
+      values.registrationDate = undefined
+    }
+    if (values.reorgTypeCode) {
+      values.reorgDate = values.reorgDate || currentDate
+    } else {
+      values.reorgDate = undefined
+    }
+
+    if (values.registrationReasonId) {
+      values.registrationDate = values.registrationDate || currentDate
+    } else {
+      values.registrationDate = undefined
+    }
+
+    if (values.reorgTypeId) {
+      values.reorgDate = values.reorgDate || currentDate
+    } else {
+      values.reorgDate = undefined
+    }
+  }
+
   return <FormBody {...{ ...props }} />
 })

@@ -3,6 +3,7 @@ using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Collections.Generic;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using System.Linq;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 {
@@ -10,7 +11,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
     /// <summary>
     /// Analysis enterprise group mandatory fields manager
     /// </summary>
-    public class EnterpriseGroupMandatoryFieldsManager : IAnalysisManager
+    public class EnterpriseGroupMandatoryFieldsManager : IMandatoryFieldsAnalysisManager
     {
         private readonly EnterpriseGroup _enterpriseGroup;
         private readonly DbMandatoryFields _mandatoryFields;
@@ -46,12 +47,28 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             if (_mandatoryFields.EnterpriseGroup.TelephoneNo && string.IsNullOrEmpty(_enterpriseGroup.TelephoneNo))
                 messages.Add(nameof(_enterpriseGroup.TelephoneNo), new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
-            if (_mandatoryFields.EnterpriseGroup.RegistrationReasonId && !(_enterpriseGroup.RegistrationReasonId > 0))
+            if (!(_enterpriseGroup.RegistrationReasonId > 0))
                 messages.Add(nameof(_enterpriseGroup.RegistrationReasonId), new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
             if (_mandatoryFields.EnterpriseGroup.ContactPerson && string.IsNullOrEmpty(_enterpriseGroup.ContactPerson))
                 messages.Add(nameof(_enterpriseGroup.ContactPerson), new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
 
+            return messages;
+        }
+
+        public Dictionary<string, string[]> CheckOnlyIdentifiersFields()
+        {
+            var messages = new Dictionary<string, string[]>();
+            var suStatUnitBools = new[]
+            {
+                _enterpriseGroup.StatId != null,
+                _enterpriseGroup.TaxRegId != null,
+                _enterpriseGroup.ExternalId != null
+            };
+            if (!suStatUnitBools.Contains(true))
+            {
+                messages.Add(nameof(_enterpriseGroup.RegId), new[] { Resource.AnalysisOneOfTheseFieldsShouldBeFilled });
+            }
             return messages;
         }
     }
