@@ -2377,4 +2377,19 @@
   <data name="ActivityYearTooltip" xml:space="preserve">
     <value>Год деятельности</value>
   </data>
+  <data name="LoginInputButton" xml:space="preserve">
+    <value>Вход</value>
+  </data>
+  <data name="LoginInputLogin" xml:space="preserve">
+    <value>Логин</value>
+  </data>
+  <data name="LoginInputPassword" xml:space="preserve">
+    <value>Пароль</value>
+  </data>
+  <data name="LoginInputRemember" xml:space="preserve">
+    <value>Запомнить</value>
+  </data>
+  <data name="LoginTitle" xml:space="preserve">
+    <value>Вход в NSC Registry</value>
+  </data>
 </root>

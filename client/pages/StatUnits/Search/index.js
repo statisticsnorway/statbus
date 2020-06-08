@@ -1,7 +1,7 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
-import { pipe, equals } from 'ramda'
+import { pipe, equals, isEmpty } from 'ramda'
 
 import { getText } from 'helpers/locale'
 import actionCreators from './actions'
@@ -37,6 +37,18 @@ const hooks = {
       !equals(this.state, nextState)
     )
   },
+  componentDidUpdate(prevProps) {
+    const prevQuery = prevProps.query
+    const currentQuery = this.props.query
+
+    if (
+      (!isEmpty(prevQuery) && prevQuery.page !== currentQuery.page) ||
+      prevQuery.pageSize !== currentQuery.pageSize
+    ) {
+      const newQuery = createFilterFromQuery(currentQuery)
+      this.props.fetchData(newQuery)
+    }
+  },
 }
 
 const mapStateToProps = (state, props) => ({
@@ -50,6 +62,7 @@ const mapStateToProps = (state, props) => ({
 
 const mapDispatchToProps = (dispatch, props) => ({
   ...bindActionCreators(actions, dispatch),
+
   setQuery: (...params) => dispatch(setQuery(props.location.pathname)(...params)),
 })
 
