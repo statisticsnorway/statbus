@@ -2377,9 +2377,6 @@
   <data name="ActivityYearTooltip" xml:space="preserve">
     <value>Ишмердиктин жылы</value>
   </data>
-  <data name="ghjf" xml:space="preserve">
-    <value />
-  </data>
   <data name="LoginInputButton" xml:space="preserve">
     <value>Кирүү</value>
   </data>
