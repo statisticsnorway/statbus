@@ -1,5 +1,4 @@
 @model nscreg.Server.Common.Models.Account.LoginVm
-@using nscreg.Resources.Languages
 
 <!doctype html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="">
@@ -16,31 +15,29 @@
 <body>
 <div class="parent-cont-login">
     <div class="child-cont-login">
-      <h2 class="login-form-head">@Resource.LoginTitle</h2>
+      <h2 class="login-form-head">@ViewData["Title"]</h2>
         <form method="post" class="ui form">
             @Html.AntiForgeryToken()
             <div class="field">
-                <input name="username" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@Resource.LoginInputLogin"/>
+                <input name="login" required value="@(Model?.Login ?? string.Empty)" placeholder="login"/>
             </div>
             <div class="field">
-                <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="@Resource.LoginInputPassword"/>
+                <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="password"/>
             </div>
             <div class="field">
                 <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden"/>
                 <label>
                     <input id="rememberMeToggle" type="checkbox" @((Model?.RememberMe ?? false) ? "checked" : string.Empty) onclick="handleRememberMeToggle()"/>
-                    @Resource.LoginInputRemember
+                    Remember
                 </label>
             </div>
             <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden"/>
-            <input type="submit" value="@Resource.LoginInputButton" class="ui button middle fluid blue">
+            <input type="submit" value="log in" class="ui button middle fluid blue">
         </form>
         @if (!ViewData.ModelState.IsValid)
         {
             <div class="ui negative message">
-                <span>
-                  @Resource.LoginFailed
-                  </span>
+                <span>log in failed</span>
             </div>
         }
     </div>
