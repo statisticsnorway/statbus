@@ -2650,4 +2650,16 @@
   <data name="ActivityYearTooltip" xml:space="preserve">
     <value>Activity Year</value>
   </data>
+  <data name="LoginInputButton" xml:space="preserve">
+    <value>Log in</value>
+  </data>
+  <data name="LoginInputLogin" xml:space="preserve">
+    <value>Login</value>
+  </data>
+  <data name="LoginInputPassword" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="LoginInputRemember" xml:space="preserve">
+    <value>Remember</value>
+  </data>
 </root>
