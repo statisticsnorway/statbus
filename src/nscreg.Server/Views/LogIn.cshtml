@@ -20,7 +20,7 @@
         <form method="post" class="ui form">
             @Html.AntiForgeryToken()
             <div class="field">
-                <input name="login" required value="@(Model?.Login ?? string.Empty)" placeholder="@Resource.LoginInputLogin"/>
+                <input name="username" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@Resource.LoginInputLogin"/>
             </div>
             <div class="field">
                 <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="@Resource.LoginInputPassword"/>
@@ -49,8 +49,6 @@
   function handleRememberMeToggle() {
     document.getElementById('rememberMe').value = document.getElementById('rememberMeToggle').checked ? 'True' : 'False';
   }
-  let localStorage = window.localStorage
-  console.log(localStorage)
 </script>
 </body>
 </html>
