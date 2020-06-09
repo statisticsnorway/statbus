@@ -11,6 +11,7 @@ using nscreg.Server.Common.Models.Account;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Extensions;
+using System.Collections.Generic;
 
 namespace nscreg.Server.Controllers
 {
@@ -44,6 +45,12 @@ namespace nscreg.Server.Controllers
         {
             ViewData["RedirectUrl"] = urlReferrer;
             ViewData["Title"] = Resource.LoginTitle;
+            ViewData["Localization"] = new Dictionary<string, string>
+            {
+                { "LoginInputLogin", Resource.LoginInputLogin },
+                { "LoginInputPassword", Resource.LoginInputPassword },
+                { "LoginInputButton", Resource.LoginInputButton },
+            };
             return View("~/Views/LogIn.cshtml");
         }
         /// <summary>

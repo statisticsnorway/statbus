@@ -1,4 +1,4 @@
-﻿@model nscreg.Server.Common.Models.Account.LoginVm
+@model nscreg.Server.Common.Models.Account.LoginVm
 @using nscreg.Resources.Languages
 
 <!doctype html>
@@ -14,16 +14,19 @@
   <link href="~/styles.css" rel="stylesheet" />
 </head>
 <body>
+  @{
+    var locale = ViewData["Localization"] as Dictionary<string, string>;
+  }
   <div class="parent-cont-login">
     <div class="child-cont-login">
       <h2 class="login-form-head">@Resource.LoginTitle</h2>
       <form method="post" class="ui form">
         @Html.AntiForgeryToken()
         <div class="field">
-          <input name="login" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@Resource.LoginInputLogin" />
+          <input name="login" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@locale?["LoginInputLogin"]" />
         </div>
         <div class="field">
-          <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="@Resource.LoginInputPassword" />
+          <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="@locale?["LoginInputPassword"]" />
         </div>
         <div class="field">
           <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden" />
@@ -33,7 +36,7 @@
           </label>
         </div>
         <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden" />
-        <input type="submit" value="@Resource.LoginInputButton" class="ui button middle fluid blue">
+        <input type="submit" value="@locale?["LoginInputButton"]" class="ui button middle fluid blue">
       </form>
       @if (!ViewData.ModelState.IsValid)
       {
