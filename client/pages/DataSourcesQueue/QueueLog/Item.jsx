@@ -13,7 +13,11 @@ const LogItem = ({ data, localize, deleteLog }) => (
     <Table.Cell content={formatDateTime(data.started)} width={2} />
     <Table.Cell content={data.ended && formatDateTime(data.ended)} width={2} />
     <Table.Cell content={localize(statuses.get(data.status))} width={1} />
-    <Table.Cell content={localize(data.note)} width={5} className="wrap-content" />
+    <Table.Cell
+      content={data.note.split(',').map(x => `${localize(x)}. `)}
+      width={5}
+      className="wrap-content"
+    />
     <Table.Cell width={1}>
       {data.status !== 1 && (
         <Button
