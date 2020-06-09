@@ -136,7 +136,7 @@ namespace nscreg.Server.DataUploadSvc
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
                     errors.Values.ForEach(x=>x.ForEach(e=> _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Warning, "ErrorsOccuredDuringManualAnalysis", errors, summary);
+                    await LogUpload(LogStatus.Warning,  string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
                 }
 
