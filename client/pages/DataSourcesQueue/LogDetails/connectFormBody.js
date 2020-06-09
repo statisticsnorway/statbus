@@ -30,10 +30,15 @@ const mapStateToProps = () =>
     ],
     (locale, unit, type, errors, properties, permissions) => {
       const schema = createStatUnitSchema(type, permissions, properties, unit.regId)
-      const updatedProperties = updateProperties(
+      let updatedProperties = updateProperties(
         schema.cast(createModel(permissions, properties)),
         properties,
       )
+      updatedProperties = updatedProperties.map(obj => ({
+        ...obj,
+        error: errors[obj.name] !== undefined,
+        errors: errors[obj.name] !== undefined ? errors[obj.name] : null,
+      }))
       return {
         values: updateValuesFrom(unit)(createValues(updatedProperties)),
         initialErrors: errors,
@@ -57,5 +62,8 @@ const mapDispatchToProps = (dispatch, props) =>
 
 export default pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
-  connect(mapStateToProps, mapDispatchToProps),
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+  ),
 )
