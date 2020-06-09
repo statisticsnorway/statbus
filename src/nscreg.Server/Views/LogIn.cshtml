@@ -20,7 +20,7 @@
   <div class="parent-cont-login">
     <div class="child-cont-login">
       <h2 class="login-form-head">@locale?["LoginTitle"]</h2>
-      <form name="usrForm" id="usrForm" method="post" class="ui form" action="">
+      <form name="user-form" id="user-form" method="post" class="ui form" action="">
         @Html.AntiForgeryToken()
         <div class="field">
           <input name="username" id="username" autocomplete="username" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@locale?["LoginInputLogin"]" />
