@@ -1,4 +1,4 @@
-@model nscreg.Server.Common.Models.Account.LoginVm
+﻿@model nscreg.Server.Common.Models.Account.LoginVm
 @using nscreg.Resources.Languages
 
 <!doctype html>
@@ -20,13 +20,13 @@
   <div class="parent-cont-login">
     <div class="child-cont-login">
       <h2 class="login-form-head">@locale?["LoginTitle"]</h2>
-      <form method="post" class="ui form">
+      <form name="usrForm" id="usrForm" method="post" class="ui form" action="">
         @Html.AntiForgeryToken()
         <div class="field">
-          <input name="login" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@locale?["LoginInputLogin"]" />
+          <input name="username" id="username" autocomplete="username" required type="text" value="@(Model?.Login ?? string.Empty)" placeholder="@locale?["LoginInputLogin"]" />
         </div>
         <div class="field">
-          <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="@locale?["LoginInputPassword"]" />
+          <input name="password" id="password" autocomplete="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="@locale?["LoginInputPassword"]" />
         </div>
         <div class="field">
           <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden" />
