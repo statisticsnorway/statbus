@@ -19,7 +19,7 @@
   }
   <div class="parent-cont-login">
     <div class="child-cont-login">
-      <h2 class="login-form-head">@Resource.LoginTitle</h2>
+      <h2 class="login-form-head">@locale?["LoginTitle"]</h2>
       <form method="post" class="ui form">
         @Html.AntiForgeryToken()
         <div class="field">
@@ -32,7 +32,7 @@
           <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden" />
           <label>
             <input id="rememberMeToggle" type="checkbox" @((Model?.RememberMe ?? false) ? "checked" : string.Empty) onclick="handleRememberMeToggle()" />
-            @Resource.LoginInputRemember
+            @locale?["LoginInputRemember"]
           </label>
         </div>
         <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden" />
@@ -41,7 +41,7 @@
       @if (!ViewData.ModelState.IsValid)
       {
         <div class="ui negative message">
-          <span>@Resource.LoginFailed</span>
+          <span>@locale?["LoginFailed"]</span>
         </div>
       }
     </div>

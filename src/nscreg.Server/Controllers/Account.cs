@@ -44,12 +44,14 @@ namespace nscreg.Server.Controllers
         public IActionResult LogIn(string urlReferrer = null)
         {
             ViewData["RedirectUrl"] = urlReferrer;
-            ViewData["Title"] = Resource.LoginTitle;
             ViewData["Localization"] = new Dictionary<string, string>
             {
+                { "LoginTitle", Resource.LoginTitle },
                 { "LoginInputLogin", Resource.LoginInputLogin },
                 { "LoginInputPassword", Resource.LoginInputPassword },
+                { "LoginInputRemember", Resource.LoginInputRemember },
                 { "LoginInputButton", Resource.LoginInputButton },
+                { "LoginFailed", Resource.LoginFailed }
             };
             return View("~/Views/LogIn.cshtml");
         }
