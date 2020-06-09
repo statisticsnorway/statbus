@@ -85,6 +85,15 @@ namespace nscreg.Server.Controllers
             }
             ModelState.AddModelError(string.Empty, nameof(Resource.LoginFailed));
             ViewData["RedirectUrl"] = data.RedirectUrl;
+            ViewData["Localization"] = new Dictionary<string, string>
+            {
+                { "LoginTitle", Resource.LoginTitle },
+                { "LoginInputLogin", Resource.LoginInputLogin },
+                { "LoginInputPassword", Resource.LoginInputPassword },
+                { "LoginInputRemember", Resource.LoginInputRemember },
+                { "LoginInputButton", Resource.LoginInputButton },
+                { "LoginFailed", Resource.LoginFailed }
+            };
             return View("~/Views/LogIn.cshtml", data);
         }
         /// <summary>
