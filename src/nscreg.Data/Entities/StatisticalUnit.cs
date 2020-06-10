@@ -61,7 +61,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegDateTooltip))]
-        public DateTime RegistrationDate { get; set; }
+        public DateTime? RegistrationDate { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

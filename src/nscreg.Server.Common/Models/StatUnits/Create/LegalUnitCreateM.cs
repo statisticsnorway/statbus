@@ -8,7 +8,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
     {
         public int? EnterpriseRegId { get; set; }
         [DataType(DataType.Date)]
-        public DateTime EntRegIdDate { get; set; }
+        public DateTime? EntRegIdDate { get; set; }
         public bool Market { get; set; }
         public int? LegalFormId { get; set; }
         public int? InstSectorCodeId { get; set; }

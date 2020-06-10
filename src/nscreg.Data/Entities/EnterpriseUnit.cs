@@ -22,7 +22,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 220, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupIdDateTooltip))]
-        public DateTime EntGroupIdDate { get; set; }
+        public DateTime? EntGroupIdDate { get; set; }
 
         [Display(Order = 215, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupRoleTooltip))]

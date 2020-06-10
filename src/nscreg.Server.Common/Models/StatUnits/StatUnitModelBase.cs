@@ -45,7 +45,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string WebAddress { get; set; }
 
         public int? RegMainActivityId { get; set; }
-        public DateTime RegistrationDate { get; set; }
+        public DateTime? RegistrationDate { get; set; }
         public int? RegistrationReasonId { get; set; }
 
         [DataType(DataType.Date)]
