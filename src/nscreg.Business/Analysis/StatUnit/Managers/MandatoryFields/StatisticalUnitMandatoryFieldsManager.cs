@@ -70,10 +70,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.UnitStatusId), new[] { nameof(Resource.AnalysisMandatoryUnitStatus) });
             }
 
-            if (_statisticalUnit.ReorgTypeId == null)
-            {
-                messages.Add(nameof(_statisticalUnit.ReorgTypeId), new[] { nameof(Resource.AnalysisMandatoryReorgType) });
-            }
+            //if (_statisticalUnit.ReorgTypeId == null)
+            //{
+            //    messages.Add(nameof(_statisticalUnit.ReorgTypeId), new[] { nameof(Resource.AnalysisMandatoryReorgType) });
+            //}
 
             return messages;
         }

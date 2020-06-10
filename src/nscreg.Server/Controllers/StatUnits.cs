@@ -198,6 +198,10 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
+            if (data.EntRegIdDate == null)
+            {
+                data.EntRegIdDate = DateTime.Now;
+            }
             var result = await _createService.CreateLegalUnit(data, User.GetUserId());
             if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
