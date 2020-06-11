@@ -266,8 +266,7 @@ namespace nscreg.Server.DataUploadSvc
                     .Cast<string>()
                     .Where(key => key != "unit")
                     .Select(key => $"`{key}` = `{ex.Data[key]}`");
-                return (
-                    $"message: {ex.Message}, data: {string.Join(", ", data)}",
+                return (ex.Message,
                     ex.Data["unit"] as StatisticalUnit);
             }
 

@@ -113,12 +113,13 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.LegalFormId = unit.LegalForm?.Id;
 
                 if (unit.Persons?.Any(person => person.Id == 0) == true)
-                    await unit.PersonsUnits.ForEachAsync(async pu =>
+                    await unit.PersonsUnits.ForEachAsync(async per =>
                     {
-                        if (pu.Person.Id == 0)
-                            pu.Person = await GetFilledPerson(pu.Person);
+                        if (per.Person.Id == 0)
+                        {
+                            per.Person = await GetFilledPerson(per.Person);
+                        }
                     });
-
                 if (unit.UnitType == StatUnitTypes.LocalUnit)
                 {
                     var res = unit as LocalUnit;
@@ -203,7 +204,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     && parsedActivity.ActivityCategory.Code == ac.Code
                     || parsedActivity.ActivityCategory.Name.HasValue()
                     && parsedActivity.ActivityCategory.Name == ac.Name))
-                    ?? throw new Exception($"Activity category by: `{parsedActivity.ActivityCategory.Code}` code or `{parsedActivity.ActivityCategory.Name}` name not found");
+                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
             parsedActivity.ActivityCategory = activityCategory;
             parsedActivity.ActivityCategoryId = activityCategory.Id;
@@ -308,15 +309,16 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<Person> GetFilledPerson(Person parsedPerson)
         {
-            var country = _ctx.Countries.FirstOrDefault(c => !c.IsDeleted
-                && (parsedPerson.NationalityCode.Code.HasValue()
-                    && c.Code == parsedPerson.NationalityCode.Code
-                    || parsedPerson.NationalityCode.Name.HasValue()
-                    && c.Name == parsedPerson.NationalityCode.Name))
-                    ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
-
-            parsedPerson.CountryId = country.Id;
-
+            if (parsedPerson.NationalityCode != null)
+            {
+                var country = _ctx.Countries.FirstOrDefault(c => !c.IsDeleted
+                                                                 && (parsedPerson.NationalityCode.Code.HasValue()
+                                                                     && c.Code == parsedPerson.NationalityCode.Code
+                                                                     || parsedPerson.NationalityCode.Name.HasValue()
+                                                                     && c.Name == parsedPerson.NationalityCode.Name))
+                              ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
+                parsedPerson.CountryId = country.Id;
+            }
             return await _ctx.Persons
                        .Include(p => p.NationalityCode)
                        .FirstOrDefaultAsync(p =>
