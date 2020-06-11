@@ -78,7 +78,10 @@ const addValueConverting = R.cond([
     }),
   ],
   [
-    R.where({ operation: oneOf(listOperations), field: R.complement(oneOf(numberFields)) }),
+    R.where({
+      operation: oneOf(listOperations),
+      field: R.complement(oneOf(numberFields)),
+    }),
     ({ value, onChange, ...props }) => ({
       ...props,
       value: value.split(separator),

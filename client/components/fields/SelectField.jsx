@@ -47,7 +47,7 @@ const createRemovableValueComponent = localize => ({ value, onRemove }) => (
 )
 
 // eslint-disable-next-line react/prop-types
-const createValueComponent = localize => ({ value: { value, label, text } }) => (
+const createValueComponent = localize => ({ value: { value, label } }) => (
   <div className="Select-value">
     <span className="Select-value-label" role="option" aria-selected="true">
       {value === notSelected.value ? localize(notSelected.text) : label}
@@ -123,7 +123,7 @@ class SelectField extends React.Component {
       : this.props.multiselect
         ? []
         : notSelected.value,
-    optionsFetched: false,
+    // isptionsFetched: false,
     options: [],
     isLoading: false,
     page: 0,
@@ -207,22 +207,23 @@ class SelectField extends React.Component {
 
   loadOptions = (callback) => {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
-    const { wildcard, page } = this.state
+    const { wildcard, page, isLoading } = this.state
+    if (!isLoading) {
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page, pageSize, wildcard },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
 
-    internalRequest({
-      url: `/api/lookup/paginated/${lookup}`,
-      queryParams: { page, pageSize, wildcard },
-      method: 'get',
-      onSuccess: (data) => {
-        let options = [...data]
-
-        if (responseToOption) options = options.map(responseToOption)
-        this.setState({
-          options: this.state.options.concat(options),
-          page: this.state.page + 1,
-        })
-      },
-    })
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options: this.state.options.concat(options),
+            page: this.state.page + 1,
+          })
+        },
+      })
+    }
   }
 
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
@@ -252,7 +253,7 @@ class SelectField extends React.Component {
   handleInputChange = (newValue) => {
     const { lookup, pageSize, responseToOption } = this.props
 
-    if (newValue && lookup !== null && newValue.length > 2) {
+    if (newValue && lookup !== null) {
       this.setState({ isLoading: true })
 
       internalRequest({
