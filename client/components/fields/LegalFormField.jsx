@@ -85,25 +85,25 @@ class LegalFormField extends React.Component {
   }
 
   static defaultProps = {
-    value: undefined,
+    value: null,
     onBlur: R.identity,
-    label: undefined,
-    title: undefined,
-    placeholder: undefined,
+    label: null,
+    title: null,
+    placeholder: null,
     multiselect: false,
     required: false,
     errors: [],
     disabled: false,
     inline: false,
-    width: undefined,
+    width: null,
     createOptionComponent: NameCodeOption.render,
     pageSize: 10,
     waitTime: 250,
-    lookup: undefined,
+    lookup: null,
     responseToOption: NameCodeOption.transform,
-    options: undefined,
+    options: null,
     touched: false,
-    popuplocalizedKey: undefined,
+    popuplocalizedKey: null,
   }
 
   state = {
@@ -115,6 +115,9 @@ class LegalFormField extends React.Component {
         : notSelected.value,
     optionsFetched: false,
     options: [],
+    isLoading: false,
+    page: 0,
+    wildcard: '',
   }
 
   componentDidMount() {
@@ -142,7 +145,7 @@ class LegalFormField extends React.Component {
       .then((result) => {
         const options =
           Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
-        this.setState({ options })
+        this.setState({ options, isLoading: false, page: this.state.page + 1 })
       })
   }
 
@@ -174,30 +177,26 @@ class LegalFormField extends React.Component {
     this.handleLoadOptions.cancel()
   }
 
-  loadOptions = (wildcard, page, callback) => {
+  loadOptions = () => {
     const { lookup, pageSize, multiselect, required, responseToOption } = this.props
-    const { optionsFetched } = this.state
-    internalRequest({
-      url: `/api/lookup/paginated/${lookup}`,
-      queryParams: { page: page - 1, pageSize, wildcard },
-      method: 'get',
-      onSuccess: (data) => {
-        let options =
-          multiselect || !required || optionsFetched
-            ? data
-            : [{ id: notSelected.value, name: notSelected.text }, ...data]
-        if (responseToOption) options = options.map(responseToOption)
-        if (optionsFetched) {
-          this.setState({ options: this.state.options.concat(options) }, () => {
-            callback(null, { options })
+    const { wildcard, page, isLoading } = this.state
+
+    if (!isLoading) {
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page, pageSize, wildcard },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
+
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options: this.state.options.concat(options),
+            page: this.state.page + 1,
           })
-        } else {
-          this.setState({ optionsFetched: true }, () => {
-            callback(null, { options })
-          })
-        }
-      },
-    })
+        },
+      })
+    }
   }
 
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
@@ -223,6 +222,30 @@ class LegalFormField extends React.Component {
     }
   }
 
+  handleInputChange = (newValue) => {
+    const { lookup, pageSize, responseToOption } = this.props
+
+    if (newValue && lookup !== null) {
+      this.setState({ isLoading: true })
+
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page: 0, pageSize, wildcard: newValue },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
+
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options,
+            page: 0,
+            isLoading: false,
+          })
+        },
+      })
+    }
+  }
+
   render() {
     const {
       name,
@@ -243,7 +266,7 @@ class LegalFormField extends React.Component {
       popuplocalizedKey,
     } = this.props
     const hasErrors = touched && hasValue(errorKeys)
-    const label = labelKey !== undefined ? localize(labelKey) : undefined
+    const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
     const title = titleKey ? localize(titleKey) : label
     const placeholder = placeholderKey ? localize(placeholderKey) : label
     const hasOptions = hasValue(options)
@@ -257,7 +280,13 @@ class LegalFormField extends React.Component {
           options:
               multiselect || !required
                 ? options
-                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+                : [
+                  {
+                    value: notSelected.value,
+                    text: localize(notSelected.text),
+                  },
+                  ...options,
+                ],
           required,
           title,
           inline,
@@ -265,10 +294,10 @@ class LegalFormField extends React.Component {
         },
       ]
       : [
-        ReactSelect.Async,
+        ReactSelect,
         {
           onChange: this.handleAsyncSelect,
-          loadOptions: this.handleLoadOptions,
+          loadOptions: this.loadOptions,
           valueComponent: multiselect
             ? createRemovableValueComponent(localize)
             : createValueComponent(localize),
@@ -279,8 +308,9 @@ class LegalFormField extends React.Component {
           backspaceRemoves: true,
           searchable: true,
           pagination: true,
-          clearable: false,
-          filterOptions: R.identity,
+          isLoading: this.state.isLoading,
+          onMenuScrollToBottom: this.loadOptions,
+          onInputChange: this.handleInputChange,
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
