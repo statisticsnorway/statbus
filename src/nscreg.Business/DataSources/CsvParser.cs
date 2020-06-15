@@ -40,15 +40,15 @@ namespace nscreg.Business.DataSources
                         if (dictItem.ContainsKey("Activities"))
                         {
                             if((unit["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
-                            (dictItem["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
-                                (List<KeyValuePair<string, Dictionary<string, string>>>) unit["Activities"]);
+                                (dictItem["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
+                                    (List<KeyValuePair<string, Dictionary<string, string>>>) unit["Activities"]);
                         }
 
                         if (dictItem.ContainsKey("Persons"))
                         {
                             if((unit["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
-                            (dictItem["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
-                                (List<KeyValuePair<string, Dictionary<string, string>>>)unit["Persons"]);
+                                (dictItem["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
+                                    (List<KeyValuePair<string, Dictionary<string, string>>>)unit["Persons"]);
                         }
                     }
                     else
