@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using nscreg.Data;
 
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20200608080101_UnitSizeCodeFieldAdd")]
+    partial class UnitSizeCodeFieldAdd
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1502,7 +1504,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("RegIdDate");
 
-                    b.Property<DateTime?>("RegistrationDate");
+                    b.Property<DateTime>("RegistrationDate");
 
                     b.Property<int?>("RegistrationReasonId");
 
@@ -1817,7 +1819,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("EntGroupId");
 
-                    b.Property<DateTime?>("EntGroupIdDate");
+                    b.Property<DateTime>("EntGroupIdDate");
 
                     b.Property<string>("EntGroupRole");
 

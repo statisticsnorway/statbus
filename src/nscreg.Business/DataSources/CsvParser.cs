@@ -10,7 +10,7 @@ namespace nscreg.Business.DataSources
         public static IEnumerable<IReadOnlyDictionary<string, object>> GetParsedEntities(string rawLines, string delimiter)
         {
             CsvConfig.ItemSeperatorString = delimiter;
-            var listFields = rawLines.Split('\r', '\n').FirstOrDefault().Split(';');
+            var listFields = rawLines.Split('\r', '\n').FirstOrDefault().Split(delimiter);
             var nestedList = listFields.Select(x => new { Key = x, Names = x.Split('.') }).Where(f => f.Names.Length > 1).ToDictionary(x => x.Key, y => y.Names);
             var rowsFromCsv = rawLines.FromCsv<List<Dictionary<string, string>>>();
             var resultDictionary = new List<Dictionary<string, object>>();
@@ -42,7 +42,7 @@ namespace nscreg.Business.DataSources
                         if (a.Count() != 0)
                         {
                             var num = resultDictionary.Count - 1;
-                            (resultDictionary[num][nestedElementAsArray[0]] as List<KeyValuePair<string, Dictionary<string, string>>>).Add(new KeyValuePair<string, Dictionary<string, string>>(nestedElementAsArray[1], a));
+                            (resultDictionary[num][nestedElementAsArray[0]] as List<KeyValuePair<string, Dictionary<string, string>>>)?.Add(new KeyValuePair<string, Dictionary<string, string>>(nestedElementAsArray[1], a));
                         }
                     }
                 }

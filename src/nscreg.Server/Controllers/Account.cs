@@ -11,6 +11,7 @@ using nscreg.Server.Common.Models.Account;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Extensions;
+using System.Collections.Generic;
 
 namespace nscreg.Server.Controllers
 {
@@ -43,7 +44,15 @@ namespace nscreg.Server.Controllers
         public IActionResult LogIn(string urlReferrer = null)
         {
             ViewData["RedirectUrl"] = urlReferrer;
-            ViewData["Title"] = Resource.LoginTitle;
+            ViewData["Localization"] = new Dictionary<string, string>
+            {
+                { "LoginTitle", Resource.LoginTitle },
+                { "LoginInputLogin", Resource.LoginInputLogin },
+                { "LoginInputPassword", Resource.LoginInputPassword },
+                { "LoginInputRemember", Resource.LoginInputRemember },
+                { "LoginInputButton", Resource.LoginInputButton },
+                { "LoginFailed", Resource.LoginFailed }
+            };
             return View("~/Views/LogIn.cshtml");
         }
         /// <summary>
@@ -76,6 +85,15 @@ namespace nscreg.Server.Controllers
             }
             ModelState.AddModelError(string.Empty, nameof(Resource.LoginFailed));
             ViewData["RedirectUrl"] = data.RedirectUrl;
+            ViewData["Localization"] = new Dictionary<string, string>
+            {
+                { "LoginTitle", Resource.LoginTitle },
+                { "LoginInputLogin", Resource.LoginInputLogin },
+                { "LoginInputPassword", Resource.LoginInputPassword },
+                { "LoginInputRemember", Resource.LoginInputRemember },
+                { "LoginInputButton", Resource.LoginInputButton },
+                { "LoginFailed", Resource.LoginFailed }
+            };
             return View("~/Views/LogIn.cshtml", data);
         }
         /// <summary>

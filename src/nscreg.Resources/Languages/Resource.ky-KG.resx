@@ -2377,4 +2377,19 @@
   <data name="ActivityYearTooltip" xml:space="preserve">
     <value>Ишмердиктин жылы</value>
   </data>
+  <data name="LoginInputButton" xml:space="preserve">
+    <value>Кирүү</value>
+  </data>
+  <data name="LoginInputLogin" xml:space="preserve">
+    <value>Логин</value>
+  </data>
+  <data name="LoginInputPassword" xml:space="preserve">
+    <value>Жашыруун сөз</value>
+  </data>
+  <data name="LoginInputRemember" xml:space="preserve">
+    <value>Эстеп</value>
+  </data>
+  <data name="LoginTitle" xml:space="preserve">
+    <value>NSC Registry кирүү</value>
+  </data>
 </root>
