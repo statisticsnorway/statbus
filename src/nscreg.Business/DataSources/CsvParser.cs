@@ -30,7 +30,32 @@ namespace nscreg.Business.DataSources
                         var b = new KeyValuePair<string, Dictionary<string, string>>(secondLevelName, a);
                         unit[firstLevelName] = new List<KeyValuePair<string, Dictionary<string, string>>>(new[] { b });
                     }
-                    resultDictionary.Add(unit);
+
+                    var dictItem = resultDictionary.FirstOrDefault(d =>
+                        d["StatId"].ToString() == unit["StatId"].ToString() &&
+                        d["StatUnitName"].ToString() == unit["StatUnitName"].ToString());
+
+                    if (dictItem != null)
+                    {
+                        if (dictItem.ContainsKey("Activities"))
+                        {
+                            if((unit["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
+                                (dictItem["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
+                                    (List<KeyValuePair<string, Dictionary<string, string>>>) unit["Activities"]);
+                        }
+
+                        if (dictItem.ContainsKey("Persons"))
+                        {
+                            if((unit["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
+                                (dictItem["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
+                                    (List<KeyValuePair<string, Dictionary<string, string>>>)unit["Persons"]);
+                        }
+                    }
+                    else
+                    {
+                        resultDictionary.Add(unit);
+                    }
+                    
                 }
                 else
                 {
