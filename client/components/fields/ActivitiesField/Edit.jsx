@@ -20,7 +20,7 @@ const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
     <strong>{code}</strong>
     &nbsp;
-    {name.length > 50 ? (
+    {name != null && name.length > 50 ? (
       <span title={name}>{`${name.substring(0, 50)}...`}</span>
     ) : (
       <span>{name}</span>
@@ -205,7 +205,7 @@ class ActivityEdit extends React.Component {
                     />
                   }
                   content={`6 ${localize('MaxLength')}`}
-                  open={value.employees.length > 6}
+                  open={value.employees != null && value.employees.length > 6}
                 />
               </div>
               <div
@@ -260,7 +260,8 @@ class ActivityEdit extends React.Component {
                       onClick={this.saveHandler}
                       disabled={
                         disabled ||
-                        (activityMandatoryFields.Employees && value.employees.length > 6) ||
+                        (activityMandatoryFields.Employees &&
+                          (value.employees != null && value.employees.length > 6)) ||
                         (value.turnover != null && value.turnover.length > 10) ||
                         (activityMandatoryFields.ActivityCategoryId && !value.activityCategoryId) ||
                         (activityMandatoryFields.ActivityType && !value.activityType) ||

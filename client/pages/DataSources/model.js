@@ -44,9 +44,9 @@ function getColsWithPoints(cols, fieldName) {
 function filterNameAndCode(value: string, isEqual: Boolean) {
   const lastVal = value.split('.').pop()
   if (isEqual) {
-    return lastVal === 'Name' || lastVal === 'Code'
+    return lastVal.includes('Name') || lastVal.includes('Code')
   }
-  return lastVal !== 'Name' && lastVal !== 'Code'
+  return lastVal.includes('Name') && lastVal.includes('Code')
 }
 
 export function tryFieldIsRequired(cols: Array, field: string, variablesMapping) {

@@ -151,7 +151,7 @@ function addFlattened(arr) {
       case 'LegalUnits':
         return acc
       case 'SizeId':
-        return [...acc, ...transform(LookupBase, 'SizeId', cur)]
+        return [...acc, ...transform(CodeLookupBase, 'SizeId', cur)]
       case 'UnitStatusId':
         return [...acc, ...transform(CodeLookupBase, 'UnitStatusId', cur)]
       case 'ReorgTypeId':
