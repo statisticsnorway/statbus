@@ -32,14 +32,16 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly NSCRegDbContext _context;
         private readonly ValidationSettings _validationSettings;
         private readonly bool _isAlterDataSourceAllowedOperation;
+        private readonly bool _isDataSourceUpload;
         private readonly IEnumerable<PropertyInfo> _orphanProperties;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
-            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false)
+            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false)
         {
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _context = context;
+            _isDataSourceUpload = isDataSourceUpload;
             _validationSettings = validationSettings;
             _isAlterDataSourceAllowedOperation = isAlterDataSourceAllowedOperation;
             _orphanProperties = _analysisRules.Orphan.GetType().GetProperties()
@@ -75,7 +77,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
             }
 
-            if (_analysisRules.Connections.CheckAddress && unit.Address == null && _mandatoryFields.StatUnit.Address)
+            if (_analysisRules.Connections.CheckAddress && _isDataSourceUpload == false && unit.Address == null)
                 messages.Add(nameof(StatisticalUnit.Address), new[] { nameof(Resource.AnalysisRelatedAddress) });
 
             return messages;
