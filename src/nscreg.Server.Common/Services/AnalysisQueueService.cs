@@ -67,16 +67,17 @@ namespace nscreg.Server.Common.Services
 
         public async Task<LogItemsListModel> GetLogs(LogsQueryModel filter)
         {
-            var logs = _context.AnalysisLogs
-                .Where(x => x.AnalysisQueueId == filter.QueueId)
-                .OrderBy(x => x.Id);
-
-            var total = await logs.CountAsync();
-
-            var paginated = await logs
-                .Skip(filter.PageSize * (filter.Page - 1))
-                .Take(filter.PageSize)
+            var logs = await _context.AnalysisLogs
+                .Where(x => x.AnalysisQueueId == filter.QueueId && x.SummaryMessages.Length > 0)
+                .OrderBy(x => x.Id)
+                .AsQueryable()
                 .ToListAsync();
+
+            var total = logs.Count;
+
+            var paginated = logs
+                .Skip(filter.PageSize * (filter.Page - 1))
+                .Take(filter.PageSize);
 
             var suIds = paginated.Where(x => x.AnalyzedUnitType != StatUnitTypes.EnterpriseGroup)
                 .Select(x => x.AnalyzedUnitId);
