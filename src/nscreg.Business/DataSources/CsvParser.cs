@@ -16,11 +16,11 @@ namespace nscreg.Business.DataSources
             var resultDictionary = new List<Dictionary<string, object>>();
             for (int j = 0; j < rowsFromCsv.Count; j++)
             {
-                int countNull = rowsFromCsv[j].Where(u => !nestedList.ContainsKey(u.Key)).Count(x => x.Value == null);
-                if (nestedList.Count == 0 || countNull == 0)
-                {
+                //int countNull = rowsFromCsv[j].Where(u => !nestedList.ContainsKey(u.Key)).Count(x => x.Value == null);
+                //if (nestedList.Count == 0 || countNull == 0)
+                //{
                     var activity = rowsFromCsv[j].Where(u => nestedList.ContainsKey(u.Key)).ToDictionary(x => x.Key, y => (object)y.Value);
-                    var unit = rowsFromCsv[j].Where(u => !nestedList.ContainsKey(u.Key)).ToDictionary(x => x.Key, y => (object)y.Value);
+                    var unit = rowsFromCsv[j].Where(u => !nestedList.ContainsKey(u.Key) && u.Value != null).ToDictionary(x => x.Key, y => (object)y.Value);
                     foreach (var nestedElement in nestedList.Select(x => string.Join(".", x.Value.Take(2))).Distinct())
                     {
                         var nestedElementAsArray = nestedElement.Split('.');
@@ -32,8 +32,7 @@ namespace nscreg.Business.DataSources
                     }
 
                     var dictItem = resultDictionary.FirstOrDefault(d =>
-                        d["StatId"].ToString() == unit["StatId"].ToString() &&
-                        d["StatUnitName"].ToString() == unit["StatUnitName"].ToString());
+                        d["StatId"].ToString() == unit["StatId"].ToString() || d["TaxId"].ToString() == unit["TaxId"].ToString() || d["ExternalId"].ToString() == unit["ExternalId"].ToString());
 
                     if (dictItem != null)
                     {
@@ -56,21 +55,21 @@ namespace nscreg.Business.DataSources
                         resultDictionary.Add(unit);
                     }
                     
-                }
-                else
-                {
-                    var activity = rowsFromCsv[j].Where(u => nestedList.ContainsKey(u.Key)).ToList().ToDictionary(x => x.Key, y => (object)y.Value);
-                    foreach (var nestedElement in nestedList.Select(x => string.Join(".", x.Value.Take(2))).Distinct())
-                    {
-                        var nestedElementAsArray = nestedElement.Split('.').ToArray();
-                        var a = activity.Where(x => x.Key.StartsWith(nestedElementAsArray[0]) && x.Value != null).ToDictionary(x => x.Key.Split('.').Last(), y => (string)y.Value);
-                        if (a.Count() != 0)
-                        {
-                            var num = resultDictionary.Count - 1;
-                            (resultDictionary[num][nestedElementAsArray[0]] as List<KeyValuePair<string, Dictionary<string, string>>>)?.Add(new KeyValuePair<string, Dictionary<string, string>>(nestedElementAsArray[1], a));
-                        }
-                    }
-                }
+                //}
+                //else
+                //{
+                //    var activity = rowsFromCsv[j].Where(u => nestedList.ContainsKey(u.Key)).ToList().ToDictionary(x => x.Key, y => (object)y.Value);
+                //    foreach (var nestedElement in nestedList.Select(x => string.Join(".", x.Value.Take(2))).Distinct())
+                //    {
+                //        var nestedElementAsArray = nestedElement.Split('.').ToArray();
+                //        var a = activity.Where(x => x.Key.StartsWith(nestedElementAsArray[0]) && x.Value != null).ToDictionary(x => x.Key.Split('.').Last(), y => (string)y.Value);
+                //        if (a.Count() != 0)
+                //        {
+                //            var num = resultDictionary.Count - 1;
+                //            (resultDictionary[num][nestedElementAsArray[0]] as List<KeyValuePair<string, Dictionary<string, string>>>)?.Add(new KeyValuePair<string, Dictionary<string, string>>(nestedElementAsArray[1], a));
+                //        }
+                //    }
+                //}
             }
             return resultDictionary;
         }
