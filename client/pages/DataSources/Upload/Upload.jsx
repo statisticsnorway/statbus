@@ -2,6 +2,7 @@ import React from 'react'
 import { func, shape, arrayOf, number, string } from 'prop-types'
 import { Grid, Input, Dropdown, Button, Segment, List } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
+import Papa from 'papaparse'
 
 import styles from './styles.pcss'
 
@@ -52,14 +53,35 @@ class Upload extends React.Component {
 
   handleSubmit = () => {
     const file = this.state.accepted[0]
-    const formData = new FormData()
-    formData.append('datafile', file, file.name)
-    formData.append('DataSourceId', this.state.dataSourceId)
-    formData.append('Description', this.state.description)
 
-    this.setState({ isLoading: true }, () => {
-      this.props.uploadFile(formData, () => {
-        this.setState({ accepted: [], isLoading: false })
+    const formData = new FormData()
+    let tempFile
+    let csvContent
+
+    const attributesArr = this.props.dataSources.find(el => el.id === this.state.dataSourceId)
+
+    new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        complete(results) {
+          tempFile = results
+
+          tempFile.data[0] = attributesArr.attributesToCheck
+
+          csvContent = new Blob([tempFile.data], {
+            type: 'text/csv;charset=utf-8;',
+          })
+          resolve()
+        },
+      })
+    }).then(() => {
+      formData.append('datafile', csvContent, file.name)
+      formData.append('DataSourceId', this.state.dataSourceId)
+      formData.append('Description', this.state.description)
+
+      this.setState({ isLoading: true }, () => {
+        this.props.uploadFile(formData, () => {
+          this.setState({ accepted: [], isLoading: false })
+        })
       })
     })
   }
