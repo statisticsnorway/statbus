@@ -22,7 +22,7 @@ namespace nscreg.Server.Common.Helpers
         public StatisticalUnit GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
         {
             return _ctx.StatisticalUnits.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
-                (_ctx.StatisticalUnitHistory.Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.StartPeriod <= c.EndPeriod) &&
+                (_ctx.StatisticalUnitHistory.Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.EndPeriod <= c.EndPeriod) &&
                  !_ctx.AnalysisLogs.Any(al =>
                      al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)) ||
                 (su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod &&
