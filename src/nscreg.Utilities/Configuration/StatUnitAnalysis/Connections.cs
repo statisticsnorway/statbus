@@ -5,8 +5,8 @@ namespace nscreg.Utilities.Configuration.StatUnitAnalysis
     /// </summary>
     public class Connections
     {
-        public bool CheckRelatedActivities{get;set;}
-        public bool CheckRelatedLegalUnit{get;set;}
+        public bool CheckRelatedActivities {get;set;}
+        public bool CheckRelatedPersons {get;set;}
         public bool CheckAddress{get;set;}
     }
 }
