@@ -1,3 +1,5 @@
+/* eslint-disable guard-for-in */
+/* eslint no-use-before-define: 0 */
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
@@ -90,6 +92,7 @@ const createDataSource = (data, formikBag) => {
     'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
   ]
 
+  // eslint-disable-next-line no-restricted-syntax
   for (const item in variablesMapping) {
     for (const itemForCheck in arrForCheckSingle) {
       if (variablesMapping[item][1] === arrForCheckSingle[itemForCheck]) {
