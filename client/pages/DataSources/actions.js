@@ -1,5 +1,3 @@
-/* eslint-disable guard-for-in */
-/* eslint no-use-before-define: 0 */
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
@@ -92,25 +90,27 @@ const createDataSource = (data, formikBag) => {
     'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
   ]
 
-  // eslint-disable-next-line no-restricted-syntax
-  for (const item in variablesMapping) {
-    for (const itemForCheck in arrForCheckSingle) {
-      console.log(Object.prototype.hasOwnProperty.call(variablesMapping, item))
-
-      if (variablesMapping[item][1] === arrForCheckSingle[itemForCheck]) {
-        variablesMapping[item][0] =
-          arrForCheckSingle[itemForCheck] === arrForCheckSingle[1]
+  variablesMapping.forEach((item, itemIndex) => {
+    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
+      if (variablesMapping[itemIndex][1] === arrForCheckSingle[itemForCheckIndex]) {
+        variablesMapping[itemIndex][0] =
+          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[1]
             ? 'TaxId'
-            : arrForCheckSingle[itemForCheck]
+            : arrForCheckSingle[itemForCheckIndex]
       }
-    }
-    for (const itemForCheck in arrForCheckMulti) {
-      if (variablesMapping[item][1].includes(arrForCheckMulti[itemForCheck])) {
-        variablesMapping[item][0] = arrForCheckMulti[itemForCheck] + variablesMapping[item][0]
+    })
+
+    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
+      if (variablesMapping[itemIndex][1].includes(arrForCheckMulti[itemForCheckIndex])) {
+        variablesMapping[itemIndex][0] =
+          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][0]
       }
-    }
-  }
+    })
+  })
+
   filteredData.variablesMapping = variablesMapping
+
+  console.log(filteredData.variablesMapping)
 
   return dispatchRequest({
     url: '/api/datasources',
