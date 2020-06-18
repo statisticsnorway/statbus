@@ -31,29 +31,55 @@ namespace nscreg.Business.DataSources
                         unit[firstLevelName] = new List<KeyValuePair<string, Dictionary<string, string>>>(new[] { b });
                     }
 
-                    var dictItem = resultDictionary.FirstOrDefault(d =>
-                        d["StatId"].ToString() == unit["StatId"].ToString() || d["TaxId"].ToString() == unit["TaxId"].ToString() || d["ExternalId"].ToString() == unit["ExternalId"].ToString());
+                    var dictItem = new Dictionary<string, object>();
+                    object unitValue;
+                    object dictValue = null;
 
-                    if (dictItem != null)
+                    if (unit.TryGetValue("ExternalId", out unitValue))
                     {
-                        if (dictItem.ContainsKey("Activities"))
+                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("ExternalId", out dictValue)) != null)
                         {
-                            if((unit["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
-                                (dictItem["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
-                                    (List<KeyValuePair<string, Dictionary<string, string>>>) unit["Activities"]);
+                            dictItem = resultDictionary.FirstOrDefault(d => unitValue.ToString() == dictValue.ToString());
                         }
 
-                        if (dictItem.ContainsKey("Persons"))
-                        {
-                            if((unit["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
-                                (dictItem["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
-                                    (List<KeyValuePair<string, Dictionary<string, string>>>)unit["Persons"]);
-                        }
                     }
-                    else
+                    if (unit.TryGetValue("TaxId", out unitValue))
                     {
-                        resultDictionary.Add(unit);
+                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("TaxId", out dictValue)) != null)
+                        {
+                            dictItem = resultDictionary.FirstOrDefault(d => unitValue.ToString() == dictValue.ToString());
+                        }
+
                     }
+                    if (unit.TryGetValue("StatId", out unitValue))
+                    {
+                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("id", out dictValue)) != null)
+                        {
+                            dictItem = resultDictionary.FirstOrDefault(d => dictValue.ToString() == unitValue.ToString());
+                        }
+
+                    }
+
+                if (dictItem != null && dictItem.Any())
+                {
+                    if (dictItem.ContainsKey("Activities"))
+                    {
+                        if((unit["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
+                            (dictItem["Activities"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
+                                (List<KeyValuePair<string, Dictionary<string, string>>>) unit["Activities"]);
+                    }
+
+                    if (dictItem.ContainsKey("Persons"))
+                    {
+                        if((unit["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>).Any(c => c.Value.Values.Any(x => x != null)))
+                            (dictItem["Persons"] as List<KeyValuePair<string, Dictionary<string, string>>>)?.AddRange(
+                                (List<KeyValuePair<string, Dictionary<string, string>>>)unit["Persons"]);
+                    }
+                }
+                else
+                {
+                    resultDictionary.Add(unit);
+                }
                     
                 //}
                 //else
