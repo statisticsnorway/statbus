@@ -25,7 +25,7 @@ namespace nscreg.Business.Test.DataSources
             + "\"919228768\";\"UNISOL UTEGLASS AS\";\"919146605\";\"BEDR\";;;\n"
             + "\"919228776\";\"PETBNB AS\";\"919061227\";\"BEDR\";\"2017-07-03\";\"2017-05-15\";\"2017-05-25\"",
             ";")]
-        private void ShouldParseEntityFromUnquotedCommaString(string source, string delimiter )
+        private void ShouldParseEntityFromUnquotedCommaString(string source, string delimiter)
         {
             var actual = CsvParser.GetParsedEntities(source, delimiter).ToArray();
 

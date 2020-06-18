@@ -35,9 +35,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             _validationSettings = validationSettings;
         }
 
-        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation)
+        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation, bool isDataSourceUpload)
         {
-            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation));
+            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation, isDataSourceUpload));
         }
 
         public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)
@@ -53,7 +53,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 _context.SaveChanges();
             }
             var analyzer = new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings);
-
             AnalyzeStatisticalUnits(analysisQueue, analyzer);
             AnalyzeEnterpriseGroups(analysisQueue, analyzer);
 
@@ -61,7 +60,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _context.SaveChanges();
         }
 
-        private static AnalysisResult AnalyzeSingleStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer)
+        private AnalysisResult AnalyzeSingleStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer)
         {
             return analyzer.CheckAll(unit);
         }
@@ -99,8 +98,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private void AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
         {
             var analyzeResult = AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
-            if (analyzeResult.Messages.Any() || analyzeResult.SummaryMessages.Any())
-            {
                 _context.AnalysisLogs.Add(new AnalysisLog
                 {
                     AnalysisQueueId = analysisQueueId,
@@ -111,7 +108,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
                 });
                 _context.SaveChanges();
-            }
         }
     }
 }
