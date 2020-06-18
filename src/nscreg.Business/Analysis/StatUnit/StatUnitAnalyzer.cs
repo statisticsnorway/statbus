@@ -193,20 +193,20 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             switch (propertyName)
             {
-                case nameof(Orphan.CheckRelatedEnterpriseGroup):
-                    if (unit.EntGroupId == null)
-                    {
-                        messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
-                    }
+                //case nameof(Orphan.CheckRelatedEnterpriseGroup):
+                //    if (unit.EntGroupId == null)
+                //    {
+                //        messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
+                //    }
 
-                    break;
+                //    break;
                 case nameof(Orphan.CheckEnterpriseRelatedLegalUnits):
                     if (!unit.LegalUnits.Any())
                     {
                         messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                     }
                     break;
-                case nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises):
+                case nameof(Orphan.CheckOrphanEnterpriseGroups):
                     if (!_context.EnterpriseUnits.Any(x=>x.EntGroupId == unit.EntGroupId))
                     {
                         messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseGroupRelatedEnterprises) });
