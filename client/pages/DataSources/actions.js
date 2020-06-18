@@ -95,6 +95,8 @@ const createDataSource = (data, formikBag) => {
   // eslint-disable-next-line no-restricted-syntax
   for (const item in variablesMapping) {
     for (const itemForCheck in arrForCheckSingle) {
+      console.log(Object.prototype.hasOwnProperty.call(variablesMapping, item))
+
       if (variablesMapping[item][1] === arrForCheckSingle[itemForCheck]) {
         variablesMapping[item][0] =
           arrForCheckSingle[itemForCheck] === arrForCheckSingle[1]
