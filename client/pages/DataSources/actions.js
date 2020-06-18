@@ -77,15 +77,50 @@ const fetchColumns = () =>
       )(response),
   })
 
-const createDataSource = (data, formikBag) =>
-  dispatchRequest({
+const createDataSource = (data, formikBag) => {
+  const filteredData = { ...data }
+
+  const variablesMapping = [...data.variablesMapping]
+
+  const arrForCheckSingle = ['StatId', 'TaxRegId', 'ExternalId']
+
+  const arrForCheckMulti = [
+    'Activities.Activity.',
+    'Persons.Person.',
+    'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
+  ]
+
+  variablesMapping.forEach((item, itemIndex) => {
+    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
+      if (variablesMapping[itemIndex][1] === arrForCheckSingle[itemForCheckIndex]) {
+        variablesMapping[itemIndex][0] =
+          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[1]
+            ? 'TaxId'
+            : arrForCheckSingle[itemForCheckIndex]
+      }
+    })
+
+    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
+      if (variablesMapping[itemIndex][1].includes(arrForCheckMulti[itemForCheckIndex])) {
+        variablesMapping[itemIndex][0] =
+          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][0]
+      }
+    })
+  })
+
+  filteredData.variablesMapping = variablesMapping
+
+  console.log(filteredData.variablesMapping)
+
+  return dispatchRequest({
     url: '/api/datasources',
     method: 'post',
-    body: transformMapping(data),
+    body: transformMapping(filteredData),
     onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('/datasources')),
     onFail: (_, errors) => formikBag.failed(errors),
   })
+}
 
 const fetchDataSourceSucceeded = createAction('fetched datasource')
 
