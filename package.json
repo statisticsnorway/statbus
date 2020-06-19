@@ -33,7 +33,6 @@
     "lodash": "^4.17.5",
     "moment": "^2.20.1",
     "node": "^8.11.4",
-    "papaparse": "^4.6.3",
     "ramda": "^0.25.0",
     "react": "^16.8.4",
     "react-beautiful-dnd": "^7.0.2",
