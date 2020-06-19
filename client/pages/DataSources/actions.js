@@ -79,16 +79,14 @@ const fetchColumns = () =>
 
 const createDataSource = (data, formikBag) => {
   const filteredData = { ...data }
-
   const variablesMapping = [...data.variablesMapping]
-
   const arrForCheckSingle = ['StatId', 'TaxRegId', 'ExternalId']
-
   const arrForCheckMulti = [
     'Activities.Activity.',
     'Persons.Person.',
     'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
   ]
+  const attributesToCheck = []
 
   variablesMapping.forEach((item, itemIndex) => {
     arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
@@ -108,9 +106,20 @@ const createDataSource = (data, formikBag) => {
     })
   })
 
+  variablesMapping.forEach((item, index) => {
+    // console.log();
+
+    attributesToCheck[index] = item[0]
+  })
+  console.log('attributesToCheck', attributesToCheck)
+
   filteredData.variablesMapping = variablesMapping
+  filteredData.attributesToCheck = attributesToCheck
+
+  console.log(variablesMapping)
 
   console.log(filteredData.variablesMapping)
+  console.log(filteredData)
 
   return dispatchRequest({
     url: '/api/datasources',
