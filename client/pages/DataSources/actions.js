@@ -87,27 +87,29 @@ const createDataSource = (data, formikBag) => {
     'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
   ]
   const attributesToCheck = []
+  const leftItem = 0
+  const rightItem = 1
 
   variablesMapping.forEach((item, itemIndex) => {
     arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][1] === arrForCheckSingle[itemForCheckIndex]) {
-        variablesMapping[itemIndex][0] =
-          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[1]
+      if (variablesMapping[itemIndex][rightItem] === arrForCheckSingle[itemForCheckIndex]) {
+        variablesMapping[itemIndex][leftItem] =
+          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[rightItem]
             ? 'TaxId'
             : arrForCheckSingle[itemForCheckIndex]
       }
     })
 
     arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][1].includes(arrForCheckMulti[itemForCheckIndex])) {
-        variablesMapping[itemIndex][0] =
-          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][0]
+      if (variablesMapping[itemIndex][rightItem].includes(arrForCheckMulti[itemForCheckIndex])) {
+        variablesMapping[itemIndex][leftItem] =
+          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
       }
     })
   })
 
   variablesMapping.forEach((item, index) => {
-    attributesToCheck[index] = item[0]
+    attributesToCheck[index] = item[leftItem]
   })
 
   filteredData.variablesMapping = variablesMapping
