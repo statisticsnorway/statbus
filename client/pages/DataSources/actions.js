@@ -77,20 +77,28 @@ const fetchColumns = () =>
       )(response),
   })
 
+const arrForCheckSingle = ['StatId', 'TaxRegId', 'ExternalId']
+const arrForCheckMulti = [
+  'Activities.Activity.',
+  'Persons.Person.',
+  'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
+]
+
 const createDataSource = (data, formikBag) => {
   const filteredData = { ...data }
+
+  // eslint-disable-next-line prefer-const
+  let OriginalCsvAttributes = []
+
   const variablesMapping = [...data.variablesMapping]
-  const arrForCheckSingle = ['StatId', 'TaxRegId', 'ExternalId']
-  const arrForCheckMulti = [
-    'Activities.Activity.',
-    'Persons.Person.',
-    'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
-  ]
+
   const attributesToCheck = []
   const leftItem = 0
   const rightItem = 1
 
   variablesMapping.forEach((item, itemIndex) => {
+    OriginalCsvAttributes[itemIndex] = item[0]
+
     arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
       if (variablesMapping[itemIndex][rightItem] === arrForCheckSingle[itemForCheckIndex]) {
         variablesMapping[itemIndex][leftItem] =
@@ -118,7 +126,7 @@ const createDataSource = (data, formikBag) => {
   return dispatchRequest({
     url: '/api/datasources',
     method: 'post',
-    body: transformMapping(filteredData),
+    body: transformMapping({ OriginalCsvAttributes, ...filteredData }),
     onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('/datasources')),
     onFail: (_, errors) => formikBag.failed(errors),
