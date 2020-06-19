@@ -107,19 +107,11 @@ const createDataSource = (data, formikBag) => {
   })
 
   variablesMapping.forEach((item, index) => {
-    // console.log();
-
     attributesToCheck[index] = item[0]
   })
-  console.log('attributesToCheck', attributesToCheck)
 
   filteredData.variablesMapping = variablesMapping
   filteredData.attributesToCheck = attributesToCheck
-
-  console.log(variablesMapping)
-
-  console.log(filteredData.variablesMapping)
-  console.log(filteredData)
 
   return dispatchRequest({
     url: '/api/datasources',
