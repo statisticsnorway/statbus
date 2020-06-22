@@ -53,7 +53,7 @@ namespace nscreg.Business.DataSources
                     }
                     if (unit.TryGetValue("StatId", out unitValue))
                     {
-                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("id", out dictValue)) != null)
+                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("StatId", out dictValue)) != null)
                         {
                             dictItem = resultDictionary.FirstOrDefault(d => dictValue.ToString() == unitValue.ToString());
                         }
