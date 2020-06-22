@@ -18,6 +18,7 @@ namespace nscreg.Data.Entities
         public DataSourcePriority Priority { get; set; }
         public DataSourceAllowedOperation AllowedOperations { get; set; }
         public string AttributesToCheck { get; set; }
+        public string OriginalCsvAttributes { get; set; }
         public StatUnitTypes StatUnitType { get; set; }
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
@@ -37,6 +38,14 @@ namespace nscreg.Data.Entities
                 ? Enumerable.Empty<string>()
                 : AttributesToCheck.Split(',');
             set => AttributesToCheck = string.Join(",", value ?? Enumerable.Empty<string>());
+        }
+        [NotMapped]
+        public IEnumerable<string> OriginalAttributesArray
+        {
+            get => string.IsNullOrEmpty(OriginalCsvAttributes)
+                ? Enumerable.Empty<string>()
+                : OriginalCsvAttributes.Split(',');
+            set => OriginalCsvAttributes = string.Join(",", value ?? Enumerable.Empty<string>());
         }
 
         [NotMapped]
