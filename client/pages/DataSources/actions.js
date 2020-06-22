@@ -152,6 +152,8 @@ const fetchDataSource = (id, columns) =>
   })
 
 const editDataSource = id => (data, formikBag) => {
+  console.log('edit')
+
   const filteredData = { ...data }
 
   // eslint-disable-next-line prefer-const
@@ -190,7 +192,10 @@ const editDataSource = id => (data, formikBag) => {
 
   filteredData.variablesMapping = variablesMapping
   filteredData.attributesToCheck = attributesToCheck
-  dispatchRequest({
+
+  console.log({ OriginalCsvAttributes, ...filteredData })
+
+  return dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'put',
     body: transformMapping({ OriginalCsvAttributes, ...filteredData }),
