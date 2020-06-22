@@ -150,15 +150,53 @@ const fetchDataSource = (id, columns) =>
     },
   })
 
-const editDataSource = id => (data, formikBag) =>
+const editDataSource = id => (data, formikBag) => {
+  const filteredData = { ...data }
+
+  // eslint-disable-next-line prefer-const
+  let OriginalCsvAttributes = []
+
+  const variablesMapping = [...data.variablesMapping]
+
+  const attributesToCheck = []
+  const leftItem = 0
+  const rightItem = 1
+
+  variablesMapping.forEach((item, itemIndex) => {
+    OriginalCsvAttributes[itemIndex] = item[0]
+
+    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
+      if (variablesMapping[itemIndex][rightItem] === arrForCheckSingle[itemForCheckIndex]) {
+        variablesMapping[itemIndex][leftItem] =
+          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[rightItem]
+            ? 'TaxId'
+            : arrForCheckSingle[itemForCheckIndex]
+      }
+    })
+
+    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
+      if (variablesMapping[itemIndex][rightItem].includes(arrForCheckMulti[itemForCheckIndex])) {
+        variablesMapping[itemIndex][leftItem] =
+          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
+      }
+    })
+  })
+
+  variablesMapping.forEach((item, index) => {
+    attributesToCheck[index] = item[leftItem]
+  })
+
+  filteredData.variablesMapping = variablesMapping
+  filteredData.attributesToCheck = attributesToCheck
   dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'put',
-    body: transformMapping(data),
+    body: transformMapping({ OriginalCsvAttributes, ...filteredData }),
     onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('/datasources')),
     onFail: (_, errors) => formikBag.failed(errors),
   })
+}
 
 const deleteDataSourceSuccessed = createAction('delete data source sucessed')
 export const deleteDataSource = id =>
