@@ -18,6 +18,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public string Description { get; set; }
         public int AllowedOperations { get; set; }
         public IEnumerable<string> AttributesToCheck { get; set; }
+        public IEnumerable<string> OriginalCsvAttributes { get; set; }
         public string Priority { get; set; }
         public int StatUnitType { get; set; }
         public string Restrictions { get; set; }
@@ -46,6 +47,7 @@ namespace nscreg.Server.Common.Models.DataSources
                 Restrictions = Restrictions,
                 VariablesMapping = VariablesMapping,
                 AttributesToCheckArray = AttributesToCheck,
+                OriginalAttributesArray = OriginalCsvAttributes,
                 CsvDelimiter = CsvDelimiter,
                 CsvSkipCount = CsvSkipCount,
                 DataSourceUploadType = (DataSourceUploadTypes)DataSourceUploadType,
@@ -70,6 +72,7 @@ namespace nscreg.Server.Common.Models.DataSources
             entity.Restrictions = Restrictions;
             entity.VariablesMapping = VariablesMapping;
             entity.AttributesToCheckArray = AttributesToCheck;
+            entity.OriginalAttributesArray = OriginalCsvAttributes;
             entity.CsvDelimiter = CsvDelimiter;
             entity.CsvSkipCount = CsvSkipCount;
             entity.DataSourceUploadType = (DataSourceUploadTypes) DataSourceUploadType;

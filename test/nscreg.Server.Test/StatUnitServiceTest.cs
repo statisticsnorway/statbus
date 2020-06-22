@@ -49,7 +49,7 @@ namespace nscreg.Server.Test
                     true);
             var configuration = builder.Build();
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
-            _analysisRules.Orphan.CheckEnterpriseGroupRelatedEnterprises = false;
+            _analysisRules.Orphan.CheckOrphanEnterpriseGroups = false;
             _analysisRules.Orphan.CheckOrphanLegalUnits = false;
             _analysisRules.Orphan.CheckLegalUnitRelatedLocalUnits = false;
             _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();

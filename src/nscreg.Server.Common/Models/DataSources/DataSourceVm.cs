@@ -20,6 +20,7 @@ namespace nscreg.Server.Common.Models.DataSources
             Restrictions = item.Restrictions;
             VariablesMapping = item.VariablesMapping;
             CsvDelimiter = item.CsvDelimiter;
+            OriginalCsvAttributes = item.OriginalAttributesArray;
             CsvSkipCount = item.CsvSkipCount;
         }
 
@@ -36,6 +37,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public int Priority { get; }
         public int AllowedOperations { get; }
         public IEnumerable<string> AttributesToCheck { get; }
+        public IEnumerable<string> OriginalCsvAttributes { get; }
         public int StatUnitType { get; set; }
         public string Restrictions { get; }
         public string VariablesMapping { get; }

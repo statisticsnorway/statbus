@@ -58,18 +58,17 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_analysisRules.Connections.CheckRelatedLegalUnit)
+            if (_analysisRules.Connections.CheckRelatedPersons)
             {
-                var hasRelatedLegalUnit = unit is LocalUnit localUnit
-                    ? localUnit.LegalUnitId != null
-                    : !(unit is EnterpriseUnit) || ((EnterpriseUnit)unit).LegalUnits.Any();
+                var hasRelatedPersons = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
+                                        ((StatisticalUnit)unit).PersonsUnits.Any();
 
-                if (!hasRelatedLegalUnit)
+                if (!hasRelatedPersons)
                     messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
-                        new[] { nameof(Resource.AnalysisRelatedLegalUnit) });
+                        new[] { nameof(Resource.AnalysisRelatedPersons) });
             }
 
-            if (_analysisRules.Connections.CheckRelatedActivities && _mandatoryFields.StatUnit.Activities)
+            if (_analysisRules.Connections.CheckRelatedActivities /*&& _mandatoryFields.StatUnit.Activities*/)
             {
                 var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
                                            ((StatisticalUnit)unit).ActivitiesUnits.Any();
@@ -193,20 +192,20 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             switch (propertyName)
             {
-                case nameof(Orphan.CheckRelatedEnterpriseGroup):
-                    if (unit.EntGroupId == null)
-                    {
-                        messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
-                    }
+                //case nameof(Orphan.CheckRelatedEnterpriseGroup):
+                //    if (unit.EntGroupId == null)
+                //    {
+                //        messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
+                //    }
 
-                    break;
+                //    break;
                 case nameof(Orphan.CheckEnterpriseRelatedLegalUnits):
                     if (!unit.LegalUnits.Any())
                     {
                         messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                     }
                     break;
-                case nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises):
+                case nameof(Orphan.CheckOrphanEnterpriseGroups):
                     if (!_context.EnterpriseUnits.Any(x=>x.EntGroupId == unit.EntGroupId))
                     {
                         messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseGroupRelatedEnterprises) });

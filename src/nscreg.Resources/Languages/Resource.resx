@@ -2662,4 +2662,7 @@
   <data name="LoginInputRemember" xml:space="preserve">
     <value>Remember</value>
   </data>
+  <data name="AnalysisRelatedPersons" xml:space="preserve">
+    <value>Stat unit doesn't have related person(s)</value>
+  </data>
 </root>
