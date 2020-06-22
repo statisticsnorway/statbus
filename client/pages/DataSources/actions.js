@@ -97,6 +97,7 @@ const createDataSource = (data, formikBag) => {
   const rightItem = 1
 
   variablesMapping.forEach((item, itemIndex) => {
+    // eslint-disable-next-line prefer-destructuring
     OriginalCsvAttributes[itemIndex] = item[0]
 
     arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
@@ -163,6 +164,7 @@ const editDataSource = id => (data, formikBag) => {
   const rightItem = 1
 
   variablesMapping.forEach((item, itemIndex) => {
+    // eslint-disable-next-line prefer-destructuring
     OriginalCsvAttributes[itemIndex] = item[0]
 
     arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
