@@ -21,13 +21,19 @@ namespace nscreg.Server.Common.Helpers
         /// <returns>Statistical unit</returns>
         public StatisticalUnit GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
         {
-            return _ctx.StatisticalUnits.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
-                (_ctx.StatisticalUnitHistory.Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.EndPeriod <= c.EndPeriod) &&
-                 !_ctx.AnalysisLogs.Any(al =>
-                     al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)) ||
-                (su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod &&
-                !_ctx.AnalysisLogs.Any(al =>
-                    al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId))
+            return _ctx.StatisticalUnits
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.Address)
+                .FirstOrDefault(su =>
+                _ctx.StatisticalUnitHistory
+                    .Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.EndPeriod <= c.EndPeriod) &&
+                !_ctx.AnalysisLogs
+                    .Any(al =>
+                        al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) ||
+                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod &&
+                !_ctx.AnalysisLogs
+                    .Any(al =>
+                    al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
                 );
         }
 
@@ -38,10 +44,20 @@ namespace nscreg.Server.Common.Helpers
         /// <returns>Enterprise group</returns>
         public EnterpriseGroup GetEnterpriseGroupForAnalysis(AnalysisQueue analysisQueue)
         {
-            return _ctx.EnterpriseGroups.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
-                !_ctx.AnalysisLogs.Any(al =>
-                    al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) &&
-                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod);
+            return _ctx.EnterpriseGroups
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.Address)
+                .FirstOrDefault(su =>
+                _ctx.StatisticalUnitHistory
+                    .Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.EndPeriod <= c.EndPeriod) &&
+                !_ctx.AnalysisLogs
+                    .Any(al =>
+                        al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) ||
+                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod &&
+                !_ctx.AnalysisLogs
+                    .Any(al =>
+                        al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
+            );
         }
     }
 }

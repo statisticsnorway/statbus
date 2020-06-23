@@ -54,12 +54,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
-            //if (_statisticalUnit.RegId > 0)
-            //{
-            //    if(_statisticalUnit.LiqDate.HasValue)
-            //        messages.Add(nameof(_statisticalUnit.LiqDate), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
-            //}
-
             if (_mandatoryFields.StatUnit.SizeId && _statisticalUnit.SizeId == null)
             {
                 messages.Add(nameof(_statisticalUnit.SizeId), new[] { nameof(Resource.AnalysisMandatorySize) });
@@ -69,12 +63,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             {
                 messages.Add(nameof(_statisticalUnit.UnitStatusId), new[] { nameof(Resource.AnalysisMandatoryUnitStatus) });
             }
-
-            //if (_statisticalUnit.ReorgTypeId == null)
-            //{
-            //    messages.Add(nameof(_statisticalUnit.ReorgTypeId), new[] { nameof(Resource.AnalysisMandatoryReorgType) });
-            //}
-
             return messages;
         }
 

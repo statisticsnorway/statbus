@@ -2665,4 +2665,16 @@
   <data name="AnalysisRelatedPersons" xml:space="preserve">
     <value>Stat unit doesn't have related person(s)</value>
   </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
+    <value>This enterprise group doesn't have related enterprise unit(s)</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnitHaveParentWithInactiveStatus" xml:space="preserve">
+    <value>This legal unit have enterprise with inactive status</value>
+  </data>
+  <data name="AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus" xml:space="preserve">
+    <value>This local unit have legal with inactive status</value>
+  </data>
+  <data name="AnalysisRelatedLocalUnits" xml:space="preserve">
+    <value>Stat unit doesn't have related local unit(s)</value>
+  </data>
 </root>

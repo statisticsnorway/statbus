@@ -628,6 +628,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на This enterprise group doesn&apos;t have related enterprise unit(s).
+        /// </summary>
+        public static string AnalysisEnterpriseGroupRelatedEnterpriseUnits {
+            get {
+                return ResourceManager.GetString("AnalysisEnterpriseGroupRelatedEnterpriseUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на This enterprise has no legal units.
         /// </summary>
         public static string AnalysisEnterpriseRelatedLegalUnits {
@@ -781,6 +790,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на This legal unit have enterprise with inactive status.
+        /// </summary>
+        public static string AnalysisOrphanLegalUnitHaveParentWithInactiveStatus {
+            get {
+                return ResourceManager.GetString("AnalysisOrphanLegalUnitHaveParentWithInactiveStatus", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на This legal unit does not belong to an enterprise.
         /// </summary>
         public static string AnalysisOrphanLegalUnits {
@@ -795,6 +813,15 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisOrphanLocalUnits {
             get {
                 return ResourceManager.GetString("AnalysisOrphanLocalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This local unit have legal with inactive status.
+        /// </summary>
+        public static string AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus {
+            get {
+                return ResourceManager.GetString("AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus", resourceCulture);
             }
         }
         
@@ -831,6 +858,15 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisRelatedLegalUnit {
             get {
                 return ResourceManager.GetString("AnalysisRelatedLegalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have related local unit(s).
+        /// </summary>
+        public static string AnalysisRelatedLocalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisRelatedLocalUnits", resourceCulture);
             }
         }
         
