@@ -90,7 +90,7 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
             var manager = unit is StatisticalUnit statisticalUnit
-                ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields) as IMandatoryFieldsAnalysisManager
+                ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields, _context) as IMandatoryFieldsAnalysisManager
                 : new EnterpriseGroupMandatoryFieldsManager(unit as EnterpriseGroup, _mandatoryFields);
 
             return _isAlterDataSourceAllowedOperation == false
@@ -288,7 +288,16 @@ namespace nscreg.Business.Analysis.StatUnit
             if (mandatoryFieldsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.MandatoryFieldsRulesWarnings));
-                messages.AddRange(mandatoryFieldsResult);
+                mandatoryFieldsResult.ForEach(d =>
+                {
+                    if (messages.ContainsKey(d.Key))
+                    {
+                        var existed = messages[d.Key];
+                        messages[d.Key] = existed.Concat(d.Value).ToArray();
+                    }
+                    else
+                        messages.Add(d.Key, d.Value);
+                });
             }
 
             var calculationFieldsResult = CheckCalculationFields(unit);
@@ -331,7 +340,16 @@ namespace nscreg.Business.Analysis.StatUnit
             var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
             if (additionalAnalysisCheckResult.Any())
             {
-                summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
+                additionalAnalysisCheckResult.Values.ForEach(d =>
+                {
+                    d.ForEach(value =>
+                    {
+                        if(value == unit.RegId.ToString() && !summaryMessages.Contains(nameof(Resource.CustomAnalysisChecks)))
+                        {
+                            summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
+                        }
+                    });
+                });
                 additionalAnalysisCheckResult.ForEach(d =>
                 {
                     if (messages.ContainsKey(d.Key))
@@ -339,8 +357,10 @@ namespace nscreg.Business.Analysis.StatUnit
                         var existed = messages[d.Key];
                         messages[d.Key] = existed.Concat(d.Value).ToArray();
                     }
-                    else
-                        messages.Add(d.Key, d.Value);
+                    if (d.Value.FirstOrDefault(c => c == unit.RegId.ToString()) != null)
+                    {
+                        messages.Add(d.Key, new []{"warning"});
+                    }
                 });
             }
 
