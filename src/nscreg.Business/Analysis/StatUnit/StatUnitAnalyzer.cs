@@ -71,9 +71,12 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_analysisRules.Connections.CheckRelatedActivities && !(unit is EnterpriseGroup))
             {
-                if (!unit.ActivitiesUnits.Any() || !_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                if (!unit.ActivitiesUnits.Any())
                 {
-                    messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
+                    if(!_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                    {
+                        messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
+                    }
                 } 
             }
 
