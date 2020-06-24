@@ -190,7 +190,8 @@ const editDataSource = id => (data, formikBag) => {
 
   filteredData.variablesMapping = variablesMapping
   filteredData.attributesToCheck = attributesToCheck
-  dispatchRequest({
+
+  return dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'put',
     body: transformMapping({ OriginalCsvAttributes, ...filteredData }),
