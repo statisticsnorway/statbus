@@ -18,6 +18,11 @@ namespace nscreg.Business.DataSources
             }
             catch (Exception)
             {
+                if (type == typeof(DateTime))
+                {
+                    DateTime.TryParse(raw, out var date);
+                    return date;
+                }
                 return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
             }
         }

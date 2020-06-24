@@ -295,7 +295,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (_statUnitTypeOfSave == StatUnitTypeOfSave.Service)
             {
                 IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-                var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+                var analyzeResult = analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
                 if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
             }
 

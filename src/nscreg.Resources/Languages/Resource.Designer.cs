@@ -628,6 +628,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на This enterprise group doesn&apos;t have related enterprise unit(s).
+        /// </summary>
+        public static string AnalysisEnterpriseGroupRelatedEnterpriseUnits {
+            get {
+                return ResourceManager.GetString("AnalysisEnterpriseGroupRelatedEnterpriseUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на This enterprise has no legal units.
         /// </summary>
         public static string AnalysisEnterpriseRelatedLegalUnits {
@@ -664,6 +673,42 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have activities.
+        /// </summary>
+        public static string AnalysisMandatoryActivities {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryActivities", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have actual address.
+        /// </summary>
+        public static string AnalysisMandatoryActualAddress {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryActualAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have address.
+        /// </summary>
+        public static string AnalysisMandatoryAddress {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have classified.
+        /// </summary>
+        public static string AnalysisMandatoryClassified {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryClassified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have contact person.
         /// </summary>
         public static string AnalysisMandatoryContactPerson {
@@ -682,11 +727,92 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have email address.
+        /// </summary>
+        public static string AnalysisMandatoryEmailAddress {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryEmailAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have employees.
+        /// </summary>
+        public static string AnalysisMandatoryEmployees {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryEmployees", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have employees date.
+        /// </summary>
+        public static string AnalysisMandatoryEmployeesDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryEmployeesDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have employees year.
+        /// </summary>
+        public static string AnalysisMandatoryEmployeesYear {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryEmployeesYear", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have external id.
+        /// </summary>
+        public static string AnalysisMandatoryExternalId {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryExternalId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have external id date.
+        /// </summary>
+        public static string AnalysisMandatoryExternalIdDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryExternalIdDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have external id type.
+        /// </summary>
+        public static string AnalysisMandatoryExternalIdType {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryExternalIdType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have free economic zone.
+        /// </summary>
+        public static string AnalysisMandatoryFreeEconZone {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryFreeEconZone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have name.
         /// </summary>
         public static string AnalysisMandatoryName {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have number of people.
+        /// </summary>
+        public static string AnalysisMandatoryNumOfPeopleEmp {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryNumOfPeopleEmp", resourceCulture);
             }
         }
         
@@ -700,11 +826,47 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have persons.
+        /// </summary>
+        public static string AnalysisMandatoryPersons {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryPersons", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have postal address.
+        /// </summary>
+        public static string AnalysisMandatoryPostalAddress {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryPostalAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have registration date.
+        /// </summary>
+        public static string AnalysisMandatoryRegistrationDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryRegistrationDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have registration reason.
         /// </summary>
         public static string AnalysisMandatoryRegistrationReason {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryRegistrationReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have registration reason.
+        /// </summary>
+        public static string AnalysisMandatoryRegistrationReasonId {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryRegistrationReasonId", resourceCulture);
             }
         }
         
@@ -736,6 +898,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have stat id.
+        /// </summary>
+        public static string AnalysisMandatoryStatId {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryStatId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have stat id date.
+        /// </summary>
+        public static string AnalysisMandatoryStatIdDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryStatIdDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Stat unit&apos;s status is not \&quot;active\&quot;.
         /// </summary>
         public static string AnalysisMandatoryStatusActive {
@@ -745,11 +925,65 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have status date.
+        /// </summary>
+        public static string AnalysisMandatoryStatusDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryStatusDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have tax reg date.
+        /// </summary>
+        public static string AnalysisMandatoryTaxRegDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryTaxRegDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have tax reg id.
+        /// </summary>
+        public static string AnalysisMandatoryTaxRegId {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryTaxRegId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have telephone number.
         /// </summary>
         public static string AnalysisMandatoryTelephoneNo {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryTelephoneNo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have turnover.
+        /// </summary>
+        public static string AnalysisMandatoryTurnover {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryTurnover", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have turnover date.
+        /// </summary>
+        public static string AnalysisMandatoryTurnoverDate {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryTurnoverDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have turnover year.
+        /// </summary>
+        public static string AnalysisMandatoryTurnoverYear {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryTurnoverYear", resourceCulture);
             }
         }
         
@@ -781,6 +1015,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на This legal unit have enterprise with inactive status.
+        /// </summary>
+        public static string AnalysisOrphanLegalUnitHaveParentWithInactiveStatus {
+            get {
+                return ResourceManager.GetString("AnalysisOrphanLegalUnitHaveParentWithInactiveStatus", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на This legal unit does not belong to an enterprise.
         /// </summary>
         public static string AnalysisOrphanLegalUnits {
@@ -795,6 +1038,15 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisOrphanLocalUnits {
             get {
                 return ResourceManager.GetString("AnalysisOrphanLocalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на This local unit have legal with inactive status.
+        /// </summary>
+        public static string AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus {
+            get {
+                return ResourceManager.GetString("AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus", resourceCulture);
             }
         }
         
@@ -831,6 +1083,15 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisRelatedLegalUnit {
             get {
                 return ResourceManager.GetString("AnalysisRelatedLegalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Stat unit doesn&apos;t have related local unit(s).
+        /// </summary>
+        public static string AnalysisRelatedLocalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisRelatedLocalUnits", resourceCulture);
             }
         }
         
@@ -1546,7 +1807,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Custom analysis checks.
+        ///   Ищет локализованную строку, похожую на Custom analysis checks warnings.
         /// </summary>
         public static string CustomAnalysisChecks {
             get {
