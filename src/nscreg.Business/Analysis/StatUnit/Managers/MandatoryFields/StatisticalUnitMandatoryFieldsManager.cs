@@ -33,7 +33,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
         {
             var messages = new Dictionary<string, string[]>();
 
-            if(_mandatoryFields.StatUnit.Activities && ! _context.ActivityStatisticalUnits.Any(c => c.UnitId == _statisticalUnit.RegId))
+            if(_mandatoryFields.StatUnit.Activities && ! (_context.ActivityStatisticalUnits.Any(c => c.UnitId == _statisticalUnit.RegId) || !_statisticalUnit.ActivitiesUnits.Any()))
             {
                 messages.Add(nameof(_statisticalUnit.Activities), new []{nameof(Resource.AnalysisMandatoryActivities)});
             }

@@ -460,7 +460,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             IStatUnitAnalyzeService analysisService =
                 new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            var analyzeResult = analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck:true);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
             var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
@@ -485,7 +485,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
                     transaction.Commit();
-
+                    await _elasticService.CheckElasticSearchConnection();
                     if (_addArrayStatisticalUnits.Any())
                         foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
                         {
@@ -506,6 +506,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
                 catch (Exception e)
                 {
+                    if (e.Message == nameof(Resource.ElasticSearchIsDisable))
+                    {
+                        throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
+                    }
                     //TODO: Processing Validation Errors
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }

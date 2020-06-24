@@ -33,16 +33,18 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly ValidationSettings _validationSettings;
         private readonly bool _isAlterDataSourceAllowedOperation;
         private readonly bool _isDataSourceUpload;
+        private readonly bool _isSkipCustomCheck;
         private readonly IEnumerable<PropertyInfo> _orphanProperties;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
-            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false)
+            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false, bool isSkipCustomCheck = false)
         {
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _context = context;
             _isDataSourceUpload = isDataSourceUpload;
             _validationSettings = validationSettings;
+            _isSkipCustomCheck = isSkipCustomCheck;
             _isAlterDataSourceAllowedOperation = isAlterDataSourceAllowedOperation;
             _orphanProperties = _analysisRules.Orphan.GetType().GetProperties()
                 .Where(x => (bool)x.GetValue(_analysisRules.Orphan, null) == true);
@@ -69,7 +71,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_analysisRules.Connections.CheckRelatedActivities && !(unit is EnterpriseGroup))
             {
-                if (!_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                if (!unit.ActivitiesUnits.Any() || !_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
                 {
                     messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
                 } 
@@ -196,9 +198,15 @@ namespace nscreg.Business.Analysis.StatUnit
             switch (propertyName)
             {
                 case nameof(Orphan.CheckEnterpriseRelatedLegalUnits):
-                    if (CheckUnitStatus(unit) && !_context.LegalUnits.Any(c => c.EnterpriseUnitRegId == unit.RegId))
+                    if (CheckUnitStatus(unit))
                     {
-                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                        if (!unit.LegalUnits.Any())
+                        {
+                            if(!_context.LegalUnits.Any(c => c.EnterpriseUnitRegId == unit.RegId))
+                            {
+                                messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                            }
+                        }
                     }
                     break;
             }
@@ -206,9 +214,16 @@ namespace nscreg.Business.Analysis.StatUnit
         private void CheckUnit(EnterpriseGroup unit, string propertyName, Dictionary<string, string[]> messages)
         {
             if (propertyName != nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises)) return;
-            if (CheckUnitStatus(unit) && !_context.EnterpriseUnits.Any(c => c.EntGroupId == unit.RegId))
+            if (CheckUnitStatus(unit))
             {
-                messages.Add(nameof(EnterpriseGroup.EnterpriseUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                if (!unit.EnterpriseUnits.Any())
+                {
+                    if(!_context.EnterpriseUnits.Any(c => c.EntGroupId == unit.RegId))
+                    {
+                        messages.Add(nameof(EnterpriseGroup.EnterpriseUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                    }
+                }
+                    
             }
         }
 
@@ -239,9 +254,15 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
                 case nameof(Orphan.CheckLegalUnitRelatedLocalUnits):
                 {
-                    if (CheckUnitStatus(unit) && !_context.LocalUnits.Any(c => c.LegalUnitId == unit.RegId))
+                    if (CheckUnitStatus(unit))
                     {
-                        messages.Add(nameof(LegalUnit.LocalUnits), new[] { nameof(Resource.AnalysisRelatedLocalUnits) });
+                        if (!unit.LocalUnits.Any())
+                        {
+                            if (!_context.LocalUnits.Any(c => c.LegalUnitId == unit.RegId))
+                            {
+                                messages.Add(nameof(LegalUnit.LocalUnits), new[] { nameof(Resource.AnalysisRelatedLocalUnits) });
+                            }
+                        }
                     }
                     break;
                 }
@@ -337,33 +358,35 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
             }
 
-            var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
-            if (additionalAnalysisCheckResult.Any())
+            if (!_isSkipCustomCheck)
             {
-                additionalAnalysisCheckResult.Values.ForEach(d =>
+                var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
+                if (additionalAnalysisCheckResult.Any())
                 {
-                    d.ForEach(value =>
+                    additionalAnalysisCheckResult.Values.ForEach(d =>
                     {
-                        if(value == unit.RegId.ToString() && !summaryMessages.Contains(nameof(Resource.CustomAnalysisChecks)))
+                        d.ForEach(value =>
                         {
-                            summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
+                            if (value == unit.RegId.ToString() && !summaryMessages.Contains(nameof(Resource.CustomAnalysisChecks)))
+                            {
+                                summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
+                            }
+                        });
+                    });
+                    additionalAnalysisCheckResult.ForEach(d =>
+                    {
+                        if (messages.ContainsKey(d.Key))
+                        {
+                            var existed = messages[d.Key];
+                            messages[d.Key] = existed.Concat(d.Value).ToArray();
+                        }
+                        if (d.Value.FirstOrDefault(c => c == unit.RegId.ToString()) != null)
+                        {
+                            messages.Add(d.Key, new[] { "warning" });
                         }
                     });
-                });
-                additionalAnalysisCheckResult.ForEach(d =>
-                {
-                    if (messages.ContainsKey(d.Key))
-                    {
-                        var existed = messages[d.Key];
-                        messages[d.Key] = existed.Concat(d.Value).ToArray();
-                    }
-                    if (d.Value.FirstOrDefault(c => c == unit.RegId.ToString()) != null)
-                    {
-                        messages.Add(d.Key, new []{"warning"});
-                    }
-                });
+                }
             }
-
             var ophanUnitsResult = CheckOrphanUnits(unit);
             if (ophanUnitsResult.Any())
             {
