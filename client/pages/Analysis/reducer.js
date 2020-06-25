@@ -3,6 +3,8 @@ import { toUtc } from 'helpers/dateHelper'
 
 import actions from './actions'
 
+const currentYear = new Date().getFullYear()
+const firstDate = new Date(currentYear, 0, 1)
 const defaultState = {
   queue: {
     formData: {},
@@ -20,7 +22,7 @@ const defaultState = {
   },
   create: {
     item: {
-      dateFrom: toUtc(new Date()),
+      dateFrom: toUtc(firstDate),
       dateTo: toUtc(new Date()),
       comment: '',
     },

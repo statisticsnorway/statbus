@@ -2392,4 +2392,7 @@
   <data name="LoginTitle" xml:space="preserve">
     <value>Вход в NSC Registry</value>
   </data>
+  <data name="AnalysisRelatedPersons" xml:space="preserve">
+    <value>Статистическая единица не имеет связанных с ней лиц</value>
+  </data>
 </root>

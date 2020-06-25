@@ -1940,7 +1940,7 @@
     <value>Invalid checksum</value>
   </data>
   <data name="CustomAnalysisChecks" xml:space="preserve">
-    <value>Custom analysis checks</value>
+    <value>Custom analysis checks warnings</value>
   </data>
   <data name="LastActivityByTurnover" xml:space="preserve">
     <value>Last activity by turnover</value>
@@ -2661,5 +2661,95 @@
   </data>
   <data name="LoginInputRemember" xml:space="preserve">
     <value>Remember</value>
+  </data>
+  <data name="AnalysisRelatedPersons" xml:space="preserve">
+    <value>Stat unit doesn't have related person(s)</value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
+    <value>This enterprise group doesn't have related enterprise unit(s)</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnitHaveParentWithInactiveStatus" xml:space="preserve">
+    <value>This legal unit have enterprise with inactive status</value>
+  </data>
+  <data name="AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus" xml:space="preserve">
+    <value>This local unit have legal with inactive status</value>
+  </data>
+  <data name="AnalysisRelatedLocalUnits" xml:space="preserve">
+    <value>Stat unit doesn't have related local unit(s)</value>
+  </data>
+  <data name="AnalysisMandatoryActivities" xml:space="preserve">
+    <value>Stat unit doesn't have activities</value>
+  </data>
+  <data name="AnalysisMandatoryActualAddress" xml:space="preserve">
+    <value>Stat unit doesn't have actual address</value>
+  </data>
+  <data name="AnalysisMandatoryAddress" xml:space="preserve">
+    <value>Stat unit doesn't have address</value>
+  </data>
+  <data name="AnalysisMandatoryClassified" xml:space="preserve">
+    <value>Stat unit doesn't have classified</value>
+  </data>
+  <data name="AnalysisMandatoryEmailAddress" xml:space="preserve">
+    <value>Stat unit doesn't have email address</value>
+  </data>
+  <data name="AnalysisMandatoryEmployees" xml:space="preserve">
+    <value>Stat unit doesn't have employees</value>
+  </data>
+  <data name="AnalysisMandatoryEmployeesDate" xml:space="preserve">
+    <value>Stat unit doesn't have employees date</value>
+  </data>
+  <data name="AnalysisMandatoryEmployeesYear" xml:space="preserve">
+    <value>Stat unit doesn't have employees year</value>
+  </data>
+  <data name="AnalysisMandatoryExternalId" xml:space="preserve">
+    <value>Stat unit doesn't have external id</value>
+  </data>
+  <data name="AnalysisMandatoryExternalIdDate" xml:space="preserve">
+    <value>Stat unit doesn't have external id date</value>
+  </data>
+  <data name="AnalysisMandatoryExternalIdType" xml:space="preserve">
+    <value>Stat unit doesn't have external id type</value>
+  </data>
+  <data name="AnalysisMandatoryFreeEconZone" xml:space="preserve">
+    <value>Stat unit doesn't have free economic zone</value>
+  </data>
+  <data name="AnalysisMandatoryNumOfPeopleEmp" xml:space="preserve">
+    <value>Stat unit doesn't have number of people</value>
+  </data>
+  <data name="AnalysisMandatoryPersons" xml:space="preserve">
+    <value>Stat unit doesn't have persons</value>
+  </data>
+  <data name="AnalysisMandatoryPostalAddress" xml:space="preserve">
+    <value>Stat unit doesn't have postal address</value>
+  </data>
+  <data name="AnalysisMandatoryRegistrationDate" xml:space="preserve">
+    <value>Stat unit doesn't have registration date</value>
+  </data>
+  <data name="AnalysisMandatoryRegistrationReasonId" xml:space="preserve">
+    <value>Stat unit doesn't have registration reason</value>
+  </data>
+  <data name="AnalysisMandatoryStatId" xml:space="preserve">
+    <value>Stat unit doesn't have stat id</value>
+  </data>
+  <data name="AnalysisMandatoryStatIdDate" xml:space="preserve">
+    <value>Stat unit doesn't have stat id date</value>
+  </data>
+  <data name="AnalysisMandatoryStatusDate" xml:space="preserve">
+    <value>Stat unit doesn't have status date</value>
+  </data>
+  <data name="AnalysisMandatoryTaxRegDate" xml:space="preserve">
+    <value>Stat unit doesn't have tax reg date</value>
+  </data>
+  <data name="AnalysisMandatoryTaxRegId" xml:space="preserve">
+    <value>Stat unit doesn't have tax reg id</value>
+  </data>
+  <data name="AnalysisMandatoryTurnover" xml:space="preserve">
+    <value>Stat unit doesn't have turnover</value>
+  </data>
+  <data name="AnalysisMandatoryTurnoverDate" xml:space="preserve">
+    <value>Stat unit doesn't have turnover date</value>
+  </data>
+  <data name="AnalysisMandatoryTurnoverYear" xml:space="preserve">
+    <value>Stat unit doesn't have turnover year</value>
   </data>
 </root>

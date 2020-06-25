@@ -37,7 +37,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             if (!unit.Activities?.Any(activity => activity.Id == 0) == true)
                 return;
-
             foreach (var activityUnit in unit.ActivitiesUnits)
             {
                 if (activityUnit.Activity.Id != 0)
@@ -48,14 +47,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
             async Task<Activity> TryGetFilledActivityAsync(Activity activity)
             {
+                if(activity.ActivityCategory == null) throw new Exception("Activity category by selected code not found");
                 var domainActivity = await _ctx.Activities
                     .Include(a => a.ActivityCategory)
                     .FirstOrDefaultAsync(a => a.ActivitiesUnits.Any(x => x.UnitId == unit.RegId)
                                               && a.ActivityCategory.Code == activity.ActivityCategory.Code);
                 if (domainActivity != null) return domainActivity;
-
                 activity.ActivityCategory =
-                    await _ctx.ActivityCategories.FirstAsync(x => x.Code == activity.ActivityCategory.Code);
+                    await _ctx.ActivityCategories.FirstOrDefaultAsync(x => x.Code == activity.ActivityCategory.Code);
                 return activity;
             }
 
@@ -198,6 +197,8 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<Activity> GetFilledActivity(Activity parsedActivity)
         {
+            if (parsedActivity.ActivityCategory == null)
+                throw new Exception("Activity category by mapping code not found");
             var activityCategory = _ctx.ActivityCategories.FirstOrDefault(ac =>
                 !ac.IsDeleted
                 && (parsedActivity.ActivityCategory.Code.HasValue()

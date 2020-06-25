@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
@@ -38,7 +41,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
-
+        private NSCRegDbContext _context;
         public QueueJob(
             int dequeueInterval,
             ILogger logger,
@@ -57,12 +60,12 @@ namespace nscreg.Server.DataUploadSvc
         private void AddScopedServices()
         {
             var dbContextHelper = new DbContextHelper();
-            var ctx = dbContextHelper.CreateDbContext(new string[] { });
-            _queueSvc = new QueueService(ctx);
-            _analysisSvc = new AnalyzeService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var createSvc = new CreateService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, StatUnitTypeOfSave.Service);
-            var editSvc = new EditService(ctx, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            _saveManager = new SaveManager(ctx, _queueSvc, createSvc, editSvc);
+            _context = dbContextHelper.CreateDbContext(new string[] { });
+            _queueSvc = new QueueService(_context);
+            _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, StatUnitTypeOfSave.Service);
+            var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            _saveManager = new SaveManager(_context, _queueSvc, createSvc, editSvc);
         }
 
         /// <summary>
@@ -79,6 +82,15 @@ namespace nscreg.Server.DataUploadSvc
                 return;
             }
             if (dequeued == null) return;
+
+            _logger.LogInformation("mutation queue file #{0}", dequeued.Id);
+
+            var mutateError = await MutateFileAsync(dequeued);
+            if (mutateError.HasValue())
+            {
+                _logger.LogInformation("finish queue item with error: {0}", mutateError);
+                await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
+            }
 
             _logger.LogInformation("parsing queue entry #{0}", dequeued.Id);
             var (parseError, parsed) = await ParseFile(dequeued);
@@ -284,7 +296,7 @@ namespace nscreg.Server.DataUploadSvc
             AnalysisResult analysisResult;
             try
             {
-                analysisResult = _analysisSvc.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true);
+                analysisResult = _analysisSvc.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true, false);
             }
             catch (Exception ex)
             {
@@ -294,5 +306,52 @@ namespace nscreg.Server.DataUploadSvc
                 analysisResult.Messages,
                 analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
         }
+        private async Task<string> MutateFileAsync(DataSourceQueue item)
+        {
+            var rawLines = await GetRawFileAsync(item);
+            var dataSource = await _context.DataSources.FirstOrDefaultAsync(c => c.Id == item.DataSourceId);
+            if(dataSource != null)
+            {
+                try
+                {
+                    var attrToCheck = dataSource.AttributesToCheckArray.ToArray();
+                    var originalAttr = dataSource.OriginalAttributesArray.ToArray();
+                    var arrayHeaders = rawLines[0].Split(item.DataSource.CsvDelimiter);
+                    rawLines[0] = string.Join(item.DataSource.CsvDelimiter,
+                        arrayHeaders.Select(c => c.Replace(c,
+                            c == originalAttr.FirstOrDefault(x => x == c)
+                                ? attrToCheck.ElementAtOrDefault(originalAttr.IndexOf(c))
+                                : c)));
+                    await WriteFileAsync(string.Join("\r\n",rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
+                }
+                catch(Exception ex)
+                {
+                    return ex.Message;
+                }
+            }
+            else
+            {
+                return Resource.DataSourceNotFound;
+            }
+
+            return string.Empty;
+
+        }
+        private async Task<string[]> GetRawFileAsync(DataSourceQueue item)
+        {
+            var i = item.DataSource.CsvSkipCount;
+            string rawLines;
+            if (!File.Exists(item.DataSourcePath)) throw new FileNotFoundException(Resource.FileDoesntExistOrInQueue);
+            using (var stream = File.OpenRead(item.DataSourcePath))
+            using (var reader = new StreamReader(stream))
+            {
+                while (--i == 0) await reader.ReadLineAsync();
+                rawLines = await reader.ReadToEndAsync();
+            }
+
+            return rawLines.Split('\r', '\n');
+        }
+
+        private async Task WriteFileAsync(string csv, string path) => await File.WriteAllTextAsync(path, csv);
     }
 }
