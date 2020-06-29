@@ -25,12 +25,9 @@ namespace nscreg.Server.Common.Helpers
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
                 .FirstOrDefault(su =>
-                _ctx.StatisticalUnitHistory
-                    .Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.EndPeriod <= c.EndPeriod) &&
-                !_ctx.AnalysisLogs
-                    .Any(al =>
-                        al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) ||
-                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod &&
+                (_ctx.StatisticalUnitHistory
+                    .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
+                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
                 !_ctx.AnalysisLogs
                     .Any(al =>
                     al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
@@ -48,12 +45,9 @@ namespace nscreg.Server.Common.Helpers
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
                 .FirstOrDefault(su =>
-                _ctx.EnterpriseGroupHistory
-                    .Any(c => c.StatId == su.StatId && su.StartPeriod >= c.StartPeriod && su.EndPeriod <= c.EndPeriod) &&
-                !_ctx.AnalysisLogs
-                    .Any(al =>
-                        al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) ||
-                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod &&
+                    (_ctx.StatisticalUnitHistory
+                         .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
+                     su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
                 !_ctx.AnalysisLogs
                     .Any(al =>
                         al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
