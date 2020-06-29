@@ -45,7 +45,7 @@ namespace nscreg.Server.Common.Helpers
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
                 .FirstOrDefault(su =>
-                    (_ctx.StatisticalUnitHistory
+                    (_ctx.EnterpriseGroupHistory
                          .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                      su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
                 !_ctx.AnalysisLogs
