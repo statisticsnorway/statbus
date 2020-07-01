@@ -71,14 +71,67 @@ export function tryFieldIsRequired(cols: Array, field: string, variablesMapping)
   )
 }
 
-function testStatUnitMappings(context, columns) {
+export function tryFieldIsRequiredForUpdate(variablesMapping) {
+  const variablesForCheck = ['StatId', 'TaxRegId', 'ExternalId']
+  let isValidUpdate = false
+
+  variablesForCheck.forEach((field) => {
+    console.log(field)
+
+    variablesMapping.some((el) => {
+      if (el[1] === field) {
+        console.log('ПРОШЕЛ', field)
+
+        isValidUpdate = true
+      }
+    })
+  })
+  console.log(isValidUpdate)
+
+  return isValidUpdate
+}
+
+function testStatUnitMappings(context, columns, isUpdate) {
+  // const isUpdate = true;
+  console.log(isUpdate)
+
+  // const variablesForCheck = ["StatId", "TaxRegId", "ExternalId"];
+  // const variablesMapping = [...context.parent.variablesMapping];
+
   const cols = columns[
     toCamelCase(enums.statUnitTypes.get(Number(context.parent.statUnitType)))
   ].map(col => col.name)
+
+  console.log('cols', cols)
+
   const mandatoryFields = getMandatoryFields(context.parent.statUnitType)
+
+  console.log('mandatoryFields')
+  console.log(mandatoryFields)
+
+  console.log('context.parent.variablesMapping')
+  console.log(context.parent.variablesMapping)
+
   const message = mandatoryFields
     .filter(field => tryFieldIsRequired(cols, field, context.parent.variablesMapping))
-    .map(field => `${field}IsRequired`)
+    .map((field) => {
+      console.log('field', field)
+
+      return `${field}IsRequired`
+    })
+
+  console.log(message)
+
+  if (isUpdate) {
+    console.log('iSUPDATE', tryFieldIsRequiredForUpdate(context.parent.variablesMapping))
+
+    return tryFieldIsRequiredForUpdate(context.parent.variablesMapping)
+      ? true
+      : {
+        ...context.createError('', 'variablesMapping'),
+        message: 'One of these fields (StatId/TaxRegId/ExternalId) -  should be filled',
+      }
+  }
   return message.length > 0 ? { ...context.createError('', 'variablesMapping'), message } : true
 }
 
@@ -110,7 +163,10 @@ export const createSchema = columns =>
       .default(defaults.variablesMapping)
       .test('mandatory-fields-covered', '', function testWrap() {
         const isStatUnitUpload = this.parent.dataSourceUploadType === 1
-        return isStatUnitUpload ? testStatUnitMappings(this, columns) : testActivityMappings(this)
+        const isUpdate = this.parent.allowedOperations === 2
+        return isStatUnitUpload
+          ? testStatUnitMappings(this, columns, isUpdate)
+          : testActivityMappings(this)
       }),
     csvDelimiter: string()
       .required()

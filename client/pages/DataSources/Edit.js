@@ -20,6 +20,7 @@ const { fetchDataSource, fetchColumns, onSubmit, onCancel } = actions
 const hooks = {
   componentDidMount() {
     this.props.fetchColumns()
+    // console.log("props.columns", this.props.columns);
   },
   componentWillReceiveProps(nextProps) {
     if (!hasValues(this.props.columns) && hasValues(nextProps.columns)) {
@@ -31,12 +32,14 @@ const hooks = {
   },
 }
 
-const stateToProps = state => ({
-  values: state.dataSources.editFormData,
-  columns: state.dataSources.columns,
-  localize: getText(state.locale),
-  errors: state.dataSources.errors,
-})
+const stateToProps = state =>
+  // console.log("state", state),
+  ({
+    values: state.dataSources.editFormData,
+    columns: state.dataSources.columns,
+    localize: getText(state.locale),
+    errors: state.dataSources.errors,
+  })
 
 const dispatchToProps = (dispatch, props) =>
   bindActionCreators(

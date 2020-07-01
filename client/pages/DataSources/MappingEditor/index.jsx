@@ -8,7 +8,7 @@ import ListWithDnd from 'components/ListWithDnd'
 import { hasValue } from 'helpers/validation'
 import colors from 'helpers/colors'
 import Item from './Item'
-import { tryFieldIsRequired } from '../model'
+import { tryFieldIsRequired, tryFieldIsRequiredForUpdate } from '../model'
 import styles from './styles.pcss'
 
 const resetSelection = ({ hovered }) => ({
@@ -132,6 +132,8 @@ class MappingsEditor extends React.Component {
   }
 
   renderItem(prop, value, label) {
+    // console.log(props.isUpdate);
+
     const isRequired = typeof label === 'string' && label.includes('*')
     const adopt = f => f(prop, value)
     const index = this.props.value.findIndex(x => x[prop === 'left' ? 0 : 1] === value)
@@ -149,7 +151,7 @@ class MappingsEditor extends React.Component {
         onMouseLeave={this.handleMouseLeave}
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
-        isRequired={isRequired}
+        isRequired={this.tryFieldIsRequiredForUpdate(this.props.mapping.value) ? false : isRequired}
         color={
           prop === 'left' || index >= 0
             ? this.getAttributeColor(prop, value)
@@ -172,7 +174,16 @@ class MappingsEditor extends React.Component {
       localize,
       mapping,
       attribs,
+      isUpdate,
     } = this.props
+
+    // console.log(this.props);
+
+    // console.log(attributes);
+    // console.log(mandatoryCols);
+
+    // const isUpdate =
+
     const labelColumn = key =>
       key && key.includes('.')
         ? key
