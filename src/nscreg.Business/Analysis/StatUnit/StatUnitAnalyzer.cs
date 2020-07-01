@@ -33,16 +33,18 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly ValidationSettings _validationSettings;
         private readonly bool _isAlterDataSourceAllowedOperation;
         private readonly bool _isDataSourceUpload;
+        private readonly bool _isSkipCustomCheck;
         private readonly IEnumerable<PropertyInfo> _orphanProperties;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
-            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false)
+            NSCRegDbContext context, ValidationSettings validationSettings, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false, bool isSkipCustomCheck = false)
         {
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _context = context;
             _isDataSourceUpload = isDataSourceUpload;
             _validationSettings = validationSettings;
+            _isSkipCustomCheck = isSkipCustomCheck;
             _isAlterDataSourceAllowedOperation = isAlterDataSourceAllowedOperation;
             _orphanProperties = _analysisRules.Orphan.GetType().GetProperties()
                 .Where(x => (bool)x.GetValue(_analysisRules.Orphan, null) == true);
@@ -58,22 +60,24 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_analysisRules.Connections.CheckRelatedPersons)
+            if (_analysisRules.Connections.CheckRelatedPersons && !(unit is EnterpriseGroup))
             {
-                var hasRelatedPersons = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
-                                        ((StatisticalUnit)unit).PersonsUnits.Any();
-
-                if (!hasRelatedPersons)
+                if (!unit.PersonsUnits.Any())
+                {
                     messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
                         new[] { nameof(Resource.AnalysisRelatedPersons) });
+                }
             }
 
-            if (_analysisRules.Connections.CheckRelatedActivities /*&& _mandatoryFields.StatUnit.Activities*/)
+            if (_analysisRules.Connections.CheckRelatedActivities && !(unit is EnterpriseGroup))
             {
-                var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
-                                           ((StatisticalUnit)unit).ActivitiesUnits.Any();
-                if (!hasRelatedActivities)
-                    messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
+                if (!unit.ActivitiesUnits.Any())
+                {
+                    if(!_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                    {
+                        messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
+                    }
+                } 
             }
 
             if (_analysisRules.Connections.CheckAddress && _isDataSourceUpload == false && unit.Address == null)
@@ -91,7 +95,7 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
             var manager = unit is StatisticalUnit statisticalUnit
-                ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields) as IMandatoryFieldsAnalysisManager
+                ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields, _context) as IMandatoryFieldsAnalysisManager
                 : new EnterpriseGroupMandatoryFieldsManager(unit as EnterpriseGroup, _mandatoryFields);
 
             return _isAlterDataSourceAllowedOperation == false
@@ -184,6 +188,10 @@ namespace nscreg.Business.Analysis.StatUnit
                 {
                     CheckUnit(localUnit, orphanProperty.Name, messages);
                 }
+                else if (unit is EnterpriseGroup group)
+                {
+                    CheckUnit(group, orphanProperty.Name, messages);
+                }
             }
             return messages;
         }
@@ -192,25 +200,33 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             switch (propertyName)
             {
-                //case nameof(Orphan.CheckRelatedEnterpriseGroup):
-                //    if (unit.EntGroupId == null)
-                //    {
-                //        messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { nameof(Resource.AnalysisOrphanEnterprise) });
-                //    }
-
-                //    break;
                 case nameof(Orphan.CheckEnterpriseRelatedLegalUnits):
-                    if (!unit.LegalUnits.Any())
+                    if (CheckUnitStatus(unit))
                     {
-                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                        if (!unit.LegalUnits.Any())
+                        {
+                            if(!_context.LegalUnits.Any(c => c.EnterpriseUnitRegId == unit.RegId))
+                            {
+                                messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
+                            }
+                        }
                     }
                     break;
-                case nameof(Orphan.CheckOrphanEnterpriseGroups):
-                    if (!_context.EnterpriseUnits.Any(x=>x.EntGroupId == unit.EntGroupId))
+            }
+        }
+        private void CheckUnit(EnterpriseGroup unit, string propertyName, Dictionary<string, string[]> messages)
+        {
+            if (propertyName != nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises)) return;
+            if (CheckUnitStatus(unit))
+            {
+                if (!unit.EnterpriseUnits.Any())
+                {
+                    if(!_context.EnterpriseUnits.Any(c => c.EntGroupId == unit.RegId))
                     {
-                        messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseGroupRelatedEnterprises) });
+                        messages.Add(nameof(EnterpriseGroup.EnterpriseUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                     }
-                    break;
+                }
+                    
             }
         }
 
@@ -219,27 +235,57 @@ namespace nscreg.Business.Analysis.StatUnit
             switch (propertyName)
             {
                 case nameof(Orphan.CheckOrphanLegalUnits):
-                    if (unit.EnterpriseUnitRegId == null)
+                {
+                    if (CheckUnitStatus(unit))
                     {
-                        messages.Add(nameof(LegalUnit.EnterpriseUnitRegId), new[] { nameof(Resource.AnalysisOrphanLegalUnits) });
+                        if (unit.EnterpriseUnitRegId == null)
+                        {
+                            messages.Add(nameof(LegalUnit.EnterpriseUnitRegId),
+                                new[] { nameof(Resource.AnalysisOrphanLegalUnits) });
+                        }
+                        else
+                        {
+                            if (CheckUnitParentStatus(unit) == false)
+                            {
+                                messages.Add(nameof(LegalUnit.EnterpriseUnitRegId),
+                                    new[] { nameof(Resource.AnalysisOrphanLegalUnitHaveParentWithInactiveStatus) });
+                            }
+                        }
+
                     }
                     break;
+                }
                 case nameof(Orphan.CheckLegalUnitRelatedLocalUnits):
-                    if (!unit.LocalUnits.Any())
+                {
+                    if (CheckUnitStatus(unit))
                     {
-                        messages.Add(nameof(LegalUnit.LocalUnits), new[] { nameof(Resource.AnalysisOrphanLocalUnits) });
+                        if (!unit.LocalUnits.Any())
+                        {
+                            if (!_context.LocalUnits.Any(c => c.LegalUnitId == unit.RegId))
+                            {
+                                messages.Add(nameof(LegalUnit.LocalUnits), new[] { nameof(Resource.AnalysisRelatedLocalUnits) });
+                            }
+                        }
                     }
                     break;
+                }
             }
         }
 
         private void CheckUnit(LocalUnit unit, string propertyName, Dictionary<string, string[]> messages)
         {
-            if (propertyName == nameof(Orphan.CheckOrphanLocalUnits))
+            if (propertyName != nameof(Orphan.CheckOrphanLocalUnits)) return;
+            if (!CheckUnitStatus(unit)) return;
+            if (unit.LegalUnitId == null)
             {
-                if (unit.LegalUnitId == null)
+                messages.Add(nameof(LocalUnit.LegalUnitId), new[] { nameof(Resource.AnalysisOrphanLocalUnits) });
+            }
+            else
+            {
+                if(CheckUnitParentStatus(unit) == false)
                 {
-                    messages.Add(nameof(LocalUnit.LegalUnitId), new[] { nameof(Resource.AnalysisOrphanLocalUnits) });
+
+                    messages.Add(nameof(LocalUnit.LegalUnitId), new[] { nameof(Resource.AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus) });
                 }
             }
         }
@@ -266,7 +312,16 @@ namespace nscreg.Business.Analysis.StatUnit
             if (mandatoryFieldsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.MandatoryFieldsRulesWarnings));
-                messages.AddRange(mandatoryFieldsResult);
+                mandatoryFieldsResult.ForEach(d =>
+                {
+                    if (messages.ContainsKey(d.Key))
+                    {
+                        var existed = messages[d.Key];
+                        messages[d.Key] = existed.Concat(d.Value).ToArray();
+                    }
+                    else
+                        messages.Add(d.Key, d.Value);
+                });
             }
 
             var calculationFieldsResult = CheckCalculationFields(unit);
@@ -306,22 +361,35 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
             }
 
-            var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
-            if (additionalAnalysisCheckResult.Any())
+            if (!_isSkipCustomCheck)
             {
-                summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
-                additionalAnalysisCheckResult.ForEach(d =>
+                var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
+                if (additionalAnalysisCheckResult.Any())
                 {
-                    if (messages.ContainsKey(d.Key))
+                    additionalAnalysisCheckResult.Values.ForEach(d =>
                     {
-                        var existed = messages[d.Key];
-                        messages[d.Key] = existed.Concat(d.Value).ToArray();
-                    }
-                    else
-                        messages.Add(d.Key, d.Value);
-                });
+                        d.ForEach(value =>
+                        {
+                            if (value == unit.RegId.ToString() && !summaryMessages.Contains(nameof(Resource.CustomAnalysisChecks)))
+                            {
+                                summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
+                            }
+                        });
+                    });
+                    additionalAnalysisCheckResult.ForEach(d =>
+                    {
+                        if (messages.ContainsKey(d.Key))
+                        {
+                            var existed = messages[d.Key];
+                            messages[d.Key] = existed.Concat(d.Value).ToArray();
+                        }
+                        if (d.Value.FirstOrDefault(c => c == unit.RegId.ToString()) != null)
+                        {
+                            messages.Add(d.Key, new[] { "warning" });
+                        }
+                    });
+                }
             }
-
             var ophanUnitsResult = CheckOrphanUnits(unit);
             if (ophanUnitsResult.Any())
             {
@@ -375,25 +443,51 @@ namespace nscreg.Business.Analysis.StatUnit
                 }).ToList();
                 return enterpriseGroups;
             }
-            else
+            var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
+            var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
+            var units = _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate)
+                .Select(x => new AnalysisDublicateResult
+                {
+                    Name = x.Name,
+                    StatId = x.StatId,
+                    TaxRegId = x.TaxRegId,
+                    ExternalId = x.ExternalId,
+                    ShortName = x.ShortName,
+                    TelephoneNo = x.TelephoneNo,
+                    AddressId = x.AddressId,
+                    EmailAddress = x.EmailAddress
+                })
+                .ToList();
+            return units;
+        }
+
+        private bool CheckUnitStatus(IStatisticalUnit unit)
+        {
+            return unit.UnitStatusId == 1 || unit.UnitStatusId == 2 || unit.UnitStatusId == 6 ||
+                   unit.UnitStatusId == 9;
+        }
+        private bool CheckUnitParentStatus(IStatisticalUnit unit)
+        {
+            if (unit is LocalUnit lUnit)
             {
-                var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
-                var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
-                var units = _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate)
-                    .Select(x => new AnalysisDublicateResult
-                    {
-                        Name = x.Name,
-                        StatId = x.StatId,
-                        TaxRegId = x.TaxRegId,
-                        ExternalId = x.ExternalId,
-                        ShortName = x.ShortName,
-                        TelephoneNo = x.TelephoneNo,
-                        AddressId = x.AddressId,
-                        EmailAddress = x.EmailAddress
-                    })
-                    .ToList();
-                return units;
+                var parentUnit = _context.StatisticalUnits.FirstOrDefault(c => c.RegId == lUnit.LegalUnitId);
+                return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
+                                              parentUnit.UnitStatusId == 9);
+
             }
+            if (unit is LegalUnit legUnit)
+            {
+                var parentUnit = _context.StatisticalUnits.FirstOrDefault(c => c.RegId == legUnit.EnterpriseUnitRegId);
+                return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
+                                              parentUnit.UnitStatusId == 9);
+            }
+            if (unit is EnterpriseUnit enUnit)
+            {
+                var parentUnit = _context.StatisticalUnits.FirstOrDefault(c => c.RegId == enUnit.EntGroupId);
+                return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
+                                              parentUnit.UnitStatusId == 9);
+            }
+            return false;
         }
     }
 }

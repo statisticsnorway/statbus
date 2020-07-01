@@ -21,7 +21,7 @@ namespace nscreg.Server.Common.Models.DataSources
             StatUnitType = (int)item.StatUnitType;
             Restrictions = item.Restrictions;
             OriginalCsvAttributes = item.OriginalAttributesArray;
-            VariablesMapping = item.VariablesMappingArray.Select(x => new[] {x.source, x.target});
+            VariablesMapping = item.VariablesMappingArray.Select(x => new[] {item.OriginalAttributesArray.ElementAt(item.VariablesMappingArray.ToList().IndexOf(x)), x.target});
             CsvDelimiter = item.CsvDelimiter;
             CsvSkipCount = item.CsvSkipCount;
             DataSourceUploadType = (int)item.DataSourceUploadType;

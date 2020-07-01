@@ -35,9 +35,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             _validationSettings = validationSettings;
         }
 
-        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation, bool isDataSourceUpload)
+        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation, bool isDataSourceUpload, bool isSkipCustomCheck)
         {
-            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation, isDataSourceUpload));
+            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation, isDataSourceUpload, isSkipCustomCheck));
         }
 
         public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)
