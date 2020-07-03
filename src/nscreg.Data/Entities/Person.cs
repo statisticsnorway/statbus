@@ -30,7 +30,7 @@ namespace nscreg.Data.Entities
         public byte? Sex { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int CountryId { get; set; }
+        public int? CountryId { get; set; }
         public virtual Country NationalityCode { get; set; }
         public string PhoneNumber { get; set; }
         public string PhoneNumber1 { get; set; }
