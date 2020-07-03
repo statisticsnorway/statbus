@@ -78,6 +78,7 @@ export function tryFieldIsRequiredForUpdate(variablesMapping) {
   let isValidUpdate = false
 
   variablesForCheck.forEach((field) => {
+    // eslint-disable-next-line array-callback-return
     variablesMapping.some((el) => {
       if (el[1] === field) {
         isValidUpdate = true
