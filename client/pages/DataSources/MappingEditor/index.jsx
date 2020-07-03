@@ -8,7 +8,7 @@ import ListWithDnd from 'components/ListWithDnd'
 import { hasValue } from 'helpers/validation'
 import colors from 'helpers/colors'
 import Item from './Item'
-import { tryFieldIsRequired } from '../model'
+import { tryFieldIsRequired, tryFieldIsRequiredForUpdate, getFieldsForUpdate } from '../model'
 import styles from './styles.pcss'
 
 const resetSelection = ({ hovered }) => ({
@@ -45,6 +45,7 @@ class MappingsEditor extends React.Component {
     right: undefined,
     dragStarted: false,
     hovered: undefined,
+    isUpdateValid: false,
   }
 
   componentWillReceiveProps(nextProps) {
@@ -85,6 +86,14 @@ class MappingsEditor extends React.Component {
     }
   }
 
+  checkIsUpdateValid = () => {
+    this.setState({
+      isUpdateValid: this.props.isUpdate
+        ? tryFieldIsRequiredForUpdate(this.props.mapping.value)
+        : false,
+    })
+  }
+
   handleMouseDown = (prop, value) => (e) => {
     e.preventDefault()
     this.setState({
@@ -120,6 +129,8 @@ class MappingsEditor extends React.Component {
   }
 
   handleMouseLeave = () => {
+    this.checkIsUpdateValid()
+
     if (this.state.dragStarted) {
       document.addEventListener('mouseup', this.handleMouseUpOutside, false)
     }
@@ -135,7 +146,7 @@ class MappingsEditor extends React.Component {
     const isRequired = typeof label === 'string' && label.includes('*')
     const adopt = f => f(prop, value)
     const index = this.props.value.findIndex(x => x[prop === 'left' ? 0 : 1] === value)
-    const { hovered } = this.state
+    const { hovered, isUpdateValid } = this.state
     return (
       <Item
         key={value}
@@ -149,10 +160,12 @@ class MappingsEditor extends React.Component {
         onMouseLeave={this.handleMouseLeave}
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
-        isRequired={isRequired}
+        isRequired={this.props.isUpdate && isUpdateValid ? false : isRequired}
         color={
           prop === 'left' || index >= 0
             ? this.getAttributeColor(prop, value)
+            : this.props.isUpdate && isUpdateValid
+            ? 'grey'
             : isRequired &&
               this.functionTryFieldIsRequired(this.props.columns, value, this.props.mapping.value)
             ? 'red'
@@ -160,6 +173,10 @@ class MappingsEditor extends React.Component {
         }
       />
     )
+  }
+
+  componentDidMount() {
+    this.checkIsUpdateValid()
   }
 
   render() {
@@ -172,17 +189,23 @@ class MappingsEditor extends React.Component {
       localize,
       mapping,
       attribs,
+      isUpdate,
     } = this.props
+
+    const variablesForUpdate = getFieldsForUpdate()
+
+    const mandatoryColsArr = isUpdate ? variablesForUpdate : mandatoryCols
+
     const labelColumn = key =>
       key && key.includes('.')
         ? key
           .split('.')
           .map((x, i) =>
-            i === 0 && (mandatoryCols.includes(x) || mandatoryCols.includes(key))
+            i === 0 && (mandatoryColsArr.includes(x) || mandatoryColsArr.includes(key))
               ? `${localize(x)}*`
               : localize(x))
           .join(' > ')
-        : mandatoryCols.includes(key)
+        : mandatoryColsArr.includes(key)
           ? `${localize(key)}*`
           : localize(key)
     const renderValueItem = ([attr, col]) => {

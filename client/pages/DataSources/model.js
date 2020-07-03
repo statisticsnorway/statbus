@@ -37,6 +37,8 @@ export const getFieldsForActivityUpload = () => [
   'Activities.ActivityType',
 ]
 
+export const getFieldsForUpdate = () => ['StatId', 'TaxRegId', 'ExternalId']
+
 function getColsWithPoints(cols, fieldName) {
   return cols.filter(x => x.split('.').length > 1 && x.split('.')[0] === fieldName)
 }
@@ -71,14 +73,41 @@ export function tryFieldIsRequired(cols: Array, field: string, variablesMapping)
   )
 }
 
-function testStatUnitMappings(context, columns) {
+export function tryFieldIsRequiredForUpdate(variablesMapping) {
+  const variablesForCheck = getFieldsForUpdate()
+  let isValidUpdate = false
+
+  variablesForCheck.forEach((field) => {
+    // eslint-disable-next-line array-callback-return
+    variablesMapping.some((el) => {
+      if (el[1] === field) {
+        isValidUpdate = true
+      }
+    })
+  })
+
+  return isValidUpdate
+}
+
+function testStatUnitMappings(context, columns, isUpdate) {
   const cols = columns[
     toCamelCase(enums.statUnitTypes.get(Number(context.parent.statUnitType)))
   ].map(col => col.name)
+
   const mandatoryFields = getMandatoryFields(context.parent.statUnitType)
+
   const message = mandatoryFields
     .filter(field => tryFieldIsRequired(cols, field, context.parent.variablesMapping))
     .map(field => `${field}IsRequired`)
+
+  if (isUpdate) {
+    return tryFieldIsRequiredForUpdate(context.parent.variablesMapping)
+      ? true
+      : {
+        ...context.createError('', 'variablesMapping'),
+        message: 'One of these fields (StatId/TaxRegId/ExternalId) -  should be filled',
+      }
+  }
   return message.length > 0 ? { ...context.createError('', 'variablesMapping'), message } : true
 }
 
@@ -110,7 +139,10 @@ export const createSchema = columns =>
       .default(defaults.variablesMapping)
       .test('mandatory-fields-covered', '', function testWrap() {
         const isStatUnitUpload = this.parent.dataSourceUploadType === 1
-        return isStatUnitUpload ? testStatUnitMappings(this, columns) : testActivityMappings(this)
+        const isUpdate = this.parent.allowedOperations === 2
+        return isStatUnitUpload
+          ? testStatUnitMappings(this, columns, isUpdate)
+          : testActivityMappings(this)
       }),
     csvDelimiter: string()
       .required()
