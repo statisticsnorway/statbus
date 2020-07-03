@@ -152,8 +152,6 @@ const fetchDataSource = (id, columns) =>
   })
 
 const editDataSource = id => (data, formikBag) => {
-  console.log('EDIT************************************')
-
   const filteredData = { ...data }
 
   // eslint-disable-next-line prefer-const

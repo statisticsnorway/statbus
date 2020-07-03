@@ -219,27 +219,23 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
     return acc
   }, []))
 
-  const setRequired = ([name, rule]) =>
-    // console.log(mandatoryFields);
+  const setRequired = ([name, rule]) => [
+    name,
+    mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule,
+  ]
 
-    [name, mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule]
-
-  const setAsyncTest = ([name, rule]) =>
-    // console.log(name, rule);
-
-    [
-      name,
-      asyncTestFields.has(name)
-        ? rule.test(
-          name,
-          `${name}AsyncTestFailed`,
-          validationSettings.StatIdUnique
-            ? createAsyncTest(asyncTestFields.get(name), { unitId, unitType })
-            : () => true,
-        )
-        : rule,
-    ]
-
+  const setAsyncTest = ([name, rule]) => [
+    name,
+    asyncTestFields.has(name)
+      ? rule.test(
+        name,
+        `${name}AsyncTestFailed`,
+        validationSettings.StatIdUnique
+          ? createAsyncTest(asyncTestFields.get(name), { unitId, unitType })
+          : () => true,
+      )
+      : rule,
+  ]
 
   const updateRule = R.pipe(
     setRequired,

@@ -32,9 +32,6 @@ export const getMandatoryFields = unitTypeId =>
     ],
   }).reduce((result, [prop, isRequired]) => {
     if (isRequired) result.push(prop)
-    // console.log(config.mandatoryFields);
-
-    // console.log(result);
 
     return result
   }, [])

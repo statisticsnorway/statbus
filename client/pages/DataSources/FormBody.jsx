@@ -65,10 +65,6 @@ const FormBody = ({
   const columnsByUnitType = columns[getTypeName(values.statUnitType)]
   const filteredColumnsForActivities = columnsByUnitType.filter(el => variablesForActivities.filter(varForAc => varForAc === el.name).length === 1)
 
-  // console.log(props);
-
-  // console.log(values);
-
   return (
     <Grid>
       <Grid.Row>
@@ -105,9 +101,6 @@ const FormBody = ({
               values.dataSourceUploadType === 1
                 ? getMandatoryFieldsForStatUnitUpload(values.statUnitType)
                 : getMandatoryFieldsForActivityUpload()
-              // values.allowedOperations === 2
-              //   ? getMandatoryFieldsForActivityUpload()
-              //   : getMandatoryFieldsForStatUnitUpload(values.statUnitType)
             }
             localize={localize}
             mapping={mapping}
