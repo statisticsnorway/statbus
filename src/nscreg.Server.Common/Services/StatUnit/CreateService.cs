@@ -221,7 +221,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
 
                 var personList = data.Persons ?? new List<PersonM>();
-
                 unit.PersonsUnits.AddRange(personList.Select(v =>
                 {
                     if (v.Id.HasValue && v.Id > 0)
@@ -254,7 +253,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
 
                 unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v => new CountryStatisticalUnit { CountryId = v }));
-
+                if (unit.SizeId == 0)
+                {
+                    unit.SizeId = null;
+                }
                 if (work != null)
                 {
                     await work(unit);
@@ -289,7 +291,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await work(unit);
             }
-
             unit.UserId = userId;
 
             if (_statUnitTypeOfSave == StatUnitTypeOfSave.Service)
