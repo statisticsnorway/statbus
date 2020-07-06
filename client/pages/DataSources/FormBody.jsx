@@ -105,6 +105,7 @@ const FormBody = ({
             localize={localize}
             mapping={mapping}
             attribs={attribs}
+            isUpdate={values.allowedOperations === 2}
           />
         </Column>
       </Grid.Row>

@@ -34,11 +34,17 @@ const statId = (name, isRequired) =>
       message: 'InvalidChecksum',
       test(value) {
         if (!value && isRequired) {
-          return this.createError({ path: name, message: 'StatIdIsRequired' })
+          return this.createError({
+            path: name,
+            message: 'StatIdIsRequired',
+          })
         }
 
         if (value.length > 8) {
-          return this.createError({ path: name, message: 'ShouldNotBeGreaterThenEight' })
+          return this.createError({
+            path: name,
+            message: 'ShouldNotBeGreaterThenEight',
+          })
         }
         if (value.length <= 8) {
           const okpo = (Array(20).join('0') + value)
@@ -217,6 +223,7 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
     name,
     mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule,
   ]
+
   const setAsyncTest = ([name, rule]) => [
     name,
     asyncTestFields.has(name)
