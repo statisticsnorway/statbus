@@ -2401,6 +2401,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Clear error. Cache not found.
+        /// </summary>
+        public static string ElasticsearchCacheNotFound {
+            get {
+                return ResourceManager.GetString("ElasticsearchCacheNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Elasticsearch service is not running, please connect to your server&apos; administrator to turn it on.
         /// </summary>
         public static string ElasticSearchIsDisable {
