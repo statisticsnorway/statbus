@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +10,7 @@ using nscreg.Data.Entities;
 using nscreg.Data.Entities.History;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
-using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -230,7 +226,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     case nameof(EnterpriseUnit):
                     {
                         var entUnit = unit as EnterpriseUnit;
-                        if (entUnit.LegalUnits.Count > 0)
+                        if (entUnit != null && entUnit.LegalUnits.Any(c => !c.IsDeleted))
                         {
                             throw new BadRequestException(nameof(Resource.DeleteEnterpriseUnit));
                         }
@@ -245,7 +241,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         var localUnit = unit as LocalUnit;
                         var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId);
-                        if (legalUnit != null && legalUnit.IsDeleted == true)
+                        if (legalUnit != null && legalUnit.IsDeleted)
                         {
                             throw new BadRequestException(nameof(Resource.RestoreLocalUnit));
                         }
@@ -254,7 +250,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     case nameof(EnterpriseUnit):
                     {
                         var entUnit = unit as EnterpriseUnit;
-                        if (entUnit.LegalUnits.Any(x => x.IsDeleted == true))
+                        if (entUnit != null && entUnit.LegalUnits.Any(x => x.IsDeleted))
                         {
                             throw new BadRequestException(nameof(Resource.RestoreEnterpriseUnit));
                         }
@@ -320,6 +316,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private void PostDeleteEnterpriseGroupUnit(IStatisticalUnit unit, bool toDelete, string userId)
         {
+           
         }
 
         /// <summary>
