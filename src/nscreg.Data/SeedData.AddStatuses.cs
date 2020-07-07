@@ -6,12 +6,13 @@ namespace nscreg.Data
     {
         public static void AddStatuses(NSCRegDbContext context)
         {
-            context.Statuses.Add(new UnitStatus {Code = "1", Name = "Unit is active"});
-            context.Statuses.Add(new UnitStatus { Code = "2", Name = "Unit is not active (inactive)" });
-            context.Statuses.Add(new UnitStatus { Code = "3", Name = "Newly created statistical unit. Not yet active" });
-            context.Statuses.Add(new UnitStatus { Code = "4", Name = "The unit is in liquidation phase" });
-            context.Statuses.Add(new UnitStatus { Code = "5", Name = "Unit liquidated" });
-            context.Statuses.Add(new UnitStatus { Code = "0", Name = "There is no information about the unit" });
+            context.Statuses.Add(new UnitStatus { Code = "1", Name = "Active" });
+            context.Statuses.Add(new UnitStatus { Code = "2", Name = "Newly created, not yet active" });
+            context.Statuses.Add(new UnitStatus { Code = "3", Name = "Dormant/Inactive" });
+            context.Statuses.Add(new UnitStatus { Code = "5", Name = "Historical" });
+            context.Statuses.Add(new UnitStatus { Code = "6", Name = "In liquidation phase" });
+            context.Statuses.Add(new UnitStatus { Code = "7", Name = "Liquidated" });
+            context.Statuses.Add(new UnitStatus { Code = "9", Name = "Unknown status" });
             context.SaveChanges();
         }
     }
