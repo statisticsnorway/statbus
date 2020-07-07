@@ -41,7 +41,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly DataAccessService _dataAccessService;
         private readonly DeleteService _deleteService;
         private readonly int? _liquidateStatusId;
-        private readonly int? _deletedStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
 
@@ -58,7 +57,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
             _deleteService = new DeleteService(dbContext);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
-            _deletedStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "8")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
         }
@@ -75,11 +73,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 m => m.RegId ?? 0,
                 userId, unit =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
@@ -132,11 +125,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => unit.LegalUnitId == x.RegId && !x.IsDeleted);
@@ -161,11 +149,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
@@ -199,11 +182,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 (unit, oldUnit) =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
                         var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
@@ -445,18 +423,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;
-            if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-            {
-                unit.IsDeleted = true;
-                unit.ChangeReason = ChangeReasons.Delete;
-                unit.EditComment = null;
-                isDeleted = true;
-
-            } else
-            {
-                unit.ChangeReason = data.ChangeReason;
-                unit.EditComment = data.EditComment;
-            }
+            unit.ChangeReason = data.ChangeReason;
+            unit.EditComment = data.EditComment;
 
             IStatUnitAnalyzeService analysisService =
                 new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
@@ -499,10 +467,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
 
-                    if (isDeleted)
-                    {
-                        _deleteService.StatUnitPostDeleteActions(unit, true, userId);
-                    }
                 }
                 catch (Exception e)
                 {

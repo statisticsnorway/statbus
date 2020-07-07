@@ -27,7 +27,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Dictionary<StatUnitTypes, Action<IStatisticalUnit, bool, string>> _postDeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticService _elasticService;
-        private readonly int? _deletedStatusId;
         private readonly DataAccessService _dataAccessService;
 
         public DeleteService(NSCRegDbContext dbContext)
@@ -37,7 +36,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
             _commonSvc = new Common(dbContext);
             _userService = new UserService(dbContext);
-            _deletedStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "8")?.Id;
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
@@ -106,10 +104,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 unit.UnitStatusId = _dbContext.EnterpriseGroupHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             }
-            else
-            {
-                unit.UnitStatusId = _deletedStatusId;
-            }
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -135,9 +129,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (!toDelete)
             {
                 unit.UnitStatusId = _dbContext.LegalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
-            } else
-            {
-                unit.UnitStatusId = _deletedStatusId;
             }
             unit.UserId = userId;
             unit.EditComment = null;
@@ -165,10 +156,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 unit.UnitStatusId = _dbContext.LocalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             }
-            else
-            {
-                unit.UnitStatusId = _deletedStatusId;
-            }
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -194,10 +181,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (!toDelete)
             {
                 unit.UnitStatusId = _dbContext.EnterpriseUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
-            }
-            else
-            {
-                unit.UnitStatusId = _deletedStatusId;
             }
             unit.UserId = userId;
             unit.EditComment = null;
