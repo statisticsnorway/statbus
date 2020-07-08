@@ -112,7 +112,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
-                    if (data.LocalUnits.Any())
+                    if (data.LocalUnits != null && data.LocalUnits.Any())
                     {
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                         foreach (var localUnit in localUnits)
@@ -150,7 +150,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 var helper = new StatUnitCheckPermissionsHelper(_dbContext);
                 helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities.Select(x => x.ActivityCategoryId).ToList());
-                if (data.LegalUnits.Any())
+                if (data.LegalUnits != null && data.LegalUnits.Any())
                 {
                     var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                     foreach (var legalUnit in legalUnits)
@@ -178,7 +178,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
-                    if (data.EnterpriseUnits.Any())
+                    if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                     {
                         var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId))
                             .ToList();
@@ -186,8 +186,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             unit.EnterpriseUnits.Add(enterprise);
                         }
-
-
                         unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                     }
                 }

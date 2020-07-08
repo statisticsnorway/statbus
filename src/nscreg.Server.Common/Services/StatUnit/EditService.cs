@@ -87,7 +87,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             }
                         }
                         
-                        if (data.LocalUnits.Any())
+                        if (data.LocalUnits != null && data.LocalUnits.Any())
                         {
                             var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
 
@@ -154,7 +154,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                     if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
-                        if (data.LegalUnits.Any())
+                        if (data.LegalUnits != null && data.LegalUnits.Any())
                         {
                             var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
                             unit.LegalUnits.Clear();
@@ -164,7 +164,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 unit.LegalUnits.Add(legalUnit);
                                 _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legalUnit));
                             }
-
+                            
                             unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                         }
                             
@@ -187,7 +187,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
-                        if (data.EnterpriseUnits.Any())
+                        if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                         {
                             var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
                             unit.EnterpriseUnits.Clear();
