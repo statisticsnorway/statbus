@@ -18,7 +18,7 @@ class FilterList extends React.Component {
     filter: {
       userName: '',
       roleId: '',
-      status: '',
+      status: 2,
       ...this.props.filter,
     },
     roles: [],

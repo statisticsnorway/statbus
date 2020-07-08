@@ -30,7 +30,7 @@ class UsersList extends React.Component {
 
   componentDidMount() {
     const { filter } = this.props
-    this.props.fetchUsers(filter)
+    this.props.fetchUsers({ ...filter, status: 2 })
   }
 
   shouldComponentUpdate(nextProps, nextState) {

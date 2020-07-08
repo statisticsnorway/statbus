@@ -9,7 +9,7 @@ namespace nscreg.Server.Common.Models.Users
     {
         public string UserName { get; set; }
         public string RoleId { get; set; }
-        public UserStatuses? Status { get; set; } = UserStatuses.Active;
+        public UserStatuses? Status { get; set; }
         public string Description { get; set; }
     }
 }
