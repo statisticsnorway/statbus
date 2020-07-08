@@ -24,7 +24,7 @@ namespace nscreg.Server.Common.Helpers
             return _ctx.StatisticalUnits
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
-                .FirstOrDefault(su =>
+                .FirstOrDefault(su => !su.IsDeleted &&
                 (_ctx.StatisticalUnitHistory
                     .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                 su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
@@ -44,7 +44,7 @@ namespace nscreg.Server.Common.Helpers
             return _ctx.EnterpriseGroups
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
-                .FirstOrDefault(su =>
+                .FirstOrDefault(su => !su.IsDeleted &&
                     (_ctx.EnterpriseGroupHistory
                          .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                      su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
