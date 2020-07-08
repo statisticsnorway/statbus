@@ -19,7 +19,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public string SortBy { get; set; }
-        public OrderRule OrderByValue { get; private set; } = OrderRule.Asc;
+        public OrderRule OrderByValue { get; private set; } = OrderRule.Desc;
         public string OrderBy
         {
             set
