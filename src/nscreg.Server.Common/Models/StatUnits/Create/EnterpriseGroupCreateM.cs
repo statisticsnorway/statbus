@@ -83,7 +83,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
 
         public string Notes { get; set; }
 
-        public int[] EnterpriseUnits { get; set; }
+        public int?[] EnterpriseUnits { get; set; }
 
         public string Name { get; set; }
 

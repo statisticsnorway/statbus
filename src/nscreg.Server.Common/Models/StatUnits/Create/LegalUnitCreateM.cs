@@ -19,7 +19,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string ForeignCapitalShare { get; set; }
         public string ForeignCapitalCurrency { get; set; }
         public int? EnterpriseUnitRegId { get; set; }
-        public int[] LocalUnits { get; set; }
+        public int?[] LocalUnits { get; set; }
     }
 
     //TODO: when we will know validation fields, we will use this validator for write rules (this is example of usage)

@@ -92,7 +92,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public DateTime StatusDate { get; set; }
 
         public string Notes { get; set; }
-        public int[] EnterpriseUnits { get; set; }
+        public int?[] EnterpriseUnits { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? SizeId { get; set; }

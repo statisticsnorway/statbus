@@ -19,7 +19,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string ForeignCapitalShare { get; set; }
         public string ForeignCapitalCurrency { get; set; }
         public string EntGroupRole { get; set; }
-        public int[] LegalUnits { get; set; }
+        public int?[] LegalUnits { get; set; }
     }
 
     public class EnterpriseUnitCreateMValidator : StatUnitModelBaseValidator<EnterpriseUnitCreateM>
