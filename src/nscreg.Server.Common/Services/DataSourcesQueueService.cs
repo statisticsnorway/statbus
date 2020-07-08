@@ -122,7 +122,7 @@ namespace nscreg.Server.Common.Services
             var orderBy = string.IsNullOrEmpty(query.SortBy) ? nameof(DataUploadingLog.Id) : query.SortBy;
             var orderRule = query.SortAscending ? "ASC" : "DESC";
             var filtered = _dbContext.DataUploadingLogs
-                .Where(x => x.DataSourceQueueId == queueId)
+                .Where(x => x.DataSourceQueueId == queueId && x.Status != DataUploadingLogStatuses.Done)
                 .OrderBy($"{orderBy} {orderRule}")
                 .GroupBy(x => x.TargetStatId);
             var total = await filtered.CountAsync();
@@ -155,7 +155,7 @@ namespace nscreg.Server.Common.Services
             var orderBy = string.IsNullOrEmpty(query.SortBy) ? nameof(DataUploadingLog.Id) : query.SortBy;
             var orderRule = query.SortAscending ? "ASC" : "DESC";
             var filtered = _dbContext.DataUploadingLogs
-                .Where(x => x.DataSourceQueueId == queueId)
+                .Where(x => x.DataSourceQueueId == queueId && x.Status != DataUploadingLogStatuses.Done)
                 .OrderBy($"{orderBy} {orderRule}");
 
             var total = await filtered.CountAsync();
