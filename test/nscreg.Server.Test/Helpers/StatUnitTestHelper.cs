@@ -101,7 +101,7 @@ namespace nscreg.Server.Test
         }
 
         public async Task CreateEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
-            AddressM address, string unitName, int?[] legalUnitIds, int? enterpriseGroupId)
+            AddressM address, string unitName, int[] legalUnitIds, int? enterpriseGroupId)
         {
             await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, StatUnitTypeOfSave.WebApplication).CreateEnterpriseUnit(new EnterpriseUnitCreateM
             {
@@ -123,7 +123,7 @@ namespace nscreg.Server.Test
         }
 
         public async Task<EnterpriseGroup> CreateEnterpriseGroupAsync(NSCRegDbContext context, AddressM address,
-            string unitName, int?[] enterpriseUnitsIds, int[] legalUnitsIds)
+            string unitName, int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
             await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, StatUnitTypeOfSave.WebApplication).CreateEnterpriseGroup(new EnterpriseGroupCreateM
             {
@@ -260,7 +260,7 @@ namespace nscreg.Server.Test
         }
 
         public async Task EditEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
-            int?[] legalUnitsIds, int unitId, string unitNameEdit, int? enterpriseGroupId)
+            int[] legalUnitsIds, int unitId, string unitNameEdit, int? enterpriseGroupId)
         {
             await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditEnterpriseUnit(new EnterpriseUnitEditM
             {
@@ -283,7 +283,7 @@ namespace nscreg.Server.Test
         }
 
         public async Task EditEnterpriseGroupAsync(NSCRegDbContext context, int unitId, string unitNameEdit,
-            int?[] enterpriseUnitsIds, int[] legalUnitsIds)
+            int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
             await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditEnterpriseGroup(new EnterpriseGroupEditM
             {
