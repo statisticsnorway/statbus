@@ -190,7 +190,7 @@ namespace nscreg.Server.Common.Services.DataSources
             }
             catch (Exception ex)
             {
-                ex.Data.Add("Postprocess exceptions at: ", unit);
+                ex.Data.Add("unit", unit);
                 throw;
             }
         }
