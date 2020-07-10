@@ -104,6 +104,7 @@ export const queue = {
   fetchQueueFailed,
   fetchQueue,
   updateQueueFilter,
+  deleteAnalyzeQueue,
   setQuery,
   clear,
 }
@@ -116,7 +117,6 @@ export const create = {
 
 export const logs = {
   fetchAnalysisLogs,
-  deleteAnalyzeQueue,
 }
 
 export const details = {

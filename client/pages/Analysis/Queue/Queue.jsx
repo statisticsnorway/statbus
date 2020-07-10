@@ -1,5 +1,5 @@
-import { React, useState } from 'react'
-import { func, bool, shape, number, string } from 'prop-types'
+import React, { useState } from 'react'
+import { func, bool, shape, number, string, arrayOf } from 'prop-types'
 import { Segment, Table, Button, Confirm } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
@@ -114,6 +114,7 @@ Queue.propTypes = {
   actions: shape({
     updateQueueFilter: func.isRequired,
     setQuery: func.isRequired,
+    deleteAnalyzeQueue: func.isRequired,
   }).isRequired,
   fetching: bool.isRequired,
   formData: shape({}).isRequired,
@@ -121,7 +122,7 @@ Queue.propTypes = {
     status: string,
     dateTo: string,
   }),
-  items: shape().isRequired,
+  items: arrayOf(shape({})).isRequired,
 }
 
 Queue.defaultProps = {

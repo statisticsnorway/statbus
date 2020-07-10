@@ -21,7 +21,6 @@ const AnalysisQueueItem = ({ data, localize, deleteQueue }) => {
           to={`analysisqueue/${data.id}/log`}
           content={localize('Logs')}
           icon="search"
-          floated="right"
           primary
         />
       </Table.Cell>
