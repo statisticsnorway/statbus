@@ -100,7 +100,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new EnterpriseGroupHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
-            unit.UnitStatusId = _dbContext.EnterpriseGroupHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            if (!toDelete)
+                unit.UnitStatusId = _dbContext.EnterpriseGroupHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -123,7 +124,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new LegalUnitHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
-            unit.UnitStatusId = _dbContext.LegalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            if (!toDelete)
+                unit.UnitStatusId = _dbContext.LegalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -146,7 +148,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new LocalUnitHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
-            unit.UnitStatusId = _dbContext.LocalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            if (!toDelete)
+                unit.UnitStatusId = _dbContext.LocalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
@@ -169,7 +172,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new EnterpriseUnitHistory();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
-            unit.UnitStatusId = _dbContext.EnterpriseUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
+            if (!toDelete)
+                unit.UnitStatusId = _dbContext.EnterpriseUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
