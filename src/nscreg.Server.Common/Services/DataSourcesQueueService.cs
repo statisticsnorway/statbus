@@ -349,7 +349,6 @@ namespace nscreg.Server.Common.Services
                 if (existing.Status == DataUploadingLogStatuses.Done &&
                     existing.StartImportDate != null)
                 {
-                    var unitTypes = GetUnitTypes(existing.TargetStatId, (StatUnitTypes)unitType);
                     switch (unitType)
                     {
                         case (int)StatUnitTypes.LocalUnit:
@@ -411,8 +410,8 @@ namespace nscreg.Server.Common.Services
         {
             var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
             if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
-            var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToArray();
-            if (logs.Length > 0)
+            var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToList();
+            if (logs.Any())
                 await logs.ForEachAsync(log => DeleteLogById(log.Id, userId));
             await DeleteQueueById(existing.Id);
         }

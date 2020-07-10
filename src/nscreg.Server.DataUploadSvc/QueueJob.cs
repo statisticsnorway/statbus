@@ -117,7 +117,7 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Error, populateError);
+                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>(){populateError} );
                     continue;
                 }
 
@@ -143,7 +143,7 @@ namespace nscreg.Server.DataUploadSvc
                     await LogUpload(LogStatus.Error, analysisError);
                     continue;
                 }
-                if (errors.Count > 0)
+                if (errors.Any())
                 {
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
                     errors.Values.ForEach(x=>x.ForEach(e=> _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
@@ -274,10 +274,6 @@ namespace nscreg.Server.DataUploadSvc
             }
             catch (Exception ex)
             {
-                var data = ex.Data.Keys
-                    .Cast<string>()
-                    .Where(key => key != "unit")
-                    .Select(key => $"`{key}` = `{ex.Data[key]}`");
                 return (ex.Message,
                     ex.Data["unit"] as StatisticalUnit);
             }
