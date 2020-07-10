@@ -89,7 +89,7 @@ namespace nscreg.Server.Controllers
         /// </summary>
         /// <param name="logId">Id of log</param>
         /// <returns></returns>
-        [HttpDelete("{id}")]
+        [HttpDelete("{logId}")]
         [SystemFunction(SystemFunctions.AnalysisQueueLogDelete)]
         public async Task<IActionResult> DeleteLog(int logId)
         {
