@@ -83,5 +83,18 @@ namespace nscreg.Server.Controllers
             var errors = await _svc.UpdateLogEntry(logId, data, User.GetUserId());
             return errors != null ? (IActionResult) BadRequest(errors) : NoContent();
         }
+
+        /// <summary>
+        /// Delete uploaded log method - Reject
+        /// </summary>
+        /// <param name="logId">Id of log</param>
+        /// <returns></returns>
+        [HttpDelete("{logId}")]
+        [SystemFunction(SystemFunctions.AnalysisQueueLogDelete)]
+        public async Task<IActionResult> DeleteLog(int logId)
+        {
+            await _svc.DeleteAnalyzeLogAsync(logId);
+            return NoContent();
+        }
     }
 }

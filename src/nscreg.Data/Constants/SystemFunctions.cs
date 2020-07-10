@@ -76,6 +76,7 @@ namespace nscreg.Data.Constants
         AnalysisQueueAdd = 42,
         AnalysisQueueLogView = 43,
         AnalysisQueueLogUpdate = 44,
+        AnalysisQueueLogDelete = 51,
 
         //Sample Frames
         [AllowedTo(DefaultRoleNames.Employee)] SampleFramesCreate = 45,

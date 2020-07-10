@@ -108,6 +108,14 @@ const queueHandlers = {
       error: undefined,
     },
   }),
+  [actions.deleteAnalyzeQueueSucceeded]: (state, id) => ({
+    ...state,
+    queue: {
+      ...state.queue,
+      items: state.queue.items.filter(x => x.id !== id),
+      totalCount: state.queue.totalCount - 1,
+    },
+  }),
 }
 
 const detailsHandlers = {

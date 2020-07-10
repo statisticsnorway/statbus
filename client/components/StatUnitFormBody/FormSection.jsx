@@ -4,7 +4,7 @@ import { Segment, Header } from 'semantic-ui-react'
 
 const FormSection = ({ id, title, children }) => (
   <Segment id={id}>
-    <Header as="h4" content={title} dividing />
+    {title ? <Header as="h4" content={title} dividing /> : null}
     {children}
   </Segment>
 )

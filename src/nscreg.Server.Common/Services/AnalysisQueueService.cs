@@ -182,5 +182,17 @@ namespace nscreg.Server.Common.Services
                 return existingModel;
             }
         }
+
+        public async Task DeleteAnalyzeLogAsync(int id)
+        {
+            var analyze = await _context.AnalysisQueues.Include(c => c.AnalysisLogs).FirstOrDefaultAsync(c => c.Id == id);
+            if (analyze == null)
+            {
+                throw new NotFoundException(Resource.AnalyzeByIdNotFound);
+            }
+            analyze.AnalysisLogs.Clear();
+            _context.AnalysisQueues.Remove(analyze);
+            await _context.SaveChangesAsync();
+        }
     }
 }
