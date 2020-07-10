@@ -26,7 +26,15 @@ const fetchQueue = queryParams =>
       dispatch(fetchQueueFailed(errors))
     },
   })
-
+const deleteAnalyzeQueueSucceeded = createAction('delete AnalyzeQueue succeeded')
+const deleteAnalyzeQueue = id =>
+  dispatchRequest({
+    url: `api/analysisqueue/${id}`,
+    method: 'delete',
+    onSuccess: (dispatch) => {
+      dispatch(deleteAnalyzeQueueSucceeded(id))
+    },
+  })
 const fetchAnalysisLogs = queueId => queryParams =>
   dispatchRequest({
     url: `/api/analysisqueue/${queueId}/log`,
@@ -40,8 +48,14 @@ const fetchAnalysisLogs = queueId => queryParams =>
   })
 
 const setQuery = pathname => query => (dispatch) => {
-  pipe(updateQueueFilter, dispatch)(query)
-  pipe(push, dispatch)({ pathname, query })
+  pipe(
+    updateQueueFilter,
+    dispatch,
+  )(query)
+  pipe(
+    push,
+    dispatch,
+  )({ pathname, query })
 }
 
 const submitItem = data =>
@@ -102,6 +116,7 @@ export const create = {
 
 export const logs = {
   fetchAnalysisLogs,
+  deleteAnalyzeQueue,
 }
 
 export const details = {
@@ -128,4 +143,5 @@ export default {
   fetchDetailsSucceeded,
   fetchDetailsFailed,
   clearDetails,
+  deleteAnalyzeQueueSucceeded,
 }
