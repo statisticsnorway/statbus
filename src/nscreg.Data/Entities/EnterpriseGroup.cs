@@ -187,7 +187,7 @@ namespace nscreg.Data.Entities
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatusDateTooltip))]
         public DateTime StatusDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 801)]
+        [Display(Order = 801)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.NotesTooltip))]
         public string Notes { get; set; }
 
