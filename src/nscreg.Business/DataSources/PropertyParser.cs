@@ -1,6 +1,5 @@
 using nscreg.Data.Entities;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using nscreg.Data.Constants;
@@ -33,6 +32,11 @@ namespace nscreg.Business.DataSources
             switch (PathHead(propPath))
             {
                 case nameof(Activity.ActivityType):
+                    if (value == null)
+                    {
+                        result.ActivityType = ActivityTypes.Primary;
+                        break;
+                    }
                     if (Enum.TryParse(value, true, out ActivityTypes activityType))
                         result.ActivityType = activityType;
                     else throw BadValueFor<ActivityTypes>(propPath, value);
@@ -45,11 +49,21 @@ namespace nscreg.Business.DataSources
                     result.ActivityCategory = ParseActivityCategory(propPath, value, result.ActivityCategory);
                     break;
                 case nameof(Activity.ActivityYear):
+                    if (value == null)
+                    {
+                        result.ActivityYear = null;
+                        break;
+                    }
                     if (int.TryParse(value, out var activityYear))
                         result.ActivityYear = activityYear;
                     else throw BadValueFor<int>(propPath, value);
                     break;
                 case nameof(Activity.Employees):
+                    if (value == null)
+                    {
+                        result.Employees = null;
+                        break;
+                    }
                     if (int.TryParse(value, out var employees))
                         result.Employees = employees;
                     else throw BadValueFor<int>(propPath, value);
@@ -80,6 +94,7 @@ namespace nscreg.Business.DataSources
                     result.PersonalId = value;
                     break;
                 case nameof(Person.BirthDate):
+                    if (value == null) {result.BirthDate = null; break; }
                     if (DateTime.TryParse(value, out var birthDate)) result.BirthDate = birthDate;
                     else throw BadValueFor<Person>(propPath, value);
                     break;
