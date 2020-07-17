@@ -27,14 +27,14 @@ namespace nscreg.Server.Common.Models.StatUnits
     {
         public PersonMValidator()
         {
-            RuleFor(v => v.GivenName)
-                .NotEmpty().WithMessage(nameof(Resource.PersonsGivenNameRequired));
-            RuleFor(v => v.Surname)
-                .NotEmpty().WithMessage(nameof(Resource.PersonsSurnameRequired)); ;
-            RuleFor(v => v.CountryId)
-                .GreaterThan(0).WithMessage(nameof(Resource.PersonsCountryIdRequired)); ;
-            RuleFor(v => v.Role)
-                .NotNull().WithMessage(nameof(Resource.PersonsRoleRequired));
+            //RuleFor(v => v.GivenName)
+            //    .NotEmpty().WithMessage(nameof(Resource.PersonsGivenNameRequired));
+            //RuleFor(v => v.Surname)
+            //    .NotEmpty().WithMessage(nameof(Resource.PersonsSurnameRequired)); ;
+            //RuleFor(v => v.CountryId)
+            //    .GreaterThan(0).WithMessage(nameof(Resource.PersonsCountryIdRequired)); ;
+            //RuleFor(v => v.Role)
+            //    .NotNull().WithMessage(nameof(Resource.PersonsRoleRequired));
         }
     }
 }
