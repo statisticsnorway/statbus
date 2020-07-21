@@ -125,6 +125,8 @@ ResultTableCTE AS
 
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 		LEFT JOIN UnitsSize AS ush ON ush.Id = asuhCTE.SizeId
+
+    WHERE su.IsDeleted = 0
 ),
 ResultTableCTE2 AS
 (

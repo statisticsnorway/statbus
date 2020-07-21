@@ -118,6 +118,7 @@ ResultTableCTE AS
 		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
 		LEFT JOIN ActivityCategoriesTotalHierarchyCTE AS ach1 ON ach1.Id = ah.ActivityCategoryId
 		LEFT JOIN ActivityCategoriesHierarchyCTE AS ach2 ON ach2.Id = ah.ActivityCategoryId
+    WHERE su.IsDeleted = 0
 ),
 ResultTableCTE2 AS
 (
