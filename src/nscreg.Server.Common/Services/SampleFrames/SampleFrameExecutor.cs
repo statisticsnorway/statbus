@@ -129,7 +129,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 query = query.Include(x => x.ForeignParticipationCountriesUnits)
                     .ThenInclude(x=>x.Country);
 
-            return query;
+            return query.Where(c => !c.IsDeleted);
         }
 
         private bool CheckUnexistingFieldsInEnterpriseGroup(ExpressionGroup expressionGroup)
@@ -162,7 +162,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 query = query.Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person);
 
-            return query;
+            return query.Where(c => !c.IsDeleted);
         }
     }
 }

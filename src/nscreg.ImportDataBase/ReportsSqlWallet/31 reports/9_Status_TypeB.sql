@@ -150,6 +150,7 @@ ResultTableCTE AS
 		
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
 		LEFT JOIN Statuses AS sth ON sth.Id = asuhCTE.UnitStatusId
+    WHERE su.IsDeleted = 0
 ),
 ResultTableCTE2 AS
 (

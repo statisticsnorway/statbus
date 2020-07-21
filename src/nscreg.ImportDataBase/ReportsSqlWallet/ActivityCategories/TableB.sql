@@ -25,7 +25,7 @@ set @query = 'SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as Total from
 				LEFT JOIN dbo.Address addr
 					ON addr.Address_id = su.AddressId
 				LEFT JOIN dbo.Regions AS reg ON reg.Id = addr.Region_id		
-					WHERE a.Activity_Type = 1
+					WHERE a.Activity_Type = 1 AND su.IsDeleted = 0
            ) SourceTable
             PIVOT 
             (

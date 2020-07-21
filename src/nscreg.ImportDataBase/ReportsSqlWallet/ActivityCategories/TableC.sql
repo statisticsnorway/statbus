@@ -99,7 +99,8 @@ SET @query
 								INNER JOIN ActivityCategories ac ON ac.Id = a.ActivityCategoryId
 								INNER JOIN Address addr	ON addr.Address_id = su.AddressId
 								INNER JOIN Regions AS reg ON reg.Id = addr.Region_id
-								LEFT JOIN Regions AS regParent ON reg.ParentId = regParent.Id				
+								LEFT JOIN Regions AS regParent ON reg.ParentId = regParent.Id
+                WHERE su.IsDeleted = 0
 				),
 				CTE_Result AS (
 SELECT RegionName,Id,ParentId,' + @colSum

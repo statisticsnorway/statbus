@@ -149,6 +149,8 @@ ResultTableCTE AS
 		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',0,1) AS isHistory
 	FROM StatisticalUnits AS su
 		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+
+   WHERE su.IsDeleted = 0
 ),
 ResultTableCTE2 AS
 (

@@ -217,6 +217,7 @@ ResultTableCTE AS
 		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
 		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id AND ah.Activity_Type = 1
 		LEFT JOIN #tempActivityCategories AS ach ON ach.Id = ah.ActivityCategoryId
+    WHERE su.IsDeleted = 0
 ),
 ResultTableCTE2 AS
 (

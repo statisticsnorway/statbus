@@ -81,6 +81,7 @@ ResultTableCTE AS
 		LEFT JOIN StatisticalUnitHistoryCTE suhCTE ON suhCTE.ParentId = su.RegId and suhCTE.RowNumber = 1
 		LEFT JOIN dbo.ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = suhCTE.RegId
 		LEFT JOIN dbo.Activities ah ON ah.Id = asuh.Activity_Id
+    WHERE su.IsDeleted = 0
 ),
 /* list of stat units linked to their rayon(region with level = 3) or oblast(region with level = 2) if address cannot be linked to rayon */
 ResultTableCTE2 AS
