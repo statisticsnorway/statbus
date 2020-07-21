@@ -1,7 +1,6 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
-import { NotificationManager } from 'react-notifications'
 import { nullsToUndefined } from 'helpers/validation'
 import dispatchRequest from 'helpers/request'
 import { navigateBack, request } from 'helpers/actionCreators'
