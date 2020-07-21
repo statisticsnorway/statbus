@@ -37,7 +37,6 @@ class PersonEdit extends React.Component {
     onCancel: func.isRequired,
     localize: func.isRequired,
     locale: string,
-    isAlreadyExist: func,
     countries: arrayOf(shape({})),
     disabled: bool,
     roles: arrayOf(shape({})),
@@ -61,7 +60,6 @@ class PersonEdit extends React.Component {
     },
     newRowId: -1,
     countries: [],
-    isAlreadyExist: () => false,
     disabled: false,
     locale: '',
     roles: [],
@@ -74,14 +72,12 @@ class PersonEdit extends React.Component {
     },
     isLoading: false,
     touched: false,
-    isAlreadyExist: false,
   }
 
   onFieldChange = (_, { name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
       touched: true,
-      isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
     }))
   }
 
@@ -148,20 +144,6 @@ class PersonEdit extends React.Component {
         personSelected: true,
       },
       touched: true,
-      isAlreadyExist: this.props.isAlreadyExist({
-        ...s.data,
-        id: result.id,
-        givenName: result.givenName,
-        personalId: result.personalId,
-        surname: result.surname,
-        middleName: result.middleName,
-        birthDate: result.birthDate,
-        sex: result.sex,
-        countryId: result.countryId,
-        phoneNumber: result.phoneNumber,
-        phoneNumber1: result.phoneNumber1,
-        address: result.address,
-      }),
     }))
   }
 
@@ -171,7 +153,7 @@ class PersonEdit extends React.Component {
 
   render() {
     const { localize, disabled, countries, roles } = this.props
-    const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
+    const { data, isLoading, results, controlValue, touched } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
     const isMandatoryFieldEmpty =
@@ -397,7 +379,6 @@ class PersonEdit extends React.Component {
               {isMandatoryFieldEmpty && (
                 <Message content={localize('FixErrorsBeforeSubmit')} error />
               )}
-              {isAlreadyExist && <Message list={[localize('PersonAlreadyExists')]} error />}
             </div>
 
             <Form.Group widths="equal">
@@ -410,7 +391,7 @@ class PersonEdit extends React.Component {
                       icon="check"
                       color="green"
                       onClick={this.saveHandler}
-                      disabled={disabled || isMandatoryFieldEmpty || !touched || isAlreadyExist}
+                      disabled={disabled || isMandatoryFieldEmpty || !touched}
                     />
                   </div>
                   <div data-tooltip={localize('ButtonCancel')} data-position="top center">
