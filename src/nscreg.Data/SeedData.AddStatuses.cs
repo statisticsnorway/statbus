@@ -11,7 +11,6 @@ namespace nscreg.Data
             context.Statuses.Add(new UnitStatus { Code = "3", Name = "Newly created statistical unit. Not yet active" });
             context.Statuses.Add(new UnitStatus { Code = "4", Name = "The unit is in liquidation phase" });
             context.Statuses.Add(new UnitStatus { Code = "5", Name = "Unit liquidated" });
-            context.Statuses.Add(new UnitStatus { Code = "9", Name = "Unit deleted" });
             context.Statuses.Add(new UnitStatus { Code = "0", Name = "There is no information about the unit" });
             context.SaveChanges();
         }

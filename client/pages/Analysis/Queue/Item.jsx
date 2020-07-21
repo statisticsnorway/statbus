@@ -5,7 +5,7 @@ import { Table, Button } from 'semantic-ui-react'
 
 import { formatDateTime } from 'helpers/dateHelper'
 
-const AnalysisQueueItem = ({ data, localize }) => {
+const AnalysisQueueItem = ({ data, localize, deleteQueue }) => {
   const formatDate = x => (x === null ? localize('NoValue') : formatDateTime(x))
   return (
     <Table.Row>
@@ -21,8 +21,15 @@ const AnalysisQueueItem = ({ data, localize }) => {
           to={`analysisqueue/${data.id}/log`}
           content={localize('Logs')}
           icon="search"
-          floated="right"
           primary
+        />
+      </Table.Cell>
+      <Table.Cell className="wrap-content">
+        <Button
+          onClick={() => deleteQueue(data)}
+          content={localize('Reject')}
+          icon="trash"
+          negative
         />
       </Table.Cell>
     </Table.Row>
@@ -40,6 +47,7 @@ AnalysisQueueItem.propTypes = {
     userName: string.isRequired,
   }).isRequired,
   localize: func.isRequired,
+  deleteQueue: func.isRequired,
 }
 
 export default AnalysisQueueItem

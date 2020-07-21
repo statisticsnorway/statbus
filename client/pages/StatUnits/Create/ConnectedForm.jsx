@@ -114,7 +114,7 @@ export default enhance((props) => {
     }
   }
 
-  if (props.type === 2) {
+  if (props.type === 2 && values.enterpriseUnitRegId) {
     if (values.enterpriseUnitRegId) {
       values.entRegIdDate = values.entRegIdDate || currentDate
     } else {

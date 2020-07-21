@@ -115,6 +115,10 @@ const createDataSource = (data, formikBag) => {
           arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
       }
     })
+
+    if (variablesMapping[itemIndex][rightItem] === 'Persons.Person.Role') {
+      variablesMapping[itemIndex][leftItem] = variablesMapping[itemIndex][rightItem]
+    }
   })
 
   variablesMapping.forEach((item, index) => {
@@ -182,6 +186,10 @@ const editDataSource = id => (data, formikBag) => {
           arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
       }
     })
+
+    if (variablesMapping[itemIndex][rightItem] === 'Persons.Person.Role') {
+      variablesMapping[itemIndex][leftItem] = variablesMapping[itemIndex][rightItem]
+    }
   })
 
   variablesMapping.forEach((item, index) => {

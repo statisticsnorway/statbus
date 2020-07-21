@@ -2752,4 +2752,13 @@
   <data name="AnalysisMandatoryTurnoverYear" xml:space="preserve">
     <value>Stat unit doesn't have turnover year</value>
   </data>
+  <data name="ElasticsearchCacheNotFound" xml:space="preserve">
+    <value>Clear error. Cache not found</value>
+  </data>
+  <data name="AnalyzeByIdNotFound" xml:space="preserve">
+    <value>Analyze by id not found</value>
+  </data>
+  <data name="RejectAnalyzeSourceMessage" xml:space="preserve">
+    <value>Reject this analyze?</value>
+  </data>
 </root>

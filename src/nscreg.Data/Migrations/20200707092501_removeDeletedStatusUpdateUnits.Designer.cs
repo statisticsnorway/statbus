@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using nscreg.Data;
 
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20200707092501_removeDeletedStatusUpdateUnits")]
+    partial class removeDeletedStatusUpdateUnits
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -105,7 +107,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("ActivityType")
                         .HasColumnName("Activity_Type");
 
-                    b.Property<int?>("ActivityYear")
+                    b.Property<int>("ActivityYear")
                         .HasColumnName("Activity_Year");
 
                     b.Property<int?>("Employees")

@@ -1114,6 +1114,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Analyze by id not found.
+        /// </summary>
+        public static string AnalyzeByIdNotFound {
+            get {
+                return ResourceManager.GetString("AnalyzeByIdNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Analyze register.
         /// </summary>
         public static string AnalyzeRegister {
@@ -2397,6 +2406,15 @@ namespace nscreg.Resources.Languages {
         public static string EditUser {
             get {
                 return ResourceManager.GetString("EditUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Clear error. Cache not found.
+        /// </summary>
+        public static string ElasticsearchCacheNotFound {
+            get {
+                return ResourceManager.GetString("ElasticsearchCacheNotFound", resourceCulture);
             }
         }
         
@@ -5376,6 +5394,15 @@ namespace nscreg.Resources.Languages {
         public static string Reject {
             get {
                 return ResourceManager.GetString("Reject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Reject this analyze?.
+        /// </summary>
+        public static string RejectAnalyzeSourceMessage {
+            get {
+                return ResourceManager.GetString("RejectAnalyzeSourceMessage", resourceCulture);
             }
         }
         

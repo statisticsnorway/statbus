@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +17,6 @@ using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -41,7 +38,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly DataAccessService _dataAccessService;
         private readonly DeleteService _deleteService;
         private readonly int? _liquidateStatusId;
-        private readonly int? _deletedStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
 
@@ -58,7 +54,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dataAccessService = new DataAccessService(dbContext);
             _deleteService = new DeleteService(dbContext);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
-            _deletedStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "8")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
         }
@@ -75,22 +70,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 m => m.RegId ?? 0,
                 userId, unit =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
-                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
                         
-                        unit.LocalUnits.Clear();
-                        unit.HistoryLocalUnitIds = null;
 
                         if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                         {
                             var enterpriseUnit = _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
-                            var legalUnits = enterpriseUnit.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
+                            var legalUnits = enterpriseUnit?.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
                             if (enterpriseUnit != null && legalUnits.Count == 0)
                             {
                                 enterpriseUnit.UnitStatusId = unit.UnitStatusId;
@@ -100,21 +87,26 @@ namespace nscreg.Server.Common.Services.StatUnit
                             }
                         }
                         
-                        if (data.LocalUnits == null) return Task.CompletedTask;
-                        foreach (var localUnit in localUnits)
+                        if (data.LocalUnits != null && data.LocalUnits.Any())
                         {
-                            if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
-                            {
-                                localUnit.UnitStatusId = unit.UnitStatusId;
-                                localUnit.LiqReason = unit.LiqReason;
-                                localUnit.LiqDate = unit.LiqDate;
-                            }
-                            unit.LocalUnits.Add(localUnit);
-                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
-                        }
+                            var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
 
-                        if (data.LocalUnits != null)
+                            unit.LocalUnits.Clear();
+                            unit.HistoryLocalUnitIds = null;
+                            foreach (var localUnit in localUnits)
+                            {
+                                if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                                {
+                                    localUnit.UnitStatusId = unit.UnitStatusId;
+                                    localUnit.LiqReason = unit.LiqReason;
+                                    localUnit.LiqDate = unit.LiqDate;
+                                }
+                                unit.LocalUnits.Add(localUnit);
+                                _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
+                            }
                             unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
+                        }
+                        
                     }
                     return Task.CompletedTask;
                 });
@@ -132,11 +124,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => unit.LegalUnitId == x.RegId && !x.IsDeleted);
@@ -161,27 +148,26 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
                     }
                     if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
-                        var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
-                        unit.LegalUnits.Clear();
-                        unit.HistoryLegalUnitIds = null;
-                        foreach (var legalUnit in legalUnits)
+                        if (data.LegalUnits != null && data.LegalUnits.Any())
                         {
-                            unit.LegalUnits.Add(legalUnit);
-                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legalUnit));
-                        }
-                        if (data.LegalUnits != null)
+                            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
+                            unit.LegalUnits.Clear();
+                            unit.HistoryLegalUnitIds = null;
+                            foreach (var legalUnit in legalUnits)
+                            {
+                                unit.LegalUnits.Add(legalUnit);
+                                _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legalUnit));
+                            }
+                            
                             unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
+                        }
+                            
                     }
                     return Task.CompletedTask;
                 });
@@ -199,24 +185,20 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 (unit, oldUnit) =>
                 {
-                    if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-                    {
-                        _deleteService.CheckBeforeDelete(unit, true);
-                    }
-
                     if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
-                        var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
-                        unit.EnterpriseUnits.Clear();
-                        unit.HistoryEnterpriseUnitIds = null;
-                        foreach (var enterprise in enterprises)
+                        if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                         {
-                            unit.EnterpriseUnits.Add(enterprise);
-                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterprise));
-                        }
-
-                        if (data.EnterpriseUnits != null)
+                            var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
+                            unit.EnterpriseUnits.Clear();
+                            unit.HistoryEnterpriseUnitIds = null;
+                            foreach (var enterprise in enterprises)
+                            {
+                                unit.EnterpriseUnits.Add(enterprise);
+                                _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterprise));
+                            }
                             unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
+                        }
                     }
 
                     return Task.CompletedTask;
@@ -445,18 +427,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;
-            if (_deletedStatusId != null && unit.UnitStatusId == _deletedStatusId)
-            {
-                unit.IsDeleted = true;
-                unit.ChangeReason = ChangeReasons.Delete;
-                unit.EditComment = null;
-                isDeleted = true;
-
-            } else
-            {
-                unit.ChangeReason = data.ChangeReason;
-                unit.EditComment = data.EditComment;
-            }
+            unit.ChangeReason = data.ChangeReason;
+            unit.EditComment = data.EditComment;
 
             IStatUnitAnalyzeService analysisService =
                 new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
@@ -499,10 +471,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
 
-                    if (isDeleted)
-                    {
-                        _deleteService.StatUnitPostDeleteActions(unit, true, userId);
-                    }
                 }
                 catch (Exception e)
                 {
