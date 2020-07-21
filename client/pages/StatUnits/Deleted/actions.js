@@ -1,6 +1,7 @@
 import { createAction } from 'redux-act'
 import { pipe } from 'ramda'
-
+import { NotificationManager } from 'react-notifications'
+import { getLocalizeText } from 'helpers/locale'
 import dispatchRequest from 'helpers/request'
 import { updateFilter, setQuery } from '../actions'
 
@@ -28,9 +29,11 @@ const restore = (type, regId, queryParams, index, onFail) =>
       setTimeout(() => {
         dispatch(fetchData(queryParams))
       }, 250)
+      NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
     },
     onFail: (_, error) => {
       onFail(error.message)
+      NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
     },
   })
 

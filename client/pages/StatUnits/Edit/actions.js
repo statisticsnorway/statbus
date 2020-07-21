@@ -1,9 +1,10 @@
 import { createAction } from 'redux-act'
 import { push, goBack } from 'react-router-redux'
-
+import { NotificationManager } from 'react-notifications'
 import dispatchRequest from 'helpers/request'
 import { navigateBack } from 'helpers/actionCreators'
 import { statUnitTypes } from 'helpers/enums'
+import { getLocalizeText } from 'helpers/locale'
 
 const clear = createAction('clear create statunit')
 const setMeta = createAction('fetch model succeeded')
@@ -37,9 +38,11 @@ const submitStatUnit = (type, data, formikBag) =>
       } else {
         dispatch(push('/'))
       }
+      NotificationManager.success(getLocalizeText('StatUnitEditSuccessfully'))
     },
     onFail: (_, errors) => {
       formikBag.failed(errors)
+      NotificationManager.success(getLocalizeText('StatUnitEditError'))
     },
   })
 

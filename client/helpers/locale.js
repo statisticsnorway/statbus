@@ -19,6 +19,15 @@ const removeLocale = () => window.localStorage.removeItem('locale')
 
 export const getFlag = locale => locale.substr(-2).toLowerCase()
 
+export const getLocalizeText = (word) => {
+  const dict = config.resources[getLocale()]
+  if (!dict) {
+    removeLocale()
+    window.location.reload()
+  }
+  if (dict[word] !== undefined) return dict[word]
+  return word
+}
 export const getText = (locale) => {
   const dict = config.resources[locale]
   if (!dict) {

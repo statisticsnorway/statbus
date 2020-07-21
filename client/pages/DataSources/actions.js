@@ -1,7 +1,6 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
-
 import { nullsToUndefined } from 'helpers/validation'
 import dispatchRequest from 'helpers/request'
 import { navigateBack, request } from 'helpers/actionCreators'
@@ -133,7 +132,9 @@ const createDataSource = (data, formikBag) => {
     method: 'post',
     body: transformMapping({ OriginalCsvAttributes, ...filteredData }),
     onStart: () => formikBag.started(),
-    onSuccess: dispatch => dispatch(push('/datasources')),
+    onSuccess: (dispatch) => {
+      dispatch(push('/datasources'))
+    },
     onFail: (_, errors) => formikBag.failed(errors),
   })
 }

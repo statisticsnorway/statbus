@@ -6775,6 +6775,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Statistical unit create error.
+        /// </summary>
+        public static string StatUnitCreateError {
+            get {
+                return ResourceManager.GetString("StatUnitCreateError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Statistical unit created successfully.
+        /// </summary>
+        public static string StatUnitCreateSuccessfully {
+            get {
+                return ResourceManager.GetString("StatUnitCreateSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Statistical Unit Delete.
         /// </summary>
         public static string StatUnitDelete {
@@ -6784,11 +6802,47 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Statistical unit delete error.
+        /// </summary>
+        public static string StatUnitDeleteError {
+            get {
+                return ResourceManager.GetString("StatUnitDeleteError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Statistical unit delete successfully.
+        /// </summary>
+        public static string StatUnitDeleteSuccessfully {
+            get {
+                return ResourceManager.GetString("StatUnitDeleteSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Statistical Unit Edit.
         /// </summary>
         public static string StatUnitEdit {
             get {
                 return ResourceManager.GetString("StatUnitEdit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Statistical unit editing error.
+        /// </summary>
+        public static string StatUnitEditError {
+            get {
+                return ResourceManager.GetString("StatUnitEditError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Statistical unit edit successfully.
+        /// </summary>
+        public static string StatUnitEditSuccessfully {
+            get {
+                return ResourceManager.GetString("StatUnitEditSuccessfully", resourceCulture);
             }
         }
         
