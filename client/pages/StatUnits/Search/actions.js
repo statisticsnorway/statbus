@@ -2,6 +2,8 @@ import { createAction } from 'redux-act'
 
 import dispatchRequest from 'helpers/request'
 import { updateFilter, setQuery } from '../actions'
+import { NotificationManager } from 'react-notifications'
+import { getLocalizeText } from 'helpers/locale'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
 
@@ -39,9 +41,11 @@ const deleteStatUnit = (type, id, queryParams, index, onFail) =>
     method: 'delete',
     onSuccess: (dispatch) => {
       dispatch(fetchData(queryParams))
+      NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
     },
     onFail: (_, error) => {
       onFail(error.message)
+      NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
     },
   })
 const fetchLookup = id =>
