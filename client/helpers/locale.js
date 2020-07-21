@@ -26,7 +26,7 @@ export const getLocalizeText = (word) => {
     window.location.reload()
   }
   if (dict[word] !== undefined) return dict[word]
-  return key
+  return word
 }
 export const getText = (locale) => {
   const dict = config.resources[locale]
