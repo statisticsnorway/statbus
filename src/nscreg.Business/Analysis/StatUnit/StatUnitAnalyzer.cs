@@ -62,7 +62,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_analysisRules.Connections.CheckRelatedPersons && !(unit is EnterpriseGroup))
             {
-                if (!unit.PersonsUnits.Any())
+                if (unit.PersonsUnits != null && !unit.PersonsUnits.Any())
                 {
                     if (!_context.PersonStatisticalUnits.Any(c => c.UnitId == unit.RegId))
                     {
@@ -75,7 +75,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_analysisRules.Connections.CheckRelatedActivities && !(unit is EnterpriseGroup))
             {
-                if (!unit.ActivitiesUnits.Any())
+                if (unit.ActivitiesUnits != null &&  !unit.ActivitiesUnits.Any())
                 {
                     if(!_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
                     {
