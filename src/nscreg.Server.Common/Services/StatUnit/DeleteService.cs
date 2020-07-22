@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -303,31 +304,35 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">Type of statistical unit</param>
         public async Task UpdateUnitTask(dynamic unit, dynamic historyUnit, string userId, StatUnitTypes type)
         {
-            var unitForUpdate = type == StatUnitTypes.LegalUnit ? Mapper.Map<LegalUnit>(unit)
-                : (type == StatUnitTypes.LocalUnit ? Mapper.Map<LocalUnit>(unit)
-                    : Mapper.Map<EnterpriseUnit>(unit));
+                var unitForUpdate = type == StatUnitTypes.LegalUnit
+                    ? Mapper.Map<LegalUnit>(unit)
+                    : (type == StatUnitTypes.LocalUnit
+                        ? Mapper.Map<LocalUnit>(unit)
+                        : Mapper.Map<EnterpriseUnit>(unit));
 
-            Mapper.Map(historyUnit, unitForUpdate);
-            unitForUpdate.EndPeriod = unit.EndPeriod;
-            unitForUpdate.EditComment =
-                "This unit was edited by data source upload service and then data upload changes rejected";
-            unitForUpdate.RegId = unit.RegId;
-            unitForUpdate.UserId = userId;
+                Mapper.Map(historyUnit, unitForUpdate);
+                unitForUpdate.EndPeriod = unit.EndPeriod;
+                unitForUpdate.EditComment =
+                    "This unit was edited by data source upload service and then data upload changes rejected";
+                unitForUpdate.RegId = unit.RegId;
+                unitForUpdate.UserId = userId;
+                unitForUpdate.ActivitiesUnits.Clear();
+                unitForUpdate.PersonsUnits.Clear();
+                switch (type)
+                {
+                    case StatUnitTypes.LegalUnit:
+                        _dbContext.LegalUnits.Update(unitForUpdate);
+                        break;
+                    case StatUnitTypes.LocalUnit:
+                        _dbContext.LocalUnits.Update(unitForUpdate);
+                        break;
+                    case StatUnitTypes.EnterpriseUnit:
+                        _dbContext.EnterpriseUnits.Update(unitForUpdate);
+                        break;
+                }
 
-            switch (type)
-            {
-                case StatUnitTypes.LegalUnit:
-                    _dbContext.LegalUnits.Update(unitForUpdate);
-                    break;
-                case StatUnitTypes.LocalUnit:
-                    _dbContext.LocalUnits.Update(unitForUpdate);
-                    break;
-                case StatUnitTypes.EnterpriseUnit:
-                    _dbContext.EnterpriseUnits.Update(unitForUpdate);
-                    break;
-            }
-            await _dbContext.SaveChangesAsync();
-            await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
+                await _dbContext.SaveChangesAsync();
+                await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
         }
 
         /// <summary>
@@ -364,9 +369,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
 
-            if (afterUploadLegalUnitsList.Count > 0) return false;
+            if (afterUploadLegalUnitsList.Any()) return false;
             
-            if (beforeUploadLegalUnitsList.Count > 0)
+            if (beforeUploadLegalUnitsList.Any())
             {
                 await UpdateUnitTask(unit, beforeUploadLegalUnitsList.Last(), userId, StatUnitTypes.LegalUnit);
                 _dbContext.LegalUnitHistory.Remove(beforeUploadLegalUnitsList.Last());
