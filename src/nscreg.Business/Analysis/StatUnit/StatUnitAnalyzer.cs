@@ -64,8 +64,12 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 if (!unit.PersonsUnits.Any())
                 {
-                    messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
-                        new[] { nameof(Resource.AnalysisRelatedPersons) });
+                    if (!_context.PersonStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                    {
+                        messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
+                            new[] { nameof(Resource.AnalysisRelatedPersons) });
+                    }
+                   
                 }
             }
 
