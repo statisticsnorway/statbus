@@ -83,6 +83,7 @@ namespace nscreg.Data
         public DbSet<CustomAnalysisCheck> CustomAnalysisChecks { get; set; }
         public DbSet<PersonType> PersonTypes { get; set; }
         public DbSet<EnterpriseGroupType> EnterpriseGroupTypes { get; set; }
+        public DbSet<EnterpriseGroupRole> EnterpriseGroupRoles { get; set; }
         #region History
         public DbSet<StatisticalUnitHistory> StatisticalUnitHistory { get; set; }
         public DbSet<LocalUnitHistory> LocalUnitHistory { get; set; }

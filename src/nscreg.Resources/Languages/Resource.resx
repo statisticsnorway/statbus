@@ -2779,4 +2779,7 @@
   <data name="StatUnitDeleteSuccessfully" xml:space="preserve">
     <value>Statistical unit delete successfully</value>
   </data>
+  <data name="EntGroupRoleId" xml:space="preserve">
+    <value>Enterprise group role</value>
+  </data>
 </root>

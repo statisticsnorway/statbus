@@ -158,8 +158,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.EntGroupTypeLookup:
-                    query = _dbContext.EnterpriseGroupTypes.Where(x => !x.IsDeleted)
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name}", NameLanguage1 = $"{x.NameLanguage1}", NameLanguage2 = $"{x.NameLanguage2}" });
+                    query = _dbContext.EnterpriseGroupTypes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitStatusLookup:
                     query = _dbContext.Statuses.Where(x => !x.IsDeleted);
@@ -206,6 +205,9 @@ namespace nscreg.Server.Common.Services
                             NameLanguage1 = act.NameLanguage1,
                             NameLanguage2 = act.NameLanguage2
                         });
+                case LookupEnum.EntGroupRoleLookup:
+                    query = _dbContext.EnterpriseGroupRoles.Where(x => !x.IsDeleted);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
@@ -273,8 +275,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.EntGroupTypeLookup:
-                    query = _dbContext.EnterpriseGroupTypes.Where(lookupSearchCriteia)
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name}", NameLanguage1 = $"{x.NameLanguage1}", NameLanguage2 = $"{x.NameLanguage2}" });
+                    query = _dbContext.EnterpriseGroupTypes.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitStatusLookup:
                     query = _dbContext.Statuses.Where(lookupSearchCriteia);
@@ -314,6 +315,9 @@ namespace nscreg.Server.Common.Services
                             NameLanguage1 = x.NameLanguage1,
                             NameLanguage2 = x.NameLanguage2
                         });
+                case LookupEnum.EntGroupRoleLookup:
+                    query = _dbContext.EnterpriseGroupRoles.Where(lookupSearchCriteia);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }

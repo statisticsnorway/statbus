@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
 {
@@ -23,10 +24,6 @@ namespace nscreg.Data.Entities
         [Display(Order = 220, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupIdDateTooltip))]
         public DateTime? EntGroupIdDate { get; set; }
-
-        [Display(Order = 215, GroupName = GroupNames.LinkInfo)]
-        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupRoleTooltip))]
-        public string EntGroupRole { get; set; }
 
         [SearchComponent]
         [Display(Order = 205, GroupName = GroupNames.LinkInfo)]
@@ -89,5 +86,13 @@ namespace nscreg.Data.Entities
             set { }
         }
 
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public EnterpriseGroupRole EntGroupRole { get; set; }
+
+        [Reference(LookupEnum.EntGroupRoleLookup)]
+        [Display(Order = 215, GroupName = GroupNames.LinkInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupRoleTooltip))]
+        public int? EntGroupRoleId { get; set; }
     }
 }
