@@ -21,6 +21,7 @@ namespace nscreg.Utilities.Enums
         ActivityCategoryLookup = 13,
         RegistrationReasonLookup = 14,
         PersonTypeLookup = 15,
-        EntGroupTypeLookup = 16
+        EntGroupTypeLookup = 16,
+        EntGroupRoleLookup = 17,
     }
 }

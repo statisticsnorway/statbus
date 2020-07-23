@@ -8,7 +8,7 @@ namespace nscreg.Data.Entities
     /// <summary>
     /// Enterprise Group type Entity
     /// </summary>
-    public class EnterpriseGroupType : LookupBase
+    public class EnterpriseGroupType : CodeLookupBase
     {
         public List<EnterpriseGroup> EnterpriseGroups { get; set; }
     }

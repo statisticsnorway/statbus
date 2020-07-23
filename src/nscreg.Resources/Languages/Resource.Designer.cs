@@ -2788,6 +2788,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Enterprise group role.
+        /// </summary>
+        public static string EntGroupRoleId {
+            get {
+                return ResourceManager.GetString("EntGroupRoleId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Ent Group Role.
         /// </summary>
         public static string EntGroupRoleTooltip {

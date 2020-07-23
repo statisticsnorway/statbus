@@ -379,7 +379,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Commercial, x => x.UseValue(false))
                 .ForMember(x => x.EntGroupId, x => x.UseValue((int?) null))
                 .ForMember(x => x.EntGroupIdDate, x => x.Ignore())
-                .ForMember(x => x.EntGroupRole, x => x.UseValue(string.Empty))
+                .ForMember(x => x.EntGroupRoleId, x => x.Ignore())
                 .ForMember(x => x.HistoryLegalUnitIds, x => x.UseValue(string.Empty))
                 .ForMember(x => x.EnterpriseGroup, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
