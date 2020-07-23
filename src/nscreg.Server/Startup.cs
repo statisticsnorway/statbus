@@ -64,8 +64,6 @@ namespace nscreg.Server
                 .AddJsonFile(path: $"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables();
 
-            if (env.IsDevelopment()) builder.AddUserSecrets<Startup>();
-
             Configuration = builder.Build();
             CurrentEnvironment = env;
         }
@@ -131,12 +129,14 @@ namespace nscreg.Server
                     dbContext.Database.Migrate();
                 }
 
-                if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
+                if (CurrentEnvironment.IsStaging()) {NscRegDbInitializer.RecreateDb(dbContext);}
+                if (provider == ConnectionProvider.InMemory) { NscRegDbInitializer.Seed(dbContext); }
                 NscRegDbInitializer.CreateViewsProceduresAndFunctions(
                     dbContext, provider, reportingSettingsProvider);
                 NscRegDbInitializer.EnsureRoles(dbContext);
                 NscRegDbInitializer.EnsureEntGroupTypes(dbContext);
-                if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
+                NscRegDbInitializer.EnsureEntGroupRoles(dbContext);
+               
             }
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
