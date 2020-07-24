@@ -135,6 +135,7 @@ ResultTableCTE AS (
 			LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
 			LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
 			LEFT JOIN ActivityCategoriesHierarchyCTE AS ach ON ach.Id = ah.ActivityCategoryId
+      WHERE su.IsDeleted = 0
 ),
 /* list of stat units linked to their rayon(region with level = 3) and oblast(region with level = 2) */
 ResultTableCTE2 AS (

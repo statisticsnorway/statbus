@@ -1,8 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { AppContainer } from 'react-hot-loader'
-
 import { getLocale } from 'helpers/locale'
+import { NotificationContainer } from 'react-notifications'
 import App from './App'
 import configureStore from './store/configureStore'
 
@@ -13,7 +13,10 @@ const render = (Component) => {
   ReactDOM.render(
     // eslint-disable-next-line react/jsx-filename-extension
     <AppContainer warnings={false}>
-      <Component store={store} />
+      <div>
+        <Component store={store} />
+        <NotificationContainer />
+      </div>
     </AppContainer>,
     rootNode,
   )

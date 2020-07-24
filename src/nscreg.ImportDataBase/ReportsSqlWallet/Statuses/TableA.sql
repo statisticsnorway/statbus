@@ -21,7 +21,8 @@ set @query = 'SELECT Name, ' + @cols + ', ' + @totalSumCols + ' as Total from
 					ON st.Id = su.UnitStatusId
 				LEFT JOIN dbo.Address addr
 					ON addr.Address_id = su.AddressId
-				LEFT JOIN dbo.Regions AS reg ON reg.Id = addr.Region_id	
+				LEFT JOIN dbo.Regions AS reg ON reg.Id = addr.Region_id
+         WHERE su.IsDeleted = 0
            ) SourceTable
             PIVOT 
             (

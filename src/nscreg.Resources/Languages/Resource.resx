@@ -2761,4 +2761,25 @@
   <data name="RejectAnalyzeSourceMessage" xml:space="preserve">
     <value>Reject this analyze?</value>
   </data>
+  <data name="StatUnitCreateSuccessfully" xml:space="preserve">
+    <value>Statistical unit created successfully</value>
+  </data>
+  <data name="StatUnitCreateError" xml:space="preserve">
+    <value>Statistical unit create error</value>
+  </data>
+  <data name="StatUnitEditError" xml:space="preserve">
+    <value>Statistical unit editing error</value>
+  </data>
+  <data name="StatUnitEditSuccessfully" xml:space="preserve">
+    <value>Statistical unit edit successfully</value>
+  </data>
+  <data name="StatUnitDeleteError" xml:space="preserve">
+    <value>Statistical unit delete error</value>
+  </data>
+  <data name="StatUnitDeleteSuccessfully" xml:space="preserve">
+    <value>Statistical unit delete successfully</value>
+  </data>
+  <data name="EntGroupRoleId" xml:space="preserve">
+    <value>Enterprise group role</value>
+  </data>
 </root>
