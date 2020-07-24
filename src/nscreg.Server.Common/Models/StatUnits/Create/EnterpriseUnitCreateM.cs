@@ -18,7 +18,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string PrivCapitalShare { get; set; }
         public string ForeignCapitalShare { get; set; }
         public string ForeignCapitalCurrency { get; set; }
-        public string EntGroupRole { get; set; }
+        public int? EntGroupRoleId { get; set; }
         public int[] LegalUnits { get; set; }
     }
 
