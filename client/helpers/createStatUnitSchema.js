@@ -156,7 +156,7 @@ const byType = {
     privCapitalShare: sureString,
     foreignCapitalShare: sureString,
     foreignCapitalCurrency: sureString,
-    entGroupRole: sureString,
+    entGroupRoleId: positiveNum,
     legalUnits: positiveNumArray,
     entGroupId: positiveNum,
     commercial: bool(),
