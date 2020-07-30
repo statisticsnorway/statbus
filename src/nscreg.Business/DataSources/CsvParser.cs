@@ -37,25 +37,25 @@ namespace nscreg.Business.DataSources
 
                     if (unit.TryGetValue("ExternalId", out unitValue))
                     {
-                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("ExternalId", out dictValue)) != null)
+                        if (resultDictionary.LastOrDefault(c => c.TryGetValue("ExternalId", out dictValue)) != null)
                         {
-                            dictItem = resultDictionary.FirstOrDefault(d => unitValue.ToString() == dictValue.ToString());
+                            dictItem = resultDictionary.LastOrDefault(d => unitValue.ToString() == dictValue.ToString());
                         }
 
                     }
                     if (unit.TryGetValue("TaxId", out unitValue))
                     {
-                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("TaxId", out dictValue)) != null)
+                        if (resultDictionary.LastOrDefault(c => c.TryGetValue("TaxId", out dictValue)) != null)
                         {
-                            dictItem = resultDictionary.FirstOrDefault(d => unitValue.ToString() == dictValue.ToString());
+                            dictItem = resultDictionary.LastOrDefault(d => unitValue.ToString() == dictValue.ToString());
                         }
 
                     }
                     if (unit.TryGetValue("StatId", out unitValue))
                     {
-                        if (resultDictionary.FirstOrDefault(c => c.TryGetValue("StatId", out dictValue)) != null)
+                        if (resultDictionary.LastOrDefault(c => c.TryGetValue("StatId", out dictValue)) != null)
                         {
-                            dictItem = resultDictionary.FirstOrDefault(d => dictValue.ToString() == unitValue.ToString());
+                            dictItem = resultDictionary.LastOrDefault(d => dictValue.ToString() == unitValue.ToString());
                         }
 
                     }
