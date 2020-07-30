@@ -86,7 +86,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return queueItem;
         }
 
-        public async Task<StatisticalUnit> GetStatUnitFromRawEntity(
+        public async Task<(StatisticalUnit, string)> GetStatUnitFromRawEntity(
             IReadOnlyDictionary<string, object> raw,
             StatUnitTypes unitType,
             IEnumerable<(string source, string target)> propMapping,
@@ -108,9 +108,9 @@ namespace nscreg.Server.Common.Services.DataSources
 
             ParseAndMutateStatUnit(mapping, raw, resultUnit);
 
-            await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, uploadType);
+            var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, uploadType);
 
-            return resultUnit;
+            return (resultUnit, errors);
 
             async Task<StatisticalUnit> GetStatUnitBase(DataSourceAllowedOperation operation)
             {

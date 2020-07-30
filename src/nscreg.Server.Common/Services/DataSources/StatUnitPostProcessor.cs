@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -14,13 +13,13 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     internal class StatUnitPostProcessor
     {
-        private readonly Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, Task>> _postActionsMap;
+        private readonly Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, Task<string>>> _postActionsMap;
         private readonly NSCRegDbContext _ctx;
 
         public StatUnitPostProcessor(NSCRegDbContext ctx)
         {
             _ctx = ctx;
-            _postActionsMap = new Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, Task>>()
+            _postActionsMap = new Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, Task<string>>>()
             {
                 [DataSourceUploadTypes.Activities] = PostProcessActivitiesUpload,
                 [DataSourceUploadTypes.StatUnits] = PostProcessStatUnitsUpload
@@ -28,15 +27,16 @@ namespace nscreg.Server.Common.Services.DataSources
 
         }
 
-        public async Task FillIncompleteDataOfStatUnit(StatisticalUnit unit, DataSourceUploadTypes uploadType)
+        public async Task<string> FillIncompleteDataOfStatUnit(StatisticalUnit unit, DataSourceUploadTypes uploadType)
         {
-            await _postActionsMap[uploadType](unit);
+            var errorText =  await _postActionsMap[uploadType](unit);
+            return errorText;
         }
 
-        private async Task PostProcessActivitiesUpload(StatisticalUnit unit)
+        private async Task<string> PostProcessActivitiesUpload(StatisticalUnit unit)
         {
             if (!unit.Activities?.Any(activity => activity.Id == 0) == true)
-                return;
+                return string.Empty;
             foreach (var activityUnit in unit.ActivitiesUnits)
             {
                 if (activityUnit.Activity.Id != 0)
@@ -57,21 +57,31 @@ namespace nscreg.Server.Common.Services.DataSources
                     await _ctx.ActivityCategories.FirstOrDefaultAsync(x => x.Code == activity.ActivityCategory.Code);
                 return activity;
             }
-
+            return string.Empty;
         }
 
         
 
-        private async Task PostProcessStatUnitsUpload(StatisticalUnit unit)
+        private async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
         {
+            List<string> errors = new List<string>();
             try
             {
+                
                 if (unit.Activities?.Any(activity => activity.Id == 0) == true)
                     await unit.ActivitiesUnits
                         .ForEachAsync(async au =>
                         {
                             if (au.Activity.Id == 0)
-                                au.Activity = await GetFilledActivity(au.Activity);
+                                try
+                                {
+                                    au.Activity = await GetFilledActivity(au.Activity);
+                                }
+                                catch (Exception ex)
+                                {
+                                  errors.Add(ex.Message);
+                                }
+                                
                         });
 
                 if (unit.Address?.Id == 0)
@@ -88,10 +98,17 @@ namespace nscreg.Server.Common.Services.DataSources
                     {
                         if (fpcu.Country.Id == 0)
                         {
-                            var country =  await GetFilledCountry(fpcu.Country);
-                            fpcu.Country = country;
-                            fpcu.CountryId = country.Id;
-                            fpcu.UnitId = unit.RegId;
+                            try
+                            {
+                                var country = await GetFilledCountry(fpcu.Country);
+                                fpcu.Country = country;
+                                fpcu.CountryId = country.Id;
+                                fpcu.UnitId = unit.RegId;
+                            }
+                            catch (Exception ex)
+                            {
+                                errors.Add(ex.Message);
+                            }
                         }
                     });
 
@@ -116,7 +133,15 @@ namespace nscreg.Server.Common.Services.DataSources
                     {
                         if (per.Person.Id == 0)
                         {
-                            per.Person = await GetFilledPerson(per.Person);
+                            try
+                            {
+                                per.Person = await GetFilledPerson(per.Person);
+                            }
+                            catch (Exception ex)
+                            {
+                                errors.Add(ex.Message);
+                            }
+
                         }
                     });
                 if (unit.UnitType == StatUnitTypes.LocalUnit)
@@ -193,6 +218,8 @@ namespace nscreg.Server.Common.Services.DataSources
                 ex.Data.Add("unit", unit);
                 throw;
             }
+
+            return string.Join(". ", errors);
         }
 
         private async Task<Activity> GetFilledActivity(Activity parsedActivity)
@@ -310,7 +337,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<Person> GetFilledPerson(Person parsedPerson)
         {
-            if (parsedPerson.NationalityCode != null)
+            if (parsedPerson.NationalityCode.Code != null && parsedPerson.NationalityCode.Name != null)
             {
                 var country = _ctx.Countries.FirstOrDefault(c => !c.IsDeleted
                                                                  && (parsedPerson.NationalityCode.Code.HasValue()
