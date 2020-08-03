@@ -262,10 +262,10 @@ namespace nscreg.Server.DataUploadSvc
             IReadOnlyDictionary<string, object> parsedUnit)
         {
             StatisticalUnit unit;
-
+            string errors;
             try
             {
-                unit = await _queueSvc.GetStatUnitFromRawEntity(
+                (unit, errors) = await _queueSvc.GetStatUnitFromRawEntity(
                     parsedUnit,
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray,
@@ -281,7 +281,7 @@ namespace nscreg.Server.DataUploadSvc
             unit.DataSource = queueItem.DataSourceFileName;
             unit.ChangeReason = ChangeReasons.Edit;
             unit.EditComment = "Uploaded from data source file";
-            return (null, unit);
+            return (errors.Length > 0 ? errors : null, unit);
         }
 
         private (string, (IReadOnlyDictionary<string, string[]>, string[])) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)

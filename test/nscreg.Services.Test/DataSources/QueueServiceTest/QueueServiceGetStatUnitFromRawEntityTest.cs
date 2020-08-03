@@ -19,11 +19,11 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             const string expected = "42", sourceProp = "activities";
             var raw = new Dictionary<string, object> { [sourceProp] = expected };
             var mapping = new[] { (sourceProp, nameof(StatisticalUnit.StatId)) };
-            LegalUnit actual;
-
+            StatisticalUnit actual;
+            string errors;
             using (var ctx = CreateDbContext())
-                actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create) as LegalUnit;
+                (actual, errors) = await new QueueService(ctx)
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create);
 
             Assert.NotNull(actual);
             Assert.Equal(expected, actual.StatId);
@@ -34,15 +34,15 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         {
             var raw = new Dictionary<string,  object> { ["sourceProp"] = "name42", ["sourceId"] = "42" };
             var mapping = new[] { ("sourceProp", "Name"), ("sourceId", nameof(StatisticalUnit.StatId)) };
-            LocalUnit actual;
-
+            StatisticalUnit actual;
+            string errors;
             using (var ctx = CreateDbContext())
             {
                 var unit = new LocalUnit { StatId = "42" };
                 ctx.LocalUnits.Add(unit);
                 await ctx.SaveChangesAsync();
-                actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LocalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Alter) as LocalUnit;
+                (actual, errors) = await new QueueService(ctx)
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LocalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Alter);
             }
 
             Assert.NotNull(actual);
@@ -59,13 +59,13 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var mapping = new [] {("Activities.Activity.Code", propPath) };
-            LegalUnit actual;
-
+            StatisticalUnit actual;
+            string errors;
             using (var ctx = CreateDbContext())
             {
                 CreateActivityCategory(ctx, value);
-                actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create) as LegalUnit;
+                (actual, errors) = await new QueueService(ctx)
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create);
             }
 
             Assert.NotNull(actual);
@@ -88,16 +88,16 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var mapping = new[]
                 {("Activities.Activity.Code", propPath)};
-            LegalUnit actual;
-
+            StatisticalUnit actual;
+            string errors;
             using (var ctx = CreateDbContext())
             {
                 var activityCategory = new ActivityCategory {Code = value};
                 ctx.Activities.Add(new Activity {ActivityCategory = activityCategory});
                 await ctx.SaveChangesAsync();
                 expectedId = activityCategory.Id;
-                actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.CreateAndAlter) as LegalUnit;
+                (actual, errors) = await new QueueService(ctx)
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.CreateAndAlter);
             }
 
             Assert.NotNull(actual);
