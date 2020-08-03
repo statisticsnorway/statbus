@@ -20,6 +20,7 @@ class ActivityView extends React.Component {
     readOnly: bool.isRequired,
     editMode: bool.isRequired,
     localize: func.isRequired,
+    index: number,
   }
 
   state = {
@@ -28,7 +29,7 @@ class ActivityView extends React.Component {
 
   editHandler = () => {
     const { value, onEdit } = this.props
-    onEdit(value.id)
+    onEdit(this.props.index)
   }
 
   deleteHandler = () => {
@@ -42,7 +43,7 @@ class ActivityView extends React.Component {
   confirmHandler = () => {
     this.setState({ showConfirm: false })
     const { value, onDelete } = this.props
-    onDelete(value.id)
+    onDelete(this.props.index)
   }
 
   render() {

@@ -48,6 +48,7 @@ class ActivityEdit extends React.Component {
     localize: func.isRequired,
     locale: string.isRequired,
     disabled: bool,
+    index: number,
   }
 
   static defaultProps = {
@@ -58,6 +59,7 @@ class ActivityEdit extends React.Component {
   state = {
     value: this.props.value,
     touched: false,
+    index: this.props.index,
   }
 
   componentWillReceiveProps(nextProps) {
@@ -97,7 +99,7 @@ class ActivityEdit extends React.Component {
   }
 
   saveHandler = () => {
-    this.props.onSave(this.state.value)
+    this.props.onSave(this.state.value, this.state.index)
   }
 
   cancelHandler = () => {

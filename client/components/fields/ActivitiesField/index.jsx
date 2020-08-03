@@ -37,18 +37,18 @@ class ActivitiesList extends React.Component {
     newRowId: -1,
   }
 
-  editHandler = (id) => {
+  editHandler = (index) => {
     this.setState({
-      editRow: id,
+      editRow: index,
     })
   }
 
-  deleteHandler = (id) => {
-    this.changeHandler(this.props.value.filter(v => v.id !== id))
+  deleteHandler = (index) => {
+    this.changeHandler(this.props.value.filter((v, itemIndex) => itemIndex !== index))
   }
 
-  saveHandler = (value) => {
-    this.changeHandler(this.props.value.map(v => (v.id === value.id ? value : v)))
+  saveHandler = (value, itemIndex) => {
+    this.changeHandler(this.props.value.map((v, index) => (index === itemIndex ? value : v)))
     this.setState({ editRow: undefined })
   }
 
@@ -80,28 +80,32 @@ class ActivitiesList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled } = this.props
     const { addRow, editRow } = this.state
-    const renderComponent = x =>
-      x.id !== editRow ? (
+    const renderComponent = (x, index) =>
+      index !== editRow ? (
         <ActivityView
-          key={x.id}
+          key={index}
           value={x}
           onEdit={this.editHandler}
           onDelete={this.deleteHandler}
           readOnly={readOnly}
           editMode={editRow !== undefined || addRow}
           localize={localize}
+          index={index}
         />
       ) : (
         <ActivityEdit
-          key={x.id}
+          key={index}
           value={x}
           onSave={this.saveHandler}
           onCancel={this.editCancelHandler}
           localize={localize}
           disabled={disabled}
+          index={index}
         />
       )
-    return value.sort((a, b) => a.activityType - b.activityType).map(renderComponent)
+    return value
+      .sort((a, b) => a.activityType - b.activityType)
+      .map((el, index) => renderComponent(el, index))
   }
 
   render() {
@@ -144,18 +148,17 @@ class ActivitiesList extends React.Component {
               <Table.HeaderCell width={1} textAlign="center" content={localize('Year')} />
               {!readOnly && (
                 <Table.HeaderCell width={1} textAlign="right">
-                  {editRow === undefined &&
-                    addRow === false && (
-                      <div data-tooltip={localize('ButtonAdd')} data-position="top center">
-                        <Icon
-                          name="add"
-                          onClick={disabled ? R.identity : this.addHandler}
-                          disabled={disabled}
-                          color="green"
-                          size="big"
-                        />
-                      </div>
-                    )}
+                  {editRow === undefined && addRow === false && (
+                    <div data-tooltip={localize('ButtonAdd')} data-position="top center">
+                      <Icon
+                        name="add"
+                        onClick={disabled ? R.identity : this.addHandler}
+                        disabled={disabled}
+                        color="green"
+                        size="big"
+                      />
+                    </div>
+                  )}
                 </Table.HeaderCell>
               )}
             </Table.Row>
