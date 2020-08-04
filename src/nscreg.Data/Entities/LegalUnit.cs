@@ -44,7 +44,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 892, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.MarketTooltip))]
-        public bool Market { get; set; }
+        public bool? Market { get; set; }
 
         [Column(nameof(TotalCapital))]
         [Display(Order = 845, GroupName = GroupNames.CapitalInfo)]
