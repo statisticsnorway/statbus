@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
@@ -25,12 +26,12 @@ namespace nscreg.Server.Common.Helpers
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
                 .FirstOrDefault(su => !su.IsDeleted &&
-                (_ctx.StatisticalUnitHistory
-                    .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
-                su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
-                !_ctx.AnalysisLogs
-                    .Any(al =>
-                    al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
+                                      (_ctx.StatisticalUnitHistory
+                                           .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
+                                       su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
+                                      !_ctx.AnalysisLogs
+                                          .Any(al =>
+                                              al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
                 );
         }
 
@@ -47,7 +48,7 @@ namespace nscreg.Server.Common.Helpers
                 .FirstOrDefault(su => !su.IsDeleted &&
                     (_ctx.EnterpriseGroupHistory
                          .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
-                     su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod) &&
+                     su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
                 !_ctx.AnalysisLogs
                     .Any(al =>
                         al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
