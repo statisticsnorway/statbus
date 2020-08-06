@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Helpers
                 .Include(x => x.Address)
                 .FirstOrDefault(su => !su.IsDeleted &&
                                       (_ctx.StatisticalUnitHistory
-                                           .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
+                                           .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                                        su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
                                       !_ctx.AnalysisLogs
                                           .Any(al =>
@@ -47,7 +47,7 @@ namespace nscreg.Server.Common.Helpers
                 .Include(x => x.Address)
                 .FirstOrDefault(su => !su.IsDeleted &&
                     (_ctx.EnterpriseGroupHistory
-                         .Any(c => c.StatId == su.StatId && c.StartPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
+                         .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                      su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
                 !_ctx.AnalysisLogs
                     .Any(al =>
