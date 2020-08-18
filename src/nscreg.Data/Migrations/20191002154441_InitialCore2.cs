@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -666,9 +666,9 @@ namespace nscreg.Data.Migrations
                 {
                     Address_id = table.Column<int>(nullable: false)
                         .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
-                    Address_part1 = table.Column<string>(nullable: true),
-                    Address_part2 = table.Column<string>(nullable: true),
-                    Address_part3 = table.Column<string>(nullable: true),
+                    Address_part1 = table.Column<string>(nullable: true, maxLength: 200),
+                    Address_part2 = table.Column<string>(nullable: true, maxLength: 200),
+                    Address_part3 = table.Column<string>(nullable: true, maxLength: 200),
                     Region_id = table.Column<int>(nullable: false),
                     Latitude = table.Column<double>(nullable: true),
                     Longitude = table.Column<double>(nullable: true)
@@ -1122,13 +1122,13 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Address_id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_StatisticalUnits_DataSourceClassifications_DataSourceClassificationId",
+                        name: "FK_StatisticalUnits_DataSourceClassifications_Id",
                         column: x => x.DataSourceClassificationId,
                         principalTable: "DataSourceClassifications",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_StatisticalUnits_Countries_ForeignParticipationCountryId",
+                        name: "FK_StatisticalUnits_Countries_Id",
                         column: x => x.ForeignParticipationCountryId,
                         principalTable: "Countries",
                         principalColumn: "Id",
@@ -1263,7 +1263,7 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_PersonStatisticalUnits_StatisticalUnits_StatUnit_Id",
+                        name: "FK_PersonStatisticalUnits_StatisticalUnits_Id",
                         column: x => x.StatUnit_Id,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
@@ -1371,13 +1371,13 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Address_id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_DataSourceClassifications_DataSourceClassificationId",
+                        name: "FK_StatisticalUnitHistory_DataSourceClassifications_Id",
                         column: x => x.DataSourceClassificationId,
                         principalTable: "DataSourceClassifications",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_Countries_ForeignParticipationCountryId",
+                        name: "FK_StatisticalUnitHistory_Countries_Id",
                         column: x => x.ForeignParticipationCountryId,
                         principalTable: "Countries",
                         principalColumn: "Id",
@@ -1407,7 +1407,7 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Address_id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_RegistrationReasons_RegistrationReasonId",
+                        name: "FK_StatisticalUnitHistory_RegistrationReasons_Id",
                         column: x => x.RegistrationReasonId,
                         principalTable: "RegistrationReasons",
                         principalColumn: "Id",
@@ -1850,7 +1850,7 @@ namespace nscreg.Data.Migrations
                 column: "DataSourceClassificationId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnitHistory_ForeignParticipationCountryId",
+                name: "IX_StatisticalUnitHistory_CountryId",
                 table: "StatisticalUnitHistory",
                 column: "ForeignParticipationCountryId");
 
@@ -1930,7 +1930,7 @@ namespace nscreg.Data.Migrations
                 column: "DataSourceClassificationId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_ForeignParticipationCountryId",
+                name: "IX_StatisticalUnits_CountryId",
                 table: "StatisticalUnits",
                 column: "ForeignParticipationCountryId");
 

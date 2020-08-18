@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace nscreg.Data.Migrations
 {
@@ -7,23 +7,23 @@ namespace nscreg.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_PersonStatisticalUnits_StatisticalUnits_StatUnit_Id",
+                name: "FK_PersonStatisticalUnits_StatisticalUnits_Id",
                 table: "PersonStatisticalUnits");
 
             migrationBuilder.DropForeignKey(
-                name: "FK_StatisticalUnitHistory_Countries_ForeignParticipationCountryId",
+                name: "FK_StatisticalUnitHistory_Countries_Id",
                 table: "StatisticalUnitHistory");
 
             migrationBuilder.DropForeignKey(
-                name: "FK_StatisticalUnits_Countries_ForeignParticipationCountryId",
+                name: "FK_StatisticalUnits_Countries_Id",
                 table: "StatisticalUnits");
 
             migrationBuilder.DropIndex(
-                name: "IX_StatisticalUnits_ForeignParticipationCountryId",
+                name: "IX_StatisticalUnits_CountryId",
                 table: "StatisticalUnits");
 
             migrationBuilder.DropIndex(
-                name: "IX_StatisticalUnitHistory_ForeignParticipationCountryId",
+                name: "IX_StatisticalUnitHistory_CountryId",
                 table: "StatisticalUnitHistory");
 
             migrationBuilder.DropIndex(
@@ -74,12 +74,12 @@ namespace nscreg.Data.Migrations
                 nullable: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_ForeignParticipationCountryId",
+                name: "IX_StatisticalUnits_Id",
                 table: "StatisticalUnits",
                 column: "ForeignParticipationCountryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnitHistory_ForeignParticipationCountryId",
+                name: "IX_StatisticalUnitHistory_Id",
                 table: "StatisticalUnitHistory",
                 column: "ForeignParticipationCountryId");
 
@@ -94,7 +94,7 @@ namespace nscreg.Data.Migrations
                 column: "StatUnit_Id");
 
             migrationBuilder.AddForeignKey(
-                name: "FK_PersonStatisticalUnits_StatisticalUnits_StatUnit_Id",
+                name: "FK_PersonStatisticalUnits_StatisticalUnits_Id",
                 table: "PersonStatisticalUnits",
                 column: "StatUnit_Id",
                 principalTable: "StatisticalUnits",
@@ -102,7 +102,7 @@ namespace nscreg.Data.Migrations
                 onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_StatisticalUnitHistory_Countries_ForeignParticipationCountryId",
+                name: "FK_StatisticalUnitHistory_Countries_Id",
                 table: "StatisticalUnitHistory",
                 column: "ForeignParticipationCountryId",
                 principalTable: "Countries",
@@ -110,7 +110,7 @@ namespace nscreg.Data.Migrations
                 onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_StatisticalUnits_Countries_ForeignParticipationCountryId",
+                name: "FK_StatisticalUnits_Countries_Id",
                 table: "StatisticalUnits",
                 column: "ForeignParticipationCountryId",
                 principalTable: "Countries",
