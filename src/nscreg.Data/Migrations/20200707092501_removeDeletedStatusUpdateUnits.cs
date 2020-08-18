@@ -8,7 +8,7 @@ namespace nscreg.Data.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("UPDATE StatisticalUnitHistory\r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nUPDATE StatisticalUnits \r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nUPDATE EnterpriseGroupsHistory\r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nUPDATE EnterpriseGroups\r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nDELETE FROM Statuses  WHERE Code = 8");
+            // migrationBuilder.Sql("UPDATE StatisticalUnitHistory\r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nUPDATE StatisticalUnits \r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nUPDATE EnterpriseGroupsHistory\r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nUPDATE EnterpriseGroups\r\nSET UnitStatusId = 9 WHERE UnitStatusId = 8\r\nDELETE FROM Statuses  WHERE Code = 8");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

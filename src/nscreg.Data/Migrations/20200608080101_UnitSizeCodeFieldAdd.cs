@@ -12,7 +12,7 @@ namespace nscreg.Data.Migrations
                 nullable: false,
                 defaultValue: 0);
 
-            migrationBuilder.Sql(@"UPDATE dbo.UnitsSize SET Code = Id");
+            migrationBuilder.Sql(@"UPDATE UnitsSize SET Code = Id");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
