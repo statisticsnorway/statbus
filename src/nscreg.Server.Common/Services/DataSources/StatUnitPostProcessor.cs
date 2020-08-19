@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -8,6 +9,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
+using Activity = nscreg.Data.Entities.Activity;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -337,7 +339,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<Person> GetFilledPerson(Person parsedPerson)
         {
-            if (parsedPerson.NationalityCode.Code != null && parsedPerson.NationalityCode.Name != null)
+            if (parsedPerson.NationalityCode?.Code != null && parsedPerson.NationalityCode?.Name != null)
             {
                 var country = _ctx.Countries.FirstOrDefault(c => !c.IsDeleted
                                                                  && (parsedPerson.NationalityCode.Code.HasValue()
@@ -348,14 +350,15 @@ namespace nscreg.Server.Common.Services.DataSources
                 parsedPerson.CountryId = country.Id;
             }
             return await _ctx.Persons
-                       .Include(p => p.NationalityCode)
-                       .FirstOrDefaultAsync(p =>
-                           (string.IsNullOrWhiteSpace(parsedPerson.GivenName) || p.GivenName == parsedPerson.GivenName)
-                           && (string.IsNullOrWhiteSpace(parsedPerson.Surname) || p.Surname == parsedPerson.Surname)
-                           && (string.IsNullOrWhiteSpace(parsedPerson.PersonalId) ||
-                               p.PersonalId == parsedPerson.PersonalId)
-                           && (!parsedPerson.BirthDate.HasValue || p.BirthDate == parsedPerson.BirthDate))
-                   ?? parsedPerson;
+                           .Include(p => p.NationalityCode)
+                           .FirstOrDefaultAsync(p =>
+                               (string.IsNullOrWhiteSpace(parsedPerson.GivenName) ||
+                                p.GivenName == parsedPerson.GivenName)
+                               && (string.IsNullOrWhiteSpace(parsedPerson.Surname) || p.Surname == parsedPerson.Surname)
+                               && (string.IsNullOrWhiteSpace(parsedPerson.PersonalId) ||
+                                   p.PersonalId == parsedPerson.PersonalId)
+                               && (!parsedPerson.BirthDate.HasValue || p.BirthDate == parsedPerson.BirthDate)) ??
+                       parsedPerson;
         }
 
         private async Task<SectorCode> GetFilledSectorCode(SectorCode parsedSectorCode)
