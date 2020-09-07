@@ -258,12 +258,15 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<Address> GetFilledAddress(Address parsedAddress)
         {
+            var code = parsedAddress.Region?.Code;
+            var name = parsedAddress.Region?.Name;
+
             var region = _ctx.Regions.FirstOrDefault(reg => !reg.IsDeleted
-                && (parsedAddress.Region.Code.HasValue()
-                    && parsedAddress.Region.Code == reg.Code
-                    || parsedAddress.Region.Name.HasValue()
-                    && parsedAddress.Region.Name == reg.Name))
-                    ?? throw new Exception($"Address Region: `{parsedAddress.Region.Code}` code or `{parsedAddress.Region.Name}` name not found");
+                && (code.HasValue()
+                    && code == reg.Code
+                    || name.HasValue()
+                    && name == reg.Name))
+                    ?? throw new Exception($"Address Region: `{code}` code or `{name}` name not found");
 
             parsedAddress.RegionId = region.Id;
 
