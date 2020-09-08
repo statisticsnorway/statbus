@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -129,13 +129,13 @@
   <data name="Language" xml:space="preserve">
     <value>Language</value>
   </data>
-  <data name="LanguageEnglish" xml:space="preserve">
+  <data name="LanguageMain" xml:space="preserve">
     <value>English</value>
   </data>
-  <data name="LanguageRussian" xml:space="preserve">
+  <data name="Language1" xml:space="preserve">
     <value>Russian</value>
   </data>
-  <data name="LanguageKyrgyz" xml:space="preserve">
+  <data name="Language2" xml:space="preserve">
     <value>Kyrgyz</value>
   </data>
   <data name="Account" xml:space="preserve">
@@ -859,9 +859,6 @@
   <data name="RegionAdd" xml:space="preserve">
     <value>Add new region</value>
   </data>
-  <data name="RegionDeleteMessage" xml:space="preserve">
-    <value>Delete region</value>
-  </data>
   <data name="Regions" xml:space="preserve">
     <value>Regions</value>
   </data>
@@ -1303,32 +1300,17 @@
   <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
     <value>Bad restriction value</value>
   </data>
-  <data name="SoateNotExistsError" xml:space="preserve">
-    <value>Soate Id doesn't exists in database</value>
-  </data>
   <data name="BadDataSourcePrioritySearch" xml:space="preserve">
     <value>Bad priority value</value>
-  </data>
-  <data name="route_soates" xml:space="preserve">
-    <value>СОАТЕ</value>
   </data>
   <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
     <value>Bad allowed operations value</value>
   </data>
-  <data name="Soates" xml:space="preserve">
-    <value>СОАТЕ</value>
-  </data>
   <data name="RegionCode" xml:space="preserve">
     <value>Region code</value>
   </data>
-  <data name="SoateName" xml:space="preserve">
-    <value>СОАТЕ name</value>
-  </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Administrative center</value>
-  </data>
-  <data name="SoateDeleteMessage" xml:space="preserve">
-    <value>Delete СОАТЕ</value>
   </data>
   <data name="DropZoneLabel" xml:space="preserve">
     <value>Drag and drop your files here or pick them from your computer</value>
@@ -1342,12 +1324,6 @@
   <data name="EnterDescription" xml:space="preserve">
     <value>Enter description</value>
   </data>
-  <data name="SoateAlreadyExistsError" xml:space="preserve">
-    <value>This СОАТЕ name already exists in database</value>
-  </data>
-  <data name="SoateAdd" xml:space="preserve">
-    <value>СОАТЕ Add</value>
-  </data>
   <data name="route_delete" xml:space="preserve">
     <value>Delete</value>
   </data>
@@ -1356,9 +1332,6 @@
   </data>
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Data import queue</value>
-  </data>
-  <data name="COATEUndeleteMessage" xml:space="preserve">
-    <value>Restore COATE</value>
   </data>
   <data name="COATEDeleteMessage" xml:space="preserve">
     <value>Delete COATE</value>
