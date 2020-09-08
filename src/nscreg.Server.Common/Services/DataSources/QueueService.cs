@@ -89,12 +89,11 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task<(StatisticalUnit, string)> GetStatUnitFromRawEntity(
             IReadOnlyDictionary<string, object> raw,
             StatUnitTypes unitType,
-            IEnumerable<(string source, string target)> propMapping,
+            (string source, string target)[] propMapping,
             DataSourceUploadTypes uploadType,
             DataSourceAllowedOperation allowedOperation)
         {
-            var rawMapping = propMapping as (string source, string target)[] ?? propMapping.ToArray();
-            var mapping = rawMapping
+            var mapping = propMapping
                 .GroupBy(x => x.source)
                 .ToDictionary(x => x.Key, x => x.Select(y => y.target).ToArray());
 
@@ -116,7 +115,7 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 StatisticalUnit existing = null;
 
-                var key = GetStatIdSourceKey(rawMapping);
+                var key = GetStatIdSourceKey(propMapping);
                 if (key.HasValue() && raw.TryGetValue(key, out var statId))
                     existing = await _getStatUnitSet[unitType]
                         .SingleOrDefaultAsync(x => x.StatId == statId.ToString() && operation != DataSourceAllowedOperation.Create);

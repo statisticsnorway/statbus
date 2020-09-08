@@ -108,16 +108,22 @@ namespace nscreg.Server.DataUploadSvc
 
 
             Stopwatch swPopulation = new Stopwatch();
-            TimeSpan population = default;
+            long populationCount = 0;
+
             Stopwatch swAnalyze = new Stopwatch();
-            TimeSpan analyze = default;
+            long analyzeCount = 0;
+
             Stopwatch swSave = new Stopwatch();
-            TimeSpan saveSpan = default;
+            long saveCount = 0;
+
+            Stopwatch swDbLog = new Stopwatch();
+            long dbLogCount = 0;
+
             Stopwatch swCycle = new Stopwatch();
             swCycle.Start();
             for (var i = 0; i < parsed.Length; i++)
             {
-                swPopulation.Restart();
+                swPopulation.Start();
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
@@ -125,8 +131,8 @@ namespace nscreg.Server.DataUploadSvc
 
                 var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 swPopulation.Stop();
-                population += swPopulation.Elapsed;
-                _logger.LogWarning($"Populated {swPopulation.Elapsed}");
+                populationCount += 1;
+                // _logger.LogWarning($"Populated {swPopulation.Elapsed}");
                 
                 if (populateError.HasValue())
                 {
@@ -151,13 +157,13 @@ namespace nscreg.Server.DataUploadSvc
                     "analyzing populated unit #{0}",
                     populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
-                swAnalyze.Restart();
+                swAnalyze.Start();
 
                 var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
 
                 swAnalyze.Stop();
-                analyze += swAnalyze.Elapsed;
-                _logger.LogWarning($"Analyzed {swAnalyze.Elapsed}");
+                analyzeCount += 1;
+                // _logger.LogWarning($"Analyzed {swAnalyze.Elapsed}");
 
                 if (analysisError.HasValue())
                 {
@@ -177,13 +183,13 @@ namespace nscreg.Server.DataUploadSvc
 
                 _logger.LogInformation("saving unit");
 
-                swSave.Restart();
+                swSave.Start();
 
                 var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId);
 
                 swSave.Stop();
-                saveSpan += swSave.Elapsed;
-                _logger.LogWarning($"Saved {swSave.Elapsed}");
+                saveCount += 1;
+                // _logger.LogWarning($"Saved {swSave.Elapsed}");
 
                 if (saveError.HasValue())
                 {
@@ -196,29 +202,30 @@ namespace nscreg.Server.DataUploadSvc
                 if (!saved) anyWarnings = true;
                 await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
 
-                Task LogUpload(LogStatus status, string note = "",
+                async Task LogUpload(LogStatus status, string note = "",
                     IReadOnlyDictionary<string, string[]> analysisErrors = null,
                     IEnumerable<string> analysisSummary = null)
                 {
+                    swDbLog.Start();
                     var rawUnit = JsonConvert.SerializeObject(
                         dequeued.DataSource.VariablesMappingArray.ToDictionary(
                             x => x.target,
                             x =>
                             {
-                                if (parsed[i] is string)
-                                    return parsed[i][x.source];
                                 var tmp = x.source.Split('.');
                                 if (parsed[i].ContainsKey(tmp[0]))
                                     return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
                                 return tmp[0];
                             }));
-                    return _queueSvc.LogUnitUpload(
+                    await _queueSvc.LogUnitUpload(
                         dequeued, rawUnit, startedAt, populated, DateTime.Now,
                         status, note ?? "", analysisErrors, analysisSummary);
+                    swDbLog.Stop();
                 }
             }
 
-            _logger.LogWarning($"End {swCycle.Elapsed}; {Environment.NewLine} Populate {population} {Environment.NewLine} Analyze {analyze} {Environment.NewLine} SaveUnit {saveSpan} {Environment.NewLine}");
+            _logger.LogWarning($"End Total {swCycle.Elapsed}; {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine}");
+            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds/populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds/analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds/saveCount} s {Environment.NewLine}");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
@@ -345,9 +352,9 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     var mappings = dataSource.VariablesMappingArray;
                     var arrayHeaders = rawLines[0].Split(item.DataSource.CsvDelimiter);
-                    rawLines[0] = string.Join(item.DataSource.CsvDelimiter,
-                        arrayHeaders.Select(c => c.Replace(c,
-                            mappings.Any(m => m.source == c) ? mappings.First(m => m.source == c).target : c)));
+                   // rawLines[0] = string.Join(item.DataSource.CsvDelimiter,
+                   //     arrayHeaders.Select(c => c.Replace(c,
+                   //         mappings.Any(m => m.source == c) ? mappings.First(m => m.source == c).target : c)));
                     await WriteFileAsync(string.Join("\r\n",rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
                 }
                 catch(Exception ex)

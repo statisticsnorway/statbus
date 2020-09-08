@@ -122,6 +122,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 (dataSource.Priority != DataSourcePriority.Ok || unitExists))
                 return (null, false);
 
+            // Alter - сценарий не реализован ?
             var saveAction =
                 unitExists && dataSource.AllowedOperations != DataSourceAllowedOperation.Create ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
