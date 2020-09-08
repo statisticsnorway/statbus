@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -129,13 +129,13 @@
   <data name="Language" xml:space="preserve">
     <value>Тил</value>
   </data>
-  <data name="LanguageRussian" xml:space="preserve">
+  <data name="Language1" xml:space="preserve">
     <value>Орус тили</value>
   </data>
-  <data name="LanguageKyrgyz" xml:space="preserve">
+  <data name="Language2" xml:space="preserve">
     <value>Кыргыз тили</value>
   </data>
-  <data name="LanguageEnglish" xml:space="preserve">
+  <data name="LanguageMain" xml:space="preserve">
     <value>Англис тили</value>
   </data>
   <data name="Account" xml:space="preserve">
@@ -714,9 +714,6 @@
   <data name="RegionAdd" xml:space="preserve">
     <value>Бир аймакты кошуу</value>
   </data>
-  <data name="RegionDeleteMessage" xml:space="preserve">
-    <value>Жок кылуу аймакты</value>
-  </data>
   <data name="Regions" xml:space="preserve">
     <value>Аймактар</value>
   </data>
@@ -802,7 +799,7 @@
     <value>Жумушчулардын саны</value>
   </data>
   <data name="RegionUndeleteMessage" xml:space="preserve">
-    <value>Аймакты калыбына келтирүү</value>
+    <value>Калыбына келтирүү регион</value>
   </data>
   <data name="Error403" xml:space="preserve">
     <value>[У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.]</value>
@@ -939,26 +936,8 @@
   <data name="DataSources" xml:space="preserve">
     <value>Маалымат булагы</value>
   </data>
-  <data name="SoateNotExistsError" xml:space="preserve">
-    <value>СОАТЕ Id маалымат базасы жок</value>
-  </data>
-  <data name="SoateAlreadyExistsError" xml:space="preserve">
-    <value>Бул СОАТЕ ат базасы бар</value>
-  </data>
-  <data name="SoateName" xml:space="preserve">
-    <value>СОАТЕ аты</value>
-  </data>
   <data name="RegionCode" xml:space="preserve">
     <value>СОАТЕ коду</value>
-  </data>
-  <data name="SoateDeleteMessage" xml:space="preserve">
-    <value>СОАТЕ жок кылуу</value>
-  </data>
-  <data name="SoateAdd" xml:space="preserve">
-    <value>Кошуп алуу СОАТЕ</value>
-  </data>
-  <data name="Soates" xml:space="preserve">
-    <value>СОАТЕ</value>
   </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Административ центири</value>
@@ -975,14 +954,8 @@
   <data name="EnterDescription" xml:space="preserve">
     <value>Баяндама киргизүү</value>
   </data>
-  <data name="route_soates" xml:space="preserve">
-    <value>СОАТЕ</value>
-  </data>
   <data name="COATEDeleteMessage" xml:space="preserve">
     <value>Жок кылуу COATE</value>
-  </data>
-  <data name="COATEUndeleteMessage" xml:space="preserve">
-    <value>Калыбына келтирүү COATE</value>
   </data>
   <data name="Restriction" xml:space="preserve">
     <value>Чектөө</value>
