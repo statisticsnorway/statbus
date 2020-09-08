@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -129,13 +129,13 @@
   <data name="Language" xml:space="preserve">
     <value>Язык</value>
   </data>
-  <data name="LanguageEnglish" xml:space="preserve">
+  <data name="LanguageMain" xml:space="preserve">
     <value>Английский</value>
   </data>
-  <data name="LanguageRussian" xml:space="preserve">
+  <data name="Language1" xml:space="preserve">
     <value>Русский</value>
   </data>
-  <data name="LanguageKyrgyz" xml:space="preserve">
+  <data name="Language2" xml:space="preserve">
     <value>Кыргызский</value>
   </data>
   <data name="Account" xml:space="preserve">
@@ -852,9 +852,6 @@
   <data name="RegionAdd" xml:space="preserve">
     <value>Добавить регион</value>
   </data>
-  <data name="RegionDeleteMessage" xml:space="preserve">
-    <value>Удалить регион</value>
-  </data>
   <data name="Regions" xml:space="preserve">
     <value>Регионы</value>
   </data>
@@ -1293,32 +1290,11 @@
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>Создать шаблон источника данных</value>
   </data>
-  <data name="SoateNotExistsError" xml:space="preserve">
-    <value>Идентификатор СОАТЕ не существует в базе данных</value>
-  </data>
-  <data name="SoateAlreadyExistsError" xml:space="preserve">
-    <value>Это СОАТЕ уже существует в базе данных.</value>
-  </data>
-  <data name="route_soates" xml:space="preserve">
-    <value>СОАТЕ</value>
-  </data>
-  <data name="Soates" xml:space="preserve">
-    <value>СОАТЕ</value>
-  </data>
-  <data name="SoateAdd" xml:space="preserve">
-    <value>Добавить СОАТЕ</value>
-  </data>
   <data name="RegionCode" xml:space="preserve">
     <value>Код СОАТЕ</value>
   </data>
-  <data name="SoateName" xml:space="preserve">
-    <value>Название СОАТЕ</value>
-  </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Административный центр</value>
-  </data>
-  <data name="SoateDeleteMessage" xml:space="preserve">
-    <value>Удалить СОАТЕ</value>
   </data>
   <data name="route_delete" xml:space="preserve">
     <value>Удаление</value>
@@ -1328,9 +1304,6 @@
   </data>
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Очередь загрузки данных</value>
-  </data>
-  <data name="COATEUndeleteMessage" xml:space="preserve">
-    <value>Восстановить COATE</value>
   </data>
   <data name="COATEDeleteMessage" xml:space="preserve">
     <value>Удалить COATE</value>
