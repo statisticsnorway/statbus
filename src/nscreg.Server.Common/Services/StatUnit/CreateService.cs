@@ -236,20 +236,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
                 foreach (var unitM in statUnits)
                 {
-                    if (unitM.StatRegId == null)
-                        unit.PersonsUnits.Add(new PersonStatisticalUnit
-                        {
-                            EnterpriseGroupId = unitM.GroupRegId,
-                            PersonId = null,
-                            PersonTypeId = unitM.RoleId
-                        });
-                    else
-                        unit.PersonsUnits.Add(new PersonStatisticalUnit
-                        {
-                            EnterpriseGroupId = null,
-                            PersonId = null,
-                            PersonTypeId = unitM.RoleId
-                        });
+                    unit.PersonsUnits.Add(new PersonStatisticalUnit
+                    {
+                        EnterpriseGroupId = unitM.StatRegId == null ? unitM.GroupRegId : null,
+                        PersonId = null,
+                        PersonTypeId = unitM.RoleId
+                    });
                 }
 
                 var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();

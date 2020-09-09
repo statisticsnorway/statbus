@@ -68,45 +68,43 @@ namespace nscreg.Server.Common.Services.StatUnit
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
                 m => m.RegId ?? 0,
-                userId, unit =>
+                userId, (unit) =>
                 {
-                    if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                    if (!Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
-                        
-
-                        if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                        return Task.CompletedTask;
+                    }
+                    if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                    {
+                        var enterpriseUnit = _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
+                        var legalUnits = enterpriseUnit?.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
+                        if (enterpriseUnit != null && legalUnits.Count == 0)
                         {
-                            var enterpriseUnit = _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
-                            var legalUnits = enterpriseUnit?.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
-                            if (enterpriseUnit != null && legalUnits.Count == 0)
-                            {
-                                enterpriseUnit.UnitStatusId = unit.UnitStatusId;
-                                enterpriseUnit.LiqReason = unit.LiqReason;
-                                enterpriseUnit.LiqDate = unit.LiqDate;
-                                _editArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
-                            }
+                            enterpriseUnit.UnitStatusId = unit.UnitStatusId;
+                            enterpriseUnit.LiqReason = unit.LiqReason;
+                            enterpriseUnit.LiqDate = unit.LiqDate;
+                            _editArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                         }
-                        
-                        if (data.LocalUnits != null && data.LocalUnits.Any())
-                        {
-                            var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
+                    }
 
-                            unit.LocalUnits.Clear();
-                            unit.HistoryLocalUnitIds = null;
-                            foreach (var localUnit in localUnits)
+                    if (data.LocalUnits != null && data.LocalUnits.Any())
+                    {
+                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
+
+                        unit.LocalUnits.Clear();
+                        unit.HistoryLocalUnitIds = null;
+                        foreach (var localUnit in localUnits)
+                        {
+                            if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                             {
-                                if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
-                                {
-                                    localUnit.UnitStatusId = unit.UnitStatusId;
-                                    localUnit.LiqReason = unit.LiqReason;
-                                    localUnit.LiqDate = unit.LiqDate;
-                                }
-                                unit.LocalUnits.Add(localUnit);
-                                _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
+                                localUnit.UnitStatusId = unit.UnitStatusId;
+                                localUnit.LiqReason = unit.LiqReason;
+                                localUnit.LiqDate = unit.LiqDate;
                             }
-                            unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
+                            unit.LocalUnits.Add(localUnit);
+                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
                         }
-                        
+                        unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
                     }
                     return Task.CompletedTask;
                 });
