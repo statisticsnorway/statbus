@@ -1,13 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -21,10 +14,15 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
-using Newtonsoft.Json;
-using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
-using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
+using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -127,18 +125,19 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
+                /// Populate Unit
+
                 _logger.LogInformation("populating unit");
 
                 var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 swPopulation.Stop();
                 populationCount += 1;
-                // _logger.LogWarning($"Populated {swPopulation.Elapsed}");
-                
+
                 if (populateError.HasValue())
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>(){populateError} );
+                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
                     continue;
                 }
 
@@ -153,6 +152,8 @@ namespace nscreg.Server.DataUploadSvc
                     }
                 }
 
+                /// Analyze Unit
+
                 _logger.LogInformation(
                     "analyzing populated unit #{0}",
                     populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
@@ -163,7 +164,6 @@ namespace nscreg.Server.DataUploadSvc
 
                 swAnalyze.Stop();
                 analyzeCount += 1;
-                // _logger.LogWarning($"Analyzed {swAnalyze.Elapsed}");
 
                 if (analysisError.HasValue())
                 {
@@ -175,11 +175,13 @@ namespace nscreg.Server.DataUploadSvc
                 if (errors.Any())
                 {
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
-                    errors.Values.ForEach(x=>x.ForEach(e=> _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
+                    errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Warning,  string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
+                    await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
                 }
+
+                /// Save Unit
 
                 _logger.LogInformation("saving unit");
 
@@ -189,7 +191,6 @@ namespace nscreg.Server.DataUploadSvc
 
                 swSave.Stop();
                 saveCount += 1;
-                // _logger.LogWarning($"Saved {swSave.Elapsed}");
 
                 if (saveError.HasValue())
                 {
@@ -225,7 +226,7 @@ namespace nscreg.Server.DataUploadSvc
             }
 
             _logger.LogWarning($"End Total {swCycle.Elapsed}; {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine}");
-            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds/populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds/analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds/saveCount} s {Environment.NewLine}");
+            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine}");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
@@ -260,10 +261,10 @@ namespace nscreg.Server.DataUploadSvc
             {
                 switch (queueItem.DataSourceFileName)
                 {
-                    case var name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
+                    case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
                         parsed = FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
                         break;
-                    case var name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
+                    case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
                         parsed = await FileParser.GetRawEntitiesFromCsv(
                             queueItem.DataSourcePath,
                             queueItem.DataSource.CsvSkipCount,
@@ -288,7 +289,7 @@ namespace nscreg.Server.DataUploadSvc
             {
                 return (Resource.FileHasEmptyUnit, parsedArr);
             }
-            return  (null, parsedArr);
+            return (null, parsedArr);
         }
 
         /// <summary>
@@ -324,9 +325,9 @@ namespace nscreg.Server.DataUploadSvc
             return (errors.Length > 0 ? errors : null, unit);
         }
 
-        private (string, (IReadOnlyDictionary<string, string[]>, string[])) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
+        private (string , (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
-            if(queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
+            if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
                 return (null, (new Dictionary<string, string[]>(), new string[0]));
 
             AnalysisResult analysisResult;
@@ -342,36 +343,29 @@ namespace nscreg.Server.DataUploadSvc
                 analysisResult.Messages,
                 analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
         }
+
+        /// <summary>
+        /// Делает копию файла с удалением пустых строк
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
         private async Task<string> MutateFileAsync(DataSourceQueue item)
         {
             var rawLines = await GetRawFileAsync(item);
-            var dataSource = await _context.DataSources.FirstOrDefaultAsync(c => c.Id == item.DataSourceId);
-            if(dataSource != null)
+            try
             {
-                try
-                {
-                    var mappings = dataSource.VariablesMappingArray;
-                    var arrayHeaders = rawLines[0].Split(item.DataSource.CsvDelimiter);
-                   // rawLines[0] = string.Join(item.DataSource.CsvDelimiter,
-                   //     arrayHeaders.Select(c => c.Replace(c,
-                   //         mappings.Any(m => m.source == c) ? mappings.First(m => m.source == c).target : c)));
-                    await WriteFileAsync(string.Join("\r\n",rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
-                }
-                catch(Exception ex)
-                {
-                    return ex.Message;
-                }
+                await WriteFileAsync(string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
             }
-            else
+            catch (Exception ex)
             {
-                return Resource.DataSourceNotFound;
+                return ex.Message;
             }
-
             return string.Empty;
-
         }
+
         private async Task<string[]> GetRawFileAsync(DataSourceQueue item)
         {
+            if (item.DataSource == null) throw new Exception(Resource.DataSourceNotFound);
             var i = item.DataSource.CsvSkipCount;
             string rawLines;
             if (!File.Exists(item.DataSourcePath)) throw new FileNotFoundException(Resource.FileDoesntExistOrInQueue);

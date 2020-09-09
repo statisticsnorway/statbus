@@ -116,6 +116,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
             string userId)
         {
+            // TODO: вероятно, лишний запрос. Такое делается до Analyze
             var unitExists = await _queueSvc.CheckIfUnitExists(dataSource.StatUnitType, parsedUnit.StatId);
 
             if (dataSource.Priority != DataSourcePriority.Trusted &&
