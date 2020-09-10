@@ -1447,15 +1447,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Restore COATE.
-        /// </summary>
-        public static string COATEUndeleteMessage {
-            get {
-                return ResourceManager.GetString("COATEUndeleteMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Ищет локализованную строку, похожую на Code.
         /// </summary>
         public static string Code {
@@ -3463,29 +3454,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на English.
+        ///   Ищет локализованную строку, похожую на Russian.
         /// </summary>
-        public static string LanguageEnglish {
+        public static string Language1 {
             get {
-                return ResourceManager.GetString("LanguageEnglish", resourceCulture);
+                return ResourceManager.GetString("Language1", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Ищет локализованную строку, похожую на Kyrgyz.
         /// </summary>
-        public static string LanguageKyrgyz {
+        public static string Language2 {
             get {
-                return ResourceManager.GetString("LanguageKyrgyz", resourceCulture);
+                return ResourceManager.GetString("Language2", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Russian.
+        ///   Ищет локализованную строку, похожую на English.
         /// </summary>
-        public static string LanguageRussian {
+        public static string LanguageMain {
             get {
-                return ResourceManager.GetString("LanguageRussian", resourceCulture);
+                return ResourceManager.GetString("LanguageMain", resourceCulture);
             }
         }
         
@@ -5218,15 +5209,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Delete region.
-        /// </summary>
-        public static string RegionDeleteMessage {
-            get {
-                return ResourceManager.GetString("RegionDeleteMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Ищет локализованную строку, похожую на Region.
         /// </summary>
         public static string RegionIdTooltip {
@@ -6028,15 +6010,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на СОАТЕ.
-        /// </summary>
-        public static string route_soates {
-            get {
-                return ResourceManager.GetString("route_soates", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Ищет локализованную строку, похожую на StatUnits.
         /// </summary>
         public static string route_statunits {
@@ -6447,60 +6420,6 @@ namespace nscreg.Resources.Languages {
         public static string SizeId {
             get {
                 return ResourceManager.GetString("SizeId", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на СОАТЕ Add.
-        /// </summary>
-        public static string SoateAdd {
-            get {
-                return ResourceManager.GetString("SoateAdd", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на This СОАТЕ name already exists in database.
-        /// </summary>
-        public static string SoateAlreadyExistsError {
-            get {
-                return ResourceManager.GetString("SoateAlreadyExistsError", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на Delete СОАТЕ.
-        /// </summary>
-        public static string SoateDeleteMessage {
-            get {
-                return ResourceManager.GetString("SoateDeleteMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на СОАТЕ name.
-        /// </summary>
-        public static string SoateName {
-            get {
-                return ResourceManager.GetString("SoateName", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на Soate Id doesn&apos;t exists in database.
-        /// </summary>
-        public static string SoateNotExistsError {
-            get {
-                return ResourceManager.GetString("SoateNotExistsError", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на СОАТЕ.
-        /// </summary>
-        public static string Soates {
-            get {
-                return ResourceManager.GetString("Soates", resourceCulture);
             }
         }
         
