@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using nscreg.Business.DataSources;
@@ -14,8 +15,14 @@ namespace nscreg.Server.Common.Services.DataSources
         /// </summary>
         /// <param name="filePath">file path</param>
         /// <returns></returns>
-        public static IEnumerable<IReadOnlyDictionary<string, object>> GetRawEntitiesFromXml(string filePath)
-            => XmlParser.GetRawEntities(XDocument.Load(filePath)).Select(XmlParser.ParseRawEntity);
+        public static async Task<IEnumerable<IReadOnlyDictionary<string, object>>> GetRawEntitiesFromXml(
+            string filePath)
+        {
+            using (var fileStream = File.OpenRead(filePath))
+            {
+                return XmlParser.GetRawEntities(await XDocument.LoadAsync(fileStream, LoadOptions.None, CancellationToken.None)).Select(XmlParser.ParseRawEntity);
+            }
+        }
 
         public static async Task<IEnumerable<IReadOnlyDictionary<string, object>>> GetRawEntitiesFromCsv(
             string filePath, int skipCount, string delimiter)

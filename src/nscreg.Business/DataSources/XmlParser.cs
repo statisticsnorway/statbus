@@ -15,7 +15,7 @@ namespace nscreg.Business.DataSources
             while (true)
             {
                 if (doc.Nodes()
-                    .All(x => x is XElement && typeNames.Contains(((XElement) x).Name.LocalName)))
+                    .All(x => x is XElement element && typeNames.Contains(element.Name.LocalName)))
                 {
                     return doc.Elements();
                 }
@@ -30,6 +30,11 @@ namespace nscreg.Business.DataSources
             {
                 if (descendant.Elements().Any())
                 {
+                    // for properties which have array type. Example of structure
+                    // Activities -> Activity -> Code : "some code"
+                    //                        -> Category : "some  another code"
+                    //            -> Activity -> Code : "some code"
+                    //                        -> Category : "some  another code"
                     var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
                     foreach (var innerDescendant in descendant.Elements())
                     {

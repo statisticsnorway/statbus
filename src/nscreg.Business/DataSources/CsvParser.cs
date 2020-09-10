@@ -7,7 +7,7 @@ namespace nscreg.Business.DataSources
 {
     public static class CsvParser
     {
-        public static IEnumerable<IReadOnlyDictionary<string, object>> GetParsedEntities(string rawLines, string delimiter)
+        public static IEnumerable<IReadOnlyDictionary<string, object>> GetParsedEntities(string rawLines, string delimiter, string mappings)
         {
             CsvConfig.ItemSeperatorString = delimiter;
             var listFields = rawLines.Split('\r', '\n').FirstOrDefault().Split(delimiter);
