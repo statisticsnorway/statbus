@@ -34,9 +34,10 @@ namespace nscreg.Server.DataUploadSvc
         private readonly ILogger _logger;
         public int Interval { get; }
         private QueueService _queueSvc;
+        private DbLogBuffer _logBuffer;
         private AnalyzeService _analysisSvc;
         private SaveManager _saveManager;
-
+        private readonly int _dbLogBufferMaxCount;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
@@ -46,13 +47,14 @@ namespace nscreg.Server.DataUploadSvc
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields dbMandatoryFields,
-            ValidationSettings validationSettings)
+            ValidationSettings validationSettings, int bufferLogMaxCount)
         {
             _logger = logger;
             Interval = dequeueInterval;
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
+            _dbLogBufferMaxCount = bufferLogMaxCount;
             AddScopedServices();
         }
 
@@ -65,6 +67,7 @@ namespace nscreg.Server.DataUploadSvc
             var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, StatUnitTypeOfSave.Service);
             var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _saveManager = new SaveManager(_context, _queueSvc, createSvc, editSvc);
+            _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
 
         /// <summary>
@@ -122,7 +125,7 @@ namespace nscreg.Server.DataUploadSvc
             for (var i = 0; i < parsed.Length; i++)
             {
                 swPopulation.Start();
-                _logger.LogInformation("processing entity #{0}", i + 1);
+                _logger.LogInformation("processing entity #{0} ({1:0.00} %)", i + 1, (double)i/parsed.Length * 100);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
@@ -208,25 +211,25 @@ namespace nscreg.Server.DataUploadSvc
                     IEnumerable<string> analysisSummary = null)
                 {
                     swDbLog.Start();
-                    var rawUnit = JsonConvert.SerializeObject(
-                        dequeued.DataSource.VariablesMappingArray.ToDictionary(
-                            x => x.target,
-                            x =>
+                    var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target,x =>
                             {
                                 var tmp = x.source.Split('.');
                                 if (parsed[i].ContainsKey(tmp[0]))
                                     return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
                                 return tmp[0];
                             }));
-                    await _queueSvc.LogUnitUpload(
-                        dequeued, rawUnit, startedAt, populated, DateTime.Now,
+                   await _logBuffer.LogUnitUpload(
+                        dequeued.Id, rawUnit, startedAt, populated,
                         status, note ?? "", analysisErrors, analysisSummary);
+
                     swDbLog.Stop();
                 }
             }
 
-            _logger.LogWarning($"End Total {swCycle.Elapsed}; {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine}");
-            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine}");
+            await _logBuffer.Flush();
+
+            _logger.LogWarning($"End Total {swCycle.Elapsed}; {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine} Logging {swDbLog.Elapsed} {Environment.NewLine}");
+            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine} Logging {(double)swDbLog.Elapsed.Seconds / dbLogCount}");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,

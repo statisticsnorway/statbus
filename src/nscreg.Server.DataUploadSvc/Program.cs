@@ -69,6 +69,7 @@ namespace nscreg.Server.DataUploadSvc
                         var validationSettings = configuration
                             .GetSection(nameof(ValidationSettings))
                             .Get<ValidationSettings>();
+
                         return new JobService(
                             logger,
                             new QueueJob(
@@ -76,7 +77,9 @@ namespace nscreg.Server.DataUploadSvc
                                 logger,
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
-                                validationSettings),
+                                validationSettings,
+                                servicesSettings.DbLogBufferMaxCount
+                                ),
                             new QueueCleanupJob(
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 servicesSettings.DataUploadServiceCleanupTimeout,
