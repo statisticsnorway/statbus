@@ -9,7 +9,6 @@ using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
-using ServiceStack;
 using static nscreg.Business.DataSources.StatUnitKeyValueParser;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -99,7 +98,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
             var resultUnit = await GetStatUnitBase(allowedOperation);
 
-            raw = await TransformReferenceFiled(raw, mapping, "Persons.Person.Role", (value) =>
+            raw = await TransformReferenceField(raw, mapping, "Persons.Person.Role", (value) =>
                 {
                     return _ctx.PersonTypes.FirstOrDefaultAsync(x =>
                         x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
@@ -195,69 +194,61 @@ namespace nscreg.Server.Common.Services.DataSources
             await _ctx.SaveChangesAsync();
         }
 
-        private async Task<IReadOnlyDictionary<string, object>> TransformReferenceFiled<TEntity>(IReadOnlyDictionary<string, object> raw, Dictionary<string, string[]> mappings, string referenceField, Func<string, Task<TEntity>> getEntityAction)
+        private async Task<IReadOnlyDictionary<string, object>> TransformReferenceField<TEntity>(IReadOnlyDictionary<string, object> raw, Dictionary<string, string[]> mappings, string referenceField, Func<string, Task<TEntity>> getEntityAction)
             where TEntity : LookupBase 
         {
             Dictionary<string,object> result = new Dictionary<string, object>();
 
-            string key = string.Empty;
-            foreach (var mapping in mappings)
-            {
-                if (mapping.Value.Any(x => x == referenceField))
-                {
-                    key = mapping.Value.FirstOrDefault();
-                }
-            }
+            var hasKey = mappings.Values.SelectMany(x => x).Any(x=> x == referenceField);
 
-            if (!key.IsNullOrEmpty())
+            if (!hasKey) return raw;
+
+            var parts = referenceField.Split('.');
+            bool isContainsKey = raw.ContainsKey(parts.FirstOrDefault());
+            if (isContainsKey && raw[parts.FirstOrDefault()] is IList<KeyValuePair<string, Dictionary<string, string>>> parents)
             {
-                var parts = key.Split('.');
-                bool isContainsKey = raw.ContainsKey(parts.FirstOrDefault());
-                if (isContainsKey && raw[parts.FirstOrDefault()] is IList<KeyValuePair<string, Dictionary<string, string>>> parents)
+                List<int> idsArray = new List<int>();
+                List<string> errorArray = new List<string>();
+                foreach (var par in parents)
                 {
-                    List<int> idsArray = new List<int>();
-                    List<string> errorArray = new List<string>();
-                    foreach (var par in parents)
+                    var value = par.Value[parts.Last()];
+                    var entity = await getEntityAction(value);
+                    if (entity != null)
                     {
-                        var value = par.Value[parts.Last()];
-                        var entity = await getEntityAction(value);
-                        if (entity != null)
-                        {
-                            idsArray.Add(entity.Id);
-                        }
-                        else
-                        {
-                            errorArray.Add(value);
-                        }
+                        idsArray.Add(entity.Id);
                     }
-                    if (errorArray.Any()) throw new Exception($"Reference for {string.Join(",",errorArray)} was not found");
-                    foreach (var keyValuePair in raw)
+                    else
                     {
-                        if (keyValuePair.Value is string)
+                        errorArray.Add(value);
+                    }
+                }
+                if (errorArray.Any()) throw new Exception($"Reference for {string.Join(",",errorArray)} was not found");
+                foreach (var keyValuePair in raw)
+                {
+                    if (keyValuePair.Value is string)
+                    {
+                        result[keyValuePair.Key] = keyValuePair.Value;
+                    }
+                    else {
+                        var val = keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>;
+                        for (int i = 0; i < val.Count; i++)
                         {
-                            result[keyValuePair.Key] = keyValuePair.Value;
-                        }
-                        else {
-                            var val = keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>;
-                            for (int i = 0; i < val.Count; i++)
+                            var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
+                            foreach (var kv in keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>)
                             {
-                                var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
-                                foreach (var kv in keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>)
+                                var dic = new Dictionary<string,string>();
+                                foreach (var kvValue in kv.Value)
                                 {
-                                    var dic = new Dictionary<string,string>();
-                                    foreach (var kvValue in kv.Value)
-                                    {
-                                        dic.Add(kvValue.Key, kvValue.Key == parts.Last() ? idsArray[i].ToString() : kvValue.Value);
-                                    }
-                                    elem.Add(new KeyValuePair<string, Dictionary<string, string>>(kv.Key, dic));
+                                    dic.Add(kvValue.Key, kvValue.Key == parts.Last() ? idsArray[i].ToString() : kvValue.Value);
                                 }
-
-                                result[keyValuePair.Key] = elem;
+                                elem.Add(new KeyValuePair<string, Dictionary<string, string>>(kv.Key, dic));
                             }
+
+                            result[keyValuePair.Key] = elem;
                         }
                     }
-                    return result;
                 }
+                return result;
             }
 
             return raw;
