@@ -25,7 +25,7 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         public static async Task<IEnumerable<IReadOnlyDictionary<string, object>>> GetRawEntitiesFromCsv(
-            string filePath, int skipCount, string delimiter)
+            string filePath, int skipCount, string delimiter, (string source, string target)[]  variableMappings)
         {
             var i = skipCount;
             string rawLines;
@@ -36,7 +36,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 rawLines = await reader.ReadToEndAsync();
             }
 
-            return CsvParser.GetParsedEntities(rawLines, delimiter);
+            return CsvParser.GetParsedEntities(rawLines, delimiter, variableMappings);
         }
     }
 }

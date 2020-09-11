@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
+using FluentAssertions;
 using nscreg.Business.DataSources;
 using Xunit;
 
@@ -73,6 +75,47 @@ namespace nscreg.Business.Test.DataSources
             var entitiesDictionary = actual.Select(XmlParser.ParseRawEntity).ToArray();
             Assert.Equal(2, entitiesDictionary.Length);
             Assert.True(entitiesDictionary.All(dict => dict.Count == 9));
+        }
+
+        [Fact]
+        private void ShouldParseEntityWithActivityTest()
+        {
+            var xdoc = XDocument.Parse(
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<GetLegalUnits xmlns=\"http://sti.gov.kg/\">\r\n  <LegalUnit>\r\n    <StatId>920951287</StatId>\r\n    <Name>LAST FRIDAY INVEST AS</Name>\r\n    <Activities>\r\n      <Activity>\r\n        <ActivityYear>2019</ActivityYear>\r\n        <CategoryCode>62.020</CategoryCode>\r\n        <Employees>100</Employees>\r\n      </Activity>\r\n      <Activity>\r\n        <ActivityYear>2018</ActivityYear>\r\n        <CategoryCode>70.220</CategoryCode>\r\n        <Employees>20</Employees>\r\n      </Activity>\r\n\t  <Activity>\r\n        <CategoryCode>52.292</CategoryCode>\r\n        <Employees>10</Employees>\r\n      </Activity>\r\n\t  <Activity>\r\n        <CategoryCode>68.209</CategoryCode>\r\n      </Activity>\r\n    </Activities>\r\n  </LegalUnit>\r\n</GetLegalUnits>");
+            var actual = XmlParser.GetRawEntities(xdoc);
+            var entitiesDictionary = actual.Select(XmlParser.ParseRawEntity).ToArray();
+            entitiesDictionary.Should().BeEquivalentTo(new List<IReadOnlyDictionary<string, object>>
+            {
+                new Dictionary<string, object>()
+                {
+                    { "StatId", "920951287"},
+                    { "Name", "LAST FRIDAY INVEST AS" },
+                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>()
+                    {
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        {
+                            {"CategoryCode", "62.020"},
+                            {"Employees","100"},
+                            {"ActivityYear","2019"}
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        {
+                            {"CategoryCode", "70.220"},
+                            {"Employees","20"},
+                            {"ActivityYear","2018"}
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        {
+                            {"CategoryCode", "52.292"},
+                            {"Employees","10"}
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        {
+                            {"CategoryCode", "68.209"},
+                        })
+                    }}
+                }
+            });
         }
     }
 }

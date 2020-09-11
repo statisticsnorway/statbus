@@ -265,13 +265,14 @@ namespace nscreg.Server.DataUploadSvc
                 switch (queueItem.DataSourceFileName)
                 {
                     case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
-                        parsed = FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
+                        parsed = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
                         break;
                     case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
                         parsed = await FileParser.GetRawEntitiesFromCsv(
                             queueItem.DataSourcePath,
                             queueItem.DataSource.CsvSkipCount,
-                            queueItem.DataSource.CsvDelimiter);
+                            queueItem.DataSource.CsvDelimiter,
+                            queueItem.DataSource.VariablesMappingArray);
                         break;
                     default: return ("Unsupported type of file", null);
                 }
