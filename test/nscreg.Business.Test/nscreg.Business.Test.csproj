@@ -14,6 +14,7 @@
     <ProjectReference Include="..\nscreg.TestUtils\nscreg.TestUtils.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FluentAssertions" Version="5.10.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0" />
     <PackageReference Include="OpenCover" Version="4.6.519" />
     <PackageReference Include="OpenCoverToCoberturaConverter" Version="0.2.6" />
