@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using nscreg.Data.Constants;
-using nscreg.Utilities.Extensions;
 
 namespace nscreg.Business.DataSources
 {
@@ -23,29 +22,28 @@ namespace nscreg.Business.DataSources
             }
         }
 
-        public static IReadOnlyDictionary<string, object> ParseRawEntity(XElement el)
+        public static IReadOnlyDictionary<string, object> ParseRawEntity(XElement el, (string source, string target)[] mappings)
         {
-            var result = new Dictionary<string, object> ();
+            var result = new Dictionary<string, object>();
+
+            var unit = el.Elements().ToDictionary(x => x.Name.LocalName, x => x.Value).Join(mappings, r => r.Key, m => m.source, (r, m) => new KeyValuePair<string, object>(m.target, r.Value));
+
             foreach (var descendant in el.Elements())
             {
-                if (descendant.Elements().Any())
+                if (!descendant.HasElements) continue;
+
+                // for properties which have array type. Example of structure
+                // Activities -> Activity -> Code : "some code"
+                //                        -> Category : "some  another code"
+                //            -> Activity -> Code : "some code"
+                //                        -> Category : "some  another code"
+
+                var elem = new List<KeyValuePair<string, object>>();
+                foreach (var innerDescendant in descendant.Elements())
                 {
-                    // for properties which have array type. Example of structure
-                    // Activities -> Activity -> Code : "some code"
-                    //                        -> Category : "some  another code"
-                    //            -> Activity -> Code : "some code"
-                    //                        -> Category : "some  another code"
-                    var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
-                    foreach (var innerDescendant in descendant.Elements())
-                    {
-                        var list = innerDescendant.Elements().ToDictionary(x=>x.Name.LocalName, x=>x.Value);
-                        elem.Add(new KeyValuePair<string, Dictionary<string,string>>(innerDescendant.Name.LocalName, list));
-                    }
-                    result.Add(descendant.Name.LocalName, elem);
-                }
-                else
-                {
-                    result.Add(descendant.Name.LocalName, descendant.Value);
+                    var list = innerDescendant.Elements().ToDictionary(x => x.Name.LocalName, x => x.Value);
+
+                    elem.Add(new KeyValuePair<string, object>(mappings.FirstOrDefault(x => x.source == innerDescendant.Name.LocalName).target, list));
                 }
             }
             return result;

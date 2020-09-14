@@ -47,8 +47,6 @@ namespace nscreg.Business.DataSources
                     if (arrayProperty != null)
                         arrayProperty[0].Value[keySplitted.Last()] = keyValue.Value.ToString();
 
-                    if()
-
                 }
 
                 //var unit = rowsFromCsv[j].Where(u => variableMappingsArray.All(z => z.source != u.Key) && u.Value != null).ToDictionary(x => x.Key, y => (object)y.Value);
