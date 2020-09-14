@@ -275,7 +275,7 @@ namespace nscreg.Server.DataUploadSvc
                 switch (queueItem.DataSourceFileName)
                 {
                     case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
-                        parsed = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
+                        parsed = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath, queueItem.DataSource.VariablesMappingArray);
                         break;
                     case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
                         parsed = await FileParser.GetRawEntitiesFromCsv(
