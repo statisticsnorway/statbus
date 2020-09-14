@@ -78,7 +78,7 @@ namespace nscreg.Business.Test.DataSources
         }
 
         [Fact]
-        private void ShouldParseEntityWithActivityTest()
+        public void ShouldParseEntityWithActivityTest()
         {
             var xdoc = XDocument.Parse(
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
@@ -90,7 +90,7 @@ namespace nscreg.Business.Test.DataSources
                             "<Activity>" +
                                 "<ActivityYear>2019</ActivityYear>" +
                                 "<CategoryCode>62.020</CategoryCode>" +
-                                 "<Employees>100</Employees>" +
+                                "<Employees>100</Employees>" +
                             "</Activity>" +
                             "<Activity>" +
                                  "<ActivityYear>2018</ActivityYear>" +
@@ -106,6 +106,33 @@ namespace nscreg.Business.Test.DataSources
                             "</Activity>" +
                         "</Activities>" +
                     "</LegalUnit>" +
+                "<LegalUnit>"+
+                    "<StatId>920951287</StatId>" +
+                    "<Name>LAST FRIDAY INVEST AS</Name>" +
+                "</LegalUnit>" +
+                "<LegalUnit>" +
+                    "<StatId>913123</StatId>" +
+                    "<Name>LAST</Name>" +
+                    "<Activities> " +
+                        "<Activity>" +
+                            "<ActivityYear>2019</ActivityYear>" +
+                            "<CategoryCode>62.020</CategoryCode>" +
+                            "<Employees>100</Employees>" +
+                        "</Activity>" +
+                        "<Activity>" +
+                            "<ActivityYear>2018</ActivityYear>" +
+                            "<CategoryCode>70.220</CategoryCode>" +
+                            "<Employees>20</Employees>" +
+                        "</Activity>" +
+                        "<Activity>" +
+                            "<CategoryCode>52.292</CategoryCode>" +
+                            "<Employees>10</Employees>" +
+                        "</Activity>" +
+                        "<Activity>" +
+                            "<CategoryCode>68.209</CategoryCode>" +
+                        "</Activity>" +
+                    "</Activities>" +
+                "</LegalUnit>" +
                 "</GetLegalUnits>");
             var mappings =
                 "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode- Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
@@ -123,28 +150,66 @@ namespace nscreg.Business.Test.DataSources
                 {
                     { "StatId", "920951287"},
                     { "Name", "LAST FRIDAY INVEST AS" },
-                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>()
+                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
                     {
-                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
+                            {"ActivityYear","2019"},
                             {"ActivityCategory.Code", "62.020"},
                             {"Employees","100"},
-                            {"ActivityYear","2019"}
+                            
                         }),
-                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
-                            {"CategoryCode", "70.220"},
+                            {"ActivityYear","2018"},
+                            {"ActivityCategory.Code", "70.220"},
                             {"Employees","20"},
-                            {"ActivityYear","2018"}
+                            
                         }),
-                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
-                            {"CategoryCode", "52.292"},
+                            {"ActivityCategory.Code", "52.292"},
                             {"Employees","10"}
                         }),
-                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
-                            {"CategoryCode", "68.209"},
+                            {"ActivityCategory.Code", "68.209"},
+                        })
+                    }}
+                },
+                new Dictionary<string, object>()
+                {
+                    { "StatId", "920951287"},
+                    { "Name", "LAST FRIDAY INVEST AS" },
+                },
+                new Dictionary<string, object>()
+                {
+                    { "StatId", "913123"},
+                    { "Name", "LAST" },
+                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
+                    {
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityYear","2019"},
+                            {"ActivityCategory.Code", "62.020"},
+                            {"Employees","100"},
+
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityYear","2018"},
+                            {"ActivityCategory.Code", "70.220"},
+                            {"Employees","20"},
+
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityCategory.Code", "52.292"},
+                            {"Employees","10"}
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityCategory.Code", "68.209"},
                         })
                     }}
                 }
