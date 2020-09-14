@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
+using Nest;
 using Newtonsoft.Json;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common;
+using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
@@ -115,6 +118,7 @@ namespace nscreg.Server.DataUploadSvc
 
             var anyWarnings = false;
 
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context);
 
             Stopwatch swPopulation = new Stopwatch();
             long populationCount = 0;
@@ -129,14 +133,15 @@ namespace nscreg.Server.DataUploadSvc
             long dbLogCount = 0;
             for (var i = 0; i < parsed.Length; i++)
             {
-                swPopulation.Start();
+
                 _logger.LogInformation("processing entity #{0} ({1:0.00} %)", i + 1, (double)i/parsed.Length * 100);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-
+                swPopulation.Start();
                 _logger.LogInformation("populating unit");
 
+                var populated2 = await populateService.PopulateAsync(parsed[i]);
                 var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 swPopulation.Stop();
                 populationCount += 1;
