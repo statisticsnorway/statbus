@@ -94,8 +94,16 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
             }
 
+            Stopwatch swCycle = new Stopwatch();
+            swCycle.Start();
+
             _logger.LogInformation("parsing queue entry #{0}", dequeued.Id);
+            Stopwatch swParseFile = new Stopwatch();
+            swParseFile.Start();
+
             var (parseError, parsed) = await ParseFile(dequeued);
+
+            swParseFile.Stop();
             if (parseError.HasValue())
             {
                 _logger.LogInformation("finish queue item with error: {0}", parseError);
@@ -119,9 +127,6 @@ namespace nscreg.Server.DataUploadSvc
 
             Stopwatch swDbLog = new Stopwatch();
             long dbLogCount = 0;
-
-            Stopwatch swCycle = new Stopwatch();
-            swCycle.Start();
             for (var i = 0; i < parsed.Length; i++)
             {
                 swPopulation.Start();
@@ -228,7 +233,7 @@ namespace nscreg.Server.DataUploadSvc
 
             await _logBuffer.Flush();
 
-            _logger.LogWarning($"End Total {swCycle.Elapsed}; {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine} Logging {swDbLog.Elapsed} {Environment.NewLine}");
+            _logger.LogWarning($"End Total {swCycle.Elapsed};{Environment.NewLine} Parse {swParseFile.Elapsed} {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine} Logging {swDbLog.Elapsed} {Environment.NewLine}");
             _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine} Logging {(double)swDbLog.Elapsed.Seconds / dbLogCount}");
 
             await _queueSvc.FinishQueueItem(
