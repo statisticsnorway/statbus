@@ -24,11 +24,6 @@ namespace nscreg.Business.DataSources
 
         public static IReadOnlyDictionary<string, object> ParseRawEntity(XElement el, (string source, string target)[] mappings)
         {
-            // for properties which have array type. Example of structure
-            // Activities -> Activity -> Code : "some code"
-            //                        -> Category : "some  another code"
-            //            -> Activity -> Code : "some code"
-            //                        -> Category : "some  another code"
             var result = new Dictionary<string, object>();
 
                 foreach (var descendant in el.Elements())
