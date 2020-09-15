@@ -32,24 +32,24 @@ namespace nscreg.Business.Test.DataSources
 
         [Theory]
         [InlineData(
-@"statId;name;activity1;employees;activityYear
-920951287;LAST FRIDAY INVEST AS;62.020;100;2019
-920951287;LAST FRIDAY INVEST AS;70.220;20;2018
-920951287;LAST FRIDAY INVEST AS;52.292;10;
-920951287;LAST FRIDAY INVEST AS;68.209;;
-75275;FIRST FRIDAY INVEST AS;;;
-2121;HELL FRIDAY INVEST AS;62.021;100;2019
-2121;HELL FRIDAY INVEST AS;70.221;20;2018", ";")]
+@"statId;name;addr1;activity1;employees;activityYear
+920951287;LAST FRIDAY INVEST AS;TEST ADDRESS;62.020;100;2019
+920951287;LAST FRIDAY INVEST AS;TEST ADDRESS;70.220;20;2018
+920951287;LAST FRIDAY INVEST AS;TEST ADDRESS;52.292;10;
+920951287;LAST FRIDAY INVEST AS;TEST ADDRESS;68.209;;
+75275;FIRST FRIDAY INVEST AS;;;;
+2121;HELL FRIDAY INVEST AS;;62.021;100;2019
+2121;HELL FRIDAY INVEST AS;;70.221;20;2018", ";")]
         public void ShouldParseEntityWithActivities(string source, string delimiter)
         {
             var mappings =
-                "statId-StatId,name-Name,activity1-Activities.Activity.ActivityCategory.Code,employees-Activities.Activity.Employees,activityYear-Activities.Activity.ActivityYear";
+                "statId-StatId,name-Name,activity1-Activities.Activity.ActivityCategory.Code,employees-Activities.Activity.Employees,activityYear-Activities.Activity.ActivityYear,addr1-Address.AddressPart1";
 
             var array = mappings.Split(',').Select(vm =>
-                        {
-                            var pair = vm.Split('-');
-                            return (pair[0], pair[1]);
-                        }).ToArray();
+            {
+                var pair = vm.Split('-');
+                return (pair[0], pair[1]);
+            }).ToArray();
 
             var actual = CsvParser.GetParsedEntities(source, delimiter, array);
             actual.Should().BeEquivalentTo(new List<IReadOnlyDictionary<string, object>>
@@ -58,6 +58,7 @@ namespace nscreg.Business.Test.DataSources
                 {
                     { "StatId", "920951287"},
                     { "Name", "LAST FRIDAY INVEST AS" },
+                    { "Address.AddressPart1", "TEST ADDRESS" },
                     { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>()
                         {
                             new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
