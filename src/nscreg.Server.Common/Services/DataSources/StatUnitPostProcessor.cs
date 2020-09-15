@@ -238,7 +238,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
             parsedActivity.ActivityCategory = activityCategory;
             parsedActivity.ActivityCategoryId = activityCategory.Id;
-
+            // TODO: rewrite search. The of activity is statId + ActivityCategory.Code + Year
             return await _ctx.Activities
                        .Include(a => a.ActivityCategory)
                        .FirstOrDefaultAsync(a =>

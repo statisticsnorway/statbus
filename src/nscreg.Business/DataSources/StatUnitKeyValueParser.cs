@@ -254,8 +254,8 @@ namespace nscreg.Business.DataSources
             IReadOnlyDictionary<string, object> nextProps,
             StatisticalUnit unit)
         {
-            var aggregated = nextProps.Aggregate(new Dictionary<string, object>(), AggregateAllFlattenPropsToJson);
-            foreach (var kv in aggregated)
+            // var aggregated = nextProps.Aggregate(new Dictionary<string, object>(), AggregateAllFlattenPropsToJson);
+            foreach (var kv in nextProps)
             {
 
                 if (kv.Value is string)
@@ -275,17 +275,12 @@ namespace nscreg.Business.DataSources
 
                 else if (kv.Value is List<KeyValuePair<string, Dictionary<string, string>>> arrayProperty)
                 {
-                    // var mappingArray = mappings.Where(x => x.Key.StartsWith($"{kv.Key}.")).ToList();
-                    //if (mappingArray.Any())
-                    //{
-                    //var targetArrKeys = mappingArray.ToDictionary(x => x.Key.Split('.').LastOrDefault(), x => x.Value.Select(d => d.Split('.').LastOrDefault()).ToArray());
                     var targetArrKeys = arrayProperty.First().Value;
                     string keyClassName = arrayProperty.First().Key;
                     try
                     {
                         var mapping = targetArrKeys.ToDictionary(x => x.Key, x => new string[] { x.Key });
-                        foreach (var key in targetArrKeys)
-                            UpdateObject(kv.Key, kv.Value, mapping);
+                        UpdateObject(kv.Key, kv.Value, mapping);
                     }
                     catch (Exception ex)
                     {
@@ -295,8 +290,6 @@ namespace nscreg.Business.DataSources
                         ex.Data.Add("unit", unit);
                         throw;
                     }
-
-                    //}
                 }
             }
 

@@ -18,7 +18,6 @@ namespace nscreg.Server.Common
     /// </summary>
     public class PopulateService
     {
-        //private readonly Dictionary<string, string[]> _mappings;
         private readonly (string source, string target)[] _propMappings;
         private readonly DataSourceAllowedOperation _allowedOperation;
         private readonly string _personRoleSource;
@@ -26,6 +25,7 @@ namespace nscreg.Server.Common
         private readonly string _statIdSourceKey;
         private readonly StatUnitTypes _unitType;
         private readonly NSCRegDbContext _context;
+        private readonly StatUnitPostProcessor _postProcessor;
         public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context)
         {
             _personRoleSource = propMapping.FirstOrDefault(c => c.target == "Persons.Person.Role").source;
@@ -35,6 +35,7 @@ namespace nscreg.Server.Common
             _unitType = unitType;
             _allowedOperation = operation;
             _uploadType = uploadType;
+            _postProcessor = new StatUnitPostProcessor(context);
         }
 
         /// <summary>
@@ -60,9 +61,9 @@ namespace nscreg.Server.Common
             });
             StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
 
-            //var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
+            var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
 
-            return (resultUnit, isNew, null);
+            return (resultUnit, isNew, errors);
         }
         /// <summary>
         /// Returns existed or new (depending on <paramref name="operation"/>) stat unit
