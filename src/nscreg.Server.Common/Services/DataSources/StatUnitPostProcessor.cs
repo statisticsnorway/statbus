@@ -122,6 +122,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.LegalForm != null)
                     unit.LegalFormId = unit.LegalForm?.Id;
 
+                // TODO: It can attach Person with the same name as other person, if other fields are not filled
                 await unit.PersonsUnits?.Where(personUnit => personUnit.PersonId == null)
                     .ForEachAsync(async per =>
                     {

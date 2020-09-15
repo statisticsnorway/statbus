@@ -45,25 +45,37 @@ namespace nscreg.Server.Common
         /// <returns></returns>
         public async Task<(StatisticalUnit unit, bool isNew, string errors)> PopulateAsync(IReadOnlyDictionary<string, object> raw)
         {
-            var (resultUnit, isNew) = await GetStatUnitBase( raw);
-
-            if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
+            try
             {
-                var statId = raw.GetValueOrDefault(_statIdSourceKey);
-                return (null, false, string.Format( Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
-            }
+                var (resultUnit, isNew) = await GetStatUnitBase(raw);
 
-            raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
-            {
+                if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
+                {
+                    var statId = raw.GetValueOrDefault(_statIdSourceKey);
+                    return (null, false, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+                }
+
+                raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
+                {
                 // Todo: can be cached
                 return _context.PersonTypes.FirstOrDefaultAsync(x =>
-                    x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
-            });
-            StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
+                        x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
+                });
+                StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
 
-            var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
+                var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
 
-            return (resultUnit, isNew, errors);
+                // todo
+                // unit.DataSource = queueItem.DataSourceFileName;
+                // unit.ChangeReason = ChangeReasons.Edit;
+                // unit.EditComment = "Uploaded from data source file";
+
+                return (resultUnit, isNew, errors);
+            }
+            catch (Exception ex)
+            {
+                return (ex.Data["unit"] as StatisticalUnit, false, ex.Message);
+            }
         }
         /// <summary>
         /// Returns existed or new (depending on <paramref name="operation"/>) stat unit
@@ -84,10 +96,10 @@ namespace nscreg.Server.Common
                     return (unit: existing, isNew: false);
                 }
             }
-            return (GetStatUnitSetHelper.CreateByType(_unitType),true);
+            return (GetStatUnitSetHelper.CreateByType(_unitType), true);
         }
 
-        
+
         /// <summary>
         /// 
         /// </summary>
@@ -139,7 +151,7 @@ namespace nscreg.Server.Common
                     for (int i = 0; i < val.Count; i++)
                     {
                         var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
-                        if(keyValuePair.Value is IList<KeyValuePair<string, Dictionary<string, string>>> arrayKeyValuePair)
+                        if (keyValuePair.Value is IList<KeyValuePair<string, Dictionary<string, string>>> arrayKeyValuePair)
                             foreach (var kv in arrayKeyValuePair)
                             {
                                 var dic = new Dictionary<string, string>();
