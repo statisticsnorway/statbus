@@ -7,6 +7,7 @@ using nscreg.Business.DataSources;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Utilities.Extensions;
 
@@ -34,9 +35,6 @@ namespace nscreg.Server.Common
             _unitType = unitType;
             _allowedOperation = operation;
             _uploadType = uploadType;
-            //_mappings = propMapping
-            //    .GroupBy(x => x.source)
-            //    .ToDictionary(x => x.Key, x => x.Select(y => y.target).ToArray());
         }
 
         /// <summary>
@@ -46,20 +44,25 @@ namespace nscreg.Server.Common
         /// <returns></returns>
         public async Task<(StatisticalUnit unit, bool isNew, string errors)> PopulateAsync(IReadOnlyDictionary<string, object> raw)
         {
-            var (resultUnit, isNew) = await GetStatUnitBase(_allowedOperation, raw);
+            var (resultUnit, isNew) = await GetStatUnitBase( raw);
+
+            if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
+            {
+                var statId = raw.GetValueOrDefault(_statIdSourceKey);
+                return (null, false, string.Format( Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+            }
 
             raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
             {
+                // Todo: can be cached
                 return _context.PersonTypes.FirstOrDefaultAsync(x =>
                     x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
             });
-            //ParseAndMutateStatUnit(_mappings, raw, resultUnit);
+            StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
 
             //var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
 
-            return (resultUnit, isNew, "!@3");
-
-
+            return (resultUnit, isNew, null);
         }
         /// <summary>
         /// Returns existed or new (depending on <paramref name="operation"/>) stat unit
@@ -67,10 +70,9 @@ namespace nscreg.Server.Common
         /// <param name="operation">Data source operation(enum)</param>
         /// <param name="raw">Parsed data of a unit</param>
         /// <returns></returns>
-        private async Task<(StatisticalUnit unit, bool isNew)> GetStatUnitBase(DataSourceAllowedOperation operation, IReadOnlyDictionary<string, object> raw)
+        private async Task<(StatisticalUnit unit, bool isNew)> GetStatUnitBase(IReadOnlyDictionary<string, object> raw)
         {
-            if (_statIdSourceKey.HasValue() &&
-                operation != DataSourceAllowedOperation.Create && raw.TryGetValue(_statIdSourceKey, out var statId))
+            if (_statIdSourceKey.HasValue() && raw.TryGetValue(_statIdSourceKey, out var statId))
             {
                 var existing = await GetStatUnitSetHelper
                     .GetStatUnitSet(_context, _unitType)
