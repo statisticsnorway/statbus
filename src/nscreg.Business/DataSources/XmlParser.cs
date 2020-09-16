@@ -56,12 +56,12 @@ namespace nscreg.Business.DataSources
                   
                     foreach (var innerInnerDescendant in innerDescendant.Elements())
                     {
-                        var fullPath = string.Join('.', descendant.Name.LocalName, innerDescendant.Name.LocalName,
-                            innerInnerDescendant.Name.LocalName);
+                        var fullPath = string.Join('.', descendant.Name.LocalName.Trim(), innerDescendant.Name.LocalName.Trim(),
+                            innerInnerDescendant.Name.LocalName.Trim());
 
                         foreach (var (source, target) in mappings.Where(x => x.source == fullPath || x.target.Contains(fullPath)))
                         {
-                            splittedTarget = target.Split('.', 3);
+                            splittedTarget = target.Trim().Split('.', 3);
 
                             //checking for content in a nested dictionary
                             if (regularToNestedDictionary.TryGetValue(source, out var value) && StatisticalUnitArrayPropertyNames.Contains(target.Split(".", 3)[0]))

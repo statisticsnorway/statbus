@@ -86,7 +86,7 @@ namespace nscreg.Business.Test.DataSources
                     "<LegalUnit>" +
                         "<StatId>920951287</StatId>" +
                         "<Name>LAST FRIDAY INVEST AS</Name>" +
-                        "<Activities> " +
+                        "<Activities>" +
                             "<Activity>" +
                                 "<ActivityYear>2019</ActivityYear>" +
                                 "<CategoryCode>62.020</CategoryCode>" +
@@ -113,7 +113,7 @@ namespace nscreg.Business.Test.DataSources
                 "<LegalUnit>" +
                     "<StatId>913123</StatId>" +
                     "<Name>LAST</Name>" +
-                    "<Activities> " +
+                    "<Activities>" +
                         "<Activity>" +
                             "<ActivityYear>2019</ActivityYear>" +
                             "<CategoryCode>62.020</CategoryCode>" +
