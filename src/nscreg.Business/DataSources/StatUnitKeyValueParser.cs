@@ -1,9 +1,9 @@
+using Newtonsoft.Json;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using nscreg.Utilities.Extensions;
 using static nscreg.Utilities.JsonPathHelper;
 
 namespace nscreg.Business.DataSources
@@ -272,14 +272,13 @@ namespace nscreg.Business.DataSources
                         throw;
                     }
                 }
-
                 else if (kv.Value is List<KeyValuePair<string, Dictionary<string, string>>> arrayProperty)
                 {
-                    var targetArrKeys = arrayProperty.First().Value;
-                    string keyClassName = arrayProperty.First().Key;
+                    var targetArrKeys = arrayProperty.SelectMany(x=>x.Value.Select(d=>d.Key)).Distinct();
+                    var mapping = targetArrKeys.ToDictionary(x => x, x => new string[] { x });
                     try
                     {
-                        var mapping = targetArrKeys.ToDictionary(x => x.Key, x => new string[] { x.Key });
+                        
                         UpdateObject(kv.Key, kv.Value, mapping);
                     }
                     catch (Exception ex)
@@ -291,22 +290,10 @@ namespace nscreg.Business.DataSources
                         throw;
                     }
                 }
-            }
-
-            Dictionary<string, object> AggregateAllFlattenPropsToJson(
-                Dictionary<string, object> accumulation,
-                KeyValuePair<string, object> cur)
-            {
-                if (!cur.Key.Contains('.'))
+                else
                 {
-                    accumulation.Add(cur.Key, cur.Value);
-                    return accumulation;
+                    System.Diagnostics.Debug.Fail("Bad sector of code. NextProps: " + JsonConvert.SerializeObject(nextProps));
                 }
-                var topKey = cur.Key.Split('.')[0];
-                if (!accumulation.TryGetValue(topKey, out var previous)) previous = "{}";
-                if (previous is string s)
-                    accumulation[topKey] = ReplacePath(s, cur.Key, cur.Value);
-                return accumulation;
             }
 
             void UpdateObject(string propPath, object inputValue,
