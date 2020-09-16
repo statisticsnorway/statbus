@@ -137,12 +137,13 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("processing entity #{0} ({1:0.00} %)", i + 1, (double)i/parsed.Length * 100);
                 var startedAt = DateTime.Now;
 
-                // Populate Unit
+                /// Populate Unit
+                
                 swPopulation.Start();
                 _logger.LogInformation("populating unit");
 
                 var (populated, isNew, populateError) = await populateService.PopulateAsync(parsed[i]);
-                //var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
+                // var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 swPopulation.Stop();
                 populationCount += 1;
 
@@ -154,16 +155,9 @@ namespace nscreg.Server.DataUploadSvc
                     continue;
                 }
 
-                if (dequeued.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter)
-                {
-                    if (!string.IsNullOrWhiteSpace(populated.StatId) && !_analysisSvc.CheckStatUnitIdIsContains(populated))
-                    {
-                        _logger.LogInformation("StatUnit failed with error: {0} ({1})", Resource.StatUnitIdIsNotFound, populated.StatId);
-                        anyWarnings = true;
-                        await LogUpload(LogStatus.Error, nameof(Resource.StatUnitIdIsNotFound));
-                        continue;
-                    }
-                }
+                populated.DataSource = dequeued.DataSourceFileName;
+                populated.ChangeReason = ChangeReasons.Edit;
+                populated.EditComment = "Uploaded from data source file";
 
                 /// Analyze Unit
 
