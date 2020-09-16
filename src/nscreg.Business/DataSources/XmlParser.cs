@@ -36,9 +36,14 @@ namespace nscreg.Business.DataSources
                 {
                     mappingsByDescendantName.ForEach(x =>
                     {
-                        if(!StatisticalUnitArrayPropertyNames.Contains(x.target.Split(".",3)[0]))
+                        if (!StatisticalUnitArrayPropertyNames.Contains(x.target.Split(".", 3)[0]))
+                        {
                             result.Add(x.target, descendant.Value);
-                        regularToNestedDictionary.Add(descendant.Name.LocalName, descendant.Value);
+                        }
+                        else
+                        {
+                            regularToNestedDictionary.Add(descendant.Name.LocalName, descendant.Value);
+                        }
                     });
                     continue;
                 }
@@ -54,15 +59,16 @@ namespace nscreg.Business.DataSources
                         var fullPath = string.Join('.', descendant.Name.LocalName, innerDescendant.Name.LocalName,
                             innerInnerDescendant.Name.LocalName);
 
-                        foreach (var (source, target) in mappings.Where(x => x.source == fullPath || x.target == fullPath))
+                        foreach (var (source, target) in mappings.Where(x => x.source == fullPath || x.target.Contains(fullPath)))
                         {
-                            ////TODO Маппинг из обычного значения XML во вложенное
                             splittedTarget = target.Split('.', 3);
 
+                            //checking for content in a nested dictionary
                             if (regularToNestedDictionary.TryGetValue(source, out var value) && StatisticalUnitArrayPropertyNames.Contains(target.Split(".", 3)[0]))
                             {
                                 keyValueDictionary[splittedTarget.Last()] = value;
                             }
+                            //usual assignment
                             else if (splittedTarget.Length > 2)
                             {
                                 keyValueDictionary[splittedTarget.Last()] = innerInnerDescendant.Value;

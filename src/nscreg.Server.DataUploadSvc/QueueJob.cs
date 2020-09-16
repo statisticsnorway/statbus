@@ -137,12 +137,12 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("processing entity #{0} ({1:0.00} %)", i + 1, (double)i/parsed.Length * 100);
                 var startedAt = DateTime.Now;
 
-                /// Populate Unit
+                // Populate Unit
                 swPopulation.Start();
                 _logger.LogInformation("populating unit");
 
-                var populated2 = await populateService.PopulateAsync(parsed[i]);
-                var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
+                var (populated, isNew, populateError ) = await populateService.PopulateAsync(parsed[i]);
+                //var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 swPopulation.Stop();
                 populationCount += 1;
 

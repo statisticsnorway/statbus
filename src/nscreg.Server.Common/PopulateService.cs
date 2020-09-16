@@ -65,25 +65,20 @@ namespace nscreg.Server.Common
             return (resultUnit, isNew, null);
         }
         /// <summary>
-        /// Returns existed or new (depending on <paramref name="operation"/>) stat unit
+        /// Returns existed or new stat unit
         /// </summary>
-        /// <param name="operation">Data source operation(enum)</param>
         /// <param name="raw">Parsed data of a unit</param>
         /// <returns></returns>
         private async Task<(StatisticalUnit unit, bool isNew)> GetStatUnitBase(IReadOnlyDictionary<string, object> raw)
         {
-            if (_statIdSourceKey.HasValue() && raw.TryGetValue(_statIdSourceKey, out var statId))
-            {
-                var existing = await GetStatUnitSetHelper
-                    .GetStatUnitSet(_context, _unitType)
-                    .FirstOrDefaultAsync(x => x.StatId == statId.ToString());
-                if (existing != null)
-                {
-                    _context.Entry(existing).State = EntityState.Detached;
-                    return (unit: existing, isNew: false);
-                }
-            }
-            return (GetStatUnitSetHelper.CreateByType(_unitType),true);
+            if (!_statIdSourceKey.HasValue() || !raw.TryGetValue(_statIdSourceKey, out var statId))
+                return (GetStatUnitSetHelper.CreateByType(_unitType), true);
+            var existing = await GetStatUnitSetHelper
+                .GetStatUnitSet(_context, _unitType)
+                .FirstOrDefaultAsync(x => x.StatId == statId.ToString());
+            if (existing == null) return (GetStatUnitSetHelper.CreateByType(_unitType), true);
+            _context.Entry(existing).State = EntityState.Detached;
+            return (unit: existing, isNew: false);
         }
 
         
