@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using nscreg.Data.Constants;
-using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Business.DataSources
 {
     public static class XmlParser
     {
-        private readonly static string[] StatisticalUnitArrayPropertyNames = new[] { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
+
         public static IEnumerable<XElement> GetRawEntities(XContainer doc)
         {
             var typeNames = Enum.GetNames(typeof(StatUnitTypes));
@@ -31,24 +30,24 @@ namespace nscreg.Business.DataSources
             var regularToNestedDictionary = new Dictionary<string, string>();
             foreach (var descendant in el.Elements())
             {
-                var mappingsByDescendantName = mappings.Where(x => x.source == descendant.Name.LocalName);
                 if (!descendant.HasElements)
                 {
+                    var mappingsByDescendantName = mappings.Where(x => x.source == descendant.Name.LocalName);
                     mappingsByDescendantName.ForEach(x =>
                     {
-                        if (!StatisticalUnitArrayPropertyNames.Contains(x.target.Split(".", 3)[0]))
+                        if (!StatUnitKeyValueParser.StatisticalUnitArrayPropertyNames.Contains(x.target.Split(".", 2)[0]))
                         {
                             result.Add(x.target, descendant.Value);
                         }
                         else
                         {
-                            regularToNestedDictionary.Add(descendant.Name.LocalName, descendant.Value);
+                            regularToNestedDictionary.Add(x.source, descendant.Value);
                         }
                     });
                     continue;
                 }
 
-                var descendantElements = new List<KeyValuePair<string, object>>();
+                var descendantElements = new List<KeyValuePair<string, Dictionary<string,string>>>();
                 string[] splittedTarget = null;
                 foreach (var innerDescendant in descendant.Elements())
                 {
@@ -58,21 +57,22 @@ namespace nscreg.Business.DataSources
                     {
                         var fullPath = string.Join('.', descendant.Name.LocalName.Trim(), innerDescendant.Name.LocalName.Trim(),
                             innerInnerDescendant.Name.LocalName.Trim());
-
-                        foreach (var (source, target) in mappings.Where(x => x.source == fullPath || x.target.Contains(fullPath)))
+                        foreach (var (source, target) in mappings.Where(x => x.source == fullPath || regularToNestedDictionary.ContainsKey(x.source)))
                         {
-                            splittedTarget = target.Trim().Split('.', 3);
+                            splittedTarget = target.Split('.', 3);
+                            //usual assignment
+                            if (splittedTarget.Length <= 2)
+                                continue;
 
                             //checking for content in a nested dictionary
-                            if (regularToNestedDictionary.TryGetValue(source, out var value) && StatisticalUnitArrayPropertyNames.Contains(target.Split(".", 3)[0]))
+                            if (regularToNestedDictionary.TryGetValue(source, out var value) && StatUnitKeyValueParser.StatisticalUnitArrayPropertyNames.Contains(splittedTarget[0]))
                             {
                                 keyValueDictionary[splittedTarget.Last()] = value;
+                                continue;
                             }
-                            //usual assignment
-                            else if (splittedTarget.Length > 2)
-                            {
-                                keyValueDictionary[splittedTarget.Last()] = innerInnerDescendant.Value;
-                            }
+
+                            keyValueDictionary[splittedTarget.Last()] = innerInnerDescendant.Value;
+
                         }
                     }
 
@@ -81,7 +81,7 @@ namespace nscreg.Business.DataSources
 
                     if(splittedTarget != null  && splittedTarget.Length > 2)
                     {
-                        descendantElements.Add(new KeyValuePair<string, object>(splittedTarget[1], keyValueDictionary));
+                        descendantElements.Add(new KeyValuePair<string, Dictionary<string,string>>(splittedTarget[1], keyValueDictionary));
                     }
                 }
                 if (splittedTarget != null && splittedTarget.Any())

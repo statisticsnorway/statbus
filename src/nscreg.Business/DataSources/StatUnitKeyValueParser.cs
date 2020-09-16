@@ -2,7 +2,6 @@ using nscreg.Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using nscreg.Utilities.Extensions;
 using static nscreg.Utilities.JsonPathHelper;
 
@@ -10,6 +9,8 @@ namespace nscreg.Business.DataSources
 {
     public static class StatUnitKeyValueParser
     {
+        public static readonly string[] StatisticalUnitArrayPropertyNames = new[] { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
+
         public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
             => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).source;
 
