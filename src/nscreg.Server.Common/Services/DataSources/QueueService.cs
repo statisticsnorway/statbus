@@ -85,51 +85,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return queueItem;
         }
 
-        public async Task<(StatisticalUnit, string)> GetStatUnitFromRawEntity(
-            IReadOnlyDictionary<string, object> raw,
-            StatUnitTypes unitType,
-            (string source, string target)[] propMapping,
-            DataSourceUploadTypes uploadType,
-            DataSourceAllowedOperation allowedOperation)
-        {
-            var mapping = propMapping
-                .GroupBy(x => x.source)
-                .ToDictionary(x => x.Key, x => x.Select(y => y.target).ToArray());
-
-            var resultUnit = await GetStatUnitBase(allowedOperation);
-
-            raw = await TransformReferenceField(raw, mapping, "Persons.Person.Role", (value) =>
-                {
-                    return _ctx.PersonTypes.FirstOrDefaultAsync(x =>
-                        x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
-                });
-
-            ParseAndMutateStatUnit(mapping, raw, resultUnit);
-
-            var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, uploadType);
-
-            return (resultUnit, errors);
-
-            async Task<StatisticalUnit> GetStatUnitBase(DataSourceAllowedOperation operation)
-            {
-                StatisticalUnit existing = null;
-
-                var key = GetStatIdSourceKey(propMapping);
-                if (key.HasValue() && raw.TryGetValue(key, out var statId))
-                    existing = await _getStatUnitSet[unitType]
-                        .SingleOrDefaultAsync(x => x.StatId == statId.ToString() && operation != DataSourceAllowedOperation.Create);
-                else if (uploadType == DataSourceUploadTypes.Activities)
-                    throw new InvalidOperationException("Missing statId required for activity upload");
-                  
-
-                if (existing == null) return CreateByType[unitType]();
-
-                _ctx.Entry(existing).State = EntityState.Detached;
-                return existing;
-            }
-
-        }
-
         public async Task LogUnitUpload(
             DataSourceQueue queueItem,
             string rawUnit,
