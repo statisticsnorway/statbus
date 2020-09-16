@@ -49,26 +49,27 @@ namespace nscreg.Server.Common
             {
                 var (resultUnit, isNew) = await GetStatUnitBase(raw);
 
+                // Check for operation errors
                 if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
                 {
                     var statId = raw.GetValueOrDefault(_statIdSourceKey);
-                    return (null, false, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+                    return (resultUnit, isNew, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+                }
+
+                if (_allowedOperation == DataSourceAllowedOperation.Alter && isNew)
+                {
+                    return (resultUnit, isNew, string.Format("StatUnit failed with error: {0} ({1})", Resource.StatUnitIdIsNotFound, resultUnit.StatId));
                 }
 
                 raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
                 {
-                // Todo: can be cached
-                return _context.PersonTypes.FirstOrDefaultAsync(x =>
-                        x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
+                    // Todo: can be cached
+                    return _context.PersonTypes.FirstOrDefaultAsync(x =>
+                            x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
                 });
                 StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
 
                 var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
-
-                // todo
-                // unit.DataSource = queueItem.DataSourceFileName;
-                // unit.ChangeReason = ChangeReasons.Edit;
-                // unit.EditComment = "Uploaded from data source file";
 
                 return (resultUnit, isNew, errors);
             }

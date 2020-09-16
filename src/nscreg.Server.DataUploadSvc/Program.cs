@@ -31,6 +31,7 @@ namespace nscreg.Server.DataUploadSvc
         public static void Main()
         {
             var logger = new LoggerFactory()
+                .AddConsole()
                 .AddNLog()
                 .CreateLogger<Program>();
 
