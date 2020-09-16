@@ -69,22 +69,18 @@ namespace nscreg.Server.Common.Services.DataSources
             List<string> errors = new List<string>();
             try
             {
-                
-                if (unit.Activities?.Any(activity => activity.Id == 0) == true)
-                    await unit.ActivitiesUnits
-                        .ForEachAsync(async au =>
+                await unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
+                    .ForEachAsync(async au =>
+                    {
+                        try
                         {
-                            if (au.Activity.Id == 0)
-                                try
-                                {
-                                    au.Activity = await GetFilledActivity(au.Activity);
-                                }
-                                catch (Exception ex)
-                                {
-                                  errors.Add(ex.Message);
-                                }
-                                
-                        });
+                            au.Activity = await GetFilledActivity(au.Activity);
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add(ex.Message);
+                        }
+                    });
 
                 if (unit.Address?.Id == 0)
                     unit.Address = await GetFilledAddress(unit.Address);
@@ -95,25 +91,22 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.ActualAddress?.Id == 0)
                     unit.ActualAddress = await GetFilledAddress(unit.ActualAddress);
 
-                if (unit.ForeignParticipationCountriesUnits?.Any(fpcu => fpcu.Id == 0) == true)
-                    await unit.ForeignParticipationCountriesUnits.ForEachAsync(async fpcu =>
+                await unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEachAsync(async fpcu =>
                     {
-                        if (fpcu.Country.Id == 0)
+                        try
                         {
-                            try
-                            {
-                                var country = await GetFilledCountry(fpcu.Country);
-                                fpcu.Country = country;
-                                fpcu.CountryId = country.Id;
-                                fpcu.UnitId = unit.RegId;
-                            }
-                            catch (Exception ex)
-                            {
-                                errors.Add(ex.Message);
-                            }
+                            var country = await GetFilledCountry(fpcu.Country);
+                            fpcu.Country = country;
+                            fpcu.CountryId = country.Id;
+                            fpcu.UnitId = unit.RegId;
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add(ex.Message);
                         }
                     });
 
+                // Todo: languageName1 and languageName2 is not checked
                 if (unit.ForeignParticipation?.Id == 0)
                 {
                     var fp = await GetFilledForeignParticipation(unit.ForeignParticipation);
@@ -124,61 +117,53 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (!string.IsNullOrEmpty(unit.LegalForm?.Name) || !string.IsNullOrEmpty(unit.LegalForm?.Code))
                 {
                     unit.LegalForm = await GetFilledLegalForm(unit.LegalForm);
-                    unit.LegalFormId = unit.LegalForm?.Id;
                 }
 
                 if (unit.LegalForm != null)
                     unit.LegalFormId = unit.LegalForm?.Id;
 
-                if (unit.Persons?.Any(person => person.Id == 0) == true)
-                    await unit.PersonsUnits.ForEachAsync(async per =>
+                // TODO: It can attach Person with the same name as other person, if other fields are not filled
+                await unit.PersonsUnits?.Where(personUnit => personUnit.PersonId == null)
+                    .ForEachAsync(async per =>
                     {
-                        if (per.Person.Id == 0)
+                        try
                         {
-                            try
-                            {
-                                per.Person = await GetFilledPerson(per.Person);
-                            }
-                            catch (Exception ex)
-                            {
-                                errors.Add(ex.Message);
-                            }
-
+                            per.Person = await GetFilledPerson(per.Person);
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add(ex.Message);
                         }
                     });
-                if (unit.UnitType == StatUnitTypes.LocalUnit)
+
+                switch (unit)
                 {
-                    var res = unit as LocalUnit;
-                    if (res?.LegalUnitId != null && res.LegalUnitId != 0)
-                    {
-                        var legalUnit = await GetLegalUnitId(res.LegalUnitId.ToString());
-                        res.LegalUnitId = legalUnit?.RegId;
-                        unit = res;
-                    }
+                    case LocalUnit localUnit:
+                        if (localUnit.LegalUnitId != null && localUnit.LegalUnitId != 0)
+                        {
+                            var linkedLegalUnit = await GetLegalUnitId(localUnit.LegalUnitId.ToString());
+                            localUnit.LegalUnitId = linkedLegalUnit?.RegId;
+                        }
+                        break;
+
+                    case LegalUnit legalUnit:
+                        if (legalUnit.EnterpriseUnitRegId != null && legalUnit.EnterpriseUnitRegId != 0)
+                        {
+                            var linkedEnterpriseUnit = await GetEnterpriseUnitRegId(legalUnit.EnterpriseUnitRegId.ToString());
+                            legalUnit.EnterpriseUnitRegId = linkedEnterpriseUnit?.RegId;
+                        }
+                        break;
+
+                    case EnterpriseUnit enterpriseUnit:
+                        if (enterpriseUnit.EntGroupId != null && enterpriseUnit.EntGroupId != 0)
+                        {
+                            var enterpriseGroup = await GetEnterpriseGroupId(enterpriseUnit.EntGroupId.ToString());
+                            enterpriseUnit.EntGroupId = enterpriseGroup?.RegId;
+                        }
+                        break;
                 }
 
-                if (unit.UnitType == StatUnitTypes.LegalUnit)
-                {
-                    var res = unit as LegalUnit;
-                    if (res?.EnterpriseUnitRegId != null && res.EnterpriseUnitRegId != 0)
-                    {
-                        var enterpriseUnit = await GetEnterpriseUnitRegId(res.EnterpriseUnitRegId.ToString());
-                        res.EnterpriseUnitRegId = enterpriseUnit?.RegId;
-                        unit = res;
-                    }
-                }
-
-                if (unit.UnitType == StatUnitTypes.EnterpriseUnit)
-                {
-                    var res = unit as EnterpriseUnit;
-                    if (res?.EntGroupId != null && res.EntGroupId != 0)
-                    {
-                        var enterpriseGroup = await GetEnterpriseGroupId(res.EntGroupId.ToString());
-                        res.EntGroupId = enterpriseGroup?.RegId;
-                        unit = res;
-                    }
-                }
-
+                // Todo: search on table, which doesnt have indexes for these search parameters.
                 if (!string.IsNullOrEmpty(unit.DataSourceClassification?.Name) || !string.IsNullOrEmpty(unit.DataSourceClassification?.Code))
                 {
                     unit.DataSourceClassification = await GetFilledDataSourceClassification(unit.DataSourceClassification);
@@ -238,7 +223,9 @@ namespace nscreg.Server.Common.Services.DataSources
 
             parsedActivity.ActivityCategory = activityCategory;
             parsedActivity.ActivityCategoryId = activityCategory.Id;
-
+            // TODO: rewrite search. The of activity is statId + ActivityCategory.Code + Year
+            // Also, this return of dbEntity instead of parsed make us to loose 3 fields from parsed (Year, Turnover, Employees)
+            // We need to map fields from parsed
             return await _ctx.Activities
                        .Include(a => a.ActivityCategory)
                        .FirstOrDefaultAsync(a =>

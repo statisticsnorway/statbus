@@ -18,7 +18,6 @@ namespace nscreg.Server.Common
     /// </summary>
     public class PopulateService
     {
-        //private readonly Dictionary<string, string[]> _mappings;
         private readonly (string source, string target)[] _propMappings;
         private readonly DataSourceAllowedOperation _allowedOperation;
         private readonly string _personRoleSource;
@@ -26,6 +25,7 @@ namespace nscreg.Server.Common
         private readonly string _statIdSourceKey;
         private readonly StatUnitTypes _unitType;
         private readonly NSCRegDbContext _context;
+        private readonly StatUnitPostProcessor _postProcessor;
         public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context)
         {
             _personRoleSource = propMapping.FirstOrDefault(c => c.target == "Persons.Person.Role").source;
@@ -35,6 +35,7 @@ namespace nscreg.Server.Common
             _unitType = unitType;
             _allowedOperation = operation;
             _uploadType = uploadType;
+            _postProcessor = new StatUnitPostProcessor(context);
         }
 
         /// <summary>
@@ -44,29 +45,42 @@ namespace nscreg.Server.Common
         /// <returns></returns>
         public async Task<(StatisticalUnit unit, bool isNew, string errors)> PopulateAsync(IReadOnlyDictionary<string, object> raw)
         {
-            var (resultUnit, isNew) = await GetStatUnitBase( raw);
-
-            if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
+            try
             {
-                var statId = raw.GetValueOrDefault(_statIdSourceKey);
-                return (null, false, string.Format( Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
-            }
+                var (resultUnit, isNew) = await GetStatUnitBase(raw);
 
-            raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
-            {
+                if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
+                {
+                    var statId = raw.GetValueOrDefault(_statIdSourceKey);
+                    return (null, false, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+                }
+
+                raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
+                {
                 // Todo: can be cached
                 return _context.PersonTypes.FirstOrDefaultAsync(x =>
-                    x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
-            });
-            StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
+                        x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
+                });
+                StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
 
-            //var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
+                var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
 
-            return (resultUnit, isNew, null);
+                // todo
+                // unit.DataSource = queueItem.DataSourceFileName;
+                // unit.ChangeReason = ChangeReasons.Edit;
+                // unit.EditComment = "Uploaded from data source file";
+
+                return (resultUnit, isNew, errors);
+            }
+            catch (Exception ex)
+            {
+                return (ex.Data["unit"] as StatisticalUnit, false, ex.Message);
+            }
         }
         /// <summary>
         /// Returns existed or new stat unit
         /// </summary>
+        /// <param name="operation">Data source operation(enum)</param>
         /// <param name="raw">Parsed data of a unit</param>
         /// <returns></returns>
         private async Task<(StatisticalUnit unit, bool isNew)> GetStatUnitBase(IReadOnlyDictionary<string, object> raw)
@@ -80,8 +94,10 @@ namespace nscreg.Server.Common
             _context.Entry(existing).State = EntityState.Detached;
             return (unit: existing, isNew: false);
         }
+            return (GetStatUnitSetHelper.CreateByType(_unitType), true);
+        }
 
-        
+
         /// <summary>
         /// 
         /// </summary>
@@ -133,7 +149,7 @@ namespace nscreg.Server.Common
                     for (int i = 0; i < val.Count; i++)
                     {
                         var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
-                        if(keyValuePair.Value is IList<KeyValuePair<string, Dictionary<string, string>>> arrayKeyValuePair)
+                        if (keyValuePair.Value is IList<KeyValuePair<string, Dictionary<string, string>>> arrayKeyValuePair)
                             foreach (var kv in arrayKeyValuePair)
                             {
                                 var dic = new Dictionary<string, string>();
