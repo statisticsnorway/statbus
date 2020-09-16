@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
-using Nest;
 using Newtonsoft.Json;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
@@ -8,7 +7,6 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common;
-using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;

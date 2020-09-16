@@ -38,7 +38,7 @@ namespace nscreg.Business.Test.DataSources
                             "</Activity>" +
                         "</Activities>" +
                     "</LegalUnit>" +
-                "<LegalUnit>"+
+                "<LegalUnit>" +
                     "<StatId>920951287</StatId>" +
                     "<Name>LAST FRIDAY INVEST AS</Name>" +
                 "</LegalUnit>" +
@@ -89,14 +89,14 @@ namespace nscreg.Business.Test.DataSources
                             {"ActivityYear","2019"},
                             {"ActivityCategory.Code", "62.020"},
                             {"Employees","100"},
-                            
+
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
                             {"ActivityYear","2018"},
                             {"ActivityCategory.Code", "70.220"},
                             {"Employees","20"},
-                            
+
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
