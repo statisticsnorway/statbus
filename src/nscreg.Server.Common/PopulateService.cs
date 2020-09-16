@@ -67,7 +67,7 @@ namespace nscreg.Server.Common
                     return _context.PersonTypes.FirstOrDefaultAsync(x =>
                             x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
                 });
-                StatUnitKeyValueParser.ParseAndMutateStatUnitNew(raw, resultUnit);
+                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit);
 
                 var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
 

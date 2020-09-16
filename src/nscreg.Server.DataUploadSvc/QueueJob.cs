@@ -298,39 +298,6 @@ namespace nscreg.Server.DataUploadSvc
             return (null, parsedArr);
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="queueItem"></param>
-        /// <param name="parsedUnit"></param>
-        /// <returns></returns>
-        private async Task<(string, StatisticalUnit)> PopulateUnit(
-            DataSourceQueue queueItem,
-            IReadOnlyDictionary<string, object> parsedUnit)
-        {
-            StatisticalUnit unit;
-            string errors;
-            try
-            {
-                (unit, errors) = await _queueSvc.GetStatUnitFromRawEntity(
-                    parsedUnit,
-                    queueItem.DataSource.StatUnitType,
-                    queueItem.DataSource.VariablesMappingArray,
-                    queueItem.DataSource.DataSourceUploadType,
-                    queueItem.DataSource.AllowedOperations);
-            }
-            catch (Exception ex)
-            {
-                return (ex.Message,
-                    ex.Data["unit"] as StatisticalUnit);
-            }
-
-            unit.DataSource = queueItem.DataSourceFileName;
-            unit.ChangeReason = ChangeReasons.Edit;
-            unit.EditComment = "Uploaded from data source file";
-            return (errors.Length > 0 ? errors : null, unit);
-        }
-
         private (string , (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
             if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
