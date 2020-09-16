@@ -95,8 +95,6 @@ namespace nscreg.Server.Common
             _context.Entry(existing).State = EntityState.Detached;
             return (unit: existing, isNew: false);
         }
-            return (GetStatUnitSetHelper.CreateByType(_unitType), true);
-        }
 
 
         /// <summary>
