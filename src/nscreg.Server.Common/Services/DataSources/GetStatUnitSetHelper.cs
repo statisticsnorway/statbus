@@ -26,7 +26,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         .AsNoTracking();
 
                 case StatUnitTypes.LegalUnit:
-                    return context.EnterpriseUnits
+                    return context.LegalUnits
                         .Include(x => x.Address)
                         .ThenInclude(x => x.Region)
                         .Include(x => x.PersonsUnits)

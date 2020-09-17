@@ -18,7 +18,6 @@ namespace nscreg.Server.Common
     /// </summary>
     public class PopulateService
     {
-        private readonly (string source, string target)[] _propMappings;
         private readonly DataSourceAllowedOperation _allowedOperation;
         private readonly string _personRoleSource;
         private readonly DataSourceUploadTypes _uploadType;
@@ -29,7 +28,6 @@ namespace nscreg.Server.Common
         public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context)
         {
             _personRoleSource = propMapping.FirstOrDefault(c => c.target == "Persons.Person.Role").source;
-            _propMappings = propMapping;
             _statIdSourceKey = StatUnitKeyValueParser.GetStatIdSourceKey(propMapping) ?? throw new ArgumentNullException(nameof(propMapping), "StatId doesn't have source field(header)");
             _context = context;
             _unitType = unitType;
@@ -53,12 +51,13 @@ namespace nscreg.Server.Common
                 if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
                 {
                     var statId = raw.GetValueOrDefault(_statIdSourceKey);
-                    return (resultUnit, isNew, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+                    return (resultUnit, false, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
                 }
 
                 if (_allowedOperation == DataSourceAllowedOperation.Alter && isNew)
                 {
-                    return (resultUnit, isNew, string.Format("StatUnit failed with error: {0} ({1})", Resource.StatUnitIdIsNotFound, resultUnit.StatId));
+                    return (resultUnit, true,
+                        $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})");
                 }
 
                 raw = await TransformReferenceField(raw, "Persons.Person.Role", (value) =>
@@ -67,6 +66,7 @@ namespace nscreg.Server.Common
                     return _context.PersonTypes.FirstOrDefaultAsync(x =>
                             x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
                 });
+
                 StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit);
 
                 var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
@@ -88,9 +88,11 @@ namespace nscreg.Server.Common
         {
             if (!_statIdSourceKey.HasValue() || !raw.TryGetValue(_statIdSourceKey, out var statId))
                 return (GetStatUnitSetHelper.CreateByType(_unitType), true);
+
             var existing = await GetStatUnitSetHelper
                 .GetStatUnitSet(_context, _unitType)
                 .FirstOrDefaultAsync(x => x.StatId == statId.ToString());
+
             if (existing == null) return (GetStatUnitSetHelper.CreateByType(_unitType), true);
             _context.Entry(existing).State = EntityState.Detached;
             return (unit: existing, isNew: false);

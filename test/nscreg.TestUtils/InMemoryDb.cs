@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using nscreg.Data;
 using nscreg.Server.Common.Services.StatUnit;
@@ -11,7 +10,7 @@ namespace nscreg.TestUtils
     {
         public static NSCRegDbContext CreateDbContext() => new NSCRegDbContext(GetContextOptions());
 
-        private static DbContextOptions<NSCRegDbContext> GetContextOptions()
+        public static DbContextOptions<NSCRegDbContext> GetContextOptions()
         {
             ElasticService.ServiceAddress = "http://localhost:9200";
             ElasticService.StatUnitSearchIndexName = "statunitsearchviewtest";
