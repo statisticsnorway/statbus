@@ -42,7 +42,6 @@ namespace nscreg.Business.DataSources
                     var mapping = targetArrKeys.ToDictionary(x => x, x => new string[] { x });
                     try
                     {
-                        
                         UpdateObject(kv.Key, kv.Value, mapping);
                     }
                     catch (Exception ex)

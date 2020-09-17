@@ -62,13 +62,12 @@ namespace nscreg.Server.Common.Services.DataSources
             return string.Empty;
         }
 
-        
-
         private async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
         {
             List<string> errors = new List<string>();
             try
             {
+                /// TODO: May be removed since activities are already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/> 
                 await unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
                     .ForEachAsync(async au =>
                     {
@@ -82,6 +81,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         }
                     });
 
+                /// TODO: May be removed (all 3 types of addresses) since address is already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/>. But before need to check, how property <see cref="Address.Region"/> is resolved after mapping
                 if (unit.Address?.Id == 0)
                     unit.Address = await GetFilledAddress(unit.Address);
 
@@ -91,6 +91,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.ActualAddress?.Id == 0)
                     unit.ActualAddress = await GetFilledAddress(unit.ActualAddress);
 
+                /// TODO: Maybe it should be placed in <see cref="nscreg.Business.DataSources.StatUnitKeyValueParser.ParseAndMutateStatUnit(IReadOnlyDictionary{string, object}, StatisticalUnit)"/>
                 await unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEachAsync(async fpcu =>
                     {
                         try
