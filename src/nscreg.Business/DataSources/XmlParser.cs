@@ -18,10 +18,9 @@ namespace nscreg.Business.DataSources
                 if (doc.Nodes()
                     .All(x => x is XElement element && typeNames.Contains(element.Name.LocalName)))
                 {
-                    return doc.Elements();
+                    return doc.Elements();  
                 }
-
-                doc = doc.Elements().First() ?? throw new Exception("XML file is invalid");
+                doc = doc.Elements().FirstOrDefault() ?? throw new Exception("XML file is invalid");
             }
         }
 
