@@ -20,7 +20,8 @@ namespace nscreg.Business.DataSources
                 {
                     return doc.Elements();
                 }
-                doc = doc.Elements().First();
+
+                doc = doc.Elements().First() ?? throw new Exception("XML file is invalid");
             }
         }
 
