@@ -67,7 +67,7 @@ namespace nscreg.Business.Test.DataSources
                 "</LegalUnit>" +
                 "</GetLegalUnits>");
             var mappings =
-                "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode- Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
+                "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode-Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
             var array = mappings.Split(',').Select(vm =>
             {
                 var pair = vm.Split('-');
