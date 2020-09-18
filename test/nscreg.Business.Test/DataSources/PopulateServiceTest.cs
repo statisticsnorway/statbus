@@ -4,6 +4,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common;
+using nscreg.Server.Common.Services.DataSources;
 using nscreg.TestUtils;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,15 @@ namespace nscreg.Business.Test.DataSources
         public PopulateServiceTest(ITestOutputHelper helper) : base(helper)
         {
 
+        }
+        private (string, string)[] GetArrayMappingByString(string mapping)
+        {
+            return mapping.Split(',')
+                .Select(vm =>
+                {
+                    var pair = vm.Split('-');
+                    return (pair[0], pair[1]);
+                }).ToArray();
         }
 
         [Fact]
@@ -122,18 +132,22 @@ namespace nscreg.Business.Test.DataSources
         [Fact]
         public async Task PopulateAsync_NewObjectOnAlter_ReturnsError()
         {
-            var unitMapping = "StatId-StatId,Name-Name";
+            var unitMapping = "TestStatId-StatId,Name-Name";
 
             var raw = new Dictionary<string, object>()
             {
-                {"StatId", "920951287"},
+                {"TestStatId", "920951287"},
                 {"Name", "LAST FRIDAY INVEST AS"},
             };
 
             var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
             var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
+
+            popUnit.StatId.Should().NotBeNullOrWhiteSpace();
+
             errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
                 $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
+
         }
 
         [Fact]
@@ -147,6 +161,12 @@ namespace nscreg.Business.Test.DataSources
                 {"Name", "LAST FRIDAY INVEST AS"}
             };
 
+            DatabaseContext.StatisticalUnits.Add(new LegalUnit()
+            {
+                StatId = "920951287",
+                Name = "LAST FRIDAY INVEST AS"
+            });
+            await DatabaseContext.SaveChangesAsync();
             var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
             var (popUnit, _, error) = await populateService.PopulateAsync(keyValueDict);
 
@@ -314,15 +334,112 @@ namespace nscreg.Business.Test.DataSources
             popUnit.Should().BeEquivalentTo(unit);
         }
 
-
-        private (string, string)[] GetArrayMappingByString(string mapping)
+        [Fact]
+        public async Task PopulateAsync_ObjectWithActivitiesOnCreateOrAlter_ReturnsPopulatedObject()
         {
-            return mapping.Split(',')
-                .Select(vm =>
+            var mappings =
+                "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode-Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
+
+            var raw = new Dictionary<string, object>()
+            {
+                {"StatId", "9209512871"},
+                {"Name", "LAST FRIDAY INVEST AS"},
                 {
-                    var pair = vm.Split('-');
-                    return (pair[0], pair[1]);
-                }).ToArray();
+                    "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
+                    {
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityYear", "2019"},
+                            {"ActivityCategory.Code", "62.020"},
+                            {"Employees", "100"},
+
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityYear", "2019"},
+                            {"ActivityCategory.Code", "62.020"},
+                            {"Employees", "100"},
+
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityCategory.Code", "68.209"},
+                        })
+                    }
+                }
+            };
+            var dbUnit = new LegalUnit()
+            {
+                StatId = "9209512871",
+                Name = "TEST TEST",
+                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                {
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityYear = 2019,
+                            Employees = 100,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "62.020"
+                            },
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "68.209"
+                            },
+                        }
+                    }
+                }
+            };
+            var resultUnit = new LegalUnit()
+            {
+                RegId = 1,
+                StatId = "9209512871",
+                Name = "LAST FRIDAY INVEST AS",
+                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                {
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityYear = 2019,
+                            Employees = 100,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "62.020"
+                            },
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "68.209"
+                            },
+                        }
+                    }
+                }
+            };
+
+            DatabaseContext.StatisticalUnits.Add(dbUnit);
+            await DatabaseContext.SaveChangesAsync();
+            var act = DatabaseContext.ActivityStatisticalUnits.ToList();
+            var populateService = new PopulateService(GetArrayMappingByString(mappings),
+                DataSourceAllowedOperation.CreateAndAlter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit,
+                DatabaseContext);
+            var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
+
+            popUnit.Should().BeEquivalentTo(resultUnit);
+
         }
     }
 }

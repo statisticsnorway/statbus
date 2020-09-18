@@ -88,10 +88,10 @@ namespace nscreg.Server.Common.Services.DataSources
                 return (ex.Data["unit"] as StatisticalUnit, false, ex.Message);
             }
         }
+
         /// <summary>
         /// Returns existed or new stat unit
         /// </summary>
-        /// <param name="operation">Data source operation(enum)</param>
         /// <param name="raw">Parsed data of a unit</param>
         /// <returns></returns>
         private async Task<(StatisticalUnit unit, bool isNew)> GetStatUnitBase(IReadOnlyDictionary<string, object> raw)
