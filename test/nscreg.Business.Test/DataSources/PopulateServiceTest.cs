@@ -24,20 +24,63 @@ namespace nscreg.Business.Test.DataSources
         public async Task PopulateAsync_PersonMapping_Success()
         {
             var mappings =
-    "statId-StatId,name-Name,activity1-Activities.Activity.ActivityCategory.Code,employees-Activities.Activity.Employees,activityYear-Activities.Activity.ActivityYear,addr1-Address.AddressPart1,PersonRole-Persons.Person.Role";
-
-            var mappingsArray = mappings.Split(',').Select(vm =>
-            {
-                var pair = vm.Split('-');
-                return (pair[0], pair[1]);
-            }).ToArray();
+    "statId-StatId,name-Name,activity1-Activities.Activity.ActivityCategory.Code,employees-Activities.Activity.Employees,activityYear-Activities.Activity.ActivityYear,addr1-Address.AddressPart1,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex";
 
             using (var context = InMemoryDb.CreateDbContext())
             {
-                context.PersonTypes.Add(new PersonType { Name = "DIRECTOR" });
+                var personType = new PersonType(){ Name = "DIRECTOR", Id = 0};
+                context.PersonTypes.Add(personType);
                 await context.SaveChangesAsync();
-
-                var populateService = new PopulateService(mappingsArray, DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
+                var unit = new LegalUnit
+                {
+                    Name = "LAST FRIDAY INVEST AS",
+                    StatId = "920951287",
+                    Address = new Address()
+                    {
+                        AddressPart1 = "TEST ADDRESS"
+                    },
+                    PersonsUnits = new List<PersonStatisticalUnit>()
+                    {
+                        new PersonStatisticalUnit()
+                        {
+                            Person = new Person()
+                            {
+                                GivenName = "Vasya",
+                                Surname = "Vasin",
+                                Sex = 1,
+                                Role = personType.Id,
+                            }
+                        }
+                    },
+                    ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                    {
+                        new ActivityStatisticalUnit()
+                        {
+                            Activity = new Activity()
+                            {
+                                ActivityCategory = new ActivityCategory()
+                                {
+                                    Code = "62.020"
+                                },
+                                Employees = 100,
+                                ActivityYear = 2019
+                            }
+                        },
+                        new ActivityStatisticalUnit()
+                        {
+                            Activity = new Activity()
+                            {
+                                ActivityCategory = new ActivityCategory()
+                                {
+                                    Code = "70.220"
+                                },
+                                Employees = 20,
+                                ActivityYear = 2018
+                            }
+                        }
+                    }
+                };
+                var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
 
                 var raw = new Dictionary<string, object>()
                 {
@@ -48,6 +91,9 @@ namespace nscreg.Business.Test.DataSources
                         new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
                             {
                                 {"Role", "Director"},
+                                {"GivenName", "Vasya" },
+                                {"Surname", "Vasin" },
+                                {"Sex", "1" }
                             })
                         }
                     },
@@ -64,23 +110,13 @@ namespace nscreg.Business.Test.DataSources
                                 {"ActivityCategory.Code", "70.220"},
                                 {"Employees","20"},
                                 {"ActivityYear","2018"}
-                            }),
-                            new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
-                            {
-                                {"ActivityCategory.Code", "52.292"},
-                                {"Employees","10"}
-                            }),
-                            new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
-                            {
-                                {"ActivityCategory.Code", "68.209"},
                             })
                         }
                     }
                 };
-
-
                 var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
 
+                popUnit.Should().BeEquivalentTo(unit);
 
             }
         }
@@ -300,9 +336,5 @@ namespace nscreg.Business.Test.DataSources
                     return (pair[0], pair[1]);
                 }).ToArray();
         }
-
-
-
-
     }
 }

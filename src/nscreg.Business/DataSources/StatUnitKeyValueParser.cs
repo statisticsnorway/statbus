@@ -117,7 +117,7 @@ namespace nscreg.Business.DataSources
                                     if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
                                     foreach (var targetKey in targetKeys)
                                     {
-                                        UpdateCollectionProperty((ICollection<PersonStatisticalUnit>)propValue, PersonIsNew, GetPerson, SetPerson, PropertyParser.ParsePerson, targetKey, personValue.Value, PropertyParser.SetPersonStatUnitOwnPeroperties);
+                                        UpdateCollectionProperty((ICollection<PersonStatisticalUnit>)propValue, PersonIsNew, GetPerson, SetPerson, PropertyParser.ParsePerson, targetKey, personValue.Value, PropertyParser.SetPersonStatUnitOwnProperties);
                                     }
                                 }
                                 tmpPropValue.AddRange((ICollection<PersonStatisticalUnit>)propValue);
