@@ -124,11 +124,11 @@ namespace nscreg.Business.Test.DataSources
         [Fact]
         public async Task PopulateAsync_NewObjectOnAlter_ReturnsError()
         {
-            var unitMapping = "StatId-StatId,Name-Name";
+            var unitMapping = "TestStatId-StatId,Name-Name";
 
             var raw = new Dictionary<string, object>()
             {
-                {"StatId", "920951287"},
+                {"TestStatId", "920951287"},
                 {"Name", "LAST FRIDAY INVEST AS"},
             };
 
@@ -136,6 +136,9 @@ namespace nscreg.Business.Test.DataSources
             {
                 var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
                 var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
+
+                popUnit.StatId.Should().NotBeNullOrWhiteSpace();
+                
                 errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
                     $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
             }
@@ -156,6 +159,12 @@ namespace nscreg.Business.Test.DataSources
 
             using (var context = InMemoryDb.CreateDbContext())
             {
+                context.StatisticalUnits.Add(new LegalUnit()
+                {
+                    StatId = "920951287",
+                    Name = "LAST FRIDAY INVEST AS"
+                });
+                await context.SaveChangesAsync();
                 var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
                 var (popUnit, _, error) = await populateService.PopulateAsync(keyValueDict);
 
@@ -326,6 +335,117 @@ namespace nscreg.Business.Test.DataSources
                 popUnit.Should().BeEquivalentTo(unit);
             }
 
+        }
+
+        [Fact]
+        public async Task PopulateAsync_ObjectWithActivitiesOnCreateOrAlter_ReturnsPopulatedObject()
+        {
+            var mappings =
+                "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode-Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
+
+            var raw = new Dictionary<string, object>()
+            {
+                {"StatId", "9209512871"},
+                {"Name", "LAST FRIDAY INVEST AS"},
+                {
+                    "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
+                    {
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityYear", "2019"},
+                            {"ActivityCategory.Code", "62.020"},
+                            {"Employees", "100"},
+
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityYear", "2019"},
+                            {"ActivityCategory.Code", "62.020"},
+                            {"Employees", "100"},
+
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityCategory.Code", "68.209"},
+                        })
+                    }
+                },
+                
+
+            };
+            var dbUnit = new LegalUnit()
+            {
+                StatId = "9209512871",
+                Name = "TEST TEST",
+                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                {
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityYear = 2019,
+                            Employees = 100,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "62.020"
+                            },
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "68.209"
+                            },
+                        }
+                    }
+                }
+            };
+            var resultUnit = new LegalUnit()
+            {
+                RegId = 1,
+                StatId = "9209512871",
+                Name = "LAST FRIDAY INVEST AS",
+                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                {
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityYear = 2019,
+                            Employees = 100,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "62.020"
+                            },
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "68.209"
+                            },
+                        }
+                    }
+                }
+            };
+            using (var context = InMemoryDb.CreateDbContext())
+            {
+                context.StatisticalUnits.Add(dbUnit);
+                await context.SaveChangesAsync();
+                var act = context.ActivityStatisticalUnits.ToList();
+                var populateService = new PopulateService(GetArrayMappingByString(mappings),
+                    DataSourceAllowedOperation.CreateAndAlter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit,
+                    context);
+                var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
+
+                popUnit.Should().BeEquivalentTo(resultUnit);
+            }
         }
         private (string, string)[] GetArrayMappingByString(string mapping)
         {

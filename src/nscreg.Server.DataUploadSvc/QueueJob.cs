@@ -141,7 +141,6 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("populating unit");
 
                 var (populated, isNew, populateError) = await populateService.PopulateAsync(parsed[i]);
-                // var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 swPopulation.Stop();
                 populationCount += 1;
 
