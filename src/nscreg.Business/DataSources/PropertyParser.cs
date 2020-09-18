@@ -17,12 +17,10 @@ namespace nscreg.Business.DataSources
             }
             catch (Exception)
             {
-                if (type == typeof(DateTime))
-                {
-                    DateTime.TryParse(raw, out var date);
-                    return date;
-                }
-                return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
+                if (type != typeof(DateTime))
+                    return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
+                DateTime.TryParse(raw, out var date);
+                return date;
             }
         }
 
@@ -335,7 +333,7 @@ namespace nscreg.Business.DataSources
             return result;
         }
 
-        public static bool SetPersonStatUnitOwnPeroperties(string path, PersonStatisticalUnit entity, string value)
+        public static bool SetPersonStatUnitOwnProperties(string path, PersonStatisticalUnit entity, string value)
         {
             switch (path)
             {
