@@ -18,6 +18,7 @@ namespace nscreg.Business.Test.DataSources
     {
         public PopulateServiceTest(ITestOutputHelper helper) : base(helper)
         {
+
         }
 
         [Fact]
@@ -26,20 +27,19 @@ namespace nscreg.Business.Test.DataSources
             var mappings =
     "statId-StatId,name-Name,activity1-Activities.Activity.ActivityCategory.Code,employees-Activities.Activity.Employees,activityYear-Activities.Activity.ActivityYear,addr1-Address.AddressPart1,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex";
 
-            using (var context = InMemoryDb.CreateDbContext())
+            var personType = new PersonType() { Name = "DIRECTOR", Id = 0 };
+
+            DatabaseContext.PersonTypes.Add(personType);
+            await DatabaseContext.SaveChangesAsync();
+            var unit = new LegalUnit
             {
-                var personType = new PersonType(){ Name = "DIRECTOR", Id = 0};
-                context.PersonTypes.Add(personType);
-                await context.SaveChangesAsync();
-                var unit = new LegalUnit
+                Name = "LAST FRIDAY INVEST AS",
+                StatId = "920951287",
+                Address = new Address()
                 {
-                    Name = "LAST FRIDAY INVEST AS",
-                    StatId = "920951287",
-                    Address = new Address()
-                    {
-                        AddressPart1 = "TEST ADDRESS"
-                    },
-                    PersonsUnits = new List<PersonStatisticalUnit>()
+                    AddressPart1 = "TEST ADDRESS"
+                },
+                PersonsUnits = new List<PersonStatisticalUnit>()
                     {
                         new PersonStatisticalUnit()
                         {
@@ -52,7 +52,7 @@ namespace nscreg.Business.Test.DataSources
                             }
                         }
                     },
-                    ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
                         new ActivityStatisticalUnit()
                         {
@@ -79,10 +79,10 @@ namespace nscreg.Business.Test.DataSources
                             }
                         }
                     }
-                };
-                var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
+            };
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
 
-                var raw = new Dictionary<string, object>()
+            var raw = new Dictionary<string, object>()
                 {
                     { "StatId", "920951287"},
                     { "Name", "LAST FRIDAY INVEST AS" },
@@ -114,11 +114,9 @@ namespace nscreg.Business.Test.DataSources
                         }
                     }
                 };
-                var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
+            var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
 
-                popUnit.Should().BeEquivalentTo(unit);
-
-            }
+            popUnit.Should().BeEquivalentTo(unit);
         }
 
         [Fact]
@@ -132,14 +130,10 @@ namespace nscreg.Business.Test.DataSources
                 {"Name", "LAST FRIDAY INVEST AS"},
             };
 
-            using (var context = InMemoryDb.CreateDbContext())
-            {
-                var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
-                var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
-                errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
-                    $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
-            }
-            
+            var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
+            var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
+            errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
+                $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
         }
 
         [Fact]
@@ -152,16 +146,12 @@ namespace nscreg.Business.Test.DataSources
                 {"StatId", "920951287"},
                 {"Name", "LAST FRIDAY INVEST AS"}
             };
-           
 
-            using (var context = InMemoryDb.CreateDbContext())
-            {
-                var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
-                var (popUnit, _, error) = await populateService.PopulateAsync(keyValueDict);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
+            var (popUnit, _, error) = await populateService.PopulateAsync(keyValueDict);
 
-                error.Should().Be(string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, popUnit.StatId),
-                    $"Stat unit with StatId - {popUnit.StatId} exist in database");
-            }
+            error.Should().Be(string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, popUnit.StatId),
+                $"Stat unit with StatId - {popUnit.StatId} exist in database");
 
         }
 
@@ -226,13 +216,12 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
-            using (var context = InMemoryDb.CreateDbContext())
-            {
-                var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
-                var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
 
-                popUnit.Should().BeEquivalentTo(unit);
-            }
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
+            var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
+
+            popUnit.Should().BeEquivalentTo(unit);
+
 
         }
 
@@ -298,35 +287,34 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
-            using (var context = InMemoryDb.CreateDbContext())
+
+            DatabaseContext.Activities.AddRange(
+            new Activity
             {
-                context.Activities.AddRange(
-                new Activity
+                ActivityYear = 2028,
+                Employees = 400,
+                ActivityCategory = new ActivityCategory
                 {
-                    ActivityYear = 2028,
-                    Employees = 400,
-                    ActivityCategory = new ActivityCategory
-                    {
-                        Code = "62.020"
-                    }
-                },
-                new Activity
+                    Code = "62.020"
+                }
+            },
+            new Activity
+            {
+                ActivityYear = 2020,
+                Employees = 500,
+                ActivityCategory = new ActivityCategory()
                 {
-                    ActivityYear = 2020,
-                    Employees = 500,
-                    ActivityCategory = new ActivityCategory()
-                     {
-                         Code = "68.209"
-                     }
-                });
-                await context.SaveChangesAsync();
-                var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, context);
-                var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
+                    Code = "68.209"
+                }
+            });
+            await DatabaseContext.SaveChangesAsync();
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
+            var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
 
-                popUnit.Should().BeEquivalentTo(unit);
-            }
-
+            popUnit.Should().BeEquivalentTo(unit);
         }
+
+
         private (string, string)[] GetArrayMappingByString(string mapping)
         {
             return mapping.Split(',')

@@ -11,7 +11,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Utilities.Extensions;
 
-namespace nscreg.Server.Common
+namespace nscreg.Server.Common.Services.DataSources
 {
     /// <summary>
     /// Service for populating unit
@@ -34,6 +34,23 @@ namespace nscreg.Server.Common
             _allowedOperation = operation;
             _uploadType = uploadType;
             _postProcessor = new StatUnitPostProcessor(context);
+        }
+
+        /// <summary>
+        /// Eagerly loads lookups to lower number of requests to DB
+        /// </summary>
+        /// <returns></returns>
+        public async Task InitializeCacheForLookups()
+        {
+            await _context.PersonTypes.LoadAsync();
+            await _context.RegistrationReasons.LoadAsync();
+            await _context.Regions.LoadAsync();
+            await _context.UnitsSize.LoadAsync();
+            await _context.ReorgTypes.LoadAsync();
+            await _context.SectorCodes.LoadAsync();
+            await _context.DataSourceClassifications.LoadAsync();
+            await _context.LegalForms.LoadAsync();
+            await _context.ForeignParticipations.LoadAsync();
         }
 
         /// <summary>

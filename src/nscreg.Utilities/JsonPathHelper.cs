@@ -49,7 +49,7 @@ namespace nscreg.Utilities
         /// <param name="dotSeparatedPath"></param>
         /// <returns></returns>
         public static string PathTail(string dotSeparatedPath) => dotSeparatedPath != null
-            ? dotSeparatedPath.Split(new[] { '.' }, 2).Skip(1).FirstOrDefault()
+            ? dotSeparatedPath.Split(new[] { '.' }, 2).Skip(1).FirstOrDefault() ?? string.Empty
             : null;
     }
 }
