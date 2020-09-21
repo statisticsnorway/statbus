@@ -21,10 +21,6 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private readonly QueueService _queueSvc;
 
-        private readonly Dictionary<DataSourceUploadTypes,
-                Func<StatisticalUnit, DataSource, string, Task<(string, bool)>>>
-            _saveActionsMap;
-
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
         private readonly NSCRegDbContext _ctx;
 
@@ -36,12 +32,6 @@ namespace nscreg.Server.Common.Services.DataSources
             _ctx = context;
             _queueSvc = queueService;
             _usrService = new UserService(context);
-            _saveActionsMap =
-                new Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, DataSource, string, Task<(string, bool)>>>
-                {
-                    [DataSourceUploadTypes.Activities] = SaveActivitiesUploadAsync,
-                    [DataSourceUploadTypes.StatUnits] = SaveStatUnitsUpload
-                };
             
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
@@ -61,56 +51,6 @@ namespace nscreg.Server.Common.Services.DataSources
                 [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
                     editSvc.EditEnterpriseUnit(MappedUnitM(unit, StatUnitTypes.EnterpriseUnit, "EnterpriseUnitEditM", userId), userId)
             };
-        }
-
-        private async Task<(string, bool)> SaveActivitiesUploadAsync(StatisticalUnit parsedUnit, DataSource dataSource, string userId)
-        {
-            var originalUnit = await _ctx.StatisticalUnits
-                .Include(x => x.ActivitiesUnits)
-                .ThenInclude(x => x.Activity)
-                .FirstAsync(x => x.RegId == parsedUnit.RegId);
-
-            var canCreate = dataSource.AllowedOperations == DataSourceAllowedOperation.Create ||
-                            dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter;
-            var canUpdate = dataSource.AllowedOperations == DataSourceAllowedOperation.Alter ||
-                            dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter;
-
-            foreach (var activityUnit in parsedUnit.ActivitiesUnits)
-                if (activityUnit.Activity.Id != 0 && canUpdate)
-                    UpdateActivity(activityUnit);
-                else if (canCreate)
-                    CreateActivity(activityUnit);
-
-            try
-            {
-                await _ctx.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                return (ex.Message, false);
-            }
-            return (null, true);
-
-            void UpdateActivity(ActivityStatisticalUnit activityUnit)
-            {
-                var toUpdate = originalUnit.ActivitiesUnits.First(x => x.ActivityId == activityUnit.Activity.Id).Activity;
-                toUpdate.UpdatedDate = DateTime.Now;
-                toUpdate.UpdatedBy = userId;
-                Mapper.Map(activityUnit.Activity, toUpdate);
-            }
-
-            void CreateActivity(ActivityStatisticalUnit activityUnit)
-            {
-                _ctx.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit()
-                {
-                    Activity = activityUnit.Activity,
-                    Unit = originalUnit
-                });
-                activityUnit.Activity.IdDate = DateTime.Now;
-                activityUnit.Activity.UpdatedDate = DateTime.Now;
-                activityUnit.Activity.UpdatedBy = userId;
-            }
-
         }
 
         private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
@@ -140,7 +80,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId)
         {
-            return await _saveActionsMap[dataSource.DataSourceUploadType](parsedUnit, dataSource, userId);
+            return await SaveStatUnitsUpload(parsedUnit, dataSource, userId);
         }
 
         private dynamic MappedUnitM(StatisticalUnit unit, StatUnitTypes type, string mapperType, string userId)

@@ -4,6 +4,7 @@ using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using nscreg.Data.Constants;
 using static nscreg.Utilities.JsonPathHelper;
 
 namespace nscreg.Business.DataSources
@@ -87,7 +88,7 @@ namespace nscreg.Business.DataSources
                 {
                     case nameof(StatisticalUnit.Activities):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
-                        propValue = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
+                        var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         var actPropValue = new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
                             foreach (var activityFromArray in valueArr)
@@ -97,17 +98,18 @@ namespace nscreg.Business.DataSources
                                     if (!mappingsArr.TryGetValue(activityValue.Key, out string[] targetKeys)) continue;
                                     foreach (var targetKey in targetKeys)
                                     {
-                                        UpdateCollectionProperty((ICollection<ActivityStatisticalUnit>)propValue, ActivityIsNew, GetActivity, SetActivity, PropertyParser.ParseActivity, targetKey, activityValue.Value);
+                                        UpdateCollectionProperty(unitActivities, targetKey, activityValue.Value);
                                     }
                                 }
-                                actPropValue.AddRange((ICollection<ActivityStatisticalUnit>)propValue);
-                                propValue = Activator.CreateInstance<List<ActivityStatisticalUnit>>();
+                                actPropValue.AddRange(unitActivities);
+                                unitActivities = new List<ActivityStatisticalUnit>();
                             }
                         propValue = actPropValue;
+
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
-                        propValue = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
+                        var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
                         var tmpPropValue = new List<PersonStatisticalUnit>();
                         if (valueArr != null)
                             foreach (var personFromArray in valueArr)
@@ -117,17 +119,18 @@ namespace nscreg.Business.DataSources
                                     if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
                                     foreach (var targetKey in targetKeys)
                                     {
-                                        UpdateCollectionProperty((ICollection<PersonStatisticalUnit>)propValue, PersonIsNew, GetPerson, SetPerson, PropertyParser.ParsePerson, targetKey, personValue.Value, PropertyParser.SetPersonStatUnitOwnProperties);
+                                        UpdateCollectionProperty(persons, targetKey, personValue.Value);
+
                                     }
                                 }
-                                tmpPropValue.AddRange((ICollection<PersonStatisticalUnit>)propValue);
-                                propValue = Activator.CreateInstance<List<PersonStatisticalUnit>>();
+                                tmpPropValue.AddRange(persons);
+                                persons = new List<PersonStatisticalUnit>();
                             }
-                        propValue = tmpPropValue;
+                        propValue = persons;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
                         var fpcPropValue = new List<CountryStatisticalUnit>();
-                        propValue = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
+                        var foreignParticipationCountries = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
                         if (valueArr != null)
                             foreach (var countryFromArray in valueArr)
                             {
@@ -140,13 +143,12 @@ namespace nscreg.Business.DataSources
                                         PropertyParser.ParseCountry(targetKey, countryValue.Value, prev);
                                     }
                                 }
-                                ((ICollection<CountryStatisticalUnit>)propValue).Add(new CountryStatisticalUnit()
+                                foreignParticipationCountries.Add(new CountryStatisticalUnit()
                                 {
                                     CountryId = prev.Id,
                                     Country = prev
                                 });
-                                fpcPropValue.AddRange((ICollection<CountryStatisticalUnit>)propValue);
-                                propValue = Activator.CreateInstance<List<CountryStatisticalUnit>>();
+                                fpcPropValue.AddRange(foreignParticipationCountries);
                             }
                         propValue = fpcPropValue;
                         break;
@@ -194,38 +196,52 @@ namespace nscreg.Business.DataSources
                         break;
                 }
 
-                propInfo.SetValue(unit, propValue);
-
-                void UpdateCollectionProperty<TJoin, TDependant>(
-                    ICollection<TJoin> joinEntities,
-                    Func<TJoin, bool> isJoinNew,
-                    Func<TJoin, TDependant> getDependant,
-                    Action<TJoin, TDependant> setDependant,
-                    Func<string, string, TDependant, TDependant> parseDependant,
-                    string propPath1, string propValue1,
-                    Func<string, TJoin, string, bool> setOwnProperties = null) where TJoin : class
-                {
-                    var newJoin = joinEntities.LastOrDefault(isJoinNew);
-                    var insertNew = newJoin == null;
-                    if (insertNew) newJoin = Activator.CreateInstance<TJoin>();
-                    bool isOwnProperty = false;
-                    if (setOwnProperties != null)
-                    {
-                        isOwnProperty = setOwnProperties(propPath1, newJoin, propValue1);
-                    }
-                    if (!isOwnProperty)
-                        setDependant(newJoin, parseDependant(propPath1, propValue1, getDependant(newJoin)));
-                    if (insertNew) joinEntities.Add(newJoin);
-                }
-
-                bool ActivityIsNew(ActivityStatisticalUnit join) => join.ActivityId == 0 && join.Activity != null;
-                Activity GetActivity(ActivityStatisticalUnit join) => join.Activity;
-                void SetActivity(ActivityStatisticalUnit join, Activity dependant) => join.Activity = dependant;
-
-                bool PersonIsNew(PersonStatisticalUnit join) => join.PersonId.GetValueOrDefault() == 0 && join.Person != null;
-                Person GetPerson(PersonStatisticalUnit join) => join.Person;
-                void SetPerson(PersonStatisticalUnit join, Person dependant) => join.Person = dependant;
+                propInfo?.SetValue(unit, propValue);
             }
+        }
+        private static void UpdateCollectionProperty(ICollection<ActivityStatisticalUnit> activities, string targetKey, string value)
+        {
+            var newJoin = activities.LastOrDefault(x => x.ActivityId == 0 && x.Activity != null) ?? Activator.CreateInstance<ActivityStatisticalUnit>();
+
+            newJoin.Activity = PropertyParser.ParseActivity(targetKey, value, newJoin.Activity);
+
+            if (newJoin.Activity.ActivityType == ActivityTypes.Primary)
+            {
+                var existsActivity = activities.FirstOrDefault(x => x.Activity.ActivityType == ActivityTypes.Primary);
+
+                if(existsActivity?.Activity?.ActivityYear < newJoin.Activity?.ActivityYear)
+                {
+                    existsActivity.Activity = newJoin.Activity;
+                }
+            }
+            else
+            {
+                activities.Add(newJoin);
+            }
+            
+        }
+        private static void UpdateCollectionProperty(ICollection<PersonStatisticalUnit> persons, string targetKey, string value)
+        {
+            var newJoin = persons.LastOrDefault(x => x.PersonId.Value == 0 && x.Person != null) ?? new PersonStatisticalUnit();
+
+            var isOwnProperty = PropertyParser.SetPersonStatUnitOwnProperties(targetKey, newJoin, value);
+
+            if (!isOwnProperty)
+                PropertyParser.ParsePerson(targetKey, value, newJoin.Person);
+
+            var newPersons = new List<PersonStatisticalUnit>();
+            foreach (var existsPerson in persons)
+            {
+                if (existsPerson.Person.Role == newJoin.Person.Role)
+                {
+                    existsPerson.Person = newJoin.Person;
+                }
+                else
+                {
+                    newPersons.Add(newJoin);
+                }
+            }
+            persons.AddRange(newPersons);
         }
 
     }

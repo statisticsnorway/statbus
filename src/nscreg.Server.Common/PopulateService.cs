@@ -48,6 +48,7 @@ namespace nscreg.Server.Common
                 var (resultUnit, isNew) = await GetStatUnitBase(raw);
 
                 // Check for operation errors
+
                 if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
                 {
                     var statId = raw.GetValueOrDefault(_statIdSourceKey);
@@ -62,7 +63,7 @@ namespace nscreg.Server.Common
 
                 StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit);
 
-                var errors = await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, _uploadType);
+                var errors = await _postProcessor.PostProcessStatUnitsUpload(resultUnit);
 
                 return (resultUnit, isNew, errors);
             }

@@ -110,8 +110,6 @@ namespace nscreg.Server.Common.Services
             {
                 case DataSourceUploadTypes.StatUnits:
                     return await GetQueueLogForStatUnitUpload(queueId, query);
-                case DataSourceUploadTypes.Activities:
-                    return await GetQueueLogForActivityUpload(queueId, query);
                 default:
                     throw new ArgumentOutOfRangeException();
             }

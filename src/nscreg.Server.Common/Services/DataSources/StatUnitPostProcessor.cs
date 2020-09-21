@@ -1,73 +1,29 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
-using Activity = nscreg.Data.Entities.Activity;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
     internal class StatUnitPostProcessor
     {
-        private readonly Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, Task<string>>> _postActionsMap;
         private readonly NSCRegDbContext _ctx;
-
         public StatUnitPostProcessor(NSCRegDbContext ctx)
         {
             _ctx = ctx;
-            _postActionsMap = new Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, Task<string>>>()
-            {
-                [DataSourceUploadTypes.Activities] = PostProcessActivitiesUpload,
-                [DataSourceUploadTypes.StatUnits] = PostProcessStatUnitsUpload
-            };
 
         }
-
-        public async Task<string> FillIncompleteDataOfStatUnit(StatisticalUnit unit, DataSourceUploadTypes uploadType)
-        {
-            var errorText =  await _postActionsMap[uploadType](unit);
-            return errorText;
-        }
-
-        private async Task<string> PostProcessActivitiesUpload(StatisticalUnit unit)
-        {
-            if (!unit.Activities?.Any(activity => activity.Id == 0) == true)
-                return string.Empty;
-            foreach (var activityUnit in unit.ActivitiesUnits)
-            {
-                if (activityUnit.Activity.Id != 0)
-                    continue;
-                var filled = await TryGetFilledActivityAsync(activityUnit.Activity);
-                activityUnit.Activity = Mapper.Map(activityUnit.Activity, filled);
-            }
-
-            async Task<Activity> TryGetFilledActivityAsync(Activity activity)
-            {
-                if(activity.ActivityCategory == null) throw new Exception("Activity category by selected code not found");
-                var domainActivity = await _ctx.Activities
-                    .Include(a => a.ActivityCategory)
-                    .FirstOrDefaultAsync(a => a.ActivitiesUnits.Any(x => x.UnitId == unit.RegId)
-                                              && a.ActivityCategory.Code == activity.ActivityCategory.Code);
-                if (domainActivity != null) return domainActivity;
-                activity.ActivityCategory =
-                    await _ctx.ActivityCategories.FirstOrDefaultAsync(x => x.Code == activity.ActivityCategory.Code);
-                return activity;
-            }
-            return string.Empty;
-        }
-
-        private async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
+        public async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
         {
             List<string> errors = new List<string>();
             try
             {
-                /// TODO: May be removed since activities are already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/> 
+                //TODO: May be removed since activities are already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/> 
                 await unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
                     .ForEachAsync(async au =>
                     {
@@ -212,36 +168,15 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<Activity> GetFilledActivity(Activity parsedActivity)
         {
-            if (parsedActivity.ActivityCategory == null)
-                throw new Exception("Activity category by mapping code not found");
-            var activityCategory = _ctx.ActivityCategories.FirstOrDefault(ac =>
-                !ac.IsDeleted
-                && (parsedActivity.ActivityCategory.Code.HasValue()
-                    && parsedActivity.ActivityCategory.Code == ac.Code
-                    || parsedActivity.ActivityCategory.Name.HasValue()
-                    && parsedActivity.ActivityCategory.Name == ac.Name))
-                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
+            if (!parsedActivity.ActivityCategory.Code.HasValue() && !parsedActivity.ActivityCategory.Name.HasValue())
+                return parsedActivity;
+
+            var activityCategory = await _ctx.ActivityCategories.FirstOrDefaultAsync(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || parsedActivity.ActivityCategory.Name == ac.Name)
+                                   ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
             parsedActivity.ActivityCategory = activityCategory;
             parsedActivity.ActivityCategoryId = activityCategory.Id;
-            // TODO: rewrite search. The of activity is statId + ActivityCategory.Code + Year
-            // Also, this return of dbEntity instead of parsed make us to loose 3 fields from parsed (Year, Turnover, Employees)
-            // We need to map fields from parsed
-            return await _ctx.Activities
-                       .Include(a => a.ActivityCategory)
-                       .FirstOrDefaultAsync(a =>
-                           a.ActivityCategory != null
-                           && !a.ActivityCategory.IsDeleted
-                           && (parsedActivity.ActivityType == 0 || a.ActivityType == parsedActivity.ActivityType)
-                           && (parsedActivity.ActivityCategoryId == 0 ||
-                               a.ActivityCategoryId == parsedActivity.ActivityCategoryId)
-                           && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Code) ||
-                               a.ActivityCategory.Code == parsedActivity.ActivityCategory.Code)
-                           && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) ||
-                               a.ActivityCategory.Name == parsedActivity.ActivityCategory.Name)
-                           && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Section) ||
-                               a.ActivityCategory.Section == parsedActivity.ActivityCategory.Section))
-                   ?? parsedActivity;
+            return parsedActivity;
         }
 
         private async Task<Address> GetFilledAddress(Address parsedAddress)
