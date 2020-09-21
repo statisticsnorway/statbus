@@ -136,7 +136,7 @@ namespace nscreg.Business.Test.DataSources
 
             var raw = new Dictionary<string, object>()
             {
-                {"TestStatId", "920951287"},
+                {"StatId", "920951287"},
                 {"Name", "LAST FRIDAY INVEST AS"},
             };
 
