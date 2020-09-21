@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
 
@@ -19,50 +18,49 @@ namespace nscreg.Server.Common.Services.DataSources
 
         }
         public async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
-                    _ctx.ActivityCategories.Local.FirstOrDefault(x => x.Code == activity.ActivityCategory.Code);
         {
             List<string> errors = new List<string>();
             try
             {
-                ///// TODO: May be removed since activities are already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/> 
-                //await unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
-                //    .ForEachAsync(async au =>
-                //    {
-                //        try
-                //        {
-                //            au.Activity = await GetFilledActivity(au.Activity);
-                //        }
-                //        catch (Exception ex)
-                //        {
-                //            errors.Add(ex.Message);
-                //        }
-                //    });
+                //TODO: May be removed since activities are already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/> 
+                unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
+                    .ForEach(au =>
+                    {
+                        try
+                        {
+                            au.Activity = GetFilledActivity(au.Activity);
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add(ex.Message);
+                        }
+                    });
 
-                ///// TODO: May be removed (all 3 types of addresses) since address is already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/>. But before need to check, how property <see cref="Address.Region"/> is resolved after mapping
-                //if (unit.Address?.Id == 0)
-                //    unit.Address = await GetFilledAddress(unit.Address);
+                /// TODO: May be removed (all 3 types of addresses) since address is already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/>. But before need to check, how property <see cref="Address.Region"/> is resolved after mapping
+                if (unit.Address?.Id == 0)
+                    unit.Address = GetFilledAddress(unit.Address);
 
-                //if (unit.PostalAddress?.Id == 0)
-                //    unit.PostalAddress = await GetFilledAddress(unit.PostalAddress);
+                if (unit.PostalAddress?.Id == 0)
+                    unit.PostalAddress = GetFilledAddress(unit.PostalAddress);
 
-                //if (unit.ActualAddress?.Id == 0)
-                //    unit.ActualAddress = await GetFilledAddress(unit.ActualAddress);
+                if (unit.ActualAddress?.Id == 0)
+                    unit.ActualAddress = GetFilledAddress(unit.ActualAddress);
 
                 /// TODO: Maybe it should be placed in <see cref="nscreg.Business.DataSources.StatUnitKeyValueParser.ParseAndMutateStatUnit(IReadOnlyDictionary{string, object}, StatisticalUnit)"/>
-                //unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
-                //    {
-                //        try
-                //        {
-                //            var country = GetFilledCountry(fpcu.Country);
-                //            fpcu.Country = country;
-                //            fpcu.CountryId = country.Id;
-                //            fpcu.UnitId = unit.RegId;
-                //        }
-                //        catch (Exception ex)
-                //        {
-                //            errors.Add(ex.Message);
-                //        }
-                //    });
+                unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
+                    {
+                        try
+                        {
+                            var country = GetFilledCountry(fpcu.Country);
+                            fpcu.Country = country;
+                            fpcu.CountryId = country.Id;
+                            fpcu.UnitId = unit.RegId;
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add(ex.Message);
+                        }
+                    });
 
                 // Todo: languageName1 and languageName2 is not checked
                 if (unit.ForeignParticipation?.Id == 0)
@@ -81,12 +79,12 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.LegalFormId = unit.LegalForm?.Id;
 
                 // TODO: It can attach Person with the same name as other person, if other fields are not filled
-                await unit.PersonsUnits?.Where(personUnit => personUnit.PersonId == null)
-                    .ForEachAsync(async per =>
+                unit.PersonsUnits?.Where(personUnit => personUnit.PersonId == null)
+                    .ForEach(per =>
                     {
                         try
                         {
-                            per.Person = await GetFilledPerson(per.Person);
+                            per.Person = GetFilledPerson(per.Person);
                         }
                         catch (Exception ex)
                         {
@@ -167,12 +165,12 @@ namespace nscreg.Server.Common.Services.DataSources
             return string.Join(". ", errors);
         }
 
-        private async Task<Activity> GetFilledActivity(Activity parsedActivity)
+        private Activity GetFilledActivity(Activity parsedActivity)
         {
             if (!parsedActivity.ActivityCategory.Code.HasValue() && !parsedActivity.ActivityCategory.Name.HasValue())
                 return parsedActivity;
 
-            var activityCategory = await _ctx.ActivityCategories.FirstOrDefaultAsync(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name)
+            var activityCategory =  _ctx.ActivityCategories.Local.FirstOrDefault(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name)
                                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
             parsedActivity.ActivityCategory = activityCategory;
@@ -180,48 +178,27 @@ namespace nscreg.Server.Common.Services.DataSources
             return parsedActivity;
         }
 
-        private async Task<Address> GetFilledAddress(Address parsedAddress)
+        private Address GetFilledAddress(Address parsedAddress)
         {
-            var regionCode = parsedAddress.Region?.Code;
-            var regionName = parsedAddress.Region?.Name?.ToUpper();
+            var code = parsedAddress.Region?.Code;
+            var name = parsedAddress.Region?.Name;
 
             var region = _ctx.Regions.Local.FirstOrDefault(reg => !reg.IsDeleted
-                && (regionCode.HasValue()
-                    && regionCode == reg.Code
-                    || regionName.HasValue()
-                    && regionName == reg.Name.ToUpper()))
-                    ?? throw new Exception($"Address Region: `{regionCode}` code or `{regionName}` name not found");
+                && (code.HasValue()
+                    && code == reg.Code
+                    || name.HasValue()
+                    && name == reg.Name))
+                    ?? throw new Exception($"Address Region: `{code}` code or `{name}` name not found");
 
             parsedAddress.RegionId = region.Id;
 
-            return await _ctx.Address
-                       .Include(a => a.Region)
-                       .FirstOrDefaultAsync(a =>
-                           a.Region != null
-                           && !a.Region.IsDeleted
-                           && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart1) ||
-                               a.AddressPart1 == parsedAddress.AddressPart1)
-                           && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart2) ||
-                               a.AddressPart2 == parsedAddress.AddressPart2)
-                           && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart3) ||
-                               a.AddressPart3 == parsedAddress.AddressPart3)
-                           && (!parsedAddress.Latitude.HasValue ||
-                               a.Latitude == parsedAddress.Latitude)
-                           && (!parsedAddress.Longitude.HasValue ||
-                               a.Longitude == parsedAddress.Longitude)
-                           && (string.IsNullOrWhiteSpace(regionName) ||
-                               a.Region.Name == regionName)
-                           && (string.IsNullOrWhiteSpace(regionCode) ||
-                               a.Region.Code == regionCode)
-                           && (string.IsNullOrWhiteSpace(parsedAddress.Region.AdminstrativeCenter) ||
-                               a.Region.AdminstrativeCenter == parsedAddress.Region.AdminstrativeCenter))
-                   ?? parsedAddress;
+            return parsedAddress;
         }
 
         private Country GetFilledCountry(Country parsedCountry)
         {
-            return _ctx.Countries.Local.FirstOrDefault(c =>
-                       !c.IsDeleted
+            return  _ctx.Countries.Local.FirstOrDefault(c =>
+                        !c.IsDeleted
                        && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
                        && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
                        ?? throw new Exception($"Country by `{parsedCountry.Code}` code or `{parsedCountry.Name}` name not found");
@@ -229,7 +206,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private ForeignParticipation GetFilledForeignParticipation(ForeignParticipation foreignParticipation)
         {
-            return _ctx.ForeignParticipations.Local.FirstOrDefault(c =>
+            return  _ctx.ForeignParticipations.Local.FirstOrDefault(c =>
                        !c.IsDeleted
                        && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
                        && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name))
@@ -247,7 +224,7 @@ namespace nscreg.Server.Common.Services.DataSources
             }
             else if (!string.IsNullOrEmpty(parsedLegalForm.Name))
             {
-                lf = _ctx.LegalForms.Local.FirstOrDefault(dsc =>
+                lf =  _ctx.LegalForms.Local.FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == parsedLegalForm.Name || dsc.NameLanguage1 == parsedLegalForm.Name || dsc.NameLanguage2 == parsedLegalForm.Name));
             }
             else if (!string.IsNullOrEmpty(parsedLegalForm.Code))
@@ -264,7 +241,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return lf;
         }
 
-        private async Task<Person> GetFilledPerson(Person parsedPerson)
+        private Person GetFilledPerson(Person parsedPerson)
         {
             if (parsedPerson.NationalityCode?.Code != null && parsedPerson.NationalityCode?.Name != null)
             {
@@ -277,21 +254,12 @@ namespace nscreg.Server.Common.Services.DataSources
                               ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
                 parsedPerson.CountryId = country.Id;
             }
-            return await _ctx.Persons
-                           .Include(p => p.NationalityCode)
-                           .FirstOrDefaultAsync(p =>
-                               (string.IsNullOrWhiteSpace(parsedPerson.GivenName) ||
-                                p.GivenName == parsedPerson.GivenName)
-                               && (string.IsNullOrWhiteSpace(parsedPerson.Surname) || p.Surname == parsedPerson.Surname)
-                               && (string.IsNullOrWhiteSpace(parsedPerson.PersonalId) ||
-                                   p.PersonalId == parsedPerson.PersonalId)
-                               && (!parsedPerson.BirthDate.HasValue || p.BirthDate == parsedPerson.BirthDate)) ??
-                       parsedPerson;
+            return parsedPerson;
         }
 
         private SectorCode GetFilledSectorCode(SectorCode parsedSectorCode)
         {
-            return _ctx.SectorCodes.Local.FirstOrDefault(sc =>
+            return   _ctx.SectorCodes.Local.FirstOrDefault(sc =>
                        !sc.IsDeleted
                        && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
                        && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
@@ -301,22 +269,20 @@ namespace nscreg.Server.Common.Services.DataSources
         private DataSourceClassification GetFilledDataSourceClassification(DataSourceClassification parseDataSourceClassification)
         {
             DataSourceClassification ds = null;
-            var dataSourceClassificationName = parseDataSourceClassification?.Name?.ToUpper();
-            var dataSourceClassificationCode = parseDataSourceClassification?.Code?.ToUpper();
-            if (!string.IsNullOrEmpty(parseDataSourceClassification.Name) && !string.IsNullOrEmpty(dataSourceClassificationCode))
+            if (!string.IsNullOrEmpty(parseDataSourceClassification.Name) && !string.IsNullOrEmpty(parseDataSourceClassification.Code))
             {
                 ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
-                    !dsc.IsDeleted && (dsc.Name == dataSourceClassificationName.ToUpper() || dsc.NameLanguage1.ToUpper() == dataSourceClassificationName || dsc.NameLanguage2.ToUpper() == dataSourceClassificationName) &&
-                    dsc.Code.ToUpper() == dataSourceClassificationCode);
-            }else if (!string.IsNullOrEmpty(dataSourceClassificationName))
+                    !dsc.IsDeleted && (dsc.Name == parseDataSourceClassification.Name || dsc.NameLanguage1 == parseDataSourceClassification.Name || dsc.NameLanguage2 == parseDataSourceClassification.Name) &&
+                    dsc.Code == parseDataSourceClassification.Code);
+            }else if (!string.IsNullOrEmpty(parseDataSourceClassification.Name))
             {
                 ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
-                    !dsc.IsDeleted && (dsc.Name.ToUpper() == dataSourceClassificationName || dsc.NameLanguage1.ToUpper() == dataSourceClassificationName || dsc.NameLanguage2.ToUpper() == dataSourceClassificationName));
+                    !dsc.IsDeleted && (dsc.Name == parseDataSourceClassification.Name || dsc.NameLanguage1 == parseDataSourceClassification.Name || dsc.NameLanguage2 == parseDataSourceClassification.Name));
             }
-            else if (!string.IsNullOrEmpty(dataSourceClassificationCode))
+            else if (!string.IsNullOrEmpty(parseDataSourceClassification.Code))
             {
                 ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
-                    !dsc.IsDeleted && dsc.Code.ToUpper() == dataSourceClassificationCode);
+                    !dsc.IsDeleted && dsc.Code == parseDataSourceClassification.Code);
             }
 
             if(ds == null)
