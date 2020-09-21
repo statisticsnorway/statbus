@@ -267,6 +267,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             if (parsedPerson.NationalityCode?.Code != null && parsedPerson.NationalityCode?.Name != null)
             {
+                // TODO: dont do it, if person exists in DB
                 var country = _ctx.Countries.FirstOrDefault(c => !c.IsDeleted
                                                                  && (parsedPerson.NationalityCode.Code.HasValue()
                                                                      && c.Code == parsedPerson.NationalityCode.Code
