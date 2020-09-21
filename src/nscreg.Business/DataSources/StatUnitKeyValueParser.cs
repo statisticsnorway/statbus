@@ -11,10 +11,10 @@ namespace nscreg.Business.DataSources
 {
     public static class StatUnitKeyValueParser
     {
-        public static readonly string[] StatisticalUnitArrayPropertyNames = new[] { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
+        public static readonly string[] StatisticalUnitArrayPropertyNames = { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
 
         public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
-            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).target;
+            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).source;
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
@@ -93,19 +93,18 @@ namespace nscreg.Business.DataSources
                         if (valueArr != null)
                             foreach (var activityFromArray in valueArr)
                             {
-                                foreach (var activityValue in activityFromArray.Value)
+                                foreach (var (key, val) in activityFromArray.Value)
                                 {
-                                    if (!mappingsArr.TryGetValue(activityValue.Key, out string[] targetKeys)) continue;
+                                    if (!mappingsArr.TryGetValue(key, out var targetKeys)) continue;
                                     foreach (var targetKey in targetKeys)
                                     {
-                                        UpdateCollectionProperty(unitActivities, targetKey, activityValue.Value);
+                                        UpdateCollectionProperty(unitActivities, targetKey, val);
                                     }
                                 }
                                 actPropValue.AddRange(unitActivities);
-                                unitActivities = new List<ActivityStatisticalUnit>();
+                                unitActivities.Clear();
                             }
                         propValue = actPropValue;
-
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
@@ -201,7 +200,8 @@ namespace nscreg.Business.DataSources
         }
         private static void UpdateCollectionProperty(ICollection<ActivityStatisticalUnit> activities, string targetKey, string value)
         {
-            var newJoin = activities.LastOrDefault(x => x.ActivityId == 0 && x.Activity != null) ?? Activator.CreateInstance<ActivityStatisticalUnit>();
+            var newJoin = activities.LastOrDefault(x => x.ActivityId == 0 && x.Activity != null) ??
+                          new ActivityStatisticalUnit();
 
             newJoin.Activity = PropertyParser.ParseActivity(targetKey, value, newJoin.Activity);
 

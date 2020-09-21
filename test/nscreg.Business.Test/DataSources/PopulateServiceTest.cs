@@ -143,8 +143,6 @@ namespace nscreg.Business.Test.DataSources
             var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
             var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
 
-            popUnit.StatId.Should().NotBeNullOrWhiteSpace();
-
             errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
                 $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
 
@@ -281,7 +279,6 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
-                            Id = 1,
                             ActivityYear = 2019,
                             Employees = 100,
                             ActivityCategory =  new ActivityCategory()
@@ -296,7 +293,6 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
-                            Id = 2,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Id = 2,

@@ -8,7 +8,7 @@ namespace nscreg.Business.Test.Base
     public abstract class BaseTest: IDisposable
     {
         protected readonly ITestOutputHelper _helper;
-        public BaseTest(ITestOutputHelper helper)
+        protected BaseTest(ITestOutputHelper helper)
         {
             _helper = helper;
             DatabaseContext = InMemoryDb.CreateDbContext();

@@ -171,7 +171,7 @@ namespace nscreg.Server.Common.Services.DataSources
             if (!parsedActivity.ActivityCategory.Code.HasValue() && !parsedActivity.ActivityCategory.Name.HasValue())
                 return parsedActivity;
 
-            var activityCategory = await _ctx.ActivityCategories.FirstOrDefaultAsync(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || parsedActivity.ActivityCategory.Name == ac.Name)
+            var activityCategory = await _ctx.ActivityCategories.FirstOrDefaultAsync(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name)
                                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
             parsedActivity.ActivityCategory = activityCategory;
