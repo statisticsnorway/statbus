@@ -118,6 +118,8 @@ namespace nscreg.Server.DataUploadSvc
 
             var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context);
 
+            await populateService.InitializeCacheForLookups();
+
             Stopwatch swPopulation = new Stopwatch();
             long populationCount = 0;
 
@@ -212,16 +214,16 @@ namespace nscreg.Server.DataUploadSvc
                     IEnumerable<string> analysisSummary = null)
                 {
                     swDbLog.Start();
-                    var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target,x =>
-                            {
-                                var tmp = x.source.Split('.');
-                                if (parsed[i].ContainsKey(tmp[0]))
-                                    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
-                                return tmp[0];
-                            }));
-                   await _logBuffer.LogUnitUpload(
-                        dequeued.Id, rawUnit, startedAt, populated,
-                        status, note ?? "", analysisErrors, analysisSummary);
+                    var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
+                             {
+                                 var tmp = x.source.Split('.');
+                                 if (parsed[i].ContainsKey(tmp[0]))
+                                     return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                                 return tmp[0];
+                             }));
+                    await _logBuffer.LogUnitUpload(
+                         dequeued.Id, rawUnit, startedAt, populated,
+                         status, note ?? "", analysisErrors, analysisSummary);
 
                     swDbLog.Stop();
                 }
