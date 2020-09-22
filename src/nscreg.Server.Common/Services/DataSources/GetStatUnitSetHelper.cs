@@ -17,13 +17,11 @@ namespace nscreg.Server.Common.Services.DataSources
                 case StatUnitTypes.LocalUnit:
                     return context.LocalUnits
                         .IncludeGeneralProps()
-                        .ThenInclude(x => x.ActivityCategory)
                         .AsNoTracking();
 
                 case StatUnitTypes.LegalUnit:
                     return context.LegalUnits
                         .IncludeGeneralProps()
-                        .ThenInclude(x => x.ActivityCategory)
                         .AsNoTracking();
 
                 case StatUnitTypes.EnterpriseUnit:
