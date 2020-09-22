@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -15,47 +16,41 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 case StatUnitTypes.LocalUnit:
                     return context.LocalUnits
-                        .Include(x => x.Address)
-                        .ThenInclude(x => x.Region)
-                        .Include(x => x.PersonsUnits)
-                        .ThenInclude(x => x.Person)
-                        .Include(x => x.ActivitiesUnits)
-                        .ThenInclude(x => x.Activity)
+                        .IncludeGeneralProps()
                         .ThenInclude(x => x.ActivityCategory)
-                        .Include(x => x.ForeignParticipationCountriesUnits)
-                        .ThenInclude(x => x.Country)
                         .AsNoTracking();
 
                 case StatUnitTypes.LegalUnit:
                     return context.LegalUnits
-                        .Include(x => x.Address)
-                        .ThenInclude(x => x.Region)
-                        .Include(x => x.PersonsUnits)
-                        .ThenInclude(x => x.Person)
-                        .Include(x => x.ActivitiesUnits)
-                        .ThenInclude(x => x.Activity)
+                        .IncludeGeneralProps()
                         .ThenInclude(x => x.ActivityCategory)
-                        .Include(x => x.ForeignParticipationCountriesUnits)
-                        .ThenInclude(x => x.Country)
                         .AsNoTracking();
 
                 case StatUnitTypes.EnterpriseUnit:
                     return context.EnterpriseUnits
-                        .Include(x => x.Address)
-                        .ThenInclude(x => x.Region)
-                        .Include(x => x.PersonsUnits)
-                        .ThenInclude(x => x.Person)
-                        .Include(x => x.ActivitiesUnits)
-                        .ThenInclude(x => x.Activity)
-                        .ThenInclude(x => x.ActivityCategory)
-                        .Include(x => x.ForeignParticipationCountriesUnits)
-                        .ThenInclude(x => x.Country)
+                        .IncludeGeneralProps()
                         .AsNoTracking();
                 default:
                     throw new InvalidOperationException("Unit type is not supported");
 
             }
         }
+
+        private static IQueryable<T> IncludeGeneralProps<T>(this IQueryable<T> query) where T : StatisticalUnit =>
+            query
+                .Include(x => x.Address)
+                    .ThenInclude(x => x.Region)
+                .Include(x => x.ActualAddress)
+                    .ThenInclude(x => x.Region)
+                .Include(x => x.PostalAddress)
+                    .ThenInclude(x => x.Region)
+                .Include(x => x.PersonsUnits)
+                    .ThenInclude(x => x.Person)
+                .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                        .ThenInclude(x=>x.ActivityCategory)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country);
 
         public static StatisticalUnit CreateByType(StatUnitTypes types)
         {

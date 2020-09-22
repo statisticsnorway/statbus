@@ -65,8 +65,8 @@ namespace nscreg.Server.DataUploadSvc
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, StatUnitTypeOfSave.Service);
-            var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
+            var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
             _saveManager = new SaveManager(_context, _queueSvc, createSvc, editSvc);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
@@ -161,7 +161,7 @@ namespace nscreg.Server.DataUploadSvc
                 /// Analyze Unit
 
                 _logger.LogInformation(
-                    "analyzing populated unit #{0}",
+                    "analyzing populated unit #{0} RegId={1}", i + 1,
                     populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
                 swAnalyze.Start();

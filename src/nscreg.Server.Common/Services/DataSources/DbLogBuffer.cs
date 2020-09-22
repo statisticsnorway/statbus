@@ -15,7 +15,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private readonly NSCRegDbContext _context;
         public  readonly int MaxCount;
-        public DbLogBuffer(NSCRegDbContext context, int maxCount = 50)
+        public DbLogBuffer(NSCRegDbContext context, int maxCount = 100)
         {
             Buffer = new List<DataUploadingLog>();
             _context = context;
@@ -50,7 +50,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
             Buffer.Add(logEntry);
 
-            if (Buffer.Count > MaxCount)
+            if (Buffer.Count >= MaxCount)
             {
                 await Flush();
             }

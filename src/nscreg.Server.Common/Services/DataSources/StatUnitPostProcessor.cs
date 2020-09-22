@@ -22,7 +22,7 @@ namespace nscreg.Server.Common.Services.DataSources
             List<string> errors = new List<string>();
             try
             {
-                //TODO: May be removed since activities are already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/> 
+                
                 unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
                     .ForEach(au =>
                     {
@@ -36,7 +36,6 @@ namespace nscreg.Server.Common.Services.DataSources
                         }
                     });
 
-                /// TODO: May be removed (all 3 types of addresses) since address is already included by <see cref="PopulateService.GetStatUnitBase(IReadOnlyDictionary{string, object})"/>. But before need to check, how property <see cref="Address.Region"/> is resolved after mapping
                 if (unit.Address?.Id == 0)
                     unit.Address = GetFilledAddress(unit.Address);
 
@@ -180,14 +179,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private Address GetFilledAddress(Address parsedAddress)
         {
-            var code = parsedAddress.Region?.Code;
-            var name = parsedAddress.Region?.Name;
+            var code = parsedAddress.Region?.Code?.ToUpper();
+            var name = parsedAddress.Region?.Name?.ToUpper();
 
             var region = _ctx.Regions.Local.FirstOrDefault(reg => !reg.IsDeleted
                 && (code.HasValue()
-                    && code == reg.Code
+                    && code == reg.Code.ToUpper()
                     || name.HasValue()
-                    && name == reg.Name))
+                    && name == reg.Name.ToUpper()))
                     ?? throw new Exception($"Address Region: `{code}` code or `{name}` name not found");
 
             parsedAddress.RegionId = region.Id;
@@ -269,20 +268,22 @@ namespace nscreg.Server.Common.Services.DataSources
         private DataSourceClassification GetFilledDataSourceClassification(DataSourceClassification parseDataSourceClassification)
         {
             DataSourceClassification ds = null;
-            if (!string.IsNullOrEmpty(parseDataSourceClassification.Name) && !string.IsNullOrEmpty(parseDataSourceClassification.Code))
+            var name = parseDataSourceClassification.Name?.ToUpper();
+            var code = parseDataSourceClassification.Code?.ToUpper();
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(code))
             {
                 ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
-                    !dsc.IsDeleted && (dsc.Name == parseDataSourceClassification.Name || dsc.NameLanguage1 == parseDataSourceClassification.Name || dsc.NameLanguage2 == parseDataSourceClassification.Name) &&
-                    dsc.Code == parseDataSourceClassification.Code);
-            }else if (!string.IsNullOrEmpty(parseDataSourceClassification.Name))
+                    !dsc.IsDeleted && (dsc.Name.ToUpper() == name || dsc.NameLanguage1.ToUpper() == name || dsc.NameLanguage2.ToUpper() == name) &&
+                    dsc.Code == code);
+            }else if (!string.IsNullOrEmpty(name))
             {
                 ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
-                    !dsc.IsDeleted && (dsc.Name == parseDataSourceClassification.Name || dsc.NameLanguage1 == parseDataSourceClassification.Name || dsc.NameLanguage2 == parseDataSourceClassification.Name));
+                    !dsc.IsDeleted && (dsc.Name.ToUpper() == name || dsc.NameLanguage1.ToUpper() == name || dsc.NameLanguage2.ToUpper() == name));
             }
-            else if (!string.IsNullOrEmpty(parseDataSourceClassification.Code))
+            else if (!string.IsNullOrEmpty(code))
             {
                 ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
-                    !dsc.IsDeleted && dsc.Code == parseDataSourceClassification.Code);
+                    !dsc.IsDeleted && dsc.Code.ToUpper() == code);
             }
 
             if(ds == null)
