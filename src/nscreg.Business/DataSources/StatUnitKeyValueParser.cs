@@ -4,6 +4,9 @@ using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection.Emit;
+using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using nscreg.Data.Constants;
 using static nscreg.Utilities.JsonPathHelper;
 
@@ -90,10 +93,7 @@ namespace nscreg.Business.DataSources
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
-                            foreach (var activityFromArray in valueArr)
-                            {
-                                UpdateCollectionProperty(unitActivities, activityFromArray.Value, mappingsArr);
-                            }
+                            UpdateActivities(unitActivities, valueArr, mappingsArr);
                         propValue = unitActivities;
                         break;
                     case nameof(StatisticalUnit.Persons):
@@ -189,42 +189,93 @@ namespace nscreg.Business.DataSources
                 propInfo?.SetValue(unit, propValue);
             }
         }
-        private static void UpdateCollectionProperty(ICollection<ActivityStatisticalUnit> activities, Dictionary<string, string> targetKeys, Dictionary<string, string[]> mappingsArr)
+        private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr)
         {
-            // Todo Change Update
-            var categoryCode = targetKeys.GetValueOrDefault(string.Join('.', nameof(ActivityCategory), nameof(ActivityCategory.Code)));
-            var activityYear = targetKeys.GetValueOrDefault(nameof(Activity.ActivityYear));
+            var propPathActivityCategoryCode = string.Join(".", nameof(ActivityCategory), nameof(ActivityCategory.Code));
+            var dbActivitiesGroups = dbActivities.GroupBy(x => x.Activity.ActivityYear).ToList();
+            var importActivitiesGroups =
+                importActivities.GroupBy(x => int.TryParse(x.Value.GetValueOrDefault(nameof(Activity.ActivityYear)), out int val) ? (int?)val : null).ToList();
 
-            ActivityStatisticalUnit newJoin = null;
+            foreach (var importActivitiesGroup in importActivitiesGroups)
+            {
+                var dbGroup = dbActivitiesGroups.FirstOrDefault(x => x.Key == importActivitiesGroup.Key);
+                if (dbGroup == null)
+                {
+                   var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
+                   {
+                       Activity = ParseActivity(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary)
+                   });
+                   dbActivities.AddRange(parsedActivities);
+                   continue;
+                }
 
-            if (categoryCode.HasValue() && activityYear.HasValue() && int.TryParse(activityYear, out var year))
-            {
-                newJoin = activities.FirstOrDefault(x =>
-                    x.Activity?.ActivityCategory?.Code == categoryCode && x.Activity?.ActivityYear == year);
+                importActivitiesGroup.GroupJoin(dbGroup,
+                    import => import.Value.GetValueOrDefault(propPathActivityCategoryCode),
+                    db => db.Activity.ActivityCategory.Code, (importRow, dbRows) => (importRow, dbRows))
+                    .ForEach(x =>
+                    {
+                        var dbRow = x.dbRows.FirstOrDefault();
+                        if (dbRow != null)
+                        {
+                            dbRow.Activity = ParseActivity(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary);
+                        }
+                        else
+                        {
+                            dbRow = new ActivityStatisticalUnit
+                            {
+                                Activity = ParseActivity(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary)
+                            };
+                            dbActivities.Add(dbRow);
+                        }
+                    });
             }
-            if (newJoin != null)
-            {
-                ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
-            }
-            else
-            {
-                newJoin = new ActivityStatisticalUnit();
-                ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
-                activities.Add(newJoin);
-            }
+
+
+            //// Todo Change Update
+            //var categoryCode = targetKeys.GetValueOrDefault(string.Join('.', nameof(ActivityCategory), nameof(ActivityCategory.Code)));
+            //var activityYear = targetKeys.GetValueOrDefault(nameof(Activity.ActivityYear));
+
+            //ActivityStatisticalUnit newJoin = null;
+
+            //if (categoryCode.HasValue() && activityYear.HasValue() && int.TryParse(activityYear, out var year))
+            //{
+            //    newJoin = activities.FirstOrDefault(x =>
+            //        x.Activity?.ActivityCategory?.Code == categoryCode && x.Activity?.ActivityYear == year);
+            //}
+            //if (newJoin != null)
+            //{
+            //    ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
+            //}
+            //else
+            //{
+            //    newJoin = new ActivityStatisticalUnit();
+            //    ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
+            //    activities.Add(newJoin);
+            //}
         }
 
-        private static void ParseActivity(Activity activity, Dictionary<string, string> targetKeys,
-            Dictionary<string, string[]> mappingsArr)
+        private static Activity ParseActivity(Activity activity, Dictionary<string, string> targetKeys,
+            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType)
         {
+            var activityTypeWasSet = activity != null;
+            activity = activity ?? new Activity();
             foreach (var (key, val) in targetKeys)
             {
                 if (!mappingsArr.TryGetValue(key, out var targetValues)) continue;
                 foreach (var targetKey in targetValues)
                 {
+                    if (targetKey == nameof(Activity.ActivityType))
+                    {
+                        activityTypeWasSet = true;
+                    }
                     activity = PropertyParser.ParseActivity(targetKey, val, activity);
                 }
             }
+            if (!activityTypeWasSet)
+            {
+                activity.ActivityType = defaultType;
+            }
+            return activity;
         }
 
         private static void UpdateCollectionProperty(ICollection<PersonStatisticalUnit> persons, string targetKey, string value)

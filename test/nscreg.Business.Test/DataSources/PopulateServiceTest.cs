@@ -379,6 +379,7 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2020,
                             Employees = 1000,
                             ActivityCategory = new ActivityCategory()
@@ -391,7 +392,8 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
-                            ActivityYear = 2019,
+                            ActivityType = ActivityTypes.Secondary,
+                            ActivityYear = 2020,
                             Employees = 1,
                             ActivityCategory = new ActivityCategory()
                             {
@@ -425,6 +427,7 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2020,
                             Employees = 10,
                             ActivityCategory = new ActivityCategory()
@@ -438,7 +441,8 @@ namespace nscreg.Business.Test.DataSources
                         
                         Activity = new Activity()
                         {
-                            ActivityYear = 2019,
+                            ActivityType = ActivityTypes.Secondary,
+                            ActivityYear = 2020,
                             Employees = 1000,
                             ActivityCategory = new ActivityCategory()
                             {
