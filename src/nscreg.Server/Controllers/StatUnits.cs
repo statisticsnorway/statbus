@@ -41,7 +41,7 @@ namespace nscreg.Server.Controllers
         {
             _searchService = new SearchService(context);
             _viewService = new ViewService(context, mandatoryFields);
-            _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields, validationSettings, StatUnitTypeOfSave.WebApplication);
+            _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields, validationSettings, shouldAnalyze: true);
             _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields, validationSettings);
             _deleteService = new DeleteService(context);
             _historyService = new HistoryService(context);
