@@ -28,7 +28,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context)
         {
             _personRoleSource = propMapping.FirstOrDefault(c => c.target == "Persons.Person.Role").target;
-            _statIdSourceKey = StatUnitKeyValueParser.GetStatIdSourceKey(propMapping) ?? throw new ArgumentNullException(nameof(propMapping), "StatId doesn't have source field(header)");
+            _statIdSourceKey = StatUnitKeyValueParser.GetStatIdMapping(propMapping) ?? throw new ArgumentNullException(nameof(propMapping), "StatId doesn't have source field(header)");
             _context = context;
             _unitType = unitType;
             _allowedOperation = operation;

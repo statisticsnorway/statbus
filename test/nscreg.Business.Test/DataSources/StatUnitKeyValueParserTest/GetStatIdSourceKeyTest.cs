@@ -1,4 +1,4 @@
-﻿using nscreg.Business.DataSources;
+using nscreg.Business.DataSources;
 using nscreg.Data.Entities;
 using Xunit;
 
@@ -13,9 +13,9 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
                 target = nameof(IStatisticalUnit.StatId);
             var mapping = new[] {(source, target)};
 
-            var actual = StatUnitKeyValueParser.GetStatIdSourceKey(mapping);
+            var actual = StatUnitKeyValueParser.GetStatIdMapping(mapping);
 
-            Assert.Equal(source, actual);
+            Assert.Equal(target, actual);
         }
 
         [Fact]
@@ -31,9 +31,9 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
                 (source2, target2),
             };
 
-            var actual = StatUnitKeyValueParser.GetStatIdSourceKey(mapping);
+            var actual = StatUnitKeyValueParser.GetStatIdMapping(mapping);
 
-            Assert.Equal(source1, actual);
+            Assert.Equal(target1, actual);
         }
     }
 }

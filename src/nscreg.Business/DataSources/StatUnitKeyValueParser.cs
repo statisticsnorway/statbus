@@ -13,7 +13,7 @@ namespace nscreg.Business.DataSources
     {
         public static readonly string[] StatisticalUnitArrayPropertyNames = { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
 
-        public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
+        public static string GetStatIdMapping(IEnumerable<(string source, string target)> mapping)
             => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).target;
 
         public static void ParseAndMutateStatUnit(
