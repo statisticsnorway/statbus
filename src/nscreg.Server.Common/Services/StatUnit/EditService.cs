@@ -17,6 +17,7 @@ using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -40,9 +41,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
+        private readonly bool _shouldAnalyze;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
+            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings, bool shouldAnalyze = true)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -56,6 +58,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
+            _shouldAnalyze = shouldAnalyze;
         }
 
         /// <summary>
@@ -249,11 +252,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             newActivity.ActivityCategoryId = model.ActivityCategoryId;
                             activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                         }
-                        var activitiesUnits = unit.ActivitiesUnits;
-                        activitiesUnits.Clear();
+                        unit.ActivitiesUnits.Clear();
                         unit.ActivitiesUnits.AddRange(activities);
                     }
-
 
                     var srcCountries = unit.ForeignParticipationCountriesUnits.ToDictionary(v => v.CountryId);
                     var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
@@ -342,8 +343,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
 
-                    var statisticalUnits = unit.PersonsUnits;
-                    statisticalUnits.Clear();
+                    unit.PersonsUnits.Clear();
                     unit.PersonsUnits.AddRange(persons);
 
                     if (data.LiqDate != null || !string.IsNullOrEmpty(data.LiqReason) || (_liquidateStatusId != null && data.UnitStatusId == _liquidateStatusId))
@@ -428,38 +428,39 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            IStatUnitAnalyzeService analysisService =
+            if (_shouldAnalyze)
+            {
+                IStatUnitAnalyzeService analysisService =
                 new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-            var analyzeResult = analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck:true);
-            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
-
-            var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
-            _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit));
+                var analyzeResult = analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
+                if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+            }
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
-                    var changeDateTime = DateTime.Now;
-                    _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit, changeDateTime));
-                   await _dbContext.SaveChangesAsync();
+                    var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
+                    var changedDateTime = DateTime.Now;
+                    _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit, changedDateTime));
 
                     _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment,
-                        changeDateTime, unitsHistoryHolder);
-                    await _dbContext.SaveChangesAsync();
+                        changedDateTime, unitsHistoryHolder);
+
 
                     if (deleteEnterprise)
                     {
                         _dbContext.EnterpriseUnits.Remove(_dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId));
-                        await _dbContext.SaveChangesAsync();
                     }
+
+                    await _dbContext.SaveChangesAsync();
 
                     transaction.Commit();
                     await _elasticService.CheckElasticSearchConnection();
                     if (_addArrayStatisticalUnits.Any())
                         foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
                         {
-                            await _elasticService.AddDocument(addArrayStatisticalUnit);   
+                            await _elasticService.AddDocument(addArrayStatisticalUnit);
                         }
                     if (_editArrayStatisticalUnits.Any())
                         foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
@@ -468,15 +469,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
 
                     await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
-
+                }
+                catch (NotFoundException e)
+                {
+                    throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
                 }
                 catch (Exception e)
                 {
-                    if (e.Message == nameof(Resource.ElasticSearchIsDisable))
-                    {
-                        throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
-                    }
-                    //TODO: Processing Validation Errors
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
             }

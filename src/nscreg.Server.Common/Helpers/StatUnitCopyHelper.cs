@@ -12,11 +12,12 @@ namespace nscreg.Server.Common.Helpers
     {
         private async Task<T> CreateStatUnitAsync<T>(T entity) where T : class
         {
-            var result = _dbContext.Set<T>().Add(entity).Entity;
+            var result = _dbContext.Set<T>().Add(entity);
+            
             try
             {
                 await _dbContext.SaveChangesAsync();
-                return result;
+                return result.Entity;
             }
             catch (Exception e)
             {

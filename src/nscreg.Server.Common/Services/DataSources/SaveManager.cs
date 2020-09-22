@@ -73,10 +73,16 @@ namespace nscreg.Server.Common.Services.DataSources
             }
             catch (Exception ex)
             {
-                return (ex.Message, false);
+                return (GetFullExceptionMessage(ex), false);
             }
             return (null, true);
         }
+
+        private string GetFullExceptionMessage(Exception ex)
+        {
+            return ex.Message + (ex.InnerException != null ? Environment.NewLine + GetFullExceptionMessage(ex.InnerException) : "");
+        }
+
 
         public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId)
         {
