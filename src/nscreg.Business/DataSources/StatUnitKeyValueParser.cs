@@ -14,7 +14,7 @@ namespace nscreg.Business.DataSources
         public static readonly string[] StatisticalUnitArrayPropertyNames = { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
 
         public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
-            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).source;
+            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).target;
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
@@ -89,22 +89,12 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.Activities):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
-                        var actPropValue = new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
                             foreach (var activityFromArray in valueArr)
                             {
-                                foreach (var (key, val) in activityFromArray.Value)
-                                {
-                                    if (!mappingsArr.TryGetValue(key, out var targetKeys)) continue;
-                                    foreach (var targetKey in targetKeys)
-                                    {
-                                        UpdateCollectionProperty(unitActivities, targetKey, val);
-                                    }
-                                }
-                                actPropValue.AddRange(unitActivities);
-                                unitActivities.Clear();
+                                UpdateCollectionProperty(unitActivities, activityFromArray.Value, mappingsArr);
                             }
-                        propValue = actPropValue;
+                        propValue = unitActivities;
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
@@ -115,6 +105,7 @@ namespace nscreg.Business.DataSources
                             {
                                 foreach (var personValue in personFromArray.Value)
                                 {
+                                    //TODO NEED UPDATE
                                     if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
                                     foreach (var targetKey in targetKeys)
                                     {
@@ -123,7 +114,7 @@ namespace nscreg.Business.DataSources
                                     }
                                 }
                                 tmpPropValue.AddRange(persons);
-                                persons = new List<PersonStatisticalUnit>();
+                                persons.Clear();
                             }
                         propValue = persons;
                         break;
@@ -198,28 +189,44 @@ namespace nscreg.Business.DataSources
                 propInfo?.SetValue(unit, propValue);
             }
         }
-        private static void UpdateCollectionProperty(ICollection<ActivityStatisticalUnit> activities, string targetKey, string value)
+        private static void UpdateCollectionProperty(ICollection<ActivityStatisticalUnit> activities, Dictionary<string, string> targetKeys, Dictionary<string, string[]> mappingsArr)
         {
-            var newJoin = activities.LastOrDefault(x => x.ActivityId == 0 && x.Activity != null) ??
-                          new ActivityStatisticalUnit();
+            // Todo Change Update
+            var categoryCode = targetKeys.GetValueOrDefault(string.Join('.', nameof(ActivityCategory), nameof(ActivityCategory.Code)));
+            var activityYear = targetKeys.GetValueOrDefault(nameof(Activity.ActivityYear));
 
-            newJoin.Activity = PropertyParser.ParseActivity(targetKey, value, newJoin.Activity);
+            ActivityStatisticalUnit newJoin = null;
 
-            if (newJoin.Activity.ActivityType == ActivityTypes.Primary)
+            if (categoryCode.HasValue() && activityYear.HasValue() && int.TryParse(activityYear, out var year))
             {
-                var existsActivity = activities.FirstOrDefault(x => x.Activity.ActivityType == ActivityTypes.Primary);
-
-                if(existsActivity?.Activity?.ActivityYear < newJoin.Activity?.ActivityYear)
-                {
-                    existsActivity.Activity = newJoin.Activity;
-                }
+                newJoin = activities.FirstOrDefault(x =>
+                    x.Activity?.ActivityCategory?.Code == categoryCode && x.Activity?.ActivityYear == year);
+            }
+            if (newJoin != null)
+            {
+                ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
             }
             else
             {
+                newJoin = new ActivityStatisticalUnit();
+                ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
                 activities.Add(newJoin);
             }
-            
         }
+
+        private static void ParseActivity(Activity activity, Dictionary<string, string> targetKeys,
+            Dictionary<string, string[]> mappingsArr)
+        {
+            foreach (var (key, val) in targetKeys)
+            {
+                if (!mappingsArr.TryGetValue(key, out var targetValues)) continue;
+                foreach (var targetKey in targetValues)
+                {
+                    activity = PropertyParser.ParseActivity(targetKey, val, activity);
+                }
+            }
+        }
+
         private static void UpdateCollectionProperty(ICollection<PersonStatisticalUnit> persons, string targetKey, string value)
         {
             var newJoin = persons.LastOrDefault(x => x.PersonId.Value == 0 && x.Person != null) ?? new PersonStatisticalUnit();

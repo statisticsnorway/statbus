@@ -49,7 +49,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Activity.ActivityYear):
                     if (value == null)
                     {
-                        result.ActivityYear = null;
+                        result.ActivityYear = DateTime.Now.Year-1;
                         break;
                     }
                     if (int.TryParse(value, out var activityYear))

@@ -3,15 +3,14 @@ using nscreg.Business.Test.Base;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
-using nscreg.Server.Common;
 using nscreg.Server.Common.Services.DataSources;
-using nscreg.TestUtils;
-using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
+using Activity = nscreg.Data.Entities.Activity;
 
 namespace nscreg.Business.Test.DataSources
 {
@@ -244,7 +243,7 @@ namespace nscreg.Business.Test.DataSources
         }
 
         [Fact]
-        public async Task PopulateAsync_ObjectWithActivitiesOnAlter_ReturnsPopulatedObjectWithMappedExistsActivities()
+        public async Task PopulateAsync_ObjectWithActivitiesOnCreate_ReturnsPopulatedObjectWithMappedExistsActivities()
         {
             var mappings =
                 "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode-Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
@@ -300,30 +299,30 @@ namespace nscreg.Business.Test.DataSources
                             },
                             ActivityCategoryId = 2
                         }
-                    }
+                    },
                 }
             };
-
             DatabaseContext.Activities.AddRange(
-            new Activity
-            {
-                ActivityYear = 2028,
-                Employees = 400,
-                ActivityCategory = new ActivityCategory
+                new Activity()
                 {
-                    Code = "62.020"
-                }
-            },
-            new Activity
-            {
-                ActivityYear = 2020,
-                Employees = 500,
-                ActivityCategory = new ActivityCategory()
+                    ActivityYear = 2020,
+                    Employees = 1800,
+                    ActivityCategory = new ActivityCategory()
+                    {
+                        Code = "62.020"
+                    },
+                },
+                new Activity()
                 {
-                    Code = "68.209"
-                }
-            });
+                    ActivityYear = 2019,
+                    Employees = 800,
+                    ActivityCategory = new ActivityCategory()
+                    {
+                        Code = "68.209"
+                    },
+                });
             await DatabaseContext.SaveChangesAsync();
+
             var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
             var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
 
@@ -345,21 +344,27 @@ namespace nscreg.Business.Test.DataSources
                     {
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
-                            {"ActivityYear", "2019"},
-                            {"ActivityCategory.Code", "62.020"},
-                            {"Employees", "100"},
+                            {"ActivityYear", "2020"},
+                            {"ActivityCategory.Code", "67.111"},
+                            {"Employees", "10"},
 
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
                             {"ActivityYear", "2019"},
                             {"ActivityCategory.Code", "62.020"},
-                            {"Employees", "100"},
+                            {"Employees", "1000"},
 
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
+                            //Year default Now - 1
+                            //Type default Primary
                             {"ActivityCategory.Code", "68.209"},
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
+                        {
+                            {"ActivityCategory.Code", "61.124"},
                         })
                     }
                 }
@@ -374,8 +379,20 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityYear = 2020,
+                            Employees = 1000,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "67.111"
+                            },
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
                             ActivityYear = 2019,
-                            Employees = 100,
+                            Employees = 1,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "62.020"
@@ -386,6 +403,8 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityYear = 2019,
+                            Employees = 1000,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "68.209"
@@ -394,6 +413,7 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
+
             var resultUnit = new LegalUnit()
             {
                 RegId = 1,
@@ -405,12 +425,25 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityYear = 2020,
+                            Employees = 10,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "67.111"
+                            }
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        
+                        Activity = new Activity()
+                        {
                             ActivityYear = 2019,
-                            Employees = 100,
+                            Employees = 1000,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "62.020"
-                            },
+                            }
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -420,15 +453,25 @@ namespace nscreg.Business.Test.DataSources
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "68.209"
-                            },
+                            }
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "61.124"
+                            }
                         }
                     }
                 }
             };
-
             DatabaseContext.StatisticalUnits.Add(dbUnit);
+            DatabaseContext.ActivityCategories.Add(new ActivityCategory { Code = "61.124" });
             await DatabaseContext.SaveChangesAsync();
-            var act = DatabaseContext.ActivityStatisticalUnits.ToList();
+
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
                 DataSourceAllowedOperation.CreateAndAlter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit,
                 DatabaseContext);

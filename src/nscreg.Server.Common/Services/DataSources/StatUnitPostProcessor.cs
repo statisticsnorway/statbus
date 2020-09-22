@@ -9,7 +9,7 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
-    internal class StatUnitPostProcessor
+    public class StatUnitPostProcessor
     {
         private readonly NSCRegDbContext _ctx;
         public StatUnitPostProcessor(NSCRegDbContext ctx)
@@ -170,7 +170,7 @@ namespace nscreg.Server.Common.Services.DataSources
             if (!parsedActivity.ActivityCategory.Code.HasValue() && !parsedActivity.ActivityCategory.Name.HasValue())
                 return parsedActivity;
 
-            var activityCategory =  _ctx.ActivityCategories.Local.FirstOrDefault(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name)
+            var activityCategory =  _ctx.ActivityCategories.Local.FirstOrDefault(ac => !ac.IsDeleted && parsedActivity.ActivityCategory.Code == ac.Code || !string.IsNullOrEmpty(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name)
                                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
             parsedActivity.ActivityCategory = activityCategory;

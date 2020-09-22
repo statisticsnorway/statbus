@@ -21,6 +21,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         .ThenInclude(x => x.Person)
                         .Include(x => x.ActivitiesUnits)
                         .ThenInclude(x => x.Activity)
+                        .ThenInclude(x => x.ActivityCategory)
                         .Include(x => x.ForeignParticipationCountriesUnits)
                         .ThenInclude(x => x.Country)
                         .AsNoTracking();
@@ -33,6 +34,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         .ThenInclude(x => x.Person)
                         .Include(x => x.ActivitiesUnits)
                         .ThenInclude(x => x.Activity)
+                        .ThenInclude(x => x.ActivityCategory)
                         .Include(x => x.ForeignParticipationCountriesUnits)
                         .ThenInclude(x => x.Country)
                         .AsNoTracking();
@@ -45,6 +47,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         .ThenInclude(x => x.Person)
                         .Include(x => x.ActivitiesUnits)
                         .ThenInclude(x => x.Activity)
+                        .ThenInclude(x => x.ActivityCategory)
                         .Include(x => x.ForeignParticipationCountriesUnits)
                         .ThenInclude(x => x.Country)
                         .AsNoTracking();
