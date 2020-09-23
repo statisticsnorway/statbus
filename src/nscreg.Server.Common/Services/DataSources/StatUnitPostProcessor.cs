@@ -208,7 +208,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return  _ctx.ForeignParticipations.Local.FirstOrDefault(c =>
                        !c.IsDeleted
                        && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
-                       && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name))
+                       && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name) || foreignParticipation.NameLanguage1 != null  && c.Name == foreignParticipation.NameLanguage1 || foreignParticipation.NameLanguage2 != null && c.Name == foreignParticipation.NameLanguage2)
                    ?? throw new Exception($"Country by `{foreignParticipation.Code}` code or `{foreignParticipation.Name}` name not found");
         }
 

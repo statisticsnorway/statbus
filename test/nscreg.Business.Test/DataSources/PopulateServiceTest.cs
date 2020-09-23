@@ -71,8 +71,9 @@ namespace nscreg.Business.Test.DataSources
                         PersonTypeId = personTypes[0].Id,
                         Person = new Person()
                         {
-                            GivenName = "Vasya123",
-                            Surname = "Vasin123",
+                            Id = 2,
+                            GivenName = "Vasya",
+                            Surname = "Vasin",
                             Sex = 1,
                             Role = personTypes[0].Id,
                         }
@@ -99,14 +100,7 @@ namespace nscreg.Business.Test.DataSources
                     { "StatId", "920951287"},
                     { "Name", "LAST FRIDAY INVEST AS" },
                     { "Persons", new List<KeyValuePair<string, Dictionary<string, string>>>{
-                        new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
-                            {
-                                {"Role", "Director"},
-                                {"GivenName", "Vasya123" },
-                                {"Surname", "Vasin123" },
-                                {"Sex", "1" }
-                            }),
-                        new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
+                            new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
                         {
                             {"Role", "Owner"},
                             {"GivenName", "Vas" },
@@ -119,7 +113,7 @@ namespace nscreg.Business.Test.DataSources
                 };
             var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
 
-            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit));
+            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits));
         }
 
         [Fact]

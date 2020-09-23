@@ -97,6 +97,7 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
                         var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
+                        unit.PersonsUnits?.ForEach(x => x.Person.Role = x.PersonTypeId);
                         if (valueArr != null)
                             UpdatePersons(persons, valueArr, mappingsArr, context);
                         propValue = persons;
