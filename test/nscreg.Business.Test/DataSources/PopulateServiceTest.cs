@@ -5,7 +5,6 @@ using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -368,6 +367,24 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
+
+            Dictionary<string, ActivityCategory> categories = new Dictionary<string, ActivityCategory>();
+            categories.Add("67.111", new ActivityCategory()
+            {
+                Code = "67.111"
+            });
+            categories.Add("62.020", new ActivityCategory()
+            {
+                Code = "62.020"
+            });
+            categories.Add("68.209", new ActivityCategory()
+            {
+                Code = "68.209"
+            });
+
+            DatabaseContext.ActivityCategories.AddRange(categories.Values);
+            await DatabaseContext.SaveChangesAsync();
+
             var dbUnit = new LegalUnit()
             {
                 StatId = "9209512871",
@@ -381,10 +398,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2020,
                             Employees = 1,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "67.111"
-                            }
+                            ActivityCategory = categories["67.111"]
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -394,10 +408,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2019,
                             Employees = 2,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "62.020"
-                            }
+                            ActivityCategory = categories["62.020"]
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -407,14 +418,13 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Secondary,
                             ActivityYear = 2019,
                             Employees = 1000,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "68.209"
-                            }
+                            ActivityCategory = categories["68.209"]
                         }
                     }
                 }
             };
+            DatabaseContext.StatisticalUnits.Add(dbUnit);
+            await DatabaseContext.SaveChangesAsync();
 
             var resultUnit = new LegalUnit()
             {
@@ -430,10 +440,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2020,
                             Employees = 10,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "67.111"
-                            }
+                            ActivityCategory = categories["67.111"],
+                            ActivityCategoryId = categories["67.111"].Id,
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -444,10 +452,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2019,
                             Employees = 1000,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "62.020"
-                            }
+                            ActivityCategory = categories["62.020"],
+                            ActivityCategoryId = categories["62.020"].Id
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -457,10 +463,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Secondary,
                             ActivityYear = 2019,
                             Employees = 1000,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "68.209"
-                            }
+                            ActivityCategory = categories[ "68.209"],
+                            ActivityCategoryId = categories[ "68.209"].Id
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -469,16 +473,12 @@ namespace nscreg.Business.Test.DataSources
                         {
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2021,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "68.209"
-                            }
+                            ActivityCategory = categories[ "68.209"],
+                            ActivityCategoryId = categories[ "68.209"].Id
                         }
                     }
                 }
             };
-            DatabaseContext.StatisticalUnits.Add(dbUnit);
-            await DatabaseContext.SaveChangesAsync();
 
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
                 DataSourceAllowedOperation.CreateAndAlter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit,
@@ -487,7 +487,7 @@ namespace nscreg.Business.Test.DataSources
 
             popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
-                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.ActivityCategory.Id));
+                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id));
             popUnit.ActivitiesUnits.Should().HaveCount(resultUnit.ActivitiesUnits.Count);
 
 
