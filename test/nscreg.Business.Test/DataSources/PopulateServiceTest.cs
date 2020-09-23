@@ -95,7 +95,7 @@ namespace nscreg.Business.Test.DataSources
                     { "StatId", "920951287"},
                     { "Name", "LAST FRIDAY INVEST AS" },
                     { "Address.AddressPart1", "TEST ADDRESS" },
-                    { "Persons", new List<KeyValuePair<string, Dictionary<string, string>>>(){
+                    { "Persons", new List<KeyValuePair<string, Dictionary<string, string>>>{
                         new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
                             {
                                 {"Role", "Director"},
@@ -105,7 +105,7 @@ namespace nscreg.Business.Test.DataSources
                             })
                         }
                     },
-                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>()
+                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
                         {
                             new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
                             {
@@ -214,6 +214,7 @@ namespace nscreg.Business.Test.DataSources
                         {
                             ActivityYear = 2019,
                             Employees = 100,
+                            ActivityType = ActivityTypes.Primary,
                             ActivityCategory =  new ActivityCategory()
                             {
                                 Code = "62.020"
@@ -224,6 +225,7 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityType = ActivityTypes.Secondary,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "68.209"
@@ -239,93 +241,6 @@ namespace nscreg.Business.Test.DataSources
             popUnit.Should().BeEquivalentTo(unit);
 
 
-        }
-
-        [Fact]
-        public async Task PopulateAsync_ObjectWithActivitiesOnCreate_ReturnsPopulatedObjectWithMappedExistsActivities()
-        {
-            var mappings =
-                "StatId-StatId,Name-Name,Activities.Activity.ActivityYear-Activities.Activity.ActivityYear,Activities.Activity.CategoryCode-Activities.Activity.ActivityCategory.Code,Activities.Activity.Employees-Activities.Activity.Employees";
-
-            var raw = new Dictionary<string, object>()
-            {
-                {"StatId", "920951287"},
-                {"Name", "LAST FRIDAY INVEST AS"},
-                { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
-                {
-                    new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
-                    {
-                        {"ActivityYear","2019"},
-                        {"ActivityCategory.Code", "62.020"},
-                        {"Employees","100"},
-
-                    }),
-                    new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
-                    {
-                        {"ActivityCategory.Code", "68.209"},
-                    })
-                }}
-
-            };
-            var unit = new LegalUnit()
-            {
-                StatId = "920951287",
-                Name = "LAST FRIDAY INVEST AS",
-                ActivitiesUnits = new List<ActivityStatisticalUnit>()
-                {
-                    new ActivityStatisticalUnit()
-                    {
-                        Activity = new Activity()
-                        {
-                            ActivityYear = 2019,
-                            Employees = 100,
-                            ActivityCategory =  new ActivityCategory()
-                            {
-                                Id = 1,
-                                Code = "62.020"
-                            },
-                            ActivityCategoryId = 1
-                        }
-                    },
-                    new ActivityStatisticalUnit()
-                    {
-                        Activity = new Activity()
-                        {
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Id = 2,
-                                Code = "68.209"
-                            },
-                            ActivityCategoryId = 2
-                        }
-                    },
-                }
-            };
-            DatabaseContext.Activities.AddRange(
-                new Activity()
-                {
-                    ActivityYear = 2020,
-                    Employees = 1800,
-                    ActivityCategory = new ActivityCategory()
-                    {
-                        Code = "62.020"
-                    },
-                },
-                new Activity()
-                {
-                    ActivityYear = 2019,
-                    Employees = 800,
-                    ActivityCategory = new ActivityCategory()
-                    {
-                        Code = "68.209"
-                    },
-                });
-            await DatabaseContext.SaveChangesAsync();
-
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
-            var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
-
-            popUnit.Should().BeEquivalentTo(unit);
         }
 
         [Fact]

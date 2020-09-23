@@ -99,23 +99,8 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
                         var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
-                        var tmpPropValue = new List<PersonStatisticalUnit>();
                         if (valueArr != null)
-                            foreach (var personFromArray in valueArr)
-                            {
-                                foreach (var personValue in personFromArray.Value)
-                                {
-                                    //TODO NEED UPDATE
-                                    if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
-                                    foreach (var targetKey in targetKeys)
-                                    {
-                                        UpdateCollectionProperty(persons, targetKey, personValue.Value);
-
-                                    }
-                                }
-                                tmpPropValue.AddRange(persons);
-                                persons.Clear();
-                            }
+                            UpdatePersons(persons, valueArr, mappingsArr);
                         propValue = persons;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
@@ -256,28 +241,37 @@ namespace nscreg.Business.DataSources
             return activity;
         }
 
-        private static void UpdateCollectionProperty(ICollection<PersonStatisticalUnit> persons, string targetKey, string value)
+        private static Person ParsePerson(Dictionary<string, string> targetKeys,
+            Dictionary<string, string[]> mappingsArr)
         {
-            var newJoin = persons.LastOrDefault(x => x.PersonId.Value == 0 && x.Person != null) ?? new PersonStatisticalUnit();
-
-            var isOwnProperty = PropertyParser.SetPersonStatUnitOwnProperties(targetKey, newJoin, value);
-
-            if (!isOwnProperty)
-                PropertyParser.ParsePerson(targetKey, value, newJoin.Person);
-
-            var newPersons = new List<PersonStatisticalUnit>();
-            foreach (var existsPerson in persons)
+            Person person = new Person();
+            foreach (var (key,value) in targetKeys)
             {
-                if (existsPerson.Person.Role == newJoin.Person.Role)
+                if(!mappingsArr.TryGetValue(key, out var targetValues)) continue;
+                person = targetValues.Aggregate(person, (current, targetKey) => PropertyParser.ParsePerson(targetKey, value, current));
+            }
+            return person;
+        }
+
+        private static void UpdatePersons(ICollection<PersonStatisticalUnit> persons,
+            List<KeyValuePair<string, Dictionary<string, string>>> importPersons,
+            Dictionary<string, string[]> mappingsArr)
+        {
+            var newPersonStatUnits = new List<PersonStatisticalUnit>();
+            foreach (var person in importPersons)
+            {
+                var newPerson = ParsePerson(person.Value, mappingsArr);
+                foreach (var existPerson in persons)
                 {
-                    existsPerson.Person = newJoin.Person;
-                }
-                else
-                {
-                    newPersons.Add(newJoin);
+                    if (existPerson.PersonTypeId == newPerson.Role)
+                    {
+                        existPerson.Person = newPerson;
+                        continue;
+                    }
+                    newPersonStatUnits.Add(new PersonStatisticalUnit(){Person = newPerson});
                 }
             }
-            persons.AddRange(newPersons);
+            persons.AddRange(newPersonStatUnits);
         }
 
     }
