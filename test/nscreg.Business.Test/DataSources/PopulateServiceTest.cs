@@ -403,9 +403,6 @@ namespace nscreg.Business.Test.DataSources
             popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
                     .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id));
-            popUnit.ActivitiesUnits.Should().HaveCount(resultUnit.ActivitiesUnits.Count);
-
-
         }
 
     }
