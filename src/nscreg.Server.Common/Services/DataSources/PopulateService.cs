@@ -42,15 +42,18 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task InitializeCacheForLookups()
         {
+            await _context.ActivityCategories.LoadAsync();
             await _context.PersonTypes.LoadAsync();
             await _context.RegistrationReasons.LoadAsync();
             await _context.Regions.LoadAsync();
             await _context.UnitsSize.LoadAsync();
+            await _context.Statuses.LoadAsync();
             await _context.ReorgTypes.LoadAsync();
             await _context.SectorCodes.LoadAsync();
             await _context.DataSourceClassifications.LoadAsync();
             await _context.LegalForms.LoadAsync();
             await _context.ForeignParticipations.LoadAsync();
+            await _context.Countries.LoadAsync();
         }
 
         /// <summary>
@@ -104,8 +107,13 @@ namespace nscreg.Server.Common.Services.DataSources
                 .GetStatUnitSet(_context, _unitType)
                 .FirstOrDefaultAsync(x => x.StatId == statId.ToString());
 
-            if (existing == null) return (GetStatUnitSetHelper.CreateByType(_unitType), true);
-            _context.Entry(existing).State = EntityState.Detached;
+            if (existing == null)
+            {
+                var createdUnit = GetStatUnitSetHelper.CreateByType(_unitType);
+                createdUnit.StatId = statId.ToString();
+                return (createdUnit, true);
+            }
+
             return (unit: existing, isNew: false);
         }
     }
