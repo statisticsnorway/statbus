@@ -4,9 +4,7 @@ using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection.Emit;
-using Microsoft.AspNetCore.Mvc.ActionConstraints;
+using nscreg.Data;
 using nscreg.Data.Constants;
 using static nscreg.Utilities.JsonPathHelper;
 
@@ -21,7 +19,7 @@ namespace nscreg.Business.DataSources
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
-            StatisticalUnit unit)
+            StatisticalUnit unit, NSCRegDbContext context)
         {
             foreach (var kv in nextProps)
             {
@@ -100,7 +98,7 @@ namespace nscreg.Business.DataSources
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
                         var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
                         if (valueArr != null)
-                            UpdatePersons(persons, valueArr, mappingsArr);
+                            UpdatePersons(persons, valueArr, mappingsArr, context);
                         propValue = persons;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
@@ -242,34 +240,57 @@ namespace nscreg.Business.DataSources
         }
 
         private static Person ParsePerson(Dictionary<string, string> targetKeys,
-            Dictionary<string, string[]> mappingsArr)
+            Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
         {
             Person person = new Person();
             foreach (var (key,value) in targetKeys)
             {
                 if(!mappingsArr.TryGetValue(key, out var targetValues)) continue;
-                person = targetValues.Aggregate(person, (current, targetKey) => PropertyParser.ParsePerson(targetKey, value, current));
+                foreach (var targetKey in targetValues)
+                {
+                    if (targetKey == nameof(Person.Role))
+                    {
+                        var roleValue = value.ToLower();
+
+                        var roleType = context.PersonTypes.Local.FirstOrDefault(x =>
+                            x.Name.ToLower() == roleValue || x.NameLanguage1.HasValue() && x.NameLanguage1.ToLower() == roleValue ||
+                            x.NameLanguage2.HasValue() && x.NameLanguage2.ToLower() == roleValue);
+
+                        person = PropertyParser.ParsePerson(targetKey, roleType?.Id.ToString(), person);
+                        continue;
+                    }
+                    person = PropertyParser.ParsePerson(targetKey, value, person);
+
+                }
             }
             return person;
         }
 
         private static void UpdatePersons(ICollection<PersonStatisticalUnit> persons,
             List<KeyValuePair<string, Dictionary<string, string>>> importPersons,
-            Dictionary<string, string[]> mappingsArr)
+            Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
         {
             var newPersonStatUnits = new List<PersonStatisticalUnit>();
             foreach (var person in importPersons)
             {
-                var newPerson = ParsePerson(person.Value, mappingsArr);
-                foreach (var existPerson in persons)
+                var newPerson = ParsePerson(person.Value, mappingsArr, context);
+                if (persons.Any())
                 {
-                    if (existPerson.PersonTypeId == newPerson.Role)
+                    foreach (var existPerson in persons)
                     {
-                        existPerson.Person = newPerson;
-                        continue;
+                        if (existPerson.PersonTypeId == newPerson.Role)
+                        {
+                            existPerson.Person = newPerson;
+                            continue;
+                        }
+                        newPersonStatUnits.Add(new PersonStatisticalUnit() { Person = newPerson, PersonTypeId = newPerson.Role });
                     }
-                    newPersonStatUnits.Add(new PersonStatisticalUnit(){Person = newPerson});
                 }
+                else
+                {
+                    newPersonStatUnits.Add(new PersonStatisticalUnit() { Person = newPerson, PersonTypeId = newPerson.Role });
+                }
+                
             }
             persons.AddRange(newPersonStatUnits);
         }

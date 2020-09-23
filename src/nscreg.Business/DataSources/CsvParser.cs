@@ -10,8 +10,8 @@ namespace nscreg.Business.DataSources
     public static class CsvParser
     {
         // Todo: to reflection implementation
-        private readonly static string[] StatisticalUnitArrayPropertyNames = new[] { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
-        private readonly static KeyValueTupleComparer CsvColumnValueComparer = new KeyValueTupleComparer();
+        private static readonly string[] StatisticalUnitArrayPropertyNames = new[] { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
+        private static readonly KeyValueTupleComparer CsvColumnValueComparer = new KeyValueTupleComparer();
         public static IEnumerable<IReadOnlyDictionary<string, object>> GetParsedEntities(string rawLines, string delimiter, (string source, string target)[] variableMappingsArray)
         {
             if (rawLines.Length == 0) return new List<Dictionary<string, object>>();

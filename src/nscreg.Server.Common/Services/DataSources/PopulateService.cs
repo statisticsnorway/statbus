@@ -81,7 +81,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})");
                 }
 
-                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit);
+                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context);
 
                 var errors = await _postProcessor.PostProcessStatUnitsUpload(resultUnit);
 

@@ -79,6 +79,11 @@ namespace nscreg.Business.DataSources
             var result = prev ?? new Person();
             switch (PathHead(propPath))
             {
+                case nameof(Person.Role):
+                    if(int.TryParse(value, out int val))
+                        result.Role = val;
+                    else throw BadValueFor<ActivityTypes>(propPath, value);
+                    break;
                 case nameof(Person.GivenName):
                     result.GivenName = value;
                     break;

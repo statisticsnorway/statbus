@@ -7,6 +7,7 @@ using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Xunit.Abstractions;
 using Activity = nscreg.Data.Entities.Activity;
@@ -33,98 +34,92 @@ namespace nscreg.Business.Test.DataSources
         public async Task PopulateAsync_PersonMapping_Success()
         {
             var mappings =
-    "statId-StatId,name-Name,activity1-Activities.Activity.ActivityCategory.Code,employees-Activities.Activity.Employees,activityYear-Activities.Activity.ActivityYear,addr1-Address.AddressPart1,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex";
+    "statId-StatId,name-Name,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex";
 
-            var personType = new PersonType() { Name = "DIRECTOR", Id = 0 };
-
-            DatabaseContext.PersonTypes.Add(personType);
+            var personTypes = new List<PersonType>(){new PersonType() { Name = "DIRECTOR", Id = 0 }, new PersonType(){ Name = "Owner", Id = 0 } };
+            DatabaseContext.PersonTypes.AddRange(personTypes);
             await DatabaseContext.SaveChangesAsync();
-            var unit = new LegalUnit
+
+            await DatabaseContext.PersonTypes.LoadAsync();
+            var dbunit = new LegalUnit
             {
                 Name = "LAST FRIDAY INVEST AS",
                 StatId = "920951287",
-                Address = new Address()
-                {
-                    AddressPart1 = "TEST ADDRESS"
-                },
                 PersonsUnits = new List<PersonStatisticalUnit>()
                     {
                         new PersonStatisticalUnit()
                         {
+                            PersonTypeId = personTypes[0].Id,
                             Person = new Person()
                             {
                                 GivenName = "Vasya",
                                 Surname = "Vasin",
                                 Sex = 1,
-                                Role = personType.Id,
-                            }
-                        }
-                    },
-                ActivitiesUnits = new List<ActivityStatisticalUnit>()
-                    {
-                        new ActivityStatisticalUnit()
-                        {
-                            Activity = new Activity()
-                            {
-                                ActivityCategory = new ActivityCategory()
-                                {
-                                    Code = "62.020"
-                                },
-                                Employees = 100,
-                                ActivityYear = 2019
-                            }
-                        },
-                        new ActivityStatisticalUnit()
-                        {
-                            Activity = new Activity()
-                            {
-                                ActivityCategory = new ActivityCategory()
-                                {
-                                    Code = "70.220"
-                                },
-                                Employees = 20,
-                                ActivityYear = 2018
+                                Role = personTypes[0].Id,
                             }
                         }
                     }
             };
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
+            var resultUnit = new LegalUnit
+            {
+                Name = "LAST FRIDAY INVEST AS",
+                StatId = "920951287",
+                PersonsUnits = new List<PersonStatisticalUnit>()
+                {
+                    new PersonStatisticalUnit()
+                    {
+                        PersonTypeId = personTypes[0].Id,
+                        Person = new Person()
+                        {
+                            GivenName = "Vasya123",
+                            Surname = "Vasin123",
+                            Sex = 1,
+                            Role = personTypes[0].Id,
+                        }
+                    },
+                    new PersonStatisticalUnit()
+                    {
+                        PersonTypeId = personTypes[1].Id,
+                        Person = new Person()
+                        {
+                            GivenName = "Vas",
+                            Surname = "Vas",
+                            Sex = 1,
+                            Role = personTypes[1].Id,
+                        }
+                    }
+                }
+            };
+            DatabaseContext.StatisticalUnits.Add(dbunit);
+            await DatabaseContext.SaveChangesAsync();
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
 
             var raw = new Dictionary<string, object>()
                 {
                     { "StatId", "920951287"},
                     { "Name", "LAST FRIDAY INVEST AS" },
-                    { "Address.AddressPart1", "TEST ADDRESS" },
                     { "Persons", new List<KeyValuePair<string, Dictionary<string, string>>>{
                         new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
                             {
                                 {"Role", "Director"},
-                                {"GivenName", "Vasya" },
-                                {"Surname", "Vasin" },
+                                {"GivenName", "Vasya123" },
+                                {"Surname", "Vasin123" },
                                 {"Sex", "1" }
-                            })
-                        }
-                    },
-                    { "Activities", new List<KeyValuePair<string, Dictionary<string, string>>>
-                        {
-                            new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
-                            {
-                                {"ActivityCategory.Code", "62.020"},
-                                {"Employees","100"},
-                                {"ActivityYear","2019"}
                             }),
-                            new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>()
-                            {
-                                {"ActivityCategory.Code", "70.220"},
-                                {"Employees","20"},
-                                {"ActivityYear","2018"}
-                            })
+                        new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
+                        {
+                            {"Role", "Owner"},
+                            {"GivenName", "Vas" },
+                            {"Surname", "Vas" },
+                            {"Sex", "1" }
+                        })
+
                         }
                     }
                 };
             var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
 
-            popUnit.Should().BeEquivalentTo(unit);
+            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit));
         }
 
         [Fact]
