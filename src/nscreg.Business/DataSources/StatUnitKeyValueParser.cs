@@ -191,10 +191,11 @@ namespace nscreg.Business.DataSources
         }
         private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr)
         {
+            var defaultYear = DateTime.Now.Year - 1;
             var propPathActivityCategoryCode = string.Join(".", nameof(ActivityCategory), nameof(ActivityCategory.Code));
             var dbActivitiesGroups = dbActivities.GroupBy(x => x.Activity.ActivityYear).ToList();
             var importActivitiesGroups =
-                importActivities.GroupBy(x => int.TryParse(x.Value.GetValueOrDefault(nameof(Activity.ActivityYear)), out int val) ? (int?)val : null).ToList();
+                importActivities.GroupBy(x => int.TryParse(x.Value.GetValueOrDefault(nameof(Activity.ActivityYear)), out int val) ? (int?)val : defaultYear).ToList();
 
             foreach (var importActivitiesGroup in importActivitiesGroups)
             {
@@ -229,29 +230,6 @@ namespace nscreg.Business.DataSources
                         }
                     });
             }
-
-
-            //// Todo Change Update
-            //var categoryCode = targetKeys.GetValueOrDefault(string.Join('.', nameof(ActivityCategory), nameof(ActivityCategory.Code)));
-            //var activityYear = targetKeys.GetValueOrDefault(nameof(Activity.ActivityYear));
-
-            //ActivityStatisticalUnit newJoin = null;
-
-            //if (categoryCode.HasValue() && activityYear.HasValue() && int.TryParse(activityYear, out var year))
-            //{
-            //    newJoin = activities.FirstOrDefault(x =>
-            //        x.Activity?.ActivityCategory?.Code == categoryCode && x.Activity?.ActivityYear == year);
-            //}
-            //if (newJoin != null)
-            //{
-            //    ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
-            //}
-            //else
-            //{
-            //    newJoin = new ActivityStatisticalUnit();
-            //    ParseActivity(newJoin.Activity, targetKeys, mappingsArr);
-            //    activities.Add(newJoin);
-            //}
         }
 
         private static Activity ParseActivity(Activity activity, Dictionary<string, string> targetKeys,

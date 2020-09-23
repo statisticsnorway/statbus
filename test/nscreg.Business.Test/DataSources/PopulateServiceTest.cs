@@ -358,14 +358,13 @@ namespace nscreg.Business.Test.DataSources
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
-                            //Year default Now - 1
-                            //Type default Primary
                             {"ActivityCategory.Code", "68.209"},
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
-                            {"ActivityCategory.Code", "61.124"},
-                        })
+                            {"ActivityYear", "2021"},
+                            {"ActivityCategory.Code", "68.209"},
+                        }),
                     }
                 }
             };
@@ -381,11 +380,24 @@ namespace nscreg.Business.Test.DataSources
                         {
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2020,
-                            Employees = 1000,
+                            Employees = 1,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "67.111"
-                            },
+                            }
+                        }
+                    },
+                    new ActivityStatisticalUnit()
+                    {
+                        Activity = new Activity()
+                        {
+                            ActivityType = ActivityTypes.Primary,
+                            ActivityYear = 2019,
+                            Employees = 2,
+                            ActivityCategory = new ActivityCategory()
+                            {
+                                Code = "62.020"
+                            }
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -393,24 +405,12 @@ namespace nscreg.Business.Test.DataSources
                         Activity = new Activity()
                         {
                             ActivityType = ActivityTypes.Secondary,
-                            ActivityYear = 2020,
-                            Employees = 1,
-                            ActivityCategory = new ActivityCategory()
-                            {
-                                Code = "62.020"
-                            },
-                        }
-                    },
-                    new ActivityStatisticalUnit()
-                    {
-                        Activity = new Activity()
-                        {
                             ActivityYear = 2019,
                             Employees = 1000,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "68.209"
-                            },
+                            }
                         }
                     }
                 }
@@ -438,11 +438,11 @@ namespace nscreg.Business.Test.DataSources
                     },
                     new ActivityStatisticalUnit()
                     {
-                        
+
                         Activity = new Activity()
                         {
-                            ActivityType = ActivityTypes.Secondary,
-                            ActivityYear = 2020,
+                            ActivityType = ActivityTypes.Primary,
+                            ActivityYear = 2019,
                             Employees = 1000,
                             ActivityCategory = new ActivityCategory()
                             {
@@ -454,6 +454,9 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityType = ActivityTypes.Secondary,
+                            ActivityYear = 2019,
+                            Employees = 1000,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "68.209"
@@ -464,16 +467,17 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            ActivityType = ActivityTypes.Primary,
+                            ActivityYear = 2021,
                             ActivityCategory = new ActivityCategory()
                             {
-                                Code = "61.124"
+                                Code = "68.209"
                             }
                         }
                     }
                 }
             };
             DatabaseContext.StatisticalUnits.Add(dbUnit);
-            DatabaseContext.ActivityCategories.Add(new ActivityCategory { Code = "61.124" });
             await DatabaseContext.SaveChangesAsync();
 
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
@@ -481,8 +485,13 @@ namespace nscreg.Business.Test.DataSources
                 DatabaseContext);
             var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
 
-            popUnit.Should().BeEquivalentTo(resultUnit);
+            popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
+                op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
+                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.ActivityCategory.Id));
+            popUnit.ActivitiesUnits.Should().HaveCount(resultUnit.ActivitiesUnits.Count);
+
 
         }
+
     }
 }
