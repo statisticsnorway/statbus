@@ -196,7 +196,7 @@ namespace nscreg.Business.DataSources
 
                 importActivitiesGroup.GroupJoin(dbGroup,
                     import => import.Value.GetValueOrDefault(propPathActivityCategoryCode),
-                    db => db.Activity.ActivityCategory.Code, (importRow, dbRows) => (importRow, dbRows))
+                    db => db.Activity.ActivityCategory.Code, (importRow, dbRows) => (importRow: importRow, dbRows: dbRows))
                     .ForEach(x =>
                     {
                         var dbRow = x.dbRows.FirstOrDefault();
