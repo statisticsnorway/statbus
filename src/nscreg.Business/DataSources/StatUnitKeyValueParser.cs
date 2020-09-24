@@ -103,7 +103,6 @@ namespace nscreg.Business.DataSources
                         propValue = persons;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
-                        var fpcPropValue = new List<CountryStatisticalUnit>();
                         var foreignParticipationCountries = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
                         if (valueArr != null)
                             foreach (var countryFromArray in valueArr)
@@ -122,9 +121,8 @@ namespace nscreg.Business.DataSources
                                     CountryId = prev.Id,
                                     Country = prev
                                 });
-                                fpcPropValue.AddRange(foreignParticipationCountries);
                             }
-                        propValue = fpcPropValue;
+                        propValue = foreignParticipationCountries;
                         break;
                     case nameof(StatisticalUnit.Address):
                         propValue = PropertyParser.ParseAddress(propTail, value, unit.Address);
@@ -170,7 +168,7 @@ namespace nscreg.Business.DataSources
                         break;
                 }
 
-                propInfo?.SetValue(unit, propValue);
+                propInfo.SetValue(unit, propValue);
             }
         }
         private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr)
@@ -188,7 +186,7 @@ namespace nscreg.Business.DataSources
                 {
                    var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
                    {
-                       Activity = ParseActivity(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary)
+                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary)
                    });
                    dbActivities.AddRange(parsedActivities);
                    continue;
@@ -202,13 +200,13 @@ namespace nscreg.Business.DataSources
                         var dbRow = x.dbRows.FirstOrDefault();
                         if (dbRow != null)
                         {
-                            dbRow.Activity = ParseActivity(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary);
+                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary);
                         }
                         else
                         {
                             dbRow = new ActivityStatisticalUnit
                             {
-                                Activity = ParseActivity(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary)
+                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary)
                             };
                             dbActivities.Add(dbRow);
                         }
@@ -216,7 +214,7 @@ namespace nscreg.Business.DataSources
             }
         }
 
-        private static Activity ParseActivity(Activity activity, Dictionary<string, string> targetKeys,
+        private static Activity ParseActivityByTargetKeys(Activity activity, Dictionary<string, string> targetKeys,
             Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType)
         {
             var activityTypeWasSet = activity != null;
@@ -240,7 +238,7 @@ namespace nscreg.Business.DataSources
             return activity;
         }
 
-        private static Person ParsePerson(Dictionary<string, string> targetKeys,
+        private static Person ParsePersonByTargetKeys(Dictionary<string, string> targetKeys,
             Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
         {
             Person person = new Person();
@@ -267,33 +265,31 @@ namespace nscreg.Business.DataSources
             return person;
         }
 
-        private static void UpdatePersons(ICollection<PersonStatisticalUnit> persons,
+        private static void UpdatePersons(ICollection<PersonStatisticalUnit> personsDb,
             List<KeyValuePair<string, Dictionary<string, string>>> importPersons,
             Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
         {
-            var newPersonStatUnits = new List<PersonStatisticalUnit>();
-            foreach (var person in importPersons)
+            var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() {Person = newPerson, PersonTypeId = newPerson.Role}).ToList();
+
+            var existPersonTypes = personsDb.Select(x => x.PersonTypeId).ToList();
+
+            var newPersonTypes = newPersonStatUnits.Select(x => x.PersonTypeId).ToList();
+
+            var intersectTypes = existPersonTypes.Intersect(newPersonTypes).ToList();
+
+            foreach (var person in personsDb)
             {
-                var newPerson = ParsePerson(person.Value, mappingsArr, context);
-                if (persons.Any())
+                if (intersectTypes.Contains(person.PersonTypeId))
                 {
-                    foreach (var existPerson in persons)
-                    {
-                        if (existPerson.PersonTypeId == newPerson.Role)
-                        {
-                            existPerson.Person = newPerson;
-                            continue;
-                        }
-                        newPersonStatUnits.Add(new PersonStatisticalUnit() { Person = newPerson, PersonTypeId = newPerson.Role });
-                    }
+                    person.Person = newPersonStatUnits.First(x => x.PersonTypeId == person.PersonTypeId).Person;
                 }
-                else
-                {
-                    newPersonStatUnits.Add(new PersonStatisticalUnit() { Person = newPerson, PersonTypeId = newPerson.Role });
-                }
-                
             }
-            persons.AddRange(newPersonStatUnits);
+
+            var newPersons = newPersonStatUnits
+                .Where(x => newPersonTypes.Except(existPersonTypes).Contains(x.PersonTypeId)).ToList();
+
+            newPersons.ForEach(personsDb.Add);
+
         }
 
     }
