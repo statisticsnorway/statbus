@@ -271,24 +271,17 @@ namespace nscreg.Business.DataSources
         {
             var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() {Person = newPerson, PersonTypeId = newPerson.Role}).ToList();
 
-            var existPersonTypes = personsDb.Select(x => x.PersonTypeId).ToList();
-
-            var newPersonTypes = newPersonStatUnits.Select(x => x.PersonTypeId).ToList();
-
-            var intersectTypes = existPersonTypes.Intersect(newPersonTypes).ToList();
-
-            foreach (var person in personsDb)
-            {
-                if (intersectTypes.Contains(person.PersonTypeId))
+            newPersonStatUnits.GroupJoin(personsDb, dbPerson => dbPerson.PersonTypeId,
+                newPerson => newPerson.PersonTypeId, (newPerson, dbPersons) => (newPerson: newPerson, dbPersons: dbPersons))
+                .ForEach(x =>
                 {
-                    person.Person = newPersonStatUnits.First(x => x.PersonTypeId == person.PersonTypeId).Person;
-                }
-            }
-
-            var newPersons = newPersonStatUnits
-                .Where(x => newPersonTypes.Except(existPersonTypes).Contains(x.PersonTypeId)).ToList();
-
-            newPersons.ForEach(personsDb.Add);
+                    if(x.dbPersons.Any())
+                        x.dbPersons.ForEach(z => z.Person = x.newPerson.Person);
+                    else
+                    {
+                        personsDb.Add(x.newPerson);
+                    }
+                });
 
         }
 
