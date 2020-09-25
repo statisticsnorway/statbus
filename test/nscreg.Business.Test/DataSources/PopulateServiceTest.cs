@@ -36,7 +36,7 @@ namespace nscreg.Business.Test.DataSources
             var mappings =
     "statId-StatId,name-Name,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex";
 
-            var personTypes = new List<PersonType>(){new PersonType() { Name = "DIRECTOR", Id = 0 }, new PersonType(){ Name = "Owner", Id = 0 } };
+            var personTypes = new List<PersonType>(){new PersonType() { Name = "DIRECTOR", Id = 0 }, new PersonType(){ Name = "Owner", Id = 0 }, new PersonType{Name ="TEST",Id = 0} };
             DatabaseContext.PersonTypes.AddRange(personTypes);
             await DatabaseContext.SaveChangesAsync();
 
@@ -57,7 +57,18 @@ namespace nscreg.Business.Test.DataSources
                                 Sex = 1,
                                 Role = personTypes[0].Id,
                             }
-                        }
+                        },
+                        new PersonStatisticalUnit()
+                        {
+                            PersonTypeId = personTypes[2].Id,
+                            Person = new Person()
+                            {
+                                GivenName = "Vasya12345",
+                                Surname = "Vasin12345",
+                                Sex = 1,
+                                Role = personTypes[2].Id,
+                            }
+                        },
                     }
             };
             var resultUnit = new LegalUnit
@@ -80,6 +91,18 @@ namespace nscreg.Business.Test.DataSources
                     },
                     new PersonStatisticalUnit()
                     {
+                        PersonTypeId = personTypes[2].Id,
+                        Person = new Person()
+                        {
+                            Id = 4,
+                            GivenName = "Vasya12345",
+                            Surname = "Vasin12345",
+                            Sex = 1,
+                            Role = personTypes[2].Id,
+                        }
+                    },
+                    new PersonStatisticalUnit()
+                    {
                         PersonTypeId = personTypes[1].Id,
                         Person = new Person()
                         {
@@ -88,7 +111,8 @@ namespace nscreg.Business.Test.DataSources
                             Sex = 1,
                             Role = personTypes[1].Id,
                         }
-                    }
+                    },
+                    
                 }
             };
             DatabaseContext.StatisticalUnits.Add(dbunit);
