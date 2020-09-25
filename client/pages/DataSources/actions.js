@@ -99,22 +99,6 @@ const createDataSource = (data, formikBag) => {
     // eslint-disable-next-line prefer-destructuring
     OriginalCsvAttributes[itemIndex] = item[0]
 
-    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][rightItem] === arrForCheckSingle[itemForCheckIndex]) {
-        variablesMapping[itemIndex][leftItem] =
-          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[rightItem]
-            ? 'TaxId'
-            : arrForCheckSingle[itemForCheckIndex]
-      }
-    })
-
-    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][rightItem].includes(arrForCheckMulti[itemForCheckIndex])) {
-        variablesMapping[itemIndex][leftItem] =
-          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
-      }
-    })
-
     if (variablesMapping[itemIndex][rightItem] === 'Persons.Person.Role') {
       variablesMapping[itemIndex][leftItem] = variablesMapping[itemIndex][rightItem]
     }

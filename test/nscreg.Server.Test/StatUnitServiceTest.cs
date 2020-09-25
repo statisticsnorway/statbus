@@ -335,13 +335,15 @@ namespace nscreg.Server.Test
             try
             {
                 var unitName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
                     context.Initialize();
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var address = await _helper.CreateAddressAsync(context);
-                    await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
+                    await _helper.CreateLegalUnitAsync(context, activities, address, unitName, statId);
+                    var lst = context.LegalUnits.ToArray();
                     Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName &&
                                                        x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                 }
@@ -358,6 +360,7 @@ namespace nscreg.Server.Test
             try
             {
                 var unitName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
@@ -365,7 +368,7 @@ namespace nscreg.Server.Test
 
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var address = await _helper.CreateAddressAsync(context);
-                    var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
+                    var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName, statId);
 
                     await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
                     Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName &&
@@ -389,6 +392,7 @@ namespace nscreg.Server.Test
             try
             {
                 var unitName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
@@ -396,7 +400,7 @@ namespace nscreg.Server.Test
                     var address = await _helper.CreateAddressAsync(context);
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var legalUnit =
-                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString(), statId);
                     var legalUnitIds = new[] { legalUnit.RegId };
                     var enterpriseGroup =
                         await _helper.CreateEnterpriseGroupAsync(context, null, unitName, Array.Empty<int>(), legalUnitIds);
@@ -424,6 +428,7 @@ namespace nscreg.Server.Test
             try
             {
                 var unitName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
@@ -432,7 +437,7 @@ namespace nscreg.Server.Test
                     var address = await _helper.CreateAddressAsync(context);
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var legalUnit =
-                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString(), statId);
                     var legalUnitIds = new[] { legalUnit.RegId };
                     await _helper.CreateEnterpriseGroupAsync(context, address, unitName, Array.Empty<int>(), legalUnitIds);
 
@@ -654,14 +659,15 @@ namespace nscreg.Server.Test
                 var unitName = Guid.NewGuid().ToString();
                 var unitNameEdit = Guid.NewGuid().ToString();
                 var duplicateName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
                     context.Initialize();
 
                     var activities = await _helper.CreateActivitiesAsync(context);
-                    await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
-                    await _helper.CreateLegalUnitAsync(context, activities, null, duplicateName);
+                    await _helper.CreateLegalUnitAsync(context, activities, null, unitName, statId);
+                    await _helper.CreateLegalUnitAsync(context, activities, null, duplicateName, statId);
 
                     var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
@@ -698,13 +704,14 @@ namespace nscreg.Server.Test
                 var unitName = Guid.NewGuid().ToString();
                 var unitNameEdit = Guid.NewGuid().ToString();
                 var dublicateName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
                     context.Initialize();
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var legalUnit =
-                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString(), statId);
 
                     await _helper.CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
                     await _helper.CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
@@ -745,6 +752,7 @@ namespace nscreg.Server.Test
                 var unitName = Guid.NewGuid().ToString();
                 var unitNameEdit = Guid.NewGuid().ToString();
                 var duplicateName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
@@ -752,7 +760,7 @@ namespace nscreg.Server.Test
 
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var legalUnit =
-                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString(), statId);
                     var legalUnitIds = new[] { legalUnit.RegId };
                     var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
                         context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitIds);
@@ -804,6 +812,7 @@ namespace nscreg.Server.Test
                 var unitName = Guid.NewGuid().ToString();
                 var unitNameEdit = Guid.NewGuid().ToString();
                 var duplicateName = Guid.NewGuid().ToString();
+                var statId = Guid.NewGuid().ToString();
 
                 using (var context = CreateDbContext())
                 {
@@ -811,7 +820,7 @@ namespace nscreg.Server.Test
 
                     var activities = await _helper.CreateActivitiesAsync(context);
                     var legalUnit =
-                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                        await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString(), statId);
                     var legalUnitsIds = new[] { legalUnit.RegId };
                     var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
                         context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitsIds);

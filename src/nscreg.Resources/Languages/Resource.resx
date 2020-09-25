@@ -2755,4 +2755,7 @@
   <data name="EntGroupRoleId" xml:space="preserve">
     <value>Enterprise group role</value>
   </data>
+  <data name="StatisticalUnitWithSuchStatIDAlreadyExists" xml:space="preserve">
+    <value>Statistical unit with StatId='{0}' already exists</value>
+  </data>
 </root>

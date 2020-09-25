@@ -15,7 +15,7 @@ namespace nscreg.Server.Test.Helpers
             var analysisRules = new StatUnitAnalysisRules();
             var dbMandatoryFields = new DbMandatoryFields();
             var validationSettings = new ValidationSettings();
-            var createSvc = new CreateService(ctx, analysisRules, dbMandatoryFields, validationSettings, StatUnitTypeOfSave.WebApplication);
+            var createSvc = new CreateService(ctx, analysisRules, dbMandatoryFields, validationSettings, shouldAnalyze: true);
             var editSvc = new EditService(ctx, analysisRules, dbMandatoryFields, validationSettings);
             var servicesConfig = new ServicesSettings();
             return new DataSourcesQueueService(ctx, createSvc, editSvc, servicesConfig, dbMandatoryFields);

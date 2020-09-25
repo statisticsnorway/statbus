@@ -8,6 +8,6 @@ namespace nscreg.Data.Constants
     public enum DataSourceUploadTypes
     {
         StatUnits = 1,
-        Activities = 2
+        //Activities = 2
     }
 }

@@ -95,22 +95,22 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.Equal(expectedStatus, actual.Status);
         }
 
-        [Theory]
-        [InlineData(typeof(LegalUnit), StatUnitTypes.LegalUnit)]
-        [InlineData(typeof(LocalUnit), StatUnitTypes.LocalUnit)]
-        [InlineData(typeof(EnterpriseUnit), StatUnitTypes.EnterpriseUnit)]
-        private async Task GetStatUnitFromRawEntityTest(Type type, StatUnitTypes unitType)
-        {
-            var raw = new Dictionary<string, object> {["source"] = "name42", ["sourceId"] = "qwe"};
-            var mapping = new[]
-                {("source", nameof(StatisticalUnit.Name)), ("sourceId", nameof(StatisticalUnit.StatId))};
-            StatisticalUnit actual;
-            string errors;
-            using (var ctx = CreateDbContext())
-                (actual, errors) = await new QueueService(ctx).GetStatUnitFromRawEntity(raw, unitType, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create);
+        //[Theory]
+        //[InlineData(typeof(LegalUnit), StatUnitTypes.LegalUnit)]
+        //[InlineData(typeof(LocalUnit), StatUnitTypes.LocalUnit)]
+        //[InlineData(typeof(EnterpriseUnit), StatUnitTypes.EnterpriseUnit)]
+        //private async Task GetStatUnitFromRawEntityTest(Type type, StatUnitTypes unitType)
+        //{
+        //    var raw = new Dictionary<string, object> {["source"] = "name42", ["sourceId"] = "qwe"};
+        //    var mapping = new[]
+        //        {("source", nameof(StatisticalUnit.Name)), ("sourceId", nameof(StatisticalUnit.StatId))};
+        //    StatisticalUnit actual;
+        //    string errors;
+        //    using (var ctx = CreateDbContext())
+        //        (actual, errors) = await new QueueService(ctx).GetStatUnitFromRawEntity(raw, unitType, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create);
 
-            Assert.Equal(actual.GetType(), type);
-        }
+        //    Assert.Equal(actual.GetType(), type);
+        //}
 
         [Fact]
         private async Task ResetDequeuedIfTimedOut()

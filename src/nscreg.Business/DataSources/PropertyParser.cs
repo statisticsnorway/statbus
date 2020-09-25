@@ -17,12 +17,10 @@ namespace nscreg.Business.DataSources
             }
             catch (Exception)
             {
-                if (type == typeof(DateTime))
-                {
-                    DateTime.TryParse(raw, out var date);
-                    return date;
-                }
-                return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
+                if (type != typeof(DateTime))
+                    return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
+                DateTime.TryParse(raw, out var date);
+                return date;
             }
         }
 
@@ -51,7 +49,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Activity.ActivityYear):
                     if (value == null)
                     {
-                        result.ActivityYear = null;
+                        result.ActivityYear = DateTime.Now.Year-1;
                         break;
                     }
                     if (int.TryParse(value, out var activityYear))
@@ -81,6 +79,11 @@ namespace nscreg.Business.DataSources
             var result = prev ?? new Person();
             switch (PathHead(propPath))
             {
+                case nameof(Person.Role):
+                    if(int.TryParse(value, out int val))
+                        result.Role = val;
+                    else throw BadValueFor<ActivityTypes>(propPath, value);
+                    break;
                 case nameof(Person.GivenName):
                     result.GivenName = value;
                     break;
@@ -335,7 +338,7 @@ namespace nscreg.Business.DataSources
             return result;
         }
 
-        public static bool SetPersonStatUnitOwnPeroperties(string path, PersonStatisticalUnit entity, string value)
+        public static bool SetPersonStatUnitOwnProperties(string path, PersonStatisticalUnit entity, string value)
         {
             switch (path)
             {

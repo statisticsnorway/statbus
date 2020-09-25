@@ -1,18 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
@@ -21,9 +15,15 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
-using Newtonsoft.Json;
-using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
+using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -35,9 +35,10 @@ namespace nscreg.Server.DataUploadSvc
         private readonly ILogger _logger;
         public int Interval { get; }
         private QueueService _queueSvc;
+        private DbLogBuffer _logBuffer;
         private AnalyzeService _analysisSvc;
         private SaveManager _saveManager;
-
+        private readonly int _dbLogBufferMaxCount;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
@@ -47,13 +48,14 @@ namespace nscreg.Server.DataUploadSvc
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields dbMandatoryFields,
-            ValidationSettings validationSettings)
+            ValidationSettings validationSettings, int bufferLogMaxCount)
         {
             _logger = logger;
             Interval = dequeueInterval;
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
+            _dbLogBufferMaxCount = bufferLogMaxCount;
             AddScopedServices();
         }
 
@@ -63,9 +65,10 @@ namespace nscreg.Server.DataUploadSvc
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, StatUnitTypeOfSave.Service);
-            var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
+            var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
             _saveManager = new SaveManager(_context, _queueSvc, createSvc, editSvc);
+            _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
 
         /// <summary>
@@ -92,8 +95,16 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
             }
 
+            Stopwatch swCycle = new Stopwatch();
+            swCycle.Start();
+
             _logger.LogInformation("parsing queue entry #{0}", dequeued.Id);
+            Stopwatch swParseFile = new Stopwatch();
+            swParseFile.Start();
+
             var (parseError, parsed) = await ParseFile(dequeued);
+
+            swParseFile.Stop();
             if (parseError.HasValue())
             {
                 _logger.LogInformation("finish queue item with error: {0}", parseError);
@@ -105,37 +116,61 @@ namespace nscreg.Server.DataUploadSvc
 
             var anyWarnings = false;
 
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context);
+
+            await populateService.InitializeCacheForLookups();
+
+            Stopwatch swPopulation = new Stopwatch();
+            long populationCount = 0;
+
+            Stopwatch swAnalyze = new Stopwatch();
+            long analyzeCount = 0;
+
+            Stopwatch swSave = new Stopwatch();
+            long saveCount = 0;
+
+            Stopwatch swDbLog = new Stopwatch();
+            long dbLogCount = 0;
             for (var i = 0; i < parsed.Length; i++)
             {
-                _logger.LogInformation("processing entity #{0}", i + 1);
+
+                _logger.LogInformation("processing entity #{0} ({1:0.00} %)", i + 1, (double)i/parsed.Length * 100);
                 var startedAt = DateTime.Now;
 
+                /// Populate Unit
+                
+                swPopulation.Start();
                 _logger.LogInformation("populating unit");
 
-                var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
+                var (populated, isNew, populateError) = await populateService.PopulateAsync(parsed[i]);
+                swPopulation.Stop();
+                populationCount += 1;
+
                 if (populateError.HasValue())
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>(){populateError} );
+                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
                     continue;
                 }
 
-                if (dequeued.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter)
-                {
-                    if (!string.IsNullOrWhiteSpace(populated.StatId) && !_analysisSvc.CheckStatUnitIdIsContains(populated))
-                    {
-                        _logger.LogInformation("StatUnit failed with error: {0} ({1})", Resource.StatUnitIdIsNotFound, populated.StatId);
-                        anyWarnings = true;
-                        await LogUpload(LogStatus.Error, nameof(Resource.StatUnitIdIsNotFound));
-                        continue;
-                    }
-                }
+                populated.DataSource = dequeued.DataSourceFileName;
+                populated.ChangeReason = ChangeReasons.Edit;
+                populated.EditComment = "Uploaded from data source file";
+
+                /// Analyze Unit
 
                 _logger.LogInformation(
-                    "analyzing populated unit #{0}",
+                    "analyzing populated unit #{0} RegId={1}", i + 1,
                     populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+
+                swAnalyze.Start();
+
                 var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
+
+                swAnalyze.Stop();
+                analyzeCount += 1;
+
                 if (analysisError.HasValue())
                 {
                     _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
@@ -146,14 +181,23 @@ namespace nscreg.Server.DataUploadSvc
                 if (errors.Any())
                 {
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
-                    errors.Values.ForEach(x=>x.ForEach(e=> _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
+                    errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Warning,  string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
+                    await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
                 }
 
+                /// Save Unit
+
                 _logger.LogInformation("saving unit");
+
+                swSave.Start();
+
                 var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId);
+
+                swSave.Stop();
+                saveCount += 1;
+
                 if (saveError.HasValue())
                 {
                     _logger.LogError(saveError);
@@ -165,27 +209,30 @@ namespace nscreg.Server.DataUploadSvc
                 if (!saved) anyWarnings = true;
                 await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
 
-                Task LogUpload(LogStatus status, string note = "",
+                async Task LogUpload(LogStatus status, string note = "",
                     IReadOnlyDictionary<string, string[]> analysisErrors = null,
                     IEnumerable<string> analysisSummary = null)
                 {
-                    var rawUnit = JsonConvert.SerializeObject(
-                        dequeued.DataSource.VariablesMappingArray.ToDictionary(
-                            x => x.target,
-                            x =>
-                            {
-                                if (parsed[i] is string)
-                                    return parsed[i][x.source];
-                                var tmp = x.source.Split('.');
-                                if (parsed[i].ContainsKey(tmp[0]))
-                                    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
-                                return tmp[0];
-                            }));
-                    return _queueSvc.LogUnitUpload(
-                        dequeued, rawUnit, startedAt, populated, DateTime.Now,
-                        status, note ?? "", analysisErrors, analysisSummary);
+                    swDbLog.Start();
+                    var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
+                             {
+                                 var tmp = x.source.Split('.');
+                                 if (parsed[i].ContainsKey(tmp[0]))
+                                     return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                                 return tmp[0];
+                             }));
+                    await _logBuffer.LogUnitUpload(
+                         dequeued.Id, rawUnit, startedAt, populated,
+                         status, note ?? "", analysisErrors, analysisSummary);
+
+                    swDbLog.Stop();
                 }
             }
+
+            await _logBuffer.Flush();
+
+            _logger.LogWarning($"End Total {swCycle.Elapsed};{Environment.NewLine} Parse {swParseFile.Elapsed} {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine} Logging {swDbLog.Elapsed} {Environment.NewLine}");
+            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine} Logging {(double)swDbLog.Elapsed.Seconds / dbLogCount}");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
@@ -220,14 +267,15 @@ namespace nscreg.Server.DataUploadSvc
             {
                 switch (queueItem.DataSourceFileName)
                 {
-                    case var name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
-                        parsed = FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
+                    case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
+                        parsed = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath, queueItem.DataSource.VariablesMappingArray);
                         break;
-                    case var name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
+                    case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
                         parsed = await FileParser.GetRawEntitiesFromCsv(
                             queueItem.DataSourcePath,
                             queueItem.DataSource.CsvSkipCount,
-                            queueItem.DataSource.CsvDelimiter);
+                            queueItem.DataSource.CsvDelimiter,
+                            queueItem.DataSource.VariablesMappingArray);
                         break;
                     default: return ("Unsupported type of file", null);
                 }
@@ -248,45 +296,12 @@ namespace nscreg.Server.DataUploadSvc
             {
                 return (Resource.FileHasEmptyUnit, parsedArr);
             }
-            return  (null, parsedArr);
+            return (null, parsedArr);
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="queueItem"></param>
-        /// <param name="parsedUnit"></param>
-        /// <returns></returns>
-        private async Task<(string, StatisticalUnit)> PopulateUnit(
-            DataSourceQueue queueItem,
-            IReadOnlyDictionary<string, object> parsedUnit)
+        private (string , (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
-            StatisticalUnit unit;
-            string errors;
-            try
-            {
-                (unit, errors) = await _queueSvc.GetStatUnitFromRawEntity(
-                    parsedUnit,
-                    queueItem.DataSource.StatUnitType,
-                    queueItem.DataSource.VariablesMappingArray,
-                    queueItem.DataSource.DataSourceUploadType,
-                    queueItem.DataSource.AllowedOperations);
-            }
-            catch (Exception ex)
-            {
-                return (ex.Message,
-                    ex.Data["unit"] as StatisticalUnit);
-            }
-
-            unit.DataSource = queueItem.DataSourceFileName;
-            unit.ChangeReason = ChangeReasons.Edit;
-            unit.EditComment = "Uploaded from data source file";
-            return (errors.Length > 0 ? errors : null, unit);
-        }
-
-        private (string, (IReadOnlyDictionary<string, string[]>, string[])) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
-        {
-            if(queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
+            if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
                 return (null, (new Dictionary<string, string[]>(), new string[0]));
 
             AnalysisResult analysisResult;
@@ -302,39 +317,29 @@ namespace nscreg.Server.DataUploadSvc
                 analysisResult.Messages,
                 analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
         }
+
+        /// <summary>
+        /// Делает копию файла с удалением пустых строк
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
         private async Task<string> MutateFileAsync(DataSourceQueue item)
         {
             var rawLines = await GetRawFileAsync(item);
-            var dataSource = await _context.DataSources.FirstOrDefaultAsync(c => c.Id == item.DataSourceId);
-            if(dataSource != null)
+            try
             {
-                try
-                {
-                    var attrToCheck = dataSource.AttributesToCheckArray.ToArray();
-                    var originalAttr = dataSource.OriginalAttributesArray.ToArray();
-                    var arrayHeaders = rawLines[0].Split(item.DataSource.CsvDelimiter);
-                    rawLines[0] = string.Join(item.DataSource.CsvDelimiter,
-                        arrayHeaders.Select(c => c.Replace(c,
-                            c == originalAttr.FirstOrDefault(x => x == c)
-                                ? attrToCheck.ElementAtOrDefault(originalAttr.IndexOf(c))
-                                : c)));
-                    await WriteFileAsync(string.Join("\r\n",rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
-                }
-                catch(Exception ex)
-                {
-                    return ex.Message;
-                }
+                await WriteFileAsync(string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
             }
-            else
+            catch (Exception ex)
             {
-                return Resource.DataSourceNotFound;
+                return ex.Message;
             }
-
             return string.Empty;
-
         }
+
         private async Task<string[]> GetRawFileAsync(DataSourceQueue item)
         {
+            if (item.DataSource == null) throw new Exception(Resource.DataSourceNotFound);
             var i = item.DataSource.CsvSkipCount;
             string rawLines;
             if (!File.Exists(item.DataSourcePath)) throw new FileNotFoundException(Resource.FileDoesntExistOrInQueue);
