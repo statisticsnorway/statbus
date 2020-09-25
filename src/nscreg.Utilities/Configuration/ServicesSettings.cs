@@ -23,5 +23,7 @@ namespace nscreg.Utilities.Configuration
         public string UploadDir { get; set; }
         [Required]
         public string SampleFramesDir { get; set; }
+
+        public int DbLogBufferMaxCount { get; set; } = 50;
     }
 }

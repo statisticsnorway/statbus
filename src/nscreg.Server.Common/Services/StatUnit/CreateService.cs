@@ -37,9 +37,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Common _commonSvc;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
-        private readonly StatUnitTypeOfSave _statUnitTypeOfSave;
+        private readonly bool _shouldAnalyze;
 
-        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings, StatUnitTypeOfSave statUnitTypeOfSave)
+        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings, bool shouldAnalyze)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -48,7 +48,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
-            _statUnitTypeOfSave = statUnitTypeOfSave;
+            _shouldAnalyze = shouldAnalyze;
         }
 
         private void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<ActivityM> activityCategoryList)
@@ -236,33 +236,21 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
                 foreach (var unitM in statUnits)
                 {
-                    if (unitM.StatRegId == null)
-                        unit.PersonsUnits.Add(new PersonStatisticalUnit
-                        {
-                            EnterpriseGroupId = unitM.GroupRegId,
-                            PersonId = null,
-                            PersonTypeId = unitM.RoleId
-                        });
-                    else
-                        unit.PersonsUnits.Add(new PersonStatisticalUnit
-                        {
-                            EnterpriseGroupId = null,
-                            PersonId = null,
-                            PersonTypeId = unitM.RoleId
-                        });
+                    unit.PersonsUnits.Add(new PersonStatisticalUnit
+                    {
+                        EnterpriseGroupId = unitM.StatRegId == null ? unitM.GroupRegId : null,
+                        PersonId = null,
+                        PersonTypeId = unitM.RoleId
+                    });
                 }
 
                 var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
 
                 unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v => new CountryStatisticalUnit { CountryId = v }));
-                if (unit.SizeId == 0)
-                {
-                    unit.SizeId = null;
-                }
-                if (work != null)
-                {
-                    await work(unit);
-                }
+
+                unit.SizeId = unit.SizeId == 0 ? null : unit.SizeId;
+
+                await (work?.Invoke(unit) ?? Task.CompletedTask);
             });
 
         /// <summary>
@@ -295,7 +283,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
             unit.UserId = userId;
 
-            if (_statUnitTypeOfSave == StatUnitTypeOfSave.Service)
+            if (_shouldAnalyze)
             {
                 IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
                 var analyzeResult = analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);

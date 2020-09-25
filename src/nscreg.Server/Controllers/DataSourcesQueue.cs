@@ -35,7 +35,7 @@ namespace nscreg.Server.Controllers
         {
             _svc = new DataSourcesQueueService(
                 ctx,
-                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings, StatUnitTypeOfSave.WebApplication),
+                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings, shouldAnalyze: true),
                 new EditService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings),
                 servicesSettings,
                 mandatoryFields);

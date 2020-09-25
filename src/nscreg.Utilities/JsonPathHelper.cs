@@ -41,7 +41,7 @@ namespace nscreg.Utilities
         /// </summary>
         /// <param name="dotSeparatedPath"></param>
         /// <returns></returns>
-        public static string PathHead(string dotSeparatedPath) => dotSeparatedPath?.Split('.')[0];
+        public static string PathHead(string dotSeparatedPath) => dotSeparatedPath?.Split(new []{ '.' }, 2)[0];
 
         /// <summary>
         /// Take tail string of dot separated string (i.e. without first part)
@@ -49,7 +49,7 @@ namespace nscreg.Utilities
         /// <param name="dotSeparatedPath"></param>
         /// <returns></returns>
         public static string PathTail(string dotSeparatedPath) => dotSeparatedPath != null
-            ? string.Join(".", dotSeparatedPath.Split('.').Skip(1))
+            ? dotSeparatedPath.Split(new[] { '.' }, 2).Skip(1).FirstOrDefault() ?? string.Empty
             : null;
     }
 }

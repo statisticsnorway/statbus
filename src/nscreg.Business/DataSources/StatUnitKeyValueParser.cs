@@ -1,85 +1,64 @@
+using Newtonsoft.Json;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using nscreg.Utilities.Extensions;
-using static nscreg.Business.DataSources.PropertyParser;
+using nscreg.Data;
+using nscreg.Data.Constants;
 using static nscreg.Utilities.JsonPathHelper;
 
 namespace nscreg.Business.DataSources
 {
     public static class StatUnitKeyValueParser
     {
-        public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
-            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).source;
+        public static readonly string[] StatisticalUnitArrayPropertyNames = { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
+
+        public static string GetStatIdMapping(IEnumerable<(string source, string target)> mapping)
+            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).target;
 
         public static void ParseAndMutateStatUnit(
-            IReadOnlyDictionary<string, string[]> mappings,
             IReadOnlyDictionary<string, object> nextProps,
-            StatisticalUnit unit)
+            StatisticalUnit unit, NSCRegDbContext context)
         {
-            var aggregated = nextProps.Aggregate(new Dictionary<string, object>(), AggregateAllFlattenPropsToJson);
-            foreach (var kv in aggregated)
+            foreach (var kv in nextProps)
             {
-                
+
                 if (kv.Value is string)
                 {
-                    if (!mappings.TryGetValue(kv.Key, out string[] targetKeys) && kv.Value is string) continue;
-                    foreach (var targetKey in targetKeys)
+                    try
                     {
-                        try
-                        {
-                            UpdateObject(targetKey, kv.Value);
-                        }
-                        catch (Exception ex)
-                        {
-                            ex.Data.Add("source property", kv.Key);
-                            ex.Data.Add("target property", targetKey);
-                            ex.Data.Add("value", kv.Value);
-                            ex.Data.Add("unit", unit);
-                            throw;
-                        }
+                        UpdateObject(kv.Key, kv.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        ex.Data.Add("target property", kv.Key);
+                        ex.Data.Add("value", kv.Value);
+                        ex.Data.Add("unit", unit);
+                        throw;
+                    }
+                }
+                else if (kv.Value is List<KeyValuePair<string, Dictionary<string, string>>> arrayProperty)
+                {
+                    var targetArrKeys = arrayProperty.SelectMany(x=>x.Value.Select(d=>d.Key)).Distinct();
+                    var mapping = targetArrKeys.ToDictionary(x => x, x => new string[] { x });
+                    try
+                    {
+                        UpdateObject(kv.Key, kv.Value, mapping);
+                    }
+                    catch (Exception ex)
+                    {
+                        ex.Data.Add("source property", kv.Key);
+                        ex.Data.Add("target property", targetArrKeys);
+                        ex.Data.Add("value", kv.Value);
+                        ex.Data.Add("unit", unit);
+                        throw;
                     }
                 }
                 else
                 {
-                    var mappingArray = mappings.Where(x => x.Key.StartsWith($"{kv.Key}.")).ToList();
-                    if (mappingArray.Any())
-                    {
-                        var targetArrKeys = mappingArray.ToDictionary(x => x.Key.Split('.').LastOrDefault(), x => x.Value.Select(d => d.Split('.').LastOrDefault()).ToArray());
-                        string keyClassName = mappingArray.FirstOrDefault().Value.FirstOrDefault().Split('.').FirstOrDefault();
-                        try
-                        {
-                            UpdateObject(keyClassName, kv.Value, targetArrKeys);
-                        }
-                        catch (Exception ex)
-                        {
-                            ex.Data.Add("source property", kv.Key);
-                            ex.Data.Add("target property", targetArrKeys);
-                            ex.Data.Add("value", kv.Value);
-                            ex.Data.Add("unit", unit);
-                            throw;
-                        }
-                        
-                    }
+                    System.Diagnostics.Debug.Fail("Bad sector of code. NextProps: " + JsonConvert.SerializeObject(nextProps));
                 }
-            }
-
-            Dictionary<string, object> AggregateAllFlattenPropsToJson(
-                Dictionary<string, object> accumulation,
-                KeyValuePair<string, object> cur)
-            {
-                if (!cur.Key.Contains('.'))
-                {
-                    accumulation.Add(cur.Key, cur.Value);
-                    return accumulation;
-                }
-                var topKey = cur.Key.Split('.')[0];
-                if (!accumulation.TryGetValue(topKey, out var previous)) previous = "{}";
-                if (previous is string s)
-                    accumulation[topKey] = ReplacePath(s, cur.Key, cur.Value);
-                return accumulation;
             }
 
             void UpdateObject(string propPath, object inputValue,
@@ -110,48 +89,22 @@ namespace nscreg.Business.DataSources
                 {
                     case nameof(StatisticalUnit.Activities):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
-                        propValue = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
-                        var actPropValue = new List<ActivityStatisticalUnit>();
+                        var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
-                            foreach (var activityFromArray in valueArr)
-                            {
-                                foreach (var activityValue in activityFromArray.Value)
-                                {
-                                    if (!mappingsArr.TryGetValue(activityValue.Key, out string[] targetKeys)) continue;
-                                    foreach (var targetKey in targetKeys)
-                                    {
-                                        UpdateCollectionProperty((ICollection<ActivityStatisticalUnit>)propValue, ActivityIsNew, GetActivity, SetActivity, ParseActivity, targetKey, activityValue.Value);
-                                    }
-                                }
-                                actPropValue.AddRange((ICollection<ActivityStatisticalUnit>)propValue);
-                                propValue = Activator.CreateInstance<List<ActivityStatisticalUnit>>();
-                            }
-                        propValue = actPropValue;
+                            UpdateActivities(unitActivities, valueArr, mappingsArr);
+                        propValue = unitActivities;
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
-                        propValue = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
-                        var tmpPropValue = new List<PersonStatisticalUnit>();
+                        var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
+                        unit.PersonsUnits?.ForEach(x => x.Person.Role = x.PersonTypeId);
                         if (valueArr != null)
-                            foreach (var personFromArray in valueArr)
-                            {
-                                foreach (var personValue in personFromArray.Value)
-                                {
-                                    if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
-                                    foreach (var targetKey in targetKeys)
-                                    {
-                                        UpdateCollectionProperty((ICollection<PersonStatisticalUnit>)propValue, PersonIsNew, GetPerson, SetPerson, ParsePerson, targetKey, personValue.Value, SetPersonStatUnitOwnPeroperties);
-                                    }
-                                }
-                                tmpPropValue.AddRange((ICollection<PersonStatisticalUnit>)propValue);
-                                propValue = Activator.CreateInstance<List<PersonStatisticalUnit>>();
-                            }
-                        propValue = tmpPropValue;
+                            UpdatePersons(persons, valueArr, mappingsArr, context);
+                        propValue = persons;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
-                        var fpcPropValue = new List<CountryStatisticalUnit>();
-                        propValue = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
-                        if (valueArr!=null)
+                        var foreignParticipationCountries = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
+                        if (valueArr != null)
                             foreach (var countryFromArray in valueArr)
                             {
                                 Country prev = new Country();
@@ -160,51 +113,49 @@ namespace nscreg.Business.DataSources
                                     if (!mappingsArr.TryGetValue(countryValue.Key, out string[] targetKeys)) continue;
                                     foreach (var targetKey in targetKeys)
                                     {
-                                        ParseCountry(targetKey, countryValue.Value, prev);
+                                        PropertyParser.ParseCountry(targetKey, countryValue.Value, prev);
                                     }
                                 }
-                                ((ICollection<CountryStatisticalUnit>)propValue).Add(new CountryStatisticalUnit()
+                                foreignParticipationCountries.Add(new CountryStatisticalUnit()
                                 {
                                     CountryId = prev.Id,
                                     Country = prev
                                 });
-                                fpcPropValue.AddRange((ICollection<CountryStatisticalUnit>)propValue);
-                                propValue = Activator.CreateInstance<List<CountryStatisticalUnit>>();
                             }
-                        propValue = fpcPropValue;
+                        propValue = foreignParticipationCountries;
                         break;
                     case nameof(StatisticalUnit.Address):
-                        propValue = ParseAddress(propTail, value, unit.Address);
+                        propValue = PropertyParser.ParseAddress(propTail, value, unit.Address);
                         break;
                     case nameof(StatisticalUnit.ActualAddress):
-                        propValue = ParseAddress(propTail, value, unit.ActualAddress);
+                        propValue = PropertyParser.ParseAddress(propTail, value, unit.ActualAddress);
                         break;
                     case nameof(StatisticalUnit.PostalAddress):
-                        propValue = ParseAddress(propTail, value, unit.PostalAddress);
+                        propValue = PropertyParser.ParseAddress(propTail, value, unit.PostalAddress);
                         break;
                     case nameof(StatisticalUnit.LegalForm):
-                        propValue = ParseLegalForm(propTail, value, unit.LegalForm);
+                        propValue = PropertyParser.ParseLegalForm(propTail, value, unit.LegalForm);
                         break;
                     case nameof(StatisticalUnit.InstSectorCode):
-                        propValue = ParseSectorCode(propTail, value, unit.InstSectorCode);
+                        propValue = PropertyParser.ParseSectorCode(propTail, value, unit.InstSectorCode);
                         break;
                     case nameof(StatisticalUnit.DataSourceClassification):
-                        propValue = ParseDataSourceClassification(propTail, value, unit.DataSourceClassification);
+                        propValue = PropertyParser.ParseDataSourceClassification(propTail, value, unit.DataSourceClassification);
                         break;
                     case nameof(StatisticalUnit.Size):
-                        propValue = ParseSize(propTail, value, unit.Size);
+                        propValue = PropertyParser.ParseSize(propTail, value, unit.Size);
                         break;
                     case nameof(StatisticalUnit.UnitStatus):
-                        propValue = ParseUnitStatus(propTail, value, unit.UnitStatus);
+                        propValue = PropertyParser.ParseUnitStatus(propTail, value, unit.UnitStatus);
                         break;
                     case nameof(StatisticalUnit.ReorgType):
-                        propValue = ParseReorgType(propTail, value, unit.ReorgType);
+                        propValue = PropertyParser.ParseReorgType(propTail, value, unit.ReorgType);
                         break;
                     case nameof(StatisticalUnit.RegistrationReason):
-                        propValue = ParseRegistrationReason(propTail, value, unit.RegistrationReason);
+                        propValue = PropertyParser.ParseRegistrationReason(propTail, value, unit.RegistrationReason);
                         break;
                     case nameof(StatisticalUnit.ForeignParticipation):
-                        propValue = ParseForeignParticipation(propTail, value, unit.ForeignParticipation);
+                        propValue = PropertyParser.ParseForeignParticipation(propTail, value, unit.ForeignParticipation);
                         break;
                     default:
                         var type = propInfo.PropertyType;
@@ -212,43 +163,127 @@ namespace nscreg.Business.DataSources
                         propValue = value.HasValue() || underlyingType == null
                             ? Type.GetTypeCode(type) == TypeCode.String
                                 ? value
-                                : ConvertOrDefault(underlyingType ?? type, value)
+                                : PropertyParser.ConvertOrDefault(underlyingType ?? type, value)
                             : null;
                         break;
                 }
 
                 propInfo.SetValue(unit, propValue);
-
-                void UpdateCollectionProperty<TJoin, TDependant>(
-                    ICollection<TJoin> joinEntities,
-                    Func<TJoin, bool> isJoinNew,
-                    Func<TJoin, TDependant> getDependant,
-                    Action<TJoin, TDependant> setDependant,
-                    Func<string, string, TDependant, TDependant> parseDependant,                 
-                    string propPath1, string propValue1,
-                    Func<string, TJoin, string, bool> setOwnProperties = null) where TJoin : class
-                {
-                    var newJoin = joinEntities.LastOrDefault(isJoinNew);
-                    var insertNew = newJoin == null;
-                    if (insertNew) newJoin = Activator.CreateInstance<TJoin>();
-                    bool isOwnProperty = false;
-                    if (setOwnProperties != null)
-                    {
-                        isOwnProperty = setOwnProperties(propPath1, newJoin, propValue1);
-                    }                        
-                    if(!isOwnProperty)
-                        setDependant(newJoin, parseDependant(propPath1, propValue1, getDependant(newJoin)));
-                    if (insertNew) joinEntities.Add(newJoin);
-                }
-
-                bool ActivityIsNew(ActivityStatisticalUnit join) => join.ActivityId == 0 && join.Activity != null;
-                Activity GetActivity(ActivityStatisticalUnit join) => join.Activity;
-                void SetActivity(ActivityStatisticalUnit join, Activity dependant) => join.Activity = dependant;
-
-                bool PersonIsNew(PersonStatisticalUnit join) => join.PersonId.GetValueOrDefault() == 0 && join.Person != null;
-                Person GetPerson(PersonStatisticalUnit join) => join.Person;
-                void SetPerson(PersonStatisticalUnit join, Person dependant) => join.Person = dependant;
             }
         }
+        private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr)
+        {
+            var defaultYear = DateTime.Now.Year - 1;
+            var propPathActivityCategoryCode = string.Join(".", nameof(ActivityCategory), nameof(ActivityCategory.Code));
+            var dbActivitiesGroups = dbActivities.GroupBy(x => x.Activity.ActivityYear).ToList();
+            var importActivitiesGroups =
+                importActivities.GroupBy(x => int.TryParse(x.Value.GetValueOrDefault(nameof(Activity.ActivityYear)), out int val) ? (int?)val : defaultYear).ToList();
+
+            foreach (var importActivitiesGroup in importActivitiesGroups)
+            {
+                var dbGroup = dbActivitiesGroups.FirstOrDefault(x => x.Key == importActivitiesGroup.Key);
+                if (dbGroup == null)
+                {
+                   var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
+                   {
+                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary)
+                   });
+                   dbActivities.AddRange(parsedActivities);
+                   continue;
+                }
+
+                importActivitiesGroup.GroupJoin(dbGroup,
+                    import => import.Value.GetValueOrDefault(propPathActivityCategoryCode),
+                    db => db.Activity.ActivityCategory.Code, (importRow, dbRows) => (importRow: importRow, dbRows: dbRows))
+                    .ForEach(x =>
+                    {
+                        var dbRow = x.dbRows.FirstOrDefault();
+                        if (dbRow != null)
+                        {
+                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary);
+                        }
+                        else
+                        {
+                            dbRow = new ActivityStatisticalUnit
+                            {
+                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary)
+                            };
+                            dbActivities.Add(dbRow);
+                        }
+                    });
+            }
+        }
+
+        private static Activity ParseActivityByTargetKeys(Activity activity, Dictionary<string, string> targetKeys,
+            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType)
+        {
+            var activityTypeWasSet = activity != null;
+            activity = activity ?? new Activity();
+            foreach (var (key, val) in targetKeys)
+            {
+                if (!mappingsArr.TryGetValue(key, out var targetValues)) continue;
+                foreach (var targetKey in targetValues)
+                {
+                    if (targetKey == nameof(Activity.ActivityType))
+                    {
+                        activityTypeWasSet = true;
+                    }
+                    activity = PropertyParser.ParseActivity(targetKey, val, activity);
+                }
+            }
+            if (!activityTypeWasSet)
+            {
+                activity.ActivityType = defaultType;
+            }
+            return activity;
+        }
+
+        private static Person ParsePersonByTargetKeys(Dictionary<string, string> targetKeys,
+            Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
+        {
+            Person person = new Person();
+            foreach (var (key,value) in targetKeys)
+            {
+                if(!mappingsArr.TryGetValue(key, out var targetValues)) continue;
+                foreach (var targetKey in targetValues)
+                {
+                    if (targetKey == nameof(Person.Role))
+                    {
+                        var roleValue = value.ToLower();
+
+                        var roleType = context.PersonTypes.Local.FirstOrDefault(x =>
+                            x.Name.ToLower() == roleValue || x.NameLanguage1.HasValue() && x.NameLanguage1.ToLower() == roleValue ||
+                            x.NameLanguage2.HasValue() && x.NameLanguage2.ToLower() == roleValue);
+
+                        person = PropertyParser.ParsePerson(targetKey, roleType?.Id.ToString(), person);
+                        continue;
+                    }
+                    person = PropertyParser.ParsePerson(targetKey, value, person);
+
+                }
+            }
+            return person;
+        }
+
+        private static void UpdatePersons(ICollection<PersonStatisticalUnit> personsDb,
+            List<KeyValuePair<string, Dictionary<string, string>>> importPersons,
+            Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
+        {
+            var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() {Person = newPerson, PersonTypeId = newPerson.Role}).ToList();
+
+            newPersonStatUnits.GroupJoin(personsDb, dbPerson => dbPerson.PersonTypeId,
+                newPerson => newPerson.PersonTypeId, (newPerson, dbPersons) => (newPerson: newPerson, dbPersons: dbPersons))
+                .ForEach(x =>
+                {
+                    if(x.dbPersons.Any())
+                        x.dbPersons.ForEach(z => z.Person = x.newPerson.Person);
+                    else
+                    {
+                        personsDb.Add(x.newPerson);
+                    }
+                });
+
+        }
+
     }
 }

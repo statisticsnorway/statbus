@@ -76,13 +76,6 @@ const fetchColumns = () =>
       )(response),
   })
 
-const arrForCheckSingle = ['StatId', 'TaxRegId', 'ExternalId']
-const arrForCheckMulti = [
-  'Activities.Activity.',
-  'Persons.Person.',
-  'ForeignParticipationCountriesUnits.ForeignParticipationCountry.',
-]
-
 const createDataSource = (data, formikBag) => {
   const filteredData = { ...data }
 
@@ -93,31 +86,10 @@ const createDataSource = (data, formikBag) => {
 
   const attributesToCheck = []
   const leftItem = 0
-  const rightItem = 1
 
   variablesMapping.forEach((item, itemIndex) => {
     // eslint-disable-next-line prefer-destructuring
     OriginalCsvAttributes[itemIndex] = item[0]
-
-    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][rightItem] === arrForCheckSingle[itemForCheckIndex]) {
-        variablesMapping[itemIndex][leftItem] =
-          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[rightItem]
-            ? 'TaxId'
-            : arrForCheckSingle[itemForCheckIndex]
-      }
-    })
-
-    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][rightItem].includes(arrForCheckMulti[itemForCheckIndex])) {
-        variablesMapping[itemIndex][leftItem] =
-          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
-      }
-    })
-
-    if (variablesMapping[itemIndex][rightItem] === 'Persons.Person.Role') {
-      variablesMapping[itemIndex][leftItem] = variablesMapping[itemIndex][rightItem]
-    }
   })
 
   variablesMapping.forEach((item, index) => {
@@ -166,31 +138,10 @@ const editDataSource = id => (data, formikBag) => {
 
   const attributesToCheck = []
   const leftItem = 0
-  const rightItem = 1
 
   variablesMapping.forEach((item, itemIndex) => {
     // eslint-disable-next-line prefer-destructuring
     OriginalCsvAttributes[itemIndex] = item[0]
-
-    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][rightItem] === arrForCheckSingle[itemForCheckIndex]) {
-        variablesMapping[itemIndex][leftItem] =
-          arrForCheckSingle[itemForCheckIndex] === arrForCheckSingle[rightItem]
-            ? 'TaxId'
-            : arrForCheckSingle[itemForCheckIndex]
-      }
-    })
-
-    arrForCheckSingle.forEach((itemForCheck, itemForCheckIndex) => {
-      if (variablesMapping[itemIndex][rightItem].includes(arrForCheckMulti[itemForCheckIndex])) {
-        variablesMapping[itemIndex][leftItem] =
-          arrForCheckMulti[itemForCheckIndex] + variablesMapping[itemIndex][leftItem]
-      }
-    })
-
-    if (variablesMapping[itemIndex][rightItem] === 'Persons.Person.Role') {
-      variablesMapping[itemIndex][leftItem] = variablesMapping[itemIndex][rightItem]
-    }
   })
 
   variablesMapping.forEach((item, index) => {
