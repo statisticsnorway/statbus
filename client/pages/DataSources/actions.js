@@ -98,10 +98,6 @@ const createDataSource = (data, formikBag) => {
   variablesMapping.forEach((item, itemIndex) => {
     // eslint-disable-next-line prefer-destructuring
     OriginalCsvAttributes[itemIndex] = item[0]
-
-    if (variablesMapping[itemIndex][rightItem] === 'Persons.Person.Role') {
-      variablesMapping[itemIndex][leftItem] = variablesMapping[itemIndex][rightItem]
-    }
   })
 
   variablesMapping.forEach((item, index) => {
