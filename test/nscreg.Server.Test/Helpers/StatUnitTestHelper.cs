@@ -38,12 +38,14 @@ namespace nscreg.Server.Test
         }
 
         public async Task<LegalUnit> CreateLegalUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
-            AddressM address, string unitName)
+            AddressM address, string unitName, string statId)
         {
             await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: true).CreateLegalUnit(new LegalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                 Name = unitName,
+                StatId = statId,
+                StatIdDate = DateTime.Now,
                 Address = address ?? await CreateAddressAsync(context),
                 Activities = activities ?? new List<ActivityM>(),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
