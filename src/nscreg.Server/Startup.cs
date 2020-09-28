@@ -210,16 +210,22 @@ namespace nscreg.Server
         /// </summary>
         public static void Main()
         {
-            CreateWebHostBuilder().UseKestrel(options =>
-                {
-                    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1);//20
-                })
-                .UseContentRoot(Directory.GetCurrentDirectory())
-                .UseIISIntegration()
-                .UseStartup<Startup>()
-                /*.UseDefaultServiceProvider(options => 
-                     options.ValidateScopes = false)*/
-                .Build().Run();
+            try
+            {
+                CreateWebHostBuilder().UseKestrel(options =>
+                    {
+                        options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
+                    })
+                    .UseContentRoot(Directory.GetCurrentDirectory())
+                    .UseIISIntegration()
+                    .UseStartup<Startup>()
+                    .Build().Run();
+            }
+            catch (Exception ex)
+            {
+                var logger = NLog.LogManager.GetCurrentClassLogger();
+                logger.Error(ex);
+            }
         }
         public static IWebHostBuilder CreateWebHostBuilder() =>
             WebHost.CreateDefaultBuilder()
