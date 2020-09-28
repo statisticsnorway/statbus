@@ -1,22 +1,21 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
     public class SaveManager
     {
+        private CreateUnitService _createSvc;
+
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
 
         private readonly QueueService _queueSvc;
@@ -26,8 +25,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private readonly UserService _usrService;
 
-        public SaveManager(NSCRegDbContext context, QueueService queueService, CreateService createSvc,
-            EditService editSvc)
+        public SaveManager(NSCRegDbContext context, QueueService queueService)
         {
             _ctx = context;
             _queueSvc = queueService;
@@ -36,11 +34,11 @@ namespace nscreg.Server.Common.Services.DataSources
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId) =>
-                    createSvc.CreateLegalUnit(MappedUnitM(unit, StatUnitTypes.LegalUnit, "LegalUnitCreateM", userId), userId),
+                    _createSvc.CreateLegalUnit(MappedUnitM(unit, StatUnitTypes.LegalUnit, "LegalUnitCreateM", userId), userId),
                 [StatUnitTypes.LocalUnit] = (unit, userId) =>
-                    createSvc.CreateLocalUnit(MappedUnitM(unit, StatUnitTypes.LocalUnit, "LocalUnitCreateM", userId), userId),
+                    _createSvc.CreateLocalUnit(),
                 [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
-                    createSvc.CreateEnterpriseUnit(MappedUnitM(unit, StatUnitTypes.EnterpriseUnit, "EnterpriseUnitCreateM", userId), userId)
+                    _createSvc.CreateEnterpriseUnit(MappedUnitM(unit, StatUnitTypes.EnterpriseUnit, "EnterpriseUnitCreateM", userId), userId)
             };
             _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
@@ -54,18 +52,14 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
-            string userId)
+            string userId, bool isNeW)
         {
-            // TODO: вероятно, лишний запрос. Такое делается до Analyze
-            var unitExists = await _queueSvc.CheckIfUnitExists(dataSource.StatUnitType, parsedUnit.StatId);
-
             if (dataSource.Priority != DataSourcePriority.Trusted &&
-                (dataSource.Priority != DataSourcePriority.Ok || unitExists))
+                (dataSource.Priority != DataSourcePriority.Ok || isNeW))
                 return (null, false);
 
-            // Alter - сценарий не реализован ?
             var saveAction =
-                unitExists && dataSource.AllowedOperations != DataSourceAllowedOperation.Create ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                isNeW && dataSource.AllowedOperations != DataSourceAllowedOperation.Create ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {
@@ -84,9 +78,10 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
 
-        public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId)
+        public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId, bool isNew)
         {
-            return await SaveStatUnitsUpload(parsedUnit, dataSource, userId);
+            _createSvc = new CreateUnitService(_ctx,parsedUnit, isNew, userId);
+            return await SaveStatUnitsUpload(parsedUnit, dataSource, userId, isNew);
         }
 
         private dynamic MappedUnitM(StatisticalUnit unit, StatUnitTypes type, string mapperType, string userId)

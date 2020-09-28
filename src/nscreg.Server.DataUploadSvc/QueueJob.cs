@@ -37,7 +37,6 @@ namespace nscreg.Server.DataUploadSvc
         private QueueService _queueSvc;
         private DbLogBuffer _logBuffer;
         private AnalyzeService _analysisSvc;
-        private SaveManager _saveManager;
         private readonly int _dbLogBufferMaxCount;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
@@ -65,9 +64,7 @@ namespace nscreg.Server.DataUploadSvc
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var createSvc = new CreateService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
             var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
-            _saveManager = new SaveManager(_context, _queueSvc, createSvc, editSvc);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
 
@@ -117,8 +114,10 @@ namespace nscreg.Server.DataUploadSvc
             var anyWarnings = false;
 
             var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context);
-
             await populateService.InitializeCacheForLookups();
+
+            var saveService = new SaveManager(_context, _queueSvc);
+            
 
             Stopwatch swPopulation = new Stopwatch();
             long populationCount = 0;
@@ -192,8 +191,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("saving unit");
 
                 swSave.Start();
-
-                var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId);
+                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew);
 
                 swSave.Stop();
                 saveCount += 1;
