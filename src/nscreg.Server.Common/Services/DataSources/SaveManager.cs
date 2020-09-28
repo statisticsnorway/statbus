@@ -54,12 +54,13 @@ namespace nscreg.Server.Common.Services.DataSources
         private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
             string userId, bool isNeW)
         {
+            // TODO: вероятно, лишний запрос. Такое делается до Analyze (Populate возвращает isNew)
             if (dataSource.Priority != DataSourcePriority.Trusted &&
                 (dataSource.Priority != DataSourcePriority.Ok || isNeW))
                 return (null, false);
 
             var saveAction =
-                isNeW && dataSource.AllowedOperations != DataSourceAllowedOperation.Create ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                unitExists && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter) ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {

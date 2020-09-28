@@ -27,10 +27,8 @@ namespace nscreg.Server.Common.Helpers
 
         public void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<int> activityCategoryList)
         {
-            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
-            var regionIds = new List<int?> { regionId, actualRegionId, postalRegionId }.Where(x => x != null).Select(x => (int) x).ToList();
-            CheckIfRegionContains(userId, regionIds);
-            CheckIfActivityContains(userId, activityCategoryList);
+            var regionIds = new List<int?> { regionId, actualRegionId, postalRegionId }.Where(x => x != null).Select(x => (int)x).ToList();
+            CheckRegionOrActivityContains(userId, regionIds, activityCategoryList);
         }
 
         public void CheckRegionOrActivityContains(string userId, List<int> regionIds, List<int> activityCategoryList)
@@ -56,6 +54,7 @@ namespace nscreg.Server.Common.Helpers
         {
             var userRegionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
 
+            //TODO: сжать в один сценарий - пишем все регионы, на которые у нас нет прав (по сути это начиная с var listRegions ...)
             if (userRegionIds.Count == 0)
                 throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsRegion));
 
@@ -73,6 +72,7 @@ namespace nscreg.Server.Common.Helpers
             var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
                 .Select(ur => ur.ActivityCategoryId).ToList();
 
+            //TODO: сделать один сценарий по проверке ( в котором показываем все категории сразу, а не просто сообщение о доступе)
             if (activityCategoryUserIds.Count == 0)
                 throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory));
 
