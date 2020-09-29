@@ -33,26 +33,6 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         /// <summary>
-        /// Eagerly loads lookups to lower number of requests to DB
-        /// </summary>
-        /// <returns></returns>
-        public async Task InitializeCacheForLookups()
-        {
-            await _context.ActivityCategories.LoadAsync();
-            await _context.PersonTypes.LoadAsync();
-            await _context.RegistrationReasons.LoadAsync();
-            await _context.Regions.LoadAsync();
-            await _context.UnitsSize.LoadAsync();
-            await _context.Statuses.LoadAsync();
-            await _context.ReorgTypes.LoadAsync();
-            await _context.SectorCodes.LoadAsync();
-            await _context.DataSourceClassifications.LoadAsync();
-            await _context.LegalForms.LoadAsync();
-            await _context.ForeignParticipations.LoadAsync();
-            await _context.Countries.LoadAsync();
-        }
-
-        /// <summary>
         /// Method for populate unit
         /// </summary>
         /// <param name="raw">Parsed  data of a unit</param>

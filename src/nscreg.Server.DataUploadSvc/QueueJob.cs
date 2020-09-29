@@ -22,6 +22,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 
@@ -69,6 +70,26 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
+        /// Eagerly loads lookups to lower number of requests to DB
+        /// </summary>
+        /// <returns></returns>
+        private static async Task InitializeCacheForLookups(NSCRegDbContext context)
+        {
+            await context.ActivityCategories.LoadAsync();
+            await context.PersonTypes.LoadAsync();
+            await context.RegistrationReasons.LoadAsync();
+            await context.Regions.LoadAsync();
+            await context.UnitsSize.LoadAsync();
+            await context.Statuses.LoadAsync();
+            await context.ReorgTypes.LoadAsync();
+            await context.SectorCodes.LoadAsync();
+            await context.DataSourceClassifications.LoadAsync();
+            await context.LegalForms.LoadAsync();
+            await context.ForeignParticipations.LoadAsync();
+            await context.Countries.LoadAsync();
+        }
+
+        /// <summary>
         /// Queue execution method
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
@@ -113,8 +134,9 @@ namespace nscreg.Server.DataUploadSvc
 
             var anyWarnings = false;
 
+            await InitializeCacheForLookups(_context);
+
             var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context);
-            await populateService.InitializeCacheForLookups();
 
             var saveService = new SaveManager(_context, _queueSvc);
             

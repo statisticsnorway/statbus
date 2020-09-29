@@ -61,7 +61,7 @@ namespace nscreg.Server.Common.Helpers
             var listRegions = regionIds.Where(x => !userRegionIds.Contains(x)).ToList();
             if (listRegions.Count > 0)
             {
-                var regionNames = _dbContext.Regions.Where(x => listRegions.Contains(x.Id))
+                var regionNames = _dbContext.Regions.Local.Where(x => listRegions.Contains(x.Id))
                     .Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2 }.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
                 throw new BadRequestException($"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsRegion))} ({string.Join(",", regionNames.Distinct())})");
             }
