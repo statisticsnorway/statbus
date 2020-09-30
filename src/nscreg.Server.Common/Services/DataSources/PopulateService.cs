@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Business.DataSources;
 using nscreg.Data;
@@ -24,7 +25,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly NSCRegDbContext _context;
         private readonly StatUnitPostProcessor _postProcessor;
         private readonly string _userId;
-        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context, string userId)
+        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, StatUnitTypes unitType, NSCRegDbContext context, string userId)
         {
             _userId = userId;
             _statIdSourceKey = StatUnitKeyValueParser.GetStatIdMapping(propMapping) ?? throw new ArgumentNullException(nameof(propMapping), "StatId doesn't have source field(header)");
@@ -39,7 +40,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// </summary>
         /// <param name="raw">Parsed  data of a unit</param>
         /// <returns></returns>
-        public async Task<(StatisticalUnit unit, bool isNew, string errors)> PopulateAsync(IReadOnlyDictionary<string, object> raw)
+        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw)
         {
             try
             {
@@ -50,24 +51,30 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
                 {
                     var statId = raw.GetValueOrDefault(_statIdSourceKey);
-                    return (resultUnit, false, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId));
+                    return (resultUnit, false, string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, statId), null);
                 }
 
                 if (_allowedOperation == DataSourceAllowedOperation.Alter && isNew)
                 {
                     return (resultUnit, true,
-                        $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})");
+                        $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})", null);
                 }
-
+                StatisticalUnit historyUnit = null;
+                if (_allowedOperation == DataSourceAllowedOperation.Alter ||
+                                        _allowedOperation == DataSourceAllowedOperation.CreateAndAlter && !isNew)
+                {
+                    historyUnit = GetStatUnitSetHelper.CreateByType(_unitType);
+                    Mapper.Map(resultUnit, historyUnit);
+                }
                 StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context, _userId);
 
                 var errors = await _postProcessor.PostProcessStatUnitsUpload(resultUnit);
 
-                return (resultUnit, isNew, errors);
+                return (resultUnit, isNew, errors, historyUnit);
             }
             catch (Exception ex)
             {
-                return (ex.Data["unit"] as StatisticalUnit, false, ex.Message);
+                return (ex.Data["unit"] as StatisticalUnit, false, ex.Message, null);
             }
         }
 

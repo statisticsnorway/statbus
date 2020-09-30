@@ -37,7 +37,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly ElasticService _elasticService;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
-        private readonly DeleteService _deleteService;
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
@@ -54,7 +53,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticService = new ElasticService(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
-            _deleteService = new DeleteService(dbContext);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();

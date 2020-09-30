@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using nscreg.Business.Test.Base;
 using nscreg.Data.Constants;
@@ -117,7 +118,7 @@ namespace nscreg.Business.Test.DataSources
             };
             DatabaseContext.StatisticalUnits.Add(dbunit);
             await DatabaseContext.SaveChangesAsync();
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Alter, StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString());
 
             var raw = new Dictionary<string, object>()
                 {
@@ -135,7 +136,7 @@ namespace nscreg.Business.Test.DataSources
                         }
                     }
                 };
-            var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
+            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw);
 
             popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits));
         }
@@ -151,8 +152,8 @@ namespace nscreg.Business.Test.DataSources
                 {"Name", "LAST FRIDAY INVEST AS"},
             };
 
-            var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
-            var (popUnit, isNeW, errors) = await populateService.PopulateAsync(raw);
+            var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter,StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString());
+            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw);
 
             errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
                 $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
@@ -176,8 +177,8 @@ namespace nscreg.Business.Test.DataSources
                 Name = "LAST FRIDAY INVEST AS"
             });
             await DatabaseContext.SaveChangesAsync();
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
-            var (popUnit, _, error) = await populateService.PopulateAsync(keyValueDict);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString());
+            var (popUnit, _, error, historyUnit) = await populateService.PopulateAsync(keyValueDict);
 
             error.Should().Be(string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, popUnit.StatId),
                 $"Stat unit with StatId - {popUnit.StatId} exist in database");
@@ -248,8 +249,8 @@ namespace nscreg.Business.Test.DataSources
                 }
             };
 
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit, DatabaseContext);
-            var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create,  StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString());
+            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw);
 
             popUnit.Should().BeEquivalentTo(unit);
 
@@ -409,9 +410,9 @@ namespace nscreg.Business.Test.DataSources
             };
 
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
-                DataSourceAllowedOperation.CreateAndAlter, DataSourceUploadTypes.StatUnits, StatUnitTypes.LegalUnit,
-                DatabaseContext);
-            var (popUnit, isNew, errors) = await populateService.PopulateAsync(raw);
+                DataSourceAllowedOperation.CreateAndAlter,StatUnitTypes.LegalUnit,
+                DatabaseContext, Guid.NewGuid().ToString());
+            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw);
 
             popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)

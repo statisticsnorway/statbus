@@ -15,17 +15,11 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     public class SaveManager
     {
-        //private CreateUnitService _createSvc;
-
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, Task>> _createByType;
 
         private readonly ElasticService _elasticService;
 
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, Task>> _updateByType;
-
-        //private readonly NSCRegDbContext _ctx;
-
-        //private readonly UserService _usrService;
 
         private  SaveManager(NSCRegDbContext context, string userId)
         {
@@ -63,7 +57,6 @@ namespace nscreg.Server.Common.Services.DataSources
         private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
             string userId, bool isNeW)
         {
-            // TODO: вероятно, лишний запрос. Такое делается до Analyze (Populate возвращает isNew)
             if (dataSource.Priority != DataSourcePriority.Trusted &&
                 (dataSource.Priority != DataSourcePriority.Ok || isNeW))
                 return (null, false);
@@ -96,52 +89,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             return await SaveStatUnitsUpload(parsedUnit, dataSource, userId, isNew);
         }
-
-        //private dynamic MappedUnitM(StatisticalUnit unit, StatUnitTypes type, string mapperType, string userId)
-        //{
-        //    var dataAccess = _usrService.GetDataAccessAttributes(userId, type);
-        //    var mappedActivities = new List<ActivityM>();
-        //    var mappedPersons = new List<PersonM>();
-        //    var mappedForeignParticipationCountriesUnits = new List<int>();
-        //    var mappedUnit = new StatUnitModelBase();
-
-        //    if (type == StatUnitTypes.LocalUnit && mapperType == "LocalUnitCreateM")
-        //        mappedUnit = Mapper.Map<LocalUnitCreateM>(unit);
-        //    else if (type == StatUnitTypes.LegalUnit && mapperType == "LegalUnitCreateM")
-        //        mappedUnit = Mapper.Map<LegalUnitCreateM>(unit);
-        //    else if (type == StatUnitTypes.EnterpriseUnit && mapperType == "EnterpriseUnitCreateM")
-        //        mappedUnit = Mapper.Map<EnterpriseUnitCreateM>(unit);
-        //    else if (type == StatUnitTypes.LocalUnit && mapperType == "LocalUnitEditM")
-        //        mappedUnit = Mapper.Map<LocalUnitEditM>(unit);
-        //    else if (type == StatUnitTypes.LegalUnit && mapperType == "LegalUnitEditM")
-        //        mappedUnit = Mapper.Map<LegalUnitEditM>(unit);
-        //    else if (type == StatUnitTypes.EnterpriseUnit && mapperType == "EnterpriseUnitEditM")
-        //        mappedUnit = Mapper.Map<EnterpriseUnitEditM>(unit);
-
-
-        //    mappedUnit.DataAccess = dataAccess.Result;
-        //    mappedUnit.Address = Mapper.Map<AddressM>(unit.Address);
-        //    mappedUnit.ActualAddress = Mapper.Map<AddressM>(unit.ActualAddress);
-        //    mappedUnit.PostalAddress = Mapper.Map<AddressM>(unit.PostalAddress);
-
-        //    unit.Activities.ForEach(activity => mappedActivities.Add(Mapper.Map<ActivityM>(activity)));
-        //    foreach (var personStatisticalUnit in unit.PersonsUnits)
-        //    {
-        //        var person = Mapper.Map<PersonM>(personStatisticalUnit.Person);
-        //        if (personStatisticalUnit.PersonTypeId != null)
-        //        {
-        //            person.Role = (int) personStatisticalUnit.PersonTypeId;
-        //        }
-        //        mappedPersons.Add(person);
-        //    }
-        //    unit.ForeignParticipationCountriesUnits.ForEach(fpcu => mappedForeignParticipationCountriesUnits.Add(fpcu.Id));
-        //    mappedUnit.ForeignParticipationCountriesUnits = mappedForeignParticipationCountriesUnits;
-        //    mappedUnit.ForeignParticipationId = unit.ForeignParticipation?.Id;
-        //    mappedUnit.Activities = mappedActivities;
-        //    mappedUnit.Persons = mappedPersons;
-
-        //    return mappedUnit;
-        //}
 
     }
 }
