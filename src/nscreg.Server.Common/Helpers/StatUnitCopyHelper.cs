@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Data.Entities;
-using nscreg.Resources.Languages;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Helpers
@@ -12,17 +11,8 @@ namespace nscreg.Server.Common.Helpers
     {
         private async Task<T> CreateStatUnitAsync<T>(T entity) where T : class
         {
-            var result = _dbContext.Set<T>().Add(entity);
-            
-            try
-            {
-                await _dbContext.SaveChangesAsync();
-                return result.Entity;
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.SaveError), e);
-            }
+            var result = await _dbContext.Set<T>().AddAsync(entity);
+            return result.Entity;
         }
         
         private async Task<LocalUnit> CreateLocalForLegalAsync(LegalUnit legalUnit)
@@ -31,19 +21,13 @@ namespace nscreg.Server.Common.Helpers
             {
                 AddressId = legalUnit.AddressId,
                 ActualAddressId = legalUnit.ActualAddressId,
-                LegalUnitId = legalUnit.RegId
+                LegalUnit = legalUnit
             };
 
             Mapper.Map(legalUnit, localUnit);
-            _dbContext.LocalUnits.Add(localUnit);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.LocalUnits.AddAsync(localUnit);
 
-            legalUnit.HistoryLocalUnitIds = localUnit.RegId.ToString();
-            _dbContext.LegalUnits.Update(legalUnit);
-            await _dbContext.SaveChangesAsync();
-
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit.RegId);
-            await _dbContext.SaveChangesAsync();
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
 
             return localUnit;
         }
@@ -54,18 +38,12 @@ namespace nscreg.Server.Common.Helpers
             {
                 AddressId = legalUnit.AddressId,
                 ActualAddressId = legalUnit.ActualAddressId,
-                HistoryLegalUnitIds = legalUnit.RegId.ToString()
             };
             Mapper.Map(legalUnit, enterpriseUnit);
-            _dbContext.EnterpriseUnits.Add(enterpriseUnit);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.EnterpriseUnits.AddAsync(enterpriseUnit);
+            legalUnit.EnterpriseUnit = enterpriseUnit;
 
-            legalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
-            _dbContext.LegalUnits.Update(legalUnit);
-            await _dbContext.SaveChangesAsync();
-
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit.RegId);
-            await _dbContext.SaveChangesAsync();
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
 
             return enterpriseUnit;
         }
@@ -76,28 +54,23 @@ namespace nscreg.Server.Common.Helpers
             {
                 AddressId = enterpriseUnit.AddressId,
                 ActualAddressId = enterpriseUnit.ActualAddressId,
-                HistoryEnterpriseUnitIds = enterpriseUnit.RegId.ToString()
             };
 
             Mapper.Map(enterpriseUnit, enterpriseGroup);
-            _dbContext.EnterpriseGroups.Add(enterpriseGroup);
-            await _dbContext.SaveChangesAsync();
-
-            enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
-            _dbContext.EnterpriseUnits.Update(enterpriseUnit);
-            await _dbContext.SaveChangesAsync();
+            enterpriseUnit.EnterpriseGroup = enterpriseGroup;
+            await _dbContext.EnterpriseGroups.AddAsync(enterpriseGroup);
 
             return enterpriseGroup;
         }
 
-        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, int statUnitId)
+        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
         {
             activities.ForEach(x =>
             {
                 _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
                 {
                     ActivityId = x.Id,
-                    UnitId = statUnitId
+                    Unit = unit
                 });
             });
             persons.ForEach(x =>
@@ -105,7 +78,7 @@ namespace nscreg.Server.Common.Helpers
                 _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
                 {
                     PersonId = x.PersonId,
-                    UnitId = statUnitId,
+                    Unit = unit,
                     PersonTypeId = x.PersonTypeId,
                     EnterpriseGroupId = x.EnterpriseGroupId
                 });
@@ -115,7 +88,7 @@ namespace nscreg.Server.Common.Helpers
             {
                 _dbContext.CountryStatisticalUnits.Add(new CountryStatisticalUnit
                 {
-                    UnitId = statUnitId,
+                    Unit = unit,
                     CountryId = x.CountryId
                 });
 

@@ -9,22 +9,12 @@ namespace nscreg.Server.Common.Services.DataSources
     public class CreateUnitService
     {
         private readonly string _userId;
-        //private readonly StatUnitCheckPermissionsHelper _permissionsHelper;
-        private readonly NSCRegDbContext _dbContext;
-        //private readonly UserService _userService;
-        //private readonly StatUnit.Common _commonSvc;
-        //private readonly DataAccessService _dataAccessService;
 
         private readonly StatUnitCreationHelper _creationHelper;
         public CreateUnitService(NSCRegDbContext dbContext, string userId, ElasticService service)
         {
             _userId = userId;
-            //_permissionsHelper = new StatUnitCheckPermissionsHelper(dbContext);
             _creationHelper = new StatUnitCreationHelper(dbContext, service);
-            _dbContext = dbContext;
-            //_userService = new UserService(dbContext);
-           // _commonSvc = new StatUnit.Common(dbContext);
-            //_dataAccessService = new DataAccessService(dbContext);
         }
 
         public async Task CreateLocalUnit(LocalUnit unit)

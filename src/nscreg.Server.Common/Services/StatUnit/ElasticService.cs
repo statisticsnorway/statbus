@@ -52,10 +52,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var elasticsCount =
                         await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
 
-                    //Tests do not pass trying to access the ElasticSearch (localhost:9200)
-                    //if (!elasticsCount.IsValid)
-                    //    throw new Exception(elasticsCount.DebugInformation);
-
                     if (dbCount == elasticsCount.Count)
                     {
                         _isSynchronized = true;
@@ -117,7 +113,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!updateResult.IsValid)
                     throw new Exception(updateResult.DebugInformation);
             }
-            catch (Exception)
+            catch
             {
                 await Synchronize();
             }
@@ -141,7 +137,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     throw new Exception(deleteResponse.DebugInformation);
                 }
             }
-            catch (Exception)
+            catch
             {
                 await Synchronize();
             }
@@ -155,7 +151,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!insertResult.IsValid)
                     throw new Exception(insertResult.DebugInformation);
             }
-            catch (Exception)
+            catch
             {
                 await Synchronize();
             }
