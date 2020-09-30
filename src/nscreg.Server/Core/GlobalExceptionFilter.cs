@@ -28,23 +28,25 @@ namespace nscreg.Server.Core
         /// <param name="context">Exception context</param>
         public void OnException(ExceptionContext context)
         {
-            if (context.Exception.GetType() == typeof(NotFoundException))
+            switch (context.Exception)
             {
-                context.Result = new NotFoundObjectResult(new { message = context.Exception.Message });
+                case NotFoundException _:
+                    context.Result = new NotFoundObjectResult(new { message = context.Exception.Message });
+                    break;
+                case BadRequestException _:
+                    context.Result = new BadRequestObjectResult(new { message = context.Exception.Message });
+                    break;
+                case NullReferenceException _:
+                    context.Result = new ObjectResult(new {message = context.Exception.ToString()}) {StatusCode = 500};
+                    break;
+                default:
+                    context.Result = new ObjectResult(new { message = context.Exception.Message })
+                    {
+                        StatusCode = 500
+                    };
+                    break;
             }
-            else if (context.Exception.GetType() == typeof(BadRequestException))
-            {
-                context.Result = new BadRequestObjectResult(new { message = context.Exception.Message });
-            }
-            else
-            {
-                context.Result = new ObjectResult(new { message = context.Exception.Message })
-                {
-                    StatusCode = 500
-                };
-            }
-
-            _logger.LogError(context.Exception.StackTrace, context.Exception);
+            _logger.LogError(context.Exception, context.Exception.ToString());
         }
     }
 }
