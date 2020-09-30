@@ -346,14 +346,5 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new NotFoundException(nameof(Resource.ElasticSearchIsDisable));
             }
         }
-        public async Task DeleteCache()
-        {
-            await CheckElasticSearchConnection();
-            var deleted = await _elasticClient.ClearCacheAsync(StatUnitSearchIndexName);
-            if (!deleted.IsValid)
-            {
-                throw new NotFoundException(nameof(Resource.ElasticsearchCacheNotFound));
-            }
-        }
     }
 }

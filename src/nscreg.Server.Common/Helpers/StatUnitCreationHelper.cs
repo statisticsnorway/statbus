@@ -17,10 +17,10 @@ namespace nscreg.Server.Common.Helpers
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticService _elasticService;
 
-        public StatUnitCreationHelper(NSCRegDbContext dbContext)
+        public StatUnitCreationHelper(NSCRegDbContext dbContext, ElasticService service)
         {
             _dbContext = dbContext;
-            _elasticService = new ElasticService(dbContext);
+            _elasticService = service;
         }
 
         /// <summary>

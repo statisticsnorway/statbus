@@ -19,7 +19,7 @@ namespace nscreg.Business.DataSources
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
-            StatisticalUnit unit, NSCRegDbContext context)
+            StatisticalUnit unit, NSCRegDbContext context, string userId)
         {
             foreach (var kv in nextProps)
             {
@@ -91,7 +91,7 @@ namespace nscreg.Business.DataSources
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
-                            UpdateActivities(unitActivities, valueArr, mappingsArr);
+                            UpdateActivities(unitActivities, valueArr, mappingsArr, userId);
                         propValue = unitActivities;
                         break;
                     case nameof(StatisticalUnit.Persons):
@@ -171,7 +171,7 @@ namespace nscreg.Business.DataSources
                 propInfo.SetValue(unit, propValue);
             }
         }
-        private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr)
+        private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr, string userId)
         {
             var defaultYear = DateTime.Now.Year - 1;
             var propPathActivityCategoryCode = string.Join(".", nameof(ActivityCategory), nameof(ActivityCategory.Code));
@@ -186,7 +186,7 @@ namespace nscreg.Business.DataSources
                 {
                    var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
                    {
-                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary)
+                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary, userId)
                    });
                    dbActivities.AddRange(parsedActivities);
                    continue;
@@ -200,13 +200,13 @@ namespace nscreg.Business.DataSources
                         var dbRow = x.dbRows.FirstOrDefault();
                         if (dbRow != null)
                         {
-                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary);
+                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId);
                         }
                         else
                         {
                             dbRow = new ActivityStatisticalUnit
                             {
-                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary)
+                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId)
                             };
                             dbActivities.Add(dbRow);
                         }
@@ -215,7 +215,7 @@ namespace nscreg.Business.DataSources
         }
 
         private static Activity ParseActivityByTargetKeys(Activity activity, Dictionary<string, string> targetKeys,
-            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType)
+            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType, string userId)
         {
             var activityTypeWasSet = activity != null;
             activity = activity ?? new Activity();
@@ -235,6 +235,7 @@ namespace nscreg.Business.DataSources
             {
                 activity.ActivityType = defaultType;
             }
+            activity.UpdatedBy = userId;
             return activity;
         }
 

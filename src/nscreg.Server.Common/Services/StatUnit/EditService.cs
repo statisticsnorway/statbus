@@ -92,6 +92,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     if (data.LocalUnits != null && data.LocalUnits.Any())
                     {
+                        //TODO: Инклуд у базовой сущности
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
 
                         unit.LocalUnits.Clear();
@@ -295,6 +296,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var newPerson = Mapper.Map<PersonM, Person>(model);
                         persons.Add(new PersonStatisticalUnit { Person = newPerson, PersonTypeId = model.Role });
                     }
+
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
 
                     foreach (var unitM in statUnitsList)
@@ -381,8 +383,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
-
-
             var unit = (TUnit) await ValidateChanges<TUnit>(idSelector(data));
             if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
             {
@@ -396,13 +396,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
-            
+
+
             var deleteEnterprise = false;
             var isDeleted = false;
             var existingLeuEntRegId = (int?) 0;
-            if (unit is LegalUnit)
+            if (unit is LegalUnit legalUnit)
             {
-                var legalUnit = unit as LegalUnit;
                 existingLeuEntRegId = _dbContext.LegalUnits.Where(leu => leu.RegId == legalUnit.RegId)
                     .Select(leu => leu.EnterpriseUnitRegId).FirstOrDefault();
                 if (existingLeuEntRegId != legalUnit.EnterpriseUnitRegId &&

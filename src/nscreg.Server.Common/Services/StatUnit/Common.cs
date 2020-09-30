@@ -130,7 +130,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="unit">Stat. unit</param>
         /// <param name="hUnit">History stat. units</param>
-        /// <param name="userId">Usser Id</param>
+        /// <param name="userId">User Id</param>
         /// <param name="changeReason">Reason for change</param>
         /// <param name="comment">Comment</param>
         /// <param name="changeDateTime">Change Date</param>

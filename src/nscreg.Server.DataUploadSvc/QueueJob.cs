@@ -136,9 +136,9 @@ namespace nscreg.Server.DataUploadSvc
 
             await InitializeCacheForLookups(_context);
 
-            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context);
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context, dequeued.UserId);
 
-            var saveService = new SaveManager(_context, _queueSvc);
+            var saveService = await SaveManager.CreateSaveManager(_context, dequeued.UserId);
             
 
             Stopwatch swPopulation = new Stopwatch();
@@ -249,7 +249,9 @@ namespace nscreg.Server.DataUploadSvc
                 }
             }
 
+            swDbLog.Start();
             await _logBuffer.Flush();
+            swDbLog.Stop();
 
             _logger.LogWarning($"End Total {swCycle.Elapsed};{Environment.NewLine} Parse {swParseFile.Elapsed} {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine} Logging {swDbLog.Elapsed} {Environment.NewLine}");
             _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine} Logging {(double)swDbLog.Elapsed.Seconds / dbLogCount}");

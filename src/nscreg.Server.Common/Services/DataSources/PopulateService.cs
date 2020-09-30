@@ -23,8 +23,10 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly StatUnitTypes _unitType;
         private readonly NSCRegDbContext _context;
         private readonly StatUnitPostProcessor _postProcessor;
-        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context)
+        private readonly string _userId;
+        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, DataSourceUploadTypes uploadType, StatUnitTypes unitType, NSCRegDbContext context, string userId)
         {
+            _userId = userId;
             _statIdSourceKey = StatUnitKeyValueParser.GetStatIdMapping(propMapping) ?? throw new ArgumentNullException(nameof(propMapping), "StatId doesn't have source field(header)");
             _context = context;
             _unitType = unitType;
@@ -57,7 +59,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})");
                 }
 
-                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context);
+                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context, _userId);
 
                 var errors = await _postProcessor.PostProcessStatUnitsUpload(resultUnit);
 

@@ -1,99 +1,72 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.Utilities.Configuration;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
-using LegalUnit = nscreg.Data.Entities.LegalUnit;
-using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
     public class CreateUnitService
     {
-        private readonly StatisticalUnit _unit;
         private readonly string _userId;
-        private readonly StatUnitCheckPermissionsHelper _helper;
-        private bool _unitIsNew;
+        //private readonly StatUnitCheckPermissionsHelper _permissionsHelper;
         private readonly NSCRegDbContext _dbContext;
-        //private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
-        //private readonly DbMandatoryFields _mandatoryFields;
-        private readonly UserService _userService;
-        private readonly StatUnit.Common _commonSvc;
-        //private readonly ValidationSettings _validationSettings;
-        private readonly DataAccessService _dataAccessService;
-       // private readonly bool _shouldAnalyze;
+        //private readonly UserService _userService;
+        //private readonly StatUnit.Common _commonSvc;
+        //private readonly DataAccessService _dataAccessService;
 
-        public CreateUnitService(NSCRegDbContext dbContext, StatisticalUnit unit, bool unitIsNew, string userId)
+        private readonly StatUnitCreationHelper _creationHelper;
+        public CreateUnitService(NSCRegDbContext dbContext, string userId, ElasticService service)
         {
             _userId = userId;
-            _unit = unit;
-            _helper = new StatUnitCheckPermissionsHelper(dbContext);
-            _unitIsNew = unitIsNew;
+            //_permissionsHelper = new StatUnitCheckPermissionsHelper(dbContext);
+            _creationHelper = new StatUnitCreationHelper(dbContext, service);
             _dbContext = dbContext;
-           //_statUnitAnalysisRules = statUnitAnalysisRules;
-            //_mandatoryFields = mandatoryFields;
-            _userService = new UserService(dbContext);
-            _commonSvc = new StatUnit.Common(dbContext);
-            //_validationSettings = validationSettings;
-            _dataAccessService = new DataAccessService(dbContext);
-            //_shouldAnalyze = shouldAnalyze;
+            //_userService = new UserService(dbContext);
+           // _commonSvc = new StatUnit.Common(dbContext);
+            //_dataAccessService = new DataAccessService(dbContext);
         }
 
-        public async Task<Dictionary<string, string[]>> CreateLocalUnit()
+        public async Task CreateLocalUnit(LocalUnit unit)
         {
-            _helper.CheckRegionOrActivityContains(_userId, _unit.Address?.RegionId, _unit.ActualAddress?.RegionId,
-                _unit.PostalAddress?.RegionId, _unit.Activities.Select(x => x.ActivityCategoryId).ToList());
+            //TODO: Перенести в Populate все проверки на доступ и права
+            //_helper.CheckRegionOrActivityContains(_userId, _unit.Address?.RegionId, _unit.ActualAddress?.RegionId,
+            //    _unit.PostalAddress?.RegionId, _unit.Activities.Select(x => x.ActivityCategoryId).ToList());
 
-            if (_dataAccessService.CheckWritePermissions(_userId, StatUnitTypes.LocalUnit))
-            {
-                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
-            }
-            await _commonSvc.InitializeDataAccessAttributes(_userService, _unit, _userId, StatUnitTypes.LocalUnit);
+            //if (_dataAccessService.CheckWritePermissions(_userId, StatUnitTypes.LocalUnit))
+            //{
+            //    return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
+            //}
+            //await _commonSvc.InitializeDataAccessAttributes(_userService, _unit, _userId, StatUnitTypes.LocalUnit);
 
-            _unit.UserId = _userId;
-
-            var helper = new StatUnitCreationHelper(_dbContext);
-            await helper.CheckElasticConnect();
-
-            await helper.CreateLocalUnit(_unit as LocalUnit);
-
-            return null;
+            unit.UserId = _userId;
+            await _creationHelper.CreateLocalUnit(unit);
         }
 
-        public async Task<Dictionary<string, string[]>> CreateLegalUnit()
+        public async Task CreateLegalUnit(LegalUnit unit)
         {
-            _helper.CheckRegionOrActivityContains(_userId, _unit.Address?.RegionId, _unit.ActualAddress?.RegionId,
-                _unit.PostalAddress?.RegionId, _unit.Activities.Select(x => x.ActivityCategoryId).ToList());
+            //TODO: Перенести в Populate все проверки на доступ и права
+            //_helper.CheckRegionOrActivityContains(_userId, _unit.Address?.RegionId, _unit.ActualAddress?.RegionId,
+            //    _unit.PostalAddress?.RegionId, _unit.Activities.Select(x => x.ActivityCategoryId).ToList());
 
-            if (_dataAccessService.CheckWritePermissions(_userId, StatUnitTypes.LocalUnit))
-            {
-                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
-            }
-            await _commonSvc.InitializeDataAccessAttributes(_userService, _unit, _userId, StatUnitTypes.LocalUnit);
+            //if (_dataAccessService.CheckWritePermissions(_userId, StatUnitTypes.LocalUnit))
+            //{
+            //    return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
+            //}
+            //await _commonSvc.InitializeDataAccessAttributes(_userService, _unit, _userId, StatUnitTypes.LocalUnit);
 
-            _unit.UserId = _userId;
-
-            var helper = new StatUnitCreationHelper(_dbContext);
-            await helper.CheckElasticConnect();
-
-            await helper.CreateLegalWithEnterpriseAndLocal(_unit as LegalUnit);
-
-            return null;
+            unit.UserId = _userId;
+            await _creationHelper.CreateLegalWithEnterpriseAndLocal(unit);
         }
 
+        public async Task CreateEnterpriseUnit(EnterpriseUnit unit)
+        {
+            unit.UserId = _userId;
 
-
+            //TODO: Перенести в Populate все проверки на доступ и права
+            //var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+            //helper.CheckRegionOrActivityContains(userId, data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId, data.Activities.Select(x => x.ActivityCategoryId).ToList());
+            await _creationHelper.CreateEnterpriseWithGroup(unit);
+        }
     }
 }

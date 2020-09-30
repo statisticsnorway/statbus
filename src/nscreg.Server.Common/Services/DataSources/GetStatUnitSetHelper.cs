@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -22,6 +21,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 case StatUnitTypes.LegalUnit:
                     return context.LegalUnits
                         .IncludeGeneralProps()
+                        .Include(x => x.LocalUnits)
                         .AsNoTracking();
 
                 case StatUnitTypes.EnterpriseUnit:
@@ -44,6 +44,8 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Region)
                 .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                .Include(x => x.PersonsUnits)
+                    .ThenInclude(x => x.EnterpriseGroup)
                 .Include(x => x.ActivitiesUnits)
                     .ThenInclude(x => x.Activity)
                         .ThenInclude(x=>x.ActivityCategory)
