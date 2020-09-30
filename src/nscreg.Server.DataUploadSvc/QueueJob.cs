@@ -254,7 +254,7 @@ namespace nscreg.Server.DataUploadSvc
             swDbLog.Stop();
 
             _logger.LogWarning($"End Total {swCycle.Elapsed};{Environment.NewLine} Parse {swParseFile.Elapsed} {Environment.NewLine} Populate {swPopulation.Elapsed} {Environment.NewLine} Analyze {swAnalyze.Elapsed} {Environment.NewLine} SaveUnit {swSave.Elapsed} {Environment.NewLine} Logging {swDbLog.Elapsed} {Environment.NewLine}");
-            _logger.LogWarning($"End Average {Environment.NewLine} Populate {(double)swPopulation.Elapsed.Seconds / populationCount} s {Environment.NewLine} Analyze {(double)swAnalyze.Elapsed.Seconds / analyzeCount} s {Environment.NewLine} SaveUnit {(double)swSave.Elapsed.Seconds / saveCount} s {Environment.NewLine} Logging {(double)swDbLog.Elapsed.Seconds / dbLogCount}");
+            _logger.LogWarning($"End Average {Environment.NewLine} Populate {swPopulation.Elapsed.TotalSeconds / populationCount} s {Environment.NewLine} Analyze {swAnalyze.Elapsed.TotalSeconds / analyzeCount} s {Environment.NewLine} SaveUnit {swSave.Elapsed.TotalSeconds / saveCount} s {Environment.NewLine} Logging {swDbLog.Elapsed.TotalSeconds / dbLogCount}");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
