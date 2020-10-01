@@ -18,9 +18,10 @@ namespace nscreg.Data.Entities
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdTooltip))]
         public int? LegalUnitId { get; set; }
 
+        //TODO: MIGRATION BUG - NULL REFERENCE (IN DB NULLABLE)
         [Display(Order = 201, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdDateTooltip))]
-        public DateTime LegalUnitIdDate { get; set; }
+        public DateTime? LegalUnitIdDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalUnit LegalUnit { get; set; }
