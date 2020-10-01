@@ -23,6 +23,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Server.Common.Services;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 
@@ -136,9 +139,12 @@ namespace nscreg.Server.DataUploadSvc
 
             await InitializeCacheForLookups(_context);
 
-            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.DataSourceUploadType, dequeued.DataSource.StatUnitType, _context, dequeued.UserId);
+            var userService = new UserService(_context);
+            var commonSvc = new Common.Services.StatUnit.Common(_context);
+            var permissions = await commonSvc.InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, _context, dequeued.UserId, permissions);
 
-            var saveService = await SaveManager.CreateSaveManager(_context, dequeued.UserId);
+            var saveService = await SaveManager.CreateSaveManager(_context, dequeued.UserId, permissions);
             
 
             Stopwatch swPopulation = new Stopwatch();
@@ -213,7 +219,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("saving unit");
 
                 swSave.Start();
-                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew);
+                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
                 swSave.Stop();
                 saveCount += 1;

@@ -1,12 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
@@ -19,10 +12,15 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Utilities;
 using nscreg.Utilities.Enums;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
-    internal static class CommonExtentions
+    internal static class CommonExtensions
     {
         public static IQueryable<T> IncludeCommonFields<T>(this IQueryable<T> query) where T : class, IStatisticalUnit
         {
@@ -53,7 +51,7 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// <summary>
     /// Common service stat units
     /// </summary>
-    internal class Common
+    public class Common
     {
         private readonly NSCRegDbContext _dbContext;
 
@@ -455,18 +453,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             UserService userService,
             TModel data,
             string userId,
-            StatUnitTypes type)
-            where TModel : IStatUnitM
+            StatUnitTypes type) where TModel: IStatUnitM
         {
-            var dataAccess = data.DataAccess ?? new DataAccessPermissions();
+            var dataAccess = data?.DataAccess ?? new DataAccessPermissions();
             var userDataAccess = await userService.GetDataAccessAttributes(userId, type);
             var dataAccessChanged = !dataAccess.IsEqualTo(userDataAccess);
             if (dataAccessChanged)
             {
-                //TODO: Optimize throw only if this field changed
                 throw new BadRequestException(nameof(Resource.DataAccessConflict));
             }
-            data.DataAccess = dataAccess;
+
+            if (data != null)
+            {
+                data.DataAccess = userDataAccess;
+            }
             return dataAccess;
         }
 

@@ -61,7 +61,6 @@ namespace nscreg.Server.Common.Services.DataSources
                         }
                     });
 
-                // Todo: languageName1 and languageName2 is not checked
                 if (unit.ForeignParticipation?.Id == 0)
                 {
                     var fp = GetFilledForeignParticipation(unit.ForeignParticipation);

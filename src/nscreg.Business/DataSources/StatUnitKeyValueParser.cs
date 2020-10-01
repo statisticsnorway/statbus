@@ -6,7 +6,10 @@ using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Data.Entities.ComplexTypes;
 using static nscreg.Utilities.JsonPathHelper;
+using Activity = nscreg.Data.Entities.Activity;
+using Person = nscreg.Data.Entities.Person;
 
 namespace nscreg.Business.DataSources
 {
@@ -19,7 +22,7 @@ namespace nscreg.Business.DataSources
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
-            StatisticalUnit unit, NSCRegDbContext context, string userId)
+            StatisticalUnit unit, NSCRegDbContext context, string userId, DataAccessPermissions permissions)
         {
             foreach (var kv in nextProps)
             {
@@ -88,6 +91,7 @@ namespace nscreg.Business.DataSources
                 switch (propHead)
                 {
                     case nameof(StatisticalUnit.Activities):
+
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)

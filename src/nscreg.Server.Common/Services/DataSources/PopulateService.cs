@@ -8,8 +8,12 @@ using nscreg.Business.DataSources;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
+using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services.DataSources;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -25,8 +29,15 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly NSCRegDbContext _context;
         private readonly StatUnitPostProcessor _postProcessor;
         private readonly string _userId;
-        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, StatUnitTypes unitType, NSCRegDbContext context, string userId)
+        private readonly StatUnitCheckPermissionsHelper _permissionsHelper;
+        private readonly DataAccessService _dataAccessService;
+        private readonly DataAccessPermissions _permissions;
+
+        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, StatUnitTypes unitType, NSCRegDbContext context, string userId, DataAccessPermissions permissions)
         {
+            _permissions = permissions;
+            _dataAccessService = new DataAccessService(context);
+            _permissionsHelper = new StatUnitCheckPermissionsHelper(context);
             _userId = userId;
             _statIdSourceKey = StatUnitKeyValueParser.GetStatIdMapping(propMapping) ?? throw new ArgumentNullException(nameof(propMapping), "StatId doesn't have source field(header)");
             _context = context;
@@ -44,9 +55,12 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             try
             {
-                var (resultUnit, isNew) = await GetStatUnitBase(raw);
+                if (_dataAccessService.CheckWritePermissions(_userId, _unitType))
+                {
+                    return (null, false, Resource.Error403, null);
 
-                // Check for operation errors
+                }
+                var (resultUnit, isNew) = await GetStatUnitBase(raw);
 
                 if (_allowedOperation == DataSourceAllowedOperation.Create && !isNew)
                 {
@@ -60,15 +74,23 @@ namespace nscreg.Server.Common.Services.DataSources
                         $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})", null);
                 }
                 StatisticalUnit historyUnit = null;
+
                 if (_allowedOperation == DataSourceAllowedOperation.Alter ||
                                         _allowedOperation == DataSourceAllowedOperation.CreateAndAlter && !isNew)
                 {
                     historyUnit = GetStatUnitSetHelper.CreateByType(_unitType);
                     Mapper.Map(resultUnit, historyUnit);
                 }
-                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context, _userId);
+              
+                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context, _userId, _permissions);
 
+  
                 var errors = await _postProcessor.PostProcessStatUnitsUpload(resultUnit);
+
+                _permissionsHelper.CheckRegionOrActivityContains(_userId, resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId,
+                    resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList());
+
+                resultUnit.UserId = _userId;
 
                 return (resultUnit, isNew, errors, historyUnit);
             }

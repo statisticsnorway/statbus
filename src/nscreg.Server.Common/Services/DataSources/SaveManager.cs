@@ -1,61 +1,57 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Server.Common.Models.StatUnits.Create;
-using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
     public class SaveManager
     {
-        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, Task>> _createByType;
+        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _createByType;
 
         private readonly ElasticService _elasticService;
 
-        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, Task>> _updateByType;
+        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType; 
 
-        private  SaveManager(NSCRegDbContext context, string userId)
+        private  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions)
         {
-           // _ctx = context;
-            //_usrService = new UserService(context);
             _elasticService = new ElasticService(context);
-            var createUnitService = new CreateUnitService(context, userId, _elasticService);
-            _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, Task>>
+            var creationHelper = new StatUnitCreationHelper(context, _elasticService);
+            var editUnitService = new EditUnitService(context, userId, _elasticService, permissions);
+            _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
-                [StatUnitTypes.LegalUnit] = (unit) =>
-                    createUnitService.CreateLegalUnit(unit as LegalUnit),
-                [StatUnitTypes.LocalUnit] = (unit) =>
-                    createUnitService.CreateLocalUnit(unit as LocalUnit),
-                [StatUnitTypes.EnterpriseUnit] = (unit) =>
-                    createUnitService.CreateEnterpriseUnit(unit as EnterpriseUnit)
+                [StatUnitTypes.LegalUnit] = (unit, _) =>
+                    creationHelper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
+                [StatUnitTypes.LocalUnit] = (unit, _) =>
+                    creationHelper.CreateLocalUnit(unit as LocalUnit),
+                [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
+                    creationHelper.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
             };
-            //_updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
-            //{
-            //    [StatUnitTypes.LegalUnit] = (unit, userId) =>
-            //        editSvc.EditLegalUnit(MappedUnitM(unit, StatUnitTypes.LegalUnit, "LegalUnitEditM", userId), userId),
-            //    [StatUnitTypes.LocalUnit] = (unit, userId) =>
-            //        editSvc.EditLocalUnit(MappedUnitM(unit, StatUnitTypes.LocalUnit, "LocalUnitEditM", userId), userId),
-            //    [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
-            //        editSvc.EditEnterpriseUnit(MappedUnitM(unit, StatUnitTypes.EnterpriseUnit, "EnterpriseUnitEditM", userId), userId)
-            //};
+            _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
+            {
+                [StatUnitTypes.LegalUnit] = (unit, hunit) =>
+                    editUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
+                [StatUnitTypes.LocalUnit] = (unit, hunit) =>
+                    editUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
+                [StatUnitTypes.EnterpriseUnit] = (unit, hunit) =>
+                    editUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
+            };
         }
 
-        public static async Task<SaveManager> CreateSaveManager(NSCRegDbContext context, string userId)
+        public static async Task<SaveManager> CreateSaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions)
         {
-            var saveManager = new SaveManager(context, userId);
+            var saveManager = new SaveManager(context, userId, permissions);
             await saveManager._elasticService.CheckElasticSearchConnection();
             return saveManager;
         }
 
         private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
-            string userId, bool isNeW)
+            string userId, bool isNeW, StatisticalUnit historyUnit)
         {
             if (dataSource.Priority != DataSourcePriority.Trusted &&
                 (dataSource.Priority != DataSourcePriority.Ok || isNeW))
@@ -66,7 +62,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
             try
             {
-                await saveAction(parsedUnit);
+                await saveAction(parsedUnit, historyUnit);
             }
             catch (Exception ex)
             {
@@ -84,10 +80,9 @@ namespace nscreg.Server.Common.Services.DataSources
 #endif
         }
 
-
-        public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId, bool isNew)
+        public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId, bool isNew, StatisticalUnit historyUnit)
         {
-            return await SaveStatUnitsUpload(parsedUnit, dataSource, userId, isNew);
+            return await SaveStatUnitsUpload(parsedUnit, dataSource, userId, isNew, historyUnit);
         }
 
     }
