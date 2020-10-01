@@ -18,7 +18,7 @@ namespace nscreg.Data.Entities
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdTooltip))]
         public int? LegalUnitId { get; set; }
 
-        //TODO: MIGRATION BUG - NULL REFERENCE (IN DB NULLABLE)
+        // MIGRATION BUG - NULL REFERENCE (IN DB FIELD IS NULLABLE, but migration doesnt generate changes for type.)
         [Display(Order = 201, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdDateTooltip))]
         public DateTime? LegalUnitIdDate { get; set; }
