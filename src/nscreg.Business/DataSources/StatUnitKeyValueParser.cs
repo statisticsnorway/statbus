@@ -4,9 +4,11 @@ using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Utilities;
 using static nscreg.Utilities.JsonPathHelper;
 using Activity = nscreg.Data.Entities.Activity;
 using Person = nscreg.Data.Entities.Person;
@@ -91,7 +93,8 @@ namespace nscreg.Business.DataSources
                 switch (propHead)
                 {
                     case nameof(StatisticalUnit.Activities):
-
+                        if(!HasAccess<StatisticalUnit>(permissions, v => v.Activities))
+                            throw new Exception("You have no rights to change activities");
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
@@ -289,6 +292,8 @@ namespace nscreg.Business.DataSources
                 });
 
         }
-
+        private static bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
+            dataAccess.HasWritePermission(
+                DataAccessAttributesHelper.GetName<T>(ExpressionUtils.GetExpressionText(property)));
     }
 }

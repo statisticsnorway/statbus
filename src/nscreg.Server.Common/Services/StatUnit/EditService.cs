@@ -397,7 +397,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
 
             var deleteEnterprise = false;
-            var isDeleted = false;
             var existingLeuEntRegId = (int?) 0;
             if (unit is LegalUnit legalUnit)
             {
