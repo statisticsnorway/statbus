@@ -68,7 +68,6 @@ namespace nscreg.Server.DataUploadSvc
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var editSvc = new EditService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, shouldAnalyze: false);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
 
@@ -168,11 +167,9 @@ namespace nscreg.Server.DataUploadSvc
                 
                 swPopulation.Start();
                 _logger.LogInformation("populating unit");
-
                 var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsed[i]);
                 swPopulation.Stop();
                 populationCount += 1;
-
                 if (populateError.HasValue())
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
@@ -194,7 +191,6 @@ namespace nscreg.Server.DataUploadSvc
                 swAnalyze.Start();
 
                 var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
-
                 swAnalyze.Stop();
                 analyzeCount += 1;
 
@@ -267,6 +263,16 @@ namespace nscreg.Server.DataUploadSvc
                 anyWarnings
                     ? QueueStatus.DataLoadCompletedPartially
                     : QueueStatus.DataLoadCompleted);
+            DisposeScopedServices();
+
+        }
+
+        private void DisposeScopedServices()
+        {
+            _queueSvc = null;
+            _context.Dispose();
+            _analysisSvc = null;
+            _logBuffer = null;
         }
 
         /// <summary>

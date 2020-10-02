@@ -13,14 +13,13 @@ namespace nscreg.Business.DataSources
         {
             try
             {
-                return Convert.ChangeType(raw, type, CultureInfo.InvariantCulture);
+                if (type != typeof(DateTime)) return Convert.ChangeType(raw, type, CultureInfo.InvariantCulture);
+                DateTime.TryParse(raw, out var date);
+                return date;
             }
             catch (Exception)
             {
-                if (type != typeof(DateTime))
-                    return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
-                DateTime.TryParse(raw, out var date);
-                return date;
+                return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
             }
         }
 

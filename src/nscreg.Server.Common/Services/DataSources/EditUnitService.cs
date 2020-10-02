@@ -127,14 +127,13 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task EditLegalUnit(LegalUnit changedUnit, LegalUnit historyUnit)
         {
             var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
-
             var deleteEnterprise = false;
             var existingLeuEntRegId = await _dbContext.LegalUnits.Where(leu => leu.RegId == changedUnit.RegId)
                 .Select(leu => leu.EnterpriseUnitRegId).FirstOrDefaultAsync();
             if (existingLeuEntRegId != changedUnit.EnterpriseUnitRegId &&
                 !_dbContext.LegalUnits.Any(leu => leu.EnterpriseUnitRegId == existingLeuEntRegId))
-                deleteEnterprise = true;
 
+                deleteEnterprise = true;
             if (_liquidateStatusId != null && historyUnit.UnitStatusId == _liquidateStatusId && changedUnit.UnitStatusId != historyUnit.UnitStatusId)
             {
                 throw new BadRequestException(nameof(Resource.UnitHasLiquidated));
@@ -142,9 +141,11 @@ namespace nscreg.Server.Common.Services.DataSources
 
             if (_liquidateStatusId != null && changedUnit.UnitStatusId == _liquidateStatusId)
             {
-                var enterpriseUnit = await _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefaultAsync(x => changedUnit.EnterpriseUnitRegId == x.RegId);
-                var legalUnits = enterpriseUnit?.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
-                if (enterpriseUnit != null && !legalUnits.Any())
+                var enterpriseUnit = await _dbContext.EnterpriseUnits.FirstOrDefaultAsync(x => changedUnit.EnterpriseUnitRegId == x.RegId);
+
+                var legalUnitsAnyNotLiquidated = await _dbContext.LegalUnits.AnyAsync(x => x.EnterpriseUnitRegId == enterpriseUnit.RegId && !x.IsDeleted && x.UnitStatusId != _liquidateStatusId);
+
+                if (enterpriseUnit != null && !legalUnitsAnyNotLiquidated)
                 {
                     enterpriseUnit.UnitStatusId = changedUnit.UnitStatusId;
                     enterpriseUnit.LiqReason = changedUnit.LiqReason;
@@ -172,25 +173,23 @@ namespace nscreg.Server.Common.Services.DataSources
             changedUnit.UserId = _userId;
             changedUnit.ChangeReason = ChangeReasons.Edit;
             changedUnit.EditComment = "Changed by import service.";
-
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
+                    
                     var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
                     var changedDateTime = DateTime.Now;
+                    _dbContext.Update(changedUnit);
                     _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
-
                     _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                         changedDateTime, unitsHistoryHolder);
-
                     if (deleteEnterprise)
                     {
                         _dbContext.EnterpriseUnits.Remove(_dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId));
                     }
 
                     await _dbContext.SaveChangesAsync();
-
                     transaction.Commit();
                     if (_addArrayStatisticalUnits.Any())
                         foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
@@ -263,7 +262,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                     _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                         changedDateTime, unitsHistoryHolder);
-
+                    
                     await _dbContext.SaveChangesAsync();
 
                     transaction.Commit();

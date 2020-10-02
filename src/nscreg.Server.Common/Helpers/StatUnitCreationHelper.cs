@@ -96,7 +96,7 @@ namespace nscreg.Server.Common.Helpers
                         if (sameStatIdEnterprise != null)
                         {
                             Tracer.enterprise2.Start();
-                            createdLegal.EnterpriseUnit = sameStatIdEnterprise ??(createdEnterprise = await CreateEnterpriseForLegalAsync(createdLegal));
+                            createdLegal.EnterpriseUnit = sameStatIdEnterprise;
                             Tracer.enterprise2.Stop();
                             Debug.WriteLine($"Enterprise link {Tracer.enterprise2.ElapsedMilliseconds / ++Tracer.countenterprise2}");
                         }

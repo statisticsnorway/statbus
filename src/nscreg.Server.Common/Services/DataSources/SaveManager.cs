@@ -50,15 +50,14 @@ namespace nscreg.Server.Common.Services.DataSources
             return saveManager;
         }
 
-        private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource,
-            string userId, bool isNeW, StatisticalUnit historyUnit)
+        private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource, bool isNeW, StatisticalUnit historyUnit)
         {
             if (dataSource.Priority != DataSourcePriority.Trusted &&
                 (dataSource.Priority != DataSourcePriority.Ok || isNeW))
                 return (null, false);
 
             var saveAction =
-                isNeW && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter) ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                !isNeW && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter) ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {
@@ -82,7 +81,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId, bool isNew, StatisticalUnit historyUnit)
         {
-            return await SaveStatUnitsUpload(parsedUnit, dataSource, userId, isNew, historyUnit);
+            return await SaveStatUnitsUpload(parsedUnit, dataSource, isNew, historyUnit);
         }
 
     }
