@@ -45,6 +45,8 @@ namespace nscreg.Server.DataUploadSvc
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
         private NSCRegDbContext _context;
+        private ElasticBulkService _elasticBulkService;
+       
         public QueueJob(
             int dequeueInterval,
             ILogger logger,
@@ -58,7 +60,7 @@ namespace nscreg.Server.DataUploadSvc
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
             _dbLogBufferMaxCount = bufferLogMaxCount;
-            AddScopedServices();
+            //AddScopedServices();
         }
 
         private void AddScopedServices()
@@ -66,6 +68,7 @@ namespace nscreg.Server.DataUploadSvc
             var dbContextHelper = new DbContextHelper();
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
+            _elasticBulkService = new ElasticBulkService();
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
@@ -116,14 +119,14 @@ namespace nscreg.Server.DataUploadSvc
 
             Stopwatch swCycle = new Stopwatch();
             Stopwatch swElastic = new Stopwatch();
+            Stopwatch swbulk = new Stopwatch();
             swCycle.Start();
 
             var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
-            var elasticBulkService = new ElasticBulkService();
 
             var executors = new List<ImportExecutor>() {
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,elasticBulkService),
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,elasticBulkService),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
             };
 
             var parseTask = Task.Run(() => ParseFile(dequeued, tasks));
@@ -135,11 +138,11 @@ namespace nscreg.Server.DataUploadSvc
             await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
             swElastic.Start();
-            await CatchAndLogException(async () => await elasticBulkService.FlushBulkBuffer(), () => anyWarnings = true);
+            await CatchAndLogException(async () => await _elasticBulkService.FlushBulkBuffer(), () => anyWarnings = true);
             swElastic.Stop();
-            
             _logger.LogWarning($"End Total {swCycle.Elapsed};");
             _logger.LogWarning($"Elastic Flush {swElastic.Elapsed};");
+            _logger.LogWarning($"Bulk Flush {swElastic.Elapsed};");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
