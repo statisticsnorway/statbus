@@ -8,6 +8,7 @@ using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
 using PeterKottas.DotNetCore.WindowsService;
 using System.IO;
+using nscreg.Server.Common.Services.DataSources;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -44,8 +45,8 @@ namespace nscreg.Server.DataUploadSvc
 
             const string serviceName = "nscreg.Server.DataUploadSvc";
 
-            ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
-            ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
+            ElasticBulkService.ServiceAddress = configuration["ElasticServiceAddress"];
+            ElasticBulkService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 
             Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
 

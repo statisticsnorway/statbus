@@ -23,12 +23,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Entities.ComplexTypes;
-using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Server.Common.Services;
-using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using System.Collections.Concurrent;
+using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -117,40 +115,52 @@ namespace nscreg.Server.DataUploadSvc
             }
 
             Stopwatch swCycle = new Stopwatch();
+            Stopwatch swElastic = new Stopwatch();
             swCycle.Start();
 
             var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
+            var elasticBulkService = new ElasticBulkService();
 
             var executors = new List<ImportExecutor>() {
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,elasticBulkService),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,elasticBulkService),
             };
 
-            var parseTask = Task.Run(()=> ParseFile(dequeued, tasks));
+            var parseTask = Task.Run(() => ParseFile(dequeued, tasks));
 
             executors.ForEach(x => x.UseTasksQueue(tasks));
-
+            var anyWarnings = false;
             var tasksArray = executors.Select(x => x.Start(dequeued)).Append(parseTask).ToArray();
 
-            try
-            {
-                await Task.WhenAll(tasksArray);
-                await _logBuffer.FlushAsync();
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError(ex.ToString());
-            }
-
+            await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
+            await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
+            swElastic.Start();
+            await CatchAndLogException(async () => await elasticBulkService.FlushBulkBuffer(), () => anyWarnings = true);
+            swElastic.Stop();
+            
             _logger.LogWarning($"End Total {swCycle.Elapsed};");
+            _logger.LogWarning($"Elastic Flush {swElastic.Elapsed};");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
-                executors.Any(x=>x.AnyWarnings)
+                anyWarnings || executors.Any(x => x.AnyWarnings)
                     ? QueueStatus.DataLoadCompletedPartially
                     : QueueStatus.DataLoadCompleted);
+
             DisposeScopedServices();
 
+        }
+        private async Task CatchAndLogException(Func<Task> func, Action onException)
+        {
+            try
+            {
+                await func();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.ToString());
+                onException();
+            }
         }
 
         private void DisposeScopedServices()
@@ -242,7 +252,7 @@ namespace nscreg.Server.DataUploadSvc
             //}
         }
 
-        private (string , (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
+        private (string, (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
             if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
                 return (null, (new Dictionary<string, string[]>(), new string[0]));

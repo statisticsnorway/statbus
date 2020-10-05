@@ -37,6 +37,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
+        private readonly ElasticBulkService _elasticBulkService;
 
         private AnalyzeService _analysisSvc;
 
@@ -55,13 +56,14 @@ namespace nscreg.Server.DataUploadSvc
         public Stopwatch swDbLog = new Stopwatch();
         public long dbLogCount = 0;
 #endif
-        public ImportExecutor(StatUnitAnalysisRules _statUnitAnalysisRules, DbMandatoryFields _dbMandatoryFields, ValidationSettings _validationSettings, ILogger _logger, DbLogBuffer _logBuffer)
+        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, ElasticBulkService elasticBulkService)
         {
-            this._statUnitAnalysisRules = _statUnitAnalysisRules;
-            this._dbMandatoryFields = _dbMandatoryFields;
-            this._validationSettings = _validationSettings;
-            this._logger = _logger;
-            this._logBuffer = _logBuffer;
+            _statUnitAnalysisRules = statUnitAnalysisRules;
+            _dbMandatoryFields = dbMandatoryFields;
+            _validationSettings = validationSettings;
+            _logger = logger;
+            _logBuffer = logBuffer;
+            _elasticBulkService = elasticBulkService;
         }
 
         public void UseTasksQueue(BlockingCollection<IReadOnlyDictionary<string, object>> collection)
@@ -74,16 +76,16 @@ namespace nscreg.Server.DataUploadSvc
         private Func<Task> Job(DataSourceQueue dequeued) => async () =>
         {
             var dbContextHelper = new DbContextHelper();
-            using (var _context = dbContextHelper.CreateDbContext(new string[] { }))
+            using (var context = dbContextHelper.CreateDbContext(new string[] { }))
             {
-                await InitializeCacheForLookups(_context);
+                await InitializeCacheForLookups(context);
 
-                var userService = new UserService(_context);
-                var commonSvc = new Common.Services.StatUnit.Common(_context);
+                var userService = new UserService(context);
+                var commonSvc = new Common.Services.StatUnit.Common(context);
                 var permissions = await commonSvc.InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-                var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, _context, dequeued.UserId, permissions);
-                _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-                var saveService = await SaveManager.CreateSaveManager(_context, dequeued.UserId, permissions);
+                var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
+                _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+                var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, _elasticBulkService);
 
                 var i = 0;
                 foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())

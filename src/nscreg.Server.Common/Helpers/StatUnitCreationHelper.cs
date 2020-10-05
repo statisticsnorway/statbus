@@ -39,9 +39,9 @@ namespace nscreg.Server.Common.Helpers
     public partial class StatUnitCreationHelper
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly ElasticService _elasticService;
+        private readonly IElasticUpsertService _elasticService;
 
-        public StatUnitCreationHelper(NSCRegDbContext dbContext, ElasticService service)
+        public StatUnitCreationHelper(NSCRegDbContext dbContext, IElasticUpsertService service)
         {
             _dbContext = dbContext;
             _elasticService = service;

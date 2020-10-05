@@ -17,7 +17,7 @@ using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
-    public class ElasticService
+    public class ElasticService : IElasticUpsertService
     {
         public static string ServiceAddress { get; set; }
         public static string StatUnitSearchIndexName { get; set; }

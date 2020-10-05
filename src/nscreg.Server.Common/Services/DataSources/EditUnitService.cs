@@ -37,7 +37,7 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly StatUnit.Common _commonSvc;
-        private readonly ElasticService _elasticService;
+        private readonly IElasticUpsertService _elasticService;
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
@@ -45,7 +45,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly string _userId;
         private readonly DataAccessPermissions _permissions;
 
-        public EditUnitService(NSCRegDbContext dbContext, string userId, ElasticService service, DataAccessPermissions permissions)
+        public EditUnitService(NSCRegDbContext dbContext, string userId, IElasticUpsertService service, DataAccessPermissions permissions)
         {
             _permissions = permissions;
             _userId = userId;
