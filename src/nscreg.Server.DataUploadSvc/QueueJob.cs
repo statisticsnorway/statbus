@@ -132,9 +132,15 @@ namespace nscreg.Server.DataUploadSvc
 
             var tasksArray = executors.Select(x => x.Start(dequeued)).Append(parseTask).ToArray();
 
-            await Task.WhenAll(tasksArray);
-
-            await _logBuffer.FlushAsync();
+            try
+            {
+                await Task.WhenAll(tasksArray);
+                await _logBuffer.FlushAsync();
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex.ToString());
+            }
 
             _logger.LogWarning($"End Total {swCycle.Elapsed};");
 

@@ -39,8 +39,9 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var i = skipCount;
             string rawLines;
-            using (var stream = File.OpenRead(filePath))
-            using (var reader = new StreamReader(stream))
+            using (FileStream fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (BufferedStream bs = new BufferedStream(fs, 4096*4))
+            using (StreamReader reader = new StreamReader(bs))
             {
                 while (--i == 0) await reader.ReadLineAsync();
                 rawLines = await reader.ReadToEndAsync();

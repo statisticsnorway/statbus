@@ -23,11 +23,13 @@ using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
+using System.Threading;
 
 namespace nscreg.Server.DataUploadSvc
 {
     internal class ImportExecutor
     {
+        public static volatile int InterlockedInt = 0;
         public bool AnyWarnings { get; private set; }
 
         private readonly ILogger _logger;
@@ -67,118 +69,118 @@ namespace nscreg.Server.DataUploadSvc
             _tasksQueue = collection;
         }
 
-        public Task Start(DataSourceQueue dequeued)
+        public Task Start(DataSourceQueue dequeued) => Task.Run(Job(dequeued));
+
+        private Func<Task> Job(DataSourceQueue dequeued) => async () =>
         {
-            return Task.Run(async () =>
+            var dbContextHelper = new DbContextHelper();
+            var _context = dbContextHelper.CreateDbContext(new string[] { });
+
+            await InitializeCacheForLookups(_context);
+
+            var userService = new UserService(_context);
+            var commonSvc = new Common.Services.StatUnit.Common(_context);
+            var permissions = await commonSvc.InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, _context, dequeued.UserId, permissions);
+            _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var saveService = await SaveManager.CreateSaveManager(_context, dequeued.UserId, permissions);
+
+            var i = 0;
+            foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())
             {
-                var dbContextHelper = new DbContextHelper();
-                var _context = dbContextHelper.CreateDbContext(new string[] { });
+                Interlocked.Increment(ref InterlockedInt);
+                _logger.LogInformation("processing entity #{0}", InterlockedInt);
+                var startedAt = DateTime.Now;
 
-                await InitializeCacheForLookups(_context);
+                /// Populate Unit
 
-                var userService = new UserService(_context);
-                var commonSvc = new Common.Services.StatUnit.Common(_context);
-                var permissions = await commonSvc.InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-                var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, _context, dequeued.UserId, permissions);
-                _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-                var saveService = await SaveManager.CreateSaveManager(_context, dequeued.UserId, permissions);
-
-                var i = 0;
-                foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())
+                swPopulation.Start();
+                _logger.LogInformation("populating unit");
+                var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit);
+                swPopulation.Stop();
+                populationCount += 1;
+                if (populateError.HasValue())
                 {
-                    //_logger.LogInformation("processing entity #{0} ({1:0.00} %)", i + 1, (double)i / parsed.Length * 100);
-                    var startedAt = DateTime.Now;
-
-                    /// Populate Unit
-
-                    swPopulation.Start();
-                    _logger.LogInformation("populating unit");
-                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit);
-                    swPopulation.Stop();
-                    populationCount += 1;
-                    if (populateError.HasValue())
-                    {
-                        _logger.LogInformation("error during populating of unit: {0}", populateError);
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
-                        continue;
-                    }
-
-                    populated.DataSource = dequeued.DataSourceFileName;
-                    populated.ChangeReason = ChangeReasons.Edit;
-                    populated.EditComment = "Uploaded from data source file";
-
-                    /// Analyze Unit
-
-                    _logger.LogInformation(
-                        "analyzing populated unit #{0} RegId={1}", i + 1,
-                        populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
-
-                    swAnalyze.Start();
-
-                    var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
-                    swAnalyze.Stop();
-                    analyzeCount += 1;
-
-                    if (analysisError.HasValue())
-                    {
-                        _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Error, analysisError);
-                        continue;
-                    }
-                    if (errors.Any())
-                    {
-                        _logger.LogInformation("analysis revealed {0} errors", errors.Count);
-                        errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
-                        continue;
-                    }
-
-                    /// Save Unit
-
-                    _logger.LogInformation("saving unit");
-
-                    swSave.Start();
-                    var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
-
-                    swSave.Stop();
-                    saveCount += 1;
-
-                    if (saveError.HasValue())
-                    {
-                        _logger.LogError(saveError);
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Warning, saveError);
-                        continue;
-                    }
-
-                    if (!saved) AnyWarnings = true;
-                    await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
-
-
-                    async Task LogUpload(LogStatus status, string note = "",
-                            IReadOnlyDictionary<string, string[]> analysisErrors = null,
-                            IEnumerable<string> analysisSummary = null)
-                    {
-                        swDbLog.Start();
-                        var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
-                        {
-                            var tmp = x.source.Split('.', 2);
-                            //if (parsed[i].ContainsKey(tmp[0]))
-                            //    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
-                            return tmp[0];
-                        }));
-                        await _logBuffer.LogUnitUpload(
-                             dequeued.Id, rawUnit, startedAt, populated,
-                             status, note ?? "", analysisErrors, analysisSummary);
-
-                        swDbLog.Stop();
-                    }
+                    _logger.LogInformation("error during populating of unit: {0}", populateError);
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
+                    continue;
                 }
-            });
-        }
+
+                populated.DataSource = dequeued.DataSourceFileName;
+                populated.ChangeReason = ChangeReasons.Edit;
+                populated.EditComment = "Uploaded from data source file";
+
+                /// Analyze Unit
+
+                _logger.LogInformation(
+                    "analyzing populated unit #{0} RegId={1}", i + 1,
+                    populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+
+                swAnalyze.Start();
+
+                var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
+                swAnalyze.Stop();
+                analyzeCount += 1;
+
+                if (analysisError.HasValue())
+                {
+                    _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Error, analysisError);
+                    continue;
+                }
+                if (errors.Any())
+                {
+                    _logger.LogInformation("analysis revealed {0} errors", errors.Count);
+                    errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
+                    continue;
+                }
+
+                /// Save Unit
+
+                _logger.LogInformation("saving unit");
+
+                swSave.Start();
+                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
+
+                swSave.Stop();
+                saveCount += 1;
+
+                if (saveError.HasValue())
+                {
+                    _logger.LogError(saveError);
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Warning, saveError);
+                    continue;
+                }
+
+                if (!saved) AnyWarnings = true;
+                await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
+
+
+                async Task LogUpload(LogStatus status, string note = "",
+                        IReadOnlyDictionary<string, string[]> analysisErrors = null,
+                        IEnumerable<string> analysisSummary = null)
+                {
+                    swDbLog.Start();
+                    var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
+                    {
+                        var tmp = x.source.Split('.', 2);
+                        //if (parsed[i].ContainsKey(tmp[0]))
+                        //    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                        return tmp[0];
+                    }));
+                    await _logBuffer.LogUnitUpload(
+                         dequeued.Id, rawUnit, startedAt, populated,
+                         status, note ?? "", analysisErrors, analysisSummary);
+
+                    swDbLog.Stop();
+                }
+            }
+        };
 
         private (string, (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
