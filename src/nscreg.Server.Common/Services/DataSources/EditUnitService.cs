@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -17,6 +18,21 @@ using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
+
+    public class EditTracer
+    {
+        public Stopwatch liquidateStat = new Stopwatch();
+        public int countliquidateStat;
+        public Stopwatch noChanges = new Stopwatch();
+        public int countnoChanges;
+        public Stopwatch editStat = new Stopwatch();
+        public int counteditStat;
+        public Stopwatch elastic = new Stopwatch();
+        public int countelastic;
+
+
+    }
+
     public class EditUnitService
     {
         private readonly NSCRegDbContext _dbContext;
@@ -25,6 +41,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
+        private readonly EditTracer _editTracer;
         private readonly string _userId;
         private readonly DataAccessPermissions _permissions;
 
@@ -38,6 +55,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
+            _editTracer = new EditTracer();
         }
 
         /// <summary>
@@ -48,6 +66,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns> </returns>
         public async Task EditLocalUnit(LocalUnit changedUnit, LocalUnit historyUnit)
         {
+            _editTracer.liquidateStat.Start();
             var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
 
             if (_liquidateStatusId != null && historyUnit.UnitStatusId == _liquidateStatusId && changedUnit.UnitStatusId != historyUnit.UnitStatusId)
@@ -75,7 +94,13 @@ namespace nscreg.Server.Common.Services.DataSources
                     throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
                 }
             }
+            _editTracer.liquidateStat.Stop();
+            Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+
+            _editTracer.noChanges.Start();
             if (IsNoChanges(changedUnit, historyUnit)) return;
+            _editTracer.noChanges.Stop();
+            Debug.WriteLine($"No changes legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
 
             changedUnit.UserId = _userId;
             changedUnit.ChangeReason = ChangeReasons.Edit;
@@ -126,14 +151,16 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task EditLegalUnit(LegalUnit changedUnit, LegalUnit historyUnit)
         {
+            _editTracer.liquidateStat.Start();
             var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
             var deleteEnterprise = false;
             var existingLeuEntRegId = await _dbContext.LegalUnits.Where(leu => leu.RegId == changedUnit.RegId)
                 .Select(leu => leu.EnterpriseUnitRegId).FirstOrDefaultAsync();
             if (existingLeuEntRegId != changedUnit.EnterpriseUnitRegId &&
                 !_dbContext.LegalUnits.Any(leu => leu.EnterpriseUnitRegId == existingLeuEntRegId))
-
                 deleteEnterprise = true;
+            
+
             if (_liquidateStatusId != null && historyUnit.UnitStatusId == _liquidateStatusId && changedUnit.UnitStatusId != historyUnit.UnitStatusId)
             {
                 throw new BadRequestException(nameof(Resource.UnitHasLiquidated));
@@ -168,50 +195,59 @@ namespace nscreg.Server.Common.Services.DataSources
                 }
                 
             }
+            _editTracer.liquidateStat.Stop();
+            Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+
+            _editTracer.noChanges.Start();
             if (IsNoChanges(changedUnit, historyUnit)) return;
+            _editTracer.noChanges.Stop();
+            Debug.WriteLine($"No changes legal {_editTracer.noChanges.ElapsedMilliseconds / ++_editTracer.countnoChanges}");
 
             changedUnit.UserId = _userId;
             changedUnit.ChangeReason = ChangeReasons.Edit;
             changedUnit.EditComment = "Changed by import service.";
-            using (var transaction = _dbContext.Database.BeginTransaction())
+
+            try
             {
-                try
+                _editTracer.editStat.Start();
+                var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
+                var changedDateTime = DateTime.Now;
+                _dbContext.Update(changedUnit);
+                _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
+                _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
+                    changedDateTime, unitsHistoryHolder);
+                if (deleteEnterprise)
                 {
-                    
-                    var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
-                    var changedDateTime = DateTime.Now;
-                    _dbContext.Update(changedUnit);
-                    _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
-                    _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
-                        changedDateTime, unitsHistoryHolder);
-                    if (deleteEnterprise)
+                    _dbContext.EnterpriseUnits.Remove(_dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId));
+                }
+
+                await _dbContext.SaveChangesAsync();
+                _editTracer.editStat.Stop();
+                Debug.WriteLine($"Edit legal {_editTracer.editStat.ElapsedMilliseconds / ++_editTracer.counteditStat}");
+
+                _editTracer.elastic.Start();
+                if (_addArrayStatisticalUnits.Any())
+                    foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
                     {
-                        _dbContext.EnterpriseUnits.Remove(_dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId));
+                        await _elasticService.AddDocument(addArrayStatisticalUnit);
+                    }
+                if (_editArrayStatisticalUnits.Any())
+                    foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
+                    {
+                        await _elasticService.EditDocument(editArrayStatisticalUnit);
                     }
 
-                    await _dbContext.SaveChangesAsync();
-                    transaction.Commit();
-                    if (_addArrayStatisticalUnits.Any())
-                        foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
-                        {
-                            await _elasticService.AddDocument(addArrayStatisticalUnit);
-                        }
-                    if (_editArrayStatisticalUnits.Any())
-                        foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
-                        {
-                            await _elasticService.EditDocument(editArrayStatisticalUnit);
-                        }
-
-                    await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
-                }
-                catch (NotFoundException e)
-                {
-                    throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
-                }
-                catch (Exception e)
-                {
-                    throw new BadRequestException(nameof(Resource.SaveError), e);
-                }
+                await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
+                _editTracer.elastic.Stop();
+                Debug.WriteLine($"Elastic legal {_editTracer.elastic.ElapsedMilliseconds / ++_editTracer.countelastic}");
+            }
+            catch (NotFoundException e)
+            {
+                throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
             }
         }
 

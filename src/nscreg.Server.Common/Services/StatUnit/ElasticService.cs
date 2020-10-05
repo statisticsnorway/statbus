@@ -25,8 +25,14 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static bool _isSynchronized;
         private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(1, 1);
 
+        private static readonly SemaphoreSlim SemaphoreBulkBuffer = new SemaphoreSlim(1, 1);
+        private static volatile int BulkOperationsBufferedCount = 0;
+        private const int MaxBulkOperationsBufferedCount = 300;
+
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
+
+        private BulkDescriptor BulkDescriptorBuffer { get; set; }
 
         public ElasticService(NSCRegDbContext dbContext)
         {
@@ -34,6 +40,8 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var settings = new ConnectionSettings(new Uri(ServiceAddress)).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
+
+            BulkDescriptorBuffer = new BulkDescriptor();
         }
         public async Task Synchronize(bool force = false)
         {
@@ -119,6 +127,28 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
+        public async Task EditDocumentBuffered(ElasticStatUnit elasticItem)
+        {
+            await SemaphoreBulkBuffer.WaitAsync();
+            try
+            {
+                BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Doc(elasticItem));
+
+                if (BulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
+                {
+                    await FlushBulkBufferInner();
+                }
+            }
+            catch
+            {
+                await Synchronize();
+            }
+            finally
+            {
+                SemaphoreBulkBuffer.Release();
+            }
+        }
+
         /// <summary>
         /// Removing statunit from elastic
         /// </summary>
@@ -155,6 +185,50 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await Synchronize();
             }
+        }
+
+        public async Task AddDocumentBuffered(ElasticStatUnit elasticItem)
+        {
+            await SemaphoreBulkBuffer.WaitAsync();
+            try
+            {
+                BulkDescriptorBuffer.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
+
+                if (BulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
+                {
+                    await FlushBulkBufferInner();
+                }
+            }
+            catch
+            {
+                await Synchronize();
+            }
+            finally
+            {
+                SemaphoreBulkBuffer.Release();
+            }
+        }
+
+        public async Task FlushBulkBuffer()
+        {
+            await SemaphoreBulkBuffer.WaitAsync();
+            try
+            {
+                await FlushBulkBufferInner();
+            }
+            finally
+            {
+                SemaphoreBulkBuffer.Release();
+            }
+        }
+
+        private async Task FlushBulkBufferInner()
+        {
+            var result = await _elasticClient.BulkAsync(BulkDescriptorBuffer);
+            BulkDescriptorBuffer = new BulkDescriptor();
+            BulkOperationsBufferedCount = 0;
+            if (!result.IsValid)
+                throw new Exception(result.DebugInformation);
         }
 
         public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted)
