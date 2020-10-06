@@ -29,8 +29,8 @@ namespace nscreg.Server.Common.Services.DataSources
                     creationHelper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
                 [StatUnitTypes.LocalUnit] = (unit, _) =>
                     creationHelper.CreateLocalUnit(unit as LocalUnit),
-                [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
-                    creationHelper.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
+               // [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
+                //    creationHelper.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
             };
             _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
