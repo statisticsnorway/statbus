@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using EFCore.BulkExtensions;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -13,7 +14,9 @@ namespace nscreg.Server.Common.Services.DataSources
     public class UpsertUnitBulkBuffer
     {
         private bool _isEnabledFlush = true;
-        private List<LegalUnit> Buffer { get; }
+        private List<LegalUnit> LegalUnitsBuffer { get; }
+        private List<LocalUnit> LocalUnitsBuffer { get; }
+        private List<EnterpriseUnit> EnterpriseUnitsBuffer { get; }
         private readonly NSCRegDbContext _context;
         private const int MaxBulkOperationsBufferedCount = 300;
         private readonly BulkConfig _config;
@@ -21,30 +24,52 @@ namespace nscreg.Server.Common.Services.DataSources
         public UpsertUnitBulkBuffer(NSCRegDbContext context)
         {
             _config = new BulkConfig() { PreserveInsertOrder = true, SetOutputIdentity = true };
-            Buffer = new List<LegalUnit>();
+            LegalUnitsBuffer = new List<LegalUnit>();
+            LocalUnitsBuffer = new List<LocalUnit>();
+            EnterpriseUnitsBuffer = new List<EnterpriseUnit>();
             _context = context;
         }
 
-        public async Task AddToBufferAsync(LegalUnit element)
+        public async Task AddLegalToBufferAsync(LegalUnit unit)
         {
-            Buffer.Add(element);
-            if (Buffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
+            LegalUnitsBuffer.Add(unit);
+            if (LegalUnitsBuffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
             {
-                await FlushAsync();
+                await FlushLegalUnitsAsync();
             }
             
         }
 
-        public async Task FlushAsync()
+        public async Task FlushLegalUnitsAsync()
         {
-            //TODO : Решить проблему с Edit и HistoryIds 
-            //BulkInsert не срабатывает по Discriminator в базу ложаться юниты с Discriminator "StatisticalUnit"
-
-            var addresses = Buffer.SelectMany(x => new List<Address>{x.Address, x.ActualAddress, x.PostalAddress}).Where(x => x != null).ToList(); // проблема  при присвоении юниту, не будет понятно какой адресс куда относится
+            //TODO : Решить проблему с Edit и HistoryIds
+            //TODO: Тщательно перепроверить логику, Activities Persons, Вынести сюда же
+            var addresses = LegalUnitsBuffer.SelectMany(x => new List<Address>{x.Address, x.ActualAddress, x.PostalAddress}).Where(x => x != null).ToList();
+            var enterpriseUnits = LegalUnitsBuffer.Select(x => x.EnterpriseUnit).ToList();
+            var localUnits = LegalUnitsBuffer.SelectMany(x => x.LocalUnits).ToList();
             await _context.BulkInsertAsync(addresses, _config);
 
-            await _context.BulkInsertOrUpdateAsync(Buffer, _config);
-            Buffer.Clear();
+            foreach (var unit in LegalUnitsBuffer)
+            {
+                unit.ActualAddressId = unit.ActualAddress?.Id;
+                unit.AddressId = unit.Address?.Id;
+                unit.PostalAddressId = unit.PostalAddress?.Id;
+                unit.EnterpriseUnit.ActualAddressId = unit.ActualAddress?.Id;
+                unit.EnterpriseUnit.AddressId = unit.Address?.Id;
+                unit.EnterpriseUnit.PostalAddressId = unit.PostalAddress?.Id;
+                unit.LocalUnits.ForEach(x =>
+                {
+                    x.ActualAddressId = unit.ActualAddress?.Id;
+                    x.AddressId = unit.Address?.Id;
+                    x.PostalAddressId = unit.PostalAddress?.Id;
+                });
+            }
+            await _context.BulkInsertAsync(enterpriseUnits, _config);
+            LegalUnitsBuffer.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit.RegId);
+            await _context.BulkInsertOrUpdateAsync(LegalUnitsBuffer, _config);
+            LegalUnitsBuffer.ForEach(x => x.LocalUnits.ForEach(z => z.LegalUnitId = x.RegId));
+            await _context.BulkInsertAsync(localUnits, _config);
+            LegalUnitsBuffer.Clear();
         }
 
         public void DisableFlushing()
