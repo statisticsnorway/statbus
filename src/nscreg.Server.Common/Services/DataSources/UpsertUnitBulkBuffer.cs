@@ -47,27 +47,24 @@ namespace nscreg.Server.Common.Services.DataSources
 
             var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
             
+            await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
+            await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
+            await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
 
-            if(activities.Any())
-                await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
-            if(persons.Any())
-                await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
-            if (addresses.Any())
+            Buffer.ForEach(unit =>
             {
-                await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
-                Buffer.ForEach(unit =>
-                {
-                    unit.AddressId = unit.Address?.Id;
-                    unit.ActualAddressId = unit.ActualAddress?.Id;
-                    unit.PostalAddressId = unit.PostalAddress?.Id;
-                });
-            }
-                
+                unit.AddressId = unit.Address?.Id;
+                unit.ActualAddressId = unit.ActualAddress?.Id;
+                unit.PostalAddressId = unit.PostalAddress?.Id;
+            });
             var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
+            var groups = enterprises.Select(x => x.EnterpriseGroup).ToList();
+            await _context.BulkInsertOrUpdateAsync(groups, bulkConfig);
+            enterprises.ForEach(x => x.EntGroupId = x.EnterpriseGroup?.RegId);
             await _context.BulkInsertOrUpdateAsync(enterprises, bulkConfig);
 
             var legals = Buffer.OfType<LegalUnit>().ToList();
-            legals.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit.RegId);
+            legals.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit?.RegId);
             await _context.BulkInsertOrUpdateAsync(legals, bulkConfig);
 
             var locals = Buffer.OfType<LocalUnit>().ToList();
