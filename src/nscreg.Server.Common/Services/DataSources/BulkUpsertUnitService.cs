@@ -9,8 +9,6 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
-using nscreg.Utilities.Extensions;
-using Activity = nscreg.Data.Entities.Activity;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -36,8 +34,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             try
             {
-                //await _dbContext.LocalUnits.AddAsync(localUnit);
-                //await _bufferService.AddToBufferAsync(localUnit);
+                await _bufferService.AddToBufferAsync(localUnit);
             }
             catch (Exception e)
             {
@@ -82,12 +79,12 @@ namespace nscreg.Server.Common.Services.DataSources
                         else
                         {
                             Tracer.enterprise3.Start();
-                            createdEnterprise = CreateEnterpriseForLegal(legal);
-                            await _bufferService.AddToBufferAsync(createdEnterprise);
+                            CreateEnterpriseForLegal(legal);
                             Tracer.enterprise3.Stop();
                             Debug.WriteLine(
                                 $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
                         }
+                        await _bufferService.AddToBufferAsync(legal.EnterpriseUnit);
 
                     }
 
@@ -103,8 +100,8 @@ namespace nscreg.Server.Common.Services.DataSources
                     if (!addresses.Any())
                     {
                         Tracer.localForLegal.Start();
-                        createdLocal = CreateLocalForLegal(legal);
-                        await _bufferService.AddToBufferAsync(createdLocal);
+                        CreateLocalForLegal(legal);
+                        await _bufferService.AddToBufferAsync(legal.LocalUnits.Last());
                         Tracer.localForLegal.Stop();
                         Debug.WriteLine(
                             $"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
@@ -194,53 +191,17 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
 
-        private EnterpriseUnit CreateEnterpriseForLegal(LegalUnit legalUnit)
+        private void CreateEnterpriseForLegal(LegalUnit legalUnit)
         {
             var enterpriseUnit = new EnterpriseUnit();
             Mapper.Map(legalUnit, enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
         }
-
-        //TODO вынести в Bulk
-        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
-        {
-            activities.ForEach(x =>
-            {
-                _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
-                {
-                    ActivityId = x.Id,
-                    Unit = unit
-                });
-            });
-            persons.ForEach(x =>
-            {
-                _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
-                {
-                    PersonId = x.PersonId,
-                    Unit = unit,
-                    PersonTypeId = x.PersonTypeId,
-                    EnterpriseGroupId = x.EnterpriseGroupId
-                });
-            });
-
-            foreignPartCountries.ForEach(x =>
-            {
-                _dbContext.CountryStatisticalUnits.Add(new CountryStatisticalUnit
-                {
-                    Unit = unit,
-                    CountryId = x.CountryId
-                });
-
-            });
-
-        }
-        private LocalUnit CreateLocalForLegal(LegalUnit legalUnit)
+        private void CreateLocalForLegal(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit();
             Mapper.Map(legalUnit, localUnit);
             legalUnit.LocalUnits.Add(localUnit);
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
         }
         private void CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
         {

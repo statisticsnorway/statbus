@@ -124,7 +124,7 @@ namespace nscreg.Server.DataUploadSvc
 
             var executors = new List<ImportExecutor>() {
                 new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
+                //new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
             };
 
             var parseTask = Task.Run(() => ParseFile(dequeued, tasks), cancellationToken);

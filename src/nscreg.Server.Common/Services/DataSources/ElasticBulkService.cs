@@ -13,7 +13,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public static string StatUnitSearchIndexName { get; set; }
         private static readonly SemaphoreSlim SemaphoreBulkBuffer = new SemaphoreSlim(1, 1);
         private BulkDescriptor BulkDescriptorBuffer { get; set; }
-        private static volatile int BulkOperationsBufferedCount = 0;
+        private static volatile int _bulkOperationsBufferedCount;
         private const int MaxBulkOperationsBufferedCount = 300;
         public static string ServiceAddress { get; set; }
         private readonly ElasticClient _elasticClient;
@@ -32,7 +32,7 @@ namespace nscreg.Server.Common.Services.DataSources
             try
             {
                 BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Doc(elasticItem));
-                if (++BulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
+                if (++_bulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
                 {
                     await FlushBulkBufferInner();
                 }
@@ -52,7 +52,7 @@ namespace nscreg.Server.Common.Services.DataSources
             try
             {
                 BulkDescriptorBuffer.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
-                if (++BulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
+                if (++_bulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
                 {
                     await FlushBulkBufferInner();
                 }
@@ -84,7 +84,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var result = await _elasticClient.BulkAsync(BulkDescriptorBuffer);
             BulkDescriptorBuffer = new BulkDescriptor();
-            BulkOperationsBufferedCount = 0;
+            _bulkOperationsBufferedCount = 0;
             if (!result.IsValid)
                 throw new Exception(result.DebugInformation);
         }

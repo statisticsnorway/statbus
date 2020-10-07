@@ -182,7 +182,7 @@ namespace nscreg.Server.DataUploadSvc
                         swDbLog.Stop();
                     }
                 }
-                await bulkBuffer.FlushLegalUnitsAsync();
+                await bulkBuffer.FlushAsync();
 
             }
         };
