@@ -45,10 +45,12 @@ namespace nscreg.Server.Common.Services.DataSources
             //TODO : Решить проблему с Edit и HistoryIds
             //TODO: Тщательно перепроверить логику, Activities Persons, Вынести сюда же
             var addresses = LegalUnitsBuffer.SelectMany(x => new List<Address>{x.Address, x.ActualAddress, x.PostalAddress}).Where(x => x != null).ToList();
+            var activities = LegalUnitsBuffer.SelectMany(x => x.Activities).ToList();
             var enterpriseUnits = LegalUnitsBuffer.Select(x => x.EnterpriseUnit).ToList();
             var localUnits = LegalUnitsBuffer.SelectMany(x => x.LocalUnits).ToList();
-            await _context.BulkInsertAsync(addresses, _config);
 
+            await _context.BulkInsertAsync(addresses, _config);
+            await _context.BulkInsertOrUpdateAsync(activities, _config);
             foreach (var unit in LegalUnitsBuffer)
             {
                 unit.ActualAddressId = unit.ActualAddress?.Id;
@@ -69,9 +71,9 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.BulkInsertOrUpdateAsync(LegalUnitsBuffer, _config);
             LegalUnitsBuffer.ForEach(x => x.LocalUnits.ForEach(z => z.LegalUnitId = x.RegId));
             await _context.BulkInsertAsync(localUnits, _config);
+
             LegalUnitsBuffer.Clear();
         }
-
         public void DisableFlushing()
         {
             _isEnabledFlush = false;

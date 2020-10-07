@@ -81,7 +81,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.Role):
                     if(int.TryParse(value, out int val))
                         result.Role = val;
-                    else throw BadValueFor<ActivityTypes>(propPath, value);
+                    else throw BadValueFor<Person>(propPath, value);
                     break;
                 case nameof(Person.GivenName):
                     result.GivenName = value;

@@ -54,8 +54,6 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task CreateLegalWithEnterpriseAndLocal(LegalUnit legal)
         {
-            EnterpriseUnit createdEnterprise = null;
-            LocalUnit createdLocal = null;
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
@@ -83,7 +81,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         else
                         {
                             Tracer.enterprise3.Start();
-                            createdEnterprise = CreateEnterpriseForLegalAsync(legal);
+                            CreateEnterpriseForLegalAsync(legal);
                             Tracer.enterprise3.Stop();
                             Debug.WriteLine(
                                 $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
@@ -103,7 +101,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     if (!addresses.Any())
                     {
                         Tracer.localForLegal.Start();
-                        createdLocal = CreateLocalForLegalAsync(legal);
+                        CreateLocalForLegalAsync(legal);
                         Tracer.localForLegal.Stop();
                         Debug.WriteLine(
                             $"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
@@ -147,61 +145,54 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <summary>
         /// Creating an enterprise with a group of enterprises
         /// </summary>
-        /// <param name="enterpriseUnit"></param>
-        /// <returns></returns>
-        //public async Task CreateEnterpriseWithGroup(EnterpriseUnit enterpriseUnit)
-        //{
-        //    EnterpriseGroup createdGroup = null;
+        /// <param name = "enterpriseUnit" ></param >
+        /// < returns ></returns >
+        public async Task CreateEnterpriseWithGroup(EnterpriseUnit enterpriseUnit)
+        {
+            using (var transaction = _dbContext.Database.BeginTransaction())
+            {
+                try
+                {
+                    _dbContext.EnterpriseUnits.Add(enterpriseUnit);
+                    if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
+                    {
 
-        //    using (var transaction = _dbContext.Database.BeginTransaction())
-        //    {
-        //        try
-        //        {
-        //            _dbContext.EnterpriseUnits.Add(enterpriseUnit);
-        //            if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
-        //            {
+                        CreateGroupForEnterpriseAsync(enterpriseUnit);
+                        var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
+                        foreach (var legalUnit in sameStatIdLegalUnits)
+                        {
+                            legalUnit.EnterpriseUnit = enterpriseUnit;
+                        }
+                        enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
 
-        //                createdGroup = await CreateGroupForEnterpriseAsync(enterpriseUnit);
-        //                await _bufferService.AddToBufferAsync(createdGroup);
-        //                var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
-        //                foreach (var legalUnit in sameStatIdLegalUnits)
-        //                {
-        //                    legalUnit.EnterpriseUnit = enterpriseUnit;
-        //                    _dbContext.LegalUnits.Update(legalUnit);
-        //                    await _bufferService.AddToBufferAsync(legalUnit);
-        //                }
-        //                enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
+                    }
+                    //await _bufferService.AddLegalToBufferAsync(enterpriseUnit);
+                    //await _dbContext.SaveChangesAsync();
+                    //TODO Расследовать и поменять условия Where
+                    //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdUnit.RegId)
+                    //    .Select(x => x.RegId).ToListAsync();
+                    //createdUnit.HistoryLegalUnitIds = string.Join(",", legalsOfEnterprise);
 
-        //            }
-        //            await _bufferService.AddLegalToBufferAsync(enterpriseUnit);
-        //            //await _dbContext.SaveChangesAsync();
-        //            //TODO Расследовать и поменять условия Where
-        //            //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdUnit.RegId)
-        //            //    .Select(x => x.RegId).ToListAsync();
-        //            //createdUnit.HistoryLegalUnitIds = string.Join(",", legalsOfEnterprise);
+                    transaction.Commit();
+                }
+                catch (Exception e)
+                {
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
+            }
 
-        //            transaction.Commit();
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            throw new BadRequestException(nameof(Resource.SaveError), e);
-        //        }
-        //    }
-
-        //    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
-        //    if (createdGroup != null)
-        //        await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdGroup));
-        //}
+            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
+            if (enterpriseUnit.EnterpriseGroup != null)
+                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit.EnterpriseGroup));
+        }
 
 
-        private EnterpriseUnit CreateEnterpriseForLegalAsync(LegalUnit legalUnit)
+        private void CreateEnterpriseForLegalAsync(LegalUnit legalUnit)
         {
             var enterpriseUnit = new EnterpriseUnit();
             Mapper.Map(legalUnit, enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
-
-            return enterpriseUnit;
         }
 
         //TODO вынести в Bulk
@@ -237,22 +228,18 @@ namespace nscreg.Server.Common.Services.DataSources
             });
 
         }
-        private LocalUnit CreateLocalForLegalAsync(LegalUnit legalUnit)
+        private void CreateLocalForLegalAsync(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit();
             Mapper.Map(legalUnit, localUnit);
             legalUnit.LocalUnits.Add(localUnit);
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
-
-            return localUnit;
         }
-        private async Task<EnterpriseGroup> CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
+        private void CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
         {
             var enterpriseGroup = new EnterpriseGroup();
             Mapper.Map(enterpriseUnit, enterpriseGroup);
             enterpriseUnit.EnterpriseGroup = enterpriseGroup;
-            await _dbContext.EnterpriseGroups.AddAsync(enterpriseGroup);
-            return enterpriseGroup;
         }
     }
 }
