@@ -58,7 +58,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 unit.PostalAddressId = unit.PostalAddress?.Id;
             });
             var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
-            var groups = enterprises.Select(x => x.EnterpriseGroup).ToList();
+            var groups = enterprises.Select(x => x.EnterpriseGroup).Where(x=>x != null).ToList();
             await _context.BulkInsertOrUpdateAsync(groups, bulkConfig);
             enterprises.ForEach(x => x.EntGroupId = x.EnterpriseGroup?.RegId);
             await _context.BulkInsertOrUpdateAsync(enterprises, bulkConfig);

@@ -81,13 +81,11 @@ namespace nscreg.Server.DataUploadSvc
                 await InitializeCacheForLookups(context);
                 var bulkBuffer = new UpsertUnitBulkBuffer(context);
                 var userService = new UserService(context);
-                var commonSvc = new Common.Services.StatUnit.Common(context);
-                var permissions = await commonSvc.InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+                var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
                 var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, _elasticBulkService, bulkBuffer);
 
-                var i = 0;
                 foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())
                 {
                     Interlocked.Increment(ref InterlockedInt);
@@ -116,8 +114,7 @@ namespace nscreg.Server.DataUploadSvc
                     /// Analyze Unit
 
                     _logger.LogInformation(
-                        "analyzing populated unit #{0} RegId={1}", i + 1,
-                        populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+                        "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
                     swAnalyze.Start();
 
@@ -171,8 +168,6 @@ namespace nscreg.Server.DataUploadSvc
                         var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
                         {
                             var tmp = x.source.Split('.', 2);
-                            //if (parsed[i].ContainsKey(tmp[0]))
-                            //    return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
                             return tmp[0];
                         }));
                         await _logBuffer.LogUnitUpload(

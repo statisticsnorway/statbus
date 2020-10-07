@@ -108,6 +108,14 @@ namespace nscreg.Server.DataUploadSvc
             }
             if (dequeued == null) return;
 
+            var dataAccessService = new DataAccessService(_context);
+            if (dataAccessService.CheckWritePermissions(dequeued.UserId, dequeued.DataSource.StatUnitType))
+            {
+                var message = $"User doesnt have write permission for {dequeued.DataSource.StatUnitType}";
+                _logger.LogInformation("finish queue item with error: {0}", message);
+                await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, message);
+            }
+
             _logger.LogInformation("mutation queue file #{0}", dequeued.Id);
 
             var mutateError = await MutateFileAsync(dequeued);
