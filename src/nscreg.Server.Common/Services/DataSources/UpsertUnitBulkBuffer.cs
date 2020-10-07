@@ -38,7 +38,7 @@ namespace nscreg.Server.Common.Services.DataSources
             //TODO : Решить проблему с Edit и HistoryIds
             var bulkConfig = new BulkConfig {SetOutputIdentity = true, PreserveInsertOrder = true};
 
-            var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).ToList();
+            var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct().ToList();
             var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
             var activities = activityUnits.Select(z => z.Activity).Distinct().ToList();
 
@@ -58,8 +58,10 @@ namespace nscreg.Server.Common.Services.DataSources
                 unit.PostalAddressId = unit.PostalAddress?.Id;
             });
             var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
-            var groups = enterprises.Select(x => x.EnterpriseGroup).Where(x=>x != null).ToList();
+
+            var groups = enterprises.Select(x => x.EnterpriseGroup).Where(z => z != null).ToList();
             await _context.BulkInsertOrUpdateAsync(groups, bulkConfig);
+            
             enterprises.ForEach(x => x.EntGroupId = x.EnterpriseGroup?.RegId);
             await _context.BulkInsertOrUpdateAsync(enterprises, bulkConfig);
 
