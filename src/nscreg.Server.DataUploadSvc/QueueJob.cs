@@ -45,7 +45,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
         private NSCRegDbContext _context;
-        private ElasticBulkService _elasticBulkService;
+        private ElasticBulkBuffer _elasticBulkService;
        
         public QueueJob(
             int dequeueInterval,
@@ -68,7 +68,7 @@ namespace nscreg.Server.DataUploadSvc
             var dbContextHelper = new DbContextHelper();
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
-            _elasticBulkService = new ElasticBulkService();
+            _elasticBulkService = new ElasticBulkBuffer();
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
