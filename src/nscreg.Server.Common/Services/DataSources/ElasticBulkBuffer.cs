@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private static readonly SemaphoreSlim SemaphoreBulkBuffer = new SemaphoreSlim(1, 1);
         private BulkDescriptor BulkDescriptorBuffer { get; set; }
         private static volatile int _bulkOperationsBufferedCount;
-        private const int MaxBulkOperationsBufferedCount = 300;
+        private const int MaxBulkOperationsBufferedCount = 1000;
         public static string ServiceAddress { get; set; }
         private readonly ElasticClient _elasticClient;
         public ElasticBulkBuffer()
@@ -82,11 +82,11 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task FlushBulkBufferInner()
         {
-            if (BulkOperationsBufferedCount > 0)
+            if (_bulkOperationsBufferedCount > 0)
             {
                 var result = await _elasticClient.BulkAsync(BulkDescriptorBuffer);
                 BulkDescriptorBuffer = new BulkDescriptor();
-            _bulkOperationsBufferedCount = 0;
+                _bulkOperationsBufferedCount = 0;
                 if (!result.IsValid)
                     throw new Exception(result.DebugInformation);
             }

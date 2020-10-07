@@ -10,7 +10,6 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
-    ///TODO продумать логику и создавать разные коллекции сущностей и разные bulkInsert
     public class UpsertUnitBulkBuffer
     {
         private bool _isEnabledFlush = true;

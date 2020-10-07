@@ -85,18 +85,19 @@ namespace nscreg.Server.Common.Services.DataSources
                                 $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
                         }
                         await _bufferService.AddToBufferAsync(legal.EnterpriseUnit);
+
                     }
 
                     Tracer.address.Start();
                     const double tolerance = 0.000000001;
                     var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
-                    var anySameAddress = await _dbContext.Address.AnyAsync(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
+                    var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
                                                                         x.AddressPart1 == legal.Address.AddressPart1 &&
                                                                         x.AddressPart2 == legal.Address.AddressPart2 &&
-                                                                        x.AddressPart3 == legal.Address.AddressPart3 && legal.Address.Latitude != null && Math.Abs((double)x.Latitude - (double)legal.Address.Latitude) < tolerance && legal.Address.Longitude != null && Math.Abs((double)x.Longitude - (double)legal.Address.Longitude) < tolerance);
+                                                                        x.AddressPart3 == legal.Address.AddressPart3 && legal.Address.Latitude != null && Math.Abs((double)x.Latitude - (double)legal.Address.Latitude) < tolerance && legal.Address.Longitude != null && Math.Abs((double)x.Longitude - (double)legal.Address.Longitude) < tolerance).ToListAsync();
                     Tracer.address.Stop();
                     Debug.WriteLine($"Address {Tracer.address.ElapsedMilliseconds / ++Tracer.countaddress}");
-                    if (!anySameAddress)
+                    if (!addresses.Any())
                     {
                         Tracer.localForLegal.Start();
                         CreateLocalForLegal(legal);
@@ -130,16 +131,14 @@ namespace nscreg.Server.Common.Services.DataSources
                 {
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
-
-                //TODO: Вынести во Flush потому что некоторые поля до Flush null и не присвоены
-                //Tracer.elastic.Start();
-                //await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal));
-                //if (createdLocal != null)
-                //    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLocal));
-                //if (createdEnterprise != null)
-                //    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterprise));
-                //Tracer.elastic.Stop();
-                //Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
+                Tracer.elastic.Start();
+                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal));
+                if (legal.LocalUnits.Last() != null)
+                    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal.LocalUnits.Last()));
+                if (legal.EnterpriseUnit != null)
+                    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal.EnterpriseUnit));
+                Tracer.elastic.Stop();
+                Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
 
             }
 
@@ -194,12 +193,16 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var enterpriseUnit = new EnterpriseUnit();
             Mapper.Map(legalUnit, enterpriseUnit);
+            enterpriseUnit.ActivitiesUnits = new List<ActivityStatisticalUnit>();
+            enterpriseUnit.PersonsUnits = new List<PersonStatisticalUnit>();
             legalUnit.EnterpriseUnit = enterpriseUnit;
         }
         private void CreateLocalForLegal(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit();
             Mapper.Map(legalUnit, localUnit);
+            localUnit.ActivitiesUnits = new List<ActivityStatisticalUnit>();
+            localUnit.PersonsUnits = new List<PersonStatisticalUnit>();
             legalUnit.LocalUnits.Add(localUnit);
         }
         private void CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
