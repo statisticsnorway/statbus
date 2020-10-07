@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EFCore.BulkExtensions;
@@ -10,17 +11,17 @@ namespace nscreg.Server.Common.Services.DataSources
     public class UpsertUnitBulkBuffer
     {
         private bool _isEnabledFlush = true;
-        private List<IStatisticalUnit> Buffer { get; }
+        private List<StatisticalUnit> Buffer { get; }
         private readonly NSCRegDbContext _context;
-        private const int MaxBulkOperationsBufferedCount = 300;
+        private const int MaxBulkOperationsBufferedCount = 1;
 
         public UpsertUnitBulkBuffer(NSCRegDbContext context, int maxCount = 100)
         {
-            Buffer = new List<IStatisticalUnit>();
+            Buffer = new List<StatisticalUnit>();
             _context = context;
         }
 
-        public async Task AddToBufferAsync(IStatisticalUnit element)
+        public async Task AddToBufferAsync(StatisticalUnit element)
         {
             Buffer.Add(element);
             if (Buffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
@@ -33,7 +34,28 @@ namespace nscreg.Server.Common.Services.DataSources
         private async Task Flush()
         {
             //TODO : Решить проблему с Edit и HistoryIds
-            await _context.BulkInsertOrUpdateAsync(Buffer, new BulkConfig { TrackingEntities = false });
+            var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).ToList();
+            await _context.BulkInsertOrUpdateAsync(addresses, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+            foreach (var unit in Buffer)
+            {
+                unit.AddressId = unit.Address?.Id;
+                unit.ActualAddressId = unit.ActualAddress?.Id;
+                unit.PostalAddressId = unit.PostalAddress?.Id;
+            }
+            //todo остальные связанные сущности
+
+
+            var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
+            await _context.BulkInsertOrUpdateAsync(enterprises, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+
+            var legals = Buffer.OfType<LegalUnit>().ToList();
+            legals.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit.RegId);
+            await _context.BulkInsertOrUpdateAsync(legals, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+
+            var locals = Buffer.OfType<LocalUnit>().ToList();
+            locals.ForEach(x => x.LegalUnitId = x.LegalUnit?.RegId);
+            await _context.BulkInsertOrUpdateAsync(locals, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+
             Buffer.Clear();
         }
 

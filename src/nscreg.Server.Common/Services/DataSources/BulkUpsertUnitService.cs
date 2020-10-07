@@ -55,6 +55,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             EnterpriseUnit createdEnterprise = null;
             LocalUnit createdLocal = null;
+            _bufferService.DisableFlushing();
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
@@ -109,6 +110,9 @@ namespace nscreg.Server.Common.Services.DataSources
                         Debug.WriteLine($"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
                     }
 
+                    _bufferService.EnableFlushing();
+                    await _bufferService.AddToBufferAsync(legalUnit);
+
                     //TODO: History for bulk
                     //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == legalUnit.EnterpriseUnitRegId)
                     //    .Select(x => x.RegId).ToListAsync();
@@ -159,16 +163,16 @@ namespace nscreg.Server.Common.Services.DataSources
                     if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
                     {
 
-                        createdGroup = await CreateGroupForEnterpriseAsync(enterpriseUnit);
-                        await _bufferService.AddToBufferAsync(createdGroup);
-                        var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
-                        foreach (var legalUnit in sameStatIdLegalUnits)
-                        {
-                            legalUnit.EnterpriseUnit = enterpriseUnit;
-                            _dbContext.LegalUnits.Update(legalUnit);
-                            await _bufferService.AddToBufferAsync(legalUnit);
-                        }
-                        enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
+                        //createdGroup = await CreateGroupForEnterpriseAsync(enterpriseUnit);
+                        //await _bufferService.AddToBufferAsync(createdGroup);
+                        //var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
+                        //foreach (var legalUnit in sameStatIdLegalUnits)
+                        //{
+                        //    legalUnit.EnterpriseUnit = enterpriseUnit;
+                        //    _dbContext.LegalUnits.Update(legalUnit);
+                        //    await _bufferService.AddToBufferAsync(legalUnit);
+                        //}
+                        //enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
 
                     }
                     await _bufferService.AddToBufferAsync(enterpriseUnit);
