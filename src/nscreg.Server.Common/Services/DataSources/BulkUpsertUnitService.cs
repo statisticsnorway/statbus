@@ -10,7 +10,6 @@ using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Utilities.Extensions;
-using Activity = nscreg.Utilities.Configuration.DBMandatoryFields.Activity;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -157,26 +156,20 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 try
                 {
-                    _dbContext.EnterpriseUnits.Add(enterpriseUnit);
+                    var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
                     if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
                     {
-
                         CreateGroupForEnterpriseAsync(enterpriseUnit);
-                        var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
-                        foreach (var legalUnit in sameStatIdLegalUnits)
-                        {
-                            legalUnit.EnterpriseUnit = enterpriseUnit;
-                        }
-                        enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
-
                     }
-                    //await _bufferService.AddLegalToBufferAsync(enterpriseUnit);
-                    //await _dbContext.SaveChangesAsync();
-                    //TODO Расследовать и поменять условия Where
-                    //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdUnit.RegId)
-                    //    .Select(x => x.RegId).ToListAsync();
-                    //createdUnit.HistoryLegalUnitIds = string.Join(",", legalsOfEnterprise);
-
+                    //TODO: Подумать как можно реализовать
+                    //foreach (var legalUnit in sameStatIdLegalUnits)
+                    //{
+                    //    legalUnit.EnterpriseUnit = enterpriseUnit;
+                    //    await _bufferService.AddToBufferAsync(legalUnit); // Возможное решение
+                    //}
+                    enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
+                    await _bufferService.AddToBufferAsync(enterpriseUnit);
+                    await _dbContext.SaveChangesAsync();
                     transaction.Commit();
                 }
                 catch (Exception e)
@@ -216,6 +209,7 @@ namespace nscreg.Server.Common.Services.DataSources
             var enterpriseGroup = new EnterpriseGroup();
             Mapper.Map(enterpriseUnit, enterpriseGroup);
             enterpriseUnit.EnterpriseGroup = enterpriseGroup;
+            _dbContext.EnterpriseGroups.AddAsync(enterpriseGroup);
         }
 
         private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Data.Entities.Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
