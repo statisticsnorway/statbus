@@ -16,7 +16,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private bool _isEnabledFlush = true;
         private List<StatisticalUnit> Buffer { get; }
         private readonly NSCRegDbContext _context;
-        private const int MaxBulkOperationsBufferedCount = 1;
+        private const int MaxBulkOperationsBufferedCount = 300;
 
         public UpsertUnitBulkBuffer(NSCRegDbContext context)
         {

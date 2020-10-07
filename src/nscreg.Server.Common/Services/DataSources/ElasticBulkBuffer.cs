@@ -8,7 +8,7 @@ using nscreg.Server.Common.Services.StatUnit;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
-    public class ElasticBulkService : IElasticUpsertService
+    public class ElasticBulkBuffer : IElasticUpsertService
     {
         public static string StatUnitSearchIndexName { get; set; }
         private static readonly SemaphoreSlim SemaphoreBulkBuffer = new SemaphoreSlim(1, 1);
@@ -17,7 +17,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private const int MaxBulkOperationsBufferedCount = 300;
         public static string ServiceAddress { get; set; }
         private readonly ElasticClient _elasticClient;
-        public ElasticBulkService()
+        public ElasticBulkBuffer()
         {
             var settings = new ConnectionSettings(new Uri(ServiceAddress)).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
@@ -82,11 +82,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task FlushBulkBufferInner()
         {
-            var result = await _elasticClient.BulkAsync(BulkDescriptorBuffer);
-            BulkDescriptorBuffer = new BulkDescriptor();
-            BulkOperationsBufferedCount = 0;
-            if (!result.IsValid)
-                throw new Exception(result.DebugInformation);
+            if (BulkOperationsBufferedCount > 0)
+            {
+                var result = await _elasticClient.BulkAsync(BulkDescriptorBuffer);
+                BulkDescriptorBuffer = new BulkDescriptor();
+                BulkOperationsBufferedCount = 0;
+                if (!result.IsValid)
+                    throw new Exception(result.DebugInformation);
+            }
         }
 
         public async Task CheckElasticSearchConnection()

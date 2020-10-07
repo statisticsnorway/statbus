@@ -14,11 +14,11 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _createByType;
 
-        private readonly ElasticBulkService _elasticService;
+        private readonly ElasticBulkBuffer _elasticService;
 
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType; 
 
-        private  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, ElasticBulkService service, UpsertUnitBulkBuffer buffer)
+        private  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, ElasticBulkBuffer service, UpsertUnitBulkBuffer buffer)
         {
             _elasticService = service;
             var creationHelper = new BulkUpsertUnitService(context, _elasticService, buffer);
@@ -43,7 +43,7 @@ namespace nscreg.Server.Common.Services.DataSources
             };
         }
 
-        public static async Task<SaveManager> CreateSaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, ElasticBulkService service, UpsertUnitBulkBuffer buffer)
+        public static async Task<SaveManager> CreateSaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, ElasticBulkBuffer service, UpsertUnitBulkBuffer buffer)
         {
             var saveManager = new SaveManager(context, userId, permissions, service, buffer);
             await saveManager._elasticService.CheckElasticSearchConnection();

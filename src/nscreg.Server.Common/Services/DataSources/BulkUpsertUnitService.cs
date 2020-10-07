@@ -17,10 +17,10 @@ namespace nscreg.Server.Common.Services.DataSources
     public class BulkUpsertUnitService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly ElasticBulkService _elasticService;
+        private readonly ElasticBulkBuffer _elasticService;
         private readonly UpsertUnitBulkBuffer _bufferService;
 
-        public BulkUpsertUnitService(NSCRegDbContext context, ElasticBulkService service, UpsertUnitBulkBuffer buffer)
+        public BulkUpsertUnitService(NSCRegDbContext context, ElasticBulkBuffer service, UpsertUnitBulkBuffer buffer)
         {
             _bufferService = buffer;
             _elasticService = service;
@@ -90,19 +90,18 @@ namespace nscreg.Server.Common.Services.DataSources
                             Debug.WriteLine(
                                 $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
                         }
-
                     }
 
                     Tracer.address.Start();
                     const double tolerance = 0.000000001;
                     var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
-                    var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
+                    var anySameAddress = await _dbContext.Address.AnyAsync(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
                                                                         x.AddressPart1 == legal.Address.AddressPart1 &&
                                                                         x.AddressPart2 == legal.Address.AddressPart2 &&
-                                                                        x.AddressPart3 == legal.Address.AddressPart3 && legal.Address.Latitude != null && Math.Abs((double)x.Latitude - (double)legal.Address.Latitude) < tolerance && legal.Address.Longitude != null && Math.Abs((double)x.Longitude - (double)legal.Address.Longitude) < tolerance).ToListAsync();
+                                                                        x.AddressPart3 == legal.Address.AddressPart3 && legal.Address.Latitude != null && Math.Abs((double)x.Latitude - (double)legal.Address.Latitude) < tolerance && legal.Address.Longitude != null && Math.Abs((double)x.Longitude - (double)legal.Address.Longitude) < tolerance);
                     Tracer.address.Stop();
                     Debug.WriteLine($"Address {Tracer.address.ElapsedMilliseconds / ++Tracer.countaddress}");
-                    if (!addresses.Any())
+                    if (!anySameAddress)
                     {
                         Tracer.localForLegal.Start();
                         createdLocal = CreateLocalForLegal(legal);

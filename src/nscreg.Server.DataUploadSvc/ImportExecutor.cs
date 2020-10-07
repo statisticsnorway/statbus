@@ -37,7 +37,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
-        private readonly ElasticBulkService _elasticBulkService;
+        private readonly ElasticBulkBuffer _elasticBulkService;
 
         private AnalyzeService _analysisSvc;
 
@@ -56,7 +56,7 @@ namespace nscreg.Server.DataUploadSvc
         public Stopwatch swDbLog = new Stopwatch();
         public long dbLogCount = 0;
 #endif
-        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, ElasticBulkService elasticBulkService)
+        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, ElasticBulkBuffer elasticBulkService)
         {
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _dbMandatoryFields = dbMandatoryFields;

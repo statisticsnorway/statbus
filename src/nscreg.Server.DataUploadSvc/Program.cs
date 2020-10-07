@@ -45,8 +45,8 @@ namespace nscreg.Server.DataUploadSvc
 
             const string serviceName = "nscreg.Server.DataUploadSvc";
 
-            ElasticBulkService.ServiceAddress = configuration["ElasticServiceAddress"];
-            ElasticBulkService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
+            ElasticBulkBuffer.ServiceAddress = configuration["ElasticServiceAddress"];
+            ElasticBulkBuffer.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 
             Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
 
