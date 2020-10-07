@@ -1,13 +1,16 @@
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EFCore.BulkExtensions;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
+    ///TODO продумать логику и создавать разные коллекции сущностей и разные bulkInsert
     public class UpsertUnitBulkBuffer
     {
         private bool _isEnabledFlush = true;
@@ -15,7 +18,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly NSCRegDbContext _context;
         private const int MaxBulkOperationsBufferedCount = 1;
 
-        public UpsertUnitBulkBuffer(NSCRegDbContext context, int maxCount = 100)
+        public UpsertUnitBulkBuffer(NSCRegDbContext context)
         {
             Buffer = new List<StatisticalUnit>();
             _context = context;
@@ -26,12 +29,12 @@ namespace nscreg.Server.Common.Services.DataSources
             Buffer.Add(element);
             if (Buffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
             {
-                await Flush();
+                await FlushLegalUnitsAsync();
             }
             
         }
 
-        private async Task Flush()
+        public async Task FlushLegalUnitsAsync()
         {
             //TODO : Решить проблему с Edit и HistoryIds
             var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).ToList();

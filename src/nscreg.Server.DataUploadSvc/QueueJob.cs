@@ -118,8 +118,6 @@ namespace nscreg.Server.DataUploadSvc
             }
 
             Stopwatch swCycle = new Stopwatch();
-            Stopwatch swElastic = new Stopwatch();
-            Stopwatch swbulk = new Stopwatch();
             swCycle.Start();
 
             var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
@@ -129,7 +127,7 @@ namespace nscreg.Server.DataUploadSvc
                 new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
             };
 
-            var parseTask = Task.Run(() => ParseFile(dequeued, tasks));
+            var parseTask = Task.Run(() => ParseFile(dequeued, tasks), cancellationToken);
 
             executors.ForEach(x => x.UseTasksQueue(tasks));
             var anyWarnings = false;
@@ -137,12 +135,8 @@ namespace nscreg.Server.DataUploadSvc
 
             await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
-            swElastic.Start();
             await CatchAndLogException(async () => await _elasticBulkService.FlushBulkBuffer(), () => anyWarnings = true);
-            swElastic.Stop();
             _logger.LogWarning($"End Total {swCycle.Elapsed};");
-            _logger.LogWarning($"Elastic Flush {swElastic.Elapsed};");
-            _logger.LogWarning($"Bulk Flush {swElastic.Elapsed};");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
