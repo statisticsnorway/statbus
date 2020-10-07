@@ -9,6 +9,8 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
+using nscreg.Utilities.Extensions;
+using Activity = nscreg.Utilities.Configuration.DBMandatoryFields.Activity;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -193,16 +195,20 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var enterpriseUnit = new EnterpriseUnit();
             Mapper.Map(legalUnit, enterpriseUnit);
-            enterpriseUnit.ActivitiesUnits = new List<ActivityStatisticalUnit>();
-            enterpriseUnit.PersonsUnits = new List<PersonStatisticalUnit>();
+            enterpriseUnit.Address = legalUnit.Address;
+            enterpriseUnit.ActualAddress = legalUnit.ActualAddress;
+            enterpriseUnit.PostalAddress = legalUnit.PostalAddress;
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
         }
         private void CreateLocalForLegal(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit();
             Mapper.Map(legalUnit, localUnit);
-            localUnit.ActivitiesUnits = new List<ActivityStatisticalUnit>();
-            localUnit.PersonsUnits = new List<PersonStatisticalUnit>();
+            localUnit.Address = legalUnit.Address;
+            localUnit.ActualAddress = legalUnit.ActualAddress;
+            localUnit.PostalAddress = legalUnit.PostalAddress;
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
             legalUnit.LocalUnits.Add(localUnit);
         }
         private void CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
@@ -210,6 +216,33 @@ namespace nscreg.Server.Common.Services.DataSources
             var enterpriseGroup = new EnterpriseGroup();
             Mapper.Map(enterpriseUnit, enterpriseGroup);
             enterpriseUnit.EnterpriseGroup = enterpriseGroup;
+        }
+
+        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Data.Entities.Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
+        {
+            activities.ForEach(a => unit.ActivitiesUnits.Add(new ActivityStatisticalUnit
+            {
+                Activity = a
+            }));
+            persons.ForEach(x =>
+            {
+                unit.PersonsUnits.Add(new PersonStatisticalUnit
+                {
+                    PersonId = x.PersonId,
+                    PersonTypeId = x.PersonTypeId,
+                    EnterpriseGroupId = x.EnterpriseGroupId
+                });
+            });
+
+            foreignPartCountries.ForEach(x =>
+            {
+                unit.ForeignParticipationCountriesUnits.Add(new CountryStatisticalUnit
+                {
+                    CountryId = x.CountryId
+                });
+
+            });
+
         }
     }
 }

@@ -40,22 +40,29 @@ namespace nscreg.Server.Common.Services.DataSources
 
             var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).ToList();
             var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
-            var activities = activityUnits.Select(z => z.Activity).ToList();
-            var personUnits = Buffer.SelectMany(x => x.PersonsUnits).ToList();
-            var persons = personUnits.Select(z => z.Person).ToList();
-            var enterpriseGroups = Buffer.SelectMany(x => x.PersonsUnits.Select(z => z.EnterpriseGroup)).ToList();
-            
-            await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
-            await _context.BulkInsertOrUpdateAsync(enterpriseGroups, bulkConfig);
-            await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
-            await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
+            var activities = activityUnits.Select(z => z.Activity).Distinct().ToList();
 
-            foreach (var unit in Buffer)
+            var personUnits = Buffer.SelectMany(x => x.PersonsUnits).ToList();
+            var persons = personUnits.Select(z => z.Person).Distinct().ToList();
+
+            var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
+            
+
+            if(activities.Any())
+                await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
+            if(persons.Any())
+                await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
+            if (addresses.Any())
             {
-                unit.AddressId = unit.Address?.Id;
-                unit.ActualAddressId = unit.ActualAddress?.Id;
-                unit.PostalAddressId = unit.PostalAddress?.Id;
+                await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
+                Buffer.ForEach(unit =>
+                {
+                    unit.AddressId = unit.Address?.Id;
+                    unit.ActualAddressId = unit.ActualAddress?.Id;
+                    unit.PostalAddressId = unit.PostalAddress?.Id;
+                });
             }
+                
             var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
             await _context.BulkInsertOrUpdateAsync(enterprises, bulkConfig);
 
@@ -76,6 +83,8 @@ namespace nscreg.Server.Common.Services.DataSources
 
             await _context.BulkInsertOrUpdateAsync(activityUnits);
             await _context.BulkInsertOrUpdateAsync(personUnits);
+            await _context.BulkInsertOrUpdateAsync(foreignCountry);
+
             Buffer.Clear();
         }
         public void DisableFlushing()
