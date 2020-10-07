@@ -122,12 +122,15 @@ namespace nscreg.Server.DataUploadSvc
 
             var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
 
+            ImportExecutor.InterlockedInt = 0;
+
             var executors = new List<ImportExecutor>() {
                 new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
+                //new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
             };
 
-            var parseTask = Task.Run(() => ParseFile(dequeued, tasks), cancellationToken);
+            var swParse = new Stopwatch();
+            var parseTask = Task.Run(() => ParseFile(dequeued, tasks, swParse), cancellationToken);
 
             executors.ForEach(x => x.UseTasksQueue(tasks));
             var anyWarnings = false;
@@ -137,6 +140,22 @@ namespace nscreg.Server.DataUploadSvc
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
             await CatchAndLogException(async () => await _elasticBulkService.FlushBulkBuffer(), () => anyWarnings = true);
             _logger.LogWarning($"End Total {swCycle.Elapsed};");
+
+            TimeSpan populateTime, analyzeTime, saveTime, total;
+            long populateCount=0, analyzeCount=0, saveCount=0;
+            executors.ForEach(x =>
+            {
+                populateTime += x.swPopulation.Elapsed;
+                analyzeTime += x.swAnalyze.Elapsed;
+                saveTime += x.swSave.Elapsed;
+                populateCount += x.populationCount;
+                analyzeCount += x.analyzeCount;
+                saveCount += x.saveCount;
+            });
+            total = populateTime + analyzeTime + saveTime;
+
+            _logger.LogWarning($"Total for {executors.Count} threads \r\n Parse {swParse.Elapsed} \r\n Populate {populateTime} \r\n Analyze Total {analyzeTime} \r\n Save {saveTime}");
+            _logger.LogWarning($"Average: \r\n Populate { populateTime.TotalMilliseconds/ populateCount} ms ({populateTime/ total*100: 0.00}%) \r\n Analyze { analyzeTime.TotalMilliseconds / analyzeCount} ms ({analyzeTime / total*100: 0.00}%) \r\n Save { saveTime.TotalMilliseconds / saveCount} ms  ({saveTime / total*100: 0.00}%) ");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
@@ -187,10 +206,9 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private async Task ParseFile(DataSourceQueue queueItem, BlockingCollection<IReadOnlyDictionary<string, object>> tasks)
+        private async Task ParseFile(DataSourceQueue queueItem, BlockingCollection<IReadOnlyDictionary<string, object>> tasks, Stopwatch swParseFile)
         {
             _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
-            Stopwatch swParseFile = new Stopwatch();
             swParseFile.Start();
             IEnumerable<IReadOnlyDictionary<string, object>> parsed;
             try

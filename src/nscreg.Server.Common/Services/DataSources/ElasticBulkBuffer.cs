@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private static readonly SemaphoreSlim SemaphoreBulkBuffer = new SemaphoreSlim(1, 1);
         private BulkDescriptor BulkDescriptorBuffer { get; set; }
         private static volatile int BulkOperationsBufferedCount = 0;
-        private const int MaxBulkOperationsBufferedCount = 300;
+        private const int MaxBulkOperationsBufferedCount = 1000;
         public static string ServiceAddress { get; set; }
         private readonly ElasticClient _elasticClient;
         public ElasticBulkBuffer()
