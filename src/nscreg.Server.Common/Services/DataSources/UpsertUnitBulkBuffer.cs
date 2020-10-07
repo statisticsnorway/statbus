@@ -14,26 +14,20 @@ namespace nscreg.Server.Common.Services.DataSources
     public class UpsertUnitBulkBuffer
     {
         private bool _isEnabledFlush = true;
-        private List<LegalUnit> LegalUnitsBuffer { get; }
-        private List<LocalUnit> LocalUnitsBuffer { get; }
-        private List<EnterpriseUnit> EnterpriseUnitsBuffer { get; }
+        private List<StatisticalUnit> Buffer { get; }
         private readonly NSCRegDbContext _context;
-        private const int MaxBulkOperationsBufferedCount = 300;
-        private readonly BulkConfig _config;
+        private const int MaxBulkOperationsBufferedCount = 1;
 
         public UpsertUnitBulkBuffer(NSCRegDbContext context)
         {
-            _config = new BulkConfig() { PreserveInsertOrder = true, SetOutputIdentity = true };
-            LegalUnitsBuffer = new List<LegalUnit>();
-            LocalUnitsBuffer = new List<LocalUnit>();
-            EnterpriseUnitsBuffer = new List<EnterpriseUnit>();
+            Buffer = new List<StatisticalUnit>();
             _context = context;
         }
 
-        public async Task AddLegalToBufferAsync(LegalUnit unit)
+        public async Task AddToBufferAsync(StatisticalUnit element)
         {
-            LegalUnitsBuffer.Add(unit);
-            if (LegalUnitsBuffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
+            Buffer.Add(element);
+            if (Buffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
             {
                 await FlushLegalUnitsAsync();
             }
@@ -43,36 +37,31 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task FlushLegalUnitsAsync()
         {
             //TODO : Решить проблему с Edit и HistoryIds
-            //TODO: Тщательно перепроверить логику, Activities Persons, Вынести сюда же
-            var addresses = LegalUnitsBuffer.SelectMany(x => new List<Address>{x.Address, x.ActualAddress, x.PostalAddress}).Where(x => x != null).ToList();
-            var activities = LegalUnitsBuffer.SelectMany(x => x.Activities).ToList();
-            var enterpriseUnits = LegalUnitsBuffer.Select(x => x.EnterpriseUnit).ToList();
-            var localUnits = LegalUnitsBuffer.SelectMany(x => x.LocalUnits).ToList();
-
+            var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).ToList();
+            await _context.BulkInsertOrUpdateAsync(addresses, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+            foreach (var unit in Buffer)
             await _context.BulkInsertAsync(addresses, _config);
             await _context.BulkInsertOrUpdateAsync(activities, _config);
-            foreach (var unit in LegalUnitsBuffer)
             {
-                unit.ActualAddressId = unit.ActualAddress?.Id;
                 unit.AddressId = unit.Address?.Id;
+                unit.ActualAddressId = unit.ActualAddress?.Id;
                 unit.PostalAddressId = unit.PostalAddress?.Id;
-                unit.EnterpriseUnit.ActualAddressId = unit.ActualAddress?.Id;
-                unit.EnterpriseUnit.AddressId = unit.Address?.Id;
-                unit.EnterpriseUnit.PostalAddressId = unit.PostalAddress?.Id;
-                unit.LocalUnits.ForEach(x =>
-                {
-                    x.ActualAddressId = unit.ActualAddress?.Id;
-                    x.AddressId = unit.Address?.Id;
-                    x.PostalAddressId = unit.PostalAddress?.Id;
-                });
             }
-            await _context.BulkInsertAsync(enterpriseUnits, _config);
-            LegalUnitsBuffer.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit.RegId);
-            await _context.BulkInsertOrUpdateAsync(LegalUnitsBuffer, _config);
-            LegalUnitsBuffer.ForEach(x => x.LocalUnits.ForEach(z => z.LegalUnitId = x.RegId));
-            await _context.BulkInsertAsync(localUnits, _config);
+            //todo остальные связанные сущности
 
-            LegalUnitsBuffer.Clear();
+
+            var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
+            await _context.BulkInsertOrUpdateAsync(enterprises, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+
+            var legals = Buffer.OfType<LegalUnit>().ToList();
+            legals.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit.RegId);
+            await _context.BulkInsertOrUpdateAsync(legals, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+
+            var locals = Buffer.OfType<LocalUnit>().ToList();
+            locals.ForEach(x => x.LegalUnitId = x.LegalUnit?.RegId);
+            await _context.BulkInsertOrUpdateAsync(locals, new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true });
+
+            Buffer.Clear();
         }
         public void DisableFlushing()
         {

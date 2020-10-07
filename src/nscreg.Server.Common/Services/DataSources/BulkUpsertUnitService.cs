@@ -54,6 +54,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task CreateLegalWithEnterpriseAndLocal(LegalUnit legal)
         {
+            _bufferService.DisableFlushing();
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
@@ -81,7 +82,8 @@ namespace nscreg.Server.Common.Services.DataSources
                         else
                         {
                             Tracer.enterprise3.Start();
-                            CreateEnterpriseForLegalAsync(legal);
+                            createdEnterprise = CreateEnterpriseForLegal(legal);
+                            await _bufferService.AddToBufferAsync(createdEnterprise);
                             Tracer.enterprise3.Stop();
                             Debug.WriteLine(
                                 $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
@@ -101,13 +103,16 @@ namespace nscreg.Server.Common.Services.DataSources
                     if (!addresses.Any())
                     {
                         Tracer.localForLegal.Start();
-                        CreateLocalForLegalAsync(legal);
+                        createdLocal = CreateLocalForLegal(legal);
+                        await _bufferService.AddToBufferAsync(createdLocal);
                         Tracer.localForLegal.Stop();
                         Debug.WriteLine(
                             $"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
                     }
-                    await _bufferService.AddLegalToBufferAsync(legal);
-                    transaction.Commit();
+
+                    _bufferService.EnableFlushing();
+                    await _bufferService.AddToBufferAsync(legal);
+
                     //TODO: History for bulk
                     //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == legalUnit.EnterpriseUnitRegId)
                     //    .Select(x => x.RegId).ToListAsync();
@@ -122,6 +127,8 @@ namespace nscreg.Server.Common.Services.DataSources
                     ////await _dbContext.SaveChangesAsync();
                     //Tracer.commit2.Stop();
                     //Debug.WriteLine($"History {Tracer.commit2.ElapsedMilliseconds / ++Tracer.countcommit2}");
+
+                    transaction.Commit();
                 }
                 catch (Exception e)
                 {
@@ -187,7 +194,7 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
 
-        private void CreateEnterpriseForLegalAsync(LegalUnit legalUnit)
+        private EnterpriseUnit CreateEnterpriseForLegal(LegalUnit legalUnit)
         {
             var enterpriseUnit = new EnterpriseUnit();
             Mapper.Map(legalUnit, enterpriseUnit);
@@ -228,7 +235,7 @@ namespace nscreg.Server.Common.Services.DataSources
             });
 
         }
-        private void CreateLocalForLegalAsync(LegalUnit legalUnit)
+        private LocalUnit CreateLocalForLegal(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit();
             Mapper.Map(legalUnit, localUnit);
