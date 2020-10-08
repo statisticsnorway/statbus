@@ -31,7 +31,7 @@ namespace nscreg.Server.Common.Services.DataSources
             await SemaphoreBulkBuffer.WaitAsync();
             try
             {
-                BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Doc(elasticItem));
+                BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Id(elasticItem.Id).Doc(elasticItem));
                 if (++_bulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
                 {
                     await FlushBulkBufferInner();
@@ -51,7 +51,7 @@ namespace nscreg.Server.Common.Services.DataSources
             await SemaphoreBulkBuffer.WaitAsync();
             try
             {
-                BulkDescriptorBuffer.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
+                BulkDescriptorBuffer.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Id(elasticItem.Id).Document(elasticItem));
                 if (++_bulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
                 {
                     await FlushBulkBufferInner();

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -15,7 +16,7 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     public class BulkUpsertUnitService
     {
-        private readonly NSCRegDbContext _dbContext;
+        private readonly NSCRegDbContext _context;
         private readonly ElasticBulkBuffer _elasticService;
         private readonly UpsertUnitBulkBuffer _bufferService;
 
@@ -23,7 +24,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             _bufferService = buffer;
             _elasticService = service;
-            _dbContext = context;
+            _context = context;
         }
 
         /// <summary>
@@ -53,7 +54,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task CreateLegalWithEnterpriseAndLocal(LegalUnit legal)
         {
             _bufferService.DisableFlushing();
-            using (var transaction = _dbContext.Database.BeginTransaction())
+            using (var transaction = _context.Database.BeginTransaction())
             {
                 try
                 {
@@ -64,7 +65,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     {
                         Tracer.enterprise1.Start();
                         var sameStatIdEnterprise =
-                            await _dbContext.EnterpriseUnits.FirstOrDefaultAsync(eu => eu.StatId == legal.StatId);
+                            await _context.EnterpriseUnits.FirstOrDefaultAsync(eu => eu.StatId == legal.StatId);
                         Tracer.enterprise1.Stop();
                         Debug.WriteLine(
                             $"Enterprise first or default {Tracer.enterprise1.ElapsedMilliseconds / ++Tracer.countenterprise1}");
@@ -92,7 +93,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     Tracer.address.Start();
                     const double tolerance = 0.000000001;
                     var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
-                    var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
+                    var addresses = await _context.Address.Where(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
                                                                         x.AddressPart1 == legal.Address.AddressPart1 &&
                                                                         x.AddressPart2 == legal.Address.AddressPart2 &&
                                                                         x.AddressPart3 == legal.Address.AddressPart3 && legal.Address.Latitude != null && Math.Abs((double)x.Latitude - (double)legal.Address.Latitude) < tolerance && legal.Address.Longitude != null && Math.Abs((double)x.Longitude - (double)legal.Address.Longitude) < tolerance).ToListAsync();
@@ -154,10 +155,10 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             try
             {
-                var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
+                var sameStatIdLegalUnits = await _context.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
                 if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
                 {
-                    CreateGroupForEnterpriseAsync(enterpriseUnit);
+                    CreateGroupForEnterprise(enterpriseUnit);
                 }
                 //TODO: Подумать как можно реализовать
                 //foreach (var legalUnit in sameStatIdLegalUnits)
@@ -200,7 +201,7 @@ namespace nscreg.Server.Common.Services.DataSources
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
             legalUnit.LocalUnits.Add(localUnit);
         }
-        private void CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
+        private void CreateGroupForEnterprise(EnterpriseUnit enterpriseUnit)
         {
             var enterpriseGroup = new EnterpriseGroup();
             Mapper.Map(enterpriseUnit, enterpriseGroup);

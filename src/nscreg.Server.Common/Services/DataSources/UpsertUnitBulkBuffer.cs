@@ -30,7 +30,6 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 await FlushAsync();
             }
-            
         }
 
         public async Task FlushAsync()
