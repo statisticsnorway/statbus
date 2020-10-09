@@ -8,10 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
-using nscreg.Data.Entities.History;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 
@@ -37,7 +35,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _dbContext = context;
             _permissions = permissions;
             _userId = userId;
-            _commonSvc = new StatUnit.Common(context, buffer, true);
+            _commonSvc = new StatUnit.Common(context, buffer);
             _elasticService = service;
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();

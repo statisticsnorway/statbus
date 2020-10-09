@@ -96,7 +96,7 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.BulkInsertOrUpdateAsync(activityUnits);
             await _context.BulkInsertOrUpdateAsync(personUnits);
             await _context.BulkInsertOrUpdateAsync(foreignCountry);
-           // await _context.BulkDeleteAsync(BufferToDelete);
+            await _context.BulkDeleteAsync(BufferToDelete);
 
             var hLocalUnits = HistoryBuffer.OfType<LocalUnitHistory>().ToList();
             var hLegalUnits = HistoryBuffer.OfType<LegalUnitHistory>().ToList();

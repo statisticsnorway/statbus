@@ -55,12 +55,11 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class Common
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly bool _isBulk;
+        private bool IsBulk => _buffer != null;
         private readonly UpsertUnitBulkBuffer _buffer;
 
-        public Common(NSCRegDbContext dbContext, UpsertUnitBulkBuffer buffer= null, bool isBulk = false )
+        public Common(NSCRegDbContext dbContext, UpsertUnitBulkBuffer buffer= null)
         {
-            _isBulk = isBulk;
             _buffer = buffer;
             _dbContext = dbContext;
         }
@@ -632,7 +631,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             switch (hUnit)
             {
                 case LocalUnitHistory locU:
-                    if (_isBulk)
+                    if (IsBulk)
                     {
                         _buffer.AddToHistoryBufferAsync(locU);
                         break;
@@ -640,7 +639,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     _dbContext.Set<LocalUnitHistory>().Add(locU);
                     break;
                 case LegalUnitHistory legU:
-                    if (_isBulk)
+                    if (IsBulk)
                     {
                         _buffer.AddToHistoryBufferAsync(legU);
                         break;
@@ -648,7 +647,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     _dbContext.Set<LegalUnitHistory>().Add(legU);
                     break;
                 case EnterpriseUnitHistory eu:
-                    if (_isBulk)
+                    if (IsBulk)
                     {
                         _buffer.AddToHistoryBufferAsync(eu);
                         break;
@@ -656,7 +655,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     _dbContext.Set<EnterpriseUnitHistory>().Add(eu);
                     break;
                 default:
-                    if (_isBulk)
+                    if (IsBulk)
                     {
                         _buffer.AddToHistoryBufferAsync(hUnit);
                         break;
