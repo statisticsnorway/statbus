@@ -37,7 +37,6 @@ namespace nscreg.Server.DataUploadSvc
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
-        private readonly ElasticBulkBuffer _elasticBulkService;
 
         private AnalyzeService _analysisSvc;
 
@@ -56,14 +55,13 @@ namespace nscreg.Server.DataUploadSvc
         public Stopwatch swDbLog = new Stopwatch();
         public long dbLogCount = 0;
 #endif
-        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, ElasticBulkBuffer elasticBulkService)
+        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer)
         {
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
             _logger = logger;
             _logBuffer = logBuffer;
-            _elasticBulkService = elasticBulkService;
         }
 
         public void UseTasksQueue(BlockingCollection<IReadOnlyDictionary<string, object>> collection)
@@ -79,12 +77,12 @@ namespace nscreg.Server.DataUploadSvc
             using (var context = dbContextHelper.CreateDbContext(new string[] { }))
             {
                 await InitializeCacheForLookups(context);
-                var bulkBuffer = new UpsertUnitBulkBuffer(context);
+                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context));
                 var userService = new UserService(context);
                 var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-                var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, _elasticBulkService, bulkBuffer);
+                var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
 
                 foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())
                 {
@@ -177,7 +175,7 @@ namespace nscreg.Server.DataUploadSvc
                         swDbLog.Stop();
                     }
                 }
-                await bulkBuffer.FlushAsync();
+                await sqlBulkBuffer.FlushAsync();
 
             }
         };

@@ -45,7 +45,6 @@ namespace nscreg.Server.DataUploadSvc
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
         private NSCRegDbContext _context;
-        private ElasticBulkBuffer _elasticBulkService;
        
         public QueueJob(
             int dequeueInterval,
@@ -68,7 +67,6 @@ namespace nscreg.Server.DataUploadSvc
             var dbContextHelper = new DbContextHelper();
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
-            _elasticBulkService = new ElasticBulkBuffer();
             _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
@@ -133,8 +131,8 @@ namespace nscreg.Server.DataUploadSvc
             ImportExecutor.InterlockedInt = 0;
 
             var executors = new List<ImportExecutor>() {
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
-                //new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer,_elasticBulkService),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
+                //new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
             };
 
             var swParse = new Stopwatch();
@@ -146,7 +144,6 @@ namespace nscreg.Server.DataUploadSvc
 
             await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
-            await CatchAndLogException(async () => await _elasticBulkService.FlushBulkBuffer(), () => anyWarnings = true);
             _logger.LogWarning($"End Total {swCycle.Elapsed};");
 
             TimeSpan populateTime, analyzeTime, saveTime, total;

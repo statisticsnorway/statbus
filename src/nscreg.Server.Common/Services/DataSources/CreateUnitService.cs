@@ -14,16 +14,14 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
-    public class BulkUpsertUnitService
+    public class CreateUnitService
     {
         private readonly NSCRegDbContext _context;
-        private readonly ElasticBulkBuffer _elasticService;
         private readonly UpsertUnitBulkBuffer _bufferService;
 
-        public BulkUpsertUnitService(NSCRegDbContext context, ElasticBulkBuffer service, UpsertUnitBulkBuffer buffer)
+        public CreateUnitService(NSCRegDbContext context, UpsertUnitBulkBuffer buffer)
         {
             _bufferService = buffer;
-            _elasticService = service;
             _context = context;
         }
 
@@ -42,8 +40,6 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
-
-            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
         }
 
         /// <summary>
@@ -134,11 +130,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
                 Tracer.elastic.Start();
-                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal));
-                if (legal.LocalUnits.Last() != null)
-                    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal.LocalUnits.Last()));
-                if (legal.EnterpriseUnit != null)
-                    await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legal.EnterpriseUnit));
                 Tracer.elastic.Stop();
                 Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
 
@@ -173,13 +164,7 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
-
-
-            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
-            if (enterpriseUnit.EnterpriseGroup != null)
-                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit.EnterpriseGroup));
         }
-
 
         private void CreateEnterpriseForLegal(LegalUnit legalUnit)
         {

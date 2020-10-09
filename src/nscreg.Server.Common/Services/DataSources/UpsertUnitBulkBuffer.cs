@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using EFCore.BulkExtensions;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -15,12 +16,14 @@ namespace nscreg.Server.Common.Services.DataSources
         private bool _isEnabledFlush = true;
         private List<StatisticalUnit> Buffer { get; }
         private readonly NSCRegDbContext _context;
+        public ElasticService ElasticService { get; }
         private const int MaxBulkOperationsBufferedCount = 1000;
 
-        public UpsertUnitBulkBuffer(NSCRegDbContext context)
+        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticService)
         {
             Buffer = new List<StatisticalUnit>();
             _context = context;
+            ElasticService = elasticService;
         }
 
         public async Task AddToBufferAsync(StatisticalUnit element)
