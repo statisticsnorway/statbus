@@ -34,7 +34,7 @@ namespace nscreg.Business.PredicateBuilders
         /// <returns>Server predicate</returns>
         private Expression<Func<T, bool>> GetServerPredicate(T unit)
         {
-            return GetPredicate(FieldEnum.RegId, unit.RegId, OperationEnum.NotEqual);
+            return unit.RegId >0 ? GetPredicate(FieldEnum.RegId, unit.RegId, OperationEnum.NotEqual) : True();
         }
 
         /// <summary>
@@ -45,24 +45,24 @@ namespace nscreg.Business.PredicateBuilders
         private Expression<Func<T, bool>> GetUserPredicate(T unit)
         {
             var statIdPredicate = string.IsNullOrEmpty(unit.StatId)
-                ? False()
+                ? null
                 : GetPredicate(FieldEnum.StatId, unit.StatId, OperationEnum.Equal);
             var taxRegIdPredicate = string.IsNullOrEmpty(unit.TaxRegId)
-                ? False()
+                ? null
                 : GetPredicate(FieldEnum.TaxRegId, unit.TaxRegId, OperationEnum.Equal);
 
-            var statIdTaxRegIdPredicate = GetPredicateOnTwoExpressions(statIdPredicate, taxRegIdPredicate, ComparisonEnum.And);
+            var statIdTaxRegIdPredicate = GetNullablePredicateOnTwoExpressions(statIdPredicate, taxRegIdPredicate, ComparisonEnum.And);
 
             var predicates = new List<Expression<Func<T, bool>>>
             {
                 string.IsNullOrEmpty(unit.ExternalId)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.ExternalId, unit.ExternalId, OperationEnum.Equal),
                 string.IsNullOrEmpty(unit.Name)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.Name, unit.Name, OperationEnum.Equal),
                 unit.AddressId == null
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.AddressId, unit.AddressId, OperationEnum.Equal)
             };
 
@@ -74,18 +74,17 @@ namespace nscreg.Business.PredicateBuilders
             for (var i = 0; i < predicates.Count - 2; i++)
             {
                 var leftPredicate = predicates[i];
-                var rightPredicate = GetPredicateOnTwoExpressions(predicates[i + 1], predicates[i + 2], ComparisonEnum.Or);
+                var rightPredicate = GetNullablePredicateOnTwoExpressions(predicates[i + 1], predicates[i + 2], ComparisonEnum.Or);
 
                 for (var j = i + 3; j < predicates.Count; j++)
-                    rightPredicate = GetPredicateOnTwoExpressions(rightPredicate, predicates[j], ComparisonEnum.Or);
+                    rightPredicate = GetNullablePredicateOnTwoExpressions(rightPredicate, predicates[j], ComparisonEnum.Or);
 
-                var predicate = GetPredicateOnTwoExpressions(leftPredicate, rightPredicate, ComparisonEnum.And);
-                result = result == null
-                    ? predicate
-                    : GetPredicateOnTwoExpressions(result, predicate, ComparisonEnum.Or);
+                var predicate = GetNullablePredicateOnTwoExpressions(leftPredicate, rightPredicate, ComparisonEnum.And);
+                result = GetNullablePredicateOnTwoExpressions(result, predicate, ComparisonEnum.Or);
             }
+            result = result ?? False();
 
-            result = GetPredicateOnTwoExpressions(statIdTaxRegIdPredicate, result, ComparisonEnum.Or);
+            result = GetNullablePredicateOnTwoExpressions(statIdTaxRegIdPredicate, result, ComparisonEnum.Or) ?? False();
             return result;
         }
         
@@ -94,16 +93,16 @@ namespace nscreg.Business.PredicateBuilders
             var predicates = new List<Expression<Func<T, bool>>>
             {
                 string.IsNullOrEmpty(enterpriseGroup.ShortName)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.ShortName, enterpriseGroup.ShortName, OperationEnum.Equal),
                 string.IsNullOrEmpty(enterpriseGroup.TelephoneNo)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.TelephoneNo, enterpriseGroup.TelephoneNo, OperationEnum.Equal),
                 string.IsNullOrEmpty(enterpriseGroup.EmailAddress)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.EmailAddress, enterpriseGroup.EmailAddress, OperationEnum.Equal),
                 string.IsNullOrEmpty(enterpriseGroup.ContactPerson)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.ContactPerson, enterpriseGroup.ContactPerson, OperationEnum.Equal)
             };
 
@@ -115,18 +114,35 @@ namespace nscreg.Business.PredicateBuilders
             var predicates = new List<Expression<Func<T, bool>>>
             {
                 string.IsNullOrEmpty(statisticalUnit.ShortName)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.ShortName, statisticalUnit.ShortName, OperationEnum.Equal),
                 string.IsNullOrEmpty(statisticalUnit.TelephoneNo)
-                    ? False()
+                    ? null
                     : GetPredicate(FieldEnum.TelephoneNo, statisticalUnit.TelephoneNo, OperationEnum.Equal),
                 string.IsNullOrEmpty(statisticalUnit.EmailAddress)
-                    ? False() 
+                    ? null
                     : GetPredicate(FieldEnum.EmailAddress, statisticalUnit.EmailAddress, OperationEnum.Equal),
             };
             
 
             return predicates;
+        }
+
+        private Expression<Func<T, bool>> GetNullablePredicateOnTwoExpressions(Expression<Func<T, bool>> firstExpressionLambda,
+            Expression<Func<T, bool>> secondExpressionLambda, ComparisonEnum expressionComparison)
+        {
+            switch (expressionComparison)
+            {
+                case ComparisonEnum.Or:
+                    return firstExpressionLambda != null && secondExpressionLambda != null ? GetPredicateOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, ComparisonEnum.Or)
+                        : firstExpressionLambda != null ? firstExpressionLambda
+                        : secondExpressionLambda != null ? secondExpressionLambda
+                        : null;
+                case ComparisonEnum.And:
+                    return firstExpressionLambda != null && secondExpressionLambda != null ? GetPredicateOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, ComparisonEnum.And)
+                        : null;
+                default: throw new ArgumentException("expressionComparison");
+            }
         }
     }
 }

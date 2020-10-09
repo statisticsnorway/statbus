@@ -6,6 +6,7 @@ using EFCore.BulkExtensions;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.History;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -17,14 +18,16 @@ namespace nscreg.Server.Common.Services.DataSources
         private List<EnterpriseUnit> BufferToDelete { get; }
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
+        public ElasticService ElasticService { get; }
         private const int MaxBulkOperationsBufferedCount = 1000;
 
-        public UpsertUnitBulkBuffer(NSCRegDbContext context)
+        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticService)
         {
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
             Buffer = new List<StatisticalUnit>();
             _context = context;
+            ElasticService = elasticService;
         }
 
         public void AddToDeleteBufferAsync(EnterpriseUnit unit)

@@ -37,7 +37,6 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly StatUnit.Common _commonSvc;
-        private readonly IElasticUpsertService _elasticService;
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
@@ -45,13 +44,12 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly string _userId;
         private readonly DataAccessPermissions _permissions;
 
-        public EditUnitService(NSCRegDbContext dbContext, string userId, IElasticUpsertService service, DataAccessPermissions permissions)
+        public EditUnitService(NSCRegDbContext dbContext, string userId, DataAccessPermissions permissions)
         {
             _permissions = permissions;
             _userId = userId;
             _dbContext = dbContext;
             _commonSvc = new StatUnit.Common(dbContext);
-            _elasticService = service;
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
@@ -120,18 +118,19 @@ namespace nscreg.Server.Common.Services.DataSources
                     await _dbContext.SaveChangesAsync();
 
                     transaction.Commit();
-                    if (_addArrayStatisticalUnits.Any())
-                        foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
-                        {
-                            await _elasticService.AddDocument(addArrayStatisticalUnit);
-                        }
-                    if (_editArrayStatisticalUnits.Any())
-                        foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
-                        {
-                            await _elasticService.EditDocument(editArrayStatisticalUnit);
-                        }
+                    // TODO: Check
+                    //if (_addArrayStatisticalUnits.Any())
+                    //    foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
+                    //    {
+                    //        await _elasticService.AddDocument(addArrayStatisticalUnit);
+                    //    }
+                    //if (_editArrayStatisticalUnits.Any())
+                    //    foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
+                    //    {
+                    //        await _elasticService.EditDocument(editArrayStatisticalUnit);
+                    //    }
 
-                    await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
+                    // await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
                 }
                 catch (NotFoundException e)
                 {
@@ -226,18 +225,19 @@ namespace nscreg.Server.Common.Services.DataSources
                 Debug.WriteLine($"Edit legal {_editTracer.editStat.ElapsedMilliseconds / ++_editTracer.counteditStat}");
 
                 _editTracer.elastic.Start();
-                if (_addArrayStatisticalUnits.Any())
-                    foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
-                    {
-                        await _elasticService.AddDocument(addArrayStatisticalUnit);
-                    }
-                if (_editArrayStatisticalUnits.Any())
-                    foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
-                    {
-                        await _elasticService.EditDocument(editArrayStatisticalUnit);
-                    }
+                // TODO: CHeck
+                //if (_addArrayStatisticalUnits.Any())
+                //    foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
+                //    {
+                //        await _elasticService.AddDocument(addArrayStatisticalUnit);
+                //    }
+                //if (_editArrayStatisticalUnits.Any())
+                //    foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
+                //    {
+                //        await _elasticService.EditDocument(editArrayStatisticalUnit);
+                //    }
 
-                await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
+                //await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
                 _editTracer.elastic.Stop();
                 Debug.WriteLine($"Elastic legal {_editTracer.elastic.ElapsedMilliseconds / ++_editTracer.countelastic}");
             }
@@ -302,18 +302,19 @@ namespace nscreg.Server.Common.Services.DataSources
                     await _dbContext.SaveChangesAsync();
 
                     transaction.Commit();
-                    if (_addArrayStatisticalUnits.Any())
-                        foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
-                        {
-                            await _elasticService.AddDocument(addArrayStatisticalUnit);
-                        }
-                    if (_editArrayStatisticalUnits.Any())
-                        foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
-                        {
-                            await _elasticService.EditDocument(editArrayStatisticalUnit);
-                        }
+                    // TODO: check
+                    //if (_addArrayStatisticalUnits.Any())
+                    //    foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
+                    //    {
+                    //        await _elasticService.AddDocument(addArrayStatisticalUnit);
+                    //    }
+                    //if (_editArrayStatisticalUnits.Any())
+                    //    foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
+                    //    {
+                    //        await _elasticService.EditDocument(editArrayStatisticalUnit);
+                    //    }
 
-                    await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
+                    //await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
                 }
                 catch (NotFoundException e)
                 {

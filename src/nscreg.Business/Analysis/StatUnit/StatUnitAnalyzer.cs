@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc.Formatters.Internal;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Business.Analysis.Contracts;
 using nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks;
@@ -13,6 +14,7 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -21,6 +23,30 @@ using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Business.Analysis.StatUnit
 {
+    public class AnalyzeTracer
+    {
+        public static Stopwatch CheckAll = new Stopwatch();
+        public static Stopwatch CheckConnections = new Stopwatch();
+        public static Stopwatch CheckMandatoryFields = new Stopwatch();
+        public static Stopwatch CheckCalculationFields = new Stopwatch();
+        public static Stopwatch GetDuplicateUnits = new Stopwatch();
+        public static Stopwatch CheckDuplicates = new Stopwatch();
+        public static Stopwatch CheckCustomAnalysisChecks = new Stopwatch();
+        public static Stopwatch CheckOrphanUnits = new Stopwatch();
+
+        public static int countCheckAll = 0;
+        public static int countCheckConnections = 0;
+        public static int countCheckMandatoryFields = 0;
+        public static int countCheckCalculationFields = 0;
+        public static int countGetDuplicateUnits = 0;
+        public static int countCheckDuplicates = 0;
+        public static int countCheckCustomAnalysisChecks = 0;
+        public static int countCheckOrphanUnits = 0;
+    }
+
+
+
+
     /// <inheritdoc />
     /// <summary>
     /// Statistical unit analyzer
@@ -98,13 +124,13 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
-            var manager = unit is StatisticalUnit statisticalUnit
+            IMandatoryFieldsAnalysisManager manager = unit is StatisticalUnit statisticalUnit
                 ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields, _context) as IMandatoryFieldsAnalysisManager
                 : new EnterpriseGroupMandatoryFieldsManager(unit as EnterpriseGroup, _mandatoryFields);
 
-            return _isAlterDataSourceAllowedOperation == false
-                ? manager.CheckFields()
-                : manager.CheckOnlyIdentifiersFields();
+            return _isAlterDataSourceAllowedOperation
+                ? manager.CheckOnlyIdentifiersFields()
+                : manager.CheckFields();
         }
 
         /// <inheritdoc />
@@ -117,39 +143,34 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
 
-            var okpo = unit is StatisticalUnit statisticalUnit
-                ? statisticalUnit.StatId
-                : ((EnterpriseGroup)unit).StatId;
+            var okpo = unit.StatId;
 
-            if (string.IsNullOrEmpty(okpo)) return messages;
+            if (string.IsNullOrEmpty(okpo) || !_validationSettings.ValidateStatIdChecksum) return messages;
 
-            if (_validationSettings.ValidateStatIdChecksum)
+            if (okpo.Any(x => !char.IsDigit(x)))
             {
-                if (okpo.Any(x => !char.IsDigit(x)))
-                {
-                    messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatIdOnlyNumber) });
-                    return messages;
-                }
-
-                if (okpo.Length < 8)
-                {
-                    okpo = okpo.PadLeft(8, '0');
-                }
-
-                var okpoWithoutCheck = okpo.Substring(0, okpo.Length - 1);
-                var checkNumber = Convert.ToInt32(okpo.Last().ToString());
-
-                var sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 1)).Sum();
-                var remainder = sum % 11;
-                if (remainder >= 10)
-                {
-                    sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 3)).Sum();
-                    remainder = sum % 11;
-                }
-
-                if (!(remainder == checkNumber || remainder == 10))
-                    messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId) });
+                messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatIdOnlyNumber) });
+                return messages;
             }
+
+            if (okpo.Length < 8)
+            {
+                okpo = okpo.PadLeft(8, '0');
+            }
+
+            var okpoWithoutCheck = okpo.Substring(0, okpo.Length - 1);
+            var checkNumber = Convert.ToInt32(okpo.Last().ToString());
+
+            var sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 1)).Sum();
+            var remainder = sum % 11;
+            if (remainder >= 10)
+            {
+                sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 3)).Sum();
+                remainder = sum % 11;
+            }
+
+            if (!(remainder == checkNumber || remainder == 10))
+                messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId) });
 
             return messages;
         }
@@ -302,16 +323,21 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>Dictionary of messages</returns>
         public AnalysisResult CheckAll(IStatisticalUnit unit)
         {
+            AnalyzeTracer.CheckAll.Start();
             var messages = new Dictionary<string, string[]>();
             var summaryMessages = new List<string>();
 
+            AnalyzeTracer.CheckConnections.Start();
             var connectionsResult = CheckConnections(unit);
             if (connectionsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.ConnectionRulesWarnings));
                 messages.AddRange(connectionsResult);
             }
+            AnalyzeTracer.CheckConnections.Stop();
+            AnalyzeTracer.countCheckConnections++;
 
+            AnalyzeTracer.CheckMandatoryFields.Start();
             var mandatoryFieldsResult = CheckMandatoryFields(unit);
             if (mandatoryFieldsResult.Any())
             {
@@ -327,7 +353,10 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(d.Key, d.Value);
                 });
             }
+            AnalyzeTracer.CheckMandatoryFields.Stop();
+            AnalyzeTracer.countCheckMandatoryFields++;
 
+            AnalyzeTracer.CheckCalculationFields.Start();
             var calculationFieldsResult = CheckCalculationFields(unit);
             if (calculationFieldsResult.Any())
             {
@@ -343,10 +372,18 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(d.Key, d.Value);
                 });
             }
+            AnalyzeTracer.CheckCalculationFields.Stop();
+            AnalyzeTracer.countCheckCalculationFields++;
 
+
+            AnalyzeTracer.GetDuplicateUnits.Start();
             var potentialDuplicateUnits = GetDuplicateUnits(unit);
+            AnalyzeTracer.GetDuplicateUnits.Stop();
+            AnalyzeTracer.countGetDuplicateUnits++;
+
             if (potentialDuplicateUnits.Any())
             {
+                AnalyzeTracer.CheckDuplicates.Start();
                 var duplicatesResult = CheckDuplicates(unit, potentialDuplicateUnits);
                 if (duplicatesResult.Any())
                 {
@@ -363,10 +400,13 @@ namespace nscreg.Business.Analysis.StatUnit
                             messages.Add(d.Key, d.Value);
                     });
                 }
+                AnalyzeTracer.CheckDuplicates.Stop();
+                AnalyzeTracer.countCheckDuplicates++;
             }
 
             if (!_isSkipCustomCheck)
             {
+                AnalyzeTracer.CheckCustomAnalysisChecks.Start();
                 var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
                 if (additionalAnalysisCheckResult.Any())
                 {
@@ -393,13 +433,32 @@ namespace nscreg.Business.Analysis.StatUnit
                         }
                     });
                 }
+                AnalyzeTracer.CheckCustomAnalysisChecks.Stop();
+                AnalyzeTracer.countCheckCustomAnalysisChecks++;
             }
+            AnalyzeTracer.CheckOrphanUnits.Start();
             var ophanUnitsResult = CheckOrphanUnits(unit);
             if (ophanUnitsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.OrphanUnitsRulesWarnings));
                 messages.AddRange(ophanUnitsResult);
             }
+            AnalyzeTracer.CheckOrphanUnits.Stop();
+            AnalyzeTracer.countCheckOrphanUnits++;
+
+            AnalyzeTracer.CheckAll.Stop();
+            AnalyzeTracer.countCheckAll++;
+
+            Debug.WriteLine($@"
+CheckAll {AnalyzeTracer.CheckAll.ElapsedMilliseconds/AnalyzeTracer.countCheckAll : 0.00} ms \r\n
+  CheckConnections {(double)AnalyzeTracer.CheckConnections.ElapsedMilliseconds/AnalyzeTracer.countCheckConnections : 0.00} ms \r\n
+  CheckMandatoryFields {(double)AnalyzeTracer.CheckMandatoryFields.ElapsedMilliseconds/AnalyzeTracer.countCheckMandatoryFields : 0.00} ms \r\n
+  CheckCalculationFields {(double)AnalyzeTracer.CheckCalculationFields.ElapsedMilliseconds/AnalyzeTracer.countCheckCalculationFields : 0.00} ms \r\n
+  GetDuplicateUnits {(double)AnalyzeTracer.GetDuplicateUnits.ElapsedMilliseconds/AnalyzeTracer.countGetDuplicateUnits : 0.00} ms \r\n
+  CheckDuplicates {(double)AnalyzeTracer.CheckDuplicates.ElapsedMilliseconds/AnalyzeTracer.countCheckDuplicates : 0.00} ms \r\n
+  CheckCustomAnalysisChecks {(double)AnalyzeTracer.CheckCustomAnalysisChecks.ElapsedMilliseconds/AnalyzeTracer.countCheckCustomAnalysisChecks : 0.00} ms \r\n
+  CheckOrphanUnits {(double)AnalyzeTracer.CheckOrphanUnits.ElapsedMilliseconds/AnalyzeTracer.countCheckOrphanUnits : 0.00} ms \r\n
+");
 
             return new AnalysisResult
             {

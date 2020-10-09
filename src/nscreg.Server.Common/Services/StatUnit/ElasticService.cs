@@ -127,28 +127,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
-        public async Task EditDocumentBuffered(ElasticStatUnit elasticItem)
-        {
-            await SemaphoreBulkBuffer.WaitAsync();
-            try
-            {
-                BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Doc(elasticItem));
-
-                if (BulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
-                {
-                    await FlushBulkBufferInner();
-                }
-            }
-            catch
-            {
-                await Synchronize();
-            }
-            finally
-            {
-                SemaphoreBulkBuffer.Release();
-            }
-        }
-
         /// <summary>
         /// Removing statunit from elastic
         /// </summary>
@@ -185,50 +163,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await Synchronize();
             }
-        }
-
-        public async Task AddDocumentBuffered(ElasticStatUnit elasticItem)
-        {
-            await SemaphoreBulkBuffer.WaitAsync();
-            try
-            {
-                BulkDescriptorBuffer.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
-
-                if (BulkOperationsBufferedCount >= MaxBulkOperationsBufferedCount)
-                {
-                    await FlushBulkBufferInner();
-                }
-            }
-            catch
-            {
-                await Synchronize();
-            }
-            finally
-            {
-                SemaphoreBulkBuffer.Release();
-            }
-        }
-
-        public async Task FlushBulkBuffer()
-        {
-            await SemaphoreBulkBuffer.WaitAsync();
-            try
-            {
-                await FlushBulkBufferInner();
-            }
-            finally
-            {
-                SemaphoreBulkBuffer.Release();
-            }
-        }
-
-        private async Task FlushBulkBufferInner()
-        {
-            var result = await _elasticClient.BulkAsync(BulkDescriptorBuffer);
-            BulkDescriptorBuffer = new BulkDescriptor();
-            BulkOperationsBufferedCount = 0;
-            if (!result.IsValid)
-                throw new Exception(result.DebugInformation);
         }
 
         public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted)
@@ -415,6 +349,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 throw new NotFoundException(nameof(Resource.ElasticSearchIsDisable));
             }
+        }
+
+        public async Task UpsertDocumentList(List<ElasticStatUnit> elasticItems)
+        {
+            var bulkDescriptorBuffer = new BulkDescriptor();
+            foreach (var item in elasticItems)
+            {
+                BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Id(item.Id).Doc(item).DocAsUpsert());
+            }
+
+            var result = await _elasticClient.BulkAsync(bulkDescriptorBuffer);
+
+            if (!result.IsValid)
+                throw new Exception(result.DebugInformation);
         }
     }
 }
