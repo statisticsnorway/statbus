@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using nscreg.Server.Common.Services.DataSources;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -54,9 +55,13 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class Common
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly bool _isBulk;
+        private readonly UpsertUnitBulkBuffer _buffer;
 
-        public Common(NSCRegDbContext dbContext)
+        public Common(NSCRegDbContext dbContext, UpsertUnitBulkBuffer buffer= null, bool isBulk = false )
         {
+            _isBulk = isBulk;
+            _buffer = buffer;
             _dbContext = dbContext;
         }
 
@@ -72,7 +77,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Method for getting stat. units by Id and type
         /// </summary>
         /// <param name="id">Stat Id</param>
-        /// <param name="type">Typeparam>
+        /// <param name="type"></param>
         /// <param name="showDeleted">Remoteness flag</param>
         /// <returns></returns>
         public async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
@@ -174,9 +179,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 : string.Join(",", historyLocalUnits);
                         }
 
-                        TrackUnithistoryFor<LegalUnit>(localUnit?.LegalUnitId, userId, changeReason, comment,
+                        TrackUnitHistoryFor<LegalUnit>(localUnit?.LegalUnitId, userId, changeReason, comment,
                             changeDateTime, PostAction);
-                        TrackUnithistoryFor<LegalUnit>(unitsHistoryHolder.HistoryUnits.legalUnitId, userId,
+                        TrackUnitHistoryFor<LegalUnit>(unitsHistoryHolder.HistoryUnits.legalUnitId, userId,
                             changeReason, comment, changeDateTime, PostAction);
                     }
 
@@ -239,9 +244,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             enterpriseUnit.HistoryLegalUnitIds = string.Join(",", historyLegalUnits);
                         }
 
-                        TrackUnithistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason,
+                        TrackUnitHistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason,
                             comment, changeDateTime, PostAction);
-                        TrackUnithistoryFor<EnterpriseUnit>(unitsHistoryHolder.HistoryUnits.enterpriseUnitId, userId,
+                        TrackUnitHistoryFor<EnterpriseUnit>(unitsHistoryHolder.HistoryUnits.enterpriseUnitId, userId,
                             changeReason, comment, changeDateTime, PostAction);
                     }
 
@@ -307,9 +312,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             enterpriseGroup.HistoryEnterpriseUnitIds = string.Join(",", historyEnterpriseUnits);
                         }
 
-                        TrackUnithistoryFor<EnterpriseGroup>(enterpriseUnit?.EntGroupId, userId, changeReason, comment,
+                        TrackUnitHistoryFor<EnterpriseGroup>(enterpriseUnit?.EntGroupId, userId, changeReason, comment,
                             changeDateTime, PostAction);
-                        TrackUnithistoryFor<EnterpriseGroup>(unitsHistoryHolder.HistoryUnits.enterpriseGroupId, userId,
+                        TrackUnitHistoryFor<EnterpriseGroup>(unitsHistoryHolder.HistoryUnits.enterpriseGroupId, userId,
                             changeReason, comment, changeDateTime, PostAction);
                     }
 
@@ -369,6 +374,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="comment">Comment</param>
         /// <param name="changeDateTime">Change Date</param>
         /// <param name="work">In work</param>
+        /// <param name="isBulk">Flag for bulk</param>
+        /// <param name="buffer">Bulk Buffer</param>
         private void TrackHistoryForListOfUnitsFor<TUnit>(
             Func<List<int>> unitIdsSelector,
             Func<List<int>> hUnitIdsSelector,
@@ -376,7 +383,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             ChangeReasons changeReason,
             string comment,
             DateTime changeDateTime,
-            Action<IStatisticalUnit, IStatisticalUnit> work = null)
+            Action<IStatisticalUnit, IStatisticalUnit> work = null, bool isBulk = false, UpsertUnitBulkBuffer buffer = null)
             where TUnit : class, IStatisticalUnit, new()
         {
             var unitIds = unitIdsSelector();
@@ -385,7 +392,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unitIds.SequenceEqual(hUnitIds)) return;
 
             foreach (var changeTrackingUnitId in unitIds.Union(hUnitIds).Except(unitIds.Intersect(hUnitIds)))
-                TrackUnithistoryFor<TUnit>(changeTrackingUnitId, userId, changeReason, comment, changeDateTime, work);
+                TrackUnitHistoryFor<TUnit>(changeTrackingUnitId, userId, changeReason, comment, changeDateTime, work);
         }
 
         /// <summary>
@@ -397,7 +404,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="comment">Comment</param>
         /// <param name="changeDateTime">Change Date</param>
         /// <param name="work">In Work</param>
-        public void TrackUnithistoryFor<TUnit>(
+        /// <param name="isBulk">Bulk flag</param>
+        /// <param name="buffer">Buffer</param>
+        public void TrackUnitHistoryFor<TUnit>(
             int? unitId,
             string userId,
             ChangeReasons changeReason,
@@ -623,15 +632,35 @@ namespace nscreg.Server.Common.Services.StatUnit
             switch (hUnit)
             {
                 case LocalUnitHistory locU:
+                    if (_isBulk)
+                    {
+                        _buffer.AddToHistoryBufferAsync(locU);
+                        break;
+                    }
                     _dbContext.Set<LocalUnitHistory>().Add(locU);
                     break;
                 case LegalUnitHistory legU:
+                    if (_isBulk)
+                    {
+                        _buffer.AddToHistoryBufferAsync(legU);
+                        break;
+                    }
                     _dbContext.Set<LegalUnitHistory>().Add(legU);
                     break;
                 case EnterpriseUnitHistory eu:
+                    if (_isBulk)
+                    {
+                        _buffer.AddToHistoryBufferAsync(eu);
+                        break;
+                    }
                     _dbContext.Set<EnterpriseUnitHistory>().Add(eu);
                     break;
                 default:
+                    if (_isBulk)
+                    {
+                        _buffer.AddToHistoryBufferAsync(hUnit);
+                        break;
+                    }
                     _dbContext.Set<EnterpriseGroupHistory>().Add((EnterpriseGroupHistory) hUnit);
                     break;
             }

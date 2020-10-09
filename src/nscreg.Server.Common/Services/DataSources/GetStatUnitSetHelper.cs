@@ -16,17 +16,21 @@ namespace nscreg.Server.Common.Services.DataSources
                 case StatUnitTypes.LocalUnit:
                     return context.LocalUnits
                         .IncludeGeneralProps()
+                        .Include(x => x.LegalUnit)
                         .AsNoTracking();
 
                 case StatUnitTypes.LegalUnit:
                     return context.LegalUnits
                         .IncludeGeneralProps()
                         .Include(x => x.LocalUnits)
+                        .Include(x => x.EnterpriseUnit)
                         .AsNoTracking();
 
                 case StatUnitTypes.EnterpriseUnit:
                     return context.EnterpriseUnits
                         .IncludeGeneralProps()
+                        .Include(x => x.LegalUnits)
+                        .Include(x => x.EnterpriseGroup)
                         .AsNoTracking();
                 default:
                     throw new InvalidOperationException("Unit type is not supported");

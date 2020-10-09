@@ -1,11 +1,11 @@
+using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using EFCore.BulkExtensions;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.History;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -14,15 +14,29 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private bool _isEnabledFlush = true;
         private List<StatisticalUnit> Buffer { get; }
+        private List<EnterpriseUnit> BufferToDelete { get; }
+        private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
         private const int MaxBulkOperationsBufferedCount = 1000;
 
         public UpsertUnitBulkBuffer(NSCRegDbContext context)
         {
+            HistoryBuffer = new List<IStatisticalUnitHistory>();
+            BufferToDelete = new List<EnterpriseUnit>();
             Buffer = new List<StatisticalUnit>();
             _context = context;
         }
 
+        public void AddToDeleteBufferAsync(EnterpriseUnit unit)
+        {
+            BufferToDelete.Add(unit);
+        }
+
+        public void AddToHistoryBufferAsync(IStatisticalUnitHistory unitHistory)
+        {
+            HistoryBuffer.Add(unitHistory);
+
+        }
         public async Task AddToBufferAsync(StatisticalUnit element)
         {
             Buffer.Add(element);
@@ -30,7 +44,6 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 await FlushAsync();
             }
-            
         }
 
         public async Task FlushAsync()
@@ -83,8 +96,19 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.BulkInsertOrUpdateAsync(activityUnits);
             await _context.BulkInsertOrUpdateAsync(personUnits);
             await _context.BulkInsertOrUpdateAsync(foreignCountry);
+           // await _context.BulkDeleteAsync(BufferToDelete);
+
+            var hLocalUnits = HistoryBuffer.OfType<LocalUnitHistory>().ToList();
+            var hLegalUnits = HistoryBuffer.OfType<LegalUnitHistory>().ToList();
+            var hEnterpriseUnits = HistoryBuffer.OfType<EnterpriseUnit>().ToList();
+
+            await _context.BulkInsertOrUpdateAsync(hLocalUnits);
+            await _context.BulkInsertOrUpdateAsync(hLegalUnits);
+            await _context.BulkInsertOrUpdateAsync(hEnterpriseUnits);
 
             Buffer.Clear();
+            BufferToDelete.Clear();
+            HistoryBuffer.Clear();
         }
         public void DisableFlushing()
         {

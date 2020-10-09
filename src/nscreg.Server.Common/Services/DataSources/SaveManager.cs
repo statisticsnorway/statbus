@@ -21,21 +21,21 @@ namespace nscreg.Server.Common.Services.DataSources
         private  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, ElasticBulkBuffer service, UpsertUnitBulkBuffer buffer)
         {
             _elasticService = service;
-            var creationHelper = new BulkUpsertUnitService(context, _elasticService, buffer);
+            var bulkUpsertUnitService = new BulkUpsertUnitService(context, _elasticService, buffer, permissions, userId);
             var editUnitService = new EditUnitService(context, userId, _elasticService, permissions);
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, _) =>
-                    creationHelper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
+                    bulkUpsertUnitService.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
                 [StatUnitTypes.LocalUnit] = (unit, _) =>
-                    creationHelper.CreateLocalUnit(unit as LocalUnit),
-               // [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
-                //    creationHelper.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
+                    bulkUpsertUnitService.CreateLocalUnit(unit as LocalUnit),
+                [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
+                   bulkUpsertUnitService.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
             };
             _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, hunit) =>
-                    editUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
+                    bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
                 [StatUnitTypes.LocalUnit] = (unit, hunit) =>
                     editUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
                 [StatUnitTypes.EnterpriseUnit] = (unit, hunit) =>
