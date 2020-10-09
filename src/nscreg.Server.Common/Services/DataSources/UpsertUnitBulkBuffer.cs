@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using EFCore.BulkExtensions;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -18,16 +19,16 @@ namespace nscreg.Server.Common.Services.DataSources
         private List<EnterpriseUnit> BufferToDelete { get; }
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
-        public ElasticService ElasticService { get; }
+        public ElasticService ElasticSearchService { get; }
         private const int MaxBulkOperationsBufferedCount = 1000;
 
-        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticService)
+        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService)
         {
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
             Buffer = new List<StatisticalUnit>();
             _context = context;
-            ElasticService = elasticService;
+            ElasticSearchService = elasticSearchService;
         }
 
         public void AddToDeleteBufferAsync(EnterpriseUnit unit)
@@ -108,7 +109,8 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.BulkInsertOrUpdateAsync(hLocalUnits);
             await _context.BulkInsertOrUpdateAsync(hLegalUnits);
             await _context.BulkInsertOrUpdateAsync(hEnterpriseUnits);
-
+            await ElasticSearchService.UpsertDocumentList(Buffer.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)
+                .Concat(groups.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList());
             Buffer.Clear();
             BufferToDelete.Clear();
             HistoryBuffer.Clear();
