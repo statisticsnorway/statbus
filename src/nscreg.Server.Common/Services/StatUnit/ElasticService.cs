@@ -32,16 +32,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
 
-        private BulkDescriptor BulkDescriptorBuffer { get; set; }
-
         public ElasticService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
 
             var settings = new ConnectionSettings(new Uri(ServiceAddress)).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
-
-            BulkDescriptorBuffer = new BulkDescriptor();
         }
         public async Task Synchronize(bool force = false)
         {
@@ -356,7 +352,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var bulkDescriptorBuffer = new BulkDescriptor();
             foreach (var item in elasticItems)
             {
-                BulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Id(item.Id).Doc(item).DocAsUpsert());
+                bulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Id(item.Id).Doc(item).DocAsUpsert());
             }
 
             var result = await _elasticClient.BulkAsync(bulkDescriptorBuffer);

@@ -18,7 +18,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType;
 
         private  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, UpsertUnitBulkBuffer buffer)
-        {
+        {   
             
             var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, userId);
             var editUnitService = new EditUnitService(context, userId, permissions);
@@ -45,7 +45,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public static async Task<SaveManager> CreateSaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, UpsertUnitBulkBuffer buffer)
         {
             var saveManager = new SaveManager(context, userId, permissions, buffer);
-            await buffer.ElasticService.CheckElasticSearchConnection();
+            await buffer.ElasticSearchService.CheckElasticSearchConnection();
             return saveManager;
         }
 

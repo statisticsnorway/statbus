@@ -55,16 +55,19 @@ namespace nscreg.Server.Common.Services.DataSources
             //TODO : Решить проблему с Edit и HistoryIds
             var bulkConfig = new BulkConfig {SetOutputIdentity = true, PreserveInsertOrder = true};
 
-            var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct().ToList();
+            var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
             var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
-            var activities = activityUnits.Select(z => z.Activity).Distinct().ToList();
+            var activities = activityUnits.Select(z => z.Activity).Distinct(new IdComparer<Activity>()).ToList();
 
             var personUnits = Buffer.SelectMany(x => x.PersonsUnits).ToList();
-            var persons = personUnits.Select(z => z.Person).Distinct().ToList();
+            var persons = personUnits.Select(z => z.Person).Distinct(new IdComparer<Person>()).ToList();
 
             var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
             
             await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
+
+            var activitiesNew = activities.Where(x => x.Id == 0).ToList();
+            
             await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
             await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
 
@@ -93,8 +96,11 @@ namespace nscreg.Server.Common.Services.DataSources
             Buffer.ForEach(x => x.ActivitiesUnits.ForEach(z =>
             {
                 z.ActivityId = z.Activity.Id;
+                z.Unit = x;
                 z.UnitId = x.RegId;
             }));
+
+            var activitiesNull = activityUnits.Where(x => x.ActivityId == 0).ToList();
             Buffer.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
 
             await _context.BulkInsertOrUpdateAsync(activityUnits);
@@ -109,8 +115,13 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.BulkInsertOrUpdateAsync(hLocalUnits);
             await _context.BulkInsertOrUpdateAsync(hLegalUnits);
             await _context.BulkInsertOrUpdateAsync(hEnterpriseUnits);
-            await ElasticSearchService.UpsertDocumentList(Buffer.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)
-                .Concat(groups.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList());
+            if (Buffer.Any())
+            {
+                var entities = Buffer.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)
+                    .Concat(groups.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList();
+                await ElasticSearchService.UpsertDocumentList(entities);
+            }
+                
             Buffer.Clear();
             BufferToDelete.Clear();
             HistoryBuffer.Clear();
@@ -122,6 +133,26 @@ namespace nscreg.Server.Common.Services.DataSources
         public void EnableFlushing()
         {
             _isEnabledFlush = true;
+        }
+    }
+
+    public class IdComparer<T>: IEqualityComparer<T> where T: IModelWithId
+    {
+        public bool Equals(T x, T y)
+        {
+            if (x == null && y == null)
+                return true;
+
+            if (x == null || y == null)
+                return false;
+            if (ReferenceEquals(x, y))
+                return true;
+            return x.Id != 0 && x.Id == y.Id;
+        }
+
+        public int GetHashCode(T obj)
+        {
+           return obj.Id.GetHashCode();
         }
     }
 }
