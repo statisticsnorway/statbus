@@ -73,15 +73,15 @@ namespace nscreg.Business.DataSources
             return result;
         }
 
-        public static Person ParsePerson(string propPath, string value, Person prev)
+        public static Person ParsePerson(string propPath, string value, Person prev, string newRole = null)
         {
             var result = prev ?? new Person();
             switch (PathHead(propPath))
             {
                 case nameof(Person.Role):
-                    if(int.TryParse(value, out int val))
+                    if(int.TryParse(value, out var val))
                         result.Role = val;
-                    else throw BadValueFor<Person>(propPath, value);
+                    else throw BadValueFor<Person>(propPath, newRole);
                     break;
                 case nameof(Person.GivenName):
                     result.GivenName = value;
@@ -100,11 +100,11 @@ namespace nscreg.Business.DataSources
                     if (DateTime.TryParse(value, out var birthDate)) result.BirthDate = birthDate;
                     else throw BadValueFor<Person>(propPath, value);
                     break;
-                case nameof(Country.Code):
-                case nameof(Country.Name):
+
+                case "NationalityCode":
                     if (result.NationalityCode == null)
                     {
-                        result.NationalityCode = ParseCountry(propPath, value, result.NationalityCode);
+                        result.NationalityCode = ParseCountry(propPath.Split('.',2)[1], value, result.NationalityCode);
                     }
                     break;
                 case nameof(Person.Sex):

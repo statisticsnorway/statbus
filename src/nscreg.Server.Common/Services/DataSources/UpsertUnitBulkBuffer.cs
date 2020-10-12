@@ -133,6 +133,12 @@ namespace nscreg.Server.Common.Services.DataSources
             }));
 
             Buffer.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
+            Buffer.ForEach(z => z.PersonsUnits.ForEach(x =>
+            {
+                x.UnitId = z.RegId;
+                x.PersonId = x.Person.Id;
+                x.PersonTypeId = x.Person.Role;
+            }));
 
             await _context.BulkInsertOrUpdateAsync(activityUnits);
             await _context.BulkInsertOrUpdateAsync(personUnits);

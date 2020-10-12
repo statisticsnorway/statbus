@@ -264,11 +264,10 @@ namespace nscreg.Business.DataSources
                             x.Name.ToLower() == roleValue || x.NameLanguage1.HasValue() && x.NameLanguage1.ToLower() == roleValue ||
                             x.NameLanguage2.HasValue() && x.NameLanguage2.ToLower() == roleValue);
 
-                        person = PropertyParser.ParsePerson(targetKey, roleType?.Id.ToString(), person);
+                        person = PropertyParser.ParsePerson(targetKey, roleType?.Id.ToString(), person, value);
                         continue;
                     }
                     person = PropertyParser.ParsePerson(targetKey, value, person);
-
                 }
             }
             return person;
@@ -285,7 +284,14 @@ namespace nscreg.Business.DataSources
                 .ForEach(x =>
                 {
                     if(x.dbPersons.Any())
-                        x.dbPersons.ForEach(z => z.Person = x.newPerson.Person);
+                        x.dbPersons.ForEach(z =>
+                        {
+                            z.Person.MiddleName = x.newPerson.Person.MiddleName;
+                            z.Person.GivenName = x.newPerson.Person.GivenName;
+                            z.Person.Sex = x.newPerson.Person.Sex;
+                            z.Person.Role = x.newPerson.Person.Role;
+                            z.Person.NationalityCode = x.newPerson.Person.NationalityCode;
+                        });
                     else
                     {
                         personsDb.Add(x.newPerson);
