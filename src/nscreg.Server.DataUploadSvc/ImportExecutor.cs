@@ -77,9 +77,9 @@ namespace nscreg.Server.DataUploadSvc
             using (var context = dbContextHelper.CreateDbContext(new string[] { }))
             {
                 await InitializeCacheForLookups(context);
-                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context));
                 var userService = new UserService(context);
                 var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
                 var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);

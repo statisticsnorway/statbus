@@ -24,8 +24,6 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly EditTracer _editTracer;
         private readonly string _userId;
         private readonly DataAccessPermissions _permissions;
-        private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
-        private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
 
         public BulkUpsertUnitService(NSCRegDbContext context, UpsertUnitBulkBuffer buffer, DataAccessPermissions permissions, string userId)
         {
@@ -35,8 +33,6 @@ namespace nscreg.Server.Common.Services.DataSources
             _userId = userId;
             _commonSvc = new StatUnit.Common(context, buffer);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
-            _editArrayStatisticalUnits = new List<ElasticStatUnit>();
-            _addArrayStatisticalUnits = new List<ElasticStatUnit>();
             _editTracer = new EditTracer();
         }
 
@@ -123,20 +119,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     _bufferService.EnableFlushing();
                     await _bufferService.AddToBufferAsync(legal);
 
-                    //TODO: History for bulk
-                    //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == legalUnit.EnterpriseUnitRegId)
-                    //    .Select(x => x.RegId).ToListAsync();
-                    //legalUnit.EnterpriseUnit.HistoryLegalUnitIds += string.Join(",", legalsOfEnterprise);
-                    //Tracer.commit2.Start();
-
-                    //_dbContext.EnterpriseUnits.Update(legalUnit.EnterpriseUnit);
-
-                    //legalUnit.HistoryLocalUnitIds = createdLocal?.RegId.ToString();
-                    //_dbContext.LegalUnits.Update(legalUnit);
-
-                    ////await _dbContext.SaveChangesAsync();
-                    //Tracer.commit2.Stop();
-                    //Debug.WriteLine($"History {Tracer.commit2.ElapsedMilliseconds / ++Tracer.countcommit2}");
 
                     transaction.Commit();
                 }
@@ -161,18 +143,10 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             try
             {
-                var sameStatIdLegalUnits = await _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToListAsync();
                 if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
                 {
-                    CreateGroupForEnterpriseAsync(enterpriseUnit);
+                    CreateGroupForEnterprise(enterpriseUnit);
                 }
-                //TODO: Подумать как можно реализовать
-                //foreach (var legalUnit in sameStatIdLegalUnits)
-                //{
-                //    legalUnit.EnterpriseUnit = enterpriseUnit;
-                //    await _bufferService.AddToBufferAsync(legalUnit); // Возможное решение
-                //}
-                enterpriseUnit.HistoryLegalUnitIds = string.Join(",", sameStatIdLegalUnits.Select(x => x.RegId));
                 await _bufferService.AddToBufferAsync(enterpriseUnit);
             }
             catch (Exception e)
@@ -216,7 +190,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     enterpriseUnit.LiqReason = changedUnit.LiqReason;
                     enterpriseUnit.LiqDate = changedUnit.LiqDate;
                     await _bufferService.AddToBufferAsync(enterpriseUnit);
-                    _editArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                 }
                 if (StatUnit.Common.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
                 {
@@ -228,9 +201,8 @@ namespace nscreg.Server.Common.Services.DataSources
                             localUnit.LiqReason = changedUnit.LiqReason;
                             localUnit.LiqDate = changedUnit.LiqDate;
                             await _bufferService.AddToBufferAsync(localUnit);
-                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
                         }
-                        changedUnit.HistoryLocalUnitIds = string.Join(",", changedUnit.LocalUnits);
+                        changedUnit.HistoryLocalUnitIds = string.Join(",", changedUnit.LocalUnits.Select(x => x.RegId));
                     }
                 }
 
@@ -255,31 +227,130 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _bufferService.AddToBufferAsync(changedUnit);
 
                 var hUnit = StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime);
-                _bufferService.AddToHistoryBufferAsync(hUnit);
-                _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
+                 _commonSvc.AddHistoryUnitByType(hUnit);
+                 _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                     changedDateTime, unitsHistoryHolder);
                 if (deleteEnterprise)
                 {
                     var enterpriseUnit = _dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId);
-                    _bufferService.AddToDeleteBufferAsync(enterpriseUnit);
+                    _bufferService.AddToDeleteBuffer(enterpriseUnit);
                 }
                 _editTracer.editStat.Stop();
                 Debug.WriteLine($"Edit legal {_editTracer.editStat.ElapsedMilliseconds / ++_editTracer.counteditStat}");
+            }
+            catch (NotFoundException e)
+            {
+                throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
+            }
+        }
 
-                _editTracer.elastic.Start();
-                //if (_addArrayStatisticalUnits.Any())
-                //    foreach (var addArrayStatisticalUnit in _addArrayStatisticalUnits)
-                //    {
-                //        await _elasticService.AddDocument(addArrayStatisticalUnit);
-                //    }
-                //if (_editArrayStatisticalUnits.Any())
-                //    foreach (var editArrayStatisticalUnit in _editArrayStatisticalUnits)
-                //    {
-                //        await _elasticService.EditDocument(editArrayStatisticalUnit);
-                //    }
-                //await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(changedUnit));
-                _editTracer.elastic.Stop();
-                Debug.WriteLine($"Elastic legal {_editTracer.elastic.ElapsedMilliseconds / ++_editTracer.countelastic}");
+        /// <summary>
+        /// Edit local unit method
+        /// </summary>
+        /// <param name="changedUnit"></param>
+        /// <param name="historyUnit"></param>
+        /// <returns> </returns>
+        public async Task EditLocalUnit(LocalUnit changedUnit, LocalUnit historyUnit)
+        {
+            _editTracer.liquidateStat.Start();
+            var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
+
+            if (_liquidateStatusId != null && historyUnit.UnitStatusId == _liquidateStatusId && changedUnit.UnitStatusId != historyUnit.UnitStatusId)
+            {
+                throw new BadRequestException(nameof(Resource.UnitHasLiquidated));
+            }
+
+            if (changedUnit.LiqDate != null || !string.IsNullOrEmpty(changedUnit.LiqReason) || (_liquidateStatusId != null && changedUnit.UnitStatusId == _liquidateStatusId))
+            {
+                changedUnit.UnitStatusId = _liquidateStatusId;
+                changedUnit.LiqDate = changedUnit.LiqDate ?? DateTime.Now;
+            }
+
+            if ((historyUnit.LiqDate != null && changedUnit.LiqDate == null) || (!string.IsNullOrEmpty(historyUnit.LiqReason) && string.IsNullOrEmpty(changedUnit.LiqReason)))
+            {
+                changedUnit.LiqDate = changedUnit.LiqDate ?? historyUnit.LiqDate;
+                changedUnit.LiqReason = string.IsNullOrEmpty(changedUnit.LiqReason) ? historyUnit.LiqReason : changedUnit.LiqReason;
+            }
+
+            if (_liquidateStatusId != null && changedUnit.UnitStatusId == _liquidateStatusId)
+            {
+                var legalUnit = await _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefaultAsync(x => changedUnit.LegalUnitId == x.RegId && !x.IsDeleted);
+                if (legalUnit != null && legalUnit.LocalUnits.Any(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId.Value))
+                {
+                    throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
+                }
+            }
+            _editTracer.liquidateStat.Stop();
+            Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+
+            _editTracer.noChanges.Start();
+            if (IsNoChanges(changedUnit, historyUnit)) return;
+            _editTracer.noChanges.Stop();
+            Debug.WriteLine($"No changes legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+
+            changedUnit.UserId = _userId;
+            changedUnit.ChangeReason = ChangeReasons.Edit;
+            changedUnit.EditComment = "Changed by import service.";
+            try
+            {
+                var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
+                var changedDateTime = DateTime.Now;
+                await _bufferService.AddToBufferAsync(changedUnit);
+
+                _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
+                _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
+                    changedDateTime, unitsHistoryHolder);
+            }
+            catch (NotFoundException e)
+            {
+                throw new BadRequestException(nameof(Resource.ElasticSearchIsDisable), e);
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
+            }
+        }
+
+        /// <summary>
+        /// Edit enterprise unit method
+        /// </summary>
+        /// <param name="changedUnit"></param>
+        /// <param name="historyUnit"></param>
+        /// <returns> </returns>
+        public async Task EditEnterpriseUnit(EnterpriseUnit changedUnit, EnterpriseUnit historyUnit)
+        {
+            var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
+
+            if (_liquidateStatusId != null && historyUnit.UnitStatusId == _liquidateStatusId && changedUnit.UnitStatusId != historyUnit.UnitStatusId)
+            {
+                throw new BadRequestException(nameof(Resource.UnitHasLiquidated));
+            }
+
+            if (_liquidateStatusId != null && changedUnit.UnitStatusId == _liquidateStatusId)
+            {
+                throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
+            }
+
+            if (IsNoChanges(changedUnit, historyUnit)) return;
+
+            changedUnit.UserId = _userId;
+            changedUnit.ChangeReason = ChangeReasons.Edit;
+            changedUnit.EditComment = "Changed by import service.";
+
+            try
+            {
+                var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
+                var changedDateTime = DateTime.Now;
+
+                await _bufferService.AddToBufferAsync(changedUnit);
+
+                _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
+                _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
+                    changedDateTime, unitsHistoryHolder);
             }
             catch (NotFoundException e)
             {
@@ -334,7 +405,7 @@ namespace nscreg.Server.Common.Services.DataSources
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
             legalUnit.LocalUnits.Add(localUnit);
         }
-        private void CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
+        private void CreateGroupForEnterprise(EnterpriseUnit enterpriseUnit)
         {
             var enterpriseGroup = new EnterpriseGroup();
             Mapper.Map(enterpriseUnit, enterpriseGroup);

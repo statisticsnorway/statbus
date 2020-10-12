@@ -21,7 +21,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {   
             
             var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, userId);
-            var editUnitService = new EditUnitService(context, userId, permissions);
+
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, _) =>
@@ -36,9 +36,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 [StatUnitTypes.LegalUnit] = (unit, hunit) =>
                     bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
                 [StatUnitTypes.LocalUnit] = (unit, hunit) =>
-                    editUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
+                    bulkUpsertUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
                 [StatUnitTypes.EnterpriseUnit] = (unit, hunit) =>
-                    editUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
+                    bulkUpsertUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
             };
         }
 
@@ -71,11 +71,11 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private string GetFullExceptionMessage(Exception ex)
         {
-#if DEBUG
-            return ex + (ex.InnerException != null ? Environment.NewLine + GetFullExceptionMessage(ex.InnerException) : "");
-#else
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                return ex + (ex.InnerException != null ? Environment.NewLine + GetFullExceptionMessage(ex.InnerException) : "");
+            }
             return ex.Message + (ex.InnerException != null ? Environment.NewLine + GetFullExceptionMessage(ex.InnerException) : "");
-#endif
         }
 
         public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId, bool isNew, StatisticalUnit historyUnit)

@@ -93,8 +93,8 @@ namespace nscreg.Business.DataSources
                 switch (propHead)
                 {
                     case nameof(StatisticalUnit.Activities):
-                        if(!HasAccess<StatisticalUnit>(permissions, v => v.Activities))
-                            throw new Exception("You have no rights to change activities");
+                        //if(!HasAccess<StatisticalUnit>(permissions, v => v.Activities))
+                        //    throw new Exception("You have no rights to change activities");
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
@@ -193,7 +193,7 @@ namespace nscreg.Business.DataSources
                 {
                    var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
                    {
-                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary, userId)
+                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary, userId, defaultYear)
                    });
                    dbActivities.AddRange(parsedActivities);
                    continue;
@@ -207,13 +207,13 @@ namespace nscreg.Business.DataSources
                         var dbRow = x.dbRows.FirstOrDefault();
                         if (dbRow != null)
                         {
-                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId);
+                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId, defaultYear);
                         }
                         else
                         {
                             dbRow = new ActivityStatisticalUnit
                             {
-                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId)
+                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId, defaultYear)
                             };
                             dbActivities.Add(dbRow);
                         }
@@ -222,7 +222,7 @@ namespace nscreg.Business.DataSources
         }
 
         private static Activity ParseActivityByTargetKeys(Activity activity, Dictionary<string, string> targetKeys,
-            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType, string userId)
+            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType, string userId, int defaultYear)
         {
             var activityTypeWasSet = activity != null;
             activity = activity ?? new Activity();
@@ -243,6 +243,7 @@ namespace nscreg.Business.DataSources
                 activity.ActivityType = defaultType;
             }
             activity.UpdatedBy = userId;
+            activity.ActivityYear = activity.ActivityYear ?? defaultYear;
             return activity;
         }
 
