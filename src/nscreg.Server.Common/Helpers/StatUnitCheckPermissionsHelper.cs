@@ -33,7 +33,6 @@ namespace nscreg.Server.Common.Helpers
 
         public void CheckRegionOrActivityContains(string userId, List<int> regionIds, List<int> activityCategoryList)
         {
-            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
             CheckIfRegionContains(userId, regionIds);
             CheckIfActivityContains(userId, activityCategoryList);
         }
@@ -52,14 +51,11 @@ namespace nscreg.Server.Common.Helpers
 
         public void CheckIfRegionContains(string userId, List<int> regionIds)
         {
-            var userRegionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
-
-            //TODO: сжать в один сценарий - пишем все регионы, на которые у нас нет прав (по сути это начиная с var listRegions ...)
-            if (userRegionIds.Count == 0)
-                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsRegion));
-
-            var listRegions = regionIds.Where(x => !userRegionIds.Contains(x)).ToList();
-            if (listRegions.Count > 0)
+            var listRegions = _dbContext.UserRegions
+                .Where(au => au.UserId == userId)
+                .Select(ur => ur.RegionId)
+                .ToList();
+            if (regionIds.Except(listRegions).Any())
             {
                 var regionNames = _dbContext.Regions.Local.Where(x => listRegions.Contains(x.Id))
                     .Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2 }.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
@@ -72,20 +68,14 @@ namespace nscreg.Server.Common.Helpers
             var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
                 .Select(ur => ur.ActivityCategoryId).ToList();
 
-            //TODO: сделать один сценарий по проверке ( в котором показываем все категории сразу, а не просто сообщение о доступе)
-            if (activityCategoryUserIds.Count == 0)
-                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory));
-
-            foreach (var activityCategoryId in activityCategoryIds)
+            foreach (var activityCategoryId in activityCategoryIds.Except(activityCategoryUserIds))
             {
-                if (!activityCategoryUserIds.Contains(activityCategoryId))
-                {
                     var activityCategoryNames =
                         _dbContext.ActivityCategories.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).FirstOrDefault(x => x.Id == activityCategoryId);
 
                     var langName = activityCategoryNames.GetString(CultureInfo.DefaultThreadCurrentCulture);
-                    throw new BadRequestException($"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({langName})");
-                }
+                    throw new BadRequestException(
+                        $"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({langName})");
             }
         }
     }
