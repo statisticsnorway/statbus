@@ -25,10 +25,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static bool _isSynchronized;
         private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(1, 1);
 
-        private static readonly SemaphoreSlim SemaphoreBulkBuffer = new SemaphoreSlim(1, 1);
-        private static volatile int BulkOperationsBufferedCount = 0;
-        private const int MaxBulkOperationsBufferedCount = 300;
-
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
 

@@ -117,7 +117,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 .Select(x => new {x.StatId, x.RegId}).ToListAsync();
 
             enterprises.Join(legalsOfEnterprises, e => e.StatId,
-                l => l.StatId, (enterpriseUnit, legalsList) => (enterpriseUnit, legalsList)).ForEach(z =>
+                l => l.StatId, (enterpriseUnit, legalsList) => (enterpriseUnit:enterpriseUnit, legalsList: legalsList)).ForEach(z =>
                     z.enterpriseUnit.HistoryLegalUnitIds = string.Join(",", z.legalsList.RegId)
                 );
 
