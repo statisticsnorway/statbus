@@ -291,6 +291,9 @@ namespace nscreg.Business.DataSources
                             z.Person.Sex = x.newPerson.Person.Sex;
                             z.Person.Role = x.newPerson.Person.Role;
                             z.Person.NationalityCode = x.newPerson.Person.NationalityCode;
+                            z.Person.PersonalId = x.newPerson.Person.PersonalId;
+                            z.Person.BirthDate = x.newPerson.Person.BirthDate;
+                            z.Person.PhoneNumber = x.newPerson.Person.PhoneNumber;
                         });
                     else
                     {

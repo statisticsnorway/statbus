@@ -56,7 +56,6 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task FlushAsync()
         {
-            //TODO : Решить проблему с Edit и HistoryIds
             var bulkConfig = new BulkConfig {SetOutputIdentity = true, PreserveInsertOrder = true};
 
             var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
@@ -152,6 +151,7 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.BulkInsertOrUpdateAsync(hLocalUnits);
             await _context.BulkInsertOrUpdateAsync(hLegalUnits);
             await _context.BulkInsertOrUpdateAsync(hEnterpriseUnits);
+
             if (Buffer.Any())
             {
                 var entities = Buffer.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)
@@ -170,26 +170,6 @@ namespace nscreg.Server.Common.Services.DataSources
         public void EnableFlushing()
         {
             _isEnabledFlush = true;
-        }
-    }
-
-    public class IdComparer<T>: IEqualityComparer<T> where T: IModelWithId
-    {
-        public bool Equals(T x, T y)
-        {
-            if (x == null && y == null)
-                return true;
-
-            if (x == null || y == null)
-                return false;
-            if (ReferenceEquals(x, y))
-                return true;
-            return x.Id != 0 && x.Id == y.Id;
-        }
-
-        public int GetHashCode(T obj)
-        {
-           return obj.Id.GetHashCode();
         }
     }
 }
