@@ -27,6 +27,13 @@ namespace nscreg.Server.Common.Helpers
 
         public void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<int> activityCategoryList)
         {
+            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
+            var regionIds = new List<int?> { regionId, actualRegionId, postalRegionId }.Where(x => x != null).Select(x => (int)x).ToList();
+            CheckRegionOrActivityContains(userId, regionIds, activityCategoryList);
+        }
+        public void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<int> activityCategoryList, bool isAdmin)
+        {
+            if(isAdmin) return;
             var regionIds = new List<int?> { regionId, actualRegionId, postalRegionId }.Where(x => x != null).Select(x => (int)x).ToList();
             CheckRegionOrActivityContains(userId, regionIds, activityCategoryList);
         }

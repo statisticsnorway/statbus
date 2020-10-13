@@ -112,7 +112,7 @@ namespace nscreg.Server.DataUploadSvc
 
             var executors = new List<ImportExecutor>() {
                 new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
-                //new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
             };
 
             var swParse = new Stopwatch();

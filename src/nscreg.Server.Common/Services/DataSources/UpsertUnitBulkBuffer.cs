@@ -23,10 +23,13 @@ namespace nscreg.Server.Common.Services.DataSources
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
         public ElasticService ElasticSearchService { get; }
-        private const int MaxBulkOperationsBufferedCount = 1000;
-
+        private readonly int MaxBulkOperationsBufferedCount;
+        private static int Count = 550;
         public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions)
         {
+            
+            MaxBulkOperationsBufferedCount = Count;
+            Count+= 400;
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
