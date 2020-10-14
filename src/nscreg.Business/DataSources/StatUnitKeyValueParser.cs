@@ -93,8 +93,8 @@ namespace nscreg.Business.DataSources
                 switch (propHead)
                 {
                     case nameof(StatisticalUnit.Activities):
-                        if(!HasAccess<StatisticalUnit>(permissions, v => v.Activities))
-                            throw new Exception("You have no rights to change activities");
+                        //if(!HasAccess<StatisticalUnit>(permissions, v => v.Activities))
+                        //    throw new Exception("You have no rights to change activities");
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
@@ -193,7 +193,7 @@ namespace nscreg.Business.DataSources
                 {
                    var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
                    {
-                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary, userId)
+                       Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary, userId, defaultYear)
                    });
                    dbActivities.AddRange(parsedActivities);
                    continue;
@@ -207,13 +207,13 @@ namespace nscreg.Business.DataSources
                         var dbRow = x.dbRows.FirstOrDefault();
                         if (dbRow != null)
                         {
-                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId);
+                            dbRow.Activity = ParseActivityByTargetKeys(dbRow.Activity, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId, defaultYear);
                         }
                         else
                         {
                             dbRow = new ActivityStatisticalUnit
                             {
-                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId)
+                                Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId, defaultYear)
                             };
                             dbActivities.Add(dbRow);
                         }
@@ -222,7 +222,7 @@ namespace nscreg.Business.DataSources
         }
 
         private static Activity ParseActivityByTargetKeys(Activity activity, Dictionary<string, string> targetKeys,
-            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType, string userId)
+            Dictionary<string, string[]> mappingsArr, ActivityTypes defaultType, string userId, int defaultYear)
         {
             var activityTypeWasSet = activity != null;
             activity = activity ?? new Activity();
@@ -243,6 +243,7 @@ namespace nscreg.Business.DataSources
                 activity.ActivityType = defaultType;
             }
             activity.UpdatedBy = userId;
+            activity.ActivityYear = activity.ActivityYear ?? defaultYear;
             return activity;
         }
 
@@ -263,11 +264,10 @@ namespace nscreg.Business.DataSources
                             x.Name.ToLower() == roleValue || x.NameLanguage1.HasValue() && x.NameLanguage1.ToLower() == roleValue ||
                             x.NameLanguage2.HasValue() && x.NameLanguage2.ToLower() == roleValue);
 
-                        person = PropertyParser.ParsePerson(targetKey, roleType?.Id.ToString(), person);
+                        person = PropertyParser.ParsePerson(targetKey, roleType?.Id.ToString(), person, value);
                         continue;
                     }
                     person = PropertyParser.ParsePerson(targetKey, value, person);
-
                 }
             }
             return person;
@@ -284,7 +284,17 @@ namespace nscreg.Business.DataSources
                 .ForEach(x =>
                 {
                     if(x.dbPersons.Any())
-                        x.dbPersons.ForEach(z => z.Person = x.newPerson.Person);
+                        x.dbPersons.ForEach(z =>
+                        {
+                            z.Person.MiddleName = x.newPerson.Person.MiddleName;
+                            z.Person.GivenName = x.newPerson.Person.GivenName;
+                            z.Person.Sex = x.newPerson.Person.Sex;
+                            z.Person.Role = x.newPerson.Person.Role;
+                            z.Person.NationalityCode = x.newPerson.Person.NationalityCode;
+                            z.Person.PersonalId = x.newPerson.Person.PersonalId;
+                            z.Person.BirthDate = x.newPerson.Person.BirthDate;
+                            z.Person.PhoneNumber = x.newPerson.Person.PhoneNumber;
+                        });
                     else
                     {
                         personsDb.Add(x.newPerson);

@@ -633,7 +633,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case LocalUnitHistory locU:
                     if (IsBulk)
                     {
-                        _buffer.AddToHistoryBufferAsync(locU);
+                        _buffer.AddToHistoryBuffer(locU);
                         break;
                     }
                     _dbContext.Set<LocalUnitHistory>().Add(locU);
@@ -641,7 +641,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case LegalUnitHistory legU:
                     if (IsBulk)
                     {
-                        _buffer.AddToHistoryBufferAsync(legU);
+                        _buffer.AddToHistoryBuffer(legU);
                         break;
                     }
                     _dbContext.Set<LegalUnitHistory>().Add(legU);
@@ -649,7 +649,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case EnterpriseUnitHistory eu:
                     if (IsBulk)
                     {
-                        _buffer.AddToHistoryBufferAsync(eu);
+                        _buffer.AddToHistoryBuffer(eu);
                         break;
                     }
                     _dbContext.Set<EnterpriseUnitHistory>().Add(eu);
@@ -657,7 +657,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 default:
                     if (IsBulk)
                     {
-                        _buffer.AddToHistoryBufferAsync(hUnit);
+                        _buffer.AddToHistoryBuffer(hUnit);
                         break;
                     }
                     _dbContext.Set<EnterpriseGroupHistory>().Add((EnterpriseGroupHistory) hUnit);

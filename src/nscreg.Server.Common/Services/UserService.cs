@@ -326,7 +326,9 @@ namespace nscreg.Server.Common.Services
                 var itemIdsToDelete = oldActivityCategoryUsersIds.Where(x => !newHierarchy.Contains(x)).ToList();
                 if (itemIdsToDelete.Any())
                 {
-                    await _context.Database.ExecuteSqlCommandAsync($"DELETE FROM ActivityCategoryUsers WHERE ActivityCategory_Id IN (" + string.Join(",", itemIdsToDelete) + ")");
+                    var sql = "DELETE FROM ActivityCategoryUsers WHERE ActivityCategory_Id IN (" +
+                                 string.Join(",", itemIdsToDelete) + ")";
+                    await _context.Database.ExecuteSqlCommandAsync(sql);
                 }
 
                 var itemsToAdd = newHierarchy.Except(oldActivityCategoryUsersIds).Distinct().ToList();

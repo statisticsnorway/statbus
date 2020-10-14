@@ -77,13 +77,13 @@ namespace nscreg.Server.DataUploadSvc
             using (var context = dbContextHelper.CreateDbContext(new string[] { }))
             {
                 await InitializeCacheForLookups(context);
-                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context));
                 var userService = new UserService(context);
                 var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
                 var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
-
+                bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
                 foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())
                 {
                     Interlocked.Increment(ref InterlockedInt);
@@ -94,7 +94,7 @@ namespace nscreg.Server.DataUploadSvc
 
                     swPopulation.Start();
                     _logger.LogInformation("populating unit");
-                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit);
+                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin);
                     swPopulation.Stop();
                     populationCount += 1;
                     if (populateError.HasValue())

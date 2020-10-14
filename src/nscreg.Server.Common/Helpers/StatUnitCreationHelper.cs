@@ -196,10 +196,6 @@ namespace nscreg.Server.Common.Helpers
 
                     }
                     await _dbContext.SaveChangesAsync();
-                        //TODO Расследовать и поменять условия Where
-                        //var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdUnit.RegId)
-                        //    .Select(x => x.RegId).ToListAsync();
-                        //createdUnit.HistoryLegalUnitIds = string.Join(",", legalsOfEnterprise);
 
                     transaction.Commit();
                 }

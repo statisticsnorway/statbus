@@ -59,7 +59,6 @@ namespace nscreg.Server.DataUploadSvc
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
             _dbLogBufferMaxCount = bufferLogMaxCount;
-            //AddScopedServices();
         }
 
         private void AddScopedServices()
@@ -72,31 +71,12 @@ namespace nscreg.Server.DataUploadSvc
         }
 
         /// <summary>
-        /// Eagerly loads lookups to lower number of requests to DB
-        /// </summary>
-        /// <returns></returns>
-        private static async Task InitializeCacheForLookups(NSCRegDbContext context)
-        {
-            await context.ActivityCategories.LoadAsync();
-            await context.PersonTypes.LoadAsync();
-            await context.RegistrationReasons.LoadAsync();
-            await context.Regions.LoadAsync();
-            await context.UnitsSize.LoadAsync();
-            await context.Statuses.LoadAsync();
-            await context.ReorgTypes.LoadAsync();
-            await context.SectorCodes.LoadAsync();
-            await context.DataSourceClassifications.LoadAsync();
-            await context.LegalForms.LoadAsync();
-            await context.ForeignParticipations.LoadAsync();
-            await context.Countries.LoadAsync();
-        }
-
-        /// <summary>
         /// Queue execution method
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
             AddScopedServices();
+
             _logger.LogInformation("dequeue attempt...");
             var (dequeueError, dequeued) = await Dequeue();
             if (dequeueError.HasValue())
@@ -109,7 +89,7 @@ namespace nscreg.Server.DataUploadSvc
             var dataAccessService = new DataAccessService(_context);
             if (dataAccessService.CheckWritePermissions(dequeued.UserId, dequeued.DataSource.StatUnitType))
             {
-                var message = $"User doesnt have write permission for {dequeued.DataSource.StatUnitType}";
+                var message = $"User doesn't have write permission for {dequeued.DataSource.StatUnitType}";
                 _logger.LogInformation("finish queue item with error: {0}", message);
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, message);
             }
@@ -132,7 +112,7 @@ namespace nscreg.Server.DataUploadSvc
 
             var executors = new List<ImportExecutor>() {
                 new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
-                //new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
             };
 
             var swParse = new Stopwatch();

@@ -74,8 +74,9 @@ namespace nscreg.Server.Common.Services.DataSources
         /// Method for populate unit
         /// </summary>
         /// <param name="raw">Parsed  data of a unit</param>
+        /// <param name="isAdmin"></param>
         /// <returns></returns>
-        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw)
+        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin)
         {
             try
             {
@@ -123,7 +124,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 if (!UserIsAdmin)
                     _permissionsHelper.CheckRegionOrActivityContains(_userId, resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId,
-                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList());
+                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), isAdmin);
                 PopulateTracer.swCheckRegion.Stop();
                 PopulateTracer.countCheckRegion++;
 
