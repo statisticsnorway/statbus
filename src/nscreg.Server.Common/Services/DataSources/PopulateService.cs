@@ -130,14 +130,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 resultUnit.UserId = _userId;
 
-                Debug.WriteLine($@"GetBase {(double)PopulateTracer.swGetBase.ElapsedMilliseconds / PopulateTracer.countGetBase} ms
-  FirstOrDefault {(double)PopulateTracer.swFirstOrDefaultFromDB.ElapsedMilliseconds / PopulateTracer.countFirstOrDefaultFromDB} ms
-  CreateByType {(double)PopulateTracer.swCreateByType.ElapsedMilliseconds / PopulateTracer.countCreateByType} ms
-  SourceKeyCheck {(double)PopulateTracer.swSourceKeyCheck.ElapsedMilliseconds / PopulateTracer.countSourceKeyCheck} ms
-Hunit {(double)PopulateTracer.swHunit.ElapsedMilliseconds / PopulateTracer.countHunit} ms
-Parse {(double)PopulateTracer.swParse.ElapsedMilliseconds / PopulateTracer.countParse} ms
-Post {(double)PopulateTracer.swPostProcessor.ElapsedMilliseconds / PopulateTracer.countPostProcessor} ms
-CheckRegion {(double)PopulateTracer.swCheckRegion.ElapsedMilliseconds / PopulateTracer.countCheckRegion} ms
+                Debug.WriteLine($@"GetBase {(double)PopulateTracer.swGetBase.ElapsedMilliseconds / PopulateTracer.countGetBase : 0.00} ms
+  FirstOrDefault {(double)PopulateTracer.swFirstOrDefaultFromDB.ElapsedMilliseconds / PopulateTracer.countFirstOrDefaultFromDB : 0.00} ms
+  CreateByType {(double)PopulateTracer.swCreateByType.ElapsedMilliseconds / PopulateTracer.countCreateByType : 0.00} ms
+  SourceKeyCheck {(double)PopulateTracer.swSourceKeyCheck.ElapsedMilliseconds / PopulateTracer.countSourceKeyCheck : 0.00} ms
+Hunit {(double)PopulateTracer.swHunit.ElapsedMilliseconds / PopulateTracer.countHunit : 0.00} ms
+Parse {(double)PopulateTracer.swParse.ElapsedMilliseconds / PopulateTracer.countParse : 0.00} ms
+Post {(double)PopulateTracer.swPostProcessor.ElapsedMilliseconds / PopulateTracer.countPostProcessor : 0.00} ms
+CheckRegion {(double)PopulateTracer.swCheckRegion.ElapsedMilliseconds / PopulateTracer.countCheckRegion : 0.00} ms
 
 ");
 
