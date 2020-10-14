@@ -23,13 +23,10 @@ namespace nscreg.Server.Common.Services.DataSources
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
         public ElasticService ElasticSearchService { get; }
-        private readonly int MaxBulkOperationsBufferedCount;
-        private static int Count = 550;
+        private readonly int _maxBulkOperationsBufferedCount = 1000;
         public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions)
         {
             
-            MaxBulkOperationsBufferedCount = Count;
-            Count+= 400;
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
@@ -51,7 +48,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task AddToBufferAsync(StatisticalUnit element)
         {
             Buffer.Add(element);
-            if (Buffer.Count >= MaxBulkOperationsBufferedCount && _isEnabledFlush)
+            if (Buffer.Count >= _maxBulkOperationsBufferedCount && _isEnabledFlush)
             {
                 await FlushAsync();
             }
