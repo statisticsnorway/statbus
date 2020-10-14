@@ -213,6 +213,7 @@ namespace nscreg.Server.DataUploadSvc
             await context.LegalForms.LoadAsync();
             await context.ForeignParticipations.LoadAsync();
             await context.Countries.LoadAsync();
+            await context.UserRegions.LoadAsync();
         }
     }
 }

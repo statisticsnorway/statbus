@@ -52,8 +52,6 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly StatUnitCheckPermissionsHelper _permissionsHelper;
         private readonly DataAccessPermissions _permissions;
 
-        private bool UserIsAdmin { get; }
-
         public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, StatUnitTypes unitType, NSCRegDbContext context, string userId, DataAccessPermissions permissions)
         {
             _permissions = permissions;
@@ -65,9 +63,6 @@ namespace nscreg.Server.Common.Services.DataSources
             _unitType = unitType;
             _allowedOperation = operation;
             _postProcessor = new StatUnitPostProcessor(context);
-
-            var userService = new UserService(context);
-            UserIsAdmin = userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
         }
 
         /// <summary>
@@ -122,9 +117,9 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 PopulateTracer.swCheckRegion.Start();
 
-                if (!UserIsAdmin)
+                if (isAdmin)
                     _permissionsHelper.CheckRegionOrActivityContains(_userId, resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId,
-                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), isAdmin);
+                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), true);
                 PopulateTracer.swCheckRegion.Stop();
                 PopulateTracer.countCheckRegion++;
 
