@@ -101,7 +101,7 @@ namespace nscreg.Business.DataSources
                     else throw BadValueFor<Person>(propPath, value);
                     break;
 
-                case "NationalityCode":
+                case nameof(Person.NationalityCode):
                     if (result.NationalityCode == null)
                     {
                         result.NationalityCode = ParseCountry(propPath.Split('.',2)[1], value, result.NationalityCode);
