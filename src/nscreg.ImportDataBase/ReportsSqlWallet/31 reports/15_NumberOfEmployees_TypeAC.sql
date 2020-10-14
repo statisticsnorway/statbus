@@ -173,33 +173,16 @@ FROM dbo.ActivityCategories as ac
 WHERE ac.ActivityCategoryLevel = 2
 
 
-DECLARE @cols NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0) AS ' + QUOTENAME(Name)
-        /* If there no Country level in your Regions table, below "WHERE" condition from:
-            WHERE RegionLevel = 2
-            Must be:
-            WHERE RegionLevel = 1
-        */
-        FROM dbo.Regions  WHERE RegionLevel = 2
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,1,''),
+DECLARE @cols NVARCHAR(MAX) = dbo.GetOblastColumnNamesWithNullCheck(),
 
     /* COLUMN - Total value by whole country */
-    @total NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(' + QUOTENAME(Name) + ', 0)'
-				/* If there no Country level in your Regions table, below "WHERE" condition from:
-            WHERE RegionLevel IN (1, 2)
-            Must be:
-            WHERE RegionLevel = 1
-        */
-        FROM dbo.Regions  WHERE RegionLevel IN (1, 2)
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,1,'');
+    @total NVARCHAR(MAX) = dbo.CountTotalEmployeesInOblastsAsSql()
 
 
 /*
 Create a query and pivot the regions
 */
+PRINT(@Cols)
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, ' + @cols + ' from
             (
@@ -214,7 +197,7 @@ SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, '
             PIVOT
             (
                 SUM(Employees)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',1) + ')
+                FOR NameOblast IN (' + dbo.GetOblastColumnNames() + ')
             ) PivotTable order by ActivityCategoryId, ActivitySubCategoryName'
 /* execution of the query */
 execute(@query)
