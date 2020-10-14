@@ -124,6 +124,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 }
                 catch (Exception e)
                 {
+                    _bufferService.EnableFlushing();
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
                 Tracer.elastic.Start();
