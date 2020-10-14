@@ -98,12 +98,13 @@ namespace nscreg.Server.Common.Services.DataSources
                     }
 
                     Tracer.address.Start();
-                    const double tolerance = 0.000000001;
                     var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
                     var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
                                                                         x.AddressPart1 == legal.Address.AddressPart1 &&
                                                                         x.AddressPart2 == legal.Address.AddressPart2 &&
-                                                                        x.AddressPart3 == legal.Address.AddressPart3 && legal.Address.Latitude != null && Math.Abs((double)x.Latitude - (double)legal.Address.Latitude) < tolerance && legal.Address.Longitude != null && Math.Abs((double)x.Longitude - (double)legal.Address.Longitude) < tolerance).ToListAsync();
+                                                                        x.AddressPart3 == legal.Address.AddressPart3 &&
+                                                                        x.Latitude == legal.Address.Latitude &&
+                                                                        x.Longitude == legal.Address.Longitude).ToListAsync();
                     Tracer.address.Stop();
                     Debug.WriteLine($"Address {Tracer.address.ElapsedMilliseconds / ++Tracer.countaddress}");
                     if (!addresses.Any())
