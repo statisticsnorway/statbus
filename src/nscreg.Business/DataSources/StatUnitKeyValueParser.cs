@@ -93,8 +93,21 @@ namespace nscreg.Business.DataSources
                 switch (propHead)
                 {
                     case nameof(StatisticalUnit.Activities):
-                        if(!HasAccess<StatisticalUnit>(permissions, v => v.Activities))
-                             throw new Exception("You have no rights to change activities");
+                        bool hasAccess = true;
+                        switch (unit)
+                        {
+                            case  LegalUnit _:
+                                hasAccess = HasAccess<LegalUnit>(permissions, v => v.Activities);
+                                break;
+                            case LocalUnit _:
+                                hasAccess = HasAccess<LocalUnit>(permissions, v => v.Activities);
+                                break;
+                            case EnterpriseUnit _:
+                                hasAccess = HasAccess<EnterpriseUnit>(permissions, v => v.Activities);
+                                break;
+                        }
+                        if (!hasAccess)
+                            throw new Exception("You have no rights to change activities");
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
