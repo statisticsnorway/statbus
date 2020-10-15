@@ -118,8 +118,10 @@ namespace nscreg.Server.Common.Services.DataSources
                 PopulateTracer.swCheckRegion.Start();
 
                 if (!isAdmin)
-                    _permissionsHelper.CheckRegionOrActivityContains(_userId, resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId,
-                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), false);
+                {
+                    var listRegionsIds = new List<int?> { resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId, resultUnit.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
+                    _permissionsHelper.CheckRegionOrActivityContains(_userId, listRegionsIds, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList());
+                }
                 PopulateTracer.swCheckRegion.Stop();
                 PopulateTracer.countCheckRegion++;
 
