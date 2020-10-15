@@ -62,14 +62,17 @@ namespace nscreg.Server.Common.Helpers
             var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
                 .Select(ur => ur.ActivityCategoryId).ToList();
 
-            var exceptIds = activityCategoryIds.Except(activityCategoryUserIds);
+            var exceptIds = activityCategoryIds.Except(activityCategoryUserIds).ToList();
 
-            var activityCategoryNames =
-                        _dbContext.ActivityCategories.Local.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).Where(x => exceptIds.Contains(x.Id)).Select(x => x.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
-
-            if(activityCategoryNames.Any())
+            if (exceptIds.Any())
+            {
+                var activityCategoryNames =
+                    _dbContext.ActivityCategories.Local.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).Where(x => exceptIds.Contains(x.Id)).Select(x => x.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
                 throw new BadRequestException(
-                        $"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({string.Join(',', activityCategoryNames.Distinct())})");
+                    $"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({string.Join(',', activityCategoryNames.Distinct())})");
+
+            }
+               
         }
     }
 }
