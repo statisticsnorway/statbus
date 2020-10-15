@@ -90,7 +90,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     if (data.LocalUnits != null && data.LocalUnits.Any())
                     {
-                        //TODO: Инклуд у базовой сущности
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
 
                         unit.LocalUnits.Clear();

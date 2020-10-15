@@ -45,7 +45,6 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.ActualAddress?.Id == 0)
                     unit.ActualAddress = GetFilledAddress(unit.ActualAddress);
 
-                /// TODO: Maybe it should be placed in <see cref="nscreg.Business.DataSources.StatUnitKeyValueParser.ParseAndMutateStatUnit(IReadOnlyDictionary{string, object}, StatisticalUnit)"/>
                 unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
                     {
                         try

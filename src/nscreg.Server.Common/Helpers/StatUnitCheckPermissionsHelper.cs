@@ -80,7 +80,9 @@ namespace nscreg.Server.Common.Helpers
 
             var activityCategoryNames =
                         _dbContext.ActivityCategories.Local.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).Where(x => exceptIds.Contains(x.Id)).Select(x => x.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
-            throw new BadRequestException(
+
+            if(activityCategoryNames.Any())
+                throw new BadRequestException(
                         $"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({string.Join(',', activityCategoryNames.Distinct())})");
         }
     }

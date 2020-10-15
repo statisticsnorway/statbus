@@ -117,9 +117,9 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 PopulateTracer.swCheckRegion.Start();
 
-                if (isAdmin)
+                if (!isAdmin)
                     _permissionsHelper.CheckRegionOrActivityContains(_userId, resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId,
-                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), true);
+                        resultUnit.PostalAddress?.RegionId, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), false);
                 PopulateTracer.swCheckRegion.Stop();
                 PopulateTracer.countCheckRegion++;
 

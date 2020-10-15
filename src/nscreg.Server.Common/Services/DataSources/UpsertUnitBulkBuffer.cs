@@ -96,11 +96,11 @@ namespace nscreg.Server.Common.Services.DataSources
 
             var legalStatIds = new List<string>();
 
-           // var hasAccess = StatUnit.Common.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits);
+           var hasAccess = StatUnit.Common.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits);
 
             legals.ForEach(changedUnit =>
             {
-                if (changedUnit.LocalUnits != null && changedUnit.LocalUnits.Any() /*&& hasAccess*/)
+                if (changedUnit.LocalUnits != null && changedUnit.LocalUnits.Any() && hasAccess)
                 {
                     changedUnit.HistoryLocalUnitIds = string.Join(",", changedUnit.LocalUnits.Select(x => x.RegId));
                 }

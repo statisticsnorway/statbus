@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using System.Collections.Concurrent;
+using ServiceStack;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -78,6 +79,7 @@ namespace nscreg.Server.DataUploadSvc
             AddScopedServices();
 
             _logger.LogInformation("dequeue attempt...");
+
             var (dequeueError, dequeued) = await Dequeue();
             if (dequeueError.HasValue())
             {
@@ -110,17 +112,16 @@ namespace nscreg.Server.DataUploadSvc
 
             ImportExecutor.InterlockedInt = 0;
 
-            var executors = new List<ImportExecutor>() {
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer),
+            var executors = new List<ImportExecutor> {
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer)
             };
 
             var swParse = new Stopwatch();
-            var parseTask = Task.Run(() => ParseFile(dequeued, tasks, swParse), cancellationToken);
+            var parseTask = Task.Factory.StartNew(async () => await ParseFile(dequeued, tasks, swParse), cancellationToken);
 
             executors.ForEach(x => x.UseTasksQueue(tasks));
             var anyWarnings = false;
-            var tasksArray = executors.Select(x => x.Start(dequeued)).Append(parseTask).ToArray();
+            var tasksArray = executors.Select(x => x.Start(dequeued)).Append(parseTask.Unwrap()).ToArray();
 
             await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
@@ -191,66 +192,67 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private async Task ParseFile(DataSourceQueue queueItem, BlockingCollection<IReadOnlyDictionary<string, object>> tasks, Stopwatch swParseFile)
-        {
-            _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
-            swParseFile.Start();
-            IEnumerable<IReadOnlyDictionary<string, object>> parsed;
-            try
-            {
-                switch (queueItem.DataSourceFileName)
-                {
-                    case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
-                        await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath, queueItem.DataSource.VariablesMappingArray, tasks);
-                        break;
-                    case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
-                        await FileParser.GetRawEntitiesFromCsv(
-                            queueItem.DataSourcePath,
-                            queueItem.DataSource.CsvSkipCount,
-                            queueItem.DataSource.CsvDelimiter,
-                            queueItem.DataSource.VariablesMappingArray, tasks);
-                        break;
-                    default:
-                        //await CompleteParse("Unsupported type of file");
-                        return;
-                }
-            }
-            catch (Exception ex)
-            {
-                //await CompleteParse(ex.Message);
-                return;
-            }
-            finally
-            {
-                swParseFile.Stop();
-                tasks.CompleteAdding();
-            }
+        private async Task ParseFile(DataSourceQueue queueItem,
+            BlockingCollection<IReadOnlyDictionary<string, object>> tasks, Stopwatch swParseFile) =>
+        await Task.Factory.StartNew(async () =>
+             {
+                 _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
+                 swParseFile.Start();
+                 try
+                 {
+                     switch (queueItem.DataSourceFileName)
+                     {
+                         case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
+                             await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath,
+                                 queueItem.DataSource.VariablesMappingArray, tasks);
+                             break;
+                         case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
+                             await FileParser.GetRawEntitiesFromCsv(
+                                 queueItem.DataSourcePath,
+                                 queueItem.DataSource.CsvSkipCount,
+                                 queueItem.DataSource.CsvDelimiter,
+                                 queueItem.DataSource.VariablesMappingArray, tasks);
+                             break;
+                         default:
+                            //await CompleteParse("Unsupported type of file");
+                            return;
+                     }
+                 }
+                 catch (Exception)
+                 {
+                    //await CompleteParse(ex.Message);
+                 }
+                 finally
+                 {
+                     swParseFile.Stop();
+                     tasks.CompleteAdding();
+                 }
 
-            //IReadOnlyDictionary<string, object>[] parsedArr = parsed.ToArray();
+                 //IReadOnlyDictionary<string, object>[] parsedArr = parsed.ToArray();
 
-            //if (parsedArr.Length == 0)
-            //{
-            //    await CompleteParse(Resource.UploadFileEmpty);
-            //    return;
-            //}
+                 //if (parsedArr.Length == 0)
+                 //{
+                 //    await CompleteParse(Resource.UploadFileEmpty);
+                 //    return;
+                 //}
 
-            //if (parsedArr.Any(x => x.Count == 0))
-            //{
-            //    await CompleteParse(Resource.FileHasEmptyUnit);
-            //    return;
-            //}
+                 //if (parsedArr.Any(x => x.Count == 0))
+                 //{
+                 //    await CompleteParse(Resource.FileHasEmptyUnit);
+                 //    return;
+                 //}
 
-            //async Task CompleteParse(string parseError)
-            //{
-            //    swParseFile.Stop();
-            //    if (parseError.HasValue())
-            //    {
-            //        _logger.LogInformation("finish queue item with error: {0}", parseError);
-            //        await _queueSvc.FinishQueueItem(queueItem, QueueStatus.DataLoadFailed, parseError);
-            //        return;
-            //    }
-            //}
-        }
+                 //async Task CompleteParse(string parseError)
+                 //{
+                 //    swParseFile.Stop();
+                 //    if (parseError.HasValue())
+                 //    {
+                 //        _logger.LogInformation("finish queue item with error: {0}", parseError);
+                 //        await _queueSvc.FinishQueueItem(queueItem, QueueStatus.DataLoadFailed, parseError);
+                 //        return;
+                 //    }
+                 //}
+            }, TaskCreationOptions.LongRunning);
 
         private (string, (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
