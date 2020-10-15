@@ -318,8 +318,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
 
-                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null)
-                        .ToDictionary(su => su.EnterpriseGroupId);
+                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null).GroupBy(x => x.EnterpriseGroupId)
+                        .ToDictionary(su => su.Key, su => su.First());
 
                     foreach (var unitM in statUnitsList)
                     {

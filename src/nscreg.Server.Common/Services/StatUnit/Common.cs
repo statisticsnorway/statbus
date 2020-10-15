@@ -470,13 +470,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 throw new BadRequestException(nameof(Resource.DataAccessConflict));
             }
-
             if (data != null)
             {
-                data.DataAccess = userDataAccess;
-                return dataAccess;
+                data.DataAccess = dataAccess;
             }
-            return userDataAccess;
+            return dataAccess;
         }
 
         /// <summary>
