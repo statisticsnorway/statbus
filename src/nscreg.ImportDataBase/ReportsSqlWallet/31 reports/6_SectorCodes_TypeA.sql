@@ -12,23 +12,17 @@ END
 
 /* Declare variables */
 DECLARE @cols AS NVARCHAR(MAX),
+    @colsWithNullCheck AS NVARCHAR(MAX),
 		@query  AS NVARCHAR(MAX),
 		@totalSumCols AS NVARCHAR(MAX),
 		@regionLevel AS NVARCHAR(MAX)
 
 /* Column - REGIONS, COUNTRY LEVEL */
-SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @cols = dbo.GetOblastColumnNames();
+SET @colsWithNullCheck = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* Column - Total count of statistical units by whole country */
-SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @totalSumCols = dbo.CountTotalEmployeesInOblastsAsSql();
 
 /* Set @regionLevel = 1 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 2
@@ -130,7 +124,7 @@ ResultTableCTE2 AS
 			AND ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
 )
 
-SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from
+SELECT Name, ' + @totalSumCols + ' as Total, ' + @colsWithNullCheck + ' from
            (
 				SELECT
 					sc.Name,
