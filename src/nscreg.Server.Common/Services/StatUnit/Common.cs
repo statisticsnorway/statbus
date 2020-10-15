@@ -474,8 +474,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (data != null)
             {
                 data.DataAccess = userDataAccess;
+                return dataAccess;
             }
-            return dataAccess;
+            return userDataAccess;
         }
 
         /// <summary>
