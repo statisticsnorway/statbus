@@ -283,17 +283,20 @@ namespace nscreg.Business.DataSources
                 newPerson => newPerson.PersonTypeId, (newPerson, dbPersons) => (newPerson: newPerson, dbPersons: dbPersons))
                 .ForEach(x =>
                 {
-                    if(x.dbPersons.Any())
+                    if (x.dbPersons.Any())
                         x.dbPersons.ForEach(z =>
                         {
-                            z.Person.MiddleName = x.newPerson.Person.MiddleName;
-                            z.Person.GivenName = x.newPerson.Person.GivenName;
-                            z.Person.Sex = x.newPerson.Person.Sex;
-                            z.Person.Role = x.newPerson.Person.Role;
-                            z.Person.NationalityCode = x.newPerson.Person.NationalityCode;
-                            z.Person.PersonalId = x.newPerson.Person.PersonalId;
-                            z.Person.BirthDate = x.newPerson.Person.BirthDate;
-                            z.Person.PhoneNumber = x.newPerson.Person.PhoneNumber;
+                            z.Person = new Person()
+                            {
+                                MiddleName = x.newPerson.Person.MiddleName,
+                                GivenName = x.newPerson.Person.GivenName,
+                                Sex = x.newPerson.Person.Sex,
+                                Role = x.newPerson.Person.Role,
+                                NationalityCode = x.newPerson.Person.NationalityCode,
+                                PersonalId = x.newPerson.Person.PersonalId,
+                                BirthDate = x.newPerson.Person.BirthDate,
+                                PhoneNumber = x.newPerson.Person.PhoneNumber
+                            };
                         });
                     else
                     {
