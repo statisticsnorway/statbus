@@ -8,8 +8,13 @@ using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Data;
 using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Server.Common;
+using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Server.Common.Services;
 using Xunit;
 using Xunit.Abstractions;
 using Activity = nscreg.Data.Entities.Activity;
@@ -20,7 +25,10 @@ namespace nscreg.Business.Test.DataSources
     {
         public PopulateServiceTest(ITestOutputHelper helper) : base(helper)
         {
-
+            Mapper.Initialize(cfg =>
+            {
+                cfg.AddProfile<AutoMapperProfile>();
+            });
         }
         private (string, string)[] GetArrayMappingByString(string mapping)
         {
@@ -41,7 +49,6 @@ namespace nscreg.Business.Test.DataSources
             var personTypes = new List<PersonType>(){new PersonType() { Name = "DIRECTOR", Id = 0 }, new PersonType(){ Name = "Owner", Id = 0 }, new PersonType{Name ="TEST",Id = 0} };
             DatabaseContext.PersonTypes.AddRange(personTypes);
             await DatabaseContext.SaveChangesAsync();
-
             await DatabaseContext.PersonTypes.LoadAsync();
             var dbunit = new LegalUnit
             {
@@ -119,7 +126,13 @@ namespace nscreg.Business.Test.DataSources
             };
             DatabaseContext.StatisticalUnits.Add(dbunit);
             await DatabaseContext.SaveChangesAsync();
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Alter, StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
+            string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
+            Initialize(DatabaseContext, userId);
+            var userService = new UserService(DatabaseContext);
+            var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings),
+                DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
+                DatabaseContext, userId, dataAccess);
 
             var raw = new Dictionary<string, object>()
                 {
@@ -249,8 +262,13 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
-
-            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create,  StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
+            string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
+            Initialize(DatabaseContext, userId);
+            var userService = new UserService(DatabaseContext);
+            var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings),
+                DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
+                DatabaseContext, userId, dataAccess);
             var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
 
             popUnit.Should().BeEquivalentTo(unit);
@@ -355,7 +373,6 @@ namespace nscreg.Business.Test.DataSources
             };
             DatabaseContext.StatisticalUnits.Add(dbUnit);
             await DatabaseContext.SaveChangesAsync();
-
             var resultUnit = new LegalUnit()
             {
                 RegId = 1,
@@ -409,16 +426,79 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
-
+            string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
+            Initialize(DatabaseContext, userId);
+           
+            var userService = new UserService(DatabaseContext);
+            var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
                 DataSourceAllowedOperation.CreateAndAlter,StatUnitTypes.LegalUnit,
-                DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
+                DatabaseContext, userId, dataAccess);
             var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
-
             popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
-                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id));
+                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy));
         }
 
+        private void Initialize(NSCRegDbContext context, string userId)
+        {
+            var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator);
+            var daa = DataAccessAttributesProvider.Attributes.Select(v => v.Name).ToArray();
+            if (role == null)
+            {
+                role = new Role
+                {
+                    Name = DefaultRoleNames.Administrator,
+                    Status = RoleStatuses.Active,
+                    Description = "System administrator role",
+                    NormalizedName = DefaultRoleNames.Administrator.ToUpper(),
+                    AccessToSystemFunctionsArray =
+                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
+                    StandardDataAccessArray = new DataAccessPermissions(daa
+                            .Select(x => new Permission(x, true, true)))
+                };
+                context.Roles.Add(role);
+            }
+
+            context.Roles.Add(new Role()
+            {
+                Name = DefaultRoleNames.Employee,
+                Status = RoleStatuses.Active,
+                Description = "Employee",
+                NormalizedName = DefaultRoleNames.Employee.ToUpper(),
+                AccessToSystemFunctionsArray = ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
+                StandardDataAccessArray = null
+            });
+            var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == role.Id);
+            if (anyAdminHere) return;
+            var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
+            if (sysAdminUser == null)
+            {
+                sysAdminUser = new User
+                {
+                    Id = userId,
+                    Login = "admin",
+                    PasswordHash =
+                        "AQAAAAEAACcQAAAAEF+cTdTv1Vbr9+QFQGMo6E6S5aGfoFkBnsrGZ4kK6HIhI+A9bYDLh24nKY8UL3XEmQ==",
+                    SecurityStamp = "9479325a-6e63-494a-ae24-b27be29be015",
+                    Name = "Admin user",
+                    PhoneNumber = "555123456",
+                    Email = "admin@email.xyz",
+                    NormalizedEmail = "admin@email.xyz".ToUpper(),
+                    Status = UserStatuses.Active,
+                    Description = "System administrator account",
+                    NormalizedUserName = "admin".ToUpper(),
+                    DataAccessArray = daa
+                };
+                context.Users.Add(sysAdminUser);
+            }
+            var adminUserRoleBinding = new UserRole
+            {
+                RoleId = role.Id,
+                UserId = sysAdminUser.Id
+            };
+            context.UserRoles.Add(adminUserRoleBinding);
+            context.SaveChanges();
+        }
     }
 }
