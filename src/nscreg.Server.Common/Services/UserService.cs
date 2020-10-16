@@ -297,8 +297,9 @@ namespace nscreg.Server.Common.Services
         /// <returns> </returns>
         public async Task RelateUserActivityCategoriesAsync(User user, IUserSubmit data)
         {
+            var activityCategories = await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).ToListAsync();
             var oldActivityCategoryUsersIds =
-                await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).Select(x => x.ActivityCategoryId).Distinct().ToListAsync();
+                activityCategories.Select(x => x.ActivityCategoryId).Distinct().ToList();
             
             var checkForChange = oldActivityCategoryUsersIds.Intersect(data.ActiviyCategoryIds).Count() ==
                             oldActivityCategoryUsersIds.Count;
@@ -323,10 +324,10 @@ namespace nscreg.Server.Common.Services
                 var allActivityCategories = await _context.ActivityCategories.ToListAsync();
                 var newHierarchy = new HashSet<int>(GetFullHierarchy(data.ActiviyCategoryIds.ToList(), allActivityCategories));
 
-                var itemIdsToDelete = oldActivityCategoryUsersIds.Where(x => !newHierarchy.Contains(x)).ToList();
+                var itemIdsToDelete = activityCategories.Where(x => !newHierarchy.Contains(x.ActivityCategoryId)).ToList();
                 if (itemIdsToDelete.Any())
                 {
-                    await _context.Database.ExecuteSqlCommandAsync($"DELETE FROM ActivityCategoryUsers WHERE ActivityCategory_Id IN (" + string.Join(",", itemIdsToDelete) + ")");
+                    _context.RemoveRange(itemIdsToDelete);
                 }
 
                 var itemsToAdd = newHierarchy.Except(oldActivityCategoryUsersIds).Distinct().ToList();

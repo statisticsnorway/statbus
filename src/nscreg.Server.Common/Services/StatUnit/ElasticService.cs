@@ -17,7 +17,7 @@ using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
-    public class ElasticService
+    public class ElasticService : IElasticUpsertService
     {
         public static string ServiceAddress { get; set; }
         public static string StatUnitSearchIndexName { get; set; }
@@ -51,10 +51,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     int dbCount = await baseQuery.CountAsync();
                     var elasticsCount =
                         await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
-
-                    //Tests do not pass trying to access the ElasticSearch (localhost:9200)
-                    //if (!elasticsCount.IsValid)
-                    //    throw new Exception(elasticsCount.DebugInformation);
 
                     if (dbCount == elasticsCount.Count)
                     {
@@ -117,7 +113,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!updateResult.IsValid)
                     throw new Exception(updateResult.DebugInformation);
             }
-            catch (Exception)
+            catch
             {
                 await Synchronize();
             }
@@ -141,7 +137,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     throw new Exception(deleteResponse.DebugInformation);
                 }
             }
-            catch (Exception)
+            catch
             {
                 await Synchronize();
             }
@@ -155,7 +151,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!insertResult.IsValid)
                     throw new Exception(insertResult.DebugInformation);
             }
-            catch (Exception)
+            catch
             {
                 await Synchronize();
             }
@@ -346,14 +342,19 @@ namespace nscreg.Server.Common.Services.StatUnit
                 throw new NotFoundException(nameof(Resource.ElasticSearchIsDisable));
             }
         }
-        public async Task DeleteCache()
+
+        public async Task UpsertDocumentList(List<ElasticStatUnit> elasticItems)
         {
-            await CheckElasticSearchConnection();
-            var deleted = await _elasticClient.ClearCacheAsync(StatUnitSearchIndexName);
-            if (!deleted.IsValid)
+            var bulkDescriptorBuffer = new BulkDescriptor();
+            foreach (var item in elasticItems)
             {
-                throw new NotFoundException(nameof(Resource.ElasticsearchCacheNotFound));
+                bulkDescriptorBuffer.Update<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Id(item.Id).Doc(item).DocAsUpsert());
             }
+
+            var result = await _elasticClient.BulkAsync(bulkDescriptorBuffer);
+
+            if (!result.IsValid)
+                throw new Exception(result.DebugInformation);
         }
     }
 }

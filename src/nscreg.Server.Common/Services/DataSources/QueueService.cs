@@ -19,16 +19,6 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private readonly Dictionary<StatUnitTypes, IQueryable<StatisticalUnit>> _getStatUnitSet;
 
-        private static readonly Dictionary<StatUnitTypes, Func<StatisticalUnit>> CreateByType
-            = new Dictionary<StatUnitTypes, Func<StatisticalUnit>>
-            {
-                [StatUnitTypes.LocalUnit] = () => new LocalUnit(),
-                [StatUnitTypes.LegalUnit] = () => new LegalUnit(),
-                [StatUnitTypes.EnterpriseUnit] = () => new EnterpriseUnit(),
-            };
-
-        private readonly StatUnitPostProcessor _postProcessor;
-
         public QueueService(NSCRegDbContext ctx)
         {
             _ctx = ctx;
@@ -65,17 +55,16 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Country)
                     .AsNoTracking(),
             };
-            _postProcessor = new StatUnitPostProcessor(ctx);
         }
 
         public async Task<DataSourceQueue> Dequeue()
         {
             var queueItem = await _ctx.DataSourceQueues
                 .Include(item => item.DataSource)
-                .Include(item => item.DataUploadingLogs)
                 .FirstOrDefaultAsync(item => item.Status == DataSourceQueueStatuses.InQueue);
 
-            if (queueItem == null) return null;
+            if (queueItem == null)
+                return null;
 
             queueItem.StartImportDate = DateTime.Now;
             queueItem.Status = DataSourceQueueStatuses.Loading;

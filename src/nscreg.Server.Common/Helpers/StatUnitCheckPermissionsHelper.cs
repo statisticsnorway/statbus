@@ -17,25 +17,13 @@ namespace nscreg.Server.Common.Helpers
     public partial class StatUnitCheckPermissionsHelper
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly UserService _userService;
-
         public StatUnitCheckPermissionsHelper(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
-            _userService = new UserService(dbContext);
-        }
-
-        public void CheckRegionOrActivityContains(string userId, int? regionId, int? actualRegionId, int? postalRegionId, List<int> activityCategoryList)
-        {
-            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
-            var regionIds = new List<int?> { regionId, actualRegionId, postalRegionId }.Where(x => x != null).Select(x => (int) x).ToList();
-            CheckIfRegionContains(userId, regionIds);
-            CheckIfActivityContains(userId, activityCategoryList);
         }
 
         public void CheckRegionOrActivityContains(string userId, List<int> regionIds, List<int> activityCategoryList)
         {
-            if (_userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result) return;
             CheckIfRegionContains(userId, regionIds);
             CheckIfActivityContains(userId, activityCategoryList);
         }
@@ -54,15 +42,16 @@ namespace nscreg.Server.Common.Helpers
 
         public void CheckIfRegionContains(string userId, List<int> regionIds)
         {
-            var userRegionIds = _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToList();
+            var listRegions = _dbContext.UserRegions.Local
+                .Where(au => au.UserId == userId)
+                .Select(ur => ur.RegionId)
+                .ToList();
 
-            if (userRegionIds.Count == 0)
-                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsRegion));
+            var exceptIds = regionIds.Except(listRegions).ToList();
 
-            var listRegions = regionIds.Where(x => !userRegionIds.Contains(x)).ToList();
-            if (listRegions.Count > 0)
+            if (exceptIds.Any())
             {
-                var regionNames = _dbContext.Regions.Where(x => listRegions.Contains(x.Id))
+                var regionNames = _dbContext.Regions.Local.Where(x => exceptIds.Contains(x.Id))
                     .Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2 }.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
                 throw new BadRequestException($"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsRegion))} ({string.Join(",", regionNames.Distinct())})");
             }
@@ -73,20 +62,17 @@ namespace nscreg.Server.Common.Helpers
             var activityCategoryUserIds = _dbContext.ActivityCategoryUsers.Where(au => au.UserId == userId)
                 .Select(ur => ur.ActivityCategoryId).ToList();
 
-            if (activityCategoryUserIds.Count == 0)
-                throw new BadRequestException(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory));
+            var exceptIds = activityCategoryIds.Except(activityCategoryUserIds).ToList();
 
-            foreach (var activityCategoryId in activityCategoryIds)
+            if (exceptIds.Any())
             {
-                if (!activityCategoryUserIds.Contains(activityCategoryId))
-                {
-                    var activityCategoryNames =
-                        _dbContext.ActivityCategories.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).FirstOrDefault(x => x.Id == activityCategoryId);
+                var activityCategoryNames =
+                    _dbContext.ActivityCategories.Local.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).Where(x => exceptIds.Contains(x.Id)).Select(x => x.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
+                throw new BadRequestException(
+                    $"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({string.Join(',', activityCategoryNames.Distinct())})");
 
-                    var langName = activityCategoryNames.GetString(CultureInfo.DefaultThreadCurrentCulture);
-                    throw new BadRequestException($"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsActivityCategory))} ({langName})");
-                }
             }
+               
         }
     }
 }

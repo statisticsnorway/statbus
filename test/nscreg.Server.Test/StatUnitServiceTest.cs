@@ -371,9 +371,10 @@ namespace nscreg.Server.Test
                     var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName, statId);
 
                     await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
-                    Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName &&
-                                                                            x.Address.AddressPart1 ==
-                                                                            address.AddressPart1 && !x.IsDeleted));
+                    var unit = context.LocalUnits.Local.FirstOrDefault(x => x.Name == unitName &&
+                                                                      x.Address.AddressPart1 ==
+                                                                      address.AddressPart1 && !x.IsDeleted);
+                    Assert.IsType<LocalUnit>(unit);
 
                     await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
                     Assert.Single(activities);
@@ -594,7 +595,7 @@ namespace nscreg.Server.Test
                 });
                 context.SaveChanges();
 
-                var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
+                var unitId = context.LegalUnits.First(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
                 var legalEditResult = await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditLegalUnit(
                     new LegalUnitEditM
@@ -669,14 +670,14 @@ namespace nscreg.Server.Test
                     await _helper.CreateLegalUnitAsync(context, activities, null, unitName, statId);
                     await _helper.CreateLegalUnitAsync(context, activities, null, duplicateName, statId);
 
-                    var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
+                    var unitId = context.LegalUnits.First(x => x.Name == unitName).RegId;
 
                     await _helper.EditLegalUnitAsync(context, activities, unitId, unitNameEdit);
 
                     Assert.IsType<LegalUnit>(
-                        context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                        context.LegalUnits.First(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                     Assert.IsType<LegalUnitHistory>(
-                        context.LegalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
+                        context.LegalUnitHistory.First(x => x.ParentId == unitId && x.Name == unitName));
 
                     Type actual = null;
                     try
@@ -686,8 +687,9 @@ namespace nscreg.Server.Test
                     catch (Exception e)
                     {
                         actual = e.GetType();
+                        Assert.Equal(typeof(BadRequestException), actual);
                     }
-                    Assert.Equal(typeof(BadRequestException), actual);
+                  
                 }
             }
             catch (Exception e)
@@ -716,14 +718,14 @@ namespace nscreg.Server.Test
                     await _helper.CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
                     await _helper.CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
 
-                    var unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
+                    var unitId = context.LocalUnits.First(x => x.Name == unitName).RegId;
 
                     await _helper.EditLocalUnitAsync(context, activities, unitId, unitNameEdit, legalUnit.RegId);
 
                     Assert.IsType<LocalUnit>(
-                        context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                        context.LocalUnits.First(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                     Assert.IsType<LocalUnitHistory>(
-                        context.LocalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
+                        context.LocalUnitHistory.First(x => x.ParentId == unitId && x.Name == unitName));
 
                     Type actual = null;
                     try
@@ -733,8 +735,8 @@ namespace nscreg.Server.Test
                     catch (Exception e)
                     {
                         actual = e.GetType();
+                        Assert.Equal(typeof(BadRequestException), actual);
                     }
-                    Assert.Equal(typeof(BadRequestException), actual);
                 }
             }
             catch (Exception e)
@@ -781,8 +783,10 @@ namespace nscreg.Server.Test
                     Assert.IsType<EnterpriseUnitHistory>(
                         context.EnterpriseUnitHistory.Single(
                             x => x.ParentId == editUnitId && x.Name == unitName));
+                    var entLegalsUnits = context.EnterpriseUnits.First(x => x.Name == unitNameEdit).LegalUnits;
+
                     Assert.Equal(1,
-                        context.EnterpriseUnits.Single(x => x.Name == unitNameEdit).LegalUnits.Count);
+                        entLegalsUnits.Count);
 
                     Type actual = null;
                     try
@@ -793,8 +797,9 @@ namespace nscreg.Server.Test
                     catch (Exception e)
                     {
                         actual = e.GetType();
+                        Assert.Equal(typeof(BadRequestException), actual);
                     }
-                    Assert.Equal(typeof(BadRequestException), actual);
+                   
                 }
             }
             catch (Exception e)
@@ -836,16 +841,16 @@ namespace nscreg.Server.Test
                     await _helper.CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds,
                         legalUnitsIds);
 
-                    var unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
+                    var unitId = context.EnterpriseGroups.First(x => x.Name == unitName).RegId;
 
                     await _helper.EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds,
                         legalUnitsIds);
 
                     Assert.IsType<EnterpriseGroup>(
-                        context.EnterpriseGroups.Single(
+                        context.EnterpriseGroups.FirstOrDefault(
                             x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                     Assert.IsType<EnterpriseGroupHistory>(
-                        context.EnterpriseGroupHistory.Single(
+                        context.EnterpriseGroupHistory.FirstOrDefault(
                             x => x.ParentId == unitId && x.Name == unitName));
 
                     Type actual = null;
@@ -857,8 +862,9 @@ namespace nscreg.Server.Test
                     catch (Exception e)
                     {
                         actual = e.GetType();
+                        Assert.Equal(typeof(BadRequestException), actual);
                     }
-                    Assert.Equal(typeof(BadRequestException), actual);
+                    
                 }
             }
             catch (Exception e)

@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -17,16 +16,21 @@ namespace nscreg.Server.Common.Services.DataSources
                 case StatUnitTypes.LocalUnit:
                     return context.LocalUnits
                         .IncludeGeneralProps()
+                        .Include(x => x.LegalUnit)
                         .AsNoTracking();
 
                 case StatUnitTypes.LegalUnit:
                     return context.LegalUnits
                         .IncludeGeneralProps()
+                        .Include(x => x.LocalUnits)
+                        .Include(x => x.EnterpriseUnit)
                         .AsNoTracking();
 
                 case StatUnitTypes.EnterpriseUnit:
                     return context.EnterpriseUnits
                         .IncludeGeneralProps()
+                        .Include(x => x.LegalUnits)
+                        .Include(x => x.EnterpriseGroup)
                         .AsNoTracking();
                 default:
                     throw new InvalidOperationException("Unit type is not supported");
@@ -44,6 +48,8 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Region)
                 .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                .Include(x => x.PersonsUnits)
+                    .ThenInclude(x => x.EnterpriseGroup)
                 .Include(x => x.ActivitiesUnits)
                     .ThenInclude(x => x.Activity)
                         .ThenInclude(x=>x.ActivityCategory)
