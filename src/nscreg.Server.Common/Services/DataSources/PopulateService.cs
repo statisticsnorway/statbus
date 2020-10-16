@@ -70,8 +70,9 @@ namespace nscreg.Server.Common.Services.DataSources
         /// </summary>
         /// <param name="raw">Parsed  data of a unit</param>
         /// <param name="isAdmin"></param>
+        /// <param name="personsGoodQuality"></param>
         /// <returns></returns>
-        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin)
+        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin, bool personsGoodQuality = true)
         {
             try
             {
@@ -106,7 +107,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 PopulateTracer.countHunit++;
 
                 PopulateTracer.swParse.Start();
-                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context, _userId, _permissions);
+                StatUnitKeyValueParser.ParseAndMutateStatUnit(raw, resultUnit, _context, _userId, _permissions, personsGoodQuality);
                 PopulateTracer.swParse.Stop();
                 PopulateTracer.countParse++;
 

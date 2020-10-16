@@ -24,7 +24,7 @@ namespace nscreg.Business.DataSources
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
-            StatisticalUnit unit, NSCRegDbContext context, string userId, DataAccessPermissions permissions)
+            StatisticalUnit unit, NSCRegDbContext context, string userId, DataAccessPermissions permissions, bool personsGooQuality)
         {
             foreach (var kv in nextProps)
             {
@@ -119,7 +119,7 @@ namespace nscreg.Business.DataSources
                         var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
                         unit.PersonsUnits?.ForEach(x => x.Person.Role = x.PersonTypeId);
                         if (valueArr != null)
-                            UpdatePersons(persons, valueArr, mappingsArr, context);
+                            UpdatePersons(persons, valueArr, mappingsArr, context, personsGooQuality);
                         propValue = persons;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
@@ -288,15 +288,16 @@ namespace nscreg.Business.DataSources
 
         private static void UpdatePersons(ICollection<PersonStatisticalUnit> personsDb,
             List<KeyValuePair<string, Dictionary<string, string>>> importPersons,
-            Dictionary<string, string[]> mappingsArr, NSCRegDbContext context)
+            Dictionary<string, string[]> mappingsArr, NSCRegDbContext context, bool personsGoodQuality)
         {
-            var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() {Person = newPerson, PersonTypeId = newPerson.Role}).ToList();
+            var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() { Person = newPerson, PersonTypeId = newPerson.Role }).ToList();
+            if (personsGoodQuality)
+            {
+                var personsWithPersonalId = newPersonStatUnits.Where(x => x.Person.PersonalId != null).ToList();
 
-            var personsWithPersonalId = newPersonStatUnits.Where(x => x.Person.PersonalId != null).ToList();
+                var personsForRemove = new List<PersonStatisticalUnit>();
 
-            var personsForRemove = new List<PersonStatisticalUnit>();
-
-            personsWithPersonalId.GroupJoin(personsDb, person => person.Person.PersonalId, dbPerson => dbPerson.Person.PersonalId, ((person, dbPersons) => (person: person, dbPersons: dbPersons))).ForEach(x =>
+                personsWithPersonalId.GroupJoin(personsDb, person => person.Person.PersonalId, dbPerson => dbPerson.Person.PersonalId, ((person, dbPersons) => (person: person, dbPersons: dbPersons))).ForEach(x =>
                 {
                     if (!x.dbPersons.Any())
                     {
@@ -310,32 +311,36 @@ namespace nscreg.Business.DataSources
                     personsForRemove.Add(x.person);
                 });
 
-            RemoveInNewPersonsAndClearDeleted(newPersonStatUnits, personsForRemove);
-            
-            var personsWithBirthAndName = newPersonStatUnits.Where(x =>
-                x.Person.BirthDate != null && x.Person.GivenName != null && x.Person.Surname != null).ToList();
+                RemoveInNewPersonsAndClearDeleted(newPersonStatUnits, personsForRemove);
 
-            var personsForAdd = new List<PersonStatisticalUnit>();
-            personsWithBirthAndName.GroupJoin(personsDb, item => (item.Person.BirthDate, item.Person.GivenName, item.Person.Surname), dbItem => (dbItem.Person.BirthDate, dbItem.Person.GivenName, dbItem.Person.Surname), (person, dbPersons) => (person: person, dbPersons: dbPersons)).ForEach(
-                x =>
-                {
-                    if (!x.dbPersons.Any())
+                var personsWithBirthAndName = newPersonStatUnits.Where(x =>
+                    x.Person.BirthDate != null && x.Person.GivenName != null && x.Person.Surname != null).ToList();
+
+                var personsForAdd = new List<PersonStatisticalUnit>();
+                personsWithBirthAndName.GroupJoin(personsDb, item => (item.Person.BirthDate, item.Person.GivenName, item.Person.Surname), dbItem => (dbItem.Person.BirthDate, dbItem.Person.GivenName, dbItem.Person.Surname), (person, dbPersons) => (person: person, dbPersons: dbPersons)).ForEach(
+                    x =>
                     {
-                        personsForAdd.Add(x.person);
-                    }
-                    x.dbPersons.ForEach(item =>
-                    {
-                        item.PersonTypeId = x.person.PersonTypeId;
-                        MapPerson(item.Person, x.person.Person);
+                        if (!x.dbPersons.Any())
+                        {
+                            personsForAdd.Add(x.person);
+                        }
+                        x.dbPersons.ForEach(item =>
+                        {
+                            item.PersonTypeId = x.person.PersonTypeId;
+                            MapPerson(item.Person, x.person.Person);
+                        });
+                        personsForRemove.Add(x.person);
                     });
-                    personsForRemove.Add(x.person);
-                });
 
-            personsDb.AddRange(personsForAdd);
+                personsDb.AddRange(personsForAdd);
 
-            RemoveInNewPersonsAndClearDeleted(newPersonStatUnits, personsForRemove);
+                RemoveInNewPersonsAndClearDeleted(newPersonStatUnits, personsForRemove);
+
+                personsDb.AddRange(newPersonStatUnits);
+            }
 
             personsDb.AddRange(newPersonStatUnits);
+            
 
         }
 

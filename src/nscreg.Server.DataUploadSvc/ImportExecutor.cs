@@ -37,7 +37,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
-
+        private readonly bool _personsGoodQuality;
         private AnalyzeService _analysisSvc;
 
         BlockingCollection<IReadOnlyDictionary<string, object>> _tasksQueue;
@@ -55,8 +55,9 @@ namespace nscreg.Server.DataUploadSvc
         public Stopwatch swDbLog = new Stopwatch();
         public long dbLogCount = 0;
 #endif
-        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer)
+        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, bool personsGoodQuality)
         {
+            _personsGoodQuality = personsGoodQuality;
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
@@ -94,7 +95,7 @@ namespace nscreg.Server.DataUploadSvc
 
                     swPopulation.Start();
                     _logger.LogInformation("populating unit");
-                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin);
+                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, _personsGoodQuality);
                     swPopulation.Stop();
                     populationCount += 1;
                     if (populateError.HasValue())

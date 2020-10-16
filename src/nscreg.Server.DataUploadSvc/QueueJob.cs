@@ -46,14 +46,16 @@ namespace nscreg.Server.DataUploadSvc
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
         private NSCRegDbContext _context;
+        private readonly bool _personsGoodQuality;
        
         public QueueJob(
             int dequeueInterval,
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields dbMandatoryFields,
-            ValidationSettings validationSettings, int bufferLogMaxCount)
+            ValidationSettings validationSettings, int bufferLogMaxCount, bool personsGoodQuality)
         {
+            _personsGoodQuality = personsGoodQuality;
             _logger = logger;
             Interval = dequeueInterval;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -113,7 +115,7 @@ namespace nscreg.Server.DataUploadSvc
             ImportExecutor.InterlockedInt = 0;
 
             var executors = new List<ImportExecutor> {
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer)
+                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer, _personsGoodQuality)
             };
 
             var swParse = new Stopwatch();
