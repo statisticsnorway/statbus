@@ -11,7 +11,7 @@ namespace nscreg.Data.Entities
     /// <summary>
     ///  Person entity class
     /// </summary>
-    public class Person
+    public class Person : IModelWithId
     {
         public int Id { get; set; }
 

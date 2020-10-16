@@ -353,11 +353,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
                     var changeDateTime = DateTime.Now;
-                    _commonSvc.TrackUnithistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+                    _commonSvc.TrackUnitHistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
 
                     idSetter(unit2, null);
 
-                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+                    _commonSvc.TrackUnitHistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
 
                     using (var transaction = _dbContext.Database.BeginTransaction())
                     {
@@ -409,11 +409,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
                     var changeDateTime = DateTime.Now;
-                    _commonSvc.TrackUnithistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+                    _commonSvc.TrackUnitHistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
 
                     idSetter(unit2, unit1.RegId);
 
-                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+                    _commonSvc.TrackUnitHistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
 
                     using (var transaction = _dbContext.Database.BeginTransaction())
                     {

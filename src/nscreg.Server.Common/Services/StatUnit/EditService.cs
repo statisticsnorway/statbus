@@ -37,7 +37,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly ElasticService _elasticService;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
-        private readonly DeleteService _deleteService;
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
@@ -54,7 +53,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticService = new ElasticService(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
-            _deleteService = new DeleteService(dbContext);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
@@ -295,6 +293,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var newPerson = Mapper.Map<PersonM, Person>(model);
                         persons.Add(new PersonStatisticalUnit { Person = newPerson, PersonTypeId = model.Role });
                     }
+
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
 
                     foreach (var unitM in statUnitsList)
@@ -319,8 +318,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
 
-                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null)
-                        .ToDictionary(su => su.EnterpriseGroupId);
+                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null).GroupBy(x => x.EnterpriseGroupId)
+                        .ToDictionary(su => su.Key, su => su.First());
 
                     foreach (var unitM in statUnitsList)
                     {
@@ -381,8 +380,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
-
-
             var unit = (TUnit) await ValidateChanges<TUnit>(idSelector(data));
             if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
             {
@@ -396,9 +393,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
-            
+
+
             var deleteEnterprise = false;
-            var isDeleted = false;
             var existingLeuEntRegId = (int?) 0;
             if (unit is LegalUnit)
             {

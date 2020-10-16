@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -12,10 +13,11 @@ namespace nscreg.Server.Common.Services.DataSources
     public class DbLogBuffer
     {
         private List<DataUploadingLog> Buffer { get; set; }
+        private SemaphoreSlim Semaphore = new SemaphoreSlim(1);
 
         private readonly NSCRegDbContext _context;
         public  readonly int MaxCount;
-        public DbLogBuffer(NSCRegDbContext context, int maxCount = 100)
+        public DbLogBuffer(NSCRegDbContext context, int maxCount = 1000)
         {
             Buffer = new List<DataUploadingLog>();
             _context = context;
@@ -45,22 +47,49 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 logEntry.TargetStatId = unit.StatId;
                 logEntry.StatUnitName = unit.Name;
-                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
+                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore});
             }
 
-            Buffer.Add(logEntry);
-
-            if (Buffer.Count >= MaxCount)
+            try
             {
-                await Flush();
+                await Semaphore.WaitAsync();
+
+                Buffer.Add(logEntry);
+
+                if (Buffer.Count >= MaxCount)
+                {
+                    await FlushAsync(true);
+                }
+            }
+            finally
+            {
+                Semaphore.Release();
             }
         }
 
-        public async Task Flush()
+        /// <summary>
+        /// To call out from class
+        /// </summary>
+        /// <returns></returns>
+        public Task FlushAsync() => FlushAsync(false);
+
+        /// <summary>
+        /// Flushes buffer to database
+        /// </summary>
+        /// <returns></returns>
+        private async Task FlushAsync(bool innerCall)
         {
-            _context.DataUploadingLogs.AddRange(Buffer);
-            await _context.SaveChangesAsync();
-            Buffer.Clear();
+            try
+            {
+                if (!innerCall) await Semaphore.WaitAsync();
+                _context.DataUploadingLogs.AddRange(Buffer);
+                await _context.SaveChangesAsync();
+                Buffer.Clear();
+            }
+            finally
+            {
+                if (!innerCall) Semaphore.Release();
+            }
         }
 
     }
