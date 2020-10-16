@@ -292,32 +292,74 @@ namespace nscreg.Business.DataSources
         {
             var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() {Person = newPerson, PersonTypeId = newPerson.Role}).ToList();
 
-            newPersonStatUnits.GroupJoin(personsDb, dbPerson => dbPerson.PersonTypeId,
-                newPerson => newPerson.PersonTypeId, (newPerson, dbPersons) => (newPerson: newPerson, dbPersons: dbPersons))
-                .ForEach(x =>
+            var personsWithPersonalId = newPersonStatUnits.Where(x => x.Person.PersonalId != null).ToList();
+
+            var personsForRemove = new List<PersonStatisticalUnit>();
+
+            personsWithPersonalId.GroupJoin(personsDb, person => person.Person.PersonalId, dbPerson => dbPerson.Person.PersonalId, ((person, dbPersons) => (person: person, dbPersons: dbPersons))).ForEach(x =>
                 {
-                    if (x.dbPersons.Any())
-                        x.dbPersons.ForEach(z =>
-                        {
-                            z.Person = new Person()
-                            {
-                                MiddleName = x.newPerson.Person.MiddleName,
-                                GivenName = x.newPerson.Person.GivenName,
-                                Sex = x.newPerson.Person.Sex,
-                                Role = x.newPerson.Person.Role,
-                                NationalityCode = x.newPerson.Person.NationalityCode,
-                                PersonalId = x.newPerson.Person.PersonalId,
-                                BirthDate = x.newPerson.Person.BirthDate,
-                                PhoneNumber = x.newPerson.Person.PhoneNumber
-                            };
-                        });
-                    else
+                    if (!x.dbPersons.Any())
                     {
-                        personsDb.Add(x.newPerson);
+                        return;
                     }
+                    x.dbPersons.ForEach(item =>
+                    {
+                        item.PersonTypeId = x.person.PersonTypeId;
+                        MapPerson(item.Person, x.person.Person);
+                    });
+                    personsForRemove.Add(x.person);
                 });
 
+            RemoveInNewPersonsAndClearDeleted(newPersonStatUnits, personsForRemove);
+            
+            var personsWithBirthAndName = newPersonStatUnits.Where(x =>
+                x.Person.BirthDate != null && x.Person.GivenName != null && x.Person.Surname != null).ToList();
+
+            var personsForAdd = new List<PersonStatisticalUnit>();
+            personsWithBirthAndName.GroupJoin(personsDb, item => (item.Person.BirthDate, item.Person.GivenName, item.Person.Surname), dbItem => (dbItem.Person.BirthDate, dbItem.Person.GivenName, dbItem.Person.Surname), (person, dbPersons) => (person: person, dbPersons: dbPersons)).ForEach(
+                x =>
+                {
+                    if (!x.dbPersons.Any())
+                    {
+                        personsForAdd.Add(x.person);
+                    }
+                    x.dbPersons.ForEach(item =>
+                    {
+                        item.PersonTypeId = x.person.PersonTypeId;
+                        MapPerson(item.Person, x.person.Person);
+                    });
+                    personsForRemove.Add(x.person);
+                });
+
+            personsDb.AddRange(personsForAdd);
+
+            RemoveInNewPersonsAndClearDeleted(newPersonStatUnits, personsForRemove);
+
+            personsDb.AddRange(newPersonStatUnits);
+
         }
+
+        private static void MapPerson(Person oldPerson, Person newPerson)
+        {
+            oldPerson.Role = newPerson.Role ?? oldPerson.Role;
+            oldPerson.BirthDate = newPerson.BirthDate ?? oldPerson.BirthDate;
+            oldPerson.NationalityCode = newPerson.NationalityCode ?? oldPerson.NationalityCode;
+            oldPerson.Surname = newPerson.Surname ?? oldPerson.Surname;
+            oldPerson.MiddleName = newPerson.MiddleName ?? oldPerson.MiddleName;
+            oldPerson.GivenName = newPerson.GivenName ?? oldPerson.GivenName;
+            oldPerson.PhoneNumber = newPerson.PhoneNumber ?? oldPerson.PhoneNumber;
+            oldPerson.Sex = newPerson.Sex ?? oldPerson.Sex;
+        }
+
+        private static void RemoveInNewPersonsAndClearDeleted(List<PersonStatisticalUnit> newPerson, List<PersonStatisticalUnit> deleteList)
+        {
+            foreach (var element in deleteList)
+            {
+                newPerson.Remove(element);
+            }
+            deleteList.Clear();
+        }
+
         private static bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
             dataAccess.HasWritePermission(
                 DataAccessAttributesHelper.GetName<T>(ExpressionUtils.GetExpressionText(property)));

@@ -6,6 +6,7 @@ using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -51,12 +52,13 @@ namespace nscreg.Business.Test.DataSources
         public async Task PopulateAsync_PersonMapping_Success()
         {
             var mappings =
-    "statId-StatId,name-Name,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex";
-
-            var personTypes = new List<PersonType>(){new PersonType() { Name = "DIRECTOR", Id = 0 }, new PersonType(){ Name = "Owner", Id = 0 }, new PersonType{Name ="TEST",Id = 0} };
-            DatabaseContext.PersonTypes.AddRange(personTypes);
+    "statId-StatId,name-Name,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex,PersonalId-Persons.Person.PersonalId";
+            var personTypes = new PersonType() {Name = "OWNER"};
+            await DatabaseContext.AddAsync(personTypes);
             await DatabaseContext.SaveChangesAsync();
             await DatabaseContext.PersonTypes.LoadAsync();
+            var dateTimeToday = DateTime.Today;
+
             var dbunit = new LegalUnit
             {
                 Name = "LAST FRIDAY INVEST AS",
@@ -65,27 +67,59 @@ namespace nscreg.Business.Test.DataSources
                     {
                         new PersonStatisticalUnit()
                         {
-                            PersonTypeId = personTypes[0].Id,
                             Person = new Person()
                             {
+                                PersonalId = "1",
                                 GivenName = "Vasya",
                                 Surname = "Vasin",
+                                BirthDate = dateTimeToday,
                                 Sex = 1,
-                                Role = personTypes[0].Id,
+                                PhoneNumber = "12345"
                             }
                         },
                         new PersonStatisticalUnit()
                         {
-                            PersonTypeId = personTypes[2].Id,
                             Person = new Person()
                             {
                                 GivenName = "Vasya12345",
                                 Surname = "Vasin12345",
+                                BirthDate = dateTimeToday,
                                 Sex = 1,
-                                Role = personTypes[2].Id,
                             }
                         },
                     }
+            };
+            var raw = new Dictionary<string, object>()
+            {
+                { "StatId", "920951287"},
+                { "Name", "LAST FRIDAY INVEST AS" },
+                { "Persons", new List<KeyValuePair<string, Dictionary<string, string>>>{
+                        new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
+                        {
+                            {"PersonalId", "1" },
+                            {"Role", "Owner"},
+                            {"GivenName", "Vas" },
+                            {"Surname", "Vas" },
+                            {"Sex", "1" }
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
+                        {
+                            {"Role", "Owner"},
+                            {"GivenName", "Vasya12345" },
+                            {"Surname", "Vasin12345" },
+                            {"BirthDate", dateTimeToday.ToString() },
+                            {"Sex", "1" }
+                        }),
+                        new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
+                        {
+                            {"Role", "Owner"},
+                            {"GivenName", "TEST" },
+                            {"Surname", "TEST" },
+                            {"Sex", "1" }
+                        })
+
+                    }
+                }
             };
             var resultUnit = new LegalUnit
             {
@@ -95,37 +129,39 @@ namespace nscreg.Business.Test.DataSources
                 {
                     new PersonStatisticalUnit()
                     {
-                        PersonTypeId = personTypes[0].Id,
+                        PersonTypeId = 1,
                         Person = new Person()
                         {
-                            Id = 2,
-                            GivenName = "Vasya",
-                            Surname = "Vasin",
-                            Sex = 1,
-                            Role = personTypes[0].Id,
-                        }
-                    },
-                    new PersonStatisticalUnit()
-                    {
-                        PersonTypeId = personTypes[2].Id,
-                        Person = new Person()
-                        {
-                            Id = 4,
-                            GivenName = "Vasya12345",
-                            Surname = "Vasin12345",
-                            Sex = 1,
-                            Role = personTypes[2].Id,
-                        }
-                    },
-                    new PersonStatisticalUnit()
-                    {
-                        PersonTypeId = personTypes[1].Id,
-                        Person = new Person()
-                        {
+                            PersonalId = "1",
+                            Role = 1,
                             GivenName = "Vas",
                             Surname = "Vas",
                             Sex = 1,
-                            Role = personTypes[1].Id,
+                            BirthDate = dateTimeToday,
+                            PhoneNumber = "12345"
+                        }
+                    },
+                    new PersonStatisticalUnit()
+                    {
+                        PersonTypeId = 1,
+                        Person = new Person()
+                        {
+                            Role = 1,
+                            GivenName = "Vasya12345",
+                            Surname = "Vasin12345",
+                            Sex = 1,
+                            BirthDate = dateTimeToday
+                        }
+                    },
+                    new PersonStatisticalUnit()
+                    {
+                        PersonTypeId = 1,
+                        Person = new Person()
+                        {
+                            Role = 1,
+                            GivenName = "TEST",
+                            Surname = "TEST",
+                            Sex = 1,
                         }
                     },
                     
@@ -141,25 +177,10 @@ namespace nscreg.Business.Test.DataSources
                 DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
                 DatabaseContext, userId, dataAccess);
 
-            var raw = new Dictionary<string, object>()
-                {
-                    { "StatId", "920951287"},
-                    { "Name", "LAST FRIDAY INVEST AS" },
-                    { "Persons", new List<KeyValuePair<string, Dictionary<string, string>>>{
-                            new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string>()
-                        {
-                            {"Role", "Owner"},
-                            {"GivenName", "Vas" },
-                            {"Surname", "Vas" },
-                            {"Sex", "1" }
-                        })
-
-                        }
-                    }
-                };
+            
             var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
 
-            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits));
+            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits).Excluding(x => x.Person.Id));
         }
 
         [Fact]
