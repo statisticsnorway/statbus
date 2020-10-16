@@ -23,12 +23,19 @@ namespace nscreg.Business.Test.DataSources
 {
     public class PopulateServiceTest : BaseTest
     {
+        public static object locker = new object(); 
         public PopulateServiceTest(ITestOutputHelper helper) : base(helper)
         {
-            Mapper.Initialize(cfg =>
+            lock (locker)
             {
-                cfg.AddProfile<AutoMapperProfile>();
-            });
+                Mapper.Reset();
+                Mapper.Initialize(cfg =>
+                {
+                    cfg.AddProfile<AutoMapperProfile>();
+                });
+
+            }
+
         }
         private (string, string)[] GetArrayMappingByString(string mapping)
         {
@@ -232,6 +239,7 @@ namespace nscreg.Business.Test.DataSources
             };
             var unit = new LegalUnit()
             {
+                UserId = "8A071342-863E-4EFB-9B60-04050A6D2F4B",
                 StatId = "920951287",
                 Name = "LAST FRIDAY INVEST AS",
                 ActivitiesUnits = new List<ActivityStatisticalUnit>()
@@ -240,6 +248,7 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            UpdatedBy = "8A071342-863E-4EFB-9B60-04050A6D2F4B",
                             ActivityYear = 2019,
                             Employees = 100,
                             ActivityType = ActivityTypes.Primary,
@@ -253,6 +262,8 @@ namespace nscreg.Business.Test.DataSources
                     {
                         Activity = new Activity()
                         {
+                            UpdatedBy = "8A071342-863E-4EFB-9B60-04050A6D2F4B",
+                            ActivityYear = DateTime.Now.Year - 1,
                             ActivityType = ActivityTypes.Secondary,
                             ActivityCategory = new ActivityCategory()
                             {
