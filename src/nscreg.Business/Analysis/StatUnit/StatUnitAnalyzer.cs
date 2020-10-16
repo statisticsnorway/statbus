@@ -323,21 +323,21 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>Dictionary of messages</returns>
         public AnalysisResult CheckAll(IStatisticalUnit unit)
         {
-            AnalyzeTracer.CheckAll.Start();
+            //AnalyzeTracer.CheckAll.Start();
             var messages = new Dictionary<string, string[]>();
             var summaryMessages = new List<string>();
 
-            AnalyzeTracer.CheckConnections.Start();
+            //AnalyzeTracer.CheckConnections.Start();
             var connectionsResult = CheckConnections(unit);
             if (connectionsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.ConnectionRulesWarnings));
                 messages.AddRange(connectionsResult);
             }
-            AnalyzeTracer.CheckConnections.Stop();
-            AnalyzeTracer.countCheckConnections++;
+            // AnalyzeTracer.CheckConnections.Stop();
+            //AnalyzeTracer.countCheckConnections++;
 
-            AnalyzeTracer.CheckMandatoryFields.Start();
+            //AnalyzeTracer.CheckMandatoryFields.Start();
             var mandatoryFieldsResult = CheckMandatoryFields(unit);
             if (mandatoryFieldsResult.Any())
             {
@@ -353,10 +353,10 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(d.Key, d.Value);
                 });
             }
-            AnalyzeTracer.CheckMandatoryFields.Stop();
-            AnalyzeTracer.countCheckMandatoryFields++;
+            // AnalyzeTracer.CheckMandatoryFields.Stop();
+            //AnalyzeTracer.countCheckMandatoryFields++;
 
-            AnalyzeTracer.CheckCalculationFields.Start();
+           //AnalyzeTracer.CheckCalculationFields.Start();
             var calculationFieldsResult = CheckCalculationFields(unit);
             if (calculationFieldsResult.Any())
             {
@@ -372,18 +372,18 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(d.Key, d.Value);
                 });
             }
-            AnalyzeTracer.CheckCalculationFields.Stop();
-            AnalyzeTracer.countCheckCalculationFields++;
+            //AnalyzeTracer.CheckCalculationFields.Stop();
+           // AnalyzeTracer.countCheckCalculationFields++;
 
 
-            AnalyzeTracer.GetDuplicateUnits.Start();
+            //AnalyzeTracer.GetDuplicateUnits.Start();
             var potentialDuplicateUnits = GetDuplicateUnits(unit);
-            AnalyzeTracer.GetDuplicateUnits.Stop();
-            AnalyzeTracer.countGetDuplicateUnits++;
+            //AnalyzeTracer.GetDuplicateUnits.Stop();
+            //AnalyzeTracer.countGetDuplicateUnits++;
 
             if (potentialDuplicateUnits.Any())
             {
-                AnalyzeTracer.CheckDuplicates.Start();
+               // AnalyzeTracer.CheckDuplicates.Start();
                 var duplicatesResult = CheckDuplicates(unit, potentialDuplicateUnits);
                 if (duplicatesResult.Any())
                 {
@@ -400,13 +400,13 @@ namespace nscreg.Business.Analysis.StatUnit
                             messages.Add(d.Key, d.Value);
                     });
                 }
-                AnalyzeTracer.CheckDuplicates.Stop();
-                AnalyzeTracer.countCheckDuplicates++;
+               // AnalyzeTracer.CheckDuplicates.Stop();
+                //AnalyzeTracer.countCheckDuplicates++;
             }
 
             if (!_isSkipCustomCheck)
             {
-                AnalyzeTracer.CheckCustomAnalysisChecks.Start();
+               // AnalyzeTracer.CheckCustomAnalysisChecks.Start();
                 var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
                 if (additionalAnalysisCheckResult.Any())
                 {
@@ -433,32 +433,32 @@ namespace nscreg.Business.Analysis.StatUnit
                         }
                     });
                 }
-                AnalyzeTracer.CheckCustomAnalysisChecks.Stop();
-                AnalyzeTracer.countCheckCustomAnalysisChecks++;
+               // AnalyzeTracer.CheckCustomAnalysisChecks.Stop();
+               // AnalyzeTracer.countCheckCustomAnalysisChecks++;
             }
-            AnalyzeTracer.CheckOrphanUnits.Start();
+            // AnalyzeTracer.CheckOrphanUnits.Start();
             var ophanUnitsResult = CheckOrphanUnits(unit);
             if (ophanUnitsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.OrphanUnitsRulesWarnings));
                 messages.AddRange(ophanUnitsResult);
             }
-            AnalyzeTracer.CheckOrphanUnits.Stop();
-            AnalyzeTracer.countCheckOrphanUnits++;
+            // AnalyzeTracer.CheckOrphanUnits.Stop();
+            // AnalyzeTracer.countCheckOrphanUnits++;
 
-            AnalyzeTracer.CheckAll.Stop();
-            AnalyzeTracer.countCheckAll++;
+            // AnalyzeTracer.CheckAll.Stop();
+            // AnalyzeTracer.countCheckAll++;
 
-            Debug.WriteLine($@"
-CheckAll {AnalyzeTracer.CheckAll.ElapsedMilliseconds/AnalyzeTracer.countCheckAll : 0.00} ms \r\n
-  CheckConnections {(double)AnalyzeTracer.CheckConnections.ElapsedMilliseconds/AnalyzeTracer.countCheckConnections : 0.00} ms \r\n
-  CheckMandatoryFields {(double)AnalyzeTracer.CheckMandatoryFields.ElapsedMilliseconds/AnalyzeTracer.countCheckMandatoryFields : 0.00} ms \r\n
-  CheckCalculationFields {(double)AnalyzeTracer.CheckCalculationFields.ElapsedMilliseconds/AnalyzeTracer.countCheckCalculationFields : 0.00} ms \r\n
-  GetDuplicateUnits {(double)AnalyzeTracer.GetDuplicateUnits.ElapsedMilliseconds/AnalyzeTracer.countGetDuplicateUnits : 0.00} ms \r\n
-  CheckDuplicates {(double)AnalyzeTracer.CheckDuplicates.ElapsedMilliseconds/AnalyzeTracer.countCheckDuplicates : 0.00} ms \r\n
-  CheckCustomAnalysisChecks {(double)AnalyzeTracer.CheckCustomAnalysisChecks.ElapsedMilliseconds/AnalyzeTracer.countCheckCustomAnalysisChecks : 0.00} ms \r\n
-  CheckOrphanUnits {(double)AnalyzeTracer.CheckOrphanUnits.ElapsedMilliseconds/AnalyzeTracer.countCheckOrphanUnits : 0.00} ms \r\n
-");
+//            Debug.WriteLine($@"
+//CheckAll {AnalyzeTracer.CheckAll.ElapsedMilliseconds/AnalyzeTracer.countCheckAll : 0.00} ms \r\n
+//  CheckConnections {(double)AnalyzeTracer.CheckConnections.ElapsedMilliseconds/AnalyzeTracer.countCheckConnections : 0.00} ms \r\n
+//  CheckMandatoryFields {(double)AnalyzeTracer.CheckMandatoryFields.ElapsedMilliseconds/AnalyzeTracer.countCheckMandatoryFields : 0.00} ms \r\n
+//  CheckCalculationFields {(double)AnalyzeTracer.CheckCalculationFields.ElapsedMilliseconds/AnalyzeTracer.countCheckCalculationFields : 0.00} ms \r\n
+//  GetDuplicateUnits {(double)AnalyzeTracer.GetDuplicateUnits.ElapsedMilliseconds/AnalyzeTracer.countGetDuplicateUnits : 0.00} ms \r\n
+//  CheckDuplicates {(double)AnalyzeTracer.CheckDuplicates.ElapsedMilliseconds/AnalyzeTracer.countCheckDuplicates : 0.00} ms \r\n
+//  CheckCustomAnalysisChecks {(double)AnalyzeTracer.CheckCustomAnalysisChecks.ElapsedMilliseconds/AnalyzeTracer.countCheckCustomAnalysisChecks : 0.00} ms \r\n
+//  CheckOrphanUnits {(double)AnalyzeTracer.CheckOrphanUnits.ElapsedMilliseconds/AnalyzeTracer.countCheckOrphanUnits : 0.00} ms \r\n
+//");
 
             return new AnalysisResult
             {
