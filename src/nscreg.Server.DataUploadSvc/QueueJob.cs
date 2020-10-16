@@ -107,8 +107,8 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
             }
 
-            Stopwatch swCycle = new Stopwatch();
-            swCycle.Start();
+            // Stopwatch swCycle = new Stopwatch();
+            //swCycle.Start();
 
             var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
 
@@ -127,23 +127,23 @@ namespace nscreg.Server.DataUploadSvc
 
             await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
-            _logger.LogWarning($"End Total {swCycle.Elapsed};");
+           // _logger.LogWarning($"End Total {swCycle.Elapsed};");
 
-            TimeSpan populateTime, analyzeTime, saveTime, total;
-            long populateCount=0, analyzeCount=0, saveCount=0;
-            executors.ForEach(x =>
-            {
-                populateTime += x.swPopulation.Elapsed;
-                analyzeTime += x.swAnalyze.Elapsed;
-                saveTime += x.swSave.Elapsed;
-                populateCount += x.populationCount;
-                analyzeCount += x.analyzeCount;
-                saveCount += x.saveCount;
-            });
-            total = populateTime + analyzeTime + saveTime;
+            //TimeSpan populateTime, analyzeTime, saveTime, total;
+            //long populateCount=0, analyzeCount=0, saveCount=0;
+            //executors.ForEach(x =>
+            //{
+            //    populateTime += x.swPopulation.Elapsed;
+            //    analyzeTime += x.swAnalyze.Elapsed;
+            //    saveTime += x.swSave.Elapsed;
+            //    populateCount += x.populationCount;
+            //    analyzeCount += x.analyzeCount;
+            //    saveCount += x.saveCount;
+            //});
+            //total = populateTime + analyzeTime + saveTime;
 
-            _logger.LogWarning($"Total for {executors.Count} threads \r\n Parse {swParse.Elapsed} \r\n Populate {populateTime} \r\n Analyze Total {analyzeTime} \r\n Save {saveTime}");
-            _logger.LogWarning($"Average: \r\n Populate { populateTime.TotalMilliseconds/ populateCount} ms ({populateTime/ total*100: 0.00}%) \r\n Analyze { analyzeTime.TotalMilliseconds / analyzeCount} ms ({analyzeTime / total*100: 0.00}%) \r\n Save { saveTime.TotalMilliseconds / saveCount} ms  ({saveTime / total*100: 0.00}%) ");
+            //_logger.LogWarning($"Total for {executors.Count} threads \r\n Parse {swParse.Elapsed} \r\n Populate {populateTime} \r\n Analyze Total {analyzeTime} \r\n Save {saveTime}");
+           // _logger.LogWarning($"Average: \r\n Populate { populateTime.TotalMilliseconds/ populateCount} ms ({populateTime/ total*100: 0.00}%) \r\n Analyze { analyzeTime.TotalMilliseconds / analyzeCount} ms ({analyzeTime / total*100: 0.00}%) \r\n Save { saveTime.TotalMilliseconds / saveCount} ms  ({saveTime / total*100: 0.00}%) ");
 
             await _queueSvc.FinishQueueItem(
                 dequeued,

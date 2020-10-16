@@ -43,17 +43,17 @@ namespace nscreg.Server.DataUploadSvc
         BlockingCollection<IReadOnlyDictionary<string, object>> _tasksQueue;
 
 #if DEBUG
-        public Stopwatch swPopulation = new Stopwatch();
-        public long populationCount = 0;
+        //public Stopwatch swPopulation = new Stopwatch();
+        //public long populationCount = 0;
 
-        public Stopwatch swAnalyze = new Stopwatch();
-        public long analyzeCount = 0;
+        //public Stopwatch swAnalyze = new Stopwatch();
+        //public long analyzeCount = 0;
 
-        public Stopwatch swSave = new Stopwatch();
-        public long saveCount = 0;
+        //public Stopwatch swSave = new Stopwatch();
+        //public long saveCount = 0;
 
-        public Stopwatch swDbLog = new Stopwatch();
-        public long dbLogCount = 0;
+        //public Stopwatch swDbLog = new Stopwatch();
+        //public long dbLogCount = 0;
 #endif
         public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, bool personsGoodQuality)
         {
@@ -93,11 +93,11 @@ namespace nscreg.Server.DataUploadSvc
 
                     /// Populate Unit
 
-                    swPopulation.Start();
+                    //swPopulation.Start();
                     _logger.LogInformation("populating unit");
                     var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, _personsGoodQuality);
-                    swPopulation.Stop();
-                    populationCount += 1;
+                    //swPopulation.Stop();
+                    //populationCount += 1;
                     if (populateError.HasValue())
                     {
                         _logger.LogInformation("error during populating of unit: {0}", populateError);
@@ -115,11 +115,11 @@ namespace nscreg.Server.DataUploadSvc
                     _logger.LogInformation(
                         "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
-                    swAnalyze.Start();
+                    //swAnalyze.Start();
 
                     var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
-                    swAnalyze.Stop();
-                    analyzeCount += 1;
+                    //swAnalyze.Stop();
+                    //analyzeCount += 1;
 
                     if (analysisError.HasValue())
                     {
@@ -141,11 +141,11 @@ namespace nscreg.Server.DataUploadSvc
 
                     _logger.LogInformation("saving unit");
 
-                    swSave.Start();
+                   // swSave.Start();
                     var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
-                    swSave.Stop();
-                    saveCount += 1;
+                    //swSave.Stop();
+                   // saveCount += 1;
 
                     if (saveError.HasValue())
                     {
@@ -163,7 +163,7 @@ namespace nscreg.Server.DataUploadSvc
                             IReadOnlyDictionary<string, string[]> analysisErrors = null,
                             IEnumerable<string> analysisSummary = null)
                     {
-                        swDbLog.Start();
+                       // swDbLog.Start();
                         var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
                         {
                             var tmp = x.source.Split('.', 2);
@@ -173,7 +173,7 @@ namespace nscreg.Server.DataUploadSvc
                              dequeued.Id, rawUnit, startedAt, populated,
                              status, note ?? "", analysisErrors, analysisSummary);
 
-                        swDbLog.Stop();
+                        //swDbLog.Stop();
                     }
                 }
                 await sqlBulkBuffer.FlushAsync();

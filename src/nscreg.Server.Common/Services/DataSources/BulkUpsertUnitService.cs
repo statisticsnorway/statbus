@@ -21,7 +21,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly UpsertUnitBulkBuffer _bufferService;
         private readonly StatUnit.Common _commonSvc;
         private readonly int? _liquidateStatusId;
-        private readonly EditTracer _editTracer;
+        //private readonly EditTracer _editTracer;
         private readonly string _userId;
         private readonly DataAccessPermissions _permissions;
 
@@ -33,7 +33,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _userId = userId;
             _commonSvc = new StatUnit.Common(context, buffer);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
-            _editTracer = new EditTracer();
+          //  _editTracer = new EditTracer();
         }
 
         /// <summary>
@@ -63,40 +63,40 @@ namespace nscreg.Server.Common.Services.DataSources
             _bufferService.DisableFlushing();
             try
             {
-                Tracer.createStat.Start();
-                Tracer.createStat.Stop();
-                Debug.WriteLine($"Create legal {Tracer.createStat.ElapsedMilliseconds / ++Tracer.countcreateStat}");
+                //Tracer.createStat.Start();
+                //Tracer.createStat.Stop();
+                //Debug.WriteLine($"Create legal {Tracer.createStat.ElapsedMilliseconds / ++Tracer.countcreateStat}");
                 if (legal.EnterpriseUnitRegId == null || legal.EnterpriseUnitRegId == 0)
                 {
-                    Tracer.enterprise1.Start();
+                   // Tracer.enterprise1.Start();
                     var sameStatIdEnterprise =
                         await _dbContext.EnterpriseUnits.FirstOrDefaultAsync(eu => eu.StatId == legal.StatId);
-                    Tracer.enterprise1.Stop();
-                    Debug.WriteLine(
-                        $"Enterprise first or default {Tracer.enterprise1.ElapsedMilliseconds / ++Tracer.countenterprise1}");
+                    //Tracer.enterprise1.Stop();
+                   // Debug.WriteLine(
+                      //  $"Enterprise first or default {Tracer.enterprise1.ElapsedMilliseconds / ++Tracer.countenterprise1}");
 
                     if (sameStatIdEnterprise != null)
                     {
-                        Tracer.enterprise2.Start();
+                        //Tracer.enterprise2.Start();
                         legal.EnterpriseUnit = sameStatIdEnterprise;
-                        Tracer.enterprise2.Stop();
-                        Debug.WriteLine(
-                            $"Enterprise link {Tracer.enterprise2.ElapsedMilliseconds / ++Tracer.countenterprise2}");
+                       // Tracer.enterprise2.Stop();
+                       // Debug.WriteLine(
+                          //  $"Enterprise link {Tracer.enterprise2.ElapsedMilliseconds / ++Tracer.countenterprise2}");
                     }
                     else
                     {
-                        Tracer.enterprise3.Start();
+                       // Tracer.enterprise3.Start();
                         CreateEnterpriseForLegal(legal);
-                        Tracer.enterprise3.Stop();
-                        Debug.WriteLine(
-                            $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
+                       // Tracer.enterprise3.Stop();
+                       // Debug.WriteLine(
+                        //    $"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
                     }
 
                     await _bufferService.AddToBufferAsync(legal.EnterpriseUnit);
 
                 }
 
-                Tracer.address.Start();
+                // Tracer.address.Start();
                 var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
                 var addresses = await _dbContext.Address.Where(x =>
                     addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
@@ -105,16 +105,16 @@ namespace nscreg.Server.Common.Services.DataSources
                     x.AddressPart3 == legal.Address.AddressPart3 &&
                     x.Latitude == legal.Address.Latitude &&
                     x.Longitude == legal.Address.Longitude).ToListAsync();
-                Tracer.address.Stop();
-                Debug.WriteLine($"Address {Tracer.address.ElapsedMilliseconds / ++Tracer.countaddress}");
+                //Tracer.address.Stop();
+                //Debug.WriteLine($"Address {Tracer.address.ElapsedMilliseconds / ++Tracer.countaddress}");
                 if (!addresses.Any())
                 {
-                    Tracer.localForLegal.Start();
+                    //Tracer.localForLegal.Start();
                     CreateLocalForLegal(legal);
                     await _bufferService.AddToBufferAsync(legal.LocalUnits.Last());
-                    Tracer.localForLegal.Stop();
-                    Debug.WriteLine(
-                        $"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
+                   // Tracer.localForLegal.Stop();
+                    //Debug.WriteLine(
+                     //   $"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
                 }
 
                 _bufferService.EnableFlushing();
@@ -128,9 +128,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
 
-            Tracer.elastic.Start();
-                Tracer.elastic.Stop();
-            Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
+            // Tracer.elastic.Start();
+             //   Tracer.elastic.Stop();
+            //Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
         }
 
         /// <summary>
@@ -162,7 +162,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task EditLegalUnit(LegalUnit changedUnit, LegalUnit historyUnit)
         {
-            _editTracer.liquidateStat.Start();
+           // _editTracer.liquidateStat.Start();
             var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
             var deleteEnterprise = false;
             var existingLeuEntRegId = await _dbContext.LegalUnits.Where(leu => leu.RegId == changedUnit.RegId)
@@ -206,13 +206,13 @@ namespace nscreg.Server.Common.Services.DataSources
                 }
 
             }
-            _editTracer.liquidateStat.Stop();
-            Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+           // _editTracer.liquidateStat.Stop();
+           // Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
 
-            _editTracer.noChanges.Start();
+           // _editTracer.noChanges.Start();
             if (IsNoChanges(changedUnit, historyUnit)) return;
-            _editTracer.noChanges.Stop();
-            Debug.WriteLine($"No changes legal {_editTracer.noChanges.ElapsedMilliseconds / ++_editTracer.countnoChanges}");
+           // _editTracer.noChanges.Stop();
+           // Debug.WriteLine($"No changes legal {_editTracer.noChanges.ElapsedMilliseconds / ++_editTracer.countnoChanges}");
 
             changedUnit.UserId = _userId;
             changedUnit.ChangeReason = ChangeReasons.Edit;
@@ -220,7 +220,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
             try
             {
-                _editTracer.editStat.Start();
+               // _editTracer.editStat.Start();
                 var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
                 var changedDateTime = DateTime.Now;
                 await _bufferService.AddToBufferAsync(changedUnit);
@@ -234,8 +234,8 @@ namespace nscreg.Server.Common.Services.DataSources
                     var enterpriseUnit = _dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId);
                     _bufferService.AddToDeleteBuffer(enterpriseUnit);
                 }
-                _editTracer.editStat.Stop();
-                Debug.WriteLine($"Edit legal {_editTracer.editStat.ElapsedMilliseconds / ++_editTracer.counteditStat}");
+               // _editTracer.editStat.Stop();
+               // Debug.WriteLine($"Edit legal {_editTracer.editStat.ElapsedMilliseconds / ++_editTracer.counteditStat}");
             }
             catch (NotFoundException e)
             {
@@ -255,7 +255,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns> </returns>
         public async Task EditLocalUnit(LocalUnit changedUnit, LocalUnit historyUnit)
         {
-            _editTracer.liquidateStat.Start();
+            //_editTracer.liquidateStat.Start();
             var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
 
             if (_liquidateStatusId != null && historyUnit.UnitStatusId == _liquidateStatusId && changedUnit.UnitStatusId != historyUnit.UnitStatusId)
@@ -283,13 +283,13 @@ namespace nscreg.Server.Common.Services.DataSources
                     throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
                 }
             }
-            _editTracer.liquidateStat.Stop();
-            Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+            //_editTracer.liquidateStat.Stop();
+            //Debug.WriteLine($"Liquidate legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
 
-            _editTracer.noChanges.Start();
+           // _editTracer.noChanges.Start();
             if (IsNoChanges(changedUnit, historyUnit)) return;
-            _editTracer.noChanges.Stop();
-            Debug.WriteLine($"No changes legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
+            //_editTracer.noChanges.Stop();
+            //Debug.WriteLine($"No changes legal {_editTracer.liquidateStat.ElapsedMilliseconds / ++_editTracer.countliquidateStat}");
 
             changedUnit.UserId = _userId;
             changedUnit.ChangeReason = ChangeReasons.Edit;
