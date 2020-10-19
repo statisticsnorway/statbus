@@ -23,31 +23,17 @@ DECLARE @cols AS NVARCHAR(MAX),
         @query  AS NVARCHAR(MAX),
         @totalSumCols AS NVARCHAR(MAX),
         @activityCategoryLevel AS NVARCHAR(MAX),
-        @regionLevel AS NVARCHAR(MAX)
+        @regionLevel AS NVARCHAR(MAX);
 
 /* Column variables - REGIONS, COUNTRY LEVEL */
-SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @cols = dbo.GetOblastColumnNames();
 
 /* List of REGIONS/OBLASTS LEVEL */
-SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* Set RegionLevel = 1 if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel = 2
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @selCols = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* Column - Total count of statistical units by whole country */
-SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
-            /* Set RegionLevel IN (1) - if there no Country Level in the Regions Tree */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @totalSumCols = dbo.CountTotalEmployeesInOblastsAsSql();
+
 SET @activityCategoryLevel = 1
 
 /* Set @regionLevel = 1 if database has no Country level and begins from the Oblasts/Counties/Regions */

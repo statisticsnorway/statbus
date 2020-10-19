@@ -1,4 +1,4 @@
-CREATE FUNCTION [dbo].[GetNamesRegionsForPivot]
+CREATE OR ALTER FUNCTION [dbo].[GetNamesRegionsForPivot]
 (
   @RegionId INT,
   @RequestName NVARCHAR(MAX),

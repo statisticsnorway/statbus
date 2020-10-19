@@ -2,43 +2,44 @@
     would get all top level regions
     Row header 1 - Activity Categories Top Level
     Row header 2 - Activity Categories Sub level items
-    Values = Count of statistical units
-    Column headers - Regions Top level items */
+    Values = Sum of Employees
+    Column headers - Regions
+*/
+/*
+	RegionLevel for kyrgyz database:
+		1 Level : Kyrgyz Republic - Country level
+		2 Level : Area, Oblast, Region, Counties
+		3 Level : Rayon
+		4 Level : City / Village
+    Note: if you haven't region level for country Region/Counties etc would be 1 Level
+*/
 
 /* Input parameters from report body - filters that have to be defined by the user */
 BEGIN
-	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+  DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
 END
 
-/* Delete a temporary table #tempTableForPivot if exists */
+/* Delete temporary table #tempTableForPivot if exists */
 IF (OBJECT_ID('tempdb..#tempTableForPivot') IS NOT NULL)
 BEGIN DROP TABLE #tempTableForPivot END
 
-/* Create a temporary table for Pivot - result table that would be transformed to needed result view*/
+/* Create temporary table for Pivot - result table that would be transformed to needed result view */
 CREATE TABLE #tempTableForPivot
 (
 	RegId INT NULL,
-	ActivityParentId INT NULL,
+	Employees INT NULL,
+	ActivityCategoryId INT NULL,
 	ActivityCategoryName NVARCHAR(MAX) NULL,
 	ActivitySubCategoryName NVARCHAR(MAX) NULL,
 	NameOblast NVARCHAR(MAX) NULL
 )
 
 /* using CTE (Common Table Expressions), recursively collect the Activity Categories tree
-Level 1 */
-;WITH ActivityCategoriesTotalHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
-	SELECT
-		Id,
-		ParentId,
-		Name,
-		DesiredLevel
-	FROM v_ActivityCategoriesHierarchy
-	WHERE DesiredLevel=1
-),
-/* Level 2 */
-ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+Level 2
+*/
+;WITH ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 	SELECT
 		Id,
 		ParentId,
@@ -46,6 +47,16 @@ ActivityCategoriesHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
 		DesiredLevel
 	FROM v_ActivityCategoriesHierarchy
 	WHERE DesiredLevel=2
+),
+/* Level 1 */
+ActivityCategoriesTotalHierarchyCTE(Id,ParentId,Name,DesiredLevel) AS(
+	SELECT
+		Id,
+		ParentId,
+		Name,
+		DesiredLevel
+	FROM v_ActivityCategoriesHierarchy
+	WHERE DesiredLevel=1
 ),
 
 /* using CTE (Common Table Expressions), recursively collect the Regions tree */
@@ -77,12 +88,13 @@ StatisticalUnitHistoryCTE AS (
 		AddressId,
 		UnitStatusId,
 		Discriminator,
+		Employees,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,StartPeriod) < @InCurrentYear
+	WHERE DATEPART(YEAR,StartPeriod)<@InCurrentYear
 ),
 
-/* Get the actual state of statistical units where StartPeriod and RegistrationDate less than current year, with history logs */
+/* Get the actual state of statistical units where StartPeriod and registrationDate less than current year, with history logs */
 ResultTableCTE AS
 (
 	SELECT
@@ -93,6 +105,7 @@ ResultTableCTE AS
 		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
 		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
 		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,su.Employees,asuhCTE.Employees) AS Employees,
 		IIF(DATEPART(YEAR, su.RegistrationDate) < @InCurrentYear AND DATEPART(YEAR,su.StartPeriod) < @InCurrentYear,0,1) AS isHistory
 	FROM StatisticalUnits AS su
 		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
@@ -113,7 +126,8 @@ ResultTableCTE2 AS
 		RegId,
 		tr.Name AS NameOblast,
 		rt.ActivityCategoryId1,
-		rt.ActivityCategoryId2
+		rt.ActivityCategoryId2,
+		rt.Employees
 	FROM ResultTableCTE AS rt
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
@@ -130,10 +144,12 @@ ActivityCategoriesOrder AS (
 	FROM dbo.ActivityCategories AS ac
 	WHERE ac.ActivityCategoryLevel = 1
 )
+
 /* Fill with data the #tempTableForPivot */
 INSERT INTO #tempTableForPivot
 SELECT
 	rt.RegId,
+	rt.Employees,
 	aco.OrderId AS ActivityParentId,
 	ac.Name AS ActivityCategoryName,
 	'' AS ActivitySubCategoryName,
@@ -144,9 +160,9 @@ FROM dbo.ActivityCategories as ac
 WHERE ac.ActivityCategoryLevel = 1
 
 UNION
-
 SELECT
 	rt.RegId,
+	rt.Employees,
 	aco.OrderId AS ActivityParentId,
 	'' AS ActivityCategoryName,
 	ac.Name AS ActivitySubCategoryName,
@@ -156,13 +172,23 @@ FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
 WHERE ac.ActivityCategoryLevel = 2
 
-/* Create a query and pivot the regions */
+
+DECLARE @cols NVARCHAR(MAX) = dbo.GetOblastColumnNamesWithNullCheck(),
+
+    /* COLUMN - Total value by whole country */
+    @total NVARCHAR(MAX) = dbo.CountTotalEmployeesInOblastsAsSql()
+
+
+/*
+Create a query and pivot the regions
+*/
+PRINT(@Cols)
 DECLARE @query AS NVARCHAR(MAX) = '
-	SELECT ActivityCategoryName, ActivitySubCategoryName, ' + dbo.[GetNamesRegionsForPivot](1, 'TOTAL',1) + ' as Total, ' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',0) + ' from
+SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, ' + @cols + ' from
             (
 				SELECT
-					RegId,
-					ActivityParentId,
+					Employees,
+					ActivityCategoryId,
 					ActivityCategoryName,
 					ActivitySubCategoryName,
 					NameOblast
@@ -170,8 +196,8 @@ DECLARE @query AS NVARCHAR(MAX) = '
            ) SourceTable
             PIVOT
             (
-                COUNT(RegId)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',1) + ')
-            ) PivotTable order by ActivityParentId, ActivityCategoryName DESC, ActivitySubCategoryName'
+                SUM(Employees)
+                FOR NameOblast IN (' + dbo.GetOblastColumnNames() + ')
+            ) PivotTable order by ActivityCategoryId, ActivitySubCategoryName'
 /* execution of the query */
 execute(@query)

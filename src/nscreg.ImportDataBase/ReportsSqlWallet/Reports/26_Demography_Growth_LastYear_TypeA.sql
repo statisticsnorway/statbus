@@ -1,7 +1,7 @@
 BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
-			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
+			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
 END
 
 /* checking if temporary table exists and deleting it if it is true */
@@ -101,7 +101,6 @@ ResultTableCTE2 AS
 			AND r.ActivityType = 1
 )
 
-
 /* filling temporary table by all ActivityCategories with level=1 and stat units from ResultTableCTE linked to them */
 INSERT INTO #tempTableForPivot
 SELECT 
@@ -113,24 +112,14 @@ FROM dbo.ActivityCategories as ac
 WHERE ac.ActivityCategoryLevel = 1
 GROUP BY ac.Name, rt.RegionParentName
 
-/* 
+/*
 	list of regions with level=2, that will be columns in report
 	for select statement with replacing NULL values with zeroes
 */
-DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
-				/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel = 2
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,2,'');
+DECLARE @colswithISNULL as NVARCHAR(MAX) = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* total sum of values for select statement */
-DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
-				/* set re.RegionLevel = 1 if there is no Country level at Regions tree (without condition Id = 1) */
-				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,1,'')
+DECLARE @total AS NVARCHAR(MAX) = dbo.CountTotalEmployeesInOblastsAsSql();
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
@@ -145,7 +134,7 @@ SELECT Name, ' + @total + ' as Total, ' + @colswithISNULL + ' from
             PIVOT 
             (
                 SUM(Count)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',1) + ')
+                FOR NameOblast IN (' +  dbo.GetOblastColumnNames() + ')
             ) PivotTable order by Name'
 
 execute(@query)

@@ -2,7 +2,7 @@ BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
-			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
+			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
 END
 
 /* checking if temporary table exists and deleting it if it is true */
@@ -69,22 +69,22 @@ StatisticalUnitHistoryCTE AS (
 		LiqDate,
 		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
 	FROM StatisticalUnitHistory
-	WHERE DATEPART(YEAR,RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,StartPeriod) = @InPreviousYear
+	WHERE DATEPART(YEAR,RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1
 ),
 /* list with all stat units linked to their primary ActivityCategory that were active in given dateperiod and have required StatUnitType */
 ResultTableCTE AS
 (
 	SELECT
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.RegId,suhCTE.RegId) AS RegId,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.Discriminator,suhCTE.Discriminator) AS Discriminator,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,a.Activity_Type,ah.Activity_Type) AS ActivityType,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.AddressId,suhCTE.AddressId) AS AddressId,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.Employees,suhCTE.Employees) AS Employees,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.RegistrationDate,suhCTE.RegistrationDate) AS RegistrationDate,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.UnitStatusId,suhCTE.UnitStatusId) AS UnitStatusId,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,su.LiqDate,suhCTE.LiqDate) AS LiqDate,
-		IIF(DATEPART(YEAR,su.RegistrationDate) = @InPreviousYear AND DATEPART(YEAR,su.StartPeriod) = @InPreviousYear,0,1) AS isHistory
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.RegId,suhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,a.ActivityCategoryId,ah.ActivityCategoryId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.Discriminator,suhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.AddressId,suhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.Employees,suhCTE.Employees) AS Employees,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.RegistrationDate,suhCTE.RegistrationDate) AS RegistrationDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.UnitStatusId,suhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,su.LiqDate,suhCTE.LiqDate) AS LiqDate,
+		IIF(DATEPART(YEAR,su.RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND DATEPART(YEAR,su.StartPeriod) BETWEEN @InPreviousYear AND @InCurrentYear - 1,0,1) AS isHistory
 	FROM dbo.StatisticalUnits AS su	
 		LEFT JOIN dbo.ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
 		LEFT JOIN dbo.Activities a ON a.Id = asu.Activity_Id
@@ -99,8 +99,8 @@ ResultTableCTE2 AS
 (
 	SELECT
 		r.RegId,
-		ac1.ParentId AS ActivityCategoryId1,
-		ac2.ParentId AS ActivityCategoryId2,
+		ac2.ParentId AS ActivityCategoryIdLevel2,
+		ac1.ParentId AS ActivityCategoryIdLevel1,
 		r.AddressId,
 		tr.RegionLevel,
 		tr.Name AS RegionParentName,
@@ -114,7 +114,7 @@ ResultTableCTE2 AS
 		LEFT JOIN ActivityCategoriesHierarchyCTE AS ac2 ON ac2.Id = r.ActivityCategoryId
 		LEFT JOIN dbo.Address AS addr ON addr.Address_id = r.AddressId
 		INNER JOIN RegionsHierarchyCTE AS tr ON tr.Id = addr.Region_id
-	WHERE DATEPART(YEAR, r.RegistrationDate) = @InPreviousYear AND Employees IS NOT NULL
+	WHERE DATEPART(YEAR,RegistrationDate) BETWEEN @InPreviousYear AND @InCurrentYear - 1 AND Employees IS NOT NULL
 			AND (@InStatUnitType ='All' OR (isHistory = 0 AND  r.Discriminator = @InStatUnitType) 
 					OR (isHistory = 1 AND r.Discriminator = @InStatUnitType + 'History'))
 			AND r.ActivityType = 1
@@ -126,6 +126,7 @@ ActivityCategoriesOrder AS (
 	FROM dbo.ActivityCategories AS ac
 	WHERE ac.ActivityCategoryLevel = 1
 )
+
 /* 
 	filling temporary table by all ActivityCategories with level 1 and 2,
 	and number of employees in new stat units from ResultTableCTE linked to them 
@@ -140,7 +141,7 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.Id
-	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId1
+	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryIdLevel1
 WHERE ac.ActivityCategoryLevel = 1
 GROUP BY ac.Name, rt.RegionParentName, aco.OrderId
 
@@ -154,28 +155,18 @@ SELECT
 	rt.RegionParentName as NameOblast
 FROM dbo.ActivityCategories as ac
 	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.ParentId
-	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
+	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryIdLevel2
 WHERE ac.ActivityCategoryLevel = 2
 GROUP BY ac.Name, rt.RegionParentName, aco.OrderId
 
-/*
+/* 
 	list of regions with level=2, that will be columns in report
 	for select statement with replacing NULL values with zeroes
 */
-DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
-				/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel = 2
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,2,'');
+DECLARE @colswithISNULL as NVARCHAR(MAX) = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* total sum of values for select statement */
-DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
-				/* set re.RegionLevel = 1 if there is no Country level at Regions tree (without condition Id = 1) */
-				FROM dbo.Regions  WHERE RegionLevel = 2 OR Id = 1
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,1,'')
+DECLARE @total AS NVARCHAR(MAX) = dbo.CountTotalEmployeesInOblastsAsSql();
 
 /* perform pivot on list of number of employees transforming names of regions to columns and summarizing number of employees for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
@@ -192,7 +183,7 @@ SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, '
             PIVOT 
             (
                 SUM(Count)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',1) + ')
+                FOR NameOblast IN (' + dbo.GetOblastColumnNames() + ')
             ) PivotTable order by ActivityParentId, ActivitySubCategoryName'
 
 execute(@query)
