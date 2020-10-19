@@ -22,23 +22,15 @@ END
 DECLARE @cols AS NVARCHAR(MAX),
 		@query  AS NVARCHAR(MAX),
 		@totalSumCols AS NVARCHAR(MAX),
-		@regionLevel AS NVARCHAR(MAX)
+		@regionLevel AS NVARCHAR(MAX),
+    @selectCols AS NVARCHAR(MAX)
 
 /* Column - REGIONS, COUNTRY LEVEL */
-SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @cols = dbo.GetOblastColumnNames();
 
 /* Column - Total count of statistical units by whole country */
-SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @totalSumCols = dbo.CountTotalEmployeesInOblastsAsSql();
+SET @selectCols = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* Set @regionLevel = 1 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 2
@@ -141,7 +133,7 @@ ResultTableCTE2 AS
 				OR (rt.isHistory = 1 AND rt.Discriminator = ''' + @InStatUnitType + 'History' + ''')
 )
 
-SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from
+SELECT Name, ' + @totalSumCols + ' as Total, ' + @selectCols + ' from
            (
 				SELECT
 					st.Name,

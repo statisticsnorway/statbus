@@ -32,31 +32,13 @@ DECLARE @cols AS NVARCHAR(MAX),
 SET @nameTotalColumn  = (SELECT TOP 1 Name FROM Regions WHERE Id = @InRegionId)
 
 /* Column - REGIONS, COUNTRY LEVEL */
-SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* RegionLevel <= 2 - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE (RegionLevel <= 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @cols
+SET @cols = dbo.GetRayonsColumnNames(@InRegionId);
 
 /* List of Rayons/Municipalities/Sub-level of Oblast LEVEL */
-SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* RegionLevel = 2 - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @selCols
+SET @selCols =  dbo.GetRayonsColumnNamesWithNullCheck(@InRegionId);
 
 /* Column - Total of statistical units by selected region */
-SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
-            /* RegionLevel = 2 - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE (RegionLevel = 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @totalSumCols
+SET @totalSumCols = dbo.CountTotalInRayonsAsSql(@InRegionId);
 
 /* Set @regionLevel = 2 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 3

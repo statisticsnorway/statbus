@@ -26,28 +26,13 @@ DECLARE @cols AS NVARCHAR(MAX),
 		@regionLevel AS NVARCHAR(MAX)
 
 /* List of Rayons/Municipalities/Sub-level of Oblast LEVEL */
-SET @selectCols = STUFF((SELECT distinct ','+QUOTENAME(r.Name)
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @selectCols = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* Column - REGIONS, COUNTRY LEVEL */
-SET @cols = STUFF((SELECT distinct ',ISNULL(' + QUOTENAME(r.Name)+',0) AS "' + r.Name + '"'
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @cols = dbo.GetOblastColumnNames();
 
 /* Column - Total count of statistical units by whole country */
-SET @totalSumCols = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(r.Name)+',0)'
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @totalSumCols = dbo.CountTotalEmployeesInOblastsAsSql();
 
 /* Set @regionLevel = 1 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 2
@@ -182,7 +167,7 @@ TurnoverCTE AS
 	FROM ResultTableCTE2 as rtCTE
 	WHERE rtCTE.Turnover IS NOT NULL
 )
-SELECT Turnover, ' + @totalSumCols + ' as Total, ' + @cols + ' from
+SELECT Turnover, ' + @totalSumCols + ' as Total, ' + @selectCols + ' from
            (
 				SELECT
                 	l.Turnover,
@@ -196,7 +181,7 @@ SELECT Turnover, ' + @totalSumCols + ' as Total, ' + @cols + ' from
             PIVOT
             (
                 COUNT(TurnoverId)
-                FOR NameOblast IN (' + @selectCols + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable
 			order by Id
 			'
