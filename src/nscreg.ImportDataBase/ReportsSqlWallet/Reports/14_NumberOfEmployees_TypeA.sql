@@ -28,28 +28,13 @@ DECLARE @cols AS NVARCHAR(MAX),
 		@selectCols AS NVARCHAR(MAX)
 
 
-SET @selectCols = STUFF((SELECT distinct ','+QUOTENAME(r.Name)
-      /* Set RegionLevel IN (1) if there no Country Level in the Regions database */
-			FROM Regions r  WHERE RegionLevel IN (1,2)
-			FOR XML PATH(''), TYPE
-			).value('.', 'NVARCHAR(MAX)')
-		,1,1,'')
+SET @selectCols = dbo.GetOblastColumnNamesWithNullCheck();
 
 /* Column - REGIONS, COUNTRY LEVEL */
-SET @cols = STUFF((SELECT distinct ',ISNULL(' + QUOTENAME(r.Name)+',0) AS "' + r.Name + '"'
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @cols = dbo.GetOblastColumnNames();
 
 /* Column - Total count of employees by whole country */
-SET @totalSumCols = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(r.Name)+',0)'
-            /* RegionLevel IN (1) - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel IN (1,2)
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
+SET @totalSumCols = dbo.CountTotalEmployeesInOblastsAsSql();
 
 SET @activityCategoryLevel = 1
 
@@ -224,7 +209,7 @@ ResultTableCTE2 AS
 			AND ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
 )
 
-SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from
+SELECT Name, ' + @totalSumCols + ' as Total, ' + @selectCols + ' from
             (
 				SELECT
 					acrc.Name,
@@ -236,7 +221,7 @@ SELECT Name, ' + @totalSumCols + ' as Total, ' + @cols + ' from
             PIVOT
             (
                 SUM(EmployeeAmount)
-                FOR NameOblast IN (' + @selectCols + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable order by Name'
 /* execution of the query */
 execute(@query)
