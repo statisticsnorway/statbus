@@ -16,7 +16,7 @@ GO
     Must be:
     WHERE RegionLevel = 1
 */
-ALTER FUNCTION [dbo].[HasCountryAsLevel1]()  
+CREATE OR ALTER FUNCTION [dbo].[HasCountryAsLevel1]()  
 RETURNS BIT
 AS   
 

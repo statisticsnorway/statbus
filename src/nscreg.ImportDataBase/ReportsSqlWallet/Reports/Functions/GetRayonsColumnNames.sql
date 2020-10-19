@@ -9,7 +9,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
-ALTER FUNCTION [dbo].[GetRayonsColumnNames](@OblastId INT )  
+CREATE OR ALTER FUNCTION [dbo].[GetRayonsColumnNames](@OblastId INT )  
 RETURNS NVARCHAR(MAX)
 AS   
 -- Returns all oblast names with Null checking, oblast are regions with region level 1

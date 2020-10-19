@@ -15,7 +15,7 @@ GO
     Must be:
     WHERE RegionLevel = 1
 */
-ALTER FUNCTION [dbo].[GetOblastColumnNames]()  
+CREATE OR ALTER FUNCTION [dbo].[GetOblastColumnNames]()  
 RETURNS NVARCHAR(MAX)
 AS   
 

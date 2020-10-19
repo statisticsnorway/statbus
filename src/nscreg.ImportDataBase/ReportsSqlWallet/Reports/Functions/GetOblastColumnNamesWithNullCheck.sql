@@ -8,7 +8,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER FUNCTION [dbo].[GetOblastColumnNamesWithNullCheck]()  
+CREATE OR ALTER FUNCTION [dbo].[GetOblastColumnNamesWithNullCheck]()  
 RETURNS NVARCHAR(MAX)
 AS   
 -- Returns all oblast names with Null checking, oblast are regions with region level 1
