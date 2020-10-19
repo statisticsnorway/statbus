@@ -53,7 +53,9 @@ namespace nscreg.Data.Entities.History
 
         public int? PostalAddressId { get; set; }
 
-        public string EntGroupType { get; set; }
+        public int? EntGroupTypeId { get; set; }
+
+        public EnterpriseGroupType Type { get; set; }
 
         public int? NumOfPeopleEmp { get; set; }
 
@@ -79,6 +81,7 @@ namespace nscreg.Data.Entities.History
 
         public DateTime EndPeriod { get; set; }
 
+        public int? LegalFormId { get; set; }
         public string LiqReason { get; set; }
 
         public string SuspensionStart { get; set; }
@@ -96,8 +99,6 @@ namespace nscreg.Data.Entities.History
         public int? TurnoverYear { get; set; }
 
         public DateTime? TurnoverDate { get; set; }
-
-        public string Status { get; set; }
 
         public DateTime StatusDate { get; set; }
 
@@ -119,24 +120,11 @@ namespace nscreg.Data.Entities.History
 
         public string HistoryEnterpriseUnitIds { get; set; }
 
-        public int? RegMainActivityId
-        {
-            get => null;
-            set { }
-        }
-
         public int? InstSectorCodeId
         {
             get => null;
             set { }
         }
-
-        public int? LegalFormId
-        {
-            get => null;
-            set { }
-        }
-
         public int? SizeId { get; set; }
 
         [JsonIgnore]
@@ -149,12 +137,14 @@ namespace nscreg.Data.Entities.History
 
         public int? ReorgTypeId { get; set; }
 
+        public ReorgType ReorgType { get; set; }
+        public UnitStatus UnitStatus { get; set; }
+
         public int? UnitStatusId { get; set; }
 
         [JsonIgnore]
         public SectorCode InstSectorCode { get; set; }
 
-        [JsonIgnore]
         public LegalForm LegalForm { get; set; }
     }
 }
