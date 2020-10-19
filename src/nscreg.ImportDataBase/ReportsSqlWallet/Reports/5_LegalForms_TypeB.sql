@@ -28,43 +28,13 @@ DECLARE @cols AS NVARCHAR(MAX),
 SET @nameTotalColumn  = (SELECT TOP 1 Name FROM Regions WHERE Id = @InRegionId)
 
 /* Column - REGIONS, OBLASTS LEVEL */
-SET @cols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* If there no Country level at Regions tree set condition below from:
-            RegionLevel <= 3 AND r.ParentId = @InRegionId
-            to:
-            RegionLevel <= 2 AND r.ParentId = @InRegionId
-             */
-            FROM Regions r  WHERE (RegionLevel <= 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @cols
+SET @cols = dbo.GetRayonsColumnNames(@InRegionId);
 
 /* Column - Rayons/Municipalities/Sub-level of Oblast LEVEL */
-SET @selCols = STUFF((SELECT distinct ',' + QUOTENAME(r.Name)
-            /* If there no Country level at Regions tree set condition below from:
-            RegionLevel = 3
-            to:
-            RegionLevel = 2
-             */
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @selCols
+SET @selCols = dbo.GetRayonsColumnNamesWithNullCheck(@InRegionId);
 
 /* Column - Total count of statistical units by selected region */
-SET @totalSumCols = STUFF((SELECT distinct '+' + QUOTENAME(r.Name)
-            /* If there no Country level at Regions tree set condition below from:
-            RegionLevel = 3
-            to:
-            RegionLevel = 2
-             */
-            FROM Regions r  WHERE (RegionLevel = 3 AND r.ParentId = @InRegionId) OR r.Id = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @totalSumCols
+SET @totalSumCols = dbo.CountTotalInRayonsAsSql(@InRegionId);
 
 /* Set @regionLevel = 2 if database has no Country level and begins from the Oblasts/Counties/Regions */
 SET @regionLevel = 3
@@ -112,7 +82,7 @@ SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
 FROM CTE_RN2 r
 	INNER JOIN Regions rp ON rp.Id = r.ParentId
 	INNER JOIN Regions rc ON rc.Id = r.Id
-WHERE r.RN = @regionLevel (r.Id = @InRegionId AND r.RN = 2)
+WHERE r.RN = @regionLevel OR (r.Id = @InRegionId AND r.RN = 2)
 END
 
 /*
