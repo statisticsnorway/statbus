@@ -1,4 +1,4 @@
-USE [nscreg2]
+USE [nscreg]
 GO
 
 /****** Object:  UserDefinedFunction [dbo].[CountTotalEmployeesInOblastsAsSql]    Script Date: 10/16/2020 5:10:45 PM ******/
@@ -8,7 +8,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE FUNCTION [dbo].[CountTotalEmployeesInOblastsAsSql]()  
+ALTER FUNCTION [dbo].[CountTotalEmployeesInOblastsAsSql]()  
 RETURNS NVARCHAR(MAX)
 AS   
 -- Returns all oblast names with Null checking, oblast are regions with region level 1

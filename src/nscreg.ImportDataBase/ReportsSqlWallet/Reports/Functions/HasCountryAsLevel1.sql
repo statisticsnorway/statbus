@@ -1,4 +1,4 @@
-USE [nscreg2]
+USE [nscreg]
 GO
 
 /****** Object:  UserDefinedFunction [dbo].[HasCountryAsLevel1]    Script Date: 10/16/2020 5:11:27 PM ******/
@@ -16,7 +16,7 @@ GO
     Must be:
     WHERE RegionLevel = 1
 */
-CREATE FUNCTION [dbo].[HasCountryAsLevel1]()  
+ALTER FUNCTION [dbo].[HasCountryAsLevel1]()  
 RETURNS BIT
 AS   
 

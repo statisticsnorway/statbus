@@ -1,4 +1,4 @@
-USE [nscreg2]
+USE [nscreg]
 GO
 
 /****** Object:  UserDefinedFunction [dbo].[GetOblastColumnNames]    Script Date: 10/16/2020 5:12:21 PM ******/
@@ -15,7 +15,7 @@ GO
     Must be:
     WHERE RegionLevel = 1
 */
-CREATE FUNCTION [dbo].[GetOblastColumnNames]()  
+ALTER FUNCTION [dbo].[GetOblastColumnNames]()  
 RETURNS NVARCHAR(MAX)
 AS   
 

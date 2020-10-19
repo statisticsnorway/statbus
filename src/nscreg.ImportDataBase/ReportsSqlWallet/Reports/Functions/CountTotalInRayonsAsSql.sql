@@ -8,7 +8,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE FUNCTION [dbo].[CountTotalInRayonsAsSql](@OblastId INT)  
+ALTER FUNCTION [dbo].[CountTotalInRayonsAsSql](@OblastId INT)  
 RETURNS NVARCHAR(MAX)
 AS   
 -- Returns all oblast names with Null checking, oblast are regions with region level 1
