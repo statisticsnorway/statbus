@@ -1,0 +1,228 @@
+/* Table A would get all top level items from Regions and top level items from Activity Categories */
+/*
+	RegionLevel for kyrgyz database:
+		1 Level : Kyrgyz Republic - Country level
+		2 Level : Area, Oblast, Region, Counties
+		3 Level : Rayon
+		4 Level : City / Village
+    Note: if you haven't region level for country Region/Counties etc. would be 1 Level
+*/
+
+/* Input parameters from report body - filters that have to be defined by the user */
+BEGIN
+	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+END
+
+
+/* Declare variables */
+BEGIN
+DECLARE @cols AS NVARCHAR(MAX),
+        @selCols AS NVARCHAR(MAX),
+        @query  AS NVARCHAR(MAX),
+        @totalSumCols AS NVARCHAR(MAX),
+        @activityCategoryLevel AS NVARCHAR(MAX),
+        @regionLevel AS NVARCHAR(MAX);
+
+/* Column variables - REGIONS, COUNTRY LEVEL */
+SET @cols = dbo.GetOblastColumnNames();
+
+/* List of REGIONS/OBLASTS LEVEL */
+SET @selCols = dbo.GetOblastColumnNamesWithNullCheck();
+
+/* Column - Total count of statistical units by whole country */
+SET @totalSumCols = dbo.CountTotalEmployeesInOblastsAsSql();
+
+SET @activityCategoryLevel = 1
+
+/* Set @regionLevel = 1 if database has no Country level and begins from the Oblasts/Counties/Regions */
+SET @regionLevel = 2
+/* End of declaration of variables */
+END
+
+/* Declare and fill Activity Categories Tree */
+BEGIN
+
+/* Delete a temporary table #tempActivityCategories for Activity Categories if exists */
+IF (OBJECT_ID('tempdb..#tempActivityCategories') IS NOT NULL)
+BEGIN DROP TABLE #tempActivityCategories END
+
+/* Create a new temporary table for Activity Categories */
+CREATE TABLE #tempActivityCategories
+(
+    ID INT,
+    Level INT,
+    ParentId INT,
+    Name NVARCHAR(MAX)
+);
+
+/* Create an index "ix_tempActivityCategoriesIndex" - to make search faster - Activity Categories */
+CREATE NONCLUSTERED INDEX ix_tempActivityCategoriesIndex ON #tempActivityCategories ([ID]);
+
+/* using CTE (Common Table Expressions), recursively collect the Activity Categories tree */
+;WITH ActivityCategoriesCTE AS (
+	SELECT
+		Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
+	FROM ActivityCategories
+
+	UNION ALL
+
+	SELECT
+		i.Id, Level + 1, CAST(itms.ParentId AS VARCHAR(255))
+	FROM ActivityCategories i
+	INNER JOIN ActivityCategoriesCTE itms ON itms.Id = i.ParentId
+),
+
+/* Select all levels from Activity Categories and order them */
+CTE_RN AS
+(
+    SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
+    FROM ActivityCategoriesCTE r
+)
+
+/* Fill with data the temporary table #tempActivityCategories */
+INSERT INTO #tempActivityCategories
+SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
+FROM CTE_RN r
+INNER JOIN ActivityCategories rp ON rp.Id = r.ParentId
+INNER JOIN ActivityCategories rc ON rc.Id = r.Id
+WHERE r.RN = @activityCategoryLevel
+/* End declare Activity Categories Tree */
+END
+
+
+
+/* Declare and fill Regions Tree */
+BEGIN
+
+/* Delete a temporary #tempRegions table if exists */
+IF (OBJECT_ID('tempdb..#tempRegions') IS NOT NULL)
+	BEGIN DROP TABLE #tempRegions END
+
+/* Create a new temporary table for Regions */
+CREATE TABLE #tempRegions
+(
+    ID INT,
+    Level INT,
+    ParentId INT,
+    Name NVARCHAR(MAX)
+);
+
+/* Create an index "ix_tempRegionsIndex" - to make search faster - Regions */
+CREATE NONCLUSTERED INDEX ix_tempRegionsIndex ON #tempRegions ([ID]);
+
+/* using CTE (Common Table Expressions), recursively collect the Regions tree */
+;WITH RegionsCTE AS (
+	SELECT Id, 0 AS Level, CAST(Id AS VARCHAR(255)) AS ParentId
+	FROM Regions
+
+	UNION ALL
+
+	SELECT i.Id, Level + 1, CAST(itms.ParentId AS VARCHAR(255))
+	FROM Regions i
+	INNER JOIN RegionsCTE itms ON itms.Id = i.ParentId
+	WHERE i.ParentId>0
+),
+
+/* Select all levels from Regions and order them */
+CTE_RN2 AS
+(
+    SELECT Id,Level,ParentId, ROW_NUMBER() OVER (PARTITION BY r.Id ORDER BY r.Level DESC) RN
+    FROM RegionsCTE r
+)
+
+/* Fill with data the temporary table #tempRegions */
+INSERT INTO #tempRegions
+SELECT r.Id, r.RN, r.ParentId, rp.Name AS ParentName
+FROM CTE_RN2 r
+	INNER JOIN Regions rp ON rp.Id = r.ParentId
+	INNER JOIN Regions rc ON rc.Id = r.Id
+WHERE r.RN = @regionLevel OR r.Id = 1
+END
+/* End declare Regions Tree */
+
+
+/*
+The resulting query
+At the first checking the history logs that have StartPeriod less than current year
+and then
+Select Activity Categories top-level itemss
+and then
+ResultTable - get the actual state of statistical units where RegistrationDate and StartPeriod less than current year
+and then
+Join Activity Categories to select statistical units
+and then
+Count statistical units and using the pivot - transform from regions column to regions row
+*/
+SET @query = '
+;WITH StatisticalUnitHistoryCTE AS (
+	SELECT
+		RegId,
+		ParentId,
+		AddressId,
+		UnitStatusId,
+		Discriminator,
+		ROW_NUMBER() over (partition by ParentId order by StartPeriod desc) AS RowNumber
+	FROM StatisticalUnitHistory
+	WHERE DATEPART(YEAR,StartPeriod)<'+@InCurrentYear+'
+),
+ActivityCategoriesForResultCTE AS
+(
+	SELECT Id,Name
+	FROM dbo.ActivityCategories
+	WHERE ActivityCategoryLevel = 1
+),
+ResultTableCTE AS
+(
+	SELECT
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.RegId, asuhCTE.RegId) AS RegId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',ac.ParentId,ach.ParentId) AS ActivityCategoryId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.AddressId,asuhCTE.AddressId) AS AddressId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.UnitStatusId,asuhCTE.UnitStatusId) AS UnitStatusId,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',su.Discriminator,asuhCTE.Discriminator) AS Discriminator,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',a.Activity_Type,ah.Activity_Type) AS ActivityType,
+		IIF(DATEPART(YEAR, su.RegistrationDate)<'+@InCurrentYear+' AND DATEPART(YEAR,su.StartPeriod)<'+@InCurrentYear+',0,1) AS isHistory
+	FROM StatisticalUnits AS su
+		LEFT JOIN ActivityStatisticalUnits asu ON asu.Unit_Id = su.RegId
+		LEFT JOIN Activities a ON a.Id = asu.Activity_Id
+		LEFT JOIN #tempActivityCategories AS ac ON ac.Id = a.ActivityCategoryId
+		
+		LEFT JOIN StatisticalUnitHistoryCTE asuhCTE ON asuhCTE.ParentId = su.RegId and asuhCTE.RowNumber = 1
+		LEFT JOIN ActivityStatisticalUnitHistory asuh ON asuh.Unit_Id = asuhCTE.RegId
+		LEFT JOIN Activities ah ON ah.Id = asuh.Activity_Id
+		LEFT JOIN #tempActivityCategories AS ach ON ach.Id = ah.ActivityCategoryId
+
+    WHERE su.IsDeleted = 0
+),
+ResultTableCTE2 AS
+(
+	SELECT
+		RegId,
+		tr.Name AS NameOblast,
+		ActivityCategoryId
+	FROM ResultTableCTE AS rt
+		LEFT JOIN dbo.Address AS addr ON addr.Address_id = rt.AddressId
+		INNER JOIN #tempRegions AS tr ON tr.Id = addr.Region_id
+
+	WHERE (''' + @InStatUnitType + ''' = ''All'' OR (rt.isHistory = 0 AND  rt.Discriminator = ''' + @InStatUnitType + ''') 
+				OR (rt.isHistory = 1 AND rt.Discriminator = ''' + @InStatUnitType + 'History' + '''))
+			AND ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
+			AND rt.ActivityType = 1
+)
+SELECT Name, ' + @totalSumCols + ' as Total, ' + @selCols + ' from
+            (
+				SELECT
+					rt.RegId,
+					acrc.Name,
+					rt.NameOblast
+				FROM ActivityCategoriesForResultCTE as acrc
+				LEFT JOIN ResultTableCTE2 AS rt ON acrc.Id = rt.ActivityCategoryId
+           ) SourceTable
+            PIVOT
+            (
+                COUNT(RegId)
+                FOR NameOblast IN (' + @cols + ')
+            ) PivotTable order by Name'
+/* execution of the query */
+execute(@query)
