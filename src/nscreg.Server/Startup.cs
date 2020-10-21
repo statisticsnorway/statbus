@@ -217,6 +217,7 @@ namespace nscreg.Server
                         options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
                     })
                     .UseContentRoot(Directory.GetCurrentDirectory())
+                    .UseKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue)
                     .UseIISIntegration()
                     .UseStartup<Startup>()
                     .Build().Run();
