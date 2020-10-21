@@ -2,7 +2,8 @@ BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InPersonTypeId NVARCHAR(MAX) = $PersonTypeId,
-			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
+      @OblastLevel INT = dbo.GetOblastLevel();
 END
 
 /* checking if temporary table exists and deleting it if it is true */
@@ -166,7 +167,7 @@ GROUP BY ac.Name, rt.RegionParentName, rt.Sex, aco.OrderId
 */
 DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(ISNULL(' + QUOTENAME(Name + '1') + ', ''0''))  AS ' + QUOTENAME(Name + '1') + ', STR(ISNULL(' + QUOTENAME(Name + '2') + ', ''0''))  AS ' + QUOTENAME(Name + '2')
 				/* set RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel = 2
+				FROM dbo.Regions  WHERE RegionLevel = @OblastLevel
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,2,'');
@@ -174,7 +175,7 @@ DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', STR(ISNULL(
 /* total sum of male persons for select statement */
 DECLARE @totalMale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '1') + '), 0)'
 				/* set RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
+				FROM dbo.Regions  WHERE RegionLevel IN (@OblastLevel, @OblastLevel - 1)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
@@ -182,7 +183,7 @@ DECLARE @totalMale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ ISNULL(CONVERT(I
 /* total sum of female persons for select statement */
 DECLARE @totalFemale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(CONVERT(INT, ' + QUOTENAME(Name + '2') + '), 0)'
 				/* set RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
+				FROM dbo.Regions  WHERE RegionLevel IN (@OblastLevel, @OblastLevel - 1)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'')
@@ -190,7 +191,7 @@ DECLARE @totalFemale AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(CONVERT(
 /* list of names of regions that were used in #tempTableForPivot */
 DECLARE @namesRegionsForPivot AS NVARCHAR(MAX) = STUFF((SELECT distinct ',' + QUOTENAME(Name + '1') + ',' + QUOTENAME(Name + '2')
 				/* set RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel IN (1,2)
+				FROM dbo.Regions  WHERE RegionLevel IN (@OblastLevel, @OblastLevel - 1)
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'');
@@ -198,7 +199,7 @@ DECLARE @namesRegionsForPivot AS NVARCHAR(MAX) = STUFF((SELECT distinct ',' + QU
 /* second line of headers, that will be used for naming columns as Male and Female */
 DECLARE @maleFemaleLine AS NVARCHAR(MAX) = STUFF((SELECT distinct ', ''Male'' as ' + QUOTENAME(Name) + ', ''Female'' as ''                   '''
 				/* set RegionLevel = 1 if there is no Country level at Regions tree */
-				FROM dbo.Regions  WHERE RegionLevel = 2
+				FROM dbo.Regions  WHERE RegionLevel = @OblastLevel
 				FOR XML PATH(''), TYPE
 				).value('.', 'NVARCHAR(MAX)')
 			,1,1,'');
