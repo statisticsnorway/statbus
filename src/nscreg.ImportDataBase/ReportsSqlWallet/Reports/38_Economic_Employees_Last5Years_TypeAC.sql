@@ -167,7 +167,7 @@ DECLARE @colswithISNULL as NVARCHAR(MAX) = dbo.GetOblastColumnNamesWithNullCheck
 
 /* total sum of values for select statement */
 DECLARE @total AS NVARCHAR(MAX) = dbo.CountTotalEmployeesInOblastsAsSql();
-
+DECLARE @cols AS NVARCHAR(MAX) = dbo.GetOblastColumnNames();
 /* perform pivot on list of number of employees transforming names of regions to columns and summarizing number of employees for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, ' + @colswithISNULL + ' from 
@@ -183,7 +183,7 @@ SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, '
             PIVOT 
             (
                 SUM(Count)
-                FOR NameOblast IN (' + dbo.GetOblastColumnNames() + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable order by ActivityParentId, ActivitySubCategoryName'
 
 execute(@query)
