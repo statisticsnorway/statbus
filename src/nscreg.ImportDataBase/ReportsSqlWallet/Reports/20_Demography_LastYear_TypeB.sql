@@ -107,10 +107,14 @@ FROM dbo.ActivityCategories as ac
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
 WHERE ac.ActivityCategoryLevel = 1
 
+DECLARE
+  @cols NVARCHAR(MAX) = dbo.GetRayonsColumnNames(@InRegionId),
+  @total NVARCHAR(MAX) =  dbo.CountTotalInRayonsAsSql(@InRegionId),
+  @selectedCols NVARCHAR(MAX) = dbo.GetRayonsColumnNamesWithNullCheck(@InRegionId);
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
 SELECT 
-	Name, ' + dbo.GetNamesRegionsForPivot(@InRegionId,'TOTAL',1) + ' as [' + @nameTotalColumn+ '], ' + dbo.GetNamesRegionsForPivot(@InRegionId,'SELECT', 0) + ' from 
+	Name, ' + @total + ' as [' + @nameTotalColumn+ '], ' + @selectedCols + ' from 
 		(
 				SELECT 
 					RegId,
@@ -121,7 +125,7 @@ SELECT
             PIVOT 
             (
                 COUNT(RegId)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT', 1) + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable			
 			'
 

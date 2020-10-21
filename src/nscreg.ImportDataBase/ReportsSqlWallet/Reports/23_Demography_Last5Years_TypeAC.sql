@@ -147,10 +147,13 @@ FROM dbo.ActivityCategories as ac
 	INNER JOIN ActivityCategoriesOrder AS aco ON aco.Id = ac.ParentId
 	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId2
 WHERE ac.ActivityCategoryLevel = 2
-
+DECLARE
+  @cols NVARCHAR(MAX) = dbo.GetOblastColumnNames(),
+  @total NVARCHAR(MAX) = dbo.CountTotalEmployeesInOblastsAsSql(),
+  @selectedCols NVARCHAR(MAX) = dbo.GetOblastColumnNamesWithNullCheck();
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories with both levels 1 and 2 */
 DECLARE @query AS NVARCHAR(MAX) = '
-	SELECT ActivityCategoryName, ActivitySubCategoryName, ' + dbo.[GetNamesRegionsForPivot](1, 'TOTAL',1) + ' as Total, ' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',0) + ' from 
+	SELECT ActivityCategoryName, ActivitySubCategoryName, ' + @total + ' as Total, ' + @selectedCols + ' from 
             (
 				SELECT 
 					RegId,
@@ -163,7 +166,7 @@ DECLARE @query AS NVARCHAR(MAX) = '
             PIVOT 
             (
                 COUNT(RegId)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(1,'FORINPIVOT',1) + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable order by ActivityParentId, ActivityCategoryName DESC, ActivitySubCategoryName'
 
 execute(@query)

@@ -34,33 +34,16 @@ DECLARE
 	@regionLevel AS NVARCHAR(MAX),
 	@selectCols AS NVARCHAR(MAX)
 
-SET @selectCols = STUFF((SELECT distinct ','+QUOTENAME(r.Name)
-      /* Set RegionLevel = 2 if there no Country Level in the Regions database */
-			FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId OR r.Id = @InRegionId
-			FOR XML PATH(''), TYPE
-			).value('.', 'NVARCHAR(MAX)')
-		,1,1,'')
+SET @selectCols = dbo.GetRayonsColumnNamesWithNullCheck(@InRegionId);
 
 /* Name of oblast/county for the total column */
 SET @nameTotalColumn  = (SELECT TOP 1 Name FROM Regions WHERE Id = @InRegionId)
 
 /* Column variables - Rayons level */
-SET @cols = STUFF((SELECT distinct ',ISNULL(' + QUOTENAME(r.Name)+',0) AS "' + r.Name + '"'
-            /* RegionLevel = 2 - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @cols
+SET @cols = dbo.GetRayonsColumnNames(@InRegionId);
 
 /* Total count of employees of selected Oblast/Region column  */
-SET @totalSumCols =  STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(r.Name)+',0)'
-            /* RegionLevel = 2 - if there no Country Level in the Regions database */
-            FROM Regions r  WHERE RegionLevel = 3 AND r.ParentId = @InRegionId OR r.Id = @InRegionId
-            FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-		PRINT @totalSumCols
+SET @totalSumCols =  dbo.CountTotalInRayonsAsSql(@InRegionId);
 
 SET @activityCategoryLevel = 1
 
@@ -235,7 +218,7 @@ ResultTableCTE2 AS
 			AND ('+@InStatusId+' = 0 OR rt.UnitStatusId = '+@InStatusId+')
 )
 
-SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @cols + ' from
+SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @selectCols + ' from
 		(
 		SELECT
 			acrc.Name,
@@ -247,7 +230,7 @@ SELECT Name, ' + @totalSumCols + ' as [' + @nameTotalColumn+ '], ' + @cols + ' f
             PIVOT
             (
                 SUM(EmployeeAmount)
-                FOR NameOblast IN (' + @selectCols + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable'
 /* execution of the query */
 execute(@query)

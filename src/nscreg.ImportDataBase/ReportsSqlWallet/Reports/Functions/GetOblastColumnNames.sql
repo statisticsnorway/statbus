@@ -29,7 +29,6 @@ BEGIN
 	BEGIN
 		SET @RegionLevel += 1;
 	END
-	SET @HasCountryAsLevel1 = dbo.HasCountryAsLevel1();
 
 	SET @OblastNames = STUFF(
 		(SELECT DISTINCT ',' + QUOTENAME(Name)

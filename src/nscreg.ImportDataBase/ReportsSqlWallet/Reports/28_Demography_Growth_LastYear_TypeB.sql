@@ -1,6 +1,6 @@
 BEGIN /* INPUT PARAMETERS from report body */
-	DECLARE @InRegionId INT = $RegionId,
-			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
+	DECLARE @InRegionId INT = 2,
+			@InStatUnitType NVARCHAR(MAX) = 'All',
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
 			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
 END
@@ -119,18 +119,10 @@ GROUP BY ac.Name, rt.RegionParentName
 	list of regions with level=3 and ParentId = @InRegionId, that will be columns in report
 	for select statement with replacing NULL values with zeroes
 */
-DECLARE @colswithISNULL as NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0)  AS ' + QUOTENAME(Name)
-				FROM dbo.Regions  WHERE ParentId = @InRegionId
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,2,'');
-
+DECLARE @colswithISNULL as NVARCHAR(MAX) = dbo.GetRayonsColumnNamesWithNullCheck(@InRegionId);
+DECLARE @cols AS NVARCHAR(MAX) = dbo.GetRayonsColumnNames(@InRegionId);
 /* total sum of values for select statement */
-DECLARE @total AS NVARCHAR(MAX) = STUFF((SELECT distinct '+ISNULL(' + QUOTENAME(Name) + ', 0)'
-				FROM dbo.Regions  WHERE ParentId = @InRegionId OR Id = @InRegionId
-				FOR XML PATH(''), TYPE
-				).value('.', 'NVARCHAR(MAX)')
-			,1,1,'')
+DECLARE @total AS NVARCHAR(MAX) = dbo.CountTotalInRayonsAsSql(@InRegionId);
 		
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories */
 DECLARE @query AS NVARCHAR(MAX) = '
@@ -145,7 +137,7 @@ SELECT Name, ' + @total + ' as ' + QUOTENAME(@nameTotalColumn) + ', ' + @colswit
             PIVOT 
             (
                 SUM(Count)
-                FOR NameOblast IN (' + dbo.GetNamesRegionsForPivot(@InRegionId,'FORINPIVOT',1) + ')
+                FOR NameOblast IN (' + @cols + ')
             ) PivotTable order by Name'
 
 execute(@query)

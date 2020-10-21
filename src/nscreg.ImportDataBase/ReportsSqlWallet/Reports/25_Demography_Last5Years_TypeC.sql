@@ -1,7 +1,8 @@
 BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
-			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5
+			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 5,
+      @OblastLevel INT = dbo.GetOblastLevel();
 END
 
 /* checking if temporary table exists and deleting it if it is true */
@@ -202,8 +203,8 @@ SELECT
 FROM ResultTableCTE2 AS rt
 	LEFT JOIN dbo.ActivityCategories as ac ON ac.Id = rt.ActivityCategoryId	
 	LEFT JOIN CountOfActivitiesInRegionCTE AS cofir ON cofir.OblastId = rt.OblastId AND cofir.ActivityCategoryId = ac.Id
-/* set rt.RegionLevel > 1 if there is no Country level at Regions tree */
-WHERE rt.RegionLevel > 2
+
+WHERE rt.RegionLevel > @OblastLevel
 GROUP BY 
 	rt.NameRayon,
 	rt.OblastId,
@@ -214,16 +215,15 @@ UNION ALL
 SELECT 0, ac.Name, re.Name, re.Id, ''
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
-/* set re.RegionLevel = 1 if there is no Country level at Regions tree */
-WHERE re.RegionLevel = 2 AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
+WHERE re.RegionLevel = @OblastLevel AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
 
 UNION ALL
 /* inserting values for not added rayons(regions with level = 3) that will be the second headers column */
 SELECT 0, ac.Name, '', re.ParentId, re.Name
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
-/* set re.RegionLevel = 2 if there is no Country level at Regions tree */
-WHERE re.RegionLevel = 3 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
+
+WHERE re.RegionLevel = @OblastLevel + 1 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
 
 /* perform pivot on list of stat units transforming names of regions to columns and counting stat units for ActivityCategories with both levels 1 and 2 */
 DECLARE @query NVARCHAR(MAX) = N'

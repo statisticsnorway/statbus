@@ -18,7 +18,8 @@
 BEGIN
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
-			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
+      @OblastLevel INT = dbo.GetOblastLevel()
 END
 
 /* Delete a temporary table #tempTableForPivot if exists */
@@ -159,7 +160,7 @@ SELECT
 	rt.OblastId,
 	'' AS NameRayon
 FROM dbo.ActivityCategories AS ac
-	LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
+LEFT JOIN ResultTableCTE2 AS rt ON ac.Id = rt.ActivityCategoryId
 WHERE ac.ActivityCategoryLevel = 1 AND rt.OblastId IS NOT NULL
 GROUP BY rt.NameOblast, ac.Name, rt.OblastId
 
@@ -182,7 +183,7 @@ SELECT 0, ac.Name, re.Name, re.Id, ''
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
 /* set re.RegionLevel = 1 if there no Country level at Regions tree */
-WHERE re.RegionLevel = 2 AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
+WHERE re.RegionLevel = @OblastLevel AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
 
 UNION
 /* Rayons level - 2 column - if there no value, put 0 at the result */
@@ -190,7 +191,7 @@ SELECT 0, ac.Name, '', re.ParentId, re.Name
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
 /* set re.RegionLevel = 2 if there no Country level at Regions tree */
-WHERE re.RegionLevel = 3 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
+WHERE re.RegionLevel = @OblastLevel + 1 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
 
 
 DECLARE @colsInSelect NVARCHAR(MAX) = STUFF((SELECT distinct ', ISNULL(' + QUOTENAME(Name) + ', 0) AS ' + QUOTENAME(Name)
