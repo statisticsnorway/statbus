@@ -218,6 +218,7 @@ namespace nscreg.Server
                     })
                     .UseContentRoot(Directory.GetCurrentDirectory())
                     .UseIISIntegration()
+                    .UseKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue)
                     .UseStartup<Startup>()
                     .Build().Run();
             }
