@@ -1,6 +1,6 @@
 BEGIN /* INPUT PARAMETERS from report body */
-	DECLARE @InRegionId INT = 2,
-			@InStatUnitType NVARCHAR(MAX) = 'All',
+	DECLARE @InRegionId INT = $RegionId,
+			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
 			@InPreviousYear NVARCHAR(MAX) = YEAR(GETDATE()) - 1
 END
