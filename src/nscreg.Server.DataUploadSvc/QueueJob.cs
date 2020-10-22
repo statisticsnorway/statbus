@@ -40,7 +40,6 @@ namespace nscreg.Server.DataUploadSvc
         public int Interval { get; }
         private QueueService _queueSvc;
         private DbLogBuffer _logBuffer;
-        private AnalyzeService _analysisSvc;
         private readonly int _dbLogBufferMaxCount;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
@@ -69,7 +68,6 @@ namespace nscreg.Server.DataUploadSvc
             var dbContextHelper = new DbContextHelper();
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
-            _analysisSvc = new AnalyzeService(_context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
             _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
         }
 
@@ -107,47 +105,27 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
             }
 
-            // Stopwatch swCycle = new Stopwatch();
-            //swCycle.Start();
+            var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality);
 
-            var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
+            //var swParse = new Stopwatch();
+            var (parseError, parsed) = await ParseFile(dequeued/*, swParse*/);
+           
+            if (parseError.HasValue())
+            {
+                _logger.LogInformation("finish queue item with error: {0}", parseError);
+                await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
+                return;
+            }
 
-            ImportExecutor.InterlockedInt = 0;
-
-            var executors = new List<ImportExecutor> {
-                new ImportExecutor(_statUnitAnalysisRules,_dbMandatoryFields,_validationSettings, _logger, _logBuffer, _personsGoodQuality)
-            };
-
-            var swParse = new Stopwatch();
-            var parseTask = Task.Factory.StartNew(async () => await ParseFile(dequeued, tasks, swParse), cancellationToken);
-
-            executors.ForEach(x => x.UseTasksQueue(tasks));
+            _logger.LogInformation("parsed {0} entities", parsed.Length);
             var anyWarnings = false;
-            var tasksArray = executors.Select(x => x.Start(dequeued)).Append(parseTask.Unwrap()).ToArray();
 
-            await CatchAndLogException(async () => await Task.WhenAll(tasksArray), () => anyWarnings = true);
+            await CatchAndLogException(async () => await executor.Start(dequeued, parsed), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
-           // _logger.LogWarning($"End Total {swCycle.Elapsed};");
-
-            //TimeSpan populateTime, analyzeTime, saveTime, total;
-            //long populateCount=0, analyzeCount=0, saveCount=0;
-            //executors.ForEach(x =>
-            //{
-            //    populateTime += x.swPopulation.Elapsed;
-            //    analyzeTime += x.swAnalyze.Elapsed;
-            //    saveTime += x.swSave.Elapsed;
-            //    populateCount += x.populationCount;
-            //    analyzeCount += x.analyzeCount;
-            //    saveCount += x.saveCount;
-            //});
-            //total = populateTime + analyzeTime + saveTime;
-
-            //_logger.LogWarning($"Total for {executors.Count} threads \r\n Parse {swParse.Elapsed} \r\n Populate {populateTime} \r\n Analyze Total {analyzeTime} \r\n Save {saveTime}");
-           // _logger.LogWarning($"Average: \r\n Populate { populateTime.TotalMilliseconds/ populateCount} ms ({populateTime/ total*100: 0.00}%) \r\n Analyze { analyzeTime.TotalMilliseconds / analyzeCount} ms ({analyzeTime / total*100: 0.00}%) \r\n Save { saveTime.TotalMilliseconds / saveCount} ms  ({saveTime / total*100: 0.00}%) ");
-
+           
             await _queueSvc.FinishQueueItem(
                 dequeued,
-                anyWarnings || executors.Any(x => x.AnyWarnings)
+                anyWarnings || executor.AnyWarnings
                     ? QueueStatus.DataLoadCompletedPartially
                     : QueueStatus.DataLoadCompleted);
 
@@ -171,7 +149,6 @@ namespace nscreg.Server.DataUploadSvc
         {
             _queueSvc = null;
             _context.Dispose();
-            _analysisSvc = null;
             _logBuffer = null;
         }
 
@@ -194,87 +171,47 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private async Task ParseFile(DataSourceQueue queueItem,
-            BlockingCollection<IReadOnlyDictionary<string, object>> tasks, Stopwatch swParseFile) =>
-        await Task.Factory.StartNew(async () =>
-             {
-                 _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
-                 swParseFile.Start();
-                 try
-                 {
-                     switch (queueItem.DataSourceFileName)
-                     {
-                         case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
-                             await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath,
-                                 queueItem.DataSource.VariablesMappingArray, tasks);
-                             break;
-                         case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
-                             await FileParser.GetRawEntitiesFromCsv(
-                                 queueItem.DataSourcePath,
-                                 queueItem.DataSource.CsvSkipCount,
-                                 queueItem.DataSource.CsvDelimiter,
-                                 queueItem.DataSource.VariablesMappingArray, tasks);
-                             break;
-                         default:
-                            //await CompleteParse("Unsupported type of file");
-                            return;
-                     }
-                 }
-                 catch (Exception)
-                 {
-                    //await CompleteParse(ex.Message);
-                 }
-                 finally
-                 {
-                     swParseFile.Stop();
-                     tasks.CompleteAdding();
-                 }
-
-                 //IReadOnlyDictionary<string, object>[] parsedArr = parsed.ToArray();
-
-                 //if (parsedArr.Length == 0)
-                 //{
-                 //    await CompleteParse(Resource.UploadFileEmpty);
-                 //    return;
-                 //}
-
-                 //if (parsedArr.Any(x => x.Count == 0))
-                 //{
-                 //    await CompleteParse(Resource.FileHasEmptyUnit);
-                 //    return;
-                 //}
-
-                 //async Task CompleteParse(string parseError)
-                 //{
-                 //    swParseFile.Stop();
-                 //    if (parseError.HasValue())
-                 //    {
-                 //        _logger.LogInformation("finish queue item with error: {0}", parseError);
-                 //        await _queueSvc.FinishQueueItem(queueItem, QueueStatus.DataLoadFailed, parseError);
-                 //        return;
-                 //    }
-                 //}
-            }, TaskCreationOptions.LongRunning);
-
-        private (string, (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
+        private async Task<(string error, IReadOnlyDictionary<string, object>[] result)> ParseFile(DataSourceQueue queueItem/*, Stopwatch swParseFile*/)
         {
-            if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
-                return (null, (new Dictionary<string, string[]>(), new string[0]));
-
-            AnalysisResult analysisResult;
+            _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
+            IEnumerable<IReadOnlyDictionary<string, object>> parsed;
+            // swParseFile.Start();
             try
             {
-                analysisResult = _analysisSvc.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true, false);
+                switch (queueItem.DataSourceFileName)
+                {
+                    case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
+                        parsed = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath,
+                            queueItem.DataSource.VariablesMappingArray);
+                        break;
+                    case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
+                        parsed = await FileParser.GetRawEntitiesFromCsv(
+                            queueItem.DataSourcePath,
+                            queueItem.DataSource.CsvSkipCount,
+                            queueItem.DataSource.CsvDelimiter,
+                            queueItem.DataSource.VariablesMappingArray);
+                        break;
+                    default:
+                         return ("Unsupported type of file", null);
+                }
             }
             catch (Exception ex)
             {
-                return (ex.Message, (null, null));
+                return (ex.Message, null);
             }
-            return (null, (
-                analysisResult.Messages,
-                analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
-        }
+            var parsedArr = parsed.ToArray();
 
+            if (parsedArr.Length == 0)
+            {
+                return (Resource.UploadFileEmpty, parsedArr);
+            }
+
+            if (parsedArr.Any(x => x.Count == 0))
+            {
+                return (Resource.FileHasEmptyUnit, parsedArr);
+            }
+            return (null, parsedArr);
+        }
         /// <summary>
         /// Делает копию файла с удалением пустых строк
         /// </summary>
@@ -307,7 +244,7 @@ namespace nscreg.Server.DataUploadSvc
                 rawLines = await reader.ReadToEndAsync();
             }
 
-            return rawLines.Split('\r', '\n');
+            return rawLines.Replace("\"", string.Empty).Split('\r', '\n');
         }
 
         private async Task WriteFileAsync(string csv, string path) => await File.WriteAllTextAsync(path, csv);

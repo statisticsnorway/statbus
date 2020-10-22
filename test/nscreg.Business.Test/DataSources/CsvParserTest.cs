@@ -29,9 +29,9 @@ namespace nscreg.Business.Test.DataSources
                 var pair = vm.Split('-');
                 return (pair[0], pair[1]);
             }).ToArray();
-            var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
-            CsvParser.GetParsedEntities(source, delimiter, array, tasks);
-            tasks.ToList().Should().BeEquivalentTo(new List<IReadOnlyDictionary<string, object>>
+           
+            var entities = CsvParser.GetParsedEntities(source, delimiter, array);
+            entities.Should().BeEquivalentTo(new List<IReadOnlyDictionary<string, object>>
             {
                 new Dictionary<string, object>()
                 {
