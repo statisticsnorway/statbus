@@ -13,15 +13,15 @@ namespace nscreg.Business.DataSources
         private static readonly string[] StatisticalUnitArrayPropertyNames = new[] { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
         private static readonly KeyValueTupleComparer CsvColumnValueComparer = new KeyValueTupleComparer();
 
-        public static void GetParsedEntities(string rawLines, string delimiter, (string source, string target)[] variableMappingsArray, System.Collections.Concurrent.BlockingCollection<IReadOnlyDictionary<string, object>> tasks)
+        public static List<Dictionary<string, object>> GetParsedEntities(string rawLines, string delimiter, (string source, string target)[] variableMappingsArray)
         {
-            if (rawLines.Length == 0) return;
+            if (rawLines.Length == 0) return new List<Dictionary<string, object>>();
 
             CsvConfig.ItemSeperatorString = delimiter;
             var csvHeaders = rawLines.Split(new []{'\r', '\n'}, 2).First().Split(delimiter);
             var rowsFromCsv = rawLines.FromCsv<List<Dictionary<string, string>>>();
-
-            if(rowsFromCsv.Count == 0) return;
+            var resultDictionary = new List<Dictionary<string, object>>();
+            if (!rowsFromCsv.Any()) return new List<Dictionary<string, object>>();
 
             // Transform to array of (target, value) according to mapping for the first row
             var unitPartCsv = GetUnitPartCsvAfterMapping(variableMappingsArray, rowsFromCsv[0]);
@@ -61,10 +61,9 @@ namespace nscreg.Business.DataSources
 
                     j++;
                 }
-
-                tasks.Add(unitResult);
+                resultDictionary.Add(unitResult);
             }
-            return;
+            return resultDictionary;
 
             void AppendValuesToArrayProperties(IGrouping<string, (string targetKey, string value, string[] targetKeySplitted)> csvUnitArrayProperty, Dictionary<string, object> unitResult)
             {

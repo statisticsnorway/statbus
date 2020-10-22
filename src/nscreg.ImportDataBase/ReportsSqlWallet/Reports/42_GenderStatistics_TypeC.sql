@@ -2,7 +2,8 @@ BEGIN /* INPUT PARAMETERS from report body */
 	DECLARE @InStatusId NVARCHAR(MAX) = $StatusId,
 			@InStatUnitType NVARCHAR(MAX) = $StatUnitType,
 			@InPersonTypeId NVARCHAR(MAX) = $PersonTypeId,
-			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE())
+			@InCurrentYear NVARCHAR(MAX) = YEAR(GETDATE()),
+      @OblastLevel INT = dbo.GetOblastLevel();
 END
 
 /* checking if temporary table exists and deleting it if it is true */
@@ -174,7 +175,7 @@ SELECT '0', 1, ac.Name, re.Id, '', re.Name
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
 /* set re.RegionLevel = 1 if there is no Country level at Regions tree */
-WHERE re.RegionLevel = 2 AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
+WHERE re.RegionLevel = @OblastLevel AND re.Id NOT IN (SELECT OblastId FROM AddedOblasts)
 
 UNION
 /* inserting values for not added rayons(regions with level = 3) that will be the second headers column */
@@ -182,7 +183,7 @@ SELECT '0', 1, ac.Name, re.ParentId, re.Name, ''
 FROM dbo.Regions AS re
 	CROSS JOIN (SELECT TOP 1 Name FROM dbo.ActivityCategories WHERE ActivityCategoryLevel = 1) AS ac
 /* set re.RegionLevel = 2 if there is no Country level at Regions tree */
-WHERE re.RegionLevel = 3 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
+WHERE re.RegionLevel = @OblastLevel + 1 AND re.Id NOT IN (SELECT RayonId FROM AddedRayons)
 
 /* 
 	list of regions with level=2, that will be columns in report

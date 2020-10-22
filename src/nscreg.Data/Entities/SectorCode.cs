@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using nscreg.Data.Entities.History;
 
 namespace nscreg.Data.Entities
 {
@@ -10,5 +11,6 @@ namespace nscreg.Data.Entities
         public int? ParentId { get; set; }
         public virtual SectorCode Parent { get; set; }
         public virtual ICollection<SectorCode> SectorCodes { get; set; } = new HashSet<SectorCode>();
+        public virtual List<EnterpriseGroupHistory> EnterpriseGroupsHistories { get; set; }
     }
 }
