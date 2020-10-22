@@ -40,8 +40,6 @@ namespace nscreg.Server.DataUploadSvc
         private readonly bool _personsGoodQuality;
         private AnalyzeService _analysisSvc;
 
-        BlockingCollection<IReadOnlyDictionary<string, object>> _tasksQueue;
-
 #if DEBUG
         //public Stopwatch swPopulation = new Stopwatch();
         //public long populationCount = 0;
@@ -65,14 +63,9 @@ namespace nscreg.Server.DataUploadSvc
             _logBuffer = logBuffer;
         }
 
-        public void UseTasksQueue(BlockingCollection<IReadOnlyDictionary<string, object>> collection)
-        {
-            _tasksQueue = collection;
-        }
+        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => Task.Run(Job(dequeued, keyValues));
 
-        public Task Start(DataSourceQueue dequeued) => Task.Run(Job(dequeued));
-
-        private Func<Task> Job(DataSourceQueue dequeued) => async () =>
+        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => async () =>
         {
             var dbContextHelper = new DbContextHelper();
             using (var context = dbContextHelper.CreateDbContext(new string[] { }))
@@ -85,10 +78,11 @@ namespace nscreg.Server.DataUploadSvc
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
                 var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
                 bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
-                foreach (var parsedUnit in _tasksQueue.GetConsumingEnumerable())
+                int i = 0;
+                foreach (var parsedUnit in keyValues)
                 {
-                    Interlocked.Increment(ref InterlockedInt);
-                    _logger.LogInformation("processing entity #{0}", InterlockedInt);
+                    //Interlocked.Increment(ref InterlockedInt);
+                    _logger.LogInformation("processing entity #{0}", i++);
                     var startedAt = DateTime.Now;
 
                     /// Populate Unit
