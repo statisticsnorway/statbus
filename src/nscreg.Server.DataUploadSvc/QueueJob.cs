@@ -244,7 +244,7 @@ namespace nscreg.Server.DataUploadSvc
                 rawLines = await reader.ReadToEndAsync();
             }
 
-            return rawLines.Replace('\"', '').Split('\r', '\n');
+            return rawLines.Replace("\"", string.Empty).Split('\r', '\n');
         }
 
         private async Task WriteFileAsync(string csv, string path) => await File.WriteAllTextAsync(path, csv);
