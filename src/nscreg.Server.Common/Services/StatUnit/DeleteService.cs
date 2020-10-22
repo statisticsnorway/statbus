@@ -397,7 +397,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (local != null)
                 {
                     await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(local));
-                    _commonSvc.TrackUnithistoryFor<LocalUnit>(local.RegId, userId, ChangeReasons.Edit, "Link to Legal Unit deleted by data source upload service reject functionality", DateTime.Now);
+                    _commonSvc.TrackUnitHistoryFor<LocalUnit>(local.RegId, userId, ChangeReasons.Edit, "Link to Legal Unit deleted by data source upload service reject functionality", DateTime.Now);
                 }
 
                 await DeleteEnterpriseUnitFromDb(statId, userId, dataUploadTime);

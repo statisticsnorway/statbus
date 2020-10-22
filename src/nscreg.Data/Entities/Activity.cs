@@ -8,7 +8,7 @@ namespace nscreg.Data.Entities
     /// <summary>
     ///  Class activity essence
     /// </summary>
-    public class Activity
+    public class Activity : IModelWithId
     {
         public int Id { get; set; }
         public DateTime IdDate { get; set; }

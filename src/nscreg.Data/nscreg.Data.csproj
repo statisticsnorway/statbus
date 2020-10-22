@@ -13,6 +13,7 @@
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="EFCore.BulkExtensions" Version="2.4.0" />
     <PackageReference Include="Microsoft.AspNetCore" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Hosting" Version="2.2.0" />

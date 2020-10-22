@@ -7,6 +7,6 @@
     "**/.DS_Store": true,
     "src": true,
     "test": true,
-    "client": true
+    "client": false
   }
 }

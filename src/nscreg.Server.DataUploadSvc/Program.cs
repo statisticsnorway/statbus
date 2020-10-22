@@ -8,6 +8,7 @@ using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
 using PeterKottas.DotNetCore.WindowsService;
 using System.IO;
+using nscreg.Server.Common.Services.DataSources;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -79,7 +80,8 @@ namespace nscreg.Server.DataUploadSvc
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
                                 validationSettings,
-                                servicesSettings.DbLogBufferMaxCount
+                                servicesSettings.DbLogBufferMaxCount,
+                                servicesSettings.PersonGoodQuality
                                 ),
                             new QueueCleanupJob(
                                 servicesSettings.DataUploadServiceDequeueInterval,

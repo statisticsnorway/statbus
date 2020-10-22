@@ -1,4 +1,4 @@
-using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
@@ -29,9 +29,9 @@ namespace nscreg.Business.Test.DataSources
                 var pair = vm.Split('-');
                 return (pair[0], pair[1]);
             }).ToArray();
-
-            var actual = CsvParser.GetParsedEntities(source, delimiter, array);
-            actual.Should().BeEquivalentTo(new List<IReadOnlyDictionary<string, object>>
+            var tasks = new BlockingCollection<IReadOnlyDictionary<string, object>>(new ConcurrentQueue<IReadOnlyDictionary<string, object>>());
+            CsvParser.GetParsedEntities(source, delimiter, array, tasks);
+            tasks.ToList().Should().BeEquivalentTo(new List<IReadOnlyDictionary<string, object>>
             {
                 new Dictionary<string, object>()
                 {

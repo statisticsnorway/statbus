@@ -40,7 +40,7 @@ namespace nscreg.Server.Test
         public async Task<LegalUnit> CreateLegalUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             AddressM address, string unitName, string statId)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: true).CreateLegalUnit(new LegalUnitCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: false).CreateLegalUnit(new LegalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                 Name = unitName,
@@ -74,7 +74,7 @@ namespace nscreg.Server.Test
         public async Task CreateLocalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, AddressM address,
             string unitName, int legalUnitRegId)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: true).CreateLocalUnit(new LocalUnitCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: false).CreateLocalUnit(new LocalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                 Name = unitName,
@@ -83,6 +83,7 @@ namespace nscreg.Server.Test
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
                 RegistrationReasonId = 1,
+                StatId = Guid.NewGuid().ToString(), 
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
@@ -105,7 +106,7 @@ namespace nscreg.Server.Test
         public async Task CreateEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             AddressM address, string unitName, int[] legalUnitIds, int? enterpriseGroupId)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: true).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: false).CreateEnterpriseUnit(new EnterpriseUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                 Name = unitName,
@@ -114,6 +115,7 @@ namespace nscreg.Server.Test
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
                 RegistrationReasonId = 1,
+                StatId = Guid.NewGuid().ToString(),
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
@@ -127,7 +129,7 @@ namespace nscreg.Server.Test
         public async Task<EnterpriseGroup> CreateEnterpriseGroupAsync(NSCRegDbContext context, AddressM address,
             string unitName, int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
-            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: true).CreateEnterpriseGroup(new EnterpriseGroupCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields, _validationSettings, shouldAnalyze: false).CreateEnterpriseGroup(new EnterpriseGroupCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                 Name = unitName,
@@ -211,7 +213,7 @@ namespace nscreg.Server.Test
         public async Task EditLegalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, int unitId,
             string unitNameEdit)
         {
-            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditLegalUnit(new LegalUnitEditM
+            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings, false).EditLegalUnit(new LegalUnitEditM
             {
                 RegId = unitId,
                 Name = unitNameEdit,
@@ -242,7 +244,7 @@ namespace nscreg.Server.Test
         public async Task EditLocalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, int unitId,
             string unitNameEdit, int legalUnitRegId)
         {
-            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditLocalUnit(new LocalUnitEditM
+            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings,false).EditLocalUnit(new LocalUnitEditM
             {
                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                 RegId = unitId,
@@ -264,7 +266,7 @@ namespace nscreg.Server.Test
         public async Task EditEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             int[] legalUnitsIds, int unitId, string unitNameEdit, int? enterpriseGroupId)
         {
-            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditEnterpriseUnit(new EnterpriseUnitEditM
+            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings, false).EditEnterpriseUnit(new EnterpriseUnitEditM
             {
                 RegId = unitId,
                 Name = unitNameEdit,
@@ -287,7 +289,7 @@ namespace nscreg.Server.Test
         public async Task EditEnterpriseGroupAsync(NSCRegDbContext context, int unitId, string unitNameEdit,
             int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
-            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditEnterpriseGroup(new EnterpriseGroupEditM
+            await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings, false).EditEnterpriseGroup(new EnterpriseGroupEditM
             {
                 RegId = unitId,
                 Name = unitNameEdit,
