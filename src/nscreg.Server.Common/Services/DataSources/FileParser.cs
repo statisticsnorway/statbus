@@ -46,7 +46,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 rawLines = await reader.ReadToEndAsync();
             }
 
-            return CsvParser.GetParsedEntities(rawLines, delimiter, variableMappings);
+            return CsvParser.GetParsedEntities(rawLines.Replace("\"", ""), delimiter, variableMappings);
         }
     }
 }

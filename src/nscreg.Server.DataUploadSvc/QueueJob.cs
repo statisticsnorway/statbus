@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using System.Collections.Concurrent;
+using System.Globalization;
 using ServiceStack;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -222,7 +223,7 @@ namespace nscreg.Server.DataUploadSvc
             var rawLines = await GetRawFileAsync(item);
             try
             {
-                await WriteFileAsync(string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), item.DataSourcePath);
+               await File.WriteAllTextAsync(item.DataSourcePath, string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))));
             }
             catch (Exception ex)
             {
@@ -244,9 +245,7 @@ namespace nscreg.Server.DataUploadSvc
                 rawLines = await reader.ReadToEndAsync();
             }
 
-            return rawLines.Replace("\"", string.Empty).Split('\r', '\n');
+            return rawLines.Split('\r', '\n');
         }
-
-        private async Task WriteFileAsync(string csv, string path) => await File.WriteAllTextAsync(path, csv);
     }
 }
