@@ -1,34 +1,23 @@
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
-using nscreg.Server.Common;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
-using System.Collections.Concurrent;
-using System.Globalization;
 using ServiceStack;
-using LegalUnit = nscreg.Data.Entities.LegalUnit;
-using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -183,14 +172,14 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     case string name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
                         parsed = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath,
-                            queueItem.DataSource.VariablesMappingArray);
+                            queueItem.DataSource.VariablesMappingArray, queueItem.SkipLinesCount);
                         break;
                     case string name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
                         parsed = await FileParser.GetRawEntitiesFromCsv(
                             queueItem.DataSourcePath,
-                            queueItem.DataSource.CsvSkipCount,
                             queueItem.DataSource.CsvDelimiter,
-                            queueItem.DataSource.VariablesMappingArray);
+                            queueItem.DataSource.VariablesMappingArray,
+                            queueItem.SkipLinesCount);
                         break;
                     default:
                          return ("Unsupported type of file", null);

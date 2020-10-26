@@ -24,11 +24,11 @@ namespace nscreg.Business.DataSources
             }
         }
 
-        public static IReadOnlyDictionary<string, object> ParseRawEntity(XElement el, (string source, string target)[] mappings)
+        public static IReadOnlyDictionary<string, object> ParseRawEntity(XElement el, (string source, string target)[] mappings, int skipCount = 0)
         {
             var result = new Dictionary<string, object>();
             var regularToNestedDictionary = new Dictionary<string, string>();
-            foreach (var descendant in el.Elements())
+            foreach (var descendant in el.Elements().Skip(skipCount))
             {
                 if (!descendant.HasElements)
                 {

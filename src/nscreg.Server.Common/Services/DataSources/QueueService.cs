@@ -111,10 +111,10 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task FinishQueueItem(DataSourceQueue queueItem, DataSourceQueueStatuses status, string note = null)
         {
-            _ctx.DataSourceQueues.Attach(queueItem);
             queueItem.EndImportDate = DateTime.Now;
             queueItem.Status = status;
             queueItem.Note = note;
+            _ctx.Entry(queueItem).State = EntityState.Modified;
             await _ctx.SaveChangesAsync();
         }
 
