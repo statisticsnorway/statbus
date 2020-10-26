@@ -73,7 +73,7 @@ namespace nscreg.Server.DataUploadSvc
                 await InitializeCacheForLookups(context);
                 var userService = new UserService(context);
                 var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions);
+                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
                 var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
@@ -164,7 +164,7 @@ namespace nscreg.Server.DataUploadSvc
                             return tmp[0];
                         }));
                         await _logBuffer.LogUnitUpload(
-                             dequeued.Id, rawUnit, startedAt, populated,
+                             dequeued, rawUnit, startedAt, populated,
                              status, note ?? "", analysisErrors, analysisSummary);
 
                         //swDbLog.Stop();

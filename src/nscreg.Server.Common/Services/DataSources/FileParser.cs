@@ -17,11 +17,11 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <param name="mappings">variable mappings array</param>
         /// <returns></returns>
         public static async Task<IEnumerable<IReadOnlyDictionary<string, object>>> GetRawEntitiesFromXml(
-            string filePath, (string source, string target)[] mappings)
+            string filePath, (string source, string target)[] mappings, int skipCount)
         {
             using (var fileStream = File.OpenRead(filePath))
             {
-                return XmlParser.GetRawEntities(await XDocument.LoadAsync(fileStream, LoadOptions.None, CancellationToken.None)).Select(x => XmlParser.ParseRawEntity(x, mappings));
+                return XmlParser.GetRawEntities(await XDocument.LoadAsync(fileStream, LoadOptions.None, CancellationToken.None)).Select(x => XmlParser.ParseRawEntity(x, mappings, skipCount));
             }
         }
 
@@ -34,19 +34,21 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <param name="variableMappings"></param>
         /// <returns></returns>
         public static async Task<IEnumerable<IReadOnlyDictionary<string, object>>> GetRawEntitiesFromCsv(
-            string filePath, int skipCount, string delimiter, (string source, string target)[]  variableMappings)
+            string filePath, string delimiter, (string source, string target)[]  variableMappings, int skipLines)
         {
-            var i = skipCount;
             string rawLines;
             using (FileStream fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             using (BufferedStream bs = new BufferedStream(fs, 4096*4))
             using (StreamReader reader = new StreamReader(bs))
             {
-                while (--i == 0) await reader.ReadLineAsync();
-                rawLines = await reader.ReadToEndAsync();
-            }
+                rawLines = await reader.ReadLineAsync();
 
-            return CsvParser.GetParsedEntities(rawLines, delimiter, variableMappings);
+                for(int i = 0; i < skipLines; ++i)
+                    await reader.ReadLineAsync();
+
+                rawLines += "\n" + await reader.ReadToEndAsync();
+            }
+            return CsvParser.GetParsedEntities(rawLines.Replace("\"", ""), delimiter, variableMappings);
         }
     }
 }

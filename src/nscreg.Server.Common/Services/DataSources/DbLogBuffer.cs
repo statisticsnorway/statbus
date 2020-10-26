@@ -23,7 +23,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _context = context;
             MaxCount = maxCount;
         }
-        public async Task LogUnitUpload(int queueItemId,
+        public async Task LogUnitUpload(DataSourceQueue queue,
             string rawUnit,
             DateTime? started,
             StatisticalUnit unit,
@@ -34,7 +34,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var logEntry = new DataUploadingLog
             {
-                DataSourceQueueId = queueItemId,
+                DataSourceQueueId = queue.Id,
                 StartImportDate = started,
                 EndImportDate = DateTime.Now,
                 SerializedRawUnit = rawUnit,
@@ -55,7 +55,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 await Semaphore.WaitAsync();
 
                 Buffer.Add(logEntry);
-
+                queue.SkipLinesCount++;
                 if (Buffer.Count >= MaxCount)
                 {
                     await FlushAsync(true);

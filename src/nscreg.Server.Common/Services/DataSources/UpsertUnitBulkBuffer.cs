@@ -6,6 +6,7 @@ using AutoMapper;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Data.Entities.History;
@@ -23,8 +24,9 @@ namespace nscreg.Server.Common.Services.DataSources
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
         public ElasticService ElasticSearchService { get; }
-        private readonly int _maxBulkOperationsBufferedCount = 1000;
-        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions)
+        private readonly int _maxBulkOperationsBufferedCount = 50;
+        private DataSourceQueue _dataSourceQueue;
+        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions, DataSourceQueue queue)
         {
             
             _permissions = permissions;
@@ -33,6 +35,7 @@ namespace nscreg.Server.Common.Services.DataSources
             Buffer = new List<StatisticalUnit>();
             _context = context;
             ElasticSearchService = elasticSearchService;
+            _dataSourceQueue = queue;
         }
 
         public void AddToDeleteBuffer(EnterpriseUnit unit)
@@ -161,7 +164,21 @@ namespace nscreg.Server.Common.Services.DataSources
                     await ElasticSearchService.UpsertDocumentList(entities);
                 }
                 transaction.Commit();
+
+                switch (_dataSourceQueue.DataSource.StatUnitType)
+                {
+                    case StatUnitTypes.LocalUnit:
+                        _dataSourceQueue.SkipLinesCount += locals.Count();
+                        break;
+                    case StatUnitTypes.LegalUnit:
+                        _dataSourceQueue.SkipLinesCount += legals.Count();
+                        break;
+                    case StatUnitTypes.EnterpriseUnit:
+                        _dataSourceQueue.SkipLinesCount += enterprises.Count();
+                        break;
+                }
             }
+            
             Buffer.Clear();
             BufferToDelete.Clear();
             HistoryBuffer.Clear();
