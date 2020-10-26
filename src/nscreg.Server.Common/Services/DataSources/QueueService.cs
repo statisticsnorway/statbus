@@ -133,7 +133,6 @@ namespace nscreg.Server.Common.Services.DataSources
             hanged.ForEach(x =>
             {
                 x.Status = DataSourceQueueStatuses.InQueue;
-                x.StartImportDate = null;
             });
             await _ctx.SaveChangesAsync();
         }
