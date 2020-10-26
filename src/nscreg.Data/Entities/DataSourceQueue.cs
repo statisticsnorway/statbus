@@ -21,6 +21,7 @@ namespace nscreg.Data.Entities
         public virtual DataSource DataSource { get; set; }
         public virtual ICollection<DataUploadingLog> DataUploadingLogs { get; set; }
         public string UserId { get; set; }
+        public int SkipLinesCount { get; set; }
         public virtual User User { get; set; }
     }
 }
