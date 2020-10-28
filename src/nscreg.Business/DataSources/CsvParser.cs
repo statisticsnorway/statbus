@@ -1,9 +1,12 @@
+using NLog;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
 using ServiceStack;
 using ServiceStack.Text;
 using System.Collections.Generic;
 using System.Linq;
+using System;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Business.DataSources
 {
@@ -18,8 +21,17 @@ namespace nscreg.Business.DataSources
             if (rawLines.Length == 0) return new List<Dictionary<string, object>>();
 
             CsvConfig.ItemSeperatorString = delimiter;
-            var csvHeaders = rawLines.Split(new []{'\r', '\n'}, 2).First().Split(delimiter);
+            var lines = rawLines.Split(new char[] { '\r','\n' }).Skip(1).Where(x => !string.IsNullOrEmpty(x));
             var rowsFromCsv = rawLines.FromCsv<List<Dictionary<string, string>>>();
+            var rowsFromCsvCount = rowsFromCsv.Count();
+
+            //If the file is problematic and the number of lines after conversion is less than the input parsing does not work
+            if (rowsFromCsvCount != lines.Count())
+            {
+                Exception ex = new Exception(nameof(Resource.UploadedFileProblem));
+                ex.Data.Add("ProblemLine", $"{lines.ElementAt(rowsFromCsvCount - 1)}\nLine number: {rowsFromCsvCount + 1}");
+                throw ex;
+            }
             var resultDictionary = new List<Dictionary<string, object>>();
             if (!rowsFromCsv.Any()) return new List<Dictionary<string, object>>();
 
