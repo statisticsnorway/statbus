@@ -46,8 +46,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 for(int i = 0; i < skipLines; ++i)
                     await reader.ReadLineAsync();
 
-                rawLines += "\n" + await reader.ReadToEndAsync();
+                rawLines += $"\n{await reader.ReadToEndAsync()}";
             }
+            ///We make a Replace because this symbol " is problematic in the library ServiceStack.Text
             return CsvParser.GetParsedEntities(rawLines.Replace("\"", ""), delimiter, variableMappings);
         }
     }

@@ -18,6 +18,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using ServiceStack;
+using System.Collections;
+using System.Diagnostics;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -98,11 +100,13 @@ namespace nscreg.Server.DataUploadSvc
             var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality);
 
             //var swParse = new Stopwatch();
-            var (parseError, parsed) = await ParseFile(dequeued/*, swParse*/);
+            var (parseError, parsed, problemLine) = await ParseFile(dequeued/*, swParse*/);
            
             if (parseError.HasValue())
             {
                 _logger.LogInformation("finish queue item with error: {0}", parseError);
+                if (!string.IsNullOrEmpty(problemLine))
+                    _logger.LogError($"Possible problem line:\n{problemLine}");
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
                 return;
             }
@@ -161,7 +165,7 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private async Task<(string error, IReadOnlyDictionary<string, object>[] result)> ParseFile(DataSourceQueue queueItem/*, Stopwatch swParseFile*/)
+        private async Task<(string error, IReadOnlyDictionary<string, object>[] result, string problemLine)> ParseFile(DataSourceQueue queueItem/*, Stopwatch swParseFile*/)
         {
             _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
             IEnumerable<IReadOnlyDictionary<string, object>> parsed;
@@ -182,25 +186,25 @@ namespace nscreg.Server.DataUploadSvc
                             queueItem.SkipLinesCount);
                         break;
                     default:
-                         return ("Unsupported type of file", null);
+                         return ("Unsupported type of file", null, null);
                 }
             }
             catch (Exception ex)
             {
-                return (ex.Message, null);
+                return (ex.Message, null, ex.Data["ProblemLine"] as string);
             }
             var parsedArr = parsed.ToArray();
 
             if (parsedArr.Length == 0)
             {
-                return (Resource.UploadFileEmpty, parsedArr);
+                return (Resource.UploadFileEmpty, parsedArr,null);
             }
 
             if (parsedArr.Any(x => x.Count == 0))
             {
-                return (Resource.FileHasEmptyUnit, parsedArr);
+                return (Resource.FileHasEmptyUnit, parsedArr, null);
             }
-            return (null, parsedArr);
+            return (null, parsedArr, null);
         }
         /// <summary>
         /// Делает копию файла с удалением пустых строк
