@@ -2758,4 +2758,7 @@
   <data name="StatisticalUnitWithSuchStatIDAlreadyExists" xml:space="preserve">
     <value>Statistical unit with StatId='{0}' already exists</value>
   </data>
+  <data name="UploadedFileProblem" xml:space="preserve">
+    <value>Uploaded file is problem</value>
+  </data>
 </root>

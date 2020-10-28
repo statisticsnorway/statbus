@@ -7504,6 +7504,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Uploaded file is problem.
+        /// </summary>
+        public static string UploadedFileProblem {
+            get {
+                return ResourceManager.GetString("UploadedFileProblem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Uploading file is empty.
         /// </summary>
         public static string UploadFileEmpty {
