@@ -11,22 +11,22 @@ namespace nscreg.Server.Common.Helpers
     {
         private async Task<T> CreateStatUnitAsync<T>(T entity) where T : class
         {
-            var result = await _dbContext.Set<T>().AddAsync(entity);
-            return result.Entity;
+            return (await _dbContext.Set<T>().AddAsync(entity)).Entity;
+            
         }
         
         private async Task<LocalUnit> CreateLocalForLegalAsync(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit
             {
-                AddressId = legalUnit.AddressId,
-                ActualAddressId = legalUnit.ActualAddressId,
+                Address = legalUnit.Address,
+                ActualAddress = legalUnit.ActualAddress,
                 LegalUnit = legalUnit
             };
 
             Mapper.Map(legalUnit, localUnit);
             await _dbContext.LocalUnits.AddAsync(localUnit);
-
+         
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
 
             return localUnit;
@@ -36,13 +36,13 @@ namespace nscreg.Server.Common.Helpers
         {
             var enterpriseUnit = new EnterpriseUnit
             {
-                AddressId = legalUnit.AddressId,
-                ActualAddressId = legalUnit.ActualAddressId,
+                Address = legalUnit.Address,
+                ActualAddress = legalUnit.ActualAddress,
             };
             Mapper.Map(legalUnit, enterpriseUnit);
             await _dbContext.EnterpriseUnits.AddAsync(enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
-
+            
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
 
             return enterpriseUnit;
@@ -52,8 +52,8 @@ namespace nscreg.Server.Common.Helpers
         {
             var enterpriseGroup = new EnterpriseGroup
             {
-                AddressId = enterpriseUnit.AddressId,
-                ActualAddressId = enterpriseUnit.ActualAddressId,
+                Address = enterpriseUnit.Address,
+                ActualAddress = enterpriseUnit.ActualAddress,
             };
 
             Mapper.Map(enterpriseUnit, enterpriseGroup);
