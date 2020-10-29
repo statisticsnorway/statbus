@@ -111,15 +111,6 @@ namespace nscreg.Server.Common.Helpers
                     {
                         createdLocal = await CreateLocalForLegalAsync(createdLegal);
                     }
-                    var state1 = _dbContext.Entry(createdLegal).State;
-                    var state2 = _dbContext.Entry(createdLegal.Address).State;
-                    var state3 = _dbContext.Entry(createdLegal.Address.Region).State;
-                    var state4 = _dbContext.Entry(createdLocal).State;
-                    var state5 = _dbContext.Entry(createdLocal.Address).State;
-                    var state6 = _dbContext.Entry(createdLocal.Address.Region).State;
-                    var state7 = _dbContext.Entry(createdEnterprise).State;
-                    var state8 = _dbContext.Entry(createdEnterprise.Address).State;
-                    var state9 = _dbContext.Entry(createdEnterprise.Address.Region).State;
                     await _dbContext.SaveChangesAsync();
 
                     var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdLegal.EnterpriseUnitRegId)

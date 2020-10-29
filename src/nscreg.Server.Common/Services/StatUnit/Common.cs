@@ -493,22 +493,22 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="unit">stat unit</param>
         /// <param name="data">data</param>
-        public void AddAddresses<TUnit>(IStatisticalUnit unit, IStatUnitM data) where TUnit : IStatisticalUnit
+        public async Task AddAddresses<TUnit>(IStatisticalUnit unit, IStatUnitM data) where TUnit : IStatisticalUnit
         {
             if (data.Address != null && !data.Address.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.Address))
-                unit.Address = GetAddress(data.Address);
+                unit.Address = await GetAddress(data.Address);
             else unit.Address = null;
             if (data.ActualAddress != null && !data.ActualAddress.IsEmpty() &&
                 HasAccess<TUnit>(data.DataAccess, v => v.ActualAddress))
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
-                    : GetAddress(data.ActualAddress);
+                    : await GetAddress(data.ActualAddress);
             else unit.ActualAddress = null;
             if (data.PostalAddress != null && !data.PostalAddress.IsEmpty() &&
                 HasAccess<TUnit>(data.DataAccess, v => v.PostalAddress))
                 unit.PostalAddress = data.PostalAddress.Equals(data.Address)
                     ? unit.Address
-                    : GetAddress(data.PostalAddress);
+                    : await GetAddress(data.PostalAddress);
             else unit.PostalAddress = null;
         }
 
@@ -563,24 +563,38 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="data">data</param>
         /// <returns></returns>
-        private Address GetAddress(AddressM data)
-            => _dbContext.Address.SingleOrDefault(a =>
-                   a.Id == data.Id &&
-                   a.AddressPart1 == data.AddressPart1 &&
-                   a.AddressPart2 == data.AddressPart2 &&
-                   a.AddressPart3 == data.AddressPart3 &&
-                   a.Region.Id == data.RegionId &&
-                   a.Latitude == data.Latitude &&
-                   a.Longitude == data.Longitude)
-               ?? new Address
-               {
-                   AddressPart1 = data.AddressPart1,
-                   AddressPart2 = data.AddressPart2,
-                   AddressPart3 = data.AddressPart3,
-                   Region = _dbContext.Regions.SingleOrDefault(r => r.Id == data.RegionId),
-                   Latitude = data.Latitude,
-                   Longitude = data.Longitude
-               };
+        private async Task<Address> GetAddress(AddressM data)
+        {
+            var address = await _dbContext.Address.FirstOrDefaultAsync(a =>
+                  a.Id == data.Id &&
+                  a.AddressPart1 == data.AddressPart1 &&
+                  a.AddressPart2 == data.AddressPart2 &&
+                  a.AddressPart3 == data.AddressPart3 &&
+                  a.Region.Id == data.RegionId &&
+                  a.Latitude == data.Latitude &&
+                  a.Longitude == data.Longitude);
+            if (address == null)
+            {
+                var region = await _dbContext.Regions.FirstOrDefaultAsync(r => r.Id == data.RegionId);
+                if(region == null)
+                {
+                    throw new BadRequestException(nameof(Resource.RegionNotExistsError));
+                }
+                address = new Address
+                {
+                    AddressPart1 = data.AddressPart1,
+                    AddressPart2 = data.AddressPart2,
+                    AddressPart3 = data.AddressPart3,
+                    Region = region,
+                    RegionId = region.Id,
+                    Latitude = data.Latitude,
+                    Longitude = data.Longitude
+                };
+            }
+            return address;
+                
+        }
+            
 
         public IStatisticalUnitHistory MapUnitToHistoryUnit(IStatisticalUnit unit)
         {
