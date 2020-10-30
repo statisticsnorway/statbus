@@ -263,7 +263,7 @@ namespace nscreg.Server.Common.Services
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(
-                        $"Parameter `{nameof(data)}`: value of type `{type.ToString()}` is not supported.");
+                        $"Parameter `{nameof(data)}`: value of type `{type}` is not supported.");
             }
 
             var errors = await task;

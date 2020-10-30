@@ -81,35 +81,22 @@ namespace nscreg.Server.Common.Helpers
             {
                 try
                 {
-                    Tracer.createStat.Start();
                     createdLegal = await CreateStatUnitAsync(legalUnit);
-                    Tracer.createStat.Stop();
-                    Debug.WriteLine($"Create legal {Tracer.createStat.ElapsedMilliseconds / ++Tracer.countcreateStat}");
                     if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
                     {
-                        Tracer.enterprise1.Start();
                         var sameStatIdEnterprise =
                             await _dbContext.EnterpriseUnits.FirstOrDefaultAsync(eu => eu.StatId == legalUnit.StatId);
-                        Tracer.enterprise1.Stop();
-                        Debug.WriteLine($"Enterprise first or default {Tracer.enterprise1.ElapsedMilliseconds / ++Tracer.countenterprise1}");
 
                         if (sameStatIdEnterprise != null)
                         {
-                            Tracer.enterprise2.Start();
                             createdLegal.EnterpriseUnit = sameStatIdEnterprise;
-                            Tracer.enterprise2.Stop();
-                            Debug.WriteLine($"Enterprise link {Tracer.enterprise2.ElapsedMilliseconds / ++Tracer.countenterprise2}");
                         }
                         else
                         {
-                            Tracer.enterprise3.Start();
                             createdEnterprise = await CreateEnterpriseForLegalAsync(createdLegal);
-                            Tracer.enterprise3.Stop();
-                            Debug.WriteLine($"Enterprise create {Tracer.enterprise3.ElapsedMilliseconds / ++Tracer.countenterprise3}");
                         }
                             
                     }
-                    Tracer.address.Start();
                     var addressIds = legalUnit.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
                     var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id)).ToListAsync();
                     var sameAddresses = addresses.Where(x =>
@@ -119,25 +106,16 @@ namespace nscreg.Server.Common.Helpers
                         x.AddressPart3 == legalUnit.Address.AddressPart3 &&
                         x.Latitude == legalUnit.Address.Latitude &&
                         x.Longitude == legalUnit.Address.Longitude).ToList();
-                    Tracer.address.Stop();
-                    Debug.WriteLine($"Address {Tracer.address.ElapsedMilliseconds / ++Tracer.countaddress}");
+                    
                     if (!sameAddresses.Any())
                     {
-                        Tracer.localForLegal.Start();
                         createdLocal = await CreateLocalForLegalAsync(createdLegal);
-                        Tracer.localForLegal.Stop();
-                        Debug.WriteLine($"Local for legal create {Tracer.localForLegal.ElapsedMilliseconds / ++Tracer.countlocalForLegal}");
                     }
-
-                    Tracer.commit.Start();
                     await _dbContext.SaveChangesAsync();
-                    Tracer.commit.Stop();
-                    Debug.WriteLine($"CREATE ALL ENTITIES {Tracer.commit.ElapsedMilliseconds / ++Tracer.countcommit}");
 
                     var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdLegal.EnterpriseUnitRegId)
                         .Select(x => x.RegId).ToListAsync();
                     createdLegal.EnterpriseUnit.HistoryLegalUnitIds += string.Join(",", legalsOfEnterprise);
-                    Tracer.commit2.Start();
                     
                     _dbContext.EnterpriseUnits.Update(createdLegal.EnterpriseUnit);
 
@@ -145,8 +123,6 @@ namespace nscreg.Server.Common.Helpers
                     _dbContext.LegalUnits.Update(createdLegal);
 
                     await _dbContext.SaveChangesAsync();
-                    Tracer.commit2.Stop();
-                    Debug.WriteLine($"History {Tracer.commit2.ElapsedMilliseconds / ++Tracer.countcommit2}");
 
                     transaction.Commit();
                 }
