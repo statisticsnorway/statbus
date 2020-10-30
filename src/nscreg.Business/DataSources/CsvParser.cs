@@ -28,7 +28,7 @@ namespace nscreg.Business.DataSources
             //If the file is problematic and the number of lines after conversion is less than the input parsing does not work
             if (rowsFromCsvCount != lines.Count())
             {
-                Exception ex = new Exception(nameof(Resource.UploadedFileProblem));
+                Exception ex = new Exception(Resource.UploadedFileProblem);
                 ex.Data.Add("ProblemLine", $"{lines.ElementAt(rowsFromCsvCount - 1)}\nLine number: {rowsFromCsvCount + 1}");
                 throw ex;
             }

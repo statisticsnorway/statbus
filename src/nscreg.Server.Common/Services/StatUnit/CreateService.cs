@@ -246,7 +246,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
             Mapper.Map(data, unit);
-            _commonSvc.AddAddresses<TUnit>(unit, data);
+            await _commonSvc.AddAddresses<TUnit>(unit, data);
 
             if (work != null)
             {

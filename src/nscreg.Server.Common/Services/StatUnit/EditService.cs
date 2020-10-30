@@ -418,7 +418,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 await work(unit, hUnit);
             }
 
-            _commonSvc.AddAddresses<TUnit>(unit, data);
+            await _commonSvc.AddAddresses<TUnit>(unit, data);
             if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;

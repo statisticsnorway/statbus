@@ -164,14 +164,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private Activity GetFilledActivity(Activity parsedActivity)
         {
-            if (!parsedActivity.ActivityCategory.Code.HasValue() && !parsedActivity.ActivityCategory.Name.HasValue())
-                return parsedActivity;
+            if (parsedActivity.ActivityCategory != null && parsedActivity.ActivityCategory.Code.HasValue() && parsedActivity.ActivityCategory.Name.HasValue())
+            {
+                var activityCategory = _ctx.ActivityCategories.Local.FirstOrDefault(ac => !ac.IsDeleted && (!string.IsNullOrEmpty(parsedActivity.ActivityCategory?.Code) && parsedActivity.ActivityCategory.Code == ac.Code) || (!string.IsNullOrEmpty(parsedActivity.ActivityCategory?.Name) && parsedActivity.ActivityCategory.Name == ac.Name))
+                                 ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
-            var activityCategory =  _ctx.ActivityCategories.Local.FirstOrDefault(ac => !ac.IsDeleted && (!string.IsNullOrEmpty(parsedActivity.ActivityCategory?.Code) && parsedActivity.ActivityCategory.Code == ac.Code) || (!string.IsNullOrEmpty(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name))
-                                   ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
-
-            parsedActivity.ActivityCategory = activityCategory;
-            parsedActivity.ActivityCategoryId = activityCategory.Id;
+                parsedActivity.ActivityCategory = activityCategory;
+                parsedActivity.ActivityCategoryId = activityCategory.Id;
+            }
             return parsedActivity;
         }
 
