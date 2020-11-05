@@ -18,8 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using ServiceStack;
-using System.Collections;
-using System.Diagnostics;
+using System.Text;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -216,7 +215,7 @@ namespace nscreg.Server.DataUploadSvc
             var rawLines = await GetRawFileAsync(item);
             try
             {
-               await File.WriteAllTextAsync(item.DataSourcePath, string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))));
+               await File.WriteAllTextAsync(item.DataSourcePath, string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), encoding: Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -232,7 +231,7 @@ namespace nscreg.Server.DataUploadSvc
             string rawLines;
             if (!File.Exists(item.DataSourcePath)) throw new FileNotFoundException(Resource.FileDoesntExistOrInQueue);
             using (var stream = File.OpenRead(item.DataSourcePath))
-            using (var reader = new StreamReader(stream))
+            using (var reader = new StreamReader(stream, encoding: Encoding.UTF8))
             {
                 while (--i == 0) await reader.ReadLineAsync();
                 rawLines = await reader.ReadToEndAsync();

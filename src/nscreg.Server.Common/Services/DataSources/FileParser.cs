@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -39,7 +40,7 @@ namespace nscreg.Server.Common.Services.DataSources
             string rawLines;
             using (FileStream fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             using (BufferedStream bs = new BufferedStream(fs, 4096*4))
-            using (StreamReader reader = new StreamReader(bs))
+            using (StreamReader reader = new StreamReader(bs, encoding: Encoding.UTF8))
             {
                 rawLines = await reader.ReadLineAsync();
 
