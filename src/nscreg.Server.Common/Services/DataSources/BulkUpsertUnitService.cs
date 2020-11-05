@@ -98,7 +98,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 // Tracer.address.Start();
                 var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
-                var addresses = await _dbContext.Address.Where(x =>
+                var addresses = await _dbContext.Address.Where(x => legal.Address != null &&
                     addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
                     x.AddressPart1 == legal.Address.AddressPart1 &&
                     x.AddressPart2 == legal.Address.AddressPart2 &&
