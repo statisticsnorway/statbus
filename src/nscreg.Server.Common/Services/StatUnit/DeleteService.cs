@@ -439,9 +439,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(local => local.ParentId == unit.RegId && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
 
-            if (afterUploadLocalUnitsList.Count > 0) return false;
+            if (afterUploadLocalUnitsList.Any()) return false;
 
-            if (beforeUploadLocalUnitsList.Count > 0)
+            if (beforeUploadLocalUnitsList.Any())
             {
                 await UpdateUnitTask(unit, beforeUploadLocalUnitsList.Last(), userId, StatUnitTypes.LocalUnit);
                 _dbContext.LocalUnitHistory.Remove(beforeUploadLocalUnitsList.Last());
