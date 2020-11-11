@@ -122,7 +122,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesQueueDelete)]
         public async Task<IActionResult> DeleteQueue(int id)
         {
-            await _svc.DeleteQueue(id, User.GetUserId());
+            await _svc.DeleteQueueTest(id, User.GetUserId());
             return NoContent();
         }
 

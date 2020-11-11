@@ -31,7 +31,7 @@ namespace nscreg.Server.DataUploadSvc
         public int Interval { get; }
         private QueueService _queueSvc;
         private DbLogBuffer _logBuffer;
-        private readonly int _dbLogBufferMaxCount;
+        private readonly int _bufferMaxCount;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
@@ -43,7 +43,7 @@ namespace nscreg.Server.DataUploadSvc
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields dbMandatoryFields,
-            ValidationSettings validationSettings, int bufferLogMaxCount, bool personsGoodQuality)
+            ValidationSettings validationSettings, int bufferMaxCount, bool personsGoodQuality)
         {
             _personsGoodQuality = personsGoodQuality;
             _logger = logger;
@@ -51,7 +51,7 @@ namespace nscreg.Server.DataUploadSvc
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
-            _dbLogBufferMaxCount = bufferLogMaxCount;
+            _bufferMaxCount = bufferMaxCount;
         }
 
         private void AddScopedServices()
@@ -59,7 +59,7 @@ namespace nscreg.Server.DataUploadSvc
             var dbContextHelper = new DbContextHelper();
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
-            _logBuffer = new DbLogBuffer(_context, _dbLogBufferMaxCount);
+            _logBuffer = new DbLogBuffer(_context, _bufferMaxCount);
         }
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace nscreg.Server.DataUploadSvc
             _logger.LogInformation("parsed {0} entities", parsed.Length);
             var anyWarnings = false;
 
-            await CatchAndLogException(async () => await executor.Start(dequeued, parsed), () => anyWarnings = true);
+            await CatchAndLogException(async () => await executor.Start(dequeued, parsed, _bufferMaxCount), () => anyWarnings = true);
             await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
            
             await _queueSvc.FinishQueueItem(

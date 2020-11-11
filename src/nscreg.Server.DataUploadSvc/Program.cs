@@ -80,7 +80,7 @@ namespace nscreg.Server.DataUploadSvc
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
                                 validationSettings,
-                                servicesSettings.DbLogBufferMaxCount,
+                                servicesSettings.DataUploadMaxBufferCount,
                                 servicesSettings.PersonGoodQuality
                                 ),
                             new QueueCleanupJob(

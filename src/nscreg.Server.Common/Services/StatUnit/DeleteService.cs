@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -316,8 +317,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     "This unit was edited by data source upload service and then data upload changes rejected";
                 unitForUpdate.RegId = unit.RegId;
                 unitForUpdate.UserId = userId;
-                unitForUpdate.ActivitiesUnits.Clear();
-                unitForUpdate.PersonsUnits.Clear();
+                //unitForUpdate.ActivitiesUnits.Clear();
+                //unitForUpdate.PersonsUnits.Clear();
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
@@ -333,6 +334,62 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 await _dbContext.SaveChangesAsync();
                 await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
+        }
+        /// <summary>
+        /// Updates unit to the state before data source upload, reject data source queue/log case
+        /// </summary>
+        /// <param name="unit">Unit</param>
+        /// <param name="historyUnit">History unit</param>
+        /// <param name="userId">Id of user that rejectes data source queue</param>
+        /// <param name="type">Type of statistical unit</param>
+        public async Task RangeUpdateUnitsTask(List<StatisticalUnit> units, List<StatisticalUnitHistory> historyUnits, string userId, StatUnitTypes type)
+        {
+            List<StatisticalUnit> unitsForUpdate = new List<StatisticalUnit>();
+            switch (type)
+            {
+                case StatUnitTypes.LegalUnit:
+                    unitsForUpdate.AddRange(units.Select(legal => Mapper.Map<LegalUnit>(legal)));
+                    break;
+                case StatUnitTypes.LocalUnit:
+                    unitsForUpdate.AddRange(units.Select(local => Mapper.Map<LocalUnit>(local)));
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    unitsForUpdate.AddRange(units.Select(ent => Mapper.Map<EnterpriseUnit>(ent)));
+                    break;
+            }
+
+            foreach(var dbUnit in unitsForUpdate)
+            {
+                Mapper.Map(historyUnits.Last(x => x.StatId == dbUnit.StatId), dbUnit);
+            }
+           //Mapper.Map(historyUnits, unitsForUpdate);
+            
+            foreach(var unit in unitsForUpdate)
+            {
+                unit.EndPeriod = units.First(x => x.StatId == unit.StatId).EndPeriod;
+                unit.EditComment =
+                    "This unit was edited by data source upload service and then data upload changes rejected";
+                unit.RegId = units.First(x => x.StatId == unit.StatId).RegId;
+                unit.UserId = userId;
+                unit.ActivitiesUnits = units.First(x => x.StatId == unit.StatId).ActivitiesUnits;
+                unit.PersonsUnits = units.First(x => x.StatId == unit.StatId).PersonsUnits;
+            }
+           
+            switch (type)
+            {
+                case StatUnitTypes.LegalUnit:
+                    _dbContext.LegalUnits.UpdateRange(unitsForUpdate.OfType<LegalUnit>());
+                    break;
+                case StatUnitTypes.LocalUnit:
+                    _dbContext.LocalUnits.UpdateRange(unitsForUpdate.OfType<LocalUnit>());
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    _dbContext.EnterpriseUnits.UpdateRange(unitsForUpdate.OfType<EnterpriseUnit>());
+                    break;
+            }
+
+            //await _dbContext.SaveChangesAsync();
+            await _elasticService.UpsertDocumentList((unitsForUpdate).Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)).ToList());
         }
 
         /// <summary>
@@ -350,6 +407,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .FirstOrDefault(legU => legU.StatId == statId);
+
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return false;
 
             var afterUploadLegalUnitsList = _dbContext.LegalUnitHistory
@@ -360,6 +418,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod >= dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
+
             var beforeUploadLegalUnitsList = _dbContext.LegalUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -405,6 +464,81 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return true;
         }
+        /// <summary>
+        /// Delete range legal units method (when revise on data source queue page), deletes unit from database
+        /// </summary>
+        /// <param name="statId">Id of stat unit</param>
+        /// <param name="userId">Id of user for edit unit if there is history</param>
+        /// <param name="dataUploadTime">data source upload time</param>
+        public async Task<bool> DeleteRangeLegalUnitsFromDb(List<string> statIds, string userId, List<DateTime?> dataUploadTimes)
+        {
+            var units = _dbContext.LegalUnits.AsNoTracking()
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(legU => statIds.Contains(legU.StatId));
+            if (!units.Any() || !dataUploadTimes.Any()|| string.IsNullOrEmpty(userId)) return false;
+
+            var afterUploadLegalUnitsList = _dbContext.LegalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && dataUploadTimes.Any(x => x <= legU.StartPeriod)).OrderBy(legU => legU.StartPeriod).ToList();
+
+            var beforeUploadLegalUnitsList = _dbContext.LegalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && dataUploadTimes.Any(x => x > legU.StartPeriod)).OrderBy(legU => legU.StartPeriod).ToList();
+
+            if (afterUploadLegalUnitsList.Any()) return false;
+
+            if (beforeUploadLegalUnitsList.Any())
+            {
+                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLegalUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.LegalUnit);
+                await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList);
+               // await _dbContext.SaveChangesAsync();
+            }
+            else
+            {
+                using(var transcation = _dbContext.Database.BeginTransaction())
+                {
+                    var localUnitDeleted = await DeleteRangeLocalUnitsFromDb(statIds, userId, dataUploadTimes);
+                    List<LocalUnit> locals = new List<LocalUnit>();
+                    if (!localUnitDeleted)
+                    {
+                        locals = await _dbContext.LocalUnits.Where(x => units.Any(z => z.RegId == x.LegalUnitId)).ToListAsync();
+                        if (locals.Any())
+                        {
+                            locals.ForEach(x => x.LegalFormId = null);
+                        }
+                    }
+                    await _dbContext.BulkDeleteAsync(units.ToList());
+                    // await _dbContext.SaveChangesAsync();
+                    await _elasticService.DeleteDocumentRangeAsync(units.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)));
+
+                    if (locals.Any())
+                    {
+                        await _elasticService.UpsertDocumentList(locals.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)).ToList());
+                        locals.ForEach(x => _commonSvc.TrackUnitHistoryFor<LocalUnit>(x.RegId, userId, ChangeReasons.Edit, "Link to Legal Unit deleted by data source upload service reject functionality", DateTime.Now));
+                    }
+
+                    await DeleteRangeEnterpriseUnitsFromDb(statIds, userId, dataUploadTimes);
+                    transcation.Commit();
+                }
+                
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Delete local unit method (when revise on data source queue page), deletes unit from database
@@ -421,7 +555,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .FirstOrDefault(local => local.StatId == statId && local.StartPeriod >= dataUploadTime);
-            if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return false;
+
+            if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId))
+                return false;
+
             var afterUploadLocalUnitsList = _dbContext.LocalUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -430,6 +567,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(local => local.ParentId == unit.RegId && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
+
             var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory
                 .Include(x=>x.PersonsUnits)
                 .Include(x=>x.ActivitiesUnits)
@@ -439,7 +577,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(local => local.ParentId == unit.RegId && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
 
-            if (afterUploadLocalUnitsList.Any()) return false;
+            if (afterUploadLocalUnitsList.Any())
+                return false;
 
             if (beforeUploadLocalUnitsList.Any())
             {
@@ -456,6 +595,62 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return true;
         }
+        /// <summary>
+        /// Delete range local units method (when revise on data source queue page), deletes unit from database
+        /// </summary>
+        /// <param name="statId">Id of stat unit</param>
+        /// <param name="dataUploadTime">data source upload time</param>
+        /// <param name="userId">Id of user</param>
+        public async Task<bool> DeleteRangeLocalUnitsFromDb(List<string> statIds, string userId, List<DateTime?> dataUploadTime)
+        {
+            var units = await _dbContext.LocalUnits.AsNoTracking()
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(local => statIds.Contains(local.StatId) && dataUploadTime.Any(x => x <= local.StartPeriod)).ToListAsync();
+
+            if (!units.Any() || !dataUploadTime.Any() || string.IsNullOrEmpty(userId))
+                return false;
+
+            var afterUploadLocalUnitsList = _dbContext.LocalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(local => units.Any(x => x.RegId == local.ParentId) && dataUploadTime.Any(x => x <= local.StartPeriod)).OrderBy(local => local.StartPeriod).ToList();
+
+            var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(local => units.Any(x => x.RegId == local.ParentId) && dataUploadTime.Any(x => x > local.StartPeriod)).OrderBy(local => local.StartPeriod).ToList();
+
+            if (afterUploadLocalUnitsList.Any())
+                return false;
+
+            if (beforeUploadLocalUnitsList.Any())
+            {
+                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLocalUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.LocalUnit);
+                await _dbContext.BulkDeleteAsync(beforeUploadLocalUnitsList);
+               // await _dbContext.SaveChangesAsync();
+            }
+            else
+            {
+                await _dbContext.BulkDeleteAsync(units.ToList());
+               // await _dbContext.SaveChangesAsync();
+                await _elasticService.DeleteDocumentRangeAsync(units.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)));
+            }
+
+            return true;
+        }
+
 
         /// <summary>
         /// Delete enterprise unit method (when revise on data source queue page), deletes unit from database
@@ -472,6 +667,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .FirstOrDefault(ent => ent.StatId == statId && ent.StartPeriod >= dataUploadTime);
+
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return false;
 
             var afterUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory
@@ -482,6 +678,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(ent => ent.ParentId == unit.RegId && ent.StartPeriod >= dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
+
             var beforeUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -499,11 +696,67 @@ namespace nscreg.Server.Common.Services.StatUnit
                 _dbContext.EnterpriseUnitHistory.Remove(beforeUploadEnterpriseUnitsList.Last());
                 await _dbContext.SaveChangesAsync();
             }
+
             else
             {
                 _dbContext.EnterpriseUnits.Remove(unit);
                 await _dbContext.SaveChangesAsync();
                 await _elasticService.DeleteDocumentAsync(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Delete range enterprise units method (when revise on data source queue page), deletes unit from database
+        /// </summary>
+        /// <param name="statId">Id of stat unit</param>
+        /// <param name="dataUploadTime">data source upload time</param>
+        /// <param name="userId">Id of user</param>
+        public async Task<bool> DeleteRangeEnterpriseUnitsFromDb(List<string> statIds, string userId, List<DateTime?> dataUploadTimes)
+        {
+            var units = _dbContext.EnterpriseUnits.AsNoTracking()
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(ent => statIds.Contains(ent.StatId) && dataUploadTimes.Any(x => x <= ent.StartPeriod));
+
+            if (!units.Any() || !dataUploadTimes.Any() || string.IsNullOrEmpty(userId)) return false;
+
+            var afterUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && dataUploadTimes.Any(x => x <= ent.StartPeriod)).OrderBy(ent => ent.StartPeriod).ToList();
+
+            var beforeUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Include(x => x.Address)
+                .Include(x => x.PostalAddress)
+                .Include(x => x.ActualAddress)
+                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && dataUploadTimes.Any(x => x > ent.StartPeriod)).OrderBy(ent => ent.StartPeriod).ToList();
+
+            if (afterUploadEnterpriseUnitsList.Any()) return false;
+
+            if (beforeUploadEnterpriseUnitsList.Any())
+            {
+                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadEnterpriseUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.EnterpriseUnit);
+                await _dbContext.BulkDeleteAsync(beforeUploadEnterpriseUnitsList);
+                //await _dbContext.SaveChangesAsync();
+            }
+
+            else
+            {
+                await _dbContext.BulkDeleteAsync(units.ToList());
+                //await _dbContext.SaveChangesAsync();
+                await _elasticService.DeleteDocumentRangeAsync(units.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)));
             }
 
             return true;
