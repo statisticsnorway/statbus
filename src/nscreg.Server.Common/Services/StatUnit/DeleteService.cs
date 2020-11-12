@@ -542,13 +542,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unitsForUpdate.AddRange(units.Select(ent => Mapper.Map<EnterpriseUnit>(ent)));
                     break;
             }
-
-            foreach (var dbUnit in unitsForUpdate)
-            {
-                Mapper.Map(historyUnits.Last(x => x.StatId == dbUnit.StatId), dbUnit);
-            }
             foreach (var unit in unitsForUpdate)
             {
+                Mapper.Map(historyUnits.Last(x => x.StatId == unit.StatId), unit);
                 unit.EndPeriod = units.Last(x => x.StatId == unit.StatId).EndPeriod;
                 unit.EditComment =
                     "This unit was edited by data source upload service and then data upload changes rejected";
