@@ -561,6 +561,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
                 case StatUnitTypes.LocalUnit:
                     _dbContext.LocalUnits.UpdateRange(unitsForUpdate.OfType<LocalUnit>());
+                   
                     break;
                 case StatUnitTypes.EnterpriseUnit:
                     _dbContext.EnterpriseUnits.UpdateRange(unitsForUpdate.OfType<EnterpriseUnit>());
@@ -579,6 +580,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="dataUploadTime">data source upload time</param>
         public async Task<bool> DeleteRangeLegalUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
         {
+            if (!dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
+
             var units = await _dbContext.LegalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -586,7 +589,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(legU => statIds.Contains(legU.StatId) && legU.StartPeriod >= dataUploadTime).ToListAsync();
-            if (!units.Any() || !dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
+
+            if (!units.Any()) return false;
 
             var afterUploadLegalUnitsList = await _dbContext.LegalUnitHistory
                 .Include(x => x.PersonsUnits)
@@ -597,6 +601,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod >= dataUploadTime).OrderBy(legU => legU.StartPeriod).ToListAsync();
 
+            if (afterUploadLegalUnitsList.Any()) return false;
+
             var beforeUploadLegalUnitsList = await _dbContext.LegalUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -606,7 +612,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToListAsync();
 
-            if (afterUploadLegalUnitsList.Any()) return false;
             using (var transcation = _dbContext.Database.BeginTransaction())
             {
                 if (beforeUploadLegalUnitsList.Any())
@@ -648,6 +653,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id of user</param>
         public async Task<bool> DeleteRangeLocalUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
         {
+            if (!dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
+
             var units = await _dbContext.LocalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -656,7 +663,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(local => statIds.Contains(local.StatId) && local.StartPeriod >= dataUploadTime).ToListAsync();
 
-            if (!units.Any() || !dataUploadTime.HasValue || string.IsNullOrEmpty(userId))
+            if (!units.Any())
                 return false;
 
             var afterUploadLocalUnitsList = await _dbContext.LocalUnitHistory
@@ -668,6 +675,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToListAsync();
 
+            if (afterUploadLocalUnitsList.Any())
+                return false;
+
             var beforeUploadLocalUnitsList = await _dbContext.LocalUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -676,9 +686,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToListAsync();
-
-            if (afterUploadLocalUnitsList.Any())
-                return false;
 
             if (beforeUploadLocalUnitsList.Any())
             {
@@ -702,6 +709,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id of user</param>
         public async Task<bool> DeleteRangeEnterpriseUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
         {
+            if (!dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
+
             var units = await _dbContext.EnterpriseUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -710,7 +719,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(ent => statIds.Contains(ent.StatId) && ent.StartPeriod >= dataUploadTime).ToListAsync();
 
-            if (!units.Any() || !dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
+            if (!units.Any()) return false;
 
             var afterUploadEnterpriseUnitsList = await _dbContext.EnterpriseUnitHistory
                 .Include(x => x.PersonsUnits)
@@ -721,6 +730,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.ActualAddress)
                 .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod >= dataUploadTime).OrderBy(ent => ent.StartPeriod).ToListAsync();
 
+            if (afterUploadEnterpriseUnitsList.Any()) return false;
+
+
             var beforeUploadEnterpriseUnitsList = await _dbContext.EnterpriseUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
@@ -729,8 +741,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod < dataUploadTime).OrderBy(ent => ent.StartPeriod).ToListAsync();
-
-            if (afterUploadEnterpriseUnitsList.Any()) return false;
 
             if (beforeUploadEnterpriseUnitsList.Any())
             {
