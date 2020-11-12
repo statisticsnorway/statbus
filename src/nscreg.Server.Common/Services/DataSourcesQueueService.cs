@@ -401,29 +401,29 @@ namespace nscreg.Server.Common.Services
 
         }
 
-        /// <summary>
-        /// Data source queue delete method
-        /// </summary>
-        /// <param name="queueId">Id of data source queue</param>
-        /// <param name="userId">Id of user</param>
-        public async Task DeleteQueue(int queueId, string userId)
-        {
-            var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
-            if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
-            var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToList();
-            if (logs.Any())
-            {
-                await logs.ForEachAsync(log => DeleteLogById(log, userId));
-            }
-            await DeleteQueueById(existing.Id);
-        }
+        ///// <summary>
+        ///// Data source queue delete method
+        ///// </summary>
+        ///// <param name="queueId">Id of data source queue</param>
+        ///// <param name="userId">Id of user</param>
+        //public async Task DeleteQueue(int queueId, string userId)
+        //{
+        //    var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
+        //    if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
+        //    var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToList();
+        //    if (logs.Any())
+        //    {
+        //        await logs.ForEachAsync(log => DeleteLogById(log, userId));
+        //    }
+        //    await DeleteQueueById(existing.Id);
+        //}
 
         /// <summary>
         /// Data source queue delete method
         /// </summary>
         /// <param name="queueId">Id of data source queue</param>
         /// <param name="userId">Id of user</param>
-        public async Task DeleteQueueTest(int queueId, string userId)
+        public async Task DeleteQueue(int queueId, string userId)
         {
             var existing = await _dbContext.DataSourceQueues.FirstOrDefaultAsync(c => c.Id == queueId);
             if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
