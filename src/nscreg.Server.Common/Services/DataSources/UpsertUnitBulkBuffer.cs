@@ -62,7 +62,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             using(var transaction = _context.Database.BeginTransaction())
             {
-                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true };
+                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0};
 
                 var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
                 var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
