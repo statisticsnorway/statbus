@@ -561,13 +561,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
                 case StatUnitTypes.LocalUnit:
                     _dbContext.LocalUnits.UpdateRange(unitsForUpdate.OfType<LocalUnit>());
-                   
                     break;
                 case StatUnitTypes.EnterpriseUnit:
                     _dbContext.EnterpriseUnits.UpdateRange(unitsForUpdate.OfType<EnterpriseUnit>());
                     break;
             }
-
+            await _dbContext.SaveChangesAsync();
             await _elasticService.UpsertDocumentList((unitsForUpdate).Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)).ToList());
             unitsForUpdate.Clear();
         }
