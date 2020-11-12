@@ -1,12 +1,12 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { shape, number, string, func } from 'prop-types'
+import { shape, number, string, func, bool } from 'prop-types'
 import { Table, Button } from 'semantic-ui-react'
 
 import { dataSourceQueueStatuses } from 'helpers/enums'
 import { formatDateTime } from 'helpers/dateHelper'
 
-const DataSourceQueueItem = ({ data, localize, deleteQueue }) => (
+const DataSourceQueueItem = ({ data, localize, deleteQueue, isLoading }) => (
   <Table.Row>
     <Table.Cell className="wrap-content">{data.fileName}</Table.Cell>
     <Table.Cell className="wrap-content">{data.dataSourceTemplateName}</Table.Cell>
@@ -33,7 +33,7 @@ const DataSourceQueueItem = ({ data, localize, deleteQueue }) => (
         onClick={() => deleteQueue(data)}
         content={localize('Reject')}
         icon="trash"
-        disabled={dataSourceQueueStatuses.get(data.status) === 'Loading'}
+        disabled={dataSourceQueueStatuses.get(data.status) === 'Loading' || isLoading}
         negative
       />
     </Table.Cell>
@@ -51,6 +51,7 @@ DataSourceQueueItem.propTypes = {
   }).isRequired,
   localize: func.isRequired,
   deleteQueue: func.isRequired,
+  isLoading: bool.isRequired,
 }
 
 export default DataSourceQueueItem
