@@ -446,13 +446,13 @@ namespace nscreg.Server.Common.Services
                     }
                 });
                 if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LocalUnit, out List<DataUploadingLog> uploadLocalUnitsLogs))
-                    await _statUnitDeleteService.DeleteRangeLocalUnitsFromDb(uploadLocalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, uploadLocalUnitsLogs.Select(x => x.StartImportDate).ToList());
+                    await _statUnitDeleteService.DeleteRangeLocalUnitsFromDb(uploadLocalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, uploadLocalUnitsLogs.Select(x => x.StartImportDate).OrderBy(c => c.Value).Last());
 
                 if(unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LegalUnit, out List<DataUploadingLog> uploadLegalUnitsLogs))
-                    await _statUnitDeleteService.DeleteRangeLegalUnitsFromDb(uploadLegalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, uploadLegalUnitsLogs.Select(x => x.StartImportDate).ToList());
+                    await _statUnitDeleteService.DeleteRangeLegalUnitsFromDb(uploadLegalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, uploadLegalUnitsLogs.Select(x => x.StartImportDate).OrderBy(c => c.Value).Last());
 
                 if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.EnterpriseUnit, out List<DataUploadingLog> uploadEnterprisesLogs))
-                    await _statUnitDeleteService.DeleteRangeEnterpriseUnitsFromDb(uploadEnterprisesLogs.Select(x => x.TargetStatId).ToList(), userId, uploadEnterprisesLogs.Select(x => x.StartImportDate).ToList());
+                    await _statUnitDeleteService.DeleteRangeEnterpriseUnitsFromDb(uploadEnterprisesLogs.Select(x => x.TargetStatId).ToList(), userId, uploadEnterprisesLogs.Select(x => x.StartImportDate).OrderBy(c => c.Value).Last());
             }
             await DeleteQueueById(existing.Id);
         }
