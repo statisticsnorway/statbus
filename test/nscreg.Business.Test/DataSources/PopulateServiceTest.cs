@@ -178,7 +178,7 @@ namespace nscreg.Business.Test.DataSources
                 DatabaseContext, userId, dataAccess);
 
             
-            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
+            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw,true, DateTime.Now);
 
             popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits).Excluding(x => x.Person.Id));
         }
@@ -195,7 +195,7 @@ namespace nscreg.Business.Test.DataSources
             };
 
             var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter,StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
-            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
+            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
 
             errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
                 $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
@@ -220,7 +220,7 @@ namespace nscreg.Business.Test.DataSources
             });
             await DatabaseContext.SaveChangesAsync();
             var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
-            var (popUnit, _, error, historyUnit) = await populateService.PopulateAsync(keyValueDict, true);
+            var (popUnit, _, error, historyUnit) = await populateService.PopulateAsync(keyValueDict, true, DateTime.Now);
 
             error.Should().Be(string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, popUnit.StatId),
                 $"Stat unit with StatId - {popUnit.StatId} exist in database");
@@ -301,9 +301,9 @@ namespace nscreg.Business.Test.DataSources
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
                 DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
                 DatabaseContext, userId, dataAccess);
-            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
+            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
 
-            popUnit.Should().BeEquivalentTo(unit);
+            popUnit.Should().BeEquivalentTo(unit, op => op.Excluding(z => z.StartPeriod));
 
 
         }
@@ -466,7 +466,7 @@ namespace nscreg.Business.Test.DataSources
             var populateService = new PopulateService(GetArrayMappingByString(mappings),
                 DataSourceAllowedOperation.CreateAndAlter,StatUnitTypes.LegalUnit,
                 DatabaseContext, userId, dataAccess);
-            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true);
+            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
             popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
                     .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy).Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.ActivityCategory.Id));

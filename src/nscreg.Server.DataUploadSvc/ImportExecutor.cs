@@ -63,9 +63,9 @@ namespace nscreg.Server.DataUploadSvc
             _logBuffer = logBuffer;
         }
 
-        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => Task.Run(Job(dequeued, keyValues));
+        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => Task.Run(Job(dequeued, keyValues, bufferMaxCount));
 
-        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => async () =>
+        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => async () =>
         {
             var dbContextHelper = new DbContextHelper();
             using (var context = dbContextHelper.CreateDbContext(new string[] { }))
@@ -73,7 +73,7 @@ namespace nscreg.Server.DataUploadSvc
                 await InitializeCacheForLookups(context);
                 var userService = new UserService(context);
                 var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued);
+                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued, bufferMaxCount);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
                 var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
@@ -89,7 +89,7 @@ namespace nscreg.Server.DataUploadSvc
 
                     //swPopulation.Start();
                     _logger.LogInformation("populating unit");
-                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, _personsGoodQuality);
+                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
                     //swPopulation.Stop();
                     //populationCount += 1;
                     if (populateError.HasValue())

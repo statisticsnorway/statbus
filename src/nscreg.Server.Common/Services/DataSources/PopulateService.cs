@@ -72,7 +72,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <param name="isAdmin"></param>
         /// <param name="personsGoodQuality"></param>
         /// <returns></returns>
-        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin, bool personsGoodQuality = true)
+        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin, DateTime startDate, bool personsGoodQuality = true)
         {
             try
             {
@@ -127,6 +127,7 @@ namespace nscreg.Server.Common.Services.DataSources
                // PopulateTracer.countCheckRegion++;
 
                 resultUnit.UserId = _userId;
+                resultUnit.StartPeriod = startDate;
 
 //                Debug.WriteLine($@"GetBase {(double)PopulateTracer.swGetBase.ElapsedMilliseconds / PopulateTracer.countGetBase : 0.00} ms
 //  FirstOrDefault {(double)PopulateTracer.swFirstOrDefaultFromDB.ElapsedMilliseconds / PopulateTracer.countFirstOrDefaultFromDB : 0.00} ms
