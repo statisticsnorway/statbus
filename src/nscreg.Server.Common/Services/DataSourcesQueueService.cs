@@ -334,7 +334,7 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="logId">Id of log</param>
         /// <param name="userId">Id of user</param>
-        public async Task DeleteLogById(DataUploadingLog log, string userId)
+        public async Task DeleteLog(DataUploadingLog log, string userId)
         {
             if (log == null)
                 throw new NotFoundException(nameof(Resource.QueueLogNotFound));
@@ -394,7 +394,7 @@ namespace nscreg.Server.Common.Services
             if (existing == null)
                 throw new NotFoundException(nameof(Resource.QueueLogNotFound));
 
-            await DeleteLogById(existing, userId);
+            await DeleteLog(existing, userId);
 
             if (!QueueLogsExist(existing.DataSourceQueueId))
                 await DeleteQueueById(existing.DataSourceQueueId);
