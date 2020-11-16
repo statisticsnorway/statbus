@@ -323,7 +323,7 @@ namespace nscreg.Server.Common.Services
         /// <param name="queueId">Id of data source queue</param>
         public async Task DeleteQueueById(int queueId)
         {
-            var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
+            var existing = await _dbContext.DataSourceQueues.FirstOrDefaultAsync(x => x.Id == queueId);
             if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
             _dbContext.DataSourceQueues.Remove(existing);
             await _dbContext.SaveChangesAsync();
@@ -334,37 +334,36 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="logId">Id of log</param>
         /// <param name="userId">Id of user</param>
-        public async Task DeleteLogById(int logId, string userId)
+        public async Task DeleteLog(DataUploadingLog log, string userId)
         {
-            var existing =  await _dbContext.DataUploadingLogs.FindAsync(logId);
-            if (existing == null) throw new NotFoundException(nameof(Resource.QueueLogNotFound));
+            if (log == null)
+                throw new NotFoundException(nameof(Resource.QueueLogNotFound));
 
-            if (existing.SerializedUnit != null)
+            if (log.SerializedUnit != null)
             {
-                dynamic jsonParsed = JsonConvert.DeserializeObject(existing.SerializedUnit);
+                dynamic jsonParsed = JsonConvert.DeserializeObject(log.SerializedUnit);
                 int unitType = int.Parse(jsonParsed["unitType"].ToString());
 
-                if (existing.Status == DataUploadingLogStatuses.Done &&
-                    existing.StartImportDate != null)
+                if (log.Status == DataUploadingLogStatuses.Done &&
+                    log.StartImportDate != null)
                 {
                     switch (unitType)
                     {
                         case (int)StatUnitTypes.LocalUnit:
-                            await _statUnitDeleteService.DeleteLocalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            await _statUnitDeleteService.DeleteLocalUnitFromDb(log.TargetStatId, userId, log.StartImportDate);
                             break;
                         case (int)StatUnitTypes.LegalUnit:
-                            await _statUnitDeleteService.DeleteLegalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            await _statUnitDeleteService.DeleteLegalUnitFromDb(log.TargetStatId, userId, log.StartImportDate);
                             break;
                         case (int)StatUnitTypes.EnterpriseUnit:
-                            await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(log.TargetStatId, userId, log.StartImportDate);
                             break;
                         default:
                             throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
                     }
                 }
             }
-
-            _dbContext.DataUploadingLogs.Remove(existing);
+            _dbContext.DataUploadingLogs.Remove(log);
             await _dbContext.SaveChangesAsync();
         }
 
@@ -391,13 +390,33 @@ namespace nscreg.Server.Common.Services
         /// <param name="userId">Id of user</param>
         public async Task DeleteLog(int logId, string userId)
         {
-            var existing = await _dbContext.DataUploadingLogs.FindAsync(logId);
-            if (existing == null) throw new NotFoundException(nameof(Resource.QueueLogNotFound));
-            var queueId = existing.DataSourceQueueId;
-            await DeleteLogById(existing.Id, userId);
-            if (!QueueLogsExist(queueId))
-                await DeleteQueueById(queueId);
+            var existing = await _dbContext.DataUploadingLogs.FirstOrDefaultAsync(c => c.Id == logId);
+            if (existing == null)
+                throw new NotFoundException(nameof(Resource.QueueLogNotFound));
+
+            await DeleteLog(existing, userId);
+
+            if (!QueueLogsExist(existing.DataSourceQueueId))
+                await DeleteQueueById(existing.DataSourceQueueId);
+
         }
+
+        ///// <summary>
+        ///// Data source queue delete method
+        ///// </summary>
+        ///// <param name="queueId">Id of data source queue</param>
+        ///// <param name="userId">Id of user</param>
+        //public async Task DeleteQueue(int queueId, string userId)
+        //{
+        //    var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
+        //    if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
+        //    var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToList();
+        //    if (logs.Any())
+        //    {
+        //        await logs.ForEachAsync(log => DeleteLogById(log, userId));
+        //    }
+        //    await DeleteQueueById(existing.Id);
+        //}
 
         /// <summary>
         /// Data source queue delete method
@@ -406,11 +425,35 @@ namespace nscreg.Server.Common.Services
         /// <param name="userId">Id of user</param>
         public async Task DeleteQueue(int queueId, string userId)
         {
-            var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
+            var existing = await _dbContext.DataSourceQueues.FirstOrDefaultAsync(c => c.Id == queueId);
             if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
             var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToList();
+            Dictionary<int, List<DataUploadingLog>> unitTypeDataUploadLogDict = new Dictionary<int, List<DataUploadingLog>>();
             if (logs.Any())
-                await logs.ForEachAsync(log => DeleteLogById(log.Id, userId));
+            {
+                logs.ForEach(x =>
+                {
+                    if (x.Status == DataUploadingLogStatuses.Done && x.StartImportDate != null && x.SerializedUnit != null)
+                    {
+                        dynamic unit = JsonConvert.DeserializeObject(x.SerializedUnit);
+                        int key = int.Parse(unit["unitType"].ToString());
+                        if (unitTypeDataUploadLogDict.ContainsKey(key))
+                            unitTypeDataUploadLogDict[key].Add(x);
+                        else
+                        {
+                            unitTypeDataUploadLogDict.Add(int.Parse(unit["unitType"].ToString()), new List<DataUploadingLog> { x });
+                        }
+                    }
+                });
+                if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LocalUnit, out List<DataUploadingLog> uploadLocalUnitsLogs))
+                    await _statUnitDeleteService.DeleteRangeLocalUnitsFromDb(uploadLocalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, logs.Select(x => x.StartImportDate).OrderBy(c => c.Value).First());
+
+                if(unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LegalUnit, out List<DataUploadingLog> uploadLegalUnitsLogs))
+                    await _statUnitDeleteService.DeleteRangeLegalUnitsFromDb(uploadLegalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, logs.Select(x => x.StartImportDate).OrderBy(c => c.Value).First());
+
+                if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.EnterpriseUnit, out List<DataUploadingLog> uploadEnterprisesLogs))
+                    await _statUnitDeleteService.DeleteRangeEnterpriseUnitsFromDb(uploadEnterprisesLogs.Select(x => x.TargetStatId).ToList(), userId, logs.Select(x => x.StartImportDate).OrderBy(c => c.Value).First());
+            }
             await DeleteQueueById(existing.Id);
         }
     }

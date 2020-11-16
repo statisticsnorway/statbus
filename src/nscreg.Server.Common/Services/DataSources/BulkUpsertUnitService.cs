@@ -390,6 +390,7 @@ namespace nscreg.Server.Common.Services.DataSources
             enterpriseUnit.Address = legalUnit.Address;
             enterpriseUnit.ActualAddress = legalUnit.ActualAddress;
             enterpriseUnit.PostalAddress = legalUnit.PostalAddress;
+            enterpriseUnit.StartPeriod = legalUnit.StartPeriod;
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
         }
@@ -401,6 +402,7 @@ namespace nscreg.Server.Common.Services.DataSources
             localUnit.ActualAddress = legalUnit.ActualAddress;
             localUnit.PostalAddress = legalUnit.PostalAddress;
             localUnit.LegalUnit = legalUnit;
+            localUnit.StartPeriod = legalUnit.StartPeriod;
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
             legalUnit.LocalUnits.Add(localUnit);
         }

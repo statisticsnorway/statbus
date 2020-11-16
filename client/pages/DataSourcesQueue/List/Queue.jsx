@@ -31,6 +31,7 @@ const Queue = ({
 }) => {
   const [selectedQueue, setSelectedQueue] = useState(undefined)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleChangeForm = (name, value) => {
     updateQueueFilter({ [name]: value })
@@ -52,7 +53,8 @@ const Queue = ({
   }
 
   const handleConfirm = () => {
-    deleteDataSourceQueue(selectedQueue.id)
+    setIsLoading(true)
+    deleteDataSourceQueue(selectedQueue.id).then(data => setIsLoading(false))
     handleCancel()
   }
 
@@ -99,7 +101,13 @@ const Queue = ({
             </Table.Header>
             <Table.Body>
               {result.map(item => (
-                <Item key={item.id} data={item} localize={localize} deleteQueue={handleDelete} />
+                <Item
+                  key={item.id}
+                  data={item}
+                  localize={localize}
+                  deleteQueue={handleDelete}
+                  isLoading={isLoading}
+                />
               ))}
             </Table.Body>
           </Table>
