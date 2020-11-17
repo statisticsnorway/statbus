@@ -112,7 +112,7 @@ namespace nscreg.Business.DataSources
                         var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
                         if (valueArr != null)
                             UpdateActivities(unitActivities, valueArr, mappingsArr, userId);
-                        propValue = unitActivities.Where(x => x.Activity.ActivityCategory != null && (x.Activity.ActivityCategory.Code != null || x.Activity.ActivityCategory.Name != null)).ToList();
+                        propValue = unitActivities.Where(x => x.Activity.ActivityCategory?.Code != null || x.Activity.ActivityCategory?.Name != null).ToList();
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
