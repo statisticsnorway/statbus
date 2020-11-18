@@ -23,9 +23,9 @@ namespace nscreg.Utilities.Configuration
         public string UploadDir { get; set; }
         [Required]
         public string SampleFramesDir { get; set; }
-
-        public int DataUploadMaxBufferCount { get; set; } = 50;
-
+        [Required]
+        public int DataUploadMaxBufferCount { get; set; }
+        [Required]
         public bool PersonGoodQuality { get; set; }
     }
 }
