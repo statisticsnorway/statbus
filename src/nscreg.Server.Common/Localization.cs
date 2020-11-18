@@ -34,13 +34,9 @@ namespace nscreg.Server.Common
             if (string.IsNullOrWhiteSpace(LanguagePrimary))
             {
                 LanguagePrimary = "en-GB";
-                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(string.Empty);
             }
-            else
-            {
-                CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(LanguagePrimary == "en-GB" ? string.Empty : LanguagePrimary);
-            }
-            
+            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(LanguagePrimary);
+
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
                 .Where(x => x.PropertyType == typeof(string))
@@ -48,7 +44,7 @@ namespace nscreg.Server.Common
             var resourceManager = new ResourceManager(typeof(Resource));
 
             AllResources = new Dictionary<string, Dictionary<string, string>>();
-            AddLanguage(keys, resourceManager, LanguagePrimary, string.Empty);
+            AddLanguage(keys, resourceManager, LanguagePrimary, LanguagePrimary);
             AddLanguage(keys, resourceManager, Language1, Language1);
             AddLanguage(keys, resourceManager, Language2, Language2);
         }
@@ -66,7 +62,7 @@ namespace nscreg.Server.Common
         {
             var resourceManager = new ResourceManager(typeof(Resource));
             var lang = CultureInfo.DefaultThreadCurrentCulture.ToString();
-            return resourceManager.GetString(name, new CultureInfo(lang == "en-GB" ? string.Empty : lang));
+            return resourceManager.GetString(name, new CultureInfo(lang));
         }
     }
 }
