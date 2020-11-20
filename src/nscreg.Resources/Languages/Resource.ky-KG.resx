@@ -954,9 +954,6 @@
   <data name="EnterDescription" xml:space="preserve">
     <value>Баяндама киргизүү</value>
   </data>
-  <data name="COATEDeleteMessage" xml:space="preserve">
-    <value>Жок кылуу COATE</value>
-  </data>
   <data name="Restriction" xml:space="preserve">
     <value>Чектөө</value>
   </data>

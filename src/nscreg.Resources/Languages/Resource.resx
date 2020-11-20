@@ -1333,9 +1333,6 @@
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Data import queue</value>
   </data>
-  <data name="COATEDeleteMessage" xml:space="preserve">
-    <value>Delete COATE</value>
-  </data>
   <data name="Restriction" xml:space="preserve">
     <value>Restriction</value>
   </data>

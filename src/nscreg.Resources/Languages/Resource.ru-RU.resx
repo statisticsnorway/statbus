@@ -1305,9 +1305,6 @@
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Очередь загрузки данных</value>
   </data>
-  <data name="COATEDeleteMessage" xml:space="preserve">
-    <value>Удалить COATE</value>
-  </data>
   <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
     <value>Неверно указано ограничение источника данных</value>
   </data>
