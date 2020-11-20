@@ -15,19 +15,21 @@ const DataSourceQueueItem = ({ data, localize, deleteQueue, isLoading }) => (
     <Table.Cell className="wrap-content">
       {localize(dataSourceQueueStatuses.get(data.status))}
     </Table.Cell>
-    <Table.Cell className="wrap-content">
-      <Button
-        as={Link}
-        to={`datasourcesqueue/${data.id}/log`}
-        content={localize('Logs')}
-        icon="search"
-        disabled={
-          dataSourceQueueStatuses.get(data.status) === 'InQueue' ||
-          dataSourceQueueStatuses.get(data.status) === 'Loading'
-        }
-        primary
-      />
-    </Table.Cell>
+    {dataSourceQueueStatuses.get(data.status) !== 'DataLoadCompleted' && (
+      <Table.Cell className="wrap-content">
+        <Button
+          as={Link}
+          to={`datasourcesqueue/${data.id}/log`}
+          content={localize('Logs')}
+          icon="search"
+          disabled={
+            dataSourceQueueStatuses.get(data.status) === 'InQueue' ||
+            dataSourceQueueStatuses.get(data.status) === 'Loading'
+          }
+          primary
+        />
+      </Table.Cell>
+    )}
     <Table.Cell className="wrap-content">
       <Button
         onClick={() => deleteQueue(data)}
