@@ -1438,15 +1438,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Delete COATE.
-        /// </summary>
-        public static string COATEDeleteMessage {
-            get {
-                return ResourceManager.GetString("COATEDeleteMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Code.
         /// </summary>
         public static string Code {
