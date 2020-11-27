@@ -15,21 +15,23 @@ const DataSourceQueueItem = ({ data, localize, deleteQueue, isLoading }) => (
     <Table.Cell className="wrap-content">
       {localize(dataSourceQueueStatuses.get(data.status))}
     </Table.Cell>
-    {dataSourceQueueStatuses.get(data.status) !== 'DataLoadCompleted' && (
-      <Table.Cell className="wrap-content">
-        <Button
-          as={Link}
-          to={`datasourcesqueue/${data.id}/log`}
-          content={localize('Logs')}
-          icon="search"
-          disabled={
-            dataSourceQueueStatuses.get(data.status) === 'InQueue' ||
-            dataSourceQueueStatuses.get(data.status) === 'Loading'
-          }
-          primary
-        />
-      </Table.Cell>
-    )}
+    <Table.Cell className="wrap-content">{localize(data.note)}</Table.Cell>
+    <Table.Cell className="wrap-content">
+      {dataSourceQueueStatuses.get(data.status) !== 'DataLoadCompleted' &&
+        dataSourceQueueStatuses.get(data.status) !== 'DataLoadCompletedFailed' && (
+          <Button
+            as={Link}
+            to={`datasourcesqueue/${data.id}/log`}
+            content={localize('Logs')}
+            icon="search"
+            disabled={
+              dataSourceQueueStatuses.get(data.status) === 'InQueue' ||
+              dataSourceQueueStatuses.get(data.status) === 'Loading'
+            }
+            primary
+          />
+        )}
+    </Table.Cell>
     <Table.Cell className="wrap-content">
       <Button
         onClick={() => deleteQueue(data)}
@@ -50,6 +52,7 @@ DataSourceQueueItem.propTypes = {
     uploadDateTime: string.isRequired,
     userName: string.isRequired,
     status: number.isRequired,
+    note: string.isRequired,
   }).isRequired,
   localize: func.isRequired,
   deleteQueue: func.isRequired,

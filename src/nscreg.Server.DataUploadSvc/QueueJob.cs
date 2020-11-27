@@ -10,15 +10,16 @@ using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
+using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Resources;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
-using ServiceStack;
-using System.Text;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -60,6 +61,7 @@ namespace nscreg.Server.DataUploadSvc
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _logBuffer = new DbLogBuffer(_context, _bufferMaxCount);
+            
         }
 
         /// <summary>
@@ -71,14 +73,23 @@ namespace nscreg.Server.DataUploadSvc
 
             _logger.LogInformation("dequeue attempt...");
 
-            var (dequeueError, dequeued) = await Dequeue();
+             var (dequeueError, dequeued) = await Dequeue();
             if (dequeueError.HasValue())
             {
                 _logger.LogInformation("dequeue failed with error: {0}", dequeueError);
                 return;
             }
             if (dequeued == null) return;
-
+            try
+            {
+                await new ElasticService(_context).CheckElasticSearchConnection();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("finish queue item with error: {0}", Resource.ElasticSearchIsDisable);
+                await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, ex.Message);
+                return;
+            }
             var dataAccessService = new DataAccessService(_context);
             if (dataAccessService.CheckWritePermissions(dequeued.UserId, dequeued.DataSource.StatUnitType))
             {
@@ -94,6 +105,7 @@ namespace nscreg.Server.DataUploadSvc
             {
                 _logger.LogInformation("finish queue item with error: {0}", mutateError);
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
+                return;
             }
 
             var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality);
@@ -103,7 +115,7 @@ namespace nscreg.Server.DataUploadSvc
            
             if (parseError.HasValue())
             {
-                _logger.LogInformation("finish queue item with error: {0}", parseError);
+                _logger.LogError("finish queue item with error: {0}", parseError);
                 if (!string.IsNullOrEmpty(problemLine))
                     _logger.LogError($"Possible problem line:\n{problemLine}");
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
@@ -112,20 +124,28 @@ namespace nscreg.Server.DataUploadSvc
 
             _logger.LogInformation("parsed {0} entities", parsed.Length);
             var anyWarnings = false;
-
-            await CatchAndLogException(async () => await executor.Start(dequeued, parsed, _bufferMaxCount), () => anyWarnings = true);
-            await CatchAndLogException(async () => await _logBuffer.FlushAsync(), () => anyWarnings = true);
+            var exceptionMessage = string.Empty; 
+            await CatchAndLogException(async () => await executor.Start(dequeued, parsed, _bufferMaxCount), ex =>
+            {
+                anyWarnings = true;
+                exceptionMessage = ex;
+            });
+            await CatchAndLogException(async () => await _logBuffer.FlushAsync(), ex =>
+            {
+                anyWarnings = true;
+                exceptionMessage = ex;
+            });
            
             await _queueSvc.FinishQueueItem(
                 dequeued,
                 anyWarnings || executor.AnyWarnings
                     ? QueueStatus.DataLoadCompletedPartially
-                    : QueueStatus.DataLoadCompleted);
+                    : QueueStatus.DataLoadCompleted, exceptionMessage);
 
             DisposeScopedServices();
 
         }
-        private async Task CatchAndLogException(Func<Task> func, Action onException)
+        private async Task CatchAndLogException(Func<Task> func, Action<string> onException)
         {
             try
             {
@@ -134,7 +154,7 @@ namespace nscreg.Server.DataUploadSvc
             catch (Exception e)
             {
                 _logger.LogError(e.ToString());
-                onException();
+                onException(e.Message);
             }
         }
 
@@ -212,7 +232,8 @@ namespace nscreg.Server.DataUploadSvc
         /// <returns></returns>
         private async Task<string> MutateFileAsync(DataSourceQueue item)
         {
-            var rawLines = await GetRawFileAsync(item);
+            var rawLines = (await GetRawFileAsync(item))
+                .Select(x => x.EndsWith(item.DataSource.CsvDelimiter) ? x.Substring(0, x.Length - 1) : x).ToArray(); //Remove the csv delimiter at the end of the line
             try
             {
                await File.WriteAllTextAsync(item.DataSourcePath, string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), encoding: Encoding.UTF8);
@@ -227,13 +248,11 @@ namespace nscreg.Server.DataUploadSvc
         private async Task<string[]> GetRawFileAsync(DataSourceQueue item)
         {
             if (item.DataSource == null) throw new Exception(Resource.DataSourceNotFound);
-            var i = item.DataSource.CsvSkipCount;
             string rawLines;
             if (!File.Exists(item.DataSourcePath)) throw new FileNotFoundException(Resource.FileDoesntExistOrInQueue);
             using (var stream = File.OpenRead(item.DataSourcePath))
             using (var reader = new StreamReader(stream, encoding: Encoding.UTF8))
             {
-                while (--i == 0) await reader.ReadLineAsync();
                 rawLines = await reader.ReadToEndAsync();
             }
 

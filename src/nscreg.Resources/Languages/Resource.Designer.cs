@@ -2986,6 +2986,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The file is not in the correct data format.
+        /// </summary>
+        public static string FileDataFormatError {
+            get {
+                return ResourceManager.GetString("FileDataFormatError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to File does not exist or is being generated.
         /// </summary>
         public static string FileDoesntExistOrInQueue {

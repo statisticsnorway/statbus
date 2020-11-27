@@ -2365,4 +2365,7 @@
   <data name="AnalysisRelatedPersons" xml:space="preserve">
     <value>Статистическая единица не имеет связанных с ней лиц</value>
   </data>
+  <data name="FileDataFormatError" xml:space="preserve">
+    <value>Файл имеет неверный формат данных</value>
+  </data>
 </root>
