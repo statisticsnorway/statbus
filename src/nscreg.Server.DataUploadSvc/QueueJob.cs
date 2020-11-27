@@ -84,7 +84,7 @@ namespace nscreg.Server.DataUploadSvc
             {
                 await new ElasticService(_context).CheckElasticSearchConnection();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError("finish queue item with error: {0}", Resource.ElasticSearchIsDisable);
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, ex.Message);
@@ -105,6 +105,7 @@ namespace nscreg.Server.DataUploadSvc
             {
                 _logger.LogInformation("finish queue item with error: {0}", mutateError);
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
+                return;
             }
 
             var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality);
@@ -247,14 +248,11 @@ namespace nscreg.Server.DataUploadSvc
         private async Task<string[]> GetRawFileAsync(DataSourceQueue item)
         {
             if (item.DataSource == null) throw new Exception(Resource.DataSourceNotFound);
-            var i = item.DataSource.CsvSkipCount;
             string rawLines;
             if (!File.Exists(item.DataSourcePath)) throw new FileNotFoundException(Resource.FileDoesntExistOrInQueue);
             using (var stream = File.OpenRead(item.DataSourcePath))
             using (var reader = new StreamReader(stream, encoding: Encoding.UTF8))
             {
-                while (--i == 0)
-                    await reader.ReadLineAsync();
                 rawLines = await reader.ReadToEndAsync();
             }
 
