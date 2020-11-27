@@ -76,7 +76,7 @@ namespace nscreg.Server.DataUploadSvc
                 var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued, bufferMaxCount);
                 var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
                 _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-                var saveService = await SaveManager.CreateSaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
+                var saveService = new SaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
                 bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
                 int i = 0;
                 foreach (var parsedUnit in keyValues)

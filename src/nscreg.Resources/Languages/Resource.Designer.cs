@@ -1438,15 +1438,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Delete COATE.
-        /// </summary>
-        public static string COATEDeleteMessage {
-            get {
-                return ResourceManager.GetString("COATEDeleteMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Code.
         /// </summary>
         public static string Code {
@@ -2991,6 +2982,15 @@ namespace nscreg.Resources.Languages {
         public static string FieldsToSelect {
             get {
                 return ResourceManager.GetString("FieldsToSelect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The file is not in the correct data format.
+        /// </summary>
+        public static string FileDataFormatError {
+            get {
+                return ResourceManager.GetString("FileDataFormatError", resourceCulture);
             }
         }
         

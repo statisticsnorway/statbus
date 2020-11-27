@@ -15,7 +15,8 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             DataSourceTemplateName = item.DataSource.Name;
             UploadDateTime = item.StartImportDate;
             UserName = item.User.Name;
-            Status = (int)item.Status; 
+            Status = (int)item.Status;
+            Note = item.Note;
         }
 
         /// <summary>
@@ -25,6 +26,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         /// <returns></returns>
         public static QueueVm Create(DataSourceQueue item) => new QueueVm(item);
 
+        public string Note { get; set; }
         public int Id { get; }
         public string FileName { get; }
         public string DataSourceTemplateName { get; }

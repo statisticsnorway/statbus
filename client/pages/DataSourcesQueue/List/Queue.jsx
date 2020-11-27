@@ -18,6 +18,7 @@ const headerKeys = [
   'UploadDateTime',
   'UserName',
   'Status',
+  'Note',
 ]
 
 const Queue = ({

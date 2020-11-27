@@ -1333,9 +1333,6 @@
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Data import queue</value>
   </data>
-  <data name="COATEDeleteMessage" xml:space="preserve">
-    <value>Delete COATE</value>
-  </data>
   <data name="Restriction" xml:space="preserve">
     <value>Restriction</value>
   </data>
@@ -2760,5 +2757,8 @@
   </data>
   <data name="UploadedFileProblem" xml:space="preserve">
     <value>Uploaded file is problem</value>
+  </data>
+  <data name="FileDataFormatError" xml:space="preserve">
+    <value>The file is not in the correct data format</value>
   </data>
 </root>
