@@ -28,7 +28,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private DataSourceQueue _dataSourceQueue;
         public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions, DataSourceQueue queue, int maxBufferCount = 1000)
         {
-            
+
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
@@ -60,9 +60,9 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task FlushAsync()
         {
-            using(var transaction = _context.Database.BeginTransaction())
+            using (var transaction = _context.Database.BeginTransaction())
             {
-                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0};
+                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0 };
 
                 var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
                 var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
@@ -129,21 +129,24 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 await _context.BulkUpdateAsync(enterprises, bulkConfig);
 
-
                 Buffer.ForEach(x => x.ActivitiesUnits.ForEach(z =>
                 {
                     z.ActivityId = z.Activity.Id;
-                    z.Unit = x;
                     z.UnitId = x.RegId;
                 }));
 
                 Buffer.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
+
                 Buffer.ForEach(z => z.PersonsUnits.ForEach(x =>
                 {
                     x.UnitId = z.RegId;
                     x.PersonId = x.Person.Id;
                     x.PersonTypeId = x.Person.Role;
                 }));
+
+                //BulkCreateOrUpdate does not work correctly, so here the update is called first
+                _context.UpdateRange(activityUnits);
+                await _context.SaveChangesAsync();
 
                 await _context.BulkInsertOrUpdateAsync(activityUnits);
                 await _context.BulkInsertOrUpdateAsync(personUnits);
@@ -179,7 +182,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         break;
                 }
             }
-            
+
             Buffer.Clear();
             BufferToDelete.Clear();
             HistoryBuffer.Clear();
