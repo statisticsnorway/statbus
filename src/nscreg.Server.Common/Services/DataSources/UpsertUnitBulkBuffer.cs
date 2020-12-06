@@ -133,7 +133,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 activities.ForEach(act => Buffer.ForEach(buffer => buffer.ActivitiesUnits.ForEach(actUnit =>
                     {
                         actUnit.UnitId = buffer.RegId;
-                        if (PropertyEqualsHelper.PublicInstancePropertiesEqual(act, actUnit.Activity, "Id", "ActivityCategory"))
+                        if (PropertyEqualsHelper.PublicInstancePropertiesEqual(act, actUnit.Activity, nameof(Activity.Id), nameof(Activity.ActivityCategory)))
                         {
                             actUnit.ActivityId = act.Id;
                         }
