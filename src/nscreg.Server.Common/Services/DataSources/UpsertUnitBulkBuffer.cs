@@ -10,6 +10,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Data.Entities.History;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
@@ -63,7 +64,7 @@ namespace nscreg.Server.Common.Services.DataSources
             using (var transaction = _context.Database.BeginTransaction())
             {
                 var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0 };
-
+                
                 var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
                 var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
                 var activities = activityUnits.Select(z => z.Activity).Distinct(new IdComparer<Activity>()).ToList();
@@ -73,10 +74,10 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
 
-                await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
+                await _context.BulkInsertOrUpdateAsync(activities, new BulkConfig{SetOutputIdentity = true, PreserveInsertOrder = false, BulkCopyTimeout = 0});
                 await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
                 await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
-
+                
                 Buffer.ForEach(unit =>
                 {
                     unit.AddressId = unit.Address?.Id;
@@ -129,11 +130,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 await _context.BulkUpdateAsync(enterprises, bulkConfig);
 
-                Buffer.ForEach(x => x.ActivitiesUnits.ForEach(z =>
-                {
-                    z.ActivityId = z.Activity.Id;
-                    z.UnitId = x.RegId;
-                }));
+                activities.ForEach(act => Buffer.ForEach(buffer => buffer.ActivitiesUnits.ForEach(actUnit =>
+                    {
+                        actUnit.UnitId = buffer.RegId;
+                        if (PropertyEqualsHelper.PublicInstancePropertiesEqual(act, actUnit.Activity, "Id", "ActivityCategory"))
+                        {
+                            actUnit.ActivityId = act.Id;
+                        }
+                    })));
 
                 Buffer.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
 
@@ -143,10 +147,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     x.PersonId = x.Person.Id;
                     x.PersonTypeId = x.Person.Role;
                 }));
-
-                //BulkCreateOrUpdate does not work correctly, so here the update is called first
-                _context.UpdateRange(activityUnits);
-                await _context.SaveChangesAsync();
 
                 await _context.BulkInsertOrUpdateAsync(activityUnits);
                 await _context.BulkInsertOrUpdateAsync(personUnits);
