@@ -22,7 +22,15 @@ namespace nscreg.Business.DataSources
 
             CsvConfig.ItemSeperatorString = delimiter;
             var lines = rawLines.Split(new char[] { '\r','\n' }).Skip(1).Where(x => !string.IsNullOrEmpty(x));
-            var rowsFromCsv = rawLines.FromCsv<List<Dictionary<string, string>>>();
+            List<Dictionary<string, string>> rowsFromCsv;
+            try
+            {
+                rowsFromCsv = rawLines.FromCsv<List<Dictionary<string, string>>>();
+            }
+            catch(Exception)
+            {
+                throw new Exception(nameof(Resource.FileDataFormatError));
+            }
             var rowsFromCsvCount = rowsFromCsv.Count();
 
             //If the file is problematic and the number of lines after conversion is less than the input parsing does not work

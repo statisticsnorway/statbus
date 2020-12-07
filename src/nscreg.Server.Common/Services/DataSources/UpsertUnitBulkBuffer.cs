@@ -10,6 +10,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Data.Entities.History;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
@@ -28,7 +29,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private DataSourceQueue _dataSourceQueue;
         public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions, DataSourceQueue queue, int maxBufferCount = 1000)
         {
-            
+
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
@@ -60,10 +61,10 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task FlushAsync()
         {
-            using(var transaction = _context.Database.BeginTransaction())
+            using (var transaction = _context.Database.BeginTransaction())
             {
-                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0};
-
+                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0 };
+                
                 var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
                 var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
                 var activities = activityUnits.Select(z => z.Activity).Distinct(new IdComparer<Activity>()).ToList();
@@ -78,7 +79,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _context.BulkInsertAsync(persons.Where(x => x.Id == 0).ToList(), bulkConfig);
                 await _context.BulkUpdateAsync(persons.Where(x => x.Id != 0).ToList());
                 await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
-
+                
                 Buffer.ForEach(unit =>
                 {
                     unit.AddressId = unit.Address?.Id;
@@ -131,14 +132,13 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 await _context.BulkUpdateAsync(enterprises, bulkConfig);
 
-
-                Buffer.ForEach(x => x.ActivitiesUnits.ForEach(z =>
+                Buffer.ForEach(buf => buf.ActivitiesUnits.ForEach(au =>
                 {
-                    z.ActivityId = z.Activity.Id;
-                    z.UnitId = x.RegId;
+                    au.ActivityId = au.Activity.Id;
+                    au.UnitId = buf.RegId;
                 }));
-
                 Buffer.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
+
                 Buffer.ForEach(z => z.PersonsUnits.ForEach(x =>
                 {
                     x.UnitId = z.RegId;
@@ -180,7 +180,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         break;
                 }
             }
-            
+
             Buffer.Clear();
             BufferToDelete.Clear();
             HistoryBuffer.Clear();
