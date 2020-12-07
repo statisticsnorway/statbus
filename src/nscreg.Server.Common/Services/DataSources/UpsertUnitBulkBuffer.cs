@@ -73,8 +73,10 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
 
-                await _context.BulkInsertOrUpdateAsync(activities, bulkConfig);
-                await _context.BulkInsertOrUpdateAsync(persons, bulkConfig);
+                await _context.BulkInsertAsync(activities.Where(x => x.Id == 0).ToList(), bulkConfig);
+                await _context.BulkUpdateAsync(activities.Where(x => x.Id != 0).ToList());
+                await _context.BulkInsertAsync(persons.Where(x => x.Id == 0).ToList(), bulkConfig);
+                await _context.BulkUpdateAsync(persons.Where(x => x.Id != 0).ToList());
                 await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
 
                 Buffer.ForEach(unit =>
@@ -133,7 +135,6 @@ namespace nscreg.Server.Common.Services.DataSources
                 Buffer.ForEach(x => x.ActivitiesUnits.ForEach(z =>
                 {
                     z.ActivityId = z.Activity.Id;
-                    z.Unit = x;
                     z.UnitId = x.RegId;
                 }));
 
