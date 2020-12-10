@@ -10,7 +10,6 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Data.Entities.History;
-using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
 
@@ -151,13 +150,21 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _context.BulkInsertOrUpdateAsync(foreignCountry);
                 await _context.BulkDeleteAsync(BufferToDelete);
 
-                var hLocalUnits = HistoryBuffer.OfType<LocalUnitHistory>().ToList();
-                var hLegalUnits = HistoryBuffer.OfType<LegalUnitHistory>().ToList();
-                var hEnterpriseUnits = HistoryBuffer.OfType<EnterpriseUnit>().ToList();
+                ///History
+                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LocalUnitHistory>().ToList(), bulkConfig);
+                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LegalUnitHistory>().ToList(), bulkConfig);
+                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<EnterpriseUnit>().ToList(), bulkConfig);
 
-                await _context.BulkInsertOrUpdateAsync(hLocalUnits);
-                await _context.BulkInsertOrUpdateAsync(hLegalUnits);
-                await _context.BulkInsertOrUpdateAsync(hEnterpriseUnits);
+                var statUnitHistories = HistoryBuffer.OfType<StatisticalUnitHistory>().ToList();
+
+                statUnitHistories.ForEach(x => x.ActivitiesUnits.ForEach(z => z.UnitId = x.RegId));
+                statUnitHistories.ForEach(x => x.PersonsUnits.ForEach(z => z.UnitId = x.RegId));
+                statUnitHistories.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
+
+                await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
+                await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.PersonsUnits).ToList());
+                await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
+
 
                 if (Buffer.Any())
                 {
@@ -193,5 +200,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             _isEnabledFlush = true;
         }
+        
     }
 }
