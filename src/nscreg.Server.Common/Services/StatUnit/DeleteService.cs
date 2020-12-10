@@ -328,7 +328,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 unitForUpdate.PersonsUnits.Add(Mapper.Map(hActUnit, new PersonStatisticalUnit()));
             }
-            foreach (var hActUnit in historyUnit.PersonsUnits)
+            foreach (var hActUnit in historyUnit.ForeignParticipationCountriesUnits)
             {
                 unitForUpdate.ForeignParticipationCountriesUnits.Add(Mapper.Map(hActUnit, new CountryStatisticalUnit()));
             }
