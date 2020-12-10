@@ -305,37 +305,49 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">Type of statistical unit</param>
         public async Task UpdateUnitTask(dynamic unit, dynamic historyUnit, string userId, StatUnitTypes type)
         {
-                var unitForUpdate = type == StatUnitTypes.LegalUnit
-                    ? Mapper.Map<LegalUnit>(unit)
-                    : (type == StatUnitTypes.LocalUnit
-                        ? Mapper.Map<LocalUnit>(unit)
-                        : Mapper.Map<EnterpriseUnit>(unit));
+            var unitForUpdate = type == StatUnitTypes.LegalUnit
+                ? Mapper.Map<LegalUnit>(unit)
+                : (type == StatUnitTypes.LocalUnit
+                    ? Mapper.Map<LocalUnit>(unit)
+                    : Mapper.Map<EnterpriseUnit>(unit));
 
-                Mapper.Map(historyUnit, unitForUpdate);
-                unitForUpdate.EndPeriod = unit.EndPeriod;
-                unitForUpdate.EditComment =
-                    "This unit was edited by data source upload service and then data upload changes rejected";
-                unitForUpdate.RegId = unit.RegId;
-                unitForUpdate.UserId = userId;
-                unitForUpdate.ActivitiesUnits.Clear();
-                unitForUpdate.PersonsUnits.Clear();
-                switch (type)
-                {
-                    case StatUnitTypes.LegalUnit:
-                        _dbContext.LegalUnits.Update(unitForUpdate);
-                        break;
-                    case StatUnitTypes.LocalUnit:
-                        _dbContext.LocalUnits.Update(unitForUpdate);
-                        break;
-                    case StatUnitTypes.EnterpriseUnit:
-                        _dbContext.EnterpriseUnits.Update(unitForUpdate);
-                        break;
-                }
-
-                await _dbContext.SaveChangesAsync();
-                await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
+            Mapper.Map(historyUnit, unitForUpdate);
+            unitForUpdate.EndPeriod = unit.EndPeriod;
+            unitForUpdate.EditComment =
+                "This unit was edited by data source upload service and then data upload changes rejected";
+            unitForUpdate.RegId = unit.RegId;
+            unitForUpdate.UserId = userId;
+            unitForUpdate.ActivitiesUnits.Clear();
+            unitForUpdate.PersonsUnits.Clear();
+            unitForUpdate.ForeignParticipationCountriesUnits.Clear();
+            foreach (var historyActUnit in historyUnit.ActivitiesUnits)
+            {
+                unitForUpdate.ActivitiesUnits.Add(Mapper.Map(historyActUnit, new ActivityStatisticalUnit()));
+            }
+            foreach (var historyPersonUnit in historyUnit.PersonsUnits)
+            {
+                unitForUpdate.PersonsUnits.Add(Mapper.Map(historyPersonUnit, new PersonStatisticalUnit()));
+            }
+            foreach (var historyCountryUnit in historyUnit.ForeignParticipationCountriesUnits)
+            {
+                unitForUpdate.ForeignParticipationCountriesUnits.Add(Mapper.Map(historyCountryUnit, new CountryStatisticalUnit()));
+            }
+            switch (type)
+            {
+                case StatUnitTypes.LegalUnit:
+                    _dbContext.LegalUnits.Update(unitForUpdate);
+                    break;
+                case StatUnitTypes.LocalUnit:
+                    _dbContext.LocalUnits.Update(unitForUpdate);
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    _dbContext.EnterpriseUnits.Update(unitForUpdate);
+                    break;
+            }
+            await _dbContext.SaveChangesAsync();
+            await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
         }
-       
+
         /// <summary>
         /// Delete legal unit method (when revise on data source queue page), deletes unit from database
         /// </summary>
@@ -347,6 +359,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.LegalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
@@ -420,6 +433,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.LocalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
@@ -438,9 +452,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Where(local => local.ParentId == unit.RegId && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
 
             var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory
-                .Include(x=>x.PersonsUnits)
-                .Include(x=>x.ActivitiesUnits)
-                .Include(x=>x.ForeignParticipationCountriesUnits)
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
@@ -476,6 +490,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.EnterpriseUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
@@ -544,14 +559,17 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
             foreach (var unit in unitsForUpdate)
             {
-                Mapper.Map(historyUnits.Last(x => x.StatId == unit.StatId), unit);
-                unit.EndPeriod = units.Last(x => x.StatId == unit.StatId).EndPeriod;
+                var lastUnit = units.Last(x => x.StatId == unit.StatId);
+                var historyUnitLast = historyUnits.Last(x => x.StatId == unit.StatId);
+                Mapper.Map(historyUnitLast, unit);
+                unit.EndPeriod = lastUnit.EndPeriod;
                 unit.EditComment =
                     "This unit was edited by data source upload service and then data upload changes rejected";
-                unit.RegId = units.Last(x => x.StatId == unit.StatId).RegId;
+                unit.RegId = lastUnit.RegId;
                 unit.UserId = userId;
-                unit.ActivitiesUnits = units.Last(x => x.StatId == unit.StatId).ActivitiesUnits;
-                unit.PersonsUnits = units.Last(x => x.StatId == unit.StatId).PersonsUnits;
+                unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(z => Mapper.Map(z, new ActivityStatisticalUnit())).ToList();
+                unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(z => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
+                unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(z => Mapper.Map(z, new CountryStatisticalUnit())).ToList();
             }
 
             switch (type)
@@ -584,6 +602,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = await _dbContext.LegalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
@@ -657,6 +676,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = await _dbContext.LocalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
@@ -713,6 +733,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = await _dbContext.EnterpriseUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
