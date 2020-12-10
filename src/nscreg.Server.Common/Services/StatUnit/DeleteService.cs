@@ -320,17 +320,17 @@ namespace nscreg.Server.Common.Services.StatUnit
             unitForUpdate.ActivitiesUnits.Clear();
             unitForUpdate.PersonsUnits.Clear();
             unitForUpdate.ForeignParticipationCountriesUnits.Clear();
-            foreach (var hActUnit in historyUnit.ActivitiesUnits)
+            foreach (var historyActUnit in historyUnit.ActivitiesUnits)
             {
-                unitForUpdate.ActivitiesUnits.Add(Mapper.Map(hActUnit, new ActivityStatisticalUnit()));
+                unitForUpdate.ActivitiesUnits.Add(Mapper.Map(historyActUnit, new ActivityStatisticalUnit()));
             }
-            foreach (var hActUnit in historyUnit.PersonsUnits)
+            foreach (var historyPersonUnit in historyUnit.PersonsUnits)
             {
-                unitForUpdate.PersonsUnits.Add(Mapper.Map(hActUnit, new PersonStatisticalUnit()));
+                unitForUpdate.PersonsUnits.Add(Mapper.Map(historyPersonUnit, new PersonStatisticalUnit()));
             }
-            foreach (var hActUnit in historyUnit.ForeignParticipationCountriesUnits)
+            foreach (var historyCountryUnit in historyUnit.ForeignParticipationCountriesUnits)
             {
-                unitForUpdate.ForeignParticipationCountriesUnits.Add(Mapper.Map(hActUnit, new CountryStatisticalUnit()));
+                unitForUpdate.ForeignParticipationCountriesUnits.Add(Mapper.Map(historyCountryUnit, new CountryStatisticalUnit()));
             }
             switch (type)
             {
