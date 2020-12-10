@@ -153,7 +153,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 ///History
                 await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LocalUnitHistory>().ToList(), bulkConfig);
                 await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LegalUnitHistory>().ToList(), bulkConfig);
-                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<EnterpriseUnit>().ToList(), bulkConfig);
+                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList(), bulkConfig);
 
                 var statUnitHistories = HistoryBuffer.OfType<StatisticalUnitHistory>().ToList();
 
