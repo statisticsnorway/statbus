@@ -13,6 +13,7 @@ using nscreg.Data.Entities.History;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Utilities.Enums;
+using nscreg.Utilities.Extensions;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -79,7 +80,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (item.IsDeleted == toDelete)
             {
                 _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item)).Wait();
-            } else
+            }
+            else
             {
                 CheckBeforeDelete(item, toDelete);
                 var deletedUnit = _deleteUndeleteActions[unitType](id, toDelete, userId);
@@ -107,7 +109,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.EnterpriseGroupHistory.Add((EnterpriseGroupHistory) Common.TrackHistory(unit, hUnit));
+            _dbContext.EnterpriseGroupHistory.Add((EnterpriseGroupHistory)Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -131,7 +133,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.LegalUnitHistory.Add((LegalUnitHistory) Common.TrackHistory(unit, hUnit));
+            _dbContext.LegalUnitHistory.Add((LegalUnitHistory)Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -155,7 +157,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.LocalUnitHistory.Add((LocalUnitHistory) Common.TrackHistory(unit, hUnit));
+            _dbContext.LocalUnitHistory.Add((LocalUnitHistory)Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -179,7 +181,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.EnterpriseUnitHistory.Add((EnterpriseUnitHistory) Common.TrackHistory(unit, hUnit));
+            _dbContext.EnterpriseUnitHistory.Add((EnterpriseUnitHistory)Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -187,52 +189,54 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public void CheckBeforeDelete(IStatisticalUnit unit, bool toDelete)
         {
-            if (toDelete) {
-                switch (unit.GetType().Name)
-                {
-                    case nameof(LocalUnit):
-                    {
-                        var localUnit = unit as LocalUnit;
-                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId && !x.IsDeleted);
-                        if (legalUnit != null && legalUnit.LocalUnits.Count == 1)
-                        {
-                            throw new BadRequestException(nameof(Resource.DeleteLocalUnit));
-                        }
-                        break;
-                    }
-                    case nameof(EnterpriseUnit):
-                    {
-                        var entUnit = unit as EnterpriseUnit;
-                        if (entUnit != null && entUnit.LegalUnits.Any(c => !c.IsDeleted))
-                        {
-                            throw new BadRequestException(nameof(Resource.DeleteEnterpriseUnit));
-                        }
-                        break;
-                    }
-                }
-            } else
+            if (toDelete)
             {
                 switch (unit.GetType().Name)
                 {
                     case nameof(LocalUnit):
-                    {
-                        var localUnit = unit as LocalUnit;
-                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId);
-                        if (legalUnit != null && legalUnit.IsDeleted)
                         {
-                            throw new BadRequestException(nameof(Resource.RestoreLocalUnit));
+                            var localUnit = unit as LocalUnit;
+                            var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId && !x.IsDeleted);
+                            if (legalUnit != null && legalUnit.LocalUnits.Count == 1)
+                            {
+                                throw new BadRequestException(nameof(Resource.DeleteLocalUnit));
+                            }
+                            break;
                         }
-                        break;
-                    }
                     case nameof(EnterpriseUnit):
-                    {
-                        var entUnit = unit as EnterpriseUnit;
-                        if (entUnit != null && entUnit.LegalUnits.Any(x => x.IsDeleted))
                         {
-                            throw new BadRequestException(nameof(Resource.RestoreEnterpriseUnit));
+                            var entUnit = unit as EnterpriseUnit;
+                            if (entUnit != null && entUnit.LegalUnits.Any(c => !c.IsDeleted))
+                            {
+                                throw new BadRequestException(nameof(Resource.DeleteEnterpriseUnit));
+                            }
+                            break;
                         }
-                        break;
-                    }
+                }
+            }
+            else
+            {
+                switch (unit.GetType().Name)
+                {
+                    case nameof(LocalUnit):
+                        {
+                            var localUnit = unit as LocalUnit;
+                            var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => localUnit.LegalUnitId == x.RegId);
+                            if (legalUnit != null && legalUnit.IsDeleted)
+                            {
+                                throw new BadRequestException(nameof(Resource.RestoreLocalUnit));
+                            }
+                            break;
+                        }
+                    case nameof(EnterpriseUnit):
+                        {
+                            var entUnit = unit as EnterpriseUnit;
+                            if (entUnit != null && entUnit.LegalUnits.Any(x => x.IsDeleted))
+                            {
+                                throw new BadRequestException(nameof(Resource.RestoreEnterpriseUnit));
+                            }
+                            break;
+                        }
                 }
             }
         }
@@ -293,7 +297,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private void PostDeleteEnterpriseGroupUnit(IStatisticalUnit unit, bool toDelete, string userId)
         {
-           
+
         }
 
         /// <summary>
@@ -386,7 +390,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
 
             if (afterUploadLegalUnitsList.Any()) return false;
-            
+
             if (beforeUploadLegalUnitsList.Any())
             {
                 await UpdateUnitTask(unit, beforeUploadLegalUnitsList.Last(), userId, StatUnitTypes.LegalUnit);
@@ -421,7 +425,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return true;
         }
-       
+
         /// <summary>
         /// Delete local unit method (when revise on data source queue page), deletes unit from database
         /// </summary>
@@ -478,7 +482,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return true;
         }
-       
+
         /// <summary>
         /// Delete enterprise unit method (when revise on data source queue page), deletes unit from database
         /// </summary>
@@ -515,7 +519,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
                 .Where(ent => ent.ParentId == unit.RegId && ent.StartPeriod < dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
-            
+
             if (afterUploadEnterpriseUnitsList.Count > 0) return false;
 
             if (beforeUploadEnterpriseUnitsList.Count > 0)
@@ -538,8 +542,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <summary>
         /// Updates unit to the state before data source upload, reject data source queue/log case
         /// </summary>
-        /// <param name="unit">Unit</param>
-        /// <param name="historyUnit">History unit</param>
+        /// <param name="units">Unit</param>
+        /// <param name="historyUnits">History unit</param>
         /// <param name="userId">Id of user that rejectes data source queue</param>
         /// <param name="type">Type of statistical unit</param>
         public async Task RangeUpdateUnitsTask(List<StatisticalUnit> units, List<StatisticalUnitHistory> historyUnits, string userId, StatUnitTypes type)
@@ -548,13 +552,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             switch (type)
             {
                 case StatUnitTypes.LegalUnit:
-                    unitsForUpdate.AddRange(units.Select(legal => Mapper.Map<LegalUnit>(legal)));
+                    unitsForUpdate.AddRange(units.Select(Mapper.Map<LegalUnit>));
                     break;
                 case StatUnitTypes.LocalUnit:
-                    unitsForUpdate.AddRange(units.Select(local => Mapper.Map<LocalUnit>(local)));
+                    unitsForUpdate.AddRange(units.Select(Mapper.Map<LocalUnit>));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
-                    unitsForUpdate.AddRange(units.Select(ent => Mapper.Map<EnterpriseUnit>(ent)));
+                    unitsForUpdate.AddRange(units.Select(Mapper.Map<EnterpriseUnit>));
                     break;
             }
             foreach (var unit in unitsForUpdate)
@@ -567,11 +571,19 @@ namespace nscreg.Server.Common.Services.StatUnit
                     "This unit was edited by data source upload service and then data upload changes rejected";
                 unit.RegId = lastUnit.RegId;
                 unit.UserId = userId;
+
+                unit.ActivitiesUnits.Clear();
+                unit.PersonsUnits.Clear();
+                unit.ForeignParticipationCountriesUnits.Clear();
+
                 unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(z => Mapper.Map(z, new ActivityStatisticalUnit())).ToList();
                 unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(z => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
                 unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(z => Mapper.Map(z, new CountryStatisticalUnit())).ToList();
-            }
 
+                unit.ActivitiesUnits.ForEach(x => x.UnitId = unit.RegId);
+                unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
+                unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
+            }
             switch (type)
             {
                 case StatUnitTypes.LegalUnit:
@@ -585,7 +597,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
             }
             await _dbContext.SaveChangesAsync();
-            await _elasticService.UpsertDocumentList((unitsForUpdate).Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)).ToList());
+            await _elasticService.UpsertDocumentList((unitsForUpdate).Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
             unitsForUpdate.Clear();
         }
 
@@ -606,7 +618,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(legU => statIds.Contains(legU.StatId) && legU.StartPeriod >= dataUploadTime).ToListAsync();
+                .Where(legU => statIds.Contains(legU.StatId) && legU.StartPeriod >= dataUploadTime)
+                .ToListAsync();
 
             if (!units.Any()) return false;
 
@@ -617,7 +630,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod >= dataUploadTime).OrderBy(legU => legU.StartPeriod).ToListAsync();
+                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod >= dataUploadTime)
+                .OrderBy(legU => legU.StartPeriod)
+                .ToListAsync();
 
             if (afterUploadLegalUnitsList.Any()) return false;
 
@@ -628,9 +643,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToListAsync();
+                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod < dataUploadTime)
+                .OrderBy(legU => legU.StartPeriod)
+                .ToListAsync();
 
-            using (var transcation = _dbContext.Database.BeginTransaction())
+            using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 if (beforeUploadLegalUnitsList.Any())
                 {
@@ -640,7 +657,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 else
                 {
                     var localUnitDeleted = await DeleteRangeLocalUnitsFromDb(statIds, userId, dataUploadTime);
-                    List<LocalUnit> locals = new List<LocalUnit>();
+                    List<LocalUnit> locals;
                     if (!localUnitDeleted)
                     {
                         locals = await _dbContext.LocalUnits.Where(x => units.Any(z => z.RegId == x.LegalUnitId)).ToListAsync();
@@ -651,14 +668,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 _commonSvc.TrackUnitHistoryFor<LocalUnit>(x.RegId, userId, ChangeReasons.Edit, "Link to Legal Unit deleted by data source upload service reject functionality", DateTime.Now);
                                 x.LegalFormId = null;
                             });
-                            await _elasticService.UpsertDocumentList(locals.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)).ToList());
+                            await _elasticService.UpsertDocumentList(locals.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
                         }
                     }
                     await _dbContext.BulkDeleteAsync(units);
                     await DeleteRangeEnterpriseUnitsFromDb(statIds, userId, dataUploadTime);
-                    await _elasticService.DeleteDocumentRangeAsync(units.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)));
-                } 
-                transcation.Commit();
+                    await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
+                }
+                transaction.Commit();
             }
             return true;
         }
@@ -680,7 +697,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(local => statIds.Contains(local.StatId) && local.StartPeriod >= dataUploadTime).ToListAsync();
+                .Where(local => statIds.Contains(local.StatId) && local.StartPeriod >= dataUploadTime)
+                .ToListAsync();
 
             if (!units.Any())
                 return false;
@@ -692,7 +710,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToListAsync();
+                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod)
+                .ToListAsync();
 
             if (afterUploadLocalUnitsList.Any())
                 return false;
@@ -704,7 +723,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToListAsync();
+                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod)
+                .ToListAsync();
 
             if (beforeUploadLocalUnitsList.Any())
             {
@@ -714,7 +734,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             else
             {
                 await _dbContext.BulkDeleteAsync(units);
-                await _elasticService.DeleteDocumentRangeAsync(units.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)));
+                await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
             }
 
             return true;
@@ -723,7 +743,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <summary>
         /// Delete range enterprise units method (when revise on data source queue page), deletes unit from database
         /// </summary>
-        /// <param name="statId">Id of stat unit</param>
+        /// <param name="statIds">Id of stat unit</param>
         /// <param name="dataUploadTime">data source upload time</param>
         /// <param name="userId">Id of user</param>
         public async Task<bool> DeleteRangeEnterpriseUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
@@ -737,7 +757,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(ent => statIds.Contains(ent.StatId) && ent.StartPeriod >= dataUploadTime).ToListAsync();
+                .Where(ent => statIds.Contains(ent.StatId) && ent.StartPeriod >= dataUploadTime)
+                .ToListAsync();
 
             if (!units.Any()) return false;
 
@@ -748,7 +769,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod >= dataUploadTime).OrderBy(ent => ent.StartPeriod).ToListAsync();
+                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod >= dataUploadTime)
+                .OrderBy(ent => ent.StartPeriod)
+                .ToListAsync();
 
             if (afterUploadEnterpriseUnitsList.Any()) return false;
 
@@ -760,7 +783,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod < dataUploadTime).OrderBy(ent => ent.StartPeriod).ToListAsync();
+                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod < dataUploadTime)
+                .OrderBy(ent => ent.StartPeriod)
+                .ToListAsync();
 
             if (beforeUploadEnterpriseUnitsList.Any())
             {
@@ -771,7 +796,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             else
             {
                 await _dbContext.BulkDeleteAsync(units);
-                await _elasticService.DeleteDocumentRangeAsync(units.Select(x => Mapper.Map<IStatisticalUnit, ElasticStatUnit>(x)));
+                await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
             }
 
             return true;

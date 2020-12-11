@@ -427,7 +427,7 @@ namespace nscreg.Server.Common.Services
         {
             var existing = await _dbContext.DataSourceQueues.FirstOrDefaultAsync(c => c.Id == queueId);
             if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
-            var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToList();
+            var logs = await _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToListAsync();
             Dictionary<int, List<DataUploadingLog>> unitTypeDataUploadLogDict = new Dictionary<int, List<DataUploadingLog>>();
             if (logs.Any())
             {
@@ -445,13 +445,13 @@ namespace nscreg.Server.Common.Services
                         }
                     }
                 });
-                if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LocalUnit, out List<DataUploadingLog> uploadLocalUnitsLogs))
+                if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LocalUnit, out var uploadLocalUnitsLogs))
                     await _statUnitDeleteService.DeleteRangeLocalUnitsFromDb(uploadLocalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, logs.Select(x => x.StartImportDate).OrderBy(c => c.Value).First());
 
-                if(unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LegalUnit, out List<DataUploadingLog> uploadLegalUnitsLogs))
+                if(unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.LegalUnit, out var uploadLegalUnitsLogs))
                     await _statUnitDeleteService.DeleteRangeLegalUnitsFromDb(uploadLegalUnitsLogs.Select(x => x.TargetStatId).ToList(), userId, logs.Select(x => x.StartImportDate).OrderBy(c => c.Value).First());
 
-                if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.EnterpriseUnit, out List<DataUploadingLog> uploadEnterprisesLogs))
+                if (unitTypeDataUploadLogDict.TryGetValue((int)StatUnitTypes.EnterpriseUnit, out var uploadEnterprisesLogs))
                     await _statUnitDeleteService.DeleteRangeEnterpriseUnitsFromDb(uploadEnterprisesLogs.Select(x => x.TargetStatId).ToList(), userId, logs.Select(x => x.StartImportDate).OrderBy(c => c.Value).First());
             }
             await DeleteQueueById(existing.Id);
