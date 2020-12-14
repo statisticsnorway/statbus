@@ -561,6 +561,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unitsForUpdate.AddRange(units.Select(Mapper.Map<EnterpriseUnit>));
                     break;
             }
+            var actUnitsForDelete = new List<ActivityStatisticalUnit>();
+            var perUnitsForDelete = new List<PersonStatisticalUnit>();
+            var countryUnitsForDelete = new List<CountryStatisticalUnit>();
+
             foreach (var unit in unitsForUpdate)
             {
                 var lastUnit = units.Last(x => x.StatId == unit.StatId);
@@ -572,9 +576,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit.RegId = lastUnit.RegId;
                 unit.UserId = userId;
 
-                unit.ActivitiesUnits.Clear();
-                unit.PersonsUnits.Clear();
-                unit.ForeignParticipationCountriesUnits.Clear();
+                unit.ActivitiesUnits.ForEach(x => x.UnitId = unit.RegId);
+                unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
+                unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
+
+                actUnitsForDelete.AddRange(unit.ActivitiesUnits);
+                perUnitsForDelete.AddRange(unit.PersonsUnits);
+                countryUnitsForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
 
                 unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(z => Mapper.Map(z, new ActivityStatisticalUnit())).ToList();
                 unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(z => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
@@ -584,21 +592,33 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
                 unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
             }
+
+            await _dbContext.BulkDeleteAsync(actUnitsForDelete);
+            await _dbContext.BulkDeleteAsync(perUnitsForDelete);
+            await _dbContext.BulkDeleteAsync(countryUnitsForDelete);
+
+            await _dbContext.BulkInsertOrUpdateAsync(unitsForUpdate.SelectMany(x => x.ActivitiesUnits).ToList());
+            await _dbContext.BulkInsertOrUpdateAsync(unitsForUpdate.SelectMany(x => x.PersonsUnits).ToList());
+            await _dbContext.BulkInsertOrUpdateAsync(unitsForUpdate.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
+
             switch (type)
             {
                 case StatUnitTypes.LegalUnit:
-                    _dbContext.LegalUnits.UpdateRange(unitsForUpdate.OfType<LegalUnit>());
+                    await _dbContext.BulkUpdateAsync(unitsForUpdate.OfType<LegalUnit>().ToList());
                     break;
                 case StatUnitTypes.LocalUnit:
-                    _dbContext.LocalUnits.UpdateRange(unitsForUpdate.OfType<LocalUnit>());
+                    await _dbContext.BulkUpdateAsync(unitsForUpdate.OfType<LocalUnit>().ToList());
                     break;
                 case StatUnitTypes.EnterpriseUnit:
-                    _dbContext.EnterpriseUnits.UpdateRange(unitsForUpdate.OfType<EnterpriseUnit>());
+                    await _dbContext.BulkUpdateAsync(unitsForUpdate.OfType<EnterpriseUnit>().ToList());
                     break;
             }
-            await _dbContext.SaveChangesAsync();
             await _elasticService.UpsertDocumentList((unitsForUpdate).Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
+
             unitsForUpdate.Clear();
+            actUnitsForDelete.Clear();
+            perUnitsForDelete.Clear();
+            countryUnitsForDelete.Clear();
         }
 
         /// <summary>
@@ -668,6 +688,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 _commonSvc.TrackUnitHistoryFor<LocalUnit>(x.RegId, userId, ChangeReasons.Edit, "Link to Legal Unit deleted by data source upload service reject functionality", DateTime.Now);
                                 x.LegalFormId = null;
                             });
+                            await _dbContext.SaveChangesAsync();
                             await _elasticService.UpsertDocumentList(locals.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
                         }
                     }
