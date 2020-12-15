@@ -73,8 +73,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
 
-                await _context.BulkInsertAsync(activities.Where(x => x.Id == 0).ToList(), bulkConfig);
-                await _context.BulkUpdateAsync(activities.Where(x => x.Id != 0).ToList());
+                var newActivities = activities.Where(x => x.Id == 0).ToList();
+                var changedActivities = activities.Where(x => x.Id != 0).ToList();
+
+                newActivities.ForEach(x => {x.IdDate = DateTime.Now; x.UpdatedDate = DateTime.MaxValue;});
+                changedActivities.ForEach(x => x.UpdatedDate = DateTime.Now);
+
+                await _context.BulkInsertAsync(newActivities, bulkConfig);
+                await _context.BulkUpdateAsync(changedActivities);
                 await _context.BulkInsertAsync(persons.Where(x => x.Id == 0).ToList(), bulkConfig);
                 await _context.BulkUpdateAsync(persons.Where(x => x.Id != 0).ToList());
                 await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
@@ -84,6 +90,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.AddressId = unit.Address?.Id;
                     unit.ActualAddressId = unit.ActualAddress?.Id;
                     unit.PostalAddressId = unit.PostalAddress?.Id;
+                    unit.EndPeriod = DateTime.MaxValue;
                 });
                 var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
 
@@ -148,9 +155,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _context.BulkInsertOrUpdateAsync(activityUnits);
                 await _context.BulkInsertOrUpdateAsync(personUnits);
                 await _context.BulkInsertOrUpdateAsync(foreignCountry);
+
                 await _context.BulkDeleteAsync(BufferToDelete);
 
-                ///History
                 await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LocalUnitHistory>().ToList(), bulkConfig);
                 await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LegalUnitHistory>().ToList(), bulkConfig);
                 await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList(), bulkConfig);
