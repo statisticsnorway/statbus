@@ -76,7 +76,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             try
             {
-
                 // PopulateTracer.swGetBase.Start();
                 var (resultUnit, isNew) = await GetStatUnitBase(raw);
 
@@ -121,7 +120,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (!isAdmin)
                 {
                     var listRegionsIds = new List<int?> { resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId, resultUnit.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
-                    _permissionsHelper.CheckRegionOrActivityContains(_userId, listRegionsIds, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList());
+                    _permissionsHelper.CheckRegionOrActivityContains(_userId, listRegionsIds, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), isUploadService:true);
                 }
                 // PopulateTracer.swCheckRegion.Stop();
                // PopulateTracer.countCheckRegion++;
