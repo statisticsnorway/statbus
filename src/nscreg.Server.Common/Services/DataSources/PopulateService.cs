@@ -127,6 +127,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 resultUnit.UserId = _userId;
                 resultUnit.StartPeriod = startDate;
+                resultUnit.RegIdDate = startDate;
 
 //                Debug.WriteLine($@"GetBase {(double)PopulateTracer.swGetBase.ElapsedMilliseconds / PopulateTracer.countGetBase : 0.00} ms
 //  FirstOrDefault {(double)PopulateTracer.swFirstOrDefaultFromDB.ElapsedMilliseconds / PopulateTracer.countFirstOrDefaultFromDB : 0.00} ms

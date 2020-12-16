@@ -302,8 +302,9 @@ namespace nscreg.Business.Test.DataSources
                 DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
                 DatabaseContext, userId, dataAccess);
             var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
-
-            popUnit.Should().BeEquivalentTo(unit, op => op.Excluding(z => z.StartPeriod));
+            popUnit.ActivitiesUnits.Should().BeEquivalentTo(unit.ActivitiesUnits,
+                op => op.Excluding(z => z.Activity.IdDate).Excluding(z => z.Activity.UpdatedDate));
+            popUnit.Should().BeEquivalentTo(unit, op => op.Excluding(z => z.StartPeriod).Excluding(z => z.ActivitiesUnits).Excluding(x => x.RegIdDate).Excluding(x => x.Activities));
 
 
         }
@@ -469,7 +470,7 @@ namespace nscreg.Business.Test.DataSources
             var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
             popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
-                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy).Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.ActivityCategory.Id));
+                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy).Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.ActivityCategory.Id).Excluding(x => x.Activity.IdDate).Excluding(x => x.Activity.UpdatedDate));
         }
 
         private void Initialize(NSCRegDbContext context, string userId)

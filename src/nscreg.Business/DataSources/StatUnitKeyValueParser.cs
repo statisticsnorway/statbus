@@ -257,6 +257,8 @@ namespace nscreg.Business.DataSources
             }
             activity.UpdatedBy = userId;
             activity.ActivityYear = activity.ActivityYear ?? defaultYear;
+            activity.IdDate = DateTime.Now;
+            activity.UpdatedDate = activity.Id == 0 ? DateTime.MaxValue : DateTime.Now;
             return activity;
         }
 
