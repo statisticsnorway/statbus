@@ -175,8 +175,8 @@ namespace nscreg.Server.Common.Services.DataSources
                         if (y.StatId == x.StatId)
                         {
                             x.ActivitiesUnits.ForEach(z => z.UnitId = y.RegId);
-                            x.PersonsUnits.ForEach(z => z.UnitId = x.RegId);
-                            x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId);
+                            x.PersonsUnits.ForEach(z => z.UnitId = y.RegId);
+                            x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = y.RegId);
                         }
                     });
                 });
