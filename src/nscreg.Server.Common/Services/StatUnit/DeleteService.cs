@@ -586,9 +586,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit.UserId = userId;
 
 
-                actUnitsForDelete.AddRange(unit.ActivitiesUnits);
-                perUnitsForDelete.AddRange(unit.PersonsUnits);
-                countryUnitsForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
+                actForDelete.AddRange(unit.ActivitiesUnits);
+                persForDelete.AddRange(unit.PersonsUnits);
+                countForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
+
                 unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(z => Mapper.Map(z, new ActivityStatisticalUnit())).ToList();
                 unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(z => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
                 unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(z => Mapper.Map(z, new CountryStatisticalUnit())).ToList();
@@ -621,9 +622,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             await _elasticService.UpsertDocumentList((unitsForUpdate).Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
 
             unitsForUpdate.Clear();
-            actUnitsForDelete.Clear();
-            perUnitsForDelete.Clear();
-            countryUnitsForDelete.Clear();
+            actForDelete.Clear();
+            persForDelete.Clear();
+            countForDelete.Clear();
         }
 
         /// <summary>
