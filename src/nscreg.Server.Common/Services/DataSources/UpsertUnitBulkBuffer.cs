@@ -62,8 +62,8 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             using (var transaction = _context.Database.BeginTransaction())
             {
-                var bulkConfig = new BulkConfig { SetOutputIdentity = true, PreserveInsertOrder = true, BulkCopyTimeout = 0 };
-                
+                var bulkConfig = new BulkConfig { PreserveInsertOrder = true, SetOutputIdentity = true, BulkCopyTimeout = 0 };
+
                 var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
                 var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
                 var activities = activityUnits.Select(z => z.Activity).Distinct(new IdComparer<Activity>()).ToList();
@@ -78,12 +78,13 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _context.BulkInsertAsync(persons.Where(x => x.Id == 0).ToList(), bulkConfig);
                 await _context.BulkUpdateAsync(persons.Where(x => x.Id != 0).ToList());
                 await _context.BulkInsertOrUpdateAsync(addresses, bulkConfig);
-                
+
                 Buffer.ForEach(unit =>
                 {
                     unit.AddressId = unit.Address?.Id;
                     unit.ActualAddressId = unit.ActualAddress?.Id;
                     unit.PostalAddressId = unit.PostalAddress?.Id;
+                    unit.EndPeriod = DateTime.MaxValue;
                 });
                 var enterprises = Buffer.OfType<EnterpriseUnit>().ToList();
 
@@ -148,19 +149,38 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _context.BulkInsertOrUpdateAsync(activityUnits);
                 await _context.BulkInsertOrUpdateAsync(personUnits);
                 await _context.BulkInsertOrUpdateAsync(foreignCountry);
+
                 await _context.BulkDeleteAsync(BufferToDelete);
 
-                ///History
-                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LocalUnitHistory>().ToList(), bulkConfig);
-                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<LegalUnitHistory>().ToList(), bulkConfig);
-                await _context.BulkInsertOrUpdateAsync(HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList(), bulkConfig);
+                var localUnitHistory = HistoryBuffer.OfType<LocalUnitHistory>().ToList();
+                var legalUnitHistory = HistoryBuffer.OfType<LegalUnitHistory>().ToList();
+                var enterpriseUnitHistory = HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList();
+
+                var historyBulkConfig = new BulkConfig() {SetOutputIdentity = true, PreserveInsertOrder = false};
+
+                await _context.BulkInsertAsync(localUnitHistory, historyBulkConfig);
+                await _context.BulkInsertAsync(legalUnitHistory, historyBulkConfig);
+                await _context.BulkInsertAsync(enterpriseUnitHistory, historyBulkConfig);
+
+                var concatHistories = localUnitHistory.Cast<StatisticalUnitHistory>()
+                    .Concat(legalUnitHistory)
+                    .Concat(enterpriseUnitHistory);
 
                 var statUnitHistories = HistoryBuffer.OfType<StatisticalUnitHistory>().ToList();
 
-                statUnitHistories.ForEach(x => x.ActivitiesUnits.ForEach(z => z.UnitId = x.RegId));
-                statUnitHistories.ForEach(x => x.PersonsUnits.ForEach(z => z.UnitId = x.RegId));
-                statUnitHistories.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
-
+                concatHistories.ForEach(y =>
+                {
+                    statUnitHistories.ForEach(x =>
+                    {
+                        if (y.StatId == x.StatId)
+                        {
+                            x.ActivitiesUnits.ForEach(z => z.UnitId = y.RegId);
+                            x.PersonsUnits.ForEach(z => z.UnitId = y.RegId);
+                            x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = y.RegId);
+                        }
+                    });
+                });
+                
                 await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
                 await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.PersonsUnits).ToList());
                 await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
@@ -200,6 +220,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             _isEnabledFlush = true;
         }
-        
+
     }
 }

@@ -561,14 +561,23 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unitsForUpdate.AddRange(units.Select(Mapper.Map<EnterpriseUnit>));
                     break;
             }
-            var actUnitsForDelete = new List<ActivityStatisticalUnit>();
-            var perUnitsForDelete = new List<PersonStatisticalUnit>();
-            var countryUnitsForDelete = new List<CountryStatisticalUnit>();
 
+            var actForDelete = new List<ActivityStatisticalUnit>();
+            var persForDelete = new List<PersonStatisticalUnit>();
+            var countForDelete = new List<CountryStatisticalUnit>();
             foreach (var unit in unitsForUpdate)
             {
                 var lastUnit = units.Last(x => x.StatId == unit.StatId);
                 var historyUnitLast = historyUnits.Last(x => x.StatId == unit.StatId);
+
+                unit.ActivitiesUnits.ForEach(x => x.UnitId = unit.RegId);
+                unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
+                unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
+
+                actForDelete.AddRange(unit.ActivitiesUnits);
+                persForDelete.AddRange(unit.PersonsUnits);
+                countForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
+
                 Mapper.Map(historyUnitLast, unit);
                 unit.EndPeriod = lastUnit.EndPeriod;
                 unit.EditComment =
@@ -576,14 +585,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit.RegId = lastUnit.RegId;
                 unit.UserId = userId;
 
-                unit.ActivitiesUnits.ForEach(x => x.UnitId = unit.RegId);
-                unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
-                unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
 
                 actUnitsForDelete.AddRange(unit.ActivitiesUnits);
                 perUnitsForDelete.AddRange(unit.PersonsUnits);
                 countryUnitsForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
-
                 unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(z => Mapper.Map(z, new ActivityStatisticalUnit())).ToList();
                 unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(z => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
                 unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(z => Mapper.Map(z, new CountryStatisticalUnit())).ToList();
@@ -592,14 +597,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
                 unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
             }
+            await _dbContext.BulkDeleteAsync(actForDelete);
+            await _dbContext.BulkDeleteAsync(persForDelete);
+            await _dbContext.BulkDeleteAsync(countForDelete);
 
-            await _dbContext.BulkDeleteAsync(actUnitsForDelete);
-            await _dbContext.BulkDeleteAsync(perUnitsForDelete);
-            await _dbContext.BulkDeleteAsync(countryUnitsForDelete);
+            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ActivitiesUnits).ToList());
+            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.PersonsUnits).ToList());
+            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
 
-            await _dbContext.BulkInsertOrUpdateAsync(unitsForUpdate.SelectMany(x => x.ActivitiesUnits).ToList());
-            await _dbContext.BulkInsertOrUpdateAsync(unitsForUpdate.SelectMany(x => x.PersonsUnits).ToList());
-            await _dbContext.BulkInsertOrUpdateAsync(unitsForUpdate.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
 
             switch (type)
             {
@@ -624,7 +629,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <summary>
         /// Delete range legal units method (when revise on data source queue page), deletes unit from database
         /// </summary>
-        /// <param name="statId">Id of stat unit</param>
+        /// <param name="statIds">Ids of stat units</param>
         /// <param name="userId">Id of user for edit unit if there is history</param>
         /// <param name="dataUploadTime">data source upload time</param>
         public async Task<bool> DeleteRangeLegalUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
