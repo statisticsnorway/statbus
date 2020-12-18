@@ -129,7 +129,7 @@ namespace nscreg.Data.Entities.History
 
         [NotMapped]
         [JsonIgnore]
-        public IEnumerable<Activity> Activities
+        public IEnumerable<ActivityHistory> Activities
         {
             get => ActivitiesUnits.Select(v => v.Activity);
             set => throw new NotImplementedException();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -12,12 +13,13 @@ using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Data.Entities.History;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Extensions;
+using Activity = nscreg.Data.Entities.Activity;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
     public class UpsertUnitBulkBuffer
     {
-        private DataAccessPermissions _permissions;
+        private readonly DataAccessPermissions _permissions;
         private bool _isEnabledFlush = true;
         private List<StatisticalUnit> Buffer { get; }
         private List<EnterpriseUnit> BufferToDelete { get; }
@@ -25,7 +27,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly NSCRegDbContext _context;
         public ElasticService ElasticSearchService { get; }
         private readonly int _maxBulkOperationsBufferedCount;
-        private DataSourceQueue _dataSourceQueue;
+        private readonly DataSourceQueue _dataSourceQueue;
         public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions, DataSourceQueue queue, int maxBufferCount = 1000)
         {
 
@@ -152,39 +154,57 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 await _context.BulkDeleteAsync(BufferToDelete);
 
-                var localUnitHistory = HistoryBuffer.OfType<LocalUnitHistory>().ToList();
-                var legalUnitHistory = HistoryBuffer.OfType<LegalUnitHistory>().ToList();
-                var enterpriseUnitHistory = HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList();
-
-                var historyBulkConfig = new BulkConfig() {SetOutputIdentity = true, PreserveInsertOrder = false};
-
-                await _context.BulkInsertAsync(localUnitHistory, historyBulkConfig);
-                await _context.BulkInsertAsync(legalUnitHistory, historyBulkConfig);
-                await _context.BulkInsertAsync(enterpriseUnitHistory, historyBulkConfig);
-
-                var concatHistories = localUnitHistory.Cast<StatisticalUnitHistory>()
-                    .Concat(legalUnitHistory)
-                    .Concat(enterpriseUnitHistory);
-
-                var statUnitHistories = HistoryBuffer.OfType<StatisticalUnitHistory>().ToList();
-
-                concatHistories.ForEach(y =>
+                if (HistoryBuffer.Any())
                 {
-                    statUnitHistories.ForEach(x =>
-                    {
-                        if (y.StatId == x.StatId)
-                        {
-                            x.ActivitiesUnits.ForEach(z => z.UnitId = y.RegId);
-                            x.PersonsUnits.ForEach(z => z.UnitId = y.RegId);
-                            x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = y.RegId);
-                        }
-                    });
-                });
-                
-                await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
-                await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.PersonsUnits).ToList());
-                await _context.BulkInsertOrUpdateAsync(statUnitHistories.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
+                    var localUnitHistory = HistoryBuffer.OfType<LocalUnitHistory>().ToList();
+                    var legalUnitHistory = HistoryBuffer.OfType<LegalUnitHistory>().ToList();
+                    var enterpriseUnitHistory = HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList();
 
+                    var historyBulkConfig = new BulkConfig() { SetOutputIdentity = true, PreserveInsertOrder = false };
+
+                    await _context.BulkInsertAsync(localUnitHistory, historyBulkConfig);
+                    await _context.BulkInsertAsync(legalUnitHistory, historyBulkConfig);
+                    await _context.BulkInsertAsync(enterpriseUnitHistory, historyBulkConfig);
+
+                    var concatHistories = localUnitHistory.Cast<StatisticalUnitHistory>()
+                        .Concat(legalUnitHistory)
+                        .Concat(enterpriseUnitHistory).ToList();
+
+                    var statUnitHistories = HistoryBuffer.OfType<StatisticalUnitHistory>().ToList();
+
+                    var activitiesHistory = statUnitHistories.SelectMany(x => x.Activities.Distinct(new IdComparer<ActivityHistory>()))
+                            .ToList();
+
+                    await _context.BulkInsertAsync(activitiesHistory, historyBulkConfig);
+
+                    statUnitHistories.GroupJoin(concatHistories, concatHistory => concatHistory.StatId, statUnitHistory => statUnitHistory.StatId, (stathistory, statCollection) => (stathistory: stathistory, statCollection: statCollection)).ForEach(x =>
+                    {
+                        var statColl = x.statCollection.FirstOrDefault();
+                        statColl.ActivitiesUnits = x.stathistory.ActivitiesUnits;
+                        statColl.PersonsUnits = x.stathistory.PersonsUnits;
+                        statColl.ForeignParticipationCountriesUnits = x.stathistory.ForeignParticipationCountriesUnits;
+
+                        activitiesHistory.GroupJoin(statColl.Activities, inner => inner.ParentId, outer => outer.ParentId, (activity, collection) => (activity: activity, collection: collection)).ForEach(gr =>
+                       {
+                           var activity = gr.collection.FirstOrDefault();
+                           if (activity != null)
+                           {
+                               activity.Id = gr.activity.Id;
+                           }
+                           else
+                           {
+                               activity = gr.activity;
+                           }
+                       });
+                        statColl.ActivitiesUnits.ForEach(y => { y.ActivityId = y.Activity.Id; y.UnitId = statColl.RegId; });
+                        statColl.PersonsUnits.ForEach(y => y.UnitId = statColl.RegId);
+                        statColl.ForeignParticipationCountriesUnits.ForEach(y => y.UnitId = statColl.RegId);
+                    });
+
+                    await _context.BulkInsertAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
+                    await _context.BulkInsertAsync(statUnitHistories.SelectMany(x => x.PersonsUnits).ToList());
+                    await _context.BulkInsertAsync(statUnitHistories.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
+                }
 
                 if (Buffer.Any())
                 {
