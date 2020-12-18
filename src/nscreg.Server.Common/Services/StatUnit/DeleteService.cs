@@ -562,50 +562,45 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
             }
 
-            var actForDelete = new List<ActivityStatisticalUnit>();
-            var persForDelete = new List<PersonStatisticalUnit>();
-            var countForDelete = new List<CountryStatisticalUnit>();
-            foreach (var unit in unitsForUpdate)
+            var activityStatUnitsForDelete = new List<ActivityStatisticalUnit>();
+            var personStatUnitsForDelete = new List<PersonStatisticalUnit>();
+            var countryStatUnitsForDelete = new List<CountryStatisticalUnit>();
+
+            unitsForUpdate
+                .GroupJoin(historyUnits, u => u.StatId, hU => hU.StatId, (unit, historyUnitsCollection) => (unit: unit, historyUnitsCollection: historyUnitsCollection))
+                .ForEach(z =>
             {
-                var lastUnit = units.Last(x => x.StatId == unit.StatId);
-                var historyUnitLast = historyUnits.Last(x => x.StatId == unit.StatId);
+                var endPeriod = z.unit.EndPeriod;
+                var regId = z.unit.RegId;
+                var historyUnitLast = z.historyUnitsCollection.Last(x => x.StatId == z.unit.StatId);
 
-                unit.ActivitiesUnits.ForEach(x => x.UnitId = unit.RegId);
-                unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
-                unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
+                activityStatUnitsForDelete.AddRange(z.unit.ActivitiesUnits);
+                personStatUnitsForDelete.AddRange(z.unit.PersonsUnits);
+                countryStatUnitsForDelete.AddRange(z.unit.ForeignParticipationCountriesUnits);
 
-                actForDelete.AddRange(unit.ActivitiesUnits);
-                persForDelete.AddRange(unit.PersonsUnits);
-                countForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
+                Mapper.Map(historyUnitLast, z.unit);
+                z.unit.RegId = regId;
+                z.unit.EndPeriod = endPeriod;
+                z.unit.EditComment = "This unit was edited by data source upload service and then data upload changes rejected";
 
-                Mapper.Map(historyUnitLast, unit);
-                unit.EndPeriod = lastUnit.EndPeriod;
-                unit.EditComment =
-                    "This unit was edited by data source upload service and then data upload changes rejected";
-                unit.RegId = lastUnit.RegId;
-                unit.UserId = userId;
+                z.unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(y => Mapper.Map(y, new ActivityStatisticalUnit())).ToList();
+                z.unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(y => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
+                z.unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(y => Mapper.Map(y, new CountryStatisticalUnit())).ToList();
 
+                z.unit.ActivitiesUnits.ForEach(x => x.UnitId = z.unit.RegId);
+                z.unit.PersonsUnits.ForEach(x => x.UnitId = z.unit.RegId);
+                z.unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = z.unit.RegId);
+            });
 
-                actForDelete.AddRange(unit.ActivitiesUnits);
-                persForDelete.AddRange(unit.PersonsUnits);
-                countForDelete.AddRange(unit.ForeignParticipationCountriesUnits);
+            await _dbContext.BulkUpdateAsync(unitsForUpdate.SelectMany(x => x.Activities).ToList());
 
-                unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(z => Mapper.Map(z, new ActivityStatisticalUnit())).ToList();
-                unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(z => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
-                unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(z => Mapper.Map(z, new CountryStatisticalUnit())).ToList();
-
-                unit.ActivitiesUnits.ForEach(x => x.UnitId = unit.RegId);
-                unit.PersonsUnits.ForEach(x => x.UnitId = unit.RegId);
-                unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = unit.RegId);
-            }
-            await _dbContext.BulkDeleteAsync(actForDelete);
-            await _dbContext.BulkDeleteAsync(persForDelete);
-            await _dbContext.BulkDeleteAsync(countForDelete);
+            await _dbContext.BulkDeleteAsync(activityStatUnitsForDelete);
+            await _dbContext.BulkDeleteAsync(personStatUnitsForDelete);
+            await _dbContext.BulkDeleteAsync(countryStatUnitsForDelete);
 
             await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ActivitiesUnits).ToList());
             await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.PersonsUnits).ToList());
             await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
-
 
             switch (type)
             {
@@ -622,9 +617,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             await _elasticService.UpsertDocumentList((unitsForUpdate).Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
 
             unitsForUpdate.Clear();
-            actForDelete.Clear();
-            persForDelete.Clear();
-            countForDelete.Clear();
+            activityStatUnitsForDelete.Clear();
+            personStatUnitsForDelete.Clear();
+            countryStatUnitsForDelete.Clear();
         }
 
         /// <summary>
@@ -640,6 +635,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = await _dbContext.LegalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .ThenInclude(x => x.Activity)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
@@ -650,14 +646,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (!units.Any()) return false;
 
             var afterUploadLegalUnitsList = await _dbContext.LegalUnitHistory
-                .Include(x => x.PersonsUnits)
-                .Include(x => x.ActivitiesUnits)
-                .Include(x => x.ForeignParticipationCountriesUnits)
-                .Include(x => x.Address)
-                .Include(x => x.PostalAddress)
-                .Include(x => x.ActualAddress)
                 .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod >= dataUploadTime)
-                .OrderBy(legU => legU.StartPeriod)
                 .ToListAsync();
 
             if (afterUploadLegalUnitsList.Any()) return false;
@@ -665,6 +654,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var beforeUploadLegalUnitsList = await _dbContext.LegalUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .ThenInclude(x => x.Activity)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
@@ -678,6 +668,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (beforeUploadLegalUnitsList.Any())
                 {
                     await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLegalUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.LegalUnit);
+                    await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList.SelectMany(x => x.Activities).ToList());
                     await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList);
                 }
                 else
@@ -720,6 +711,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = await _dbContext.LocalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .ThenInclude(x => x.Activity)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
@@ -731,13 +723,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return false;
 
             var afterUploadLocalUnitsList = await _dbContext.LocalUnitHistory
-                .Include(x => x.PersonsUnits)
-                .Include(x => x.ActivitiesUnits)
-                .Include(x => x.ForeignParticipationCountriesUnits)
-                .Include(x => x.Address)
-                .Include(x => x.PostalAddress)
-                .Include(x => x.ActualAddress)
-                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod)
+                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod >= dataUploadTime)
                 .ToListAsync();
 
             if (afterUploadLocalUnitsList.Any())
@@ -746,6 +732,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var beforeUploadLocalUnitsList = await _dbContext.LocalUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .ThenInclude(x => x.Activity)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
@@ -780,6 +767,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = await _dbContext.EnterpriseUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .ThenInclude(x => x.Activity)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
@@ -790,14 +778,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (!units.Any()) return false;
 
             var afterUploadEnterpriseUnitsList = await _dbContext.EnterpriseUnitHistory
-                .Include(x => x.PersonsUnits)
-                .Include(x => x.ActivitiesUnits)
-                .Include(x => x.ForeignParticipationCountriesUnits)
-                .Include(x => x.Address)
-                .Include(x => x.PostalAddress)
-                .Include(x => x.ActualAddress)
                 .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod >= dataUploadTime)
-                .OrderBy(ent => ent.StartPeriod)
                 .ToListAsync();
 
             if (afterUploadEnterpriseUnitsList.Any()) return false;
@@ -806,6 +787,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var beforeUploadEnterpriseUnitsList = await _dbContext.EnterpriseUnitHistory
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
+                .ThenInclude(x => x.Activity)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)

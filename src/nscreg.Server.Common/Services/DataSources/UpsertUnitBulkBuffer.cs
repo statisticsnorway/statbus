@@ -197,6 +197,8 @@ namespace nscreg.Server.Common.Services.DataSources
                            }
                        });
                         statColl.ActivitiesUnits.ForEach(y => { y.ActivityId = y.Activity.Id; y.UnitId = statColl.RegId; });
+                        statColl.PersonsUnits.ForEach(y => y.UnitId = statColl.RegId);
+                        statColl.ForeignParticipationCountriesUnits.ForEach(y => y.UnitId = statColl.RegId);
                     });
 
                     await _context.BulkInsertAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
