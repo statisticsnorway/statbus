@@ -14,6 +14,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
+using Activity = nscreg.Data.Entities.Activity;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -563,6 +564,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
 
             var activityStatUnitsForDelete = new List<ActivityStatisticalUnit>();
+            var activitiesForDelete = new List<Activity>();
             var personStatUnitsForDelete = new List<PersonStatisticalUnit>();
             var countryStatUnitsForDelete = new List<CountryStatisticalUnit>();
 
@@ -578,6 +580,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 personStatUnitsForDelete.AddRange(z.unit.PersonsUnits);
                 countryStatUnitsForDelete.AddRange(z.unit.ForeignParticipationCountriesUnits);
 
+                var exceptIds = z.unit.Activities.Select(x => x.Id).Except(historyUnitLast.Activities.Select(x => x.ParentId));
+                activitiesForDelete.AddRange(z.unit.Activities.Where(x => exceptIds.Contains(x.Id)).ToList());
+
                 Mapper.Map(historyUnitLast, z.unit);
                 z.unit.RegId = regId;
                 z.unit.EndPeriod = endPeriod;
@@ -591,7 +596,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 z.unit.PersonsUnits.ForEach(x => x.UnitId = z.unit.RegId);
                 z.unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = z.unit.RegId);
             });
-
+            await _dbContext.BulkDeleteAsync(activitiesForDelete);
             await _dbContext.BulkUpdateAsync(unitsForUpdate.SelectMany(x => x.Activities).ToList());
 
             await _dbContext.BulkDeleteAsync(activityStatUnitsForDelete);
@@ -617,6 +622,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             await _elasticService.UpsertDocumentList((unitsForUpdate).Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
 
             unitsForUpdate.Clear();
+            activitiesForDelete.Clear();
             activityStatUnitsForDelete.Clear();
             personStatUnitsForDelete.Clear();
             countryStatUnitsForDelete.Clear();
