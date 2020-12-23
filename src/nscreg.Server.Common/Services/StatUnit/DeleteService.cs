@@ -696,6 +696,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
                     }
                     await _dbContext.BulkDeleteAsync(units);
+                    await _dbContext.BulkDeleteAsync(units.SelectMany(x => x.Activities).ToList());
                     await DeleteRangeEnterpriseUnitsFromDb(statIds, userId, dataUploadTime);
                     await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
                 }
@@ -754,6 +755,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             else
             {
                 await _dbContext.BulkDeleteAsync(units);
+                await _dbContext.BulkDeleteAsync(units.SelectMany(x => x.Activities).ToList());
                 await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
             }
 
@@ -811,6 +813,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             else
             {
                 await _dbContext.BulkDeleteAsync(units);
+                await _dbContext.BulkDeleteAsync(units.SelectMany(x => x.Activities).ToList());
                 await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
             }
 
