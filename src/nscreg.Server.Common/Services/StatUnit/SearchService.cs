@@ -83,8 +83,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unitsToMainActivities[x.RegId],
                     regions.GetValueOrDefault(x.ActualAddressRegionId ?? x.RegionId)))
                 .Select(x => SearchItemVm.Create(x, x.UnitType,
-                    permissions.GetReadablePropNames(),
-                    !isAdmin && !helper.IsRegionOrActivityContains(userId, x.RegionId != null ? new List<int> { (int)x.RegionId } : new List<int>(), x.ActivityCategoryIds)));
+                    permissions.GetReadablePropNames(), !isAdmin &&
+                    !helper.IsRegionOrActivityContains(userId, x.RegionId != null ? new List<int> { (int)x.RegionId } : new List<int>(), unitsToMainActivities[x.RegId].Select(z => z.Id).ToList())));
 
             return SearchVm.Create(result, totalCount);
         }
@@ -107,11 +107,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var unitsActivities = await _dbContext.ActivityStatisticalUnits
                 .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
-                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name, x.Activity.ActivityCategory.NameLanguage1, x.Activity.ActivityCategory.NameLanguage2 })
+                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name, x.Activity.ActivityCategory.NameLanguage1, x.Activity.ActivityCategory.NameLanguage2, x.Activity.ActivityCategoryId})
                 .ToListAsync();
             return unitsActivities
                 .ToLookup(x => x.UnitId, x => new CodeLookupVm()
                 {
+                    Id  = x.ActivityCategoryId,
                     Code = x.Code,
                     Name = $"{x.Code} {x.Name}",
                     NameLanguage1 = $"{x.Code} {x.NameLanguage1}",

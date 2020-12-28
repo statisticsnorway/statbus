@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using nscreg.Data;
 
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20201202104640_DeleteIntSectorCodeInGroupHistory")]
+    partial class DeleteIntSectorCodeInGroupHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -701,49 +703,6 @@ namespace nscreg.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ForeignParticipations");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.History.ActivityHistory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnName("Id")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
-
-                    b.Property<int>("ActivityCategoryId")
-                        .HasColumnName("ActivityCategoryId");
-
-                    b.Property<int>("ActivityType")
-                        .HasColumnName("Activity_Type");
-
-                    b.Property<int?>("ActivityYear")
-                        .HasColumnName("Activity_Year");
-
-                    b.Property<int?>("Employees")
-                        .HasColumnName("Employees");
-
-                    b.Property<DateTime>("IdDate")
-                        .HasColumnName("Id_Date");
-
-                    b.Property<int>("ParentId");
-
-                    b.Property<decimal?>("Turnover")
-                        .HasColumnName("Turnover");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasColumnName("Updated_By");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnName("Updated_Date");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActivityCategoryId");
-
-                    b.HasIndex("UpdatedBy");
-
-                    b.ToTable("ActivitiesHistory");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.History.ActivityStatisticalUnitHistory", b =>
@@ -2147,23 +2106,10 @@ namespace nscreg.Data.Migrations
                         .HasForeignKey("UnitStatusId");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.History.ActivityHistory", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityCategory")
-                        .WithMany()
-                        .HasForeignKey("ActivityCategoryId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("nscreg.Data.Entities.User", "UpdatedByUser")
-                        .WithMany()
-                        .HasForeignKey("UpdatedBy")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
             modelBuilder.Entity("nscreg.Data.Entities.History.ActivityStatisticalUnitHistory", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.History.ActivityHistory", "Activity")
-                        .WithMany("ActivitiesUnits")
+                    b.HasOne("nscreg.Data.Entities.Activity", "Activity")
+                        .WithMany()
                         .HasForeignKey("ActivityId")
                         .OnDelete(DeleteBehavior.Cascade);
 

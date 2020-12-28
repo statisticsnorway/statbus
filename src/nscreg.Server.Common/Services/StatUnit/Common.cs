@@ -602,11 +602,11 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             switch (unit)
             {
-                case LocalUnit locU: hUnit = new LocalUnitHistory();
+                case LocalUnit _: hUnit = new LocalUnitHistory();
                     break;
-                case LegalUnit legU: hUnit = new LegalUnitHistory();
+                case LegalUnit _: hUnit = new LegalUnitHistory();
                     break;
-                case EnterpriseUnit eu: hUnit = new EnterpriseUnitHistory();
+                case EnterpriseUnit _: hUnit = new EnterpriseUnitHistory();
                     break;
                 default: hUnit = new EnterpriseGroupHistory();
                     break;
@@ -622,13 +622,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             switch (hUnit)
             {
-                case LocalUnitHistory locU:
+                case LocalUnitHistory _:
                     unit = new LocalUnit();
                     break;
-                case LegalUnitHistory legU:
+                case LegalUnitHistory _:
                     unit = new LegalUnit();
                     break;
-                case EnterpriseUnitHistory eu:
+                case EnterpriseUnitHistory _:
                     unit = new EnterpriseUnit();
                     break;
                 default:

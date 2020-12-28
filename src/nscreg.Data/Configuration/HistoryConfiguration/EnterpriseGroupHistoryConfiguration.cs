@@ -25,10 +25,11 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
             builder.HasOne(c => c.ReorgType).WithMany(z => z.EnterpriseGroupHistories).HasForeignKey(z => z.ReorgTypeId).IsRequired(false);
             builder.HasOne(c => c.UnitStatus).WithMany(z => z.EnterpriseGroupHistories).HasForeignKey(z => z.UnitStatusId).IsRequired(false);
             builder.HasOne(c => c.Type).WithMany(z => z.EnterpriseGroupsHistories).HasForeignKey(z => z.EntGroupTypeId).IsRequired(false);
-            builder.HasOne(c => c.InstSectorCode).WithMany(z => z.EnterpriseGroupsHistories).HasForeignKey(z => z.EntGroupTypeId).IsRequired(false);
-
+           
             builder.Ignore(x => x.LegalFormId);
             builder.Ignore(x => x.LegalForm);
+            builder.Ignore(x => x.InstSectorCode);
+            builder.Ignore(x => x.InstSectorCodeId);
         }
     }
 }

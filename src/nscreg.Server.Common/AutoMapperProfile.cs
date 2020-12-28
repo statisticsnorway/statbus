@@ -305,9 +305,10 @@ namespace nscreg.Server.Common
             CreateMap<EnterpriseGroup, EnterpriseGroupHistory>().ReverseMap();
 
             CreateMap<ActivityStatisticalUnit, ActivityStatisticalUnitHistory>()
-                .ForMember(dst=>dst.Unit, opt=>opt.Ignore());
-            CreateMap<ActivityStatisticalUnitHistory, ActivityStatisticalUnit>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
+            CreateMap<ActivityStatisticalUnitHistory, ActivityStatisticalUnit>()
+                .ForMember(dst => dst.Unit, opt => opt.Ignore())
+                .ForMember(dst => dst.ActivityId, opt => opt.MapFrom(x => x.Activity.ParentId));
             CreateMap<PersonStatisticalUnit, PersonStatisticalUnitHistory>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
             CreateMap<PersonStatisticalUnitHistory, PersonStatisticalUnit>()
@@ -317,6 +318,12 @@ namespace nscreg.Server.Common
             CreateMap<CountryStatisticalUnitHistory, CountryStatisticalUnit>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
 
+            CreateMap<ActivityHistory, Activity>()
+                .ForMember(x => x.Id, op => op.MapFrom(x => x.ParentId));
+
+            CreateMap<Activity, ActivityHistory>()
+                .ForMember(x => x.Id, op => op.Ignore())
+                .ForMember(x => x.ParentId, opt => opt.MapFrom(z => z.Id));
         }
 
         private void CreateStatUnitByRules()
@@ -434,12 +441,12 @@ namespace nscreg.Server.Common
             => CreateMap<T, T>()
                 .ForMember(v => v.Activities, v => v.Ignore())
                 .ForMember(v => v.ActivitiesUnits, v =>
-                    v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit {ActivityId = z.ActivityId})))
+                    v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit { ActivityId = z.ActivityId, Activity = new Activity {Id = z.Activity.Id, IdDate = z.Activity.IdDate, ActivityCategory = z.Activity.ActivityCategory, ActivityCategoryId = z.Activity.ActivityCategoryId, ActivityType = z.Activity.ActivityType, ActivityYear = z.Activity.ActivityYear, Employees = z.Activity.Employees, Turnover = z.Activity.Turnover, UpdatedBy = z.Activity.UpdatedBy, UpdatedByUser = z.Activity.UpdatedByUser, UpdatedDate = z.Activity.UpdatedDate }, UnitId = z.UnitId })))
                 .ForMember(v => v.Persons, v => v.Ignore())
                 .ForMember(v => v.PersonsUnits, v =>
-                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId, PersonTypeId = z.PersonTypeId})))
+                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId, PersonTypeId = z.PersonTypeId, UnitId = z.UnitId})))
                 .ForMember(v => v.ForeignParticipationCountriesUnits, v =>
-                    v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit {CountryId = z.CountryId})));
+                    v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit {CountryId = z.CountryId, UnitId = z.UnitId})));
 
         /// <summary>
         /// Метод создания стат. единицы из модели сопоставления
