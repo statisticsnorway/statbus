@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -206,8 +205,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
                     case nameof(EnterpriseUnit):
                         {
-                            var entUnit = unit as EnterpriseUnit;
-                            if (entUnit != null && entUnit.LegalUnits.Any(c => !c.IsDeleted))
+                            if (unit is EnterpriseUnit entUnit && entUnit.LegalUnits.Any(c => !c.IsDeleted))
                             {
                                 throw new BadRequestException(nameof(Resource.DeleteEnterpriseUnit));
                             }
@@ -231,8 +229,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
                     case nameof(EnterpriseUnit):
                         {
-                            var entUnit = unit as EnterpriseUnit;
-                            if (entUnit != null && entUnit.LegalUnits.Any(x => x.IsDeleted))
+                            if (unit is EnterpriseUnit entUnit && entUnit.LegalUnits.Any(x => x.IsDeleted))
                             {
                                 throw new BadRequestException(nameof(Resource.RestoreEnterpriseUnit));
                             }
@@ -547,7 +544,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="historyUnits">History unit</param>
         /// <param name="userId">Id of user that rejectes data source queue</param>
         /// <param name="type">Type of statistical unit</param>
-        public async Task RangeUpdateUnitsTask(List<StatisticalUnit> units, List<StatisticalUnitHistory> historyUnits, string userId, StatUnitTypes type)
+        public async Task RangeUpdateUnitsTask(List<StatisticalUnit> units, List<StatisticalUnitHistory> historyUnits, StatUnitTypes type)
         {
             List<StatisticalUnit> unitsForUpdate = new List<StatisticalUnit>();
             switch (type)
@@ -569,7 +566,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             var countryStatUnitsForDelete = new List<CountryStatisticalUnit>();
 
             unitsForUpdate
+#pragma warning disable IDE0037 // Use inferred member name
                 .GroupJoin(historyUnits, u => u.StatId, hU => hU.StatId, (unit, historyUnitsCollection) => (unit: unit, historyUnitsCollection: historyUnitsCollection))
+#pragma warning restore IDE0037 // Use inferred member name
                 .ForEach(z =>
             {
                 var endPeriod = z.unit.EndPeriod;
@@ -673,7 +672,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 if (beforeUploadLegalUnitsList.Any())
                 {
-                    await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLegalUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.LegalUnit);
+                    await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLegalUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.LegalUnit);
                     await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList.SelectMany(x => x.Activities).ToList());
                     await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList);
                 }
@@ -749,7 +748,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (beforeUploadLocalUnitsList.Any())
             {
-                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLocalUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.LocalUnit);
+                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLocalUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.LocalUnit);
                 await _dbContext.BulkDeleteAsync(beforeUploadLocalUnitsList);
             }
             else
@@ -806,7 +805,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (beforeUploadEnterpriseUnitsList.Any())
             {
-                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadEnterpriseUnitsList.Cast<StatisticalUnitHistory>().ToList(), userId, StatUnitTypes.EnterpriseUnit);
+                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadEnterpriseUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.EnterpriseUnit);
                 await _dbContext.BulkDeleteAsync(beforeUploadEnterpriseUnitsList);
             }
 

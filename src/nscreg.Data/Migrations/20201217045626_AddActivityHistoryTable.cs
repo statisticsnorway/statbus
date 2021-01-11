@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -8,6 +8,7 @@ namespace nscreg.Data.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql("DELETE FROM [ActivityStatisticalUnitHistory]", true);
             migrationBuilder.DropForeignKey(
                 name: "FK_ActivityStatisticalUnitHistory_Activities_Activity_Id",
                 table: "ActivityStatisticalUnitHistory");
@@ -66,6 +67,8 @@ namespace nscreg.Data.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql("DELETE FROM [ActivityStatisticalUnitHistory]", true);
+
             migrationBuilder.DropForeignKey(
                 name: "FK_ActivityStatisticalUnitHistory_ActivitiesHistory_Activity_Id",
                 table: "ActivityStatisticalUnitHistory");

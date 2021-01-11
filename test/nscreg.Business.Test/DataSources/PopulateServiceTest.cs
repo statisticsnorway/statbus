@@ -6,7 +6,6 @@ using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -14,7 +13,6 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common;
-using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services;
 using Xunit;
 using Xunit.Abstractions;
@@ -284,8 +282,8 @@ namespace nscreg.Business.Test.DataSources
                         Activity = new Activity()
                         {
                             UpdatedBy = "8A071342-863E-4EFB-9B60-04050A6D2F4B",
-                            ActivityYear = DateTime.Now.Year - 1,
-                            ActivityType = ActivityTypes.Secondary,
+                            ActivityYear = 2020,
+                            ActivityType = ActivityTypes.Primary,
                             ActivityCategory = new ActivityCategory()
                             {
                                 Code = "68.209"
@@ -335,10 +333,6 @@ namespace nscreg.Business.Test.DataSources
                             {"ActivityCategory.Code", "62.020"},
                             {"Employees", "1000"},
 
-                        }),
-                        new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
-                        {
-                            {"ActivityCategory.Code", "68.209"},
                         }),
                         new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string>
                         {
@@ -397,7 +391,7 @@ namespace nscreg.Business.Test.DataSources
                         Activity = new Activity()
                         {
                             ActivityType = ActivityTypes.Secondary,
-                            ActivityYear = 2019,
+                            ActivityYear = DateTime.Now.Year - 2,
                             Employees = 1000,
                             ActivityCategory = categories["68.209"]
                         }
