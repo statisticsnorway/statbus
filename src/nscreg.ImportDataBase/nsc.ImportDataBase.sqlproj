@@ -143,7 +143,7 @@
     <Build Include="ReportsSqlWallet\31 reports\8_Status_TypeA.sql" />
     <Build Include="ReportsSqlWallet\31 reports\9_Status_TypeB.sql" />
     <Build Include="ReportsSqlWallet\31 reports\2_ActivityCategories_TypeAC.sql" />
-    <Build Include="ImportingData\18_Query_EnterpriseGroupRoles.sql" />
-    <Build Include="ImportingData\19_Query_EnterpriseGroupTypes.sql" />
+    <None Include="ImportingData\18_Query_EnterpriseGroupRoles.sql" />
+    <None Include="ImportingData\19_Query_EnterpriseGroupTypes.sql" />
   </ItemGroup>
 </Project>

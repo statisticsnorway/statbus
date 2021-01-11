@@ -1466,7 +1466,7 @@
     <value>Persons Search</value>
   </data>
   <data name="PersonType" xml:space="preserve">
-    <value> Person Type</value>
+    <value>Person Type</value>
   </data>
   <data name="PhoneNumber" xml:space="preserve">
     <value>Phone Number</value>
@@ -1517,7 +1517,7 @@
     <value>Data source template not found</value>
   </data>
   <data name="DeleteDataSourceMessage" xml:space="preserve">
-    <value>Delete data source </value>
+    <value>Delete data source</value>
   </data>
   <data name="OrgLinks" xml:space="preserve">
     <value>Organization Links</value>
@@ -1931,7 +1931,7 @@
     <value>View sample frames</value>
   </data>
   <data name="SampleFramesCreate" xml:space="preserve">
-    <value>Create sample frames </value>
+    <value>Create sample frames</value>
   </data>
   <data name="Reset" xml:space="preserve">
     <value>Reset</value>
@@ -2237,7 +2237,7 @@
     <value>Unit has been liquidated</value>
   </data>
   <data name="ShouldBeGreaterThenZero" xml:space="preserve">
-    <value>Input field shouldn't  be empty </value>
+    <value>Input field shouldn't  be empty</value>
   </data>
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Input field shouldn't  be greater 8 symbols</value>
@@ -2267,13 +2267,13 @@
     <value>One of the "Persons" has no "Person Type" field filled</value>
   </data>
   <data name="PersonsCountryIdRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Country" field filled.</value>
+    <value>One of the "Persons" has no "Country" field filled</value>
   </data>
   <data name="PersonsGivenNameRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Name" field filled.</value>
+    <value>One of the "Persons" has no "Name" field filled</value>
   </data>
   <data name="PersonsSurnameRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Surname" field filled.</value>
+    <value>One of the "Persons" has no "Surname" field filled</value>
   </data>
   <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
     <value>You don't have enough rights to work in this Region</value>
@@ -2342,7 +2342,7 @@
     <value>TaxRegId field is duplicated</value>
   </data>
   <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
-    <value>One of these fields (StatId/TaxRegId/ExternalId) -  should be filled </value>
+    <value>One of these fields (StatId/TaxRegId/ExternalId) -  should be filled</value>
   </data>
   <data name="EntGroupTypeId" xml:space="preserve">
     <value>Enterprise group type</value>

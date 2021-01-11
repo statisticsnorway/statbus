@@ -244,10 +244,10 @@
     <value>Ката: Дареги үчүн маалымат бар</value>
   </data>
   <data name="CreateLegalUnitError" xml:space="preserve">
-    <value>Укуктук бирдиктерин түзүү Error!</value>
+    <value>Укуктук бирдиктерин түзүү Error</value>
   </data>
   <data name="CreateLocalUnitError" xml:space="preserve">
-    <value>Жергиликтүү аппаратты түзүү Error!</value>
+    <value>Жергиликтүү аппаратты түзүү Error</value>
   </data>
   <data name="CreateEnterpriseUnitError" xml:space="preserve">
     <value>Ката! Enterprise бөлүмүн түзүү</value>
@@ -256,13 +256,13 @@
     <value>Ката! Enterprise топ түзүү</value>
   </data>
   <data name="UpdateLegalUnitError" xml:space="preserve">
-    <value>Укуктук бөлүгүн тактоо үчүн ишке ашкан жок!</value>
+    <value>Укуктук бөлүгүн тактоо үчүн ишке ашкан жок</value>
   </data>
   <data name="UpdateEnterpriseUnitError" xml:space="preserve">
-    <value>Ишкана бөлүмүн тактоо Error!</value>
+    <value>Ишкана бөлүмүн тактоо Error</value>
   </data>
   <data name="UpdateEnterpriseGroupError" xml:space="preserve">
-    <value>Ишкана группанын тактоо Error!</value>
+    <value>Ишкана группанын тактоо Error</value>
   </data>
   <data name="UserNotFoundError" xml:space="preserve">
     <value>Колдонуучу табылган жок</value>
@@ -802,7 +802,7 @@
     <value>Калыбына келтирүү регион</value>
   </data>
   <data name="Error403" xml:space="preserve">
-    <value>[У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.]</value>
+    <value>У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.</value>
   </data>
   <data name="SaveError" xml:space="preserve">
     <value>Сактоо учурда ката</value>
@@ -1354,7 +1354,7 @@
     <value>Башкарма</value>
   </data>
   <data name="MiddleName" xml:space="preserve">
-    <value>Атасынын аты </value>
+    <value>Атасынын аты</value>
   </data>
   <data name="AddressPart3" xml:space="preserve">
     <value>Почта индекси</value>
@@ -1390,7 +1390,7 @@
     <value>Тандоо үлгүсүн кайра кароо</value>
   </data>
   <data name="SampleFramesCreate" xml:space="preserve">
-    <value> Тандоо үлгүсү түзүү</value>
+    <value>Тандоо үлгүсү түзүү</value>
   </data>
   <data name="Reset" xml:space="preserve">
     <value>Кайра орнотуу</value>
@@ -1528,7 +1528,7 @@
     <value>Кайра кароо</value>
   </data>
   <data name="route_queueId_log" xml:space="preserve">
-    <value>Лог анализди кароо </value>
+    <value>Лог анализди кароо</value>
   </data>
   <data name="route_queueId_log_logId" xml:space="preserve">
     <value>Салыштырып текшерүү</value>
@@ -1537,7 +1537,7 @@
     <value>Анализдин башталган датасы</value>
   </data>
   <data name="UnitId" xml:space="preserve">
-    <value>Маалыматтар базасындагы статистикалык бирдиктердин идентификаторуу </value>
+    <value>Маалыматтар базасындагы статистикалык бирдиктердин идентификаторуу</value>
   </data>
   <data name="EnsureErrorsIsFixed" xml:space="preserve">
     <value>Ensure errors are fixed</value>
@@ -1795,7 +1795,7 @@
     <value>Маалымдаманын номери</value>
   </data>
   <data name="RegMainActivity" xml:space="preserve">
-    <value> (ГКЭД) каттоодо көрсөтүлгөн негизги ишмердүулүктүн коду</value>
+    <value>(ГКЭД) каттоодо көрсөтүлгөн негизги ишмердүулүктүн коду</value>
   </data>
   <data name="EntGroupId" xml:space="preserve">
     <value>Ишкана тобунун коду</value>
@@ -1948,13 +1948,13 @@
     <value>Жазууну өчүрүү</value>
   </data>
   <data name="DialogBodyDelete" xml:space="preserve">
-    <value>Сиз чындыгында бул жазууну өчүрүүнү каалайсызбы</value>
+    <value>Сиз чындыгында бул жазууну өчүрүүнү каалайсызбы?</value>
   </data>
   <data name="Other" xml:space="preserve">
     <value>Башкалар</value>
   </data>
   <data name="CodeLookupFailed" xml:space="preserve">
-    <value>Маалымдамадан кодду {1} табууга болбой жатат  {0} </value>
+    <value>Маалымдамадан кодду {1} табууга болбой жатат  {0}</value>
   </data>
   <data name="DataAccessConflict" xml:space="preserve">
     <value>Түзөтүүнүн жетүү маалыматтары өзгөртүлгөн</value>
@@ -1975,7 +1975,7 @@
     <value>Таңуу бар</value>
   </data>
   <data name="LinkUnitAlreadyLinked" xml:space="preserve">
-    <value>Көрсөтүлгөн бирдиктин  ортосундагы таңуу бар. Сиз алмаштырууну каалайсызбы</value>
+    <value>Көрсөтүлгөн бирдиктин  ортосундагы таңуу бар. Сиз алмаштырууну каалайсызбы?</value>
   </data>
   <data name="LinkView" xml:space="preserve">
     <value>Таңууну караңыз</value>
@@ -1990,7 +1990,7 @@
     <value>Маалымат булагына ат берүү керек</value>
   </data>
   <data name="LinkDeleteConfirm" xml:space="preserve">
-    <value>сиз бул байланышты чынында өчүрүүнү каалайсызбы</value>
+    <value>Сиз бул байланышты чынында өчүрүүнү каалайсызбы?</value>
   </data>
   <data name="LinkDelete" xml:space="preserve">
     <value>Байланышты өчүрүү</value>
@@ -2260,13 +2260,13 @@
     <value>One of the "Persons" has no "Person Type" field filled</value>
   </data>
   <data name="PersonsCountryIdRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Country" field filled.</value>
+    <value>One of the "Persons" has no "Country" field filled</value>
   </data>
   <data name="PersonsGivenNameRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Name" field filled.</value>
+    <value>One of the "Persons" has no "Name" field filled</value>
   </data>
   <data name="PersonsSurnameRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Surname" field filled.</value>
+    <value>One of the "Persons" has no "Surname" field filled</value>
   </data>
   <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
     <value>Сиз тандалган региондо статистикалдык бирдикти сактоого уруксат жок</value>
@@ -2317,7 +2317,7 @@
     <value>ИНН дублируется</value>
   </data>
   <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
-    <value>У этой правовой единицы нет ни одной местной единицы </value>
+    <value>У этой правовой единицы нет ни одной местной единицы</value>
   </data>
   <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
     <value>Эта местная единица не принадлежит к правовой единице</value>
@@ -2326,11 +2326,10 @@
     <value>В этой группе предприятий нет ни одного предприятия</value>
   </data>
   <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
-    <value>В этом предприятии нет ни одной правовой единицы
-</value>
+    <value>В этом предприятии нет ни одной правовой единицы</value>
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
-    <value>Эта правовая единица не принадлежит к предприятию </value>
+    <value>Эта правовая единица не принадлежит к предприятию</value>
   </data>
   <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
     <value>Одно из идентификационных полей (StatId/TaxRegId/ExternalId) должно быть заполнено (KG)</value>
@@ -2361,5 +2360,113 @@
   </data>
   <data name="LoginTitle" xml:space="preserve">
     <value>NSC Registry кирүү</value>
+  </data>
+  <data name="WebAddressTooltip" xml:space="preserve">
+    <value>Сайттын дареги</value>
+  </data>
+  <data name="UploadedFileProblem" xml:space="preserve">
+    <value>Проблема загрузки файла</value>
+  </data>
+  <data name="UnitSizeTooltip" xml:space="preserve">
+    <value>Unit size</value>
+  </data>
+  <data name="TurnoverYearTooltip" xml:space="preserve">
+    <value>Turnover Year</value>
+  </data>
+  <data name="UnitStatusTooltip" xml:space="preserve">
+    <value>Cтатус единицы</value>
+  </data>
+  <data name="TurnoverTooltip" xml:space="preserve">
+    <value>Turnover Year</value>
+  </data>
+  <data name="TurnoverDateTooltip" xml:space="preserve">
+    <value>Turnover date</value>
+  </data>
+  <data name="TotalCapitalTooltip" xml:space="preserve">
+    <value>Total Capital</value>
+  </data>
+  <data name="TelephoneNoTooltip" xml:space="preserve">
+    <value>Telephone number</value>
+  </data>
+  <data name="TaxRegIdTooltip" xml:space="preserve">
+    <value>Tax reg id</value>
+  </data>
+  <data name="TaxRegDateTooltip" xml:space="preserve">
+    <value>Tax reg date</value>
+  </data>
+  <data name="SuspensionStartTooltip" xml:space="preserve">
+    <value>Suspension Start</value>
+  </data>
+  <data name="SurnameTooltip" xml:space="preserve">
+    <value>Surname</value>
+  </data>
+  <data name="StatusDateTooltip" xml:space="preserve">
+    <value>Status Date</value>
+  </data>
+  <data name="StatUnitFormPersonNameTooltip" xml:space="preserve">
+    <value>Person name</value>
+  </data>
+  <data name="StatUnitEditSuccessfully" xml:space="preserve">
+    <value>Statistical unit edit successfully</value>
+  </data>
+  <data name="StatUnitEditError" xml:space="preserve">
+    <value>Statistical unit editing error</value>
+  </data>
+  <data name="StatUnitDeleteSuccessfully" xml:space="preserve">
+    <value>Statistical unit delete successfully</value>
+  </data>
+  <data name="StatUnitDeleteError" xml:space="preserve">
+    <value>Statistical unit delete error</value>
+  </data>
+  <data name="StatUnitCreateError" xml:space="preserve">
+    <value>Statistical unit create error</value>
+  </data>
+  <data name="StatUnitCreateSuccessfully" xml:space="preserve">
+    <value>Statistical unit created successfully</value>
+  </data>
+  <data name="StatUnitActivityTypeTooltip" xml:space="preserve">
+    <value>Activity type</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumberTooltip" xml:space="preserve">
+    <value>Employees number</value>
+  </data>
+  <data name="StatUnitActivityDateTooltip" xml:space="preserve">
+    <value>Activity Date</value>
+  </data>
+  <data name="ActivitiesTooltip" xml:space="preserve">
+    <value>Activities</value>
+  </data>
+  <data name="ActivityCategoryIdTooltip" xml:space="preserve">
+    <value>Activity code</value>
+  </data>
+  <data name="ActualAddressTooltip" xml:space="preserve">
+    <value>Actual Address</value>
+  </data>
+  <data name="AddressPart1Tooltip" xml:space="preserve">
+    <value>Apartment number</value>
+  </data>
+  <data name="AddressPart2Tooltip" xml:space="preserve">
+    <value>Street and house number</value>
+  </data>
+  <data name="AddressPart3Tooltip" xml:space="preserve">
+    <value>Postal address Id</value>
+  </data>
+  <data name="AddressTooltip" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
+    <value>This enterprise group doesn't have related enterprise unit(s)</value>
+  </data>
+  <data name="AnalysisMandatoryActivities" xml:space="preserve">
+    <value>Stat unit doesn't have activities</value>
+  </data>
+  <data name="AnalysisMandatoryActualAddress" xml:space="preserve">
+    <value>Stat unit doesn't have actual address</value>
+  </data>
+  <data name="AnalysisMandatoryAddress" xml:space="preserve">
+    <value>Stat unit doesn't have address</value>
+  </data>
+  <data name="AnalysisMandatoryClassified" xml:space="preserve">
+    <value>Stat unit doesn't have classified</value>
   </data>
 </root>

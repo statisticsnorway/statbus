@@ -181,7 +181,7 @@
     <value>Ошибка при обновлении пользователя</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Не удалось войти!</value>
+    <value>Не удалось войти</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Текущий пароль неправильный</value>
@@ -199,10 +199,10 @@
     <value>Последнее изменение значение раньше, чем «последние изменения от»</value>
   </data>
   <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
-    <value>Поле "сотрудников от" не должно быть отрицательным!</value>
+    <value>Поле "сотрудников от" не должно быть отрицательным</value>
   </data>
   <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
-    <value>Количество "сотрудников от" больше, чем число сотрудников по факту!</value>
+    <value>Количество "сотрудников от" больше, чем число сотрудников по факту</value>
   </data>
   <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
     <value>Количество сотрудников не должно быть отрицательным</value>
@@ -247,28 +247,28 @@
     <value>Ошибка: Адрес уже существует в базе данных для</value>
   </data>
   <data name="CreateLegalUnitError" xml:space="preserve">
-    <value>Ошибка при создании правового подразделения!</value>
+    <value>Ошибка при создании правового подразделения</value>
   </data>
   <data name="CreateLocalUnitError" xml:space="preserve">
-    <value>Ошибка при создании локального устройства!</value>
+    <value>Ошибка при создании локального устройства</value>
   </data>
   <data name="CreateEnterpriseUnitError" xml:space="preserve">
-    <value>Ошибка при создании Предприятие!</value>
+    <value>Ошибка при создании Предприятие</value>
   </data>
   <data name="CreateEnterpriseGroupError" xml:space="preserve">
-    <value>Ошибка при создании Предприятие группы!</value>
+    <value>Ошибка при создании Предприятие группы</value>
   </data>
   <data name="UpdateLegalUnitError" xml:space="preserve">
-    <value>Ошибка обновления юридической единицы!</value>
+    <value>Ошибка обновления юридической единицы</value>
   </data>
   <data name="UpdateLocalUnitError" xml:space="preserve">
     <value>Ошибка обновления местных единиц</value>
   </data>
   <data name="UpdateEnterpriseUnitError" xml:space="preserve">
-    <value>Ошибка обновления Предприятие!</value>
+    <value>Ошибка обновления Предприятие</value>
   </data>
   <data name="UpdateEnterpriseGroupError" xml:space="preserve">
-    <value>Ошибка обновления Предприятие группы!</value>
+    <value>Ошибка обновления Предприятие группы</value>
   </data>
   <data name="UserNotFoundError" xml:space="preserve">
     <value>Пользователь не найден</value>
@@ -526,7 +526,7 @@
     <value>Код основной деятельности, указанный при регистрации (ГКЭД)</value>
   </data>
   <data name="RegistrationDate" xml:space="preserve">
-    <value>Дата регистрации  </value>
+    <value>Дата регистрации</value>
   </data>
   <data name="RegistrationReasonId" xml:space="preserve">
     <value>Причина регистрации</value>
@@ -565,7 +565,7 @@
     <value>Количество сотрудников, включая руководителей</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
-    <value>Год валидности информации о сотрудниках </value>
+    <value>Год валидности информации о сотрудниках</value>
   </data>
   <data name="EmployeesDate" xml:space="preserve">
     <value>Дата учета данных о сотрудниках</value>
@@ -574,10 +574,10 @@
     <value>Оборот (тыс.сом)</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
-    <value>Год валидности оборота </value>
+    <value>Год валидности оборота</value>
   </data>
   <data name="TurnoverDate" xml:space="preserve">
-    <value>Дата учета текущего оборота </value>
+    <value>Дата учета текущего оборота</value>
   </data>
   <data name="Status" xml:space="preserve">
     <value>Статус</value>
@@ -625,7 +625,7 @@
     <value>Доля иностр. капитала (тыс.сом)</value>
   </data>
   <data name="ForeignCapitalCurrency" xml:space="preserve">
-    <value> Валюта иностр. Капитала</value>
+    <value>Валюта иностр. капитала</value>
   </data>
   <data name="ActualMainActivity1" xml:space="preserve">
     <value>Основной вид деятельности</value>
@@ -637,7 +637,7 @@
     <value>Дата регистрации вида деятельности</value>
   </data>
   <data name="EntGroupRole" xml:space="preserve">
-    <value>Роль группы предприятий </value>
+    <value>Роль группы предприятий</value>
   </data>
   <data name="LegalUnitId" xml:space="preserve">
     <value>Id правовой единицы</value>
@@ -1192,7 +1192,7 @@
     <value>Отсутствует увязка между указанными единицами</value>
   </data>
   <data name="LinkTypeInvalid" xml:space="preserve">
-    <value>Единицы не могут быть связаны. Убедитесь, что такая увязка возможна.</value>
+    <value>Единицы не могут быть связаны. Убедитесь, что такая увязка возможна</value>
   </data>
   <data name="LinkAlreadyExists" xml:space="preserve">
     <value>Увязка уже существует</value>
@@ -1384,7 +1384,7 @@
     <value>Адрес содержит менее чем два поля</value>
   </data>
   <data name="LogicalChecksNoContactPerson" xml:space="preserve">
-    <value>Не указано контактное лицо </value>
+    <value>Не указано контактное лицо</value>
   </data>
   <data name="LogicalChecksNoOwner" xml:space="preserve">
     <value>Не указан владелец</value>
@@ -1834,7 +1834,7 @@
     <value>Неверная контрольная сумма</value>
   </data>
   <data name="LastActivityByTurnover" xml:space="preserve">
-    <value>Последний год предоставления данных по обороту </value>
+    <value>Последний год предоставления данных по обороту</value>
   </data>
   <data name="RegionLvl2" xml:space="preserve">
     <value>Область</value>
@@ -2044,7 +2044,7 @@
     <value>Идентификатор лога в базе данных</value>
   </data>
   <data name="DataSourceQueueLogInfo" xml:space="preserve">
-    <value>Иноформация о загрузке </value>
+    <value>Информация о загрузке</value>
   </data>
   <data name="DataSourceQueueLogRawUnit" xml:space="preserve">
     <value>Детали загрузки статистической единицы</value>
@@ -2272,7 +2272,7 @@
     <value>У вас нет прав для работы в данном регионе</value>
   </data>
   <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
-    <value> У вас нет прав для работы с видом деятельности</value>
+    <value>У вас нет прав для работы с видом деятельности</value>
   </data>
   <data name="YouDontHaveEnoughtRightsRegionOrActivity" xml:space="preserve">
     <value>У вас нет прав для работы в данном регионе или видом деятельности</value>
@@ -2317,7 +2317,7 @@
     <value>ИНН дублируется</value>
   </data>
   <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
-    <value>У этой правовой единицы нет ни одной местной единицы </value>
+    <value>У этой правовой единицы нет ни одной местной единицы</value>
   </data>
   <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
     <value>Эта местная единица не принадлежит к правовой единице</value>
@@ -2326,11 +2326,10 @@
     <value>В этой группе предприятий нет ни одного предприятия</value>
   </data>
   <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
-    <value>В этом предприятии нет ни одной правовой единицы
-</value>
+    <value>В этом предприятии нет ни одной правовой единицы</value>
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
-    <value>Эта правовая единица не принадлежит к предприятию </value>
+    <value>Эта правовая единица не принадлежит к предприятию</value>
   </data>
   <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
     <value>Одно из идентификационных полей (StatId/TaxRegId/ExternalId) должно быть заполнено</value>
@@ -2367,5 +2366,113 @@
   </data>
   <data name="FileDataFormatError" xml:space="preserve">
     <value>Файл имеет неверный формат данных</value>
+  </data>
+  <data name="WebAddressTooltip" xml:space="preserve">
+    <value>Адрес сайта</value>
+  </data>
+  <data name="UploadedFileProblem" xml:space="preserve">
+    <value>Проблема загрузки файла</value>
+  </data>
+  <data name="UnitSizeTooltip" xml:space="preserve">
+    <value>Unit size</value>
+  </data>
+  <data name="TurnoverYearTooltip" xml:space="preserve">
+    <value>Turnover Year</value>
+  </data>
+  <data name="UnitStatusTooltip" xml:space="preserve">
+    <value>Cтатус единицы</value>
+  </data>
+  <data name="TurnoverTooltip" xml:space="preserve">
+    <value>Turnover Year</value>
+  </data>
+  <data name="TurnoverDateTooltip" xml:space="preserve">
+    <value>Turnover date</value>
+  </data>
+  <data name="TotalCapitalTooltip" xml:space="preserve">
+    <value>Total Capital</value>
+  </data>
+  <data name="TelephoneNoTooltip" xml:space="preserve">
+    <value>Telephone number</value>
+  </data>
+  <data name="TaxRegIdTooltip" xml:space="preserve">
+    <value>Tax reg id</value>
+  </data>
+  <data name="TaxRegDateTooltip" xml:space="preserve">
+    <value>Tax reg date</value>
+  </data>
+  <data name="SuspensionStartTooltip" xml:space="preserve">
+    <value>Suspension Start</value>
+  </data>
+  <data name="SurnameTooltip" xml:space="preserve">
+    <value>Surname</value>
+  </data>
+  <data name="StatusDateTooltip" xml:space="preserve">
+    <value>Status Date</value>
+  </data>
+  <data name="StatUnitFormPersonNameTooltip" xml:space="preserve">
+    <value>Person name</value>
+  </data>
+  <data name="StatUnitEditSuccessfully" xml:space="preserve">
+    <value>Статистическая единица успешно отредактирована</value>
+  </data>
+  <data name="StatUnitEditError" xml:space="preserve">
+    <value>Ошибка редактирования статистической единицы</value>
+  </data>
+  <data name="StatUnitDeleteError" xml:space="preserve">
+    <value>Ошибка удаления статистической единицы</value>
+  </data>
+  <data name="StatUnitDeleteSuccessfully" xml:space="preserve">
+    <value>Статистическая единица успешно удалена</value>
+  </data>
+  <data name="StatUnitCreateError" xml:space="preserve">
+    <value>Ошибка создания статистической единицы</value>
+  </data>
+  <data name="StatUnitCreateSuccessfully" xml:space="preserve">
+    <value>Статистическая единица успешно создана</value>
+  </data>
+  <data name="StatUnitActivityTypeTooltip" xml:space="preserve">
+    <value>Activity type</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumberTooltip" xml:space="preserve">
+    <value>Employees number</value>
+  </data>
+  <data name="StatUnitActivityDateTooltip" xml:space="preserve">
+    <value>Activity Date</value>
+  </data>
+  <data name="ActivitiesTooltip" xml:space="preserve">
+    <value>Activities</value>
+  </data>
+  <data name="ActivityCategoryIdTooltip" xml:space="preserve">
+    <value>Activity code</value>
+  </data>
+  <data name="ActualAddressTooltip" xml:space="preserve">
+    <value>Actual Address</value>
+  </data>
+  <data name="AddressPart1Tooltip" xml:space="preserve">
+    <value>Apartment number</value>
+  </data>
+  <data name="AddressPart2Tooltip" xml:space="preserve">
+    <value>Street and house number</value>
+  </data>
+  <data name="AddressPart3Tooltip" xml:space="preserve">
+    <value>Postal address Id</value>
+  </data>
+  <data name="AddressTooltip" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
+    <value>This enterprise group doesn't have related enterprise unit(s)</value>
+  </data>
+  <data name="AnalysisMandatoryActivities" xml:space="preserve">
+    <value>Stat unit doesn't have activities</value>
+  </data>
+  <data name="AnalysisMandatoryActualAddress" xml:space="preserve">
+    <value>Stat unit doesn't have actual address</value>
+  </data>
+  <data name="AnalysisMandatoryAddress" xml:space="preserve">
+    <value>Stat unit doesn't have address</value>
+  </data>
+  <data name="AnalysisMandatoryClassified" xml:space="preserve">
+    <value>Stat unit doesn't have classified</value>
   </data>
 </root>
