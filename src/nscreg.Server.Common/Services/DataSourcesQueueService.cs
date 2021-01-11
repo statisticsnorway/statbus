@@ -39,7 +39,7 @@ namespace nscreg.Server.Common.Services
         private readonly string _rootPath;
         private readonly string _uploadDir;
         private readonly DbMandatoryFields _dbMandatoryFields;
-        private DeleteService _statUnitDeleteService;
+        private readonly DeleteService _statUnitDeleteService;
         private readonly ElasticService _elasticService;
 
         public DataSourcesQueueService(NSCRegDbContext ctx,

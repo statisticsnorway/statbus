@@ -7,9 +7,6 @@ using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
 using PeterKottas.DotNetCore.WindowsService;
-using System.IO;
-using nscreg.Server.Common.Services.DataSources;
-using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
@@ -18,21 +15,20 @@ namespace nscreg.Server.DataUploadSvc
 {
     // ReSharper disable once UnusedMember.Global
     // ReSharper disable once ClassNeverInstantiated.Global
-#pragma warning disable CA1052 // Static holder types should be Static or NotInheritable
     /// <summary>
     /// Data load service launch class
     /// </summary>
     public class Program
-#pragma warning restore CA1052 // Static holder types should be Static or NotInheritable
     {
         /// <summary>
         /// Method for starting the data loading service
         /// </summary>
-        // ReSharper disable once UnusedMember.Global
         public static void Main()
         {
+#pragma warning disable CS0618 // Type or member is obsolete
             var logger = new LoggerFactory()
                 .AddConsole()
+#pragma warning restore CS0618 // Type or member is obsolete
                 .AddNLog()
                 .CreateLogger<Program>();
 

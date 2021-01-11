@@ -997,7 +997,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of these fields (StatId/TaxRegId/ExternalId) -  should be filled .
+        ///   Looks up a localized string similar to One of these fields (StatId/TaxRegId/ExternalId) -  should be filled.
         /// </summary>
         public static string AnalysisOneOfTheseFieldsShouldBeFilled {
             get {
@@ -2113,7 +2113,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Delete data source .
+        ///   Looks up a localized string similar to Delete data source.
         /// </summary>
         public static string DeleteDataSourceMessage {
             get {
@@ -4759,7 +4759,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Country&quot; field filled..
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Country&quot; field filled.
         /// </summary>
         public static string PersonsCountryIdRequired {
             get {
@@ -4777,7 +4777,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Name&quot; field filled..
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Name&quot; field filled.
         /// </summary>
         public static string PersonsGivenNameRequired {
             get {
@@ -4813,7 +4813,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Surname&quot; field filled..
+        ///   Looks up a localized string similar to One of the &quot;Persons&quot; has no &quot;Surname&quot; field filled.
         /// </summary>
         public static string PersonsSurnameRequired {
             get {
@@ -4831,7 +4831,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to  Person Type.
+        ///   Looks up a localized string similar to Person Type.
         /// </summary>
         public static string PersonType {
             get {
@@ -6100,7 +6100,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Create sample frames .
+        ///   Looks up a localized string similar to Create sample frames.
         /// </summary>
         public static string SampleFramesCreate {
             get {
@@ -6388,7 +6388,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Input field shouldn&apos;t  be empty .
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be empty.
         /// </summary>
         public static string ShouldBeGreaterThenZero {
             get {
