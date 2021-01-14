@@ -195,12 +195,12 @@ namespace nscreg.Server
                 .AddViewLocalization()
                 .AddViews();
 
-            var keysDirectory = new DirectoryInfo(Configuration["DataProtectionKeysDir"]);
-            if (!keysDirectory.Exists)
-                keysDirectory.Create();
+            var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration["DataProtectionKeysDir"]);
+            if (!Directory.Exists(keysDirectory))
+                Directory.CreateDirectory(keysDirectory);
 
             services.AddDataProtection()
-                .PersistKeysToFileSystem(keysDirectory)
+                .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
                 .SetApplicationName("nscreg")
                 .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
         }
