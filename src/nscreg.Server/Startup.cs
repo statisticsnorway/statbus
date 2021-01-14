@@ -172,6 +172,17 @@ namespace nscreg.Server
                 .AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
+
+            var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration["DataProtectionKeysDir"]);
+            if (!Directory.Exists(keysDirectory))
+                Directory.CreateDirectory(keysDirectory);
+
+            services
+                .AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
+                .SetApplicationName("nscreg")
+                .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
+
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>();
@@ -195,14 +206,7 @@ namespace nscreg.Server
                 .AddViewLocalization()
                 .AddViews();
 
-            var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration["DataProtectionKeysDir"]);
-            if (!Directory.Exists(keysDirectory))
-                Directory.CreateDirectory(keysDirectory);
-
-            services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
-                .SetApplicationName("nscreg")
-                .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
+            
         }
 
         /// <summary>
