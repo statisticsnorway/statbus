@@ -56,7 +56,10 @@ namespace nscreg.Data
             var configuration = configBuilder.Build();
             var config = configuration.GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>();
-            return Create(config);
+
+            var context = Create(config);
+            context.Database.SetCommandTimeout(int.MaxValue);
+            return context;
         }
 
         public static NSCRegDbContext Create(ConnectionSettings config)
