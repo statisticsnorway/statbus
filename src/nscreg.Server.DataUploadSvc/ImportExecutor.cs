@@ -21,9 +21,7 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
-using System.Threading;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -70,6 +68,8 @@ namespace nscreg.Server.DataUploadSvc
             var dbContextHelper = new DbContextHelper();
             using (var context = dbContextHelper.CreateDbContext(new string[] { }))
             {
+                context.Database.SetCommandTimeout(180);
+
                 await InitializeCacheForLookups(context);
                 var userService = new UserService(context);
                 var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);

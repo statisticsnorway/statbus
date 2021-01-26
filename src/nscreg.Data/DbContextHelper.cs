@@ -58,7 +58,6 @@ namespace nscreg.Data
                 .Get<ConnectionSettings>();
 
             var context = Create(config);
-            context.Database.SetCommandTimeout(int.MaxValue);
             return context;
         }
 
