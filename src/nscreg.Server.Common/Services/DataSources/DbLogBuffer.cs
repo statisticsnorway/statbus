@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EFCore.BulkExtensions;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using nscreg.Data;
@@ -56,6 +58,8 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 Buffer.Add(logEntry);
                 queue.SkipLinesCount++;
+                _context.Entry(queue).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
                 if (Buffer.Count >= MaxCount)
                 {
                     await FlushAsync(true);
@@ -82,8 +86,7 @@ namespace nscreg.Server.Common.Services.DataSources
             try
             {
                 if (!innerCall) await Semaphore.WaitAsync();
-                _context.DataUploadingLogs.AddRange(Buffer);
-                await _context.SaveChangesAsync();
+                await _context.BulkInsertAsync(Buffer);
                 Buffer.Clear();
             }
             finally
