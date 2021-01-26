@@ -57,8 +57,7 @@ namespace nscreg.Data
             var config = configuration.GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>();
 
-            var context = Create(config);
-            return context;
+            return Create(config);
         }
 
         public static NSCRegDbContext Create(ConnectionSettings config)
