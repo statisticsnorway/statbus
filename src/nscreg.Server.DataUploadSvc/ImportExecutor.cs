@@ -176,6 +176,7 @@ namespace nscreg.Server.DataUploadSvc
             }
 
             await sqlBulkBuffer.FlushAsync();
+            context.Dispose();
 
         };
 
