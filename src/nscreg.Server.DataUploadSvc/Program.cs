@@ -77,7 +77,8 @@ namespace nscreg.Server.DataUploadSvc
                                 dbMandatoryFields,
                                 validationSettings,
                                 servicesSettings.DataUploadMaxBufferCount,
-                                servicesSettings.PersonGoodQuality
+                                servicesSettings.PersonGoodQuality,
+                                servicesSettings.ElementsForRecreateContext
                                 ),
                             new QueueCleanupJob(
                                 servicesSettings.DataUploadServiceDequeueInterval,

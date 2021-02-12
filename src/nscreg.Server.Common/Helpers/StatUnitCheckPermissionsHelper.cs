@@ -31,7 +31,11 @@ namespace nscreg.Server.Common.Helpers
                 CheckRegionOrActivityContains(userId, regionIds, activityCategoryList);
                 return true;
             }
-            catch (System.Exception e) when (e is BadRequestException)
+            catch (BadRequestException)
+            {
+                return false;
+            }
+            catch (System.Exception)
             {
                 return false;
             }

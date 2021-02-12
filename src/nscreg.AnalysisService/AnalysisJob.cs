@@ -47,7 +47,7 @@ namespace nscreg.AnalysisService
             if (analysisQueue != null)
             {
                 _logger.LogInformation("analizing stat units queue {0}", analysisQueue.Id);
-                _analysisService.AnalyzeStatUnits(analysisQueue);
+                await _analysisService.AnalyzeStatUnits(analysisQueue);
             }
         }
 

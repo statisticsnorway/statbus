@@ -38,13 +38,14 @@ namespace nscreg.Server.DataUploadSvc
         private readonly ValidationSettings _validationSettings;
         private NSCRegDbContext _context;
         private readonly bool _personsGoodQuality;
+        private readonly int _elementsForRecreateContext;
        
         public QueueJob(
             int dequeueInterval,
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields dbMandatoryFields,
-            ValidationSettings validationSettings, int bufferMaxCount, bool personsGoodQuality)
+            ValidationSettings validationSettings, int bufferMaxCount, bool personsGoodQuality, int elementsForRecreateContext)
         {
             _personsGoodQuality = personsGoodQuality;
             _logger = logger;
@@ -53,6 +54,7 @@ namespace nscreg.Server.DataUploadSvc
             _dbMandatoryFields = dbMandatoryFields;
             _validationSettings = validationSettings;
             _bufferMaxCount = bufferMaxCount;
+            _elementsForRecreateContext = elementsForRecreateContext;
         }
 
         private void AddScopedServices()
@@ -109,7 +111,7 @@ namespace nscreg.Server.DataUploadSvc
                 return;
             }
 
-            var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality);
+            var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality, _elementsForRecreateContext);
 
             //var swParse = new Stopwatch();
             var (parseError, parsed, problemLine) = await ParseFile(dequeued/*, swParse*/);

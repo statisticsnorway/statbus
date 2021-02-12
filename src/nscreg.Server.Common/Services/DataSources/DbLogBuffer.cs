@@ -53,12 +53,12 @@ namespace nscreg.Server.Common.Services.DataSources
             }
 
             Buffer.Add(logEntry);
-            if(messages.Count > 0)
+            if(messages != null  && messages.Count > 0)
             {
                 queue.SkipLinesCount += 1;
-                _context.Entry(queue).State = EntityState.Modified;
-                await _context.SaveChangesAsync();
             }
+            _context.Entry(queue).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
             if (Buffer.Count >= MaxCount)
             {
                 await FlushAsync();

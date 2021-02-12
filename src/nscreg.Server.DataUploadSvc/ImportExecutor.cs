@@ -36,6 +36,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly ValidationSettings _validationSettings;
         private readonly bool _personsGoodQuality;
+        private readonly int _elementsForRecreateContext;
         private AnalyzeService _analysisSvc;
 
 #if DEBUG
@@ -51,7 +52,7 @@ namespace nscreg.Server.DataUploadSvc
         //public Stopwatch swDbLog = new Stopwatch();
         //public long dbLogCount = 0;
 #endif
-        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, bool personsGoodQuality)
+        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, bool personsGoodQuality, int elementsForRecreateContext)
         {
             _personsGoodQuality = personsGoodQuality;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -59,6 +60,7 @@ namespace nscreg.Server.DataUploadSvc
             _validationSettings = validationSettings;
             _logger = logger;
             _logBuffer = logBuffer;
+            _elementsForRecreateContext = elementsForRecreateContext;
         }
 
         public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => Task.Run(Job(dequeued, keyValues, bufferMaxCount));
@@ -66,116 +68,118 @@ namespace nscreg.Server.DataUploadSvc
         private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => async () =>
         {
             var dbContextHelper = new DbContextHelper();
-            using (var context = dbContextHelper.CreateDbContext(new string[] { }))
+            var context = dbContextHelper.CreateDbContext(new string[] { });
+            context.Database.SetCommandTimeout(180);
+            await InitializeCacheForLookups(context);
+            var userService = new UserService(context);
+            var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+            var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued, bufferMaxCount);
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
+            _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var saveService = new SaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
+            bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
+            int i = 0;
+            foreach (var parsedUnit in keyValues)
             {
-                context.Database.SetCommandTimeout(180);
+                //Interlocked.Increment(ref InterlockedInt);
+                _logger.LogInformation("processing entity #{0}", i++);
+                var startedAt = DateTime.Now;
 
-                await InitializeCacheForLookups(context);
-                var userService = new UserService(context);
-                var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-                var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued, bufferMaxCount);
-                var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
-                _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-                var saveService = new SaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
-                bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
-                int i = 0;
-                foreach (var parsedUnit in keyValues)
+                /// Populate Unit
+
+                //swPopulation.Start();
+                _logger.LogInformation("populating unit");
+                var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
+                //swPopulation.Stop();
+                //populationCount += 1;
+                if (populateError.HasValue())
                 {
-                    //Interlocked.Increment(ref InterlockedInt);
-                    _logger.LogInformation("processing entity #{0}", i++);
-                    var startedAt = DateTime.Now;
-
-                    /// Populate Unit
-
-                    //swPopulation.Start();
-                    _logger.LogInformation("populating unit");
-                    var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
-                    //swPopulation.Stop();
-                    //populationCount += 1;
-                    if (populateError.HasValue())
-                    {
-                        _logger.LogInformation("error during populating of unit: {0}", populateError);
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
-                        continue;
-                    }
-
-                    populated.DataSource = dequeued.DataSourceFileName;
-                    populated.ChangeReason = ChangeReasons.Edit;
-                    populated.EditComment = "Uploaded from data source file";
-
-                    /// Analyze Unit
-
-                    _logger.LogInformation(
-                        "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
-
-                    //swAnalyze.Start();
-
-                    var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
-                    //swAnalyze.Stop();
-                    //analyzeCount += 1;
-
-                    if (analysisError.HasValue())
-                    {
-                        _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Error, analysisError);
-                        continue;
-                    }
-                    if (errors.Any())
-                    {
-                        _logger.LogInformation("analysis revealed {0} errors", errors.Count);
-                        errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
-                        continue;
-                    }
-
-                    /// Save Unit
-
-                    _logger.LogInformation("saving unit");
-
-                   // swSave.Start();
-                    var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
-
-                    //swSave.Stop();
-                   // saveCount += 1;
-
-                    if (saveError.HasValue())
-                    {
-                        _logger.LogError(saveError);
-                        AnyWarnings = true;
-                        await LogUpload(LogStatus.Warning, saveError);
-                        continue;
-                    }
-
-                    if (!saved) AnyWarnings = true;
-                    await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
-
-
-                    async Task LogUpload(LogStatus status, string note = "",
-                            IReadOnlyDictionary<string, string[]> analysisErrors = null,
-                            IEnumerable<string> analysisSummary = null)
-                    {
-                       // swDbLog.Start();
-                        var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
-                        {
-                            var tmp = x.source.Split('.', 2);
-                            return tmp[0];
-                        }));
-                        await _logBuffer.LogUnitUpload(
-                             dequeued, rawUnit, startedAt, populated,
-                             status, note ?? "", analysisErrors, analysisSummary);
-
-                        //swDbLog.Stop();
-                    }
+                    _logger.LogInformation("error during populating of unit: {0}", populateError);
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
+                    continue;
                 }
-                await sqlBulkBuffer.FlushAsync();
 
+                populated.DataSource = dequeued.DataSourceFileName;
+                populated.ChangeReason = ChangeReasons.Edit;
+                populated.EditComment = "Uploaded from data source file";
+
+                /// Analyze Unit
+
+                _logger.LogInformation(
+                    "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+
+                //swAnalyze.Start();
+
+                var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(populated, dequeued);
+                //swAnalyze.Stop();
+                //analyzeCount += 1;
+
+                if (analysisError.HasValue())
+                {
+                    _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Error, analysisError);
+                    continue;
+                }
+                if (errors.Any())
+                {
+                    _logger.LogInformation("analysis revealed {0} errors", errors.Count);
+                    errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
+                    continue;
+                }
+
+                /// Save Unit
+
+                _logger.LogInformation("saving unit");
+
+                // swSave.Start();
+                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
+
+                //swSave.Stop();
+                // saveCount += 1;
+
+                if (saveError.HasValue())
+                {
+                    _logger.LogError(saveError);
+                    AnyWarnings = true;
+                    await LogUpload(LogStatus.Warning, saveError);
+                    continue;
+                }
+
+                if (!saved) AnyWarnings = true;
+                await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
+
+
+                async Task LogUpload(LogStatus status, string note = "",
+                        IReadOnlyDictionary<string, string[]> analysisErrors = null,
+                        IEnumerable<string> analysisSummary = null)
+                {
+                    // swDbLog.Start();
+                    var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
+                    {
+                        var tmp = x.source.Split('.', 2);
+                        return tmp[0];
+                    }));
+                    await _logBuffer.LogUnitUpload(
+                            dequeued, rawUnit, startedAt, populated,
+                            status, note ?? "", analysisErrors, analysisSummary);
+
+                    //swDbLog.Stop();
+                }
+                if (i % _elementsForRecreateContext == 0)
+                {
+                    context = dbContextHelper.CreateDbContext(new string[] { });
+                }
             }
+
+            await sqlBulkBuffer.FlushAsync();
+
         };
 
-        private (string, (IReadOnlyDictionary<string, string[]>, string[] test)) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
+        private async Task<(string, (IReadOnlyDictionary<string, string[]>, string[] test))> AnalyzeUnitAsync(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
             if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
                 return (null, (new Dictionary<string, string[]>(), new string[0]));
@@ -183,7 +187,7 @@ namespace nscreg.Server.DataUploadSvc
             AnalysisResult analysisResult;
             try
             {
-                analysisResult = _analysisSvc.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true, false);
+                analysisResult = await _analysisSvc.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true, false);
             }
             catch (Exception ex)
             {

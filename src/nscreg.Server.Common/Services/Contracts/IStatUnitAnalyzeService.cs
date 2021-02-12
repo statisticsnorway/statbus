@@ -1,5 +1,6 @@
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data.Entities;
+using System.Threading.Tasks;
 
 namespace nscreg.Server.Common.Services.Contracts
 {
@@ -12,12 +13,12 @@ namespace nscreg.Server.Common.Services.Contracts
         /// Analyzes stat unit
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false, bool isSkipCustomCheck = false);
+        Task<AnalysisResult> AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation = false, bool isDataSourceUpload = false, bool isSkipCustomCheck = false);
 
         /// <summary>
         /// Analyzes stat units
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        void AnalyzeStatUnits(AnalysisQueue analysisQueue);
+        Task AnalyzeStatUnits(AnalysisQueue analysisQueue);
     }
 }
