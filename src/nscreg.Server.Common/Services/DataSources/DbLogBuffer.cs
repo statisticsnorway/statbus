@@ -49,50 +49,29 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 logEntry.TargetStatId = unit.StatId;
                 logEntry.StatUnitName = unit.Name;
-                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore});
+                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
             }
 
-            try
+            Buffer.Add(logEntry);
+            if(messages.Count > 0)
             {
-                await Semaphore.WaitAsync();
-
-                Buffer.Add(logEntry);
-                queue.SkipLinesCount++;
+                queue.SkipLinesCount += 1;
                 _context.Entry(queue).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
-                if (Buffer.Count >= MaxCount)
-                {
-                    await FlushAsync(true);
-                }
             }
-            finally
+            if (Buffer.Count >= MaxCount)
             {
-                Semaphore.Release();
+                await FlushAsync();
             }
         }
-
-        /// <summary>
-        /// To call out from class
-        /// </summary>
-        /// <returns></returns>
-        public Task FlushAsync() => FlushAsync(false);
-
         /// <summary>
         /// Flushes buffer to database
         /// </summary>
         /// <returns></returns>
-        private async Task FlushAsync(bool innerCall)
+        public async Task FlushAsync()
         {
-            try
-            {
-                if (!innerCall) await Semaphore.WaitAsync();
-                await _context.BulkInsertAsync(Buffer);
-                Buffer.Clear();
-            }
-            finally
-            {
-                if (!innerCall) Semaphore.Release();
-            }
+            await _context.BulkInsertAsync(Buffer);
+            Buffer.Clear();
         }
 
     }

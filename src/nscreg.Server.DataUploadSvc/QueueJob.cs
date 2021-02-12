@@ -82,6 +82,7 @@ namespace nscreg.Server.DataUploadSvc
             if (dequeued == null) return;
             try
             {
+                await Task.Delay(15000);
                 await new ElasticService(_context).CheckElasticSearchConnection();
             }
             catch (Exception ex)
