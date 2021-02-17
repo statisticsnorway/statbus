@@ -84,6 +84,7 @@ namespace nscreg.Server.DataUploadSvc
             if (dequeued == null) return;
             try
             {
+                //To wait for the elastic service to start
                 await Task.Delay(15000);
                 await new ElasticService(_context).CheckElasticSearchConnection();
             }

@@ -169,15 +169,8 @@ namespace nscreg.Server.DataUploadSvc
 
                     //swDbLog.Stop();
                 }
-                if (i % _elementsForRecreateContext == 0)
-                {
-                    context = dbContextHelper.CreateDbContext(new string[] { });
-                }
             }
-
             await sqlBulkBuffer.FlushAsync();
-            context.Dispose();
-
         };
 
         private async Task<(string, (IReadOnlyDictionary<string, string[]>, string[] test))> AnalyzeUnitAsync(IStatisticalUnit unit, DataSourceQueue queueItem)

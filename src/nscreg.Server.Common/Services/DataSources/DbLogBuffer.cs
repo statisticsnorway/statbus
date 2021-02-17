@@ -15,7 +15,6 @@ namespace nscreg.Server.Common.Services.DataSources
     public class DbLogBuffer
     {
         private List<DataUploadingLog> Buffer { get; set; }
-        private SemaphoreSlim Semaphore = new SemaphoreSlim(1);
 
         private readonly NSCRegDbContext _context;
         public  readonly int MaxCount;
