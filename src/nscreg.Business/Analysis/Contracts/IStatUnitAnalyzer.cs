@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using nscreg.Data.Entities;
 using nscreg.Business.Analysis.StatUnit;
+using System.Threading.Tasks;
 
 namespace nscreg.Business.Analysis.Contracts
 {
@@ -13,7 +14,7 @@ namespace nscreg.Business.Analysis.Contracts
         /// Analyzes stat unit's connections and addresses
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit);
+        Task<Dictionary<string, string[]>> CheckConnections(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyzes stat unit's mandatory fields
@@ -26,7 +27,7 @@ namespace nscreg.Business.Analysis.Contracts
         /// </summary>
         /// <param name="unit"></param>
         /// <returns></returns>
-        Dictionary<string, string[]> CheckCalculationFields(IStatisticalUnit unit);
+       Dictionary<string, string[]> CheckCalculationFields(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyze stat unit for duplicates
@@ -40,6 +41,6 @@ namespace nscreg.Business.Analysis.Contracts
         /// Analyzes stat unit for all checks
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        AnalysisResult CheckAll(IStatisticalUnit unit);
+        Task<AnalysisResult> CheckAll(IStatisticalUnit unit);
     }
 }

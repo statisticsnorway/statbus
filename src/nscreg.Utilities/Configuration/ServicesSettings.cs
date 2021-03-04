@@ -27,5 +27,7 @@ namespace nscreg.Utilities.Configuration
         public int DataUploadMaxBufferCount { get; set; }
         [Required]
         public bool PersonGoodQuality { get; set; }
+        [Required]
+        public int ElementsForRecreateContext { get; set; }
     }
 }

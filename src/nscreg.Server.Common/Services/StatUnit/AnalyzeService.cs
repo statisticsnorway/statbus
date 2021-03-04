@@ -11,6 +11,7 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Business.Analysis.Contracts;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Configuration;
+using System.Threading.Tasks;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -35,9 +36,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             _validationSettings = validationSettings;
         }
 
-        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation, bool isDataSourceUpload, bool isSkipCustomCheck)
+        public async Task<AnalysisResult> AnalyzeStatUnit(IStatisticalUnit unit, bool isAlterDataSourceAllowedOperation, bool isDataSourceUpload, bool isSkipCustomCheck)
         {
-            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation, isDataSourceUpload, isSkipCustomCheck));
+            return await AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings, isAlterDataSourceAllowedOperation, isDataSourceUpload, isSkipCustomCheck));
         }
 
         public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)
@@ -45,24 +46,24 @@ namespace nscreg.Server.Common.Services.StatUnit
             return _context.StatisticalUnits.Any(x => x.StatId == unit.StatId);
         }
 
-        public void AnalyzeStatUnits(AnalysisQueue analysisQueue)
+        public async Task AnalyzeStatUnits(AnalysisQueue analysisQueue)
         {
             if (!analysisQueue.ServerStartPeriod.HasValue)
             {
                 analysisQueue.ServerStartPeriod = DateTime.Now;
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
             var analyzer = new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings);
-            AnalyzeStatisticalUnits(analysisQueue, analyzer);
-            AnalyzeEnterpriseGroups(analysisQueue, analyzer);
+            await AnalyzeStatisticalUnits(analysisQueue, analyzer);
+            await AnalyzeEnterpriseGroups(analysisQueue, analyzer);
 
             analysisQueue.ServerEndPeriod = DateTime.Now;
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        private AnalysisResult AnalyzeSingleStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer)
+        private async Task<AnalysisResult> AnalyzeSingleStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer)
         {
-            return analyzer.CheckAll(unit);
+            return await analyzer.CheckAll(unit);
         }
 
         /// <summary>
@@ -70,14 +71,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="analysisQueue">Queue item</param>
         /// <param name="analyzer">Stat unit analyzer</param>
-        private void AnalyzeStatisticalUnits(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
+        private async Task AnalyzeStatisticalUnits(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
         {
             while (true)
             {
-                var unitForAnalysis = _helper.GetStatisticalUnitForAnalysis(analysisQueue);
+                var unitForAnalysis = await _helper.GetStatisticalUnitForAnalysis(analysisQueue);
                 if (unitForAnalysis == null) break;
-                AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
+                     await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
@@ -85,29 +87,29 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="analysisQueue">Queue item</param>
         /// <param name="analyzer">Stat unit analyzer</param>
-        private void AnalyzeEnterpriseGroups(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
+        private async Task AnalyzeEnterpriseGroups(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
         {
             while (true)
             {
-                var unitForAnalysis = _helper.GetEnterpriseGroupForAnalysis(analysisQueue);
+                var unitForAnalysis = await _helper.GetEnterpriseGroupForAnalysis(analysisQueue);
                 if (unitForAnalysis == null) break;
-                AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
+                    await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
+            await _context.SaveChangesAsync();
         }
 
-        private void AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
+        private async Task AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
         {
-            var analyzeResult = AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
-                _context.AnalysisLogs.Add(new AnalysisLog
-                {
-                    AnalysisQueueId = analysisQueueId,
-                    AnalyzedUnitId = unitForAnalysis.RegId,
-                    AnalyzedUnitType = unitForAnalysis.UnitType,
-                    IssuedAt = DateTime.Now,
-                    SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
-                    ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
-                });
-                _context.SaveChanges();
+            var analyzeResult = await AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
+            _context.AnalysisLogs.Add(new AnalysisLog
+            {
+                AnalysisQueueId = analysisQueueId,
+                AnalyzedUnitId = unitForAnalysis.RegId,
+                AnalyzedUnitType = unitForAnalysis.UnitType,
+                IssuedAt = DateTime.Now,
+                SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
+                ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
+            });
         }
     }
 }

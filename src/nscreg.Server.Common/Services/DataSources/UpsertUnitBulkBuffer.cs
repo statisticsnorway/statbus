@@ -176,7 +176,6 @@ namespace nscreg.Server.Common.Services.DataSources
                             .ToList();
 
                     await _context.BulkInsertAsync(activitiesHistory, historyBulkConfig);
-
                     statUnitHistories.GroupJoin(concatHistories, concatHistory => concatHistory.StatId, statUnitHistory => statUnitHistory.StatId, (stathistory, statCollection) => (stathistory: stathistory, statCollection: statCollection)).ForEach(x =>
                     {
                         var statColl = x.statCollection.FirstOrDefault();
