@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -20,12 +21,12 @@ namespace nscreg.Server.Common.Helpers
         /// </summary>
         /// <param name="analysisQueue">Analysis queue item</param>
         /// <returns>Statistical unit</returns>
-        public StatisticalUnit GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
+        public async Task<StatisticalUnit> GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
         {
-            return _ctx.StatisticalUnits
+            return await _ctx.StatisticalUnits
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
-                .FirstOrDefault(su => !su.IsDeleted &&
+                .FirstOrDefaultAsync(su => !su.IsDeleted &&
                                       (_ctx.StatisticalUnitHistory
                                            .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                                        su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
@@ -40,12 +41,12 @@ namespace nscreg.Server.Common.Helpers
         /// </summary>
         /// <param name="analysisQueue">Analysis queue item</param>
         /// <returns>Enterprise group</returns>
-        public EnterpriseGroup GetEnterpriseGroupForAnalysis(AnalysisQueue analysisQueue)
+        public async Task<EnterpriseGroup> GetEnterpriseGroupForAnalysis(AnalysisQueue analysisQueue)
         {
-            return _ctx.EnterpriseGroups
+            return await _ctx.EnterpriseGroups
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
-                .FirstOrDefault(su => !su.IsDeleted &&
+                .FirstOrDefaultAsync(su => !su.IsDeleted &&
                     (_ctx.EnterpriseGroupHistory
                          .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
                      su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&

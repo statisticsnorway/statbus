@@ -15,7 +15,6 @@ namespace nscreg.Server.Common.Services.DataSources
     public class DbLogBuffer
     {
         private List<DataUploadingLog> Buffer { get; set; }
-        private SemaphoreSlim Semaphore = new SemaphoreSlim(1);
 
         private readonly NSCRegDbContext _context;
         public  readonly int MaxCount;
@@ -49,50 +48,29 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 logEntry.TargetStatId = unit.StatId;
                 logEntry.StatUnitName = unit.Name;
-                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore});
+                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
             }
 
-            try
+            Buffer.Add(logEntry);
+            if(messages != null  && messages.Count > 0)
             {
-                await Semaphore.WaitAsync();
-
-                Buffer.Add(logEntry);
-                queue.SkipLinesCount++;
-                _context.Entry(queue).State = EntityState.Modified;
-                await _context.SaveChangesAsync();
-                if (Buffer.Count >= MaxCount)
-                {
-                    await FlushAsync(true);
-                }
+                queue.SkipLinesCount += 1;
             }
-            finally
+            _context.Entry(queue).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            if (Buffer.Count >= MaxCount)
             {
-                Semaphore.Release();
+                await FlushAsync();
             }
         }
-
-        /// <summary>
-        /// To call out from class
-        /// </summary>
-        /// <returns></returns>
-        public Task FlushAsync() => FlushAsync(false);
-
         /// <summary>
         /// Flushes buffer to database
         /// </summary>
         /// <returns></returns>
-        private async Task FlushAsync(bool innerCall)
+        public async Task FlushAsync()
         {
-            try
-            {
-                if (!innerCall) await Semaphore.WaitAsync();
-                await _context.BulkInsertAsync(Buffer);
-                Buffer.Clear();
-            }
-            finally
-            {
-                if (!innerCall) Semaphore.Release();
-            }
+            await _context.BulkInsertAsync(Buffer);
+            Buffer.Clear();
         }
 
     }

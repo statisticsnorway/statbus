@@ -107,8 +107,17 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var unitsActivities = await _dbContext.ActivityStatisticalUnits
                 .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
-                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name, x.Activity.ActivityCategory.NameLanguage1, x.Activity.ActivityCategory.NameLanguage2, x.Activity.ActivityCategoryId})
+                .Select(x =>
+                new {
+                    x.UnitId,
+                    x.Activity.ActivityCategory.Code,
+                    x.Activity.ActivityCategory.Name,
+                    x.Activity.ActivityCategory.NameLanguage1,
+                    x.Activity.ActivityCategory.NameLanguage2,
+                    x.Activity.ActivityCategoryId
+                })
                 .ToListAsync();
+
             return unitsActivities
                 .ToLookup(x => x.UnitId, x => new CodeLookupVm()
                 {

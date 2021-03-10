@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -82,7 +83,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>Dictionary of messages</returns>
-        public Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit)
+        public async Task<Dictionary<string, string[]>> CheckConnections(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
 
@@ -90,7 +91,7 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 if (unit.PersonsUnits != null && !unit.PersonsUnits.Any())
                 {
-                    if (!_context.PersonStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                    if (!await _context.PersonStatisticalUnits.AnyAsync(c => c.UnitId == unit.RegId))
                     {
                         messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
                             new[] { nameof(Resource.AnalysisRelatedPersons) });
@@ -103,7 +104,7 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 if (unit.ActivitiesUnits != null &&  !unit.ActivitiesUnits.Any())
                 {
-                    if(!_context.ActivityStatisticalUnits.Any(c => c.UnitId == unit.RegId))
+                    if(!await _context.ActivityStatisticalUnits.AnyAsync(c => c.UnitId == unit.RegId))
                     {
                         messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
                     }
@@ -196,32 +197,32 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>Dictionary of messages</returns>
-        public Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit)
+        public async Task<Dictionary<string, string[]>> CheckOrphanUnits(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
             foreach (var orphanProperty in _orphanProperties)
             {
                 if (unit is EnterpriseUnit enterpriseUnit)
                 {
-                    CheckUnit(enterpriseUnit, orphanProperty.Name, messages);
+                    await CheckUnit(enterpriseUnit, orphanProperty.Name, messages);
                 }
                 else if (unit is LegalUnit legalUnit)
                 {
-                    CheckUnit(legalUnit, orphanProperty.Name, messages);
+                   await CheckUnit(legalUnit, orphanProperty.Name, messages);
                 }
                 else if (unit is LocalUnit localUnit)
                 {
-                    CheckUnit(localUnit, orphanProperty.Name, messages);
+                   await CheckUnit(localUnit, orphanProperty.Name, messages);
                 }
                 else if (unit is EnterpriseGroup group)
                 {
-                    CheckUnit(group, orphanProperty.Name, messages);
+                  await  CheckUnit(group, orphanProperty.Name, messages);
                 }
             }
             return messages;
         }
 
-        private void CheckUnit(EnterpriseUnit unit, string propertyName, Dictionary<string, string[]> messages)
+        private async Task CheckUnit(EnterpriseUnit unit, string propertyName, Dictionary<string, string[]> messages)
         {
             switch (propertyName)
             {
@@ -230,7 +231,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     {
                         if (!unit.LegalUnits.Any())
                         {
-                            if(!_context.LegalUnits.Any(c => c.EnterpriseUnitRegId == unit.RegId))
+                            if(!await _context.LegalUnits.AnyAsync(c => c.EnterpriseUnitRegId == unit.RegId))
                             {
                                 messages.Add(nameof(EnterpriseUnit.LegalUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                             }
@@ -239,14 +240,14 @@ namespace nscreg.Business.Analysis.StatUnit
                     break;
             }
         }
-        private void CheckUnit(EnterpriseGroup unit, string propertyName, Dictionary<string, string[]> messages)
+        private async Task CheckUnit(EnterpriseGroup unit, string propertyName, Dictionary<string, string[]> messages)
         {
             if (propertyName != nameof(Orphan.CheckEnterpriseGroupRelatedEnterprises)) return;
             if (CheckUnitStatus(unit))
             {
                 if (!unit.EnterpriseUnits.Any())
                 {
-                    if(!_context.EnterpriseUnits.Any(c => c.EntGroupId == unit.RegId))
+                    if(!await _context.EnterpriseUnits.AnyAsync(c => c.EntGroupId == unit.RegId))
                     {
                         messages.Add(nameof(EnterpriseGroup.EnterpriseUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                     }
@@ -255,7 +256,7 @@ namespace nscreg.Business.Analysis.StatUnit
             }
         }
 
-        private void CheckUnit(LegalUnit unit, string propertyName, Dictionary<string, string[]> messages)
+        private async Task CheckUnit(LegalUnit unit, string propertyName, Dictionary<string, string[]> messages)
         {
             switch (propertyName)
             {
@@ -270,7 +271,7 @@ namespace nscreg.Business.Analysis.StatUnit
                         }
                         else
                         {
-                            if (CheckUnitParentStatus(unit) == false)
+                            if (await CheckUnitParentStatus(unit) == false)
                             {
                                 messages.Add(nameof(LegalUnit.EnterpriseUnitRegId),
                                     new[] { nameof(Resource.AnalysisOrphanLegalUnitHaveParentWithInactiveStatus) });
@@ -286,7 +287,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     {
                         if (!unit.LocalUnits.Any())
                         {
-                            if (!_context.LocalUnits.Any(c => c.LegalUnitId == unit.RegId))
+                            if (!await _context.LocalUnits.AnyAsync(c => c.LegalUnitId == unit.RegId))
                             {
                                 messages.Add(nameof(LegalUnit.LocalUnits), new[] { nameof(Resource.AnalysisRelatedLocalUnits) });
                             }
@@ -297,7 +298,7 @@ namespace nscreg.Business.Analysis.StatUnit
             }
         }
 
-        private void CheckUnit(LocalUnit unit, string propertyName, Dictionary<string, string[]> messages)
+        private async Task CheckUnit(LocalUnit unit, string propertyName, Dictionary<string, string[]> messages)
         {
             if (propertyName != nameof(Orphan.CheckOrphanLocalUnits)) return;
             if (!CheckUnitStatus(unit)) return;
@@ -307,7 +308,7 @@ namespace nscreg.Business.Analysis.StatUnit
             }
             else
             {
-                if(CheckUnitParentStatus(unit) == false)
+                if(await CheckUnitParentStatus(unit) == false)
                 {
 
                     messages.Add(nameof(LocalUnit.LegalUnitId), new[] { nameof(Resource.AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus) });
@@ -321,14 +322,14 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>Dictionary of messages</returns>
-        public AnalysisResult CheckAll(IStatisticalUnit unit)
+        public async Task<AnalysisResult> CheckAll(IStatisticalUnit unit)
         {
             //AnalyzeTracer.CheckAll.Start();
             var messages = new Dictionary<string, string[]>();
             var summaryMessages = new List<string>();
 
             //AnalyzeTracer.CheckConnections.Start();
-            var connectionsResult = CheckConnections(unit);
+            var connectionsResult = await CheckConnections(unit);
             if (connectionsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.ConnectionRulesWarnings));
@@ -377,7 +378,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
 
             //AnalyzeTracer.GetDuplicateUnits.Start();
-            var potentialDuplicateUnits = GetDuplicateUnits(unit);
+            var potentialDuplicateUnits = await GetDuplicateUnits(unit);
             //AnalyzeTracer.GetDuplicateUnits.Stop();
             //AnalyzeTracer.countGetDuplicateUnits++;
 
@@ -437,7 +438,7 @@ namespace nscreg.Business.Analysis.StatUnit
                // AnalyzeTracer.countCheckCustomAnalysisChecks++;
             }
             // AnalyzeTracer.CheckOrphanUnits.Start();
-            var ophanUnitsResult = CheckOrphanUnits(unit);
+            var ophanUnitsResult = await CheckOrphanUnits(unit);
             if (ophanUnitsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.OrphanUnitsRulesWarnings));
@@ -487,13 +488,13 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>List of duplicates</returns>
-        private List<AnalysisDublicateResult> GetDuplicateUnits(IStatisticalUnit unit)
+        private async Task<List<AnalysisDublicateResult>> GetDuplicateUnits(IStatisticalUnit unit)
         {
             if (unit is EnterpriseGroup enterpriseGroup)
             {
                 var egPredicateBuilder = new AnalysisPredicateBuilder<EnterpriseGroup>();
                 var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup);
-                var enterpriseGroups = _context.EnterpriseGroups.Where(egPredicate).Select(x => new AnalysisDublicateResult()
+                var enterpriseGroups = await _context.EnterpriseGroups.Where(egPredicate).Select(x => new AnalysisDublicateResult()
                 {
                     Name = x.Name,
                     StatId = x.StatId,
@@ -503,12 +504,12 @@ namespace nscreg.Business.Analysis.StatUnit
                     TelephoneNo = x.TelephoneNo,
                     AddressId = x.AddressId,
                     EmailAddress = x.EmailAddress
-                }).ToList();
+                }).ToListAsync();
                 return enterpriseGroups;
             }
             var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
             var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
-            var units = _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate)
+            var units = await _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate)
                 .Select(x => new AnalysisDublicateResult
                 {
                     Name = x.Name,
@@ -520,7 +521,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     AddressId = x.AddressId,
                     EmailAddress = x.EmailAddress
                 })
-                .ToList();
+                .ToListAsync();
             return units;
         }
 
@@ -529,24 +530,24 @@ namespace nscreg.Business.Analysis.StatUnit
             return unit.UnitStatusId == 1 || unit.UnitStatusId == 2 || unit.UnitStatusId == 6 ||
                    unit.UnitStatusId == 9;
         }
-        private bool CheckUnitParentStatus(IStatisticalUnit unit)
+        private async Task<bool> CheckUnitParentStatus(IStatisticalUnit unit)
         {
             if (unit is LocalUnit lUnit)
             {
-                var parentUnit = _context.StatisticalUnits.FirstOrDefault(c => c.RegId == lUnit.LegalUnitId);
+                var parentUnit = await _context.StatisticalUnits.FirstOrDefaultAsync(c => c.RegId == lUnit.LegalUnitId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
 
             }
             if (unit is LegalUnit legUnit)
             {
-                var parentUnit = _context.StatisticalUnits.FirstOrDefault(c => c.RegId == legUnit.EnterpriseUnitRegId);
+                var parentUnit = await _context.StatisticalUnits.FirstOrDefaultAsync(c => c.RegId == legUnit.EnterpriseUnitRegId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
             }
             if (unit is EnterpriseUnit enUnit)
             {
-                var parentUnit = _context.StatisticalUnits.FirstOrDefault(c => c.RegId == enUnit.EntGroupId);
+                var parentUnit = await _context.StatisticalUnits.FirstOrDefaultAsync(c => c.RegId == enUnit.EntGroupId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
             }

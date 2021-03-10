@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -31,7 +32,7 @@ namespace nscreg.Server.Common.Helpers
                 CheckRegionOrActivityContains(userId, regionIds, activityCategoryList);
                 return true;
             }
-            catch (System.Exception e) when (e is BadRequestException)
+            catch (BadRequestException)
             {
                 return false;
             }

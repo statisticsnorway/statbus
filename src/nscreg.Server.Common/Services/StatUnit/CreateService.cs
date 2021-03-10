@@ -257,7 +257,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (_shouldAnalyze)
             {
                 IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-                var analyzeResult = analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
+                var analyzeResult = await analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
                 if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
             }
 
