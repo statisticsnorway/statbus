@@ -79,7 +79,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (unitForAnalysis == null) break;
                      await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
-            await _context.SaveChangesAsync();
         }
 
         /// <summary>
@@ -95,7 +94,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (unitForAnalysis == null) break;
                     await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
-            await _context.SaveChangesAsync();
         }
 
         private async Task AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
@@ -110,6 +108,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
                 ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
             });
+            await _context.SaveChangesAsync();
         }
     }
 }
