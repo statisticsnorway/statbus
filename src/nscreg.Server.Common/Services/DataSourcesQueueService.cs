@@ -218,7 +218,7 @@ namespace nscreg.Server.Common.Services
                             DataSourceId = data.DataSourceId,
                             Description = data.Description,
                             StartImportDate = today,
-                            EndImportDate = DateTime.Now,
+                            EndImportDate = null,
                             Status = DataSourceQueueStatuses.InQueue,
                         });
                     }
