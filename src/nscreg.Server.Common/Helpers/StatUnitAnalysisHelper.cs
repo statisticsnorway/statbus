@@ -26,10 +26,10 @@ namespace nscreg.Server.Common.Helpers
             return await _ctx.StatisticalUnits
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.Address)
-                .FirstOrDefaultAsync(su => !su.IsDeleted &&
+                .FirstOrDefaultAsync(su => !su.IsDeleted && 
                                       (_ctx.StatisticalUnitHistory
                                            .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
-                                       su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
+                                       su.StartPeriod >= analysisQueue.UserStartPeriod) &&
                                       !_ctx.AnalysisLogs
                                           .Any(al =>
                                               al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
@@ -49,7 +49,7 @@ namespace nscreg.Server.Common.Helpers
                 .FirstOrDefaultAsync(su => !su.IsDeleted &&
                     (_ctx.EnterpriseGroupHistory
                          .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||
-                     su.StartPeriod >= analysisQueue.UserStartPeriod && su.EndPeriod <= analysisQueue.UserEndPeriod) &&
+                     su.StartPeriod >= analysisQueue.UserStartPeriod) &&
                 !_ctx.AnalysisLogs
                     .Any(al =>
                         al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId)
