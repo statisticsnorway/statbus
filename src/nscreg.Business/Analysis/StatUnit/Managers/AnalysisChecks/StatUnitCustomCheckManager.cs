@@ -2,15 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using nscreg.Business.Analysis.Contracts;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using NLog;
-using nscreg.Data.Constants;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks
 {
@@ -50,14 +47,15 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks
         {
             var paramNames = GetParamNames(check.Query);
             var paramsCollection = paramNames.Select(x => new SqlParameter(x, GetValueOrDefault(x)));
+            var queryCommand = $"{check.Query} and RegId = {_statUnit.RegId}";
             using (var command = _context.Database.GetDbConnection().CreateCommand())
             {
-                command.CommandText = check.Query;
+                command.CommandText = queryCommand;
                 command.Parameters.AddRange(paramsCollection.ToArray());
                 _context.Database.OpenConnection();
                 using (var reader = command.ExecuteReader())
                 {
-                    List<string> values = new List<string>();
+                    var values = new List<string>();
                     while (reader.Read())
                     {
                         values.Add(reader.GetInt32(0).ToString());
