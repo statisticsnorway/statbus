@@ -12,6 +12,8 @@ using nscreg.Business.Analysis.Contracts;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Configuration;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using NLog;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -21,6 +23,7 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class AnalyzeService : IStatUnitAnalyzeService
     {
+        private static Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly NSCRegDbContext _context;
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
@@ -77,6 +80,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 var unitForAnalysis = await _helper.GetStatisticalUnitForAnalysis(analysisQueue);
                 if (unitForAnalysis == null) break;
+
+                _logger.Info($"Analyze {unitForAnalysis.UnitType} unit with Id = {unitForAnalysis.RegId}, StatId = {unitForAnalysis.StatId}, Name = {unitForAnalysis.Name}");
+
                      await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
         }
@@ -92,7 +98,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 var unitForAnalysis = await _helper.GetEnterpriseGroupForAnalysis(analysisQueue);
                 if (unitForAnalysis == null) break;
-                    await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
+
+                _logger.Info($"Analyze {unitForAnalysis.UnitType} with Id = {unitForAnalysis.RegId}, StatId = {unitForAnalysis.StatId}, Name = {unitForAnalysis.Name}");
+
+                await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
             }
         }
 
