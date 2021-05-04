@@ -19,6 +19,9 @@ namespace nscreg.Data.Configuration
             builder.HasOne(v => v.Activity).WithMany(v => v.ActivitiesUnits).HasForeignKey(v => v.ActivityId);
             builder.HasOne(v => v.Unit).WithMany(v => v.ActivitiesUnits).HasForeignKey(v => v.UnitId);
 
+            builder.HasIndex(x => x.UnitId).IsUnique(false);
+            builder.HasIndex(x => x.ActivityId).IsUnique(false);
+            
             builder.Property(p => p.ActivityId).HasColumnName("Activity_Id");
             builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
         }
