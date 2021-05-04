@@ -18,6 +18,7 @@ namespace nscreg.Data.Configuration
         {
             builder.HasKey(x => x.Id);
             builder.HasOne(x => x.AnalysisQueue).WithMany(x => x.AnalysisLogs).HasForeignKey(x => x.AnalysisQueueId);
+            builder.HasIndex(x => new { x.AnalysisQueueId, x.AnalyzedUnitId }).IsUnique(false);
         }
     }
 }
