@@ -21,6 +21,7 @@ namespace nscreg.Data.Configuration
             builder.Property(p => p.EnterpriseGroupId).HasColumnName("GroupUnit_Id");
 
             builder.HasIndex(x => new { x.PersonTypeId, x.UnitId, x.PersonId}).IsUnique();
+            builder.HasIndex(x => x.UnitId).IsUnique(false);
         }
     }
 }

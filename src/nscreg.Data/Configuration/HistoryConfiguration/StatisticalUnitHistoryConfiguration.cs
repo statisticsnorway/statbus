@@ -27,6 +27,7 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
             builder.Property(x => x.Name).HasMaxLength(400);
             builder.HasIndex(x => x.Name);
             builder.HasIndex(x => x.StartPeriod);
+            builder.HasIndex(x => new { x.StatId, x.EndPeriod }).IsUnique(false);
         }
     }
 }
