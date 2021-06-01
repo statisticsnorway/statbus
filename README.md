@@ -11,22 +11,10 @@ Statistical Business Registry (SBR)
 
 ## test servers / Credentials
 
-Staging (тестовая) 
-http://192.168.1.23:817/
-http://timelysoft.org:817/ - Внешка 
+Staging
+Http://url.goes.here
 
-http://192.168.1.23:888 - SQL Wallet
-http://timelysoft.org:888/  - SQL Wallet внешка
+Login
+username:
+password:
 
-Авторизация на сайте:
-admin
-123qwe
-
-Sql wallet авторизация:
-admin
-1234!Q2w
-
-RDP
-192.168.1.23
-Administrator
-1234!@QW
