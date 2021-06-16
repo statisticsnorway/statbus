@@ -1,22 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using EFCore.BulkExtensions;
+using Newtonsoft.Json;
+using NLog;
+using nscreg.Business.Analysis.Contracts;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Services.Contracts;
-using Newtonsoft.Json;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using nscreg.Business.Analysis.Contracts;
-using nscreg.Data.Constants;
-using nscreg.Utilities.Configuration;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using NLog;
-using System.Collections.Generic;
-using EFCore.BulkExtensions;
-using System.Diagnostics;
+using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -98,85 +96,75 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unitsForAnalysis = await _helper.GetStatisticalUnitsForAnalysis(analysisQueue, skipCount, takeCount);
             while (unitsForAnalysis.Any())
             {
-                var analysisLogs = new List<AnalysisLog>();
-
-                foreach(var x in unitsForAnalysis)
-                {
-                    var analyzeResult = await AnalyzeSingleStatUnit(x, analyzer);
-                    _logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
-
-                    analysisLogs.Add(new AnalysisLog
-                    {
-                        AnalysisQueueId = analysisQueue.Id,
-                        AnalyzedUnitId = x.RegId,
-                        AnalyzedUnitType = x.UnitType,
-                        IssuedAt = DateTime.Now,
-                        SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
-                        ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
-                    });
-                }
-                await _context.BulkInsertAsync(analysisLogs);
-
-                skipCount += unitsForAnalysis.Count();
+                await AnalyzeStatUnitsAndCreateLogs(analysisQueue, analyzer, unitsForAnalysis);
+                skipCount += unitsForAnalysis.Count;
                 unitsForAnalysis.Clear();
-
-                await BulkAnalyzeStatisticalUnits(analysisQueue, analyzer);
+                unitsForAnalysis = await _helper.GetStatisticalUnitsForAnalysis(analysisQueue, skipCount, takeCount);
             }
         }
 
-        /// <summary>
-        /// Enterprise groups analysis
-        /// </summary>
-        /// <param name="analysisQueue">Queue item</param>
-        /// <param name="analyzer">Stat unit analyzer</param>
-        private async Task AnalyzeEnterpriseGroups(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
+        private async Task AnalyzeStatUnitsAndCreateLogs(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer,
+            List<StatisticalUnit> unitsForAnalysis)
         {
-            while (true)
+            var analysisLogs = new List<AnalysisLog>();
+
+            foreach (var x in unitsForAnalysis)
             {
-                var unitForAnalysis = await _helper.GetEnterpriseGroupForAnalysis(analysisQueue);
-                if (unitForAnalysis == null) break;
+                var analyzeResult = await AnalyzeSingleStatUnit(x, analyzer);
+                _logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
 
-                _logger.Info($"Analyze {unitForAnalysis.UnitType} with Id = {unitForAnalysis.RegId}, StatId = {unitForAnalysis.StatId}, Name = {unitForAnalysis.Name}");
-
-                await AddAnalysisLogs(analysisQueue.Id, unitForAnalysis, analyzer);
+                analysisLogs.Add(new AnalysisLog
+                {
+                    AnalysisQueueId = analysisQueue.Id,
+                    AnalyzedUnitId = x.RegId,
+                    AnalyzedUnitType = x.UnitType,
+                    IssuedAt = DateTime.Now,
+                    SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
+                    ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
+                });
             }
+
+            await _context.BulkInsertAsync(analysisLogs);
         }
 
         /// <summary>
         /// Enterprise groups bulk analysis
         /// </summary>
-        /// <param name="analysisQueue">Queue item</param>
-        /// <param name="analyzer">Stat unit analyzer</param>
         private async Task BulkAnalyzeEnterpriseGroups(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
         {
             var skipCount = 0;
             var takeCount = 1000;
-            var unitForAnalysis = await _helper.GetEnterpriseGroupsForAnalysis(analysisQueue, skipCount, takeCount);
-            while (unitForAnalysis.Any())
+            var unitsForAnalysis = await _helper.GetEnterpriseGroupsForAnalysis(analysisQueue, skipCount, takeCount);
+            while (unitsForAnalysis.Any())
             {
-                var analysisLogs = new List<AnalysisLog>();
-                foreach (var x in unitForAnalysis)
-                {
-                    var analyzeResult = await AnalyzeSingleStatUnit(x, analyzer);
-                    _logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
-
-                    analysisLogs.Add(new AnalysisLog
-                    {
-                        AnalysisQueueId = analysisQueue.Id,
-                        AnalyzedUnitId = x.RegId,
-                        AnalyzedUnitType = x.UnitType,
-                        IssuedAt = DateTime.Now,
-                        SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
-                        ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
-                    });
-                }
-                await _context.BulkInsertAsync(analysisLogs);
-
-                skipCount += unitForAnalysis.Count();
-                unitForAnalysis.Clear();
-
-                await BulkAnalyzeStatisticalUnits(analysisQueue, analyzer);
+                await AnalyzeEnterpriseGroupsAndCreateLogs(analysisQueue, analyzer, unitsForAnalysis);
+                skipCount += unitsForAnalysis.Count;
+                unitsForAnalysis.Clear();
+                unitsForAnalysis = await _helper.GetEnterpriseGroupsForAnalysis(analysisQueue, skipCount, takeCount);
             }
+        }
+
+        private async Task AnalyzeEnterpriseGroupsAndCreateLogs(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer,
+            List<EnterpriseGroup> unitsForAnalysis)
+        {
+            var analysisLogs = new List<AnalysisLog>();
+            foreach (var x in unitsForAnalysis)
+            {
+                var analyzeResult = await AnalyzeSingleStatUnit(x, analyzer);
+                _logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
+
+                analysisLogs.Add(new AnalysisLog
+                {
+                    AnalysisQueueId = analysisQueue.Id,
+                    AnalyzedUnitId = x.RegId,
+                    AnalyzedUnitType = x.UnitType,
+                    IssuedAt = DateTime.Now,
+                    SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
+                    ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
+                });
+            }
+
+            await _context.BulkInsertAsync(analysisLogs);
         }
 
         private async Task AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)

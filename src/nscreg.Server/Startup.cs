@@ -31,8 +31,12 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
+using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
+using MySql.Data.MySqlClient;
+using Npgsql;
 using static nscreg.Server.Core.StartupConfiguration;
 using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 
@@ -115,6 +119,7 @@ namespace nscreg.Server
             var reportingSettingsProvider = Configuration
                 .GetSection(nameof(ReportingSettings))
                 .Get<ReportingSettings>();
+
             using (var serviceScope = app.ApplicationServices.CreateScope())
             {
                 var dbContext = serviceScope.ServiceProvider.GetService<NSCRegDbContext>();
@@ -127,6 +132,7 @@ namespace nscreg.Server
                 {
                     dbContext.Database.SetCommandTimeout(600);
                     dbContext.Database.Migrate();
+                    EvolveMigrate();
                 }
 
                 if (CurrentEnvironment.IsStaging()) {NscRegDbInitializer.RecreateDb(dbContext);}
@@ -136,12 +142,49 @@ namespace nscreg.Server
                 NscRegDbInitializer.EnsureRoles(dbContext);
                 NscRegDbInitializer.EnsureEntGroupTypes(dbContext);
                 NscRegDbInitializer.EnsureEntGroupRoles(dbContext);
-               
+
             }
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
 
+        }
+
+
+        private const string MsSqlEvolveMigrationScriptsFolderName = "MsSql";
+        private const string PostgreSqlEvolveMigrationScriptsFolderName = "PostgreSql";
+        private const string MySqlEvolveMigrationScriptsFolderName = "MySql";
+        private void EvolveMigrate()
+        {
+            var connectionSettings = Configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            var connectionString = connectionSettings.ConnectionString;
+            DbConnection connection;
+
+            string migrationFolderName;
+            switch (connectionSettings.ParseProvider())
+            {
+                case ConnectionProvider.SqlServer:
+                    migrationFolderName = MsSqlEvolveMigrationScriptsFolderName;
+                    connection = new SqlConnection(connectionString);
+                    break;
+                case ConnectionProvider.PostgreSql:
+                    migrationFolderName = PostgreSqlEvolveMigrationScriptsFolderName;
+                    connection = new NpgsqlConnection(connectionString);
+                    break;
+                case ConnectionProvider.MySql:
+                    migrationFolderName = MySqlEvolveMigrationScriptsFolderName;
+                    connection = new MySqlConnection(connectionString);
+                    break;
+                default:
+                    throw new Exception( "Invalid connection provider");
+            }
+            var evolve = new Evolve.Evolve(connection, Console.WriteLine)
+            {
+                Locations = new[] {$"EvolveMigrations/{migrationFolderName}"},
+                IsEraseDisabled = true,
+                CommandTimeout = null
+            };
+            evolve.Migrate();
         }
 
         /// <summary>
@@ -206,7 +249,7 @@ namespace nscreg.Server
                 .AddViewLocalization()
                 .AddViews();
 
-            
+
         }
 
         /// <summary>
