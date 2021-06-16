@@ -14,7 +14,7 @@ namespace nscreg.Data
     /// <summary>
     /// DB Context Configuration Class
     /// </summary>
-    public class DbContextHelper: IDesignTimeDbContextFactory<NSCRegDbContext>
+    public class DbContextHelper : IDesignTimeDbContextFactory<NSCRegDbContext>
     {
         public DbContextHelper(){}
         /// <summary>
@@ -25,19 +25,23 @@ namespace nscreg.Data
                 op =>
                 {
                     var connectionSettings = config.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+                    var connectionString = connectionSettings.ConnectionString;
                     switch (connectionSettings.ParseProvider())
                     {
                         case ConnectionProvider.SqlServer:
-                            op.UseSqlServer(connectionSettings.ConnectionString,
-                                op2 => op2.MigrationsAssembly("nscreg.Data").CommandTimeout(300));
+                            op.UseSqlServer(connectionString,
+                                op2 => op2.MigrationsAssembly("nscreg.Data")
+                                    .CommandTimeout(300));
                             break;
                         case ConnectionProvider.PostgreSql:
-                            op.UseNpgsql(connectionSettings.ConnectionString,
-                                op2 => op2.MigrationsAssembly("nscreg.Data").CommandTimeout(300));
+                            op.UseNpgsql(connectionString,
+                                op2 => op2.MigrationsAssembly("nscreg.Data")
+                                    .CommandTimeout(300));
                             break;
                         case ConnectionProvider.MySql:
-                            op.UseMySql(connectionSettings.ConnectionString,
-                                op2 => op2.MigrationsAssembly("nscreg.Data").CommandTimeout(300));
+                            op.UseMySql(connectionString,
+                                op2 => op2.MigrationsAssembly("nscreg.Data")
+                                    .CommandTimeout(300));
                             break;
                         default:
                             op.UseSqlite(new SqliteConnection("DataSource=:memory:"));

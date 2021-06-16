@@ -24,30 +24,6 @@ using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Business.Analysis.StatUnit
 {
-    public class AnalyzeTracer
-    {
-        public static Stopwatch CheckAll = new Stopwatch();
-        public static Stopwatch CheckConnections = new Stopwatch();
-        public static Stopwatch CheckMandatoryFields = new Stopwatch();
-        public static Stopwatch CheckCalculationFields = new Stopwatch();
-        public static Stopwatch GetDuplicateUnits = new Stopwatch();
-        public static Stopwatch CheckDuplicates = new Stopwatch();
-        public static Stopwatch CheckCustomAnalysisChecks = new Stopwatch();
-        public static Stopwatch CheckOrphanUnits = new Stopwatch();
-
-        public static int countCheckAll = 0;
-        public static int countCheckConnections = 0;
-        public static int countCheckMandatoryFields = 0;
-        public static int countCheckCalculationFields = 0;
-        public static int countGetDuplicateUnits = 0;
-        public static int countCheckDuplicates = 0;
-        public static int countCheckCustomAnalysisChecks = 0;
-        public static int countCheckOrphanUnits = 0;
-    }
-
-
-
-
     /// <inheritdoc />
     /// <summary>
     /// Statistical unit analyzer
@@ -96,7 +72,7 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
                             new[] { nameof(Resource.AnalysisRelatedPersons) });
                     }
-                   
+
                 }
             }
 
@@ -108,7 +84,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     {
                         messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
                     }
-                } 
+                }
             }
 
             if (_analysisRules.Connections.CheckAddress && _isDataSourceUpload == false && unit.Address == null)
@@ -252,7 +228,7 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(nameof(EnterpriseGroup.EnterpriseUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                     }
                 }
-                    
+
             }
         }
 
@@ -324,21 +300,16 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>Dictionary of messages</returns>
         public async Task<AnalysisResult> CheckAll(IStatisticalUnit unit)
         {
-            //AnalyzeTracer.CheckAll.Start();
             var messages = new Dictionary<string, string[]>();
             var summaryMessages = new List<string>();
 
-            //AnalyzeTracer.CheckConnections.Start();
             var connectionsResult = await CheckConnections(unit);
             if (connectionsResult.Any())
             {
                 summaryMessages.Add(nameof(Resource.ConnectionRulesWarnings));
                 messages.AddRange(connectionsResult);
             }
-            // AnalyzeTracer.CheckConnections.Stop();
-            //AnalyzeTracer.countCheckConnections++;
 
-            //AnalyzeTracer.CheckMandatoryFields.Start();
             var mandatoryFieldsResult = CheckMandatoryFields(unit);
             if (mandatoryFieldsResult.Any())
             {
@@ -354,10 +325,7 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(d.Key, d.Value);
                 });
             }
-            // AnalyzeTracer.CheckMandatoryFields.Stop();
-            //AnalyzeTracer.countCheckMandatoryFields++;
 
-           //AnalyzeTracer.CheckCalculationFields.Start();
             var calculationFieldsResult = CheckCalculationFields(unit);
             if (calculationFieldsResult.Any())
             {
@@ -373,18 +341,11 @@ namespace nscreg.Business.Analysis.StatUnit
                         messages.Add(d.Key, d.Value);
                 });
             }
-            //AnalyzeTracer.CheckCalculationFields.Stop();
-           // AnalyzeTracer.countCheckCalculationFields++;
 
-
-            //AnalyzeTracer.GetDuplicateUnits.Start();
             var potentialDuplicateUnits = await GetDuplicateUnits(unit);
-            //AnalyzeTracer.GetDuplicateUnits.Stop();
-            //AnalyzeTracer.countGetDuplicateUnits++;
 
             if (potentialDuplicateUnits.Any())
             {
-               // AnalyzeTracer.CheckDuplicates.Start();
                 var duplicatesResult = CheckDuplicates(unit, potentialDuplicateUnits);
                 if (duplicatesResult.Any())
                 {
@@ -401,13 +362,10 @@ namespace nscreg.Business.Analysis.StatUnit
                             messages.Add(d.Key, d.Value);
                     });
                 }
-               // AnalyzeTracer.CheckDuplicates.Stop();
-                //AnalyzeTracer.countCheckDuplicates++;
             }
 
             if (!_isSkipCustomCheck)
             {
-               // AnalyzeTracer.CheckCustomAnalysisChecks.Start();
                 var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
                 if (additionalAnalysisCheckResult.Any())
                 {
@@ -450,17 +408,6 @@ namespace nscreg.Business.Analysis.StatUnit
             // AnalyzeTracer.CheckAll.Stop();
             // AnalyzeTracer.countCheckAll++;
 
-//            Debug.WriteLine($@"
-//CheckAll {AnalyzeTracer.CheckAll.ElapsedMilliseconds/AnalyzeTracer.countCheckAll : 0.00} ms \r\n
-//  CheckConnections {(double)AnalyzeTracer.CheckConnections.ElapsedMilliseconds/AnalyzeTracer.countCheckConnections : 0.00} ms \r\n
-//  CheckMandatoryFields {(double)AnalyzeTracer.CheckMandatoryFields.ElapsedMilliseconds/AnalyzeTracer.countCheckMandatoryFields : 0.00} ms \r\n
-//  CheckCalculationFields {(double)AnalyzeTracer.CheckCalculationFields.ElapsedMilliseconds/AnalyzeTracer.countCheckCalculationFields : 0.00} ms \r\n
-//  GetDuplicateUnits {(double)AnalyzeTracer.GetDuplicateUnits.ElapsedMilliseconds/AnalyzeTracer.countGetDuplicateUnits : 0.00} ms \r\n
-//  CheckDuplicates {(double)AnalyzeTracer.CheckDuplicates.ElapsedMilliseconds/AnalyzeTracer.countCheckDuplicates : 0.00} ms \r\n
-//  CheckCustomAnalysisChecks {(double)AnalyzeTracer.CheckCustomAnalysisChecks.ElapsedMilliseconds/AnalyzeTracer.countCheckCustomAnalysisChecks : 0.00} ms \r\n
-//  CheckOrphanUnits {(double)AnalyzeTracer.CheckOrphanUnits.ElapsedMilliseconds/AnalyzeTracer.countCheckOrphanUnits : 0.00} ms \r\n
-//");
-
             return new AnalysisResult
             {
                 Name = unit.Name,
@@ -494,7 +441,9 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 var egPredicateBuilder = new AnalysisPredicateBuilder<EnterpriseGroup>();
                 var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup);
-                var enterpriseGroups = await _context.EnterpriseGroups.Where(egPredicate).Select(x => new AnalysisDublicateResult()
+                var enterpriseGroups = await _context.EnterpriseGroups
+                    .Where(egPredicate)
+                    .Select(x => new AnalysisDublicateResult
                 {
                     Name = x.Name,
                     StatId = x.StatId,
@@ -509,7 +458,9 @@ namespace nscreg.Business.Analysis.StatUnit
             }
             var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
             var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
-            var units = await _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate)
+            var units = await _context.StatisticalUnits
+                .Include(x => x.PersonsUnits)
+                .Where(suPredicate)
                 .Select(x => new AnalysisDublicateResult
                 {
                     Name = x.Name,

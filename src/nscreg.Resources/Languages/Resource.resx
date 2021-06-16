@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of "resheader" rows that contain simple 
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -126,16 +126,28 @@
   <data name="RememberMe" xml:space="preserve">
     <value>Remember me</value>
   </data>
+  <data name="LoginInputButton" xml:space="preserve">
+    <value>Log in</value>
+  </data>
+  <data name="LoginInputLogin" xml:space="preserve">
+    <value>Login</value>
+  </data>
+  <data name="LoginInputPassword" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="LoginInputRemember" xml:space="preserve">
+    <value>Remember</value>
+  </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
   </data>
-  <data name="LanguageMain" xml:space="preserve">
+  <data name="LanguageEnglish" xml:space="preserve">
     <value>English</value>
   </data>
-  <data name="Language1" xml:space="preserve">
+  <data name="LanguageRussian" xml:space="preserve">
     <value>Russian</value>
   </data>
-  <data name="Language2" xml:space="preserve">
+  <data name="LanguageKyrgyz" xml:space="preserve">
     <value>Kyrgyz</value>
   </data>
   <data name="Account" xml:space="preserve">
@@ -163,7 +175,7 @@
     <value>Roles list</value>
   </data>
   <data name="StatUnitsList" xml:space="preserve">
-    <value>Stat units list</value>
+    <value>List of statistical units</value>
   </data>
   <data name="LoginError" xml:space="preserve">
     <value>Login is already taken</value>
@@ -187,40 +199,40 @@
     <value>Current password is wrong</value>
   </data>
   <data name="PageError" xml:space="preserve">
-    <value>Page num can not  be negative</value>
+    <value>Page number can not  be negative</value>
   </data>
   <data name="PageSizeError" xml:space="preserve">
     <value>Page size must be greater than 0</value>
   </data>
   <data name="LastChangeFromError" xml:space="preserve">
-    <value>Last change from value is later than 'last change to'</value>
+    <value>'Last change from' value is later than 'last change to'</value>
   </data>
   <data name="LastChangeToError" xml:space="preserve">
-    <value>Last change to value is earlier than 'last change from'</value>
+    <value>'Last change to' value is earlier than 'last change from'</value>
   </data>
   <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
-    <value>Number of employees from shouldn't be negative</value>
+    <value>'Number of employees from' shouldn't be negative</value>
   </data>
   <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
-    <value>Number of employees from is larger than 'number of employees to'</value>
+    <value>'Number of employees from' is larger than 'number of employees to'</value>
   </data>
   <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
-    <value>Number of employees to shouldn't be negative</value>
+    <value>'Number of employees to' shouldn't be negative</value>
   </data>
   <data name="EmployeesNumberToErrorLess" xml:space="preserve">
-    <value>Number of employees to is less than 'number of employees from'</value>
+    <value>'Number of employees to' is less than 'number of employees from'</value>
   </data>
   <data name="TurnoverFromErrorNegative" xml:space="preserve">
-    <value>Turnover from shouldn't be negative</value>
+    <value>'Turnover from' shouldn't be negative</value>
   </data>
   <data name="TurnoverFromErrorLarger" xml:space="preserve">
-    <value>Turnover from is larger than 'turnover to'</value>
+    <value>'Turnover from' is larger than 'turnover to'</value>
   </data>
   <data name="TurnoverToErrorNegative" xml:space="preserve">
-    <value>Turnover to shouldn't be negative</value>
+    <value>'Turnover to' shouldn't be negative</value>
   </data>
   <data name="TurnoverToErrorLess" xml:space="preserve">
-    <value>Turnover to is less than 'turnover from'</value>
+    <value>'Turnover to' is less than 'turnover from'</value>
   </data>
   <data name="RoleNotFound" xml:space="preserve">
     <value>Role not found</value>
@@ -238,37 +250,34 @@
     <value>Enterprise group is not supported yet</value>
   </data>
   <data name="UnknownStatUnitTypeError" xml:space="preserve">
-    <value>Unknown statistic unit type</value>
+    <value>Unknown statistical unit type</value>
   </data>
   <data name="StatisticalUnitNotExistError" xml:space="preserve">
     <value>Statistical unit doesn't exist</value>
   </data>
-  <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
-    <value>Error: Address already exists in data base for</value>
-  </data>
   <data name="CreateLegalUnitError" xml:space="preserve">
-    <value>Error while create Legal Unit</value>
+    <value>Error while creating Legal Unit</value>
   </data>
   <data name="CreateLocalUnitError" xml:space="preserve">
-    <value>Error while create Local Unit</value>
+    <value>Error while creating Local Unit</value>
   </data>
   <data name="CreateEnterpriseUnitError" xml:space="preserve">
-    <value>Error while create Enterprise Unit</value>
+    <value>Error while creating Enterprise</value>
   </data>
   <data name="CreateEnterpriseGroupError" xml:space="preserve">
-    <value>Error while create Enterprise Group</value>
+    <value>Error while creating Enterprise Group</value>
   </data>
   <data name="UpdateLegalUnitError" xml:space="preserve">
-    <value>Error while update Legal Unit</value>
+    <value>Error while updating Legal Unit</value>
   </data>
   <data name="UpdateLocalUnitError" xml:space="preserve">
-    <value>Error while update Local Unit</value>
+    <value>Error while updating Local Unit</value>
   </data>
   <data name="UpdateEnterpriseUnitError" xml:space="preserve">
-    <value>Error while update Enterprise Unit</value>
+    <value>Error while updating Enterprise</value>
   </data>
   <data name="UpdateEnterpriseGroupError" xml:space="preserve">
-    <value>Error while update Enterprise Group</value>
+    <value>Error while updating Enterprise Group</value>
   </data>
   <data name="UserNotFoundError" xml:space="preserve">
     <value>User not found</value>
@@ -310,7 +319,7 @@
     <value>Phone</value>
   </data>
   <data name="AboutText" xml:space="preserve">
-    <value>nsreg</value>
+    <value>SBR</value>
   </data>
   <data name="HomeText" xml:space="preserve">
     <value>Welcome</value>
@@ -322,7 +331,7 @@
     <value>Back to home page</value>
   </data>
   <data name="CreateNewRole" xml:space="preserve">
-    <value>Creation new role</value>
+    <value>Creation of new role</value>
   </data>
   <data name="RoleName" xml:space="preserve">
     <value>Role name</value>
@@ -346,7 +355,7 @@
     <value>Select or search system functions</value>
   </data>
   <data name="Submit" xml:space="preserve">
-    <value>Submit</value>
+    <value>Save</value>
   </data>
   <data name="EditRole" xml:space="preserve">
     <value>Editing role</value>
@@ -355,7 +364,7 @@
     <value>Delete role</value>
   </data>
   <data name="AreYouSure" xml:space="preserve">
-    <value>Are you sure</value>
+    <value>Are you sure?</value>
   </data>
   <data name="RoleList_EditRole" xml:space="preserve">
     <value>Edit role</value>
@@ -379,7 +388,7 @@
     <value>Total pages</value>
   </data>
   <data name="DeleteStatUnitMessage" xml:space="preserve">
-    <value>Delete Statistic unit</value>
+    <value>Delete Statistical unit</value>
   </data>
   <data name="Total" xml:space="preserve">
     <value>Total</value>
@@ -481,13 +490,13 @@
     <value>Registration id</value>
   </data>
   <data name="RegIdDate" xml:space="preserve">
-    <value>Registration id date</value>
+    <value>Registration date in register</value>
   </data>
   <data name="StatId" xml:space="preserve">
     <value>Statistical id</value>
   </data>
   <data name="StatIdDate" xml:space="preserve">
-    <value>Statistical id date</value>
+    <value>Date of registration at statistical office</value>
   </data>
   <data name="TaxRegId" xml:space="preserve">
     <value>Tax registration id</value>
@@ -508,7 +517,7 @@
     <value>Data source</value>
   </data>
   <data name="RefNo" xml:space="preserve">
-    <value>Reference№</value>
+    <value>Reference number (for paper questionnaire)</value>
   </data>
   <data name="ShortName" xml:space="preserve">
     <value>Short name</value>
@@ -517,7 +526,7 @@
     <value>Address</value>
   </data>
   <data name="TelephoneNo" xml:space="preserve">
-    <value>Telephone number</value>
+    <value>Telephone</value>
   </data>
   <data name="WebAddress" xml:space="preserve">
     <value>Web address</value>
@@ -559,13 +568,13 @@
     <value>Contact person</value>
   </data>
   <data name="Employees" xml:space="preserve">
-    <value>Employees</value>
+    <value>Number of Employees</value>
   </data>
   <data name="NumOfPeopleEmp" xml:space="preserve">
-    <value>Number of people</value>
+    <value>Number of people employed</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
-    <value>Employees year</value>
+    <value>Validity year of Employees number</value>
   </data>
   <data name="EmployeesDate" xml:space="preserve">
     <value>Employees date</value>
@@ -574,10 +583,10 @@
     <value>Turnover</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
-    <value>Turnover Year</value>
+    <value>Year of turnover validity</value>
   </data>
   <data name="TurnoverDate" xml:space="preserve">
-    <value>Turnover date</value>
+    <value>Date of turnover information</value>
   </data>
   <data name="Status" xml:space="preserve">
     <value>Status</value>
@@ -598,10 +607,10 @@
     <value>Is deleted</value>
   </data>
   <data name="EntGroupId" xml:space="preserve">
-    <value>Enterprise group statistical id</value>
+    <value>Enterprise group id</value>
   </data>
   <data name="EntGroupIdDate" xml:space="preserve">
-    <value>Enterprise group statistical id date</value>
+    <value>Enterprise group id date</value>
   </data>
   <data name="Commercial" xml:space="preserve">
     <value>Commercial</value>
@@ -610,46 +619,43 @@
     <value>Institutional sector code</value>
   </data>
   <data name="TotalCapital" xml:space="preserve">
-    <value>Total capital</value>
+    <value>Total capital (in thous. som)</value>
   </data>
   <data name="MunCapitalShare" xml:space="preserve">
-    <value>Mun capital share</value>
+    <value>Municipal capital share (in thous. som)</value>
   </data>
   <data name="StateCapitalShare" xml:space="preserve">
-    <value>State capital share</value>
+    <value>State capital share (in thous. som)</value>
   </data>
   <data name="PrivCapitalShare" xml:space="preserve">
-    <value>Private capital share</value>
+    <value>Private capital share (in thous. som)</value>
   </data>
   <data name="ForeignCapitalShare" xml:space="preserve">
-    <value>Foreign capital share</value>
+    <value>Foreign capital share (in thous. som)</value>
   </data>
   <data name="ForeignCapitalCurrency" xml:space="preserve">
     <value>Foreign capital currency</value>
   </data>
   <data name="ActualMainActivity1" xml:space="preserve">
-    <value>Actual main activity1</value>
-  </data>
-  <data name="ActualMainActivity2" xml:space="preserve">
-    <value>Actual main activity 2</value>
+    <value>Main Activity</value>
   </data>
   <data name="ActualMainActivityDate" xml:space="preserve">
-    <value>Actual main activity date</value>
+    <value>Date of Main Activity</value>
   </data>
   <data name="EntGroupRole" xml:space="preserve">
     <value>Enterprise  group role</value>
   </data>
   <data name="LegalUnitId" xml:space="preserve">
-    <value>Legal unit id</value>
+    <value>Legal unit id (parent ID of local unit)</value>
   </data>
   <data name="LegalUnitIdDate" xml:space="preserve">
     <value>Legal unit id date</value>
   </data>
   <data name="EnterpriseRegId" xml:space="preserve">
-    <value>Enterprise registration id</value>
+    <value>Enterprise registration id (parent ID of legal unit)</value>
   </data>
   <data name="EntRegIdDate" xml:space="preserve">
-    <value>Enterprise unit statistical id date</value>
+    <value>Enterprise registration date</value>
   </data>
   <data name="Founders" xml:space="preserve">
     <value>Founders</value>
@@ -676,70 +682,74 @@
     <value>Enterprise group</value>
   </data>
   <data name="ViewLegalUnit" xml:space="preserve">
-    <value>ViewLegalUnit</value>
+    <value>View legal unit</value>
   </data>
   <data name="ViewLocalUnit" xml:space="preserve">
-    <value>ViewLocalUnit</value>
+    <value>View local unit</value>
   </data>
   <data name="ViewEnterpriseUnit" xml:space="preserve">
-    <value>ViewEnterpriseUnit</value>
+    <value>View enterprise</value>
   </data>
   <data name="ViewEnterpriseGroup" xml:space="preserve">
-    <value>ViewEnterpriseGroup</value>
+    <value>View enterprise group</value>
   </data>
   <data name="Type" xml:space="preserve">
     <value>Type</value>
   </data>
   <data name="CreateStatUnit" xml:space="preserve">
-    <value>CreateStatUnit</value>
+    <value>Create statistical unit</value>
     <comment>CreateStatUnit</comment>
   </data>
   <data name="EditButton" xml:space="preserve">
     <value>Edit</value>
   </data>
   <data name="EnterpriseUnitRegId" xml:space="preserve">
-    <value>Enterprise unit statistical id</value>
+    <value>registration id of enterprise</value>
   </data>
   <data name="AddressId" xml:space="preserve">
-    <value>AddressId</value>
+    <value>Address id for visit (as registered)</value>
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>Email address</value>
     <comment>EmailAddress</comment>
   </data>
   <data name="ActualAddressId" xml:space="preserve">
-    <value>ActualAddressId</value>
+    <value>Id of actual address</value>
   </data>
   <data name="LegalUnits" xml:space="preserve">
-    <value>LegalUnits</value>
+    <value>Legal units</value>
   </data>
   <data name="LocalUnits" xml:space="preserve">
     <value>Local units</value>
   </data>
+  <data name="EntGroupType" xml:space="preserve">
+    <value>Enterprise group type</value>
+    <comment>EntGroupType</comment>
+  </data>
   <data name="EmployeesFte" xml:space="preserve">
-    <value>EmployeesFte</value>
+    <value>Employees Full time equivalent</value>
   </data>
   <data name="EnterpriseUnits" xml:space="preserve">
-    <value>Enterprise units</value>
+    <value>enterprises</value>
   </data>
   <data name="LiqDateStart" xml:space="preserve">
-    <value>Liquidation date start</value>
+    <value>Liquidation start date</value>
     <comment>LiqDateStart</comment>
   </data>
   <data name="LiqDateEnd" xml:space="preserve">
-    <value>Liquidation date end</value>
+    <value>Liquidation end date</value>
     <comment>LiqDateEnd</comment>
   </data>
   <data name="EndPeriod" xml:space="preserve">
-    <value>EndPeriod</value>
+    <value>End Period</value>
     <comment>EndPeriod</comment>
   </data>
   <data name="RegMainActivityId" xml:space="preserve">
-    <value>RegMainActivityId</value>
+    <value>Registration main activity code</value>
     <comment>RegMainActivityId</comment>
   </data>
   <data name="StartPeriod" xml:space="preserve">
-    <value>StartPeriod</value>
+    <value>Start period</value>
     <comment>StartPeriod</comment>
   </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
@@ -764,37 +774,37 @@
     <value>View my account</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
-    <value>AccountEdit</value>
+    <value>Edit Account</value>
   </data>
   <data name="RoleView" xml:space="preserve">
-    <value>RoleView</value>
+    <value>view role</value>
   </data>
   <data name="RoleListView" xml:space="preserve">
-    <value>RoleListView</value>
+    <value>view list of roles</value>
   </data>
   <data name="RoleCreate" xml:space="preserve">
-    <value>RoleCreate</value>
+    <value>Create Role</value>
   </data>
   <data name="RoleEdit" xml:space="preserve">
-    <value>RoleEdit</value>
+    <value>Edit role</value>
   </data>
   <data name="RoleDelete" xml:space="preserve">
-    <value>RoleDelete</value>
+    <value>Delete role</value>
   </data>
   <data name="UserView" xml:space="preserve">
-    <value>UserView</value>
+    <value>View user</value>
   </data>
   <data name="UserListView" xml:space="preserve">
-    <value>UserListView</value>
+    <value>view user list</value>
   </data>
   <data name="UserCreate" xml:space="preserve">
-    <value>UserCreate</value>
+    <value>Create user</value>
   </data>
   <data name="UserEdit" xml:space="preserve">
-    <value>UserEdit</value>
+    <value>Edit user</value>
   </data>
   <data name="UserDelete" xml:space="preserve">
-    <value>UserDelete</value>
+    <value>Delete user</value>
   </data>
   <data name="StatUnitView" xml:space="preserve">
     <value>Statistical Unit View</value>
@@ -812,10 +822,10 @@
     <value>Statistical Unit Delete</value>
   </data>
   <data name="Parrent" xml:space="preserve">
-    <value>Parrent</value>
+    <value>Parent</value>
   </data>
   <data name="ParrentId" xml:space="preserve">
-    <value>ParrentId</value>
+    <value>Parent ID</value>
   </data>
   <data name="IncorrectIntegerValue" xml:space="preserve">
     <value>Value can't be less than 0</value>
@@ -847,9 +857,6 @@
   <data name="RegionNotExistsError" xml:space="preserve">
     <value>Region Id doesn't exists in database</value>
   </data>
-  <data name="RegionDeleteError" xml:space="preserve">
-    <value>Can't delete Region, possible is it using by user</value>
-  </data>
   <data name="AdministrativeTools" xml:space="preserve">
     <value>Administrative tools</value>
   </data>
@@ -858,6 +865,9 @@
   </data>
   <data name="RegionAdd" xml:space="preserve">
     <value>Add new region</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Delete region</value>
   </data>
   <data name="Regions" xml:space="preserve">
     <value>Regions</value>
@@ -902,7 +912,7 @@
     <value>Unit</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
-    <value>Name region is mandatory field</value>
+    <value>Name of region is a mandatory field</value>
   </data>
   <data name="RoleNamePlaceholder" xml:space="preserve">
     <value>Role name</value>
@@ -914,13 +924,13 @@
     <value>Field is required</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>Name is required</value>
+    <value>Field 'Name' is required</value>
   </data>
   <data name="CurrentPasswordIsRequired" xml:space="preserve">
-    <value>Current password is required</value>
+    <value>Field 'Current password' is required</value>
   </data>
   <data name="EmailIsRequired" xml:space="preserve">
-    <value>Email is required</value>
+    <value>Field 'Email' is required</value>
   </data>
   <data name="EmailValueRequired" xml:space="preserve">
     <value>Email value required</value>
@@ -929,7 +939,7 @@
     <value>Field is required</value>
   </data>
   <data name="EnterpriseGroupIsRequired" xml:space="preserve">
-    <value>Enterprise group is required</value>
+    <value>Field is required</value>
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
@@ -950,7 +960,7 @@
     <value>Home</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
-    <value>Name is required</value>
+    <value>Field 'Name' is required</value>
   </data>
   <data name="route_account" xml:space="preserve">
     <value>Account</value>
@@ -960,9 +970,6 @@
   </data>
   <data name="route_about" xml:space="preserve">
     <value>About</value>
-  </data>
-  <data name="route_statunits" xml:space="preserve">
-    <value>StatUnits</value>
   </data>
   <data name="route_roles" xml:space="preserve">
     <value>Roles</value>
@@ -995,7 +1002,7 @@
     <value>Activity type</value>
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
-    <value>Employees number</value>
+    <value>Number of employees</value>
   </data>
   <data name="TableNoRecords" xml:space="preserve">
     <value>No records to display</value>
@@ -1052,13 +1059,13 @@
     <value>Year</value>
   </data>
   <data name="ActivityPrimary" xml:space="preserve">
-    <value>Primary actual</value>
+    <value>Primary Activity</value>
   </data>
   <data name="ActivitySecondary" xml:space="preserve">
-    <value>Secondary</value>
+    <value>Secondary Activity</value>
   </data>
   <data name="ActivityAncilliary" xml:space="preserve">
-    <value>Ancilliary</value>
+    <value>Ancilliary activity</value>
   </data>
   <data name="StatUnitActivityDate" xml:space="preserve">
     <value>Activity registration date</value>
@@ -1113,9 +1120,6 @@
   </data>
   <data name="ActiveUsers" xml:space="preserve">
     <value>Active Users</value>
-  </data>
-  <data name="AddressDetails" xml:space="preserve">
-    <value>Address Details</value>
   </data>
   <data name="Addresses" xml:space="preserve">
     <value>Addresses</value>
@@ -1223,7 +1227,7 @@
     <value>Total changes</value>
   </data>
   <data name="DataSourceNameExists" xml:space="preserve">
-    <value>Data source name is taken</value>
+    <value>Data source name already exists</value>
   </data>
   <data name="DataSourceNameIsRequired" xml:space="preserve">
     <value>Data source name is required</value>
@@ -1309,9 +1313,6 @@
   <data name="RegionCode" xml:space="preserve">
     <value>Region code</value>
   </data>
-  <data name="AdminstrativeCenter" xml:space="preserve">
-    <value>Administrative center</value>
-  </data>
   <data name="DropZoneLabel" xml:space="preserve">
     <value>Drag and drop your files here or pick them from your computer</value>
   </data>
@@ -1388,10 +1389,10 @@
     <value>No Files Attached</value>
   </data>
   <data name="CantStoreFile" xml:space="preserve">
-    <value>Can't Store File</value>
+    <value>Can't save file</value>
   </data>
   <data name="LogicalChecksAddressTooFewInfo" xml:space="preserve">
-    <value>Address contains a least than two fields</value>
+    <value>Address contains a least two fields</value>
   </data>
   <data name="LogicalChecksNoContactPerson" xml:space="preserve">
     <value>No contact person for this group</value>
@@ -1466,7 +1467,7 @@
     <value>Persons Search</value>
   </data>
   <data name="PersonType" xml:space="preserve">
-    <value>Person Type</value>
+    <value> Person Type</value>
   </data>
   <data name="PhoneNumber" xml:space="preserve">
     <value>Phone Number</value>
@@ -1493,7 +1494,7 @@
     <value>Name</value>
   </data>
   <data name="PersonAlreadyExists" xml:space="preserve">
-    <value>Person with same requisites already exists in Statistical Unit</value>
+    <value>Person already exists in Statistical Unit</value>
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
     <value>Add link</value>
@@ -1517,7 +1518,7 @@
     <value>Data source template not found</value>
   </data>
   <data name="DeleteDataSourceMessage" xml:space="preserve">
-    <value>Delete data source</value>
+    <value>Delete data source </value>
   </data>
   <data name="OrgLinks" xml:space="preserve">
     <value>Organization Links</value>
@@ -1562,16 +1563,16 @@
     <value>Persons related to the unit</value>
   </data>
   <data name="NumEmployeeYear" xml:space="preserve">
-    <value>Number employee year</value>
+    <value>Year of validity of number of employees</value>
   </data>
   <data name="DataSourceClassificationId" xml:space="preserve">
     <value>Data Source</value>
   </data>
   <data name="ForeignParticipationId" xml:space="preserve">
-    <value>Foreign participation</value>
+    <value>Foreign Participation</value>
   </data>
   <data name="ReorgTypeId" xml:space="preserve">
-    <value>Reorganization type</value>
+    <value>Reorganization Type</value>
   </data>
   <data name="Size" xml:space="preserve">
     <value>Size</value>
@@ -1580,13 +1581,13 @@
     <value>Status</value>
   </data>
   <data name="NumOfEmployees" xml:space="preserve">
-    <value>№ of employees</value>
+    <value>Number of employees</value>
   </data>
   <data name="PrimaryActivity" xml:space="preserve">
     <value>Primary activity</value>
   </data>
   <data name="RegionLvl1" xml:space="preserve">
-    <value>Region lvl1</value>
+    <value>District</value>
   </data>
   <data name="PostalAddress" xml:space="preserve">
     <value>Postal address</value>
@@ -1625,19 +1626,19 @@
     <value>ContactPerson field is duplicated</value>
   </data>
   <data name="AnalysisDuplicationEmailAddress" xml:space="preserve">
-    <value>Email address field is duplicated</value>
+    <value>Email Address field is duplicated</value>
   </data>
   <data name="AnalysisDuplicationExternalId" xml:space="preserve">
-    <value>ExternalId field is duplicated</value>
+    <value>External Id field is duplicated</value>
   </data>
   <data name="AnalysisDuplicationName" xml:space="preserve">
     <value>Name field is duplicated</value>
   </data>
   <data name="AnalysisDuplicationOwnerPerson" xml:space="preserve">
-    <value>Stat unit owner person is duplicated</value>
+    <value>Stat unit owner is duplicated</value>
   </data>
   <data name="AnalysisDuplicationShortName" xml:space="preserve">
-    <value>ShortName field is duplicated</value>
+    <value>Short Name field is duplicated</value>
   </data>
   <data name="AnalysisDuplicationStatId" xml:space="preserve">
     <value>StatId field is duplicated</value>
@@ -1670,13 +1671,13 @@
     <value>Stat unit doesn't have telephone number</value>
   </data>
   <data name="AnalysisOrphanEnterprise" xml:space="preserve">
-    <value>Enterprise has no associated with it enterprise group</value>
+    <value>Enterprise has no link with enterprise group</value>
   </data>
   <data name="AnalysisRelatedActivity" xml:space="preserve">
-    <value>Stat unit doesn't have related activity</value>
+    <value>Stat unit doesn't have activity code</value>
   </data>
   <data name="AnalysisRelatedAddress" xml:space="preserve">
-    <value>Stat unit doesn't have related address</value>
+    <value>Stat unit doesn't have address</value>
   </data>
   <data name="AnalysisRelatedLegalUnit" xml:space="preserve">
     <value>Stat unit doesn't have related legal unit(s)</value>
@@ -1715,16 +1716,16 @@
     <value>CSV skip rows</value>
   </data>
   <data name="AdministrativeCenter" xml:space="preserve">
-    <value>AdministrativeCenter</value>
+    <value>Administrative Center</value>
   </data>
   <data name="AddressPart1" xml:space="preserve">
-    <value>Apartment number</value>
-  </data>
-  <data name="AddressPart2" xml:space="preserve">
     <value>Street and house number</value>
   </data>
+  <data name="AddressPart2" xml:space="preserve">
+    <value />
+  </data>
   <data name="AddressPart3" xml:space="preserve">
-    <value>Postal address Id</value>
+    <value>postal Index</value>
   </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>
@@ -1775,7 +1776,7 @@
     <value>Warning</value>
   </data>
   <data name="StatUnitInfo" xml:space="preserve">
-    <value>Stat. unit info</value>
+    <value>Info about statistical unit</value>
   </data>
   <data name="LinkInfo" xml:space="preserve">
     <value>Link info</value>
@@ -1784,13 +1785,13 @@
     <value>Registration info</value>
   </data>
   <data name="LegalFormId" xml:space="preserve">
-    <value>Legal form ID</value>
+    <value>Legal form Code</value>
   </data>
   <data name="ContactInfo" xml:space="preserve">
     <value>Contact info</value>
   </data>
   <data name="CapitalInfo" xml:space="preserve">
-    <value>Capital info</value>
+    <value>Information on capital</value>
   </data>
   <data name="IndexInfo" xml:space="preserve">
     <value>Index info</value>
@@ -1910,19 +1911,19 @@
     <value>Invalid checksum</value>
   </data>
   <data name="CustomAnalysisChecks" xml:space="preserve">
-    <value>Custom analysis checks warnings</value>
+    <value>Custom analysis checks</value>
   </data>
   <data name="LastActivityByTurnover" xml:space="preserve">
     <value>Last activity by turnover</value>
   </data>
   <data name="RegionLvl2" xml:space="preserve">
-    <value>Region lvl2</value>
+    <value>County</value>
   </data>
   <data name="RegionLvl3" xml:space="preserve">
-    <value>Region lvl3</value>
+    <value>Subcounty</value>
   </data>
   <data name="RegionLvl4" xml:space="preserve">
-    <value>Region lvl4</value>
+    <value>Parish</value>
   </data>
   <data name="SampleFrames" xml:space="preserve">
     <value>Sample frames</value>
@@ -1931,7 +1932,7 @@
     <value>View sample frames</value>
   </data>
   <data name="SampleFramesCreate" xml:space="preserve">
-    <value>Create sample frames</value>
+    <value>Create sample frames </value>
   </data>
   <data name="Reset" xml:space="preserve">
     <value>Reset</value>
@@ -1958,7 +1959,7 @@
     <value>Equal</value>
   </data>
   <data name="NotEqual" xml:space="preserve">
-    <value>NotEqual</value>
+    <value>Not Equal</value>
   </data>
   <data name="GreaterThan" xml:space="preserve">
     <value>Greater than</value>
@@ -1991,7 +1992,7 @@
     <value>Variables mapping results</value>
   </data>
   <data name="InThousandsKGS" xml:space="preserve">
-    <value>In thousands KGS</value>
+    <value>InThousandsKGS</value>
   </data>
   <data name="VisitingAddress" xml:space="preserve">
     <value>Visiting address</value>
@@ -2057,7 +2058,7 @@
     <value>Data source queue log raw unit</value>
   </data>
   <data name="DataSourceQueueLogUnit" xml:space="preserve">
-    <value>View\edit</value>
+    <value>View or edit</value>
   </data>
   <data name="DeleteSampleFrameMessage" xml:space="preserve">
     <value>Delete sample frame</value>
@@ -2177,7 +2178,7 @@
     <value>Stat unit type not found</value>
   </data>
   <data name="DateCantBeInFuture" xml:space="preserve">
-    <value>Don't enter future date</value>
+    <value>Date entered is in the future</value>
   </data>
   <data name="DateNotValid" xml:space="preserve">
     <value>Date not valid</value>
@@ -2198,7 +2199,7 @@
     <value>User's Regions</value>
   </data>
   <data name="IncorrectFileFormat" xml:space="preserve">
-    <value>Incorrect file`s format</value>
+    <value>Incorrect file format</value>
   </data>
   <data name="CantDeleteDatasourceTemp" xml:space="preserve">
     <value>This data sourse template should not be deleted</value>
@@ -2213,10 +2214,10 @@
     <value>Stat unit doesn't have size</value>
   </data>
   <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
-    <value>Stat unit doesn't have status</value>
+    <value>Stat unit doesn't have status set</value>
   </data>
   <data name="AnalysisMandatoryReorgType" xml:space="preserve">
-    <value>Stat unit doesn't have reorg type</value>
+    <value>Stat unit doesn't have type of reorganisation</value>
   </data>
   <data name="UploadFileEmpty" xml:space="preserve">
     <value>Uploading file is empty</value>
@@ -2228,16 +2229,16 @@
     <value>New password not confirmed</value>
   </data>
   <data name="LiquidateEntrUnit" xml:space="preserve">
-    <value>You cann't liquidate Enterprise unit</value>
+    <value>You can't liquidate Enterprise unit</value>
   </data>
   <data name="LiquidateLegalUnit" xml:space="preserve">
-    <value>Liquidation rules - to liquidate this local unit (that is the single active local unit of its legal unit) you need to liquidate from its legal unit</value>
+    <value>You will need to liquidate Legal unit</value>
   </data>
   <data name="UnitHasLiquidated" xml:space="preserve">
     <value>Unit has been liquidated</value>
   </data>
   <data name="ShouldBeGreaterThenZero" xml:space="preserve">
-    <value>Input field shouldn't  be empty</value>
+    <value>Input field shouldn't  be empty </value>
   </data>
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Input field shouldn't  be greater 8 symbols</value>
@@ -2251,425 +2252,372 @@
   <data name="UnitStatus" xml:space="preserve">
     <value>Status</value>
   </data>
-  <data name="ForeignParticipation" xml:space="preserve">
-    <value>Foreign participation</value>
-  </data>
-  <data name="FixErrorsBeforeSubmit" xml:space="preserve">
-    <value>Please fill out all required fields</value>
-  </data>
-  <data name="EconomicInformation" xml:space="preserve">
-    <value>Economic information</value>
-  </data>
   <data name="ActivityIdDateRequired" xml:space="preserve">
-    <value>One of the "Activities" has no "Activity registration date" field filled</value>
-  </data>
-  <data name="PersonsRoleRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Person Type" field filled</value>
+    <value>One of the 'Activities' has no 'Activity registration date' field filled</value>
   </data>
   <data name="PersonsCountryIdRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Country" field filled</value>
+    <value>One of the 'Persons' has no 'Country' field filled.</value>
   </data>
   <data name="PersonsGivenNameRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Name" field filled</value>
+    <value>One of the 'Persons' has no 'Name' field filled.</value>
+  </data>
+  <data name="PersonsRoleRequired" xml:space="preserve">
+    <value>One of the 'Persons' has no 'Person Type' field filled</value>
   </data>
   <data name="PersonsSurnameRequired" xml:space="preserve">
-    <value>One of the "Persons" has no "Surname" field filled</value>
-  </data>
-  <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
-    <value>You don't have enough rights to work in this Region</value>
+    <value>One of the 'Persons' has no 'Surname' field filled.</value>
   </data>
   <data name="YouDontHaveEnoughtRightsActivityCategory" xml:space="preserve">
     <value>You don't have enough rights to work in activity category</value>
   </data>
+  <data name="YouDontHaveEnoughtRightsRegion" xml:space="preserve">
+    <value>You don't have enough rights to work in this Region</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>Statistical Units</value>
+  </data>
+  <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
+    <value>Error: The address already exists in the database</value>
+  </data>
+  <data name="ActualMainActivity2" xml:space="preserve">
+    <value>Actual main activity</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Could not delete region</value>
+  </data>
+  <data name="AddressDetails" xml:space="preserve">
+    <value>Address details</value>
+  </data>
+  <data name="SoateNotExistsError" xml:space="preserve">
+    <value>Region code does not exist</value>
+  </data>
+  <data name="SoateAlreadyExistsError" xml:space="preserve">
+    <value>Region code already exists in database</value>
+  </data>
+  <data name="route_soates" xml:space="preserve">
+    <value>Region code</value>
+  </data>
+  <data name="Soates" xml:space="preserve">
+    <value>Region code</value>
+  </data>
+  <data name="SoateAdd" xml:space="preserve">
+    <value>Add region</value>
+  </data>
+  <data name="SoateName" xml:space="preserve">
+    <value>Name of region</value>
+  </data>
+  <data name="AdminstrativeCenter" xml:space="preserve">
+    <value>Administrative center</value>
+  </data>
+  <data name="SoateDeleteMessage" xml:space="preserve">
+    <value>Delete region</value>
+  </data>
+  <data name="COATEUndeleteMessage" xml:space="preserve">
+    <value>Undelete region</value>
+  </data>
+  <data name="COATEDeleteMessage" xml:space="preserve">
+    <value>Delеte region</value>
+  </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Foreign Participation</value>
+  </data>
+  <data name="FixErrorsBeforeSubmit" xml:space="preserve">
+    <value>Please fix errors before submitting</value>
+  </data>
+  <data name="EconomicInformation" xml:space="preserve">
+    <value>Economic information</value>
+  </data>
   <data name="YouDontHaveEnoughtRightsRegionOrActivity" xml:space="preserve">
-    <value>You don't have enough rights to work in this Region or Activity category</value>
+    <value>You don't have sufficient rights for this region or activity</value>
   </data>
   <data name="ReorgType" xml:space="preserve">
-    <value>Reorganization type</value>
+    <value>reorganisation type</value>
   </data>
   <data name="InProgress" xml:space="preserve">
     <value>In progress</value>
   </data>
   <data name="SampleFrameGenerationEnqueue" xml:space="preserve">
-    <value>Enqueue to generate file</value>
+    <value>Queue to generate sample frame</value>
   </data>
   <data name="SampleFrameGenerationError" xml:space="preserve">
-    <value>File generation error</value>
+    <value>Error generating sample frame</value>
   </data>
   <data name="FileDoesntExistOrInQueue" xml:space="preserve">
-    <value>File does not exist or is being generated</value>
+    <value>File does not exist or is already in queue</value>
   </data>
   <data name="StatUnitIdIsNotFound" xml:space="preserve">
-    <value>Statistical unit by stat id not found</value>
-  </data>
-  <data name="LoginTitle" xml:space="preserve">
-    <value>Enter NSC Registry</value>
+    <value>ID of Statistical unit is not found</value>
   </data>
   <data name="RejectDataSourceMessage" xml:space="preserve">
-    <value>Reject data source</value>
+    <value>Data source rejected</value>
   </data>
   <data name="DeleteEnterpriseUnit" xml:space="preserve">
-    <value>To delete this Enterprise unit you must delete its' Legal unit</value>
+    <value>Delete enterprise</value>
   </data>
   <data name="DeleteLocalUnit" xml:space="preserve">
-    <value>To delete this Local unit you must delete its' Legal unit</value>
+    <value>Delete local unit</value>
   </data>
   <data name="RestoreEnterpriseUnit" xml:space="preserve">
-    <value>To restore this Enterprise unit you must restore its' Legal unit</value>
+    <value>restore Enterprise</value>
   </data>
   <data name="RestoreLocalUnit" xml:space="preserve">
-    <value>To restore this Local unit you must restore its' Legal unit</value>
+    <value>restore local unit</value>
   </data>
   <data name="ElasticSearchIsDisable" xml:space="preserve">
-    <value>Elasticsearch service is not running, please connect to your server' administrator to turn it on</value>
+    <value>ElasticSearch Is Disable</value>
   </data>
-  <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
-    <value>This local unit does not belong to a legal unit</value>
-  </data>
-  <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
-    <value>This legal unit does not belong to an enterprise</value>
-  </data>
-  <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
-    <value>This legal unit has no local units</value>
-  </data>
-  <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
-    <value>This enterprise has no legal units</value>
-  </data>
-  <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
-    <value>This enterprise group has no enterprises</value>
-  </data>
-  <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
-    <value>TaxRegId field is duplicated</value>
-  </data>
-  <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
-    <value>One of these fields (StatId/TaxRegId/ExternalId) -  should be filled</value>
-  </data>
-  <data name="EntGroupTypeId" xml:space="preserve">
-    <value>Enterprise group type</value>
-  </data>
-  <data name="LastChangeDate" xml:space="preserve">
-    <value>Last change date</value>
-  </data>
-  <data name="ActivitiesTooltip" xml:space="preserve">
-    <value>Activities</value>
-  </data>
-  <data name="ActualAddressTooltip" xml:space="preserve">
-    <value>Actual Address</value>
-  </data>
-  <data name="AddressTooltip" xml:space="preserve">
-    <value>Address</value>
-  </data>
-  <data name="ClassifiedTooltip" xml:space="preserve">
-    <value>Classified</value>
+  <data name="LoginTitle" xml:space="preserve">
+    <value>Welcome to SBR system</value>
   </data>
   <data name="CommercialTooltip" xml:space="preserve">
-    <value>Commercial</value>
-  </data>
-  <data name="ContactPersonTooltip" xml:space="preserve">
-    <value>Contact Person</value>
-  </data>
-  <data name="DataSourceClassificationTooltip" xml:space="preserve">
-    <value>Data source classification</value>
-  </data>
-  <data name="EmailAddressTooltip" xml:space="preserve">
-    <value>Email</value>
-  </data>
-  <data name="EmployeesDateTooltip" xml:space="preserve">
-    <value>Employees Date</value>
-  </data>
-  <data name="EmployeesTooltip" xml:space="preserve">
-    <value>Employees</value>
-  </data>
-  <data name="EmployeesYearTooltip" xml:space="preserve">
-    <value>Employees Year</value>
-  </data>
-  <data name="EndPeriodTooltip" xml:space="preserve">
-    <value>End Period</value>
+    <value />
   </data>
   <data name="EnterpriseGroupTooltip" xml:space="preserve">
     <value>Enterprise group</value>
   </data>
   <data name="EnterpriseUnitRegIdTooltip" xml:space="preserve">
-    <value>Enterprise Unit</value>
-  </data>
-  <data name="EnterpriseUnitTooltip" xml:space="preserve">
-    <value>Enterprise units</value>
+    <value>primary key of enterprise (parent unit)</value>
   </data>
   <data name="EntGroupIdDateTooltip" xml:space="preserve">
-    <value>EntGroup id date</value>
+    <value>Date of Enterprise group added to the register</value>
   </data>
   <data name="EntGroupRoleTooltip" xml:space="preserve">
-    <value>Ent Group Role</value>
-  </data>
-  <data name="EntGroupTypeIdTooltip" xml:space="preserve">
-    <value>Ent Group Type</value>
+    <value />
   </data>
   <data name="EntRegIdDateTooltip" xml:space="preserve">
-    <value>Enterprise reg Date</value>
-  </data>
-  <data name="ExternalIdDateTooltip" xml:space="preserve">
-    <value>External Id Date</value>
-  </data>
-  <data name="ExternalIdTooltip" xml:space="preserve">
-    <value>External Id</value>
-  </data>
-  <data name="ExternalIdTypeTooltip" xml:space="preserve">
-    <value>External Id Type</value>
-  </data>
-  <data name="ForeignCapitalCurrencyTooltip" xml:space="preserve">
-    <value>Foreign Capital Currency</value>
+    <value>Date when enterprise was entered into the register</value>
   </data>
   <data name="ForeignCapitalShareTooltip" xml:space="preserve">
-    <value>Foreign Capital Share</value>
-  </data>
-  <data name="ForeignParticipationCountriesTooltip" xml:space="preserve">
-    <value>Foreign participation countries</value>
-  </data>
-  <data name="ForeignParticipationTooltip" xml:space="preserve">
-    <value>Foreign participation</value>
+    <value>share of capital that is foreign</value>
   </data>
   <data name="InstSectorCodeIdTooltip" xml:space="preserve">
-    <value>Sector code</value>
+    <value>sector code - code</value>
   </data>
   <data name="LegalFormIdTooltip" xml:space="preserve">
-    <value>Legal Form</value>
-  </data>
-  <data name="LegalUnitIdDateTooltip" xml:space="preserve">
-    <value>Legal Unit Date</value>
-  </data>
-  <data name="LegalUnitIdTooltip" xml:space="preserve">
-    <value>Legal Unit</value>
+    <value />
   </data>
   <data name="LegalUnitsTooltip" xml:space="preserve">
-    <value>Legal Units</value>
-  </data>
-  <data name="LiqDateEndTooltip" xml:space="preserve">
-    <value>Liq Date End</value>
-  </data>
-  <data name="LiqDateStartTooltip" xml:space="preserve">
-    <value>Liq Date Start</value>
-  </data>
-  <data name="LiqReasonTooltip" xml:space="preserve">
-    <value>Liq Reason</value>
+    <value />
   </data>
   <data name="MarketTooltip" xml:space="preserve">
-    <value>Market</value>
+    <value />
   </data>
   <data name="MunCapitalShareTooltip" xml:space="preserve">
-    <value>Mun Capital Share</value>
-  </data>
-  <data name="NotesTooltip" xml:space="preserve">
-    <value>Notes</value>
-  </data>
-  <data name="NumOfPeopleEmpTooltip" xml:space="preserve">
-    <value>Number of people</value>
+    <value>Share of capital belonging to municipality</value>
   </data>
   <data name="ParentOrgLinkTooltip" xml:space="preserve">
-    <value>Parent Org Link</value>
-  </data>
-  <data name="PersonsTooltip" xml:space="preserve">
-    <value>Persons</value>
-  </data>
-  <data name="PostalAddressTooltip" xml:space="preserve">
-    <value>Postal Address</value>
+    <value>ID of public sector parent unit</value>
   </data>
   <data name="PrivCapitalShareTooltip" xml:space="preserve">
-    <value>Priv Capital Share</value>
-  </data>
-  <data name="RegDateTooltip" xml:space="preserve">
-    <value>Registration Date</value>
-  </data>
-  <data name="RegistrationReasonTooltip" xml:space="preserve">
-    <value>Registration reason</value>
-  </data>
-  <data name="ReorgDateTooltip" xml:space="preserve">
-    <value>Reorg Date</value>
-  </data>
-  <data name="ReorgReferencesTooltip" xml:space="preserve">
-    <value>Reorg References</value>
-  </data>
-  <data name="ReorgTypeCodeTooltip" xml:space="preserve">
-    <value>Reorg Type Code</value>
-  </data>
-  <data name="ReorgTypeTooltip" xml:space="preserve">
-    <value>Reorg type</value>
-  </data>
-  <data name="ShortNameTooltip" xml:space="preserve">
-    <value>Short name</value>
-  </data>
-  <data name="StartPeriodTooltip" xml:space="preserve">
-    <value>Start Period</value>
+    <value>share of capital that is private</value>
   </data>
   <data name="StateCapitalShareTooltip" xml:space="preserve">
-    <value>State Capital Share</value>
-  </data>
-  <data name="StatIdDateTooltip" xml:space="preserve">
-    <value>Statistical id date</value>
-  </data>
-  <data name="StatIdTooltip" xml:space="preserve">
-    <value>Statistical Id</value>
-  </data>
-  <data name="StatNameTooltip" xml:space="preserve">
-    <value>Name</value>
-  </data>
-  <data name="StatusDateTooltip" xml:space="preserve">
-    <value>Status Date</value>
-  </data>
-  <data name="SuspensionStartTooltip" xml:space="preserve">
-    <value>Suspension Start</value>
-  </data>
-  <data name="TaxRegDateTooltip" xml:space="preserve">
-    <value>Tax reg date</value>
-  </data>
-  <data name="TaxRegIdTooltip" xml:space="preserve">
-    <value>Tax reg id</value>
-  </data>
-  <data name="TelephoneNoTooltip" xml:space="preserve">
-    <value>Telephone number</value>
+    <value>Share of capital belonging to the state</value>
   </data>
   <data name="TotalCapitalTooltip" xml:space="preserve">
-    <value>Total Capital</value>
+    <value>Should be the sum of all capitals. In Local currency? in thousands of local currency?</value>
+    <comment>edit!</comment>
   </data>
-  <data name="TurnoverDateTooltip" xml:space="preserve">
-    <value>Turnover date</value>
+  <data name="ActivitiesTooltip" xml:space="preserve">
+    <value />
   </data>
-  <data name="TurnoverTooltip" xml:space="preserve">
-    <value>Turnover</value>
+  <data name="ActualAddressTooltip" xml:space="preserve">
+    <value>Actual address</value>
   </data>
-  <data name="TurnoverYearTooltip" xml:space="preserve">
-    <value>Turnover Year</value>
+  <data name="AddressTooltip" xml:space="preserve">
+    <value>Address as registered with registering authorities</value>
+    <comment>edit</comment>
   </data>
-  <data name="UnitSizeTooltip" xml:space="preserve">
-    <value>Unit size</value>
-  </data>
-  <data name="UnitStatusTooltip" xml:space="preserve">
-    <value>Unit status</value>
-  </data>
-  <data name="WebAddressTooltip" xml:space="preserve">
-    <value>Web address</value>
-  </data>
-  <data name="AddressPart1Tooltip" xml:space="preserve">
-    <value>Apartment number</value>
-  </data>
-  <data name="AddressPart2Tooltip" xml:space="preserve">
-    <value>Street and house number</value>
-  </data>
-  <data name="AddressPart3Tooltip" xml:space="preserve">
-    <value>Postal address Id</value>
-  </data>
-  <data name="FreeEconZoneTooltip" xml:space="preserve">
-    <value>Free econ zone</value>
-  </data>
-  <data name="LatitudeTooltip" xml:space="preserve">
-    <value>N/S</value>
-  </data>
-  <data name="LocalUnitsTooltip" xml:space="preserve">
-    <value>Local Units</value>
-  </data>
-  <data name="LongitudeTooltip" xml:space="preserve">
-    <value>W/E</value>
-  </data>
-  <data name="RegionIdTooltip" xml:space="preserve">
-    <value>Region</value>
-  </data>
-  <data name="ActivityCategoryIdTooltip" xml:space="preserve">
-    <value>Activity code</value>
-  </data>
-  <data name="StatUnitActivityTypeTooltip" xml:space="preserve">
-    <value>Activity type</value>
-  </data>
-  <data name="BirthDateTooltip" xml:space="preserve">
-    <value>Birth date</value>
-  </data>
-  <data name="CountryIdTooltip" xml:space="preserve">
-    <value>Country id</value>
-  </data>
-  <data name="MiddleNameTooltip" xml:space="preserve">
-    <value>Middle name</value>
-  </data>
-  <data name="PersonalIdTooltip" xml:space="preserve">
-    <value>Personal id</value>
-  </data>
-  <data name="PersonTypeTooltip" xml:space="preserve">
-    <value>Person type</value>
-  </data>
-  <data name="PhoneNumber1Tooltip" xml:space="preserve">
-    <value>Phone number</value>
-  </data>
-  <data name="PhoneNumberTooltip" xml:space="preserve">
-    <value>Phone number</value>
-  </data>
-  <data name="SexTooltip" xml:space="preserve">
-    <value>Sex</value>
-  </data>
-  <data name="StatUnitActivityDateTooltip" xml:space="preserve">
-    <value>Activity Date</value>
-  </data>
-  <data name="StatUnitActivityEmployeesNumberTooltip" xml:space="preserve">
-    <value>Employees number</value>
-  </data>
-  <data name="StatUnitFormPersonNameTooltip" xml:space="preserve">
-    <value>Person name</value>
-  </data>
-  <data name="SurnameTooltip" xml:space="preserve">
-    <value>Surname</value>
-  </data>
-  <data name="ActivityYear" xml:space="preserve">
-    <value>Activity year</value>
-  </data>
-  <data name="ActivityYearTooltip" xml:space="preserve">
-    <value>Activity Year</value>
-  </data>
-  <data name="LoginInputButton" xml:space="preserve">
-    <value>Log in</value>
-  </data>
-  <data name="LoginInputLogin" xml:space="preserve">
-    <value>Login</value>
-  </data>
-  <data name="LoginInputPassword" xml:space="preserve">
-    <value>Password</value>
-  </data>
-  <data name="LoginInputRemember" xml:space="preserve">
-    <value>Remember</value>
-  </data>
-  <data name="AnalysisRelatedPersons" xml:space="preserve">
-    <value>Stat unit doesn't have related person(s)</value>
-  </data>
-  <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
-    <value>This enterprise group doesn't have related enterprise unit(s)</value>
-  </data>
-  <data name="AnalysisOrphanLegalUnitHaveParentWithInactiveStatus" xml:space="preserve">
-    <value>This legal unit have enterprise with inactive status</value>
-  </data>
-  <data name="AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus" xml:space="preserve">
-    <value>This local unit have legal with inactive status</value>
-  </data>
-  <data name="AnalysisRelatedLocalUnits" xml:space="preserve">
-    <value>Stat unit doesn't have related local unit(s)</value>
+  <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
+    <value>There are two units with the same tax id</value>
   </data>
   <data name="AnalysisMandatoryActivities" xml:space="preserve">
-    <value>Stat unit doesn't have activities</value>
+    <value>All units must have activities</value>
   </data>
   <data name="AnalysisMandatoryActualAddress" xml:space="preserve">
-    <value>Stat unit doesn't have actual address</value>
-  </data>
-  <data name="AnalysisMandatoryAddress" xml:space="preserve">
-    <value>Stat unit doesn't have address</value>
-  </data>
-  <data name="AnalysisMandatoryClassified" xml:space="preserve">
-    <value>Stat unit doesn't have classified</value>
+    <value>Atuall address must have value</value>
   </data>
   <data name="AnalysisMandatoryEmailAddress" xml:space="preserve">
-    <value>Stat unit doesn't have email address</value>
+    <value />
+  </data>
+  <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ClassifiedTooltip" xml:space="preserve">
+    <value>Is information about this unit classified?</value>
+    <comment>edit</comment>
+  </data>
+  <data name="ComercialTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ContactPersonTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="DataSourceClassificationTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="EmailAddressTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="EmployeesDateTooltip" xml:space="preserve">
+    <value>date of info of number of employees</value>
+  </data>
+  <data name="EmployeesTooltip" xml:space="preserve">
+    <value>Number of employees</value>
+  </data>
+  <data name="EmployeesYearTooltip" xml:space="preserve">
+    <value>Year of "number of employees" was registered</value>
+  </data>
+  <data name="EndPeriodTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="EnterpriseUnitTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="EntGroupTypeIdTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ExternalIdDateTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ExternalIdTooltip" xml:space="preserve">
+    <value>Info about external IDS</value>
+    <comment>edit</comment>
+  </data>
+  <data name="ExternalIdTypeTooltip" xml:space="preserve">
+    <value>name of institution of which the external ID belongs</value>
+  </data>
+  <data name="ForeignCapitalCurrencyTooltip" xml:space="preserve">
+    <value>Currency of foreign capital</value>
+  </data>
+  <data name="ForeignParticipationCountriesTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ForeignParticipationTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="FreEconZoneTooltip" xml:space="preserve">
+    <value />
+    <comment>edit</comment>
+  </data>
+  <data name="FreeEconZoneTooltip" xml:space="preserve">
+    <value>SASD</value>
+  </data>
+  <data name="LegalUnitIdDateTooltip" xml:space="preserve">
+    <value>Date of link between local- and legal units</value>
+  </data>
+  <data name="LegalUnitIdTooltip" xml:space="preserve">
+    <value>ID of parent/child unit</value>
+  </data>
+  <data name="LiqDateEndTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="LiqDateStartToolitp" xml:space="preserve">
+    <value />
+  </data>
+  <data name="LiqDateStartTooltip" xml:space="preserve">
+    <value>start date of liquidation of unit</value>
+  </data>
+  <data name="LiqReasonTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="LocalUnitsTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="NotesTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="NumOfPeopleEmpTooltip" xml:space="preserve">
+    <value>includes non-employees working in the business (eg owner)</value>
+  </data>
+  <data name="PersonsTooltip" xml:space="preserve">
+    <value>persons related to this unit</value>
+  </data>
+  <data name="PostalAddressTooltip" xml:space="preserve">
+    <value>Postal address (bo box or similar)</value>
+  </data>
+  <data name="RegDateTooltip" xml:space="preserve">
+    <value>Date of unit entered into the register</value>
+  </data>
+  <data name="RegistrationReasonTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ReorgDateTooltip" xml:space="preserve">
+    <value>Date of reorganisation</value>
+  </data>
+  <data name="ReorgReferencesTooltip" xml:space="preserve">
+    <value>which units are involved in this reorgansation?</value>
+  </data>
+  <data name="ReorgTypeCodeTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ReorgTypeTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ShortNameTooltip" xml:space="preserve">
+    <value>this name should follow the rules of the NSO. See documentation</value>
+    <comment>edit</comment>
+  </data>
+  <data name="StartPeriodTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="StatIdDateTooltip" xml:space="preserve">
+    <value>Date of unit first registered at the NSO</value>
+  </data>
+  <data name="StatIdTooltip" xml:space="preserve">
+    <value>ID of unit as used in the NSO</value>
+    <comment>edit</comment>
+  </data>
+  <data name="StatNameTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="StatusDateTooltip" xml:space="preserve">
+    <value>Date of last change of status of unit</value>
+  </data>
+  <data name="SuspensionStartTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="TaxRegDateTooltip" xml:space="preserve">
+    <value>date of unit first registered with the tax autorities</value>
+  </data>
+  <data name="TaxRegIdTooltip" xml:space="preserve">
+    <value>ID of unit as given by tax authorities</value>
+  </data>
+  <data name="TelephoneNoTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="TurnoverDateTooltip" xml:space="preserve">
+    <value>date of registration of turnover</value>
+  </data>
+  <data name="TurnoverTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="TurnoverYearTooltip" xml:space="preserve">
+    <value>year of validity of turnover</value>
+  </data>
+  <data name="UnitSizeTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="UnitStatusTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="WebAddressTooltip" xml:space="preserve">
+    <value />
+  </data>
+  <data name="AnalysisMandatoryAddress" xml:space="preserve">
+    <value />
+  </data>
+  <data name="AnalysisMandatoryClassified" xml:space="preserve">
+    <value>Classified info is mandatory</value>
   </data>
   <data name="AnalysisMandatoryEmployees" xml:space="preserve">
-    <value>Stat unit doesn't have employees</value>
+    <value>Number of employees is mandatory</value>
   </data>
   <data name="AnalysisMandatoryEmployeesDate" xml:space="preserve">
-    <value>Stat unit doesn't have employees date</value>
+    <value>Date of employees information is mandatory</value>
   </data>
   <data name="AnalysisMandatoryEmployeesYear" xml:space="preserve">
-    <value>Stat unit doesn't have employees year</value>
+    <value>Year of validity of employees information is mandatory</value>
   </data>
   <data name="AnalysisMandatoryExternalId" xml:space="preserve">
     <value>Stat unit doesn't have external id</value>
@@ -2760,5 +2708,26 @@
   </data>
   <data name="FileDataFormatError" xml:space="preserve">
     <value>The file is not in the correct data format</value>
+  </data>
+  <data name="AnalysisEnterpriseRelatedLegalUnits" xml:space="preserve">
+    <value>Enterprise has no related Legal Units</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnitHaveParentWithInactiveStatus" xml:space="preserve">
+    <value>This legal unit's enterprise has status inactive</value>
+  </data>
+  <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
+    <value>This legal unit is not a part of an enterprise</value>
+  </data>
+  <data name="AnalysisOrphanLocalUnits" xml:space="preserve">
+    <value>This Local unit has noe legal unit as parent</value>
+  </data>
+  <data name="AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus" xml:space="preserve">
+    <value>This Local unit has parent with status inactive</value>
+  </data>
+  <data name="AnalysisRelatedLocalUnits" xml:space="preserve">
+    <value>This legal unit has no local units associated with it</value>
+  </data>
+  <data name="AnalysisRelatedPersons" xml:space="preserve">
+    <value>Unit does not have any persons related to it</value>
   </data>
 </root>
