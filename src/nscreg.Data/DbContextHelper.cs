@@ -30,9 +30,8 @@ namespace nscreg.Data
                     {
                         case ConnectionProvider.SqlServer:
                             op.UseSqlServer(connectionString,
-                                    op2 => op2.MigrationsAssembly("nscreg.Data")
-                                        .CommandTimeout(300))
-                                .EnableSensitiveDataLogging();
+                                op2 => op2.MigrationsAssembly("nscreg.Data")
+                                    .CommandTimeout(300));
                             break;
                         case ConnectionProvider.PostgreSql:
                             op.UseNpgsql(connectionString,
