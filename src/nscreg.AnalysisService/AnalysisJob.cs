@@ -57,7 +57,6 @@ namespace nscreg.AnalysisService
         public void OnException(Exception e)
         {
             _logger.LogError("queue exception {0}", e);
-            throw new NotImplementedException();
         }
     }
 }
