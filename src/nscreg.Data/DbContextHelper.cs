@@ -16,7 +16,10 @@ namespace nscreg.Data
     /// </summary>
     public class DbContextHelper : IDesignTimeDbContextFactory<NSCRegDbContext>
     {
-        public DbContextHelper(){}
+        public DbContextHelper()
+        {
+        }
+
         /// <summary>
         /// DB context configuration method
         /// </summary>
@@ -67,20 +70,22 @@ namespace nscreg.Data
         public static NSCRegDbContext Create(ConnectionSettings config)
         {
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
+            var defaultCommandTimeOutInSeconds = (int) TimeSpan.FromHours(1).TotalSeconds;
             switch (config.ParseProvider())
             {
                 case ConnectionProvider.SqlServer:
                     return new NSCRegDbContext(builder
-                        .UseSqlServer(config.ConnectionString)
+                        .UseSqlServer(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
                         .Options);
                 case ConnectionProvider.PostgreSql:
                     return new NSCRegDbContext(builder
-                        .UseNpgsql(config.ConnectionString)
+                        .UseNpgsql(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
                         .Options);
                 case ConnectionProvider.MySql:
-                    return new NSCRegDbContext(builder.UseMySql(config.ConnectionString)
+                    return new NSCRegDbContext(builder
+                        .UseMySql(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
                         .Options);
                 default:
