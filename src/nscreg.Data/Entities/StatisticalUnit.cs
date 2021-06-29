@@ -19,7 +19,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
         public int RegId { get; set; }
 
-        public string Discriminator { get; set; }
+        public abstract string Discriminator { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime RegIdDate { get; set; }
