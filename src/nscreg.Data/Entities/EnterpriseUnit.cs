@@ -16,8 +16,6 @@ namespace nscreg.Data.Entities
     {
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
 
-        public override string Discriminator { get; set; } = nameof(StatUnitTypes.EnterpriseUnit);
-
         [Reference(LookupEnum.EnterpriseGroupLookup)]
         [Display(Order = 210, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EnterpriseGroupTooltip))]

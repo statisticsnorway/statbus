@@ -13,8 +13,6 @@ namespace nscreg.Data.Entities
     {
         public override StatUnitTypes UnitType => StatUnitTypes.LocalUnit;
 
-        public override string Discriminator { get; set; } = nameof(StatUnitTypes.LocalUnit);
-
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdTooltip))]
