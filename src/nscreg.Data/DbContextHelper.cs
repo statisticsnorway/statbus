@@ -70,7 +70,7 @@ namespace nscreg.Data
         public static NSCRegDbContext Create(ConnectionSettings config)
         {
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
-            var defaultCommandTimeOutInSeconds = (int) TimeSpan.FromHours(1).TotalSeconds;
+            var defaultCommandTimeOutInSeconds = (int) TimeSpan.FromHours(24).TotalSeconds;
             switch (config.ParseProvider())
             {
                 case ConnectionProvider.SqlServer:
