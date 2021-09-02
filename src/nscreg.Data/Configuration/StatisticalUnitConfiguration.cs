@@ -90,7 +90,11 @@ namespace nscreg.Data.Configuration
 
             builder.HasIndex(DiscriminatorColumnName);
 
-            builder.HasIndex(x => new {x.ShortName, x.RegId, x.Discriminator, x.StatId, x.TaxRegId});
+            builder.HasIndex(nameof(StatisticalUnit.ShortName),
+                nameof(StatisticalUnit.RegId),
+                DiscriminatorColumnName,
+                nameof(StatisticalUnit.StatId),
+                nameof(StatisticalUnit.TaxRegId));
         }
     }
 }
