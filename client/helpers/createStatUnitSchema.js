@@ -16,7 +16,8 @@ const positiveNum = number()
   .positive()
   .nullable(true)
   .default(undefined)
-const nullableNum = number()
+const positiveOrZeroNum = number()
+  .min(0)
   .nullable(true)
   .default(undefined)
 const positiveNumArray = array(positiveNum)
@@ -99,7 +100,7 @@ const base = {
   telephoneNo: sureString,
   emailAddress: sureString,
   webAddress: sureString,
-  reorgReferences: nullableNum,
+  reorgReferences: positiveOrZeroNum,
   reorgDate: nullableDate,
   notes: sureString,
   employeesDate: nullableDate,
@@ -115,13 +116,13 @@ const base = {
   regMainActivityId: positiveNum,
   externalId: sureString,
   externalIdType: sureString,
-  numOfPeopleEmp: nullableNum,
-  employees: nullableNum,
-  turnover: nullableNum,
+  numOfPeopleEmp: positiveOrZeroNum,
+  employees: positiveOrZeroNum,
+  turnover: positiveOrZeroNum,
   parentOrgLink: positiveNum,
   status: sureString,
   persons: personsArray,
-  size: nullableNum,
+  size: positiveOrZeroNum,
   foreignParticipationId: positiveNum,
   dataSourceClassificationId: positiveNum,
   reorgTypeId: positiveNum,
@@ -196,17 +197,17 @@ const byType = {
     reorgDate: nullableDate,
     reorgReferences: sureString,
     contactPerson: sureString,
-    employees: nullableNum,
-    numOfPeopleEmp: nullableNum,
+    employees: positiveOrZeroNum,
+    numOfPeopleEmp: positiveOrZeroNum,
     employeesYear: nullableDate,
     employeesDate: nullableDate,
-    turnover: nullableNum,
+    turnover: positiveOrZeroNum,
     turnoverYear: nullableDate,
     turnoverDate: nullableDate,
     statusDate: currentDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,
-    size: nullableNum,
+    size: positiveOrZeroNum,
     dataSourceClassificationId: positiveNum,
     reorgTypeId: positiveNum,
     unitStatusId: positiveNum,
