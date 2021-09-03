@@ -16,6 +16,9 @@ const positiveNum = number()
   .positive()
   .nullable(true)
   .default(undefined)
+const nullableNum = number()
+  .nullable(true)
+  .default(undefined)
 const positiveNumArray = array(positiveNum)
   .nullable(true)
   .ensure()
@@ -96,7 +99,7 @@ const base = {
   telephoneNo: sureString,
   emailAddress: sureString,
   webAddress: sureString,
-  reorgReferences: positiveNum,
+  reorgReferences: nullableNum,
   reorgDate: nullableDate,
   notes: sureString,
   employeesDate: nullableDate,
@@ -112,13 +115,13 @@ const base = {
   regMainActivityId: positiveNum,
   externalId: sureString,
   externalIdType: sureString,
-  numOfPeopleEmp: positiveNum,
-  employees: positiveNum,
-  turnover: positiveNum,
+  numOfPeopleEmp: nullableNum,
+  employees: nullableNum,
+  turnover: nullableNum,
   parentOrgLink: positiveNum,
   status: sureString,
   persons: personsArray,
-  size: positiveNum,
+  size: nullableNum,
   foreignParticipationId: positiveNum,
   dataSourceClassificationId: positiveNum,
   reorgTypeId: positiveNum,
@@ -193,17 +196,17 @@ const byType = {
     reorgDate: nullableDate,
     reorgReferences: sureString,
     contactPerson: sureString,
-    employees: positiveNum,
-    numOfPeopleEmp: positiveNum,
+    employees: nullableNum,
+    numOfPeopleEmp: nullableNum,
     employeesYear: nullableDate,
     employeesDate: nullableDate,
-    turnover: positiveNum,
+    turnover: nullableNum,
     turnoverYear: nullableDate,
     turnoverDate: nullableDate,
     statusDate: currentDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,
-    size: positiveNum,
+    size: nullableNum,
     dataSourceClassificationId: positiveNum,
     reorgTypeId: positiveNum,
     unitStatusId: positiveNum,
