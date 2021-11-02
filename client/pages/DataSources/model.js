@@ -43,7 +43,7 @@ function getColsWithPoints(cols, fieldName) {
   return cols.filter(x => x.split('.').length > 1 && x.split('.')[0] === fieldName)
 }
 
-function filterNameAndCode(value: string, isEqual: Boolean) {
+function filterNameAndCode(value, isEqual) {
   const lastVal = value.split('.').pop()
   if (isEqual) {
     return lastVal.includes('Name') || lastVal.includes('Code')
@@ -51,26 +51,28 @@ function filterNameAndCode(value: string, isEqual: Boolean) {
   return lastVal.includes('Name') && lastVal.includes('Code')
 }
 
-export function tryFieldIsRequired(cols: Array, field: string, variablesMapping) {
-  return (
-    (cols.includes(field) && !variablesMapping.map(([, prop]) => prop).includes(field)) ||
-    (getColsWithPoints(cols, field).length > 0 &&
-      getColsWithPoints(cols, field)
-        .filter(x => filterNameAndCode(x, false))
-        .filter(s =>
-          !variablesMapping
-            .map(([, vari]) => vari)
-            .filter(x => filterNameAndCode(x, false))
-            .includes(s)).length > 0) ||
-    (getColsWithPoints(cols, field).length > 0 &&
-      getColsWithPoints(cols, field)
-        .filter(x => filterNameAndCode(x, true))
-        .filter(s =>
-          !variablesMapping
-            .map(([, vari]) => vari)
-            .filter(x => x.split('.')[0] === field && filterNameAndCode(x, true))
-            .includes(s)).length > 1)
-  )
+export function tryFieldIsRequired(cols, field, variablesMapping) {
+  const var1 = cols.includes(field) && !variablesMapping.map(([, prop]) => prop).includes(field)
+  const var2 =
+    getColsWithPoints(cols, field).length > 0 &&
+    getColsWithPoints(cols, field)
+      .filter(x => filterNameAndCode(x, false))
+      .filter(s =>
+        !variablesMapping
+          .map(([, vari]) => vari)
+          .filter(x => filterNameAndCode(x, false))
+          .includes(s)).length > 0
+  const var3 =
+    getColsWithPoints(cols, field).length > 0 &&
+    getColsWithPoints(cols, field)
+      .filter(x => filterNameAndCode(x, true))
+      .filter(s =>
+        !variablesMapping
+          .map(([, vari]) => vari)
+          .filter(x => x.split('.')[0] === field && filterNameAndCode(x, true))
+          .includes(s)).length > 1
+
+  return var1 || var2 || var3
 }
 
 export function tryFieldIsRequiredForUpdate(variablesMapping) {

@@ -11,6 +11,37 @@ import Item from './Item'
 import { tryFieldIsRequired, tryFieldIsRequiredForUpdate, getFieldsForUpdate } from '../model'
 import styles from './styles.pcss'
 
+const getPropByDot = (target, path) => {
+  if (!path.length) return target
+  const props = path.split('.')
+
+  if (!target.hasOwnProperty(props[0])) throw new Error(`target has not got field: ${props[0]}`)
+
+  const next = target[props[0]]
+  return getPropByDot(next, props.slice(1).join('.'))
+}
+
+const isStatUnitRequired = (path) => {
+  const [field] = path.split('.')
+  if (!initialStatMap.hasOwnProperty(field)) { return window.__initialStateFromServer.mandatoryFields.StatUnit[field] }
+
+  const isFieldRequired = window.__initialStateFromServer.mandatoryFields.StatUnit[field]
+  if (!isFieldRequired) return false
+
+  try {
+    return getPropByDot(initialStatMap, path)
+  } catch (e) {
+    return false
+  }
+}
+
+const initialStatMap = {
+  Address: window.__initialStateFromServer.mandatoryFields.Addresses,
+  ActualAddress: window.__initialStateFromServer.mandatoryFields.Addresses,
+  Persons: window.__initialStateFromServer.mandatoryFields.Person,
+  Activities: window.__initialStateFromServer.mandatoryFields.Activity,
+}
+
 const resetSelection = ({ hovered }) => ({
   left: undefined,
   right: undefined,
@@ -116,7 +147,7 @@ class MappingsEditor extends React.Component {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  functionTryFieldIsRequired(cols: Array, field: string, variablesMapping) {
+  functionTryFieldIsRequired(cols, field, variablesMapping) {
     return tryFieldIsRequired(cols.map(x => x.name), field.split('.')[0], variablesMapping)
   }
 
@@ -143,10 +174,19 @@ class MappingsEditor extends React.Component {
   }
 
   renderItem(prop, value, label) {
-    const isRequired = typeof label === 'string' && label.includes('*')
+    if (typeof label !== 'string') throw new TypeError('Label must be a string')
+    const isRequired = isStatUnitRequired(value)
     const adopt = f => f(prop, value)
     const index = this.props.value.findIndex(x => x[prop === 'left' ? 0 : 1] === value)
     const { hovered, isUpdateValid } = this.state
+    const bool1 =
+      prop === 'left' || index >= 0
+        ? this.getAttributeColor(prop, value)
+        : this.props.isUpdate && isUpdateValid
+          ? 'grey'
+          : isRequired
+            ? 'red'
+            : 'grey'
     return (
       <Item
         key={value}
@@ -161,16 +201,7 @@ class MappingsEditor extends React.Component {
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
         isRequired={this.props.isUpdate && isUpdateValid ? false : isRequired}
-        color={
-          prop === 'left' || index >= 0
-            ? this.getAttributeColor(prop, value)
-            : this.props.isUpdate && isUpdateValid
-            ? 'grey'
-            : isRequired &&
-              this.functionTryFieldIsRequired(this.props.columns, value, this.props.mapping.value)
-            ? 'red'
-            : 'grey'
-        }
+        color={bool1}
       />
     )
   }
