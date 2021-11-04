@@ -23,7 +23,9 @@ const getPropByDot = (target, path) => {
 
 const isStatUnitRequired = (path) => {
   const [field] = path.split('.')
-  if (!initialStatMap.hasOwnProperty(field)) { return window.__initialStateFromServer.mandatoryFields.StatUnit[field] }
+  if (!initialStatMap.hasOwnProperty(field)) {
+    return window.__initialStateFromServer.mandatoryFields.StatUnit[field]
+  }
 
   const isFieldRequired = window.__initialStateFromServer.mandatoryFields.StatUnit[field]
   if (!isFieldRequired) return false
@@ -173,7 +175,7 @@ class MappingsEditor extends React.Component {
     else if (this.getOther(prop)) this.handleAdd(prop, value)
   }
 
-  renderItem(prop, value, label) {
+  renderItem(prop, value, label = '') {
     if (typeof label !== 'string') throw new TypeError('Label must be a string')
     const isRequired = isStatUnitRequired(value)
     const adopt = f => f(prop, value)
