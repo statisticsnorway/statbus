@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
     <AssemblyName>nscreg.Server.DataUploadSvc</AssemblyName>
     <OutputType>exe</OutputType>
     <PackageId>nscreg.Server.DataUploadSvc</PackageId>
