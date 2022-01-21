@@ -39,6 +39,7 @@ using MySql.Data.MySqlClient;
 using Npgsql;
 using static nscreg.Server.Core.StartupConfiguration;
 using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
+using Microsoft.Extensions.Hosting;
 
 namespace nscreg.Server
 {
@@ -49,11 +50,28 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
-        private IHostingEnvironment CurrentEnvironment { get; }
         private ILoggerFactory _loggerFactory;
 
-        public Startup(IHostingEnvironment env)
+        public Startup(IConfiguration configuration)
         {
+            Configuration = configuration;
+        }
+
+        /// <summary>
+        /// Application Configuration Method
+        /// </summary>
+        /// <param name="app">App</param>
+        /// <param name="loggerFactory">loggerFactory</param>
+        // ReSharper disable once UnusedMember.Global
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILoggerFactory loggerFactory)
+        {
+            //#pragma warning disable CS0618 // Type or member is obsolete
+            //            loggerFactory
+            //                .AddConsole(Configuration.GetSection("Logging"))
+            //                .AddDebug()
+            //                .AddNLog();
+            //#pragma warning restore CS0618 // Type or member is obsolete
+
             var builder = new ConfigurationBuilder().SetBasePath(env.ContentRootPath);
 
             if (env.IsDevelopment())
@@ -67,25 +85,6 @@ namespace nscreg.Server
                 .AddJsonFile("appsettings.json", true, reloadOnChange: true)
                 .AddJsonFile(path: $"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables();
-
-            Configuration = builder.Build();
-            CurrentEnvironment = env;
-        }
-
-        /// <summary>
-        /// Application Configuration Method
-        /// </summary>
-        /// <param name="app">App</param>
-        /// <param name="loggerFactory">loggerFactory</param>
-        // ReSharper disable once UnusedMember.Global
-        public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            loggerFactory
-                .AddConsole(Configuration.GetSection("Logging"))
-                .AddDebug()
-                .AddNLog();
-#pragma warning restore CS0618 // Type or member is obsolete
 
             _loggerFactory = loggerFactory;
 
@@ -103,13 +102,29 @@ namespace nscreg.Server
                 SupportedUICultures = supportedCultures
             });
             app.UseStaticFiles();
-#pragma warning disable CS0618 // Type or member is obsolete
-            app.UseIdentity()
-#pragma warning restore CS0618 // Type or member is obsolete
-                .UseMvc(routes => routes.MapRoute(
+            app.UseRouting();
+            app.UseCors();
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapHealthChecks("/healthz").RequireAuthorization();
+                endpoints.MapControllerRoute(
                     "default",
-                    "{*url}",
-                    new { controller = "Home", action = "Index" }));
+                    "{controller=Home}/{action=Index}/{id?}"
+                    //, new { controller = "Home", action = "Index" }
+                    );
+                endpoints.MapRazorPages();
+            });
+
+            //#pragma warning disable CS0618 // Type or member is obsolete
+            //            app.UseIdentity()
+            //#pragma warning restore CS0618 // Type or member is obsolete
+                                        //.UseMvc(routes => routes.MapRoute(
+                                        //    "default",
+                                        //    "{*url}",
+                                        //    new { controller = "Home", action = "Index" }));
 
             var provider = Configuration
                 .GetSection(nameof(ConnectionSettings))
@@ -135,7 +150,7 @@ namespace nscreg.Server
                     EvolveMigrate();
                 }
 
-                if (CurrentEnvironment.IsStaging()) {NscRegDbInitializer.RecreateDb(dbContext);}
+                //if (CurrentEnvironment.IsStaging()) {NscRegDbInitializer.RecreateDb(dbContext);}
                 if (provider == ConnectionProvider.InMemory) { NscRegDbInitializer.Seed(dbContext); }
                 NscRegDbInitializer.CreateViewsProceduresAndFunctions(
                     dbContext, provider, reportingSettingsProvider);
@@ -216,19 +231,27 @@ namespace nscreg.Server
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
 
-            var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration["DataProtectionKeysDir"]);
-            if (!Directory.Exists(keysDirectory))
-                Directory.CreateDirectory(keysDirectory);
+            //var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration["DataProtectionKeysDir"]);
+            //if (!Directory.Exists(keysDirectory))
+            //    Directory.CreateDirectory(keysDirectory);
 
-            services
-                .AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
-                .SetApplicationName("nscreg")
-                .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
+            services.AddLogging(loggingBuilder =>
+            {
+                loggingBuilder.AddConfiguration(Configuration.GetSection("Logging"));
+                loggingBuilder.AddConsole();
+                loggingBuilder.AddDebug();
+            });
+
+            //services
+            //    .AddDataProtection()
+            //    .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
+            //    .SetApplicationName("nscreg")
+            //    .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
 
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
-                .AddScoped<IUserService, UserService>();
+                .AddScoped<IUserService, UserService>()
+                .AddScoped(typeof( UserManager <User>));
             services.AddTransient(config => Configuration);
             services
                 .AddMvcCore(op =>
@@ -243,40 +266,57 @@ namespace nscreg.Server
                 .AddAuthorization(options => options.AddPolicy(
                     nameof(SystemFunctions),
                     policyBuilder => { policyBuilder.Requirements.Add(new SystemFunctionAuthRequirement()); }))
-                .AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
+                //.AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddDataAnnotationsLocalization()
                 .AddViewLocalization()
                 .AddViews();
-
-
+            services.AddHealthChecks();
+            services.AddCors();
+            services.AddRazorPages();
         }
 
         /// <summary>
         /// Application Launch Method
         /// </summary>
-        public static void Main()
+        //public static void Main()
+        //{
+        //    try
+        //    {
+        //        CreateWebHostBuilder().UseKestrel(options =>
+        //            {
+        //                options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
+        //            })
+        //            .UseContentRoot(Directory.GetCurrentDirectory())
+        //            .UseKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue)
+        //            .UseIISIntegration()
+        //            .UseStartup<Startup>()
+        //            .Build().Run();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var logger = NLog.LogManager.GetCurrentClassLogger();
+        //        logger.Error(ex);
+        //    }
+        //}
+        //public static IWebHostBuilder CreateWebHostBuilder() =>
+        //    WebHost.CreateDefaultBuilder()
+        //        .UseStartup<Startup>();
+
+        public static void Main(string[] args)
         {
-            try
-            {
-                CreateWebHostBuilder().UseKestrel(options =>
-                    {
-                        options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
-                    })
-                    .UseContentRoot(Directory.GetCurrentDirectory())
-                    .UseKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue)
-                    .UseIISIntegration()
-                    .UseStartup<Startup>()
-                    .Build().Run();
-            }
-            catch (Exception ex)
-            {
-                var logger = NLog.LogManager.GetCurrentClassLogger();
-                logger.Error(ex);
-            }
+            CreateWebHostBuilder(args).Build().Run();
         }
-        public static IWebHostBuilder CreateWebHostBuilder() =>
-            WebHost.CreateDefaultBuilder()
-                .UseStartup<Startup>();
+
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+            WebHost.CreateDefaultBuilder(args)
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseIISIntegration()
+                .UseStartup<Startup>()
+                .ConfigureKestrel((context, options) =>
+                {
+                    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
+                    options.Limits.MaxRequestBodySize = long.MaxValue;
+                });
     }
 }

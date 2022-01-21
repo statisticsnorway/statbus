@@ -18,7 +18,7 @@ namespace nscreg.TestUtils
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
 #pragma warning disable CS0618 // Type or member is obsolete
             builder
-                .UseInMemoryDatabase()
+                //.UseInMemoryDatabase()
 #pragma warning restore CS0618 // Type or member is obsolete
                 .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .UseInternalServiceProvider(serviceProvider);
