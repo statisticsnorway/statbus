@@ -15,7 +15,7 @@ namespace nscreg.Data.Configuration
         /// </summary>
         public override void Configure(EntityTypeBuilder<EnterpriseUnit> builder)
         {
-            builder.ToTable("EnterpriseUnits");
+            //builder.ToTable("EnterpriseUnits");
 
             builder.Property(x => x.TotalCapital)
                 .HasMaxLength(100);

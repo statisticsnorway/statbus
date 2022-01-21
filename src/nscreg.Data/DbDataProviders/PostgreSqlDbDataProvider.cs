@@ -21,13 +21,13 @@ namespace nscreg.Data.DbDataProviders
 
         public int[] GetActivityChildren(NSCRegDbContext context, object fieldValue, object fieldValues)
         {
-            return context.ActivityCategories.FromSql(@"SELECT * FROM ""GetActivityChildren""({0},{1})", Convert.ToInt32(fieldValue), fieldValues).Select(x => x.Id)
+            return context.ActivityCategories.FromSqlRaw(@"SELECT * FROM ""GetActivityChildren""({0},{1})", Convert.ToInt32(fieldValue), fieldValues).Select(x => x.Id)
                 .ToArray();
         }
 
         public int[] GetRegionChildren(NSCRegDbContext context, object fieldValue)
         {
-            return context.Regions.FromSql(@"SELECT * FROM ""GetRegionChildren""({0})", Convert.ToInt32(fieldValue)).Select(x => x.Id)
+            return context.Regions.FromSqlRaw(@"SELECT * FROM ""GetRegionChildren""({0})", Convert.ToInt32(fieldValue)).Select(x => x.Id)
                 .ToArray();
         }
     }

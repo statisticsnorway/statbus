@@ -32,6 +32,7 @@ namespace nscreg.Server.Controllers
     /// </summary>
     public class HomeController : Controller
     {
+        [Obsolete]
         private readonly IHostingEnvironment _env;
         private readonly IAntiforgery _antiforgery;
         private readonly DbMandatoryFields _dbMandatoryFields;
@@ -42,6 +43,7 @@ namespace nscreg.Server.Controllers
         private readonly NSCRegDbContext _ctx;
         private dynamic _assets;
 
+        [Obsolete]
         public HomeController(
             IHostingEnvironment env,
             IAntiforgery antiforgery,
@@ -66,6 +68,7 @@ namespace nscreg.Server.Controllers
         /// Main method handler for logging in
         /// </summary>
         /// <returns></returns>
+        [Obsolete]
         public async Task<IActionResult> Index()
         {
             if (_env.IsDevelopment() || _assets == null)
@@ -79,12 +82,14 @@ namespace nscreg.Server.Controllers
                 }
             }
 
-            var user = await _ctx.Users
+            var allUserIdentity = await _ctx.Users
                 .Include(x => x.UserRoles)
                 .ThenInclude(x=>x.Role)
-                .FirstAsync(u => u.Login == User.Identity.Name);
-            var roles = await _ctx.Roles
-                .Where(r => user.UserRoles.Any(ur => ur.RoleId == r.Id)).ToListAsync();
+                .ToListAsync();
+            var user = allUserIdentity.FirstOrDefault(u => u.Login == User.Identity.Name);
+            var allRole = await _ctx.Roles.ToListAsync();
+            var roles = allRole
+                .Where(r => user.UserRoles.Any(ur => ur.RoleId == r.Id)).ToList();
             if (user == null || !roles.Any()) return RedirectToAction("LogOut", "Account");
             var dataAccessAttributes = DataAccessPermissions.Combine(
                 roles.Select(r => r.StandardDataAccessArray));

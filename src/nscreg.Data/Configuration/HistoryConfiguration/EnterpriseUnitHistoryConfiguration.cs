@@ -15,7 +15,7 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
         /// </summary>
         public override void Configure(EntityTypeBuilder<EnterpriseUnitHistory> builder)
         {
-            builder.ToTable("EnterpriseUnitsHistory");
+            //builder.ToTable("EnterpriseUnitsHistory");
             builder.HasIndex(x => x.EntGroupId);
         }
     }

@@ -25,10 +25,7 @@ namespace nscreg.Server.DataUploadSvc
         /// </summary>
         public static void Main()
         {
-#pragma warning disable CS0618 // Type or member is obsolete
             var logger = new LoggerFactory()
-                .AddConsole()
-#pragma warning restore CS0618 // Type or member is obsolete
                 .AddNLog()
                 .CreateLogger<Program>();
 

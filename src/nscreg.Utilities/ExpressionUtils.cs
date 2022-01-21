@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 
 namespace nscreg.Utilities
 {
@@ -13,6 +12,6 @@ namespace nscreg.Utilities
         /// </summary>
         /// <param name = "expr"> Expression </param>
         /// <returns> </returns>
-        public static string GetExpressionText(LambdaExpression expr) => ExpressionHelper.GetExpressionText(expr);
+        public static string GetExpressionText(LambdaExpression expr) => GetExpressionText(expr);
     }
 }

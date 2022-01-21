@@ -40,7 +40,10 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.UserCreate, SystemFunctions.UserEdit)]
-        public async Task<IActionResult> IsLoginExist(string login) => Ok(await _userService.IsLoginExist(login));
+        public async Task<IActionResult> IsLoginExist(string login)
+        {            
+            return Ok(await _userService.IsLoginExist(login));
+        }
 
         [HttpPost]
         [SystemFunction(SystemFunctions.UserCreate)]

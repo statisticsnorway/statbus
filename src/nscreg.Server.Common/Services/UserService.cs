@@ -381,6 +381,12 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="login"></param>
         /// <returns></returns>
-        public async Task<bool> IsLoginExist(string login) => await _context.Users.AnyAsync(x => x.Login == login);
+        public async Task<bool> IsLoginExist(string login)
+        {
+            var allusers = await _context.Users.ToListAsync();
+            var userExist = allusers.Any(x => x.Login == login);
+            return userExist;
+            
+        }
     }
 }
