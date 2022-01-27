@@ -51,8 +51,11 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly string _userId;
         private readonly StatUnitCheckPermissionsHelper _permissionsHelper;
         private readonly DataAccessPermissions _permissions;
+        private readonly IMapper _mapper;
 
-        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation, StatUnitTypes unitType, NSCRegDbContext context, string userId, DataAccessPermissions permissions)
+        public PopulateService((string source, string target)[] propMapping, DataSourceAllowedOperation operation,
+            StatUnitTypes unitType, NSCRegDbContext context, string userId, DataAccessPermissions permissions,
+            IMapper mapper)
         {
             _permissions = permissions;
             
@@ -63,6 +66,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _unitType = unitType;
             _allowedOperation = operation;
             _postProcessor = new StatUnitPostProcessor(context);
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -100,7 +104,7 @@ namespace nscreg.Server.Common.Services.DataSources
                                         _allowedOperation == DataSourceAllowedOperation.CreateAndAlter && !isNew)
                 {
                     historyUnit = GetStatUnitSetHelper.CreateByType(_unitType);
-                    Mapper.Map(resultUnit, historyUnit);
+                    _mapper.Map(resultUnit, historyUnit);
                 }
                 // PopulateTracer.swHunit.Stop();
                 //PopulateTracer.countHunit++;

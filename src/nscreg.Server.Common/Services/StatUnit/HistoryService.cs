@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
@@ -11,6 +10,7 @@ using nscreg.Data.Entities.History;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.History;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -21,16 +21,16 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class HistoryService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
         private readonly ForeingKeysResolver _foreignKeysResolver;
-        private readonly Common _commonSvc;
+        private readonly CommonService _commonSvc;
 
-        public HistoryService(NSCRegDbContext dbContext)
+        public HistoryService(NSCRegDbContext dbContext, IUserService userService, CommonService common)
         {
             _dbContext = dbContext;
-            _userService = new UserService(dbContext);
+            _userService = userService;
             _foreignKeysResolver = new ForeingKeysResolver(dbContext);
-            _commonSvc = new Common(dbContext);
+            _commonSvc = common;
         }
 
         /// <summary>

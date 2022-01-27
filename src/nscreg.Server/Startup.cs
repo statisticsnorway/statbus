@@ -2,7 +2,6 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
@@ -12,8 +11,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Serialization;
-using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -21,7 +18,6 @@ using nscreg.Server.Common;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.Contracts;
-using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration;
@@ -38,8 +34,9 @@ using System.IO;
 using MySql.Data.MySqlClient;
 using Npgsql;
 using static nscreg.Server.Core.StartupConfiguration;
-using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 using Microsoft.Extensions.Hosting;
+using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Server.Common.Helpers;
 
 namespace nscreg.Server
 {
@@ -202,6 +199,7 @@ namespace nscreg.Server
             evolve.Migrate();
         }
 
+
         /// <summary>
         /// Service Configurator Method
         /// </summary>
@@ -209,7 +207,6 @@ namespace nscreg.Server
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
-            ConfigureAutoMapper();
             services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
             services.Configure<LocalizationSettings>(x =>
@@ -235,6 +232,18 @@ namespace nscreg.Server
             //if (!Directory.Exists(keysDirectory))
             //    Directory.CreateDirectory(keysDirectory);
 
+            // Auto Mapper Configurations
+            //var mappingConfig = new MapperConfiguration(mc =>
+            //{
+            //    mc.AddProfile<AutoMapperProfile>();
+            //});
+
+            //IMapper mapper = mappingConfig.CreateMapper();
+            //services.AddSingleton(mapper);
+            services.AddAutoMapper(c => c.AddProfile<AutoMapperProfile>(), typeof(Startup));
+            services.AddControllersWithViews();
+
+
             services.AddLogging(loggingBuilder =>
             {
                 loggingBuilder.AddConfiguration(Configuration.GetSection("Logging"));
@@ -252,6 +261,30 @@ namespace nscreg.Server
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>()
                 .AddScoped(typeof( UserManager <User>));
+            services.AddScoped<AnalysisQueueService>();
+            services.AddScoped<DataSourcesQueueService>();
+            services.AddScoped<DataSourcesService>();
+            services.AddScoped<LookupService>();
+            services.AddScoped<PersonService>();
+            services.AddScoped<RegionService>();
+            services.AddScoped<ReportService>();
+            services.AddScoped<RoleService>();
+            services.AddScoped<CommonService>();
+            services.AddScoped<IAddressService, AddressService>();
+            services.AddScoped<IElasticUpsertService, ElasticService>();
+            services.AddScoped<IStatUnitAnalyzeService, AnalyzeService>();
+            services.AddScoped<CreateService>();
+            services.AddScoped<DataAccessService>();
+            services.AddScoped<EditService>();
+            services.AddScoped<DeleteService>();
+            services.AddScoped<LinkService>();
+            services.AddScoped<SearchService>();
+            services.AddScoped<ViewService>();
+            services.AddScoped<HistoryService>();
+            services.AddScoped<StatUnitAnalysisHelper>();
+            services.AddScoped<StatUnitCheckPermissionsHelper>();
+            services.AddScoped<StatUnitCreationHelper>();
+
             services.AddTransient(config => Configuration);
             services
                 .AddMvcCore(op =>
@@ -274,6 +307,7 @@ namespace nscreg.Server
             services.AddHealthChecks();
             services.AddCors();
             services.AddRazorPages();
+            services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Server.Common.Models.Lookup;
@@ -15,9 +16,9 @@ namespace nscreg.Server.Controllers
     {
         private readonly LookupService _lookupService;
 
-        public LookupController(NSCRegDbContext db)
+        public LookupController(LookupService lookupService)
         {
-            _lookupService = new LookupService(db);
+            _lookupService = lookupService;
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
@@ -39,13 +40,14 @@ namespace nscreg.Server.DataUploadSvc
         private NSCRegDbContext _context;
         private readonly bool _personsGoodQuality;
         private readonly int _elementsForRecreateContext;
-       
-        public QueueJob(
-            int dequeueInterval,
-            ILogger logger,
-            StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields dbMandatoryFields,
-            ValidationSettings validationSettings, int bufferMaxCount, bool personsGoodQuality, int elementsForRecreateContext)
+        private readonly IMapper _mapper;
+        private readonly DataAccessService _dataAccessService;
+        private readonly ImportExecutor _importExecutor;
+
+        public QueueJob( int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules,
+            DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings,
+            int bufferMaxCount, bool personsGoodQuality, int elementsForRecreateContext,
+            IMapper mapper, DataAccessService dataAccessService, ImportExecutor importExecutor)
         {
             _personsGoodQuality = personsGoodQuality;
             _logger = logger;
@@ -55,6 +57,9 @@ namespace nscreg.Server.DataUploadSvc
             _validationSettings = validationSettings;
             _bufferMaxCount = bufferMaxCount;
             _elementsForRecreateContext = elementsForRecreateContext;
+            _mapper = mapper;
+            _dataAccessService = dataAccessService;
+            _importExecutor = importExecutor;
         }
 
         private void AddScopedServices()
@@ -86,7 +91,7 @@ namespace nscreg.Server.DataUploadSvc
             {
                 //To wait for the elastic service to start
                 await Task.Delay(15000);
-                await new ElasticService(_context).CheckElasticSearchConnection();
+                await new ElasticService(_context, _mapper).CheckElasticSearchConnection();
             }
             catch (Exception ex)
             {
@@ -94,8 +99,8 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, ex.Message);
                 return;
             }
-            var dataAccessService = new DataAccessService(_context);
-            if (dataAccessService.CheckWritePermissions(dequeued.UserId, dequeued.DataSource.StatUnitType))
+
+            if (_dataAccessService.CheckWritePermissions(dequeued.UserId, dequeued.DataSource.StatUnitType))
             {
                 var message = $"User doesn't have write permission for {dequeued.DataSource.StatUnitType}";
                 _logger.LogInformation("finish queue item with error: {0}", message);
@@ -112,8 +117,6 @@ namespace nscreg.Server.DataUploadSvc
                 return;
             }
 
-            var executor = new ImportExecutor(_statUnitAnalysisRules, _dbMandatoryFields, _validationSettings, _logger, _logBuffer, _personsGoodQuality, _elementsForRecreateContext);
-
             //var swParse = new Stopwatch();
             var (parseError, parsed, problemLine) = await ParseFile(dequeued/*, swParse*/);
            
@@ -129,7 +132,7 @@ namespace nscreg.Server.DataUploadSvc
             _logger.LogInformation("parsed {0} entities", parsed.Length);
             var anyWarnings = false;
             var exceptionMessage = string.Empty; 
-            await CatchAndLogException(async () => await executor.Start(dequeued, parsed, _bufferMaxCount), ex =>
+            await CatchAndLogException(async () => await _importExecutor.Start(dequeued, parsed, _bufferMaxCount), ex =>
             {
                 anyWarnings = true;
                 exceptionMessage = ex;
@@ -142,7 +145,7 @@ namespace nscreg.Server.DataUploadSvc
            
             await _queueSvc.FinishQueueItem(
                 dequeued,
-                anyWarnings || executor.AnyWarnings
+                anyWarnings || _importExecutor.AnyWarnings
                     ? QueueStatus.DataLoadCompletedPartially
                     : QueueStatus.DataLoadCompleted, exceptionMessage);
 
@@ -237,10 +240,12 @@ namespace nscreg.Server.DataUploadSvc
         private async Task<string> MutateFileAsync(DataSourceQueue item)
         {
             var rawLines = (await GetRawFileAsync(item))
-                .Select(x => x.EndsWith(item.DataSource.CsvDelimiter) ? x.Substring(0, x.Length - 1) : x).ToArray(); //Remove the csv delimiter at the end of the line
+                .Select(x => x.EndsWith(item.DataSource.CsvDelimiter)
+                ? x.Substring(0, x.Length - 1) : x).ToArray(); //Remove the csv delimiter at the end of the line
             try
             {
-               await File.WriteAllTextAsync(item.DataSourcePath, string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), encoding: Encoding.UTF8);
+               await File.WriteAllTextAsync(item.DataSourcePath,
+                   string.Join("\r\n", rawLines.Where(c => !string.IsNullOrEmpty(c))), encoding: Encoding.UTF8);
             }
             catch (Exception ex)
             {

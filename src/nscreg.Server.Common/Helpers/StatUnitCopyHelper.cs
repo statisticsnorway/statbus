@@ -24,7 +24,7 @@ namespace nscreg.Server.Common.Helpers
                 LegalUnit = legalUnit
             };
 
-            Mapper.Map(legalUnit, localUnit);
+            _mapper.Map(legalUnit, localUnit);
             await _dbContext.LocalUnits.AddAsync(localUnit);
          
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
@@ -39,7 +39,7 @@ namespace nscreg.Server.Common.Helpers
                 Address = legalUnit.Address,
                 ActualAddress = legalUnit.ActualAddress,
             };
-            Mapper.Map(legalUnit, enterpriseUnit);
+            _mapper.Map(legalUnit, enterpriseUnit);
             await _dbContext.EnterpriseUnits.AddAsync(enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
             
@@ -56,7 +56,7 @@ namespace nscreg.Server.Common.Helpers
                 ActualAddress = enterpriseUnit.ActualAddress,
             };
 
-            Mapper.Map(enterpriseUnit, enterpriseGroup);
+            _mapper.Map(enterpriseUnit, enterpriseGroup);
             enterpriseUnit.EnterpriseGroup = enterpriseGroup;
             await _dbContext.EnterpriseGroups.AddAsync(enterpriseGroup);
 

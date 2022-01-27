@@ -32,31 +32,37 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly NSCRegDbContext _dbContext;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
-        private readonly UserService _userService;
-        private readonly Common _commonSvc;
-        private readonly ElasticService _elasticService;
+        private readonly IUserService _userService;
+        private readonly CommonService _commonSvc;
+        private readonly IElasticUpsertService _elasticService;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
         private readonly bool _shouldAnalyze;
+        private readonly IMapper _mapper;
+        private readonly IStatUnitAnalyzeService _analysisService;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings, bool shouldAnalyze = true)
+            DbMandatoryFields mandatoryFields, IUserService userService, CommonService commonSvc, IElasticUpsertService elasticService,
+            ValidationSettings validationSettings, DataAccessService dataAccessService, IStatUnitAnalyzeService analysisService,
+            IMapper mapper, bool shouldAnalyze = true)
         {
-            _dbContext = dbContext;
+            _dbContext = dbContext;            
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _mandatoryFields = mandatoryFields;
-            _userService = new UserService(dbContext);
-            _commonSvc = new Common(dbContext);
-            _elasticService = new ElasticService(dbContext);
+            _userService = userService;
+            _commonSvc = commonSvc;
+            _elasticService = elasticService;
             _validationSettings = validationSettings;
-            _dataAccessService = new DataAccessService(dbContext);
+            _dataAccessService = dataAccessService;
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
             _shouldAnalyze = shouldAnalyze;
+            _analysisService = analysisService;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -71,7 +77,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 m => m.RegId ?? 0,
                 userId, (unit) =>
                 {
-                    if (!Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                    if (!CommonService.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
                         return Task.CompletedTask;
                     }
@@ -84,7 +90,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             enterpriseUnit.UnitStatusId = unit.UnitStatusId;
                             enterpriseUnit.LiqReason = unit.LiqReason;
                             enterpriseUnit.LiqDate = unit.LiqDate;
-                            _editArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
+                            _editArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                         }
                     }
 
@@ -103,7 +109,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 localUnit.LiqDate = unit.LiqDate;
                             }
                             unit.LocalUnits.Add(localUnit);
-                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
+                            _addArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
                         }
                         unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
                     }
@@ -151,7 +157,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
                     }
-                    if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
+                    if (CommonService.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
                         if (data.LegalUnits != null && data.LegalUnits.Any())
                         {
@@ -161,7 +167,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             foreach (var legalUnit in legalUnits)
                             {
                                 unit.LegalUnits.Add(legalUnit);
-                                _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(legalUnit));
+                                _addArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(legalUnit));
                             }
                             
                             unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
@@ -184,7 +190,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 (unit, oldUnit) =>
                 {
-                    if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
+                    if (CommonService.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
                         if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                         {
@@ -194,7 +200,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             foreach (var enterprise in enterprises)
                             {
                                 unit.EnterpriseUnits.Add(enterprise);
-                                _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterprise));
+                                _addArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterprise));
                             }
                             unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                         }
@@ -225,7 +231,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 async (unit, oldUnit) =>
                 {
                     //Merge activities
-                    if (Common.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+                    if (CommonService.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
                     {
                         var activities = new List<ActivityStatisticalUnit>();
                         var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
@@ -245,7 +251,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 }
                             }
                             var newActivity = new Activity();
-                            Mapper.Map(model, newActivity);
+                            _mapper.Map(model, newActivity);
                             newActivity.UpdatedBy = userId;
                             newActivity.ActivityCategoryId = model.ActivityCategoryId;
                             activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
@@ -290,7 +296,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 continue;
                             }
                         }
-                        var newPerson = Mapper.Map<PersonM, Person>(model);
+                        var newPerson = _mapper.Map<PersonM, Person>(model);
                         persons.Add(new PersonStatisticalUnit { Person = newPerson, PersonTypeId = model.Role });
                     }
 
@@ -386,13 +392,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new []{ nameof(Resource.Error403) } } };
             }
 
-            await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
+            await _commonSvc.InitializeDataAccessAttributes(data, userId, unit.UnitType);
 
             var unitsHistoryHolder = new UnitsHistoryHolder(unit);
 
             var hUnit = new TUnit();
-            Mapper.Map(unit, hUnit);
-            Mapper.Map(data, unit);
+            _mapper.Map(unit, hUnit);
+            _mapper.Map(data, unit);
 
 
             var deleteEnterprise = false;
@@ -427,9 +433,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (_shouldAnalyze)
             {
-                IStatUnitAnalyzeService analysisService =
-                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-                var analyzeResult = await analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
+                var analyzeResult = await _analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
                 if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
             }
 
@@ -439,7 +443,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
                     var changedDateTime = DateTime.Now;
-                    _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit, changedDateTime));
+                    _commonSvc.AddHistoryUnitByType(CommonService.TrackHistory(unit, mappedHistoryUnit, changedDateTime));
 
                     _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment,
                         changedDateTime, unitsHistoryHolder);
@@ -465,7 +469,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             await _elasticService.EditDocument(editArrayStatisticalUnit);
                         }
 
-                    await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+                    await _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
                 }
                 catch (NotFoundException e)
                 {

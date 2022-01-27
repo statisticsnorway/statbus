@@ -17,24 +17,32 @@ using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using AutoMapper;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
     public class ViewService
     {
-        private readonly Common _commonSvc;
-        private readonly UserService _userService;
+        private readonly CommonService _commonSvc;
+        private readonly IUserService _userService;
         private readonly RegionService _regionService;
         private readonly NSCRegDbContext _context;
         private readonly DbMandatoryFields _mandatoryFields;
+        private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
+        private readonly IMapper _mapper;
 
-        public ViewService(NSCRegDbContext dbContext, DbMandatoryFields mandatoryFields)
+        public ViewService(NSCRegDbContext context, CommonService commonSvc,
+            IUserService userService, RegionService regionService, DbMandatoryFields mandatoryFields,
+            StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper,
+            IMapper mapper)
         {
-            _commonSvc = new Common(dbContext);
-            _userService = new UserService(dbContext);
-            _regionService = new RegionService(dbContext);
-            _context = dbContext;
+            _commonSvc = commonSvc;
+            _userService = userService;
+            _regionService = regionService;
+            _context = context;
             _mandatoryFields = mandatoryFields;
+            _statUnitCheckPermissionsHelper = statUnitCheckPermissionsHelper;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -87,10 +95,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             
             if ((ignoredActions == ActionsEnum.Edit) && isEmployee)
             {
-                var helper = new StatUnitCheckPermissionsHelper(_context);
                 var mappedItem = new ElasticStatUnit();
-                Mapper.Map(item, mappedItem);
-                helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
+                _mapper.Map(item, mappedItem);
+                _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
             
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);

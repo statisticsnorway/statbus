@@ -31,11 +31,10 @@ namespace nscreg.Server.Test
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
             _validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
-            _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields, _validationSettings);
+            //_helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields, _validationSettings);
             _connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
 
-            StartupConfiguration.ConfigureAutoMapper();
-
+            //StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]

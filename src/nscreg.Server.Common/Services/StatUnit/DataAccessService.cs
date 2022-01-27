@@ -2,20 +2,22 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
     public class DataAccessService
     {
         private readonly RoleService _roleService;
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
 
-        public DataAccessService(NSCRegDbContext dbContext)
+        public DataAccessService(RoleService roleService, IUserService userService)
         {
-            _roleService = new RoleService(dbContext);
-            _userService = new UserService(dbContext);
+            _roleService = roleService;
+            _userService = userService;
         }
 
         public bool CheckWritePermissions(string userId, StatUnitTypes unitType)

@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using nscreg.Data;
@@ -33,7 +34,12 @@ namespace nscreg.AnalysisService
             ConfigureAndInitializeAnalysisJob(configuration);
         }
 
-        private static void ConfigureAndInitializeAnalysisJob(IConfiguration configuration)
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddSingleton<AnalysisJob>();
+        }
+
+            private static void ConfigureAndInitializeAnalysisJob(IConfiguration configuration)
         {
             var logger = new LoggerFactory()
                 .AddNLog()
@@ -60,33 +66,34 @@ namespace nscreg.AnalysisService
             var dbContextHelper = new DbContextHelper();
             var ctx = dbContextHelper.CreateDbContext(new string[] { });
             const string serviceName = "nscreg.AnalysisService";
+            
 
-            ServiceRunner<JobService>.Run(config =>
-            {
-                config.SetName(ServiceName);
-                config.SetDisplayName(ServiceName);
-                config.SetDescription(ServiceName);
-                config.Service(svcConfig =>
-                {
-                    svcConfig.ServiceFactory((extraArguments, controller) =>
-                        new JobService(
-                            logger,
-                            new AnalysisJob(
-                                ctx,
-                                statUnitAnalysisRules,
-                                dbMandatoryFields,
-                                servicesSettings.StatUnitAnalysisServiceDequeueInterval,
-                                validationSettings,
-                                logger
-                            )));
-                    svcConfig.OnStart((svc, extraArguments) => svc.Start());
-                    svcConfig.OnStop(svc => svc.Stop());
-                    svcConfig.OnError(e =>
-                    {
-                        logger.LogError("Service errored with exception : {0}", e.Message);
-                    });
-                });
-            });
+            //ServiceRunner<JobService>.Run(config =>
+            //{
+            //    config.SetName(ServiceName);
+            //    config.SetDisplayName(ServiceName);
+            //    config.SetDescription(ServiceName);
+            //    config.Service(svcConfig =>
+            //    {
+            //        svcConfig.ServiceFactory((extraArguments, controller) =>
+            //            new JobService(
+            //                logger,
+            //                new AnalysisJob(
+            //                    ctx,
+            //                    statUnitAnalysisRules,
+            //                    dbMandatoryFields,
+            //                    servicesSettings.StatUnitAnalysisServiceDequeueInterval,
+            //                    validationSettings,
+            //                    logger
+            //                )));
+            //        svcConfig.OnStart((svc, extraArguments) => svc.Start());
+            //        svcConfig.OnStop(svc => svc.Stop());
+            //        svcConfig.OnError(e =>
+            //        {
+            //            logger.LogError("Service errored with exception : {0}", e.Message);
+            //        });
+            //    });
+            //});
         }
     }
 }

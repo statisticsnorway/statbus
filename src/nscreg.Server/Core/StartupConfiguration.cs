@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using nscreg.Server.Common;
 
 namespace nscreg.Server.Core
@@ -53,13 +54,13 @@ namespace nscreg.Server.Core
         /// <summary>
         /// AutoMapper Configuration Method
         /// </summary>
-        public static void ConfigureAutoMapper()
+        public static void ConfigureAutoMapper(IServiceCollection services)
         {
             lock (_thisLock)
             {
                 if (!_initialized)
                 {
-                    Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
+                    services.AddAutoMapper(c => c.AddProfile<AutoMapperProfile>(), typeof(Startup));
                     _initialized = true;
                 }
             }

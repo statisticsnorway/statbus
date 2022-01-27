@@ -22,7 +22,7 @@ namespace nscreg.Server.Test
     {
         public RoleServiceTest()
         {
-            StartupConfiguration.ConfigureAutoMapper();
+            //StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]

@@ -55,7 +55,8 @@ namespace nscreg.Server.Common.Helpers
             if (exceptIds.Any())
             {
                 var regionNames = _dbContext.Regions.Local.Where(x => exceptIds.Contains(x.Id))
-                    .Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2 }.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
+                    .Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2 }
+                    .GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList();
                 throw new BadRequestException($"{Localization.GetString(nameof(Resource.YouDontHaveEnoughtRightsRegion))} ({string.Join(",", regionNames.Distinct())})");
             }
         }
@@ -70,7 +71,10 @@ namespace nscreg.Server.Common.Helpers
             if (exceptIds.Any())
             {
                 var activityCategoryNames = isUploadService ?
-                    _dbContext.ActivityCategories.Local.Select(x => new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id }).Where(x => exceptIds.Contains(x.Id)).Select(x => x.GetString(CultureInfo.DefaultThreadCurrentCulture)).ToList() : _dbContext
+                    _dbContext.ActivityCategories.Local.Select(x =>
+                    new CodeLookupBase { Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2, Id = x.Id })
+                    .Where(x => exceptIds.Contains(x.Id)).Select(x => x.GetString(CultureInfo.DefaultThreadCurrentCulture))
+                    .ToList() : _dbContext
                         .ActivityCategories
                         .Select(x => new CodeLookupBase
                         {

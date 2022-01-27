@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -18,9 +19,9 @@ namespace nscreg.Server.Controllers
     {
         private readonly LinkService _service;
 
-        public LinksController(NSCRegDbContext context)
+        public LinksController(LinkService service)
         {
-            _service = new LinkService(context);
+            _service = service;
         }
 
         /// <summary>

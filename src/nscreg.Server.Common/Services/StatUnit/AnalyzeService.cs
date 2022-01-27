@@ -31,12 +31,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly StatUnitAnalysisHelper _helper;
         private readonly ValidationSettings _validationSettings;
 
-        public AnalyzeService(NSCRegDbContext context, StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
+        public AnalyzeService(NSCRegDbContext context, StatUnitAnalysisRules analysisRules,
+            DbMandatoryFields mandatoryFields, StatUnitAnalysisHelper helper, ValidationSettings validationSettings)
         {
             _context = context;
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
-            _helper = new StatUnitAnalysisHelper(_context);
+            _helper = helper;
             _validationSettings = validationSettings;
         }
 
