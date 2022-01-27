@@ -5,7 +5,6 @@ namespace nscreg.Data.DbInitializers
 {
     public class MySqlDbInitializer : IDbInitializer
     {
-        [System.Obsolete]
         public void Initialize(NSCRegDbContext context, ReportingSettings reportingSettings = null)
         {
             #region Scripts

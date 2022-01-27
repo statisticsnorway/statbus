@@ -32,7 +32,6 @@ namespace nscreg.Server.Controllers
     /// </summary>
     public class HomeController : Controller
     {
-        [Obsolete]
         private readonly IHostingEnvironment _env;
         private readonly IAntiforgery _antiforgery;
         private readonly DbMandatoryFields _dbMandatoryFields;
@@ -43,7 +42,6 @@ namespace nscreg.Server.Controllers
         private readonly NSCRegDbContext _ctx;
         private dynamic _assets;
 
-        [Obsolete]
         public HomeController(
             IHostingEnvironment env,
             IAntiforgery antiforgery,
@@ -68,7 +66,6 @@ namespace nscreg.Server.Controllers
         /// Main method handler for logging in
         /// </summary>
         /// <returns></returns>
-        [Obsolete]
         public async Task<IActionResult> Index()
         {
             if (_env.IsDevelopment() || _assets == null)

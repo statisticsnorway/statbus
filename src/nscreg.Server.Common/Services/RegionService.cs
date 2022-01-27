@@ -23,10 +23,12 @@ namespace nscreg.Server.Common.Services
     public class RegionService
     {
         private readonly NSCRegDbContext _context;
+        private readonly IMapper _mapper;
 
-        public RegionService(NSCRegDbContext dbContext)
+        public RegionService(NSCRegDbContext dbContext, IMapper mapper)
         {
             _context = dbContext;
+            _mapper = mapper;
         }
         /// <summary>
         /// Method for obtaining a list of regions
@@ -92,7 +94,7 @@ namespace nscreg.Server.Common.Services
         public async Task<RegionM> GetAsync(string code)
         {
             var region = await _context.Regions.FirstOrDefaultAsync(x => x.Code.TrimEnd('0').Equals(code));
-            return Mapper.Map<RegionM>(region);
+            return _mapper.Map<RegionM>(region);
         }
 
         public async Task<Region> GetRegionParents(int regionId)

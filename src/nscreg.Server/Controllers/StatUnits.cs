@@ -19,6 +19,7 @@ using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
+using AutoMapper;
 
 namespace nscreg.Server.Controllers
 {
@@ -35,16 +36,18 @@ namespace nscreg.Server.Controllers
         private readonly EditService _editService;
         private readonly DeleteService _deleteService;
         private readonly HistoryService _historyService;
+        private readonly IMapper _mapper;
 
-        public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
+        public StatUnitsController(SearchService searchService, ViewService viewService, CreateService createService,
+            EditService editService, DeleteService deleteService, HistoryService historyService, IMapper mapper)
         {
-            _searchService = new SearchService(context);
-            _viewService = new ViewService(context, mandatoryFields);
-            _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields, validationSettings, shouldAnalyze: true);
-            _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields, validationSettings);
-            _deleteService = new DeleteService(context);
-            _historyService = new HistoryService(context);
+            _searchService = searchService;
+            _viewService = viewService;
+            _createService = createService; // new CreateService(context, statUnitAnalysisRules, mandatoryFields, validationSettings, _mapper, shouldAnalyze: true);
+            _editService = editService;
+            _deleteService = deleteService;
+            _historyService = historyService;
+            _mapper = mapper;
         }
 
         /// <summary>

@@ -18,6 +18,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Server.Common.Services.DataSources;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -52,16 +53,20 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// <summary>
     /// Common service stat units
     /// </summary>
-    public class Common
+    public class CommonService
     {
         private readonly NSCRegDbContext _dbContext;
         private bool IsBulk => _buffer != null;
         private readonly UpsertUnitBulkBuffer _buffer;
+        private readonly IMapper _mapper;
+        private readonly IUserService _userService;
 
-        public Common(NSCRegDbContext dbContext, UpsertUnitBulkBuffer buffer= null)
+        public CommonService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService, UpsertUnitBulkBuffer buffer= null)
         {
             _buffer = buffer;
             _dbContext = dbContext;
+            _mapper = mapper;
+            _userService = userService;
         }
 
         public static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
@@ -418,7 +423,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unit == null) return;
 
             var hUnit = new TUnit();
-            Mapper.Map(unit, hUnit);
+            _mapper.Map(unit, hUnit);
             hUnit.RegId = 0;
             work?.Invoke(hUnit, unit);
 
@@ -458,13 +463,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">type</param>
         /// <returns></returns>
         public async Task<DataAccessPermissions> InitializeDataAccessAttributes<TModel>(
-            UserService userService,
             TModel data,
             string userId,
             StatUnitTypes type) where TModel: IStatUnitM
         {
             var dataAccess = data?.DataAccess ?? new DataAccessPermissions();
-            var userDataAccess = await userService.GetDataAccessAttributes(userId, type);
+            var userDataAccess = await _userService.GetDataAccessAttributes(userId, type);
             var dataAccessChanged = !dataAccess.IsEqualTo(userDataAccess);
             if (dataAccessChanged)
             {
@@ -537,10 +541,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress) && !postalAddress.Equals(unit.PostalAddress));
         }
 
-        public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
+        public T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
             => ToUnitLookupVm<T>(UnitMappingFunc(unit));
 
-        public static IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
+        public IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
             => source.Select(ToUnitLookupVm<UnitLookupVm>);
 
         /// <summary>
@@ -548,13 +552,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="unit">stat unit</param>
         /// <returns></returns>
-        private static T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T : UnitLookupVm, new()
+        private T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T : UnitLookupVm, new()
         {
             var vm = new T
             {
                 Type = StatisticalUnitsTypeHelper.GetStatUnitMappingType(unit.Item2)
             };
-            Mapper.Map<CodeLookupVm, UnitLookupVm>(unit.Item1, vm);
+            _mapper.Map<CodeLookupVm, UnitLookupVm>(unit.Item1, vm);
             return vm;
         }
 
@@ -612,7 +616,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
             }
 
-            Mapper.Map(unit, hUnit);
+            _mapper.Map(unit, hUnit);
             return hUnit;
         }
 
@@ -636,7 +640,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
             }
 
-            Mapper.Map(hUnit, unit);
+            _mapper.Map(hUnit, unit);
             return unit;
         }
 

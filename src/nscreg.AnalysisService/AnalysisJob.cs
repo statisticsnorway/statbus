@@ -5,11 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Server.Common.Services.Contracts;
-using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
-using nscreg.Utilities.Configuration;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.AnalysisService
 {
@@ -23,15 +19,11 @@ namespace nscreg.AnalysisService
         private readonly IStatUnitAnalyzeService _analysisService;
         private readonly ILogger _logger;
 
-        public AnalysisJob(NSCRegDbContext ctx,
-            StatUnitAnalysisRules analysisRules,
-            DbMandatoryFields dbMandatoryFields,
-            int dequeueInterval,
-            ValidationSettings validationSettings,
-            ILogger logger)
+        public AnalysisJob(NSCRegDbContext ctx, int dequeueInterval,
+            IStatUnitAnalyzeService analysisService, ILogger logger)
         {
             _ctx = ctx;
-            _analysisService = new AnalyzeService(ctx, analysisRules, dbMandatoryFields, validationSettings);
+            _analysisService = analysisService;
             Interval = dequeueInterval;
             _logger = logger;
         }

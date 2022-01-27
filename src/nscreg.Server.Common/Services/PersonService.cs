@@ -14,7 +14,6 @@ namespace nscreg.Server.Common.Services
     public class PersonService
     {
         private readonly NSCRegDbContext _context;
-
         public PersonService(NSCRegDbContext context)
         {
             _context = context;

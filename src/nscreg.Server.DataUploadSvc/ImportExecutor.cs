@@ -1,8 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
@@ -16,9 +14,6 @@ using nscreg.Server.Common.Services;
 using nscreg.Data;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
@@ -32,12 +27,15 @@ namespace nscreg.Server.DataUploadSvc
 
         private readonly ILogger _logger;
         private readonly DbLogBuffer _logBuffer;
-        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
-        private readonly DbMandatoryFields _dbMandatoryFields;
-        private readonly ValidationSettings _validationSettings;
         private readonly bool _personsGoodQuality;
         private readonly int _elementsForRecreateContext;
         private AnalyzeService _analysisSvc;
+        private readonly UserService _userService;
+        private readonly CommonService _commonService;
+        private readonly PopulateService _populateService;
+        private readonly UpsertUnitBulkBuffer _upsertUnitBulkBuffer;
+        private readonly SaveManager _saveManager;
+
 
 #if DEBUG
         //public Stopwatch swPopulation = new Stopwatch();
@@ -52,15 +50,20 @@ namespace nscreg.Server.DataUploadSvc
         //public Stopwatch swDbLog = new Stopwatch();
         //public long dbLogCount = 0;
 #endif
-        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, ILogger logger, DbLogBuffer logBuffer, bool personsGoodQuality, int elementsForRecreateContext)
+        public ImportExecutor(ILogger logger, DbLogBuffer logBuffer,
+            bool personsGoodQuality, int elementsForRecreateContext, UserService userService,
+            CommonService commonService, UpsertUnitBulkBuffer upsertUnitBulkBuffer,
+            SaveManager saveManager, PopulateService populateService)
         {
             _personsGoodQuality = personsGoodQuality;
-            _statUnitAnalysisRules = statUnitAnalysisRules;
-            _dbMandatoryFields = dbMandatoryFields;
-            _validationSettings = validationSettings;
             _logger = logger;
             _logBuffer = logBuffer;
             _elementsForRecreateContext = elementsForRecreateContext;
+            _userService = userService;
+            _commonService = commonService;
+            _populateService = populateService;
+            _upsertUnitBulkBuffer = upsertUnitBulkBuffer;
+            _saveManager = saveManager;
         }
 
         public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => Task.Run(Job(dequeued, keyValues, bufferMaxCount));
@@ -71,13 +74,8 @@ namespace nscreg.Server.DataUploadSvc
             var context = dbContextHelper.CreateDbContext(new string[] { });
             context.Database.SetCommandTimeout(180);
             await InitializeCacheForLookups(context);
-            var userService = new UserService(context);
-            var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-            var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context), permissions, dequeued, bufferMaxCount);
-            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions);
-            _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
-            var saveService = new SaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
-            bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
+            var permissions = await _commonService.InitializeDataAccessAttributes<IStatUnitM>(null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+            bool isAdmin = await _userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {
@@ -89,7 +87,7 @@ namespace nscreg.Server.DataUploadSvc
 
                 //swPopulation.Start();
                 _logger.LogInformation("populating unit");
-                var (populated, isNew, populateError, historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
+                var (populated, isNew, populateError, historyUnit) = await _populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
                 //swPopulation.Stop();
                 //populationCount += 1;
                 if (populateError.HasValue())
@@ -136,7 +134,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("saving unit");
 
                 // swSave.Start();
-                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
+                var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
                 //swSave.Stop();
                 // saveCount += 1;
@@ -170,7 +168,7 @@ namespace nscreg.Server.DataUploadSvc
                     //swDbLog.Stop();
                 }
             }
-            await sqlBulkBuffer.FlushAsync();
+            await _upsertUnitBulkBuffer.FlushAsync();
         };
 
         private async Task<(string, (IReadOnlyDictionary<string, string[]>, string[] test))> AnalyzeUnitAsync(IStatisticalUnit unit, DataSourceQueue queueItem)

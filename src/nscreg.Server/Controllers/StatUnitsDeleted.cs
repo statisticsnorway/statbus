@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services.StatUnit;
@@ -18,10 +17,10 @@ namespace nscreg.Server.Controllers
         private readonly DeleteService _deleteService;
         private readonly SearchService _searchService;
 
-        public StatUnitsDeletedController(NSCRegDbContext context)
+        public StatUnitsDeletedController(DeleteService deleteService, SearchService searchService)
         {
-            _deleteService = new DeleteService(context);
-            _searchService = new SearchService(context);
+            _deleteService = deleteService;
+            _searchService = searchService;
         }
 
         /// <summary>

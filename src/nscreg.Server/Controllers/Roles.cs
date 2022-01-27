@@ -17,9 +17,9 @@ namespace nscreg.Server.Controllers
     {
         private readonly RoleService _roleService;
 
-        public RolesController(NSCRegDbContext db)
+        public RolesController(RoleService roleService)
         {
-            _roleService = new RoleService(db);
+            _roleService = roleService;
         }
 
         /// <summary>

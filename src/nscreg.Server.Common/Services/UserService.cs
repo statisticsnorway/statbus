@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -27,10 +28,10 @@ namespace nscreg.Server.Common.Services
         private readonly NSCRegDbContext _context;
         private readonly RegionService _regionsService;
 
-        public UserService(NSCRegDbContext db)
+        public UserService(NSCRegDbContext db, RegionService regionsService)
         {
             _context = db;
-            _regionsService = new RegionService(db);
+            _regionsService = regionsService;
         }
 
         /// <summary>
@@ -385,8 +386,7 @@ namespace nscreg.Server.Common.Services
         {
             var allusers = await _context.Users.ToListAsync();
             var userExist = allusers.Any(x => x.Login == login);
-            return userExist;
-            
+            return userExist;            
         }
     }
 }

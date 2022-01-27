@@ -43,15 +43,19 @@ namespace nscreg.Server.Common.Services.CodeLookup
         }
 
         public virtual async Task<CodeLookupVm> GetById(int id, bool showDeleted = false)
-            => await Queryable.Select(Queryable.Where(_repository.List(showDeleted), v => v.Id == id), v => new CodeLookupVm
+        {
+            var modelId = await Queryable.Select(Queryable.Where(_repository.List(showDeleted), v => v.Id == id), v => new CodeLookupVm
                 {
                     Id = v.Id,
                     Code = v.Code,
                     Name = v.Name,
                     NameLanguage1 = v.NameLanguage1,
                     NameLanguage2 = v.NameLanguage2
-            })
-                .FirstOrDefaultAsync();
+                })
+            .FirstOrDefaultAsync();
+            return modelId;
+        }
+
 
         protected virtual async Task<List<CodeLookupVm>> ToViewModel(IQueryable<T> query) => await Queryable.Select(query, v =>
                 new CodeLookupVm
