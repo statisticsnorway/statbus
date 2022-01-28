@@ -229,13 +229,13 @@ namespace nscreg.Server.Common.Services
         /// <param name = "ids"> id </param>
         /// <param name = "showDeleted"> Distance flag </param>
         /// <returns> </returns>
-        public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids, bool showDeleted = false)
+        public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids)
         {
             IQueryable<object> query;
 
-            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia = v => ids.Contains(v.RegId) && v.IsDeleted == showDeleted;
+            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia = v => ids.Contains(v.RegId) && !v.IsDeleted;
 
-            Expression<Func<LookupBase, bool>> lookupSearchCriteia = v => ids.Contains(v.Id) && v.IsDeleted == showDeleted;
+            Expression<Func<LookupBase, bool>> lookupSearchCriteia = v => ids.Contains(v.Id) && !v.IsDeleted;
 
             switch (lookup)
             {
