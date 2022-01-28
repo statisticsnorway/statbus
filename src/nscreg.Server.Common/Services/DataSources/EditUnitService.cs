@@ -180,7 +180,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     enterpriseUnit.LiqDate = changedUnit.LiqDate;
                     _editArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                 }
-                if (StatUnit.CommonService.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
+                if (_commonSvc.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
                 {
                     if (changedUnit.LocalUnits != null && changedUnit.LocalUnits.Any())
                     {

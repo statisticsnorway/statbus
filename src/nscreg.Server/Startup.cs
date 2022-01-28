@@ -37,6 +37,8 @@ using static nscreg.Server.Core.StartupConfiguration;
 using Microsoft.Extensions.Hosting;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Common.Helpers;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 namespace nscreg.Server
 {
@@ -284,6 +286,7 @@ namespace nscreg.Server
             services.AddScoped<StatUnitAnalysisHelper>();
             services.AddScoped<StatUnitCheckPermissionsHelper>();
             services.AddScoped<StatUnitCreationHelper>();
+            services.TryAddSingleton<ModelExpressionProvider>();
 
             services.AddTransient(config => Configuration);
             services

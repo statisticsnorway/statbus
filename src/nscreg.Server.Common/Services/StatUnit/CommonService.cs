@@ -19,6 +19,8 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.Contracts;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -60,13 +62,18 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UpsertUnitBulkBuffer _buffer;
         private readonly IMapper _mapper;
         private readonly IUserService _userService;
+        private readonly IModelMetadataProvider _modelMetadataProvider;
+        private readonly ModelExpressionProvider _modelExpressionProvider;
 
-        public CommonService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService, UpsertUnitBulkBuffer buffer= null)
+        public CommonService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService, IModelMetadataProvider modelMetadataProvider,
+            ModelExpressionProvider modelExpressionProvider, UpsertUnitBulkBuffer buffer= null)
         {
             _buffer = buffer;
             _dbContext = dbContext;
             _mapper = mapper;
             _userService = userService;
+            _modelMetadataProvider = modelMetadataProvider;
+            _modelExpressionProvider = modelExpressionProvider;
         }
 
         public static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
@@ -488,9 +495,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="dataAccess">data access</param>
         /// <param name="property">property</param>
         /// <returns></returns>
-        public static bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
+        public bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
             dataAccess.HasWritePermission(
-                DataAccessAttributesHelper.GetName<T>(ExpressionUtils.GetExpressionText(property)));
+                DataAccessAttributesHelper.GetName<T>(_modelExpressionProvider.GetExpressionText<T, object>(property)));
 
         /// <summary>
         /// Add Address Method
