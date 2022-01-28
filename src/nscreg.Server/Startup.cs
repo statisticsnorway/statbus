@@ -109,7 +109,7 @@ namespace nscreg.Server
                 endpoints.MapHealthChecks("/healthz").RequireAuthorization();
                 endpoints.MapControllerRoute(
                     "default",
-                    "{controller=Home}/{action=Index}/{id?}"
+                    "{controller=Home}/{action=Index}"
                     //, new { controller = "Home", action = "Index" }
                     );
                 endpoints.MapRazorPages();
@@ -308,6 +308,7 @@ namespace nscreg.Server
             services.AddCors();
             services.AddRazorPages();
             services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+            services.AddControllers().AddNewtonsoftJson();
         }
 
         /// <summary>

@@ -229,13 +229,13 @@ namespace nscreg.Server.Common.Services
         /// <param name = "ids"> id </param>
         /// <param name = "showDeleted"> Distance flag </param>
         /// <returns> </returns>
-        public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids, bool showDeleted = false)
+        public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids)
         {
             IQueryable<object> query;
 
-            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia = v => ids.Contains(v.RegId) && v.IsDeleted == showDeleted;
+            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia = v => ids.Contains(v.RegId) && !v.IsDeleted;
 
-            Expression<Func<LookupBase, bool>> lookupSearchCriteia = v => ids.Contains(v.Id) && v.IsDeleted == showDeleted;
+            Expression<Func<LookupBase, bool>> lookupSearchCriteia = v => ids.Contains(v.Id) && !v.IsDeleted;
 
             switch (lookup)
             {
@@ -325,29 +325,26 @@ namespace nscreg.Server.Common.Services
 
         private async Task<List<CodeLookupVm>> GetAllRegionLookUps(int[] ids)
         {
-            var list = new List<CodeLookupVm>();
-            var regions = await _dbContext.Regions.OrderBy(x => x.Code).Where(x => !x.IsDeleted).ToListAsync();
-                
-            var rr = regions.Where(x => ids.Contains(x.Id)).ToList();
-            foreach (var region in rr)
-            {
-                list.Add(new CodeLookupVm
+            var regions = await _dbContext.Regions
+                .Where(x => !x.IsDeleted && ids.Contains(x.Id))
+                .OrderBy(x => x.Code)
+                .Select(x => new CodeLookupVm
                 {
-                    Id = region.Id,
-                    Name = $"{region.Code} {region.FullPath ?? region.Name}",
-                    NameLanguage1 = $"{region.Code} {region.FullPathLanguage1 ?? region.NameLanguage1}",
-                    NameLanguage2 = $"{region.Code} {region.FullPathLanguage1 ?? region.NameLanguage2}"
-                });
-            };
-                //.Select(region => ).ToListAsync();
-            return list;
+                    Id = x.Id,
+                    Name = $"{x.Code} {x.FullPath ?? x.Name}",
+                    NameLanguage1 = $"{x.Code} {x.FullPathLanguage1 ?? x.NameLanguage1}",
+                    NameLanguage2 = $"{x.Code} {x.FullPathLanguage1 ?? x.NameLanguage2}"
+                })
+                .ToListAsync();
+            return regions;
         }
 
         private async Task<List<CodeLookupVm>> GetAllActivityCategoryLookUps(int[] ids)
         {
             var activitys = await _dbContext.ActivityCategories
                 .Where(x => !x.IsDeleted && ids.Contains(x.Id))
-                .OrderBy(x => x.Code).Select(x => new CodeLookupVm
+                .OrderBy(x => x.Code)
+                .Select(x => new CodeLookupVm
                 {
                     Id = x.Id,
                     Code = x.Code,
