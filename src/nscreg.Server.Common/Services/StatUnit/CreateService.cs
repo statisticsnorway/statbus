@@ -76,7 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .ToList();
                     _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, data.Activities.Select(x => x.ActivityCategoryId).ToList());
                 }
-                if (CommonService.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                if (_commonSvc.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     if (data.LocalUnits != null && data.LocalUnits.Any())
                     {
@@ -153,7 +153,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, new List<int>());
 
                 }
-                if (CommonService.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
+                if (_commonSvc.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
                     if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                     {
@@ -176,15 +176,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User Id</param>
         /// <param name="work">In work</param>
         /// <returns></returns>
-        private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>(
-            TModel data,
-            string userId,
-            Func<TUnit, Task> work)
+        private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>( TModel data, string userId, Func<TUnit, Task> work)
             where TModel : StatUnitModelBase
             where TUnit : StatisticalUnit, new()
             => await CreateContext<TUnit, TModel>(data, userId, async unit =>
             {
-                if (CommonService.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+                if (_commonSvc.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
                 {
                     var activitiesList = data.Activities ?? new List<ActivityM>();
 
@@ -237,10 +234,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User Id</param>
         /// <param name="work">In Work</param>
         /// <returns></returns>
-        private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>(
-            TModel data,
-            string userId,
-            Func<TUnit, Task> work)
+        private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>( TModel data, string userId, Func<TUnit, Task> work)
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {

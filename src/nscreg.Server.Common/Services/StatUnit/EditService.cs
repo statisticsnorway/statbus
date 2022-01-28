@@ -77,7 +77,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 m => m.RegId ?? 0,
                 userId, (unit) =>
                 {
-                    if (!CommonService.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                    if (!_commonSvc.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
                         return Task.CompletedTask;
                     }
@@ -157,7 +157,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
                     }
-                    if (CommonService.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
+                    if (_commonSvc.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
                         if (data.LegalUnits != null && data.LegalUnits.Any())
                         {
@@ -190,7 +190,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 (unit, oldUnit) =>
                 {
-                    if (CommonService.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
+                    if (_commonSvc.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
                         if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                         {
@@ -231,7 +231,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 async (unit, oldUnit) =>
                 {
                     //Merge activities
-                    if (CommonService.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+                    if (_commonSvc.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
                     {
                         var activities = new List<ActivityStatisticalUnit>();
                         var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);

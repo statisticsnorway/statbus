@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Helpers
             _mapper.Map(legalUnit, localUnit);
             await _dbContext.LocalUnits.AddAsync(localUnit);
          
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
+            await CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
 
             return localUnit;
         }
@@ -43,7 +43,7 @@ namespace nscreg.Server.Common.Helpers
             await _dbContext.EnterpriseUnits.AddAsync(enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
             
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
+            await CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
 
             return enterpriseUnit;
         }
@@ -63,13 +63,13 @@ namespace nscreg.Server.Common.Helpers
             return enterpriseGroup;
         }
 
-        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
+        private async Task CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
         {
-            activities.ForEach(x =>
+            activities.ForEach(a =>
             {
                 _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
                 {
-                    ActivityId = x.Id,
+                    ActivityId = a.Id,
                     Unit = unit
                 });
             });
@@ -84,16 +84,14 @@ namespace nscreg.Server.Common.Helpers
                 });
             });
 
-            foreignPartCountries.ForEach(x =>
+            foreignPartCountries.ForEach(z =>
             {
                 _dbContext.CountryStatisticalUnits.Add(new CountryStatisticalUnit
                 {
                     Unit = unit,
-                    CountryId = x.CountryId
+                    CountryId = z.CountryId
                 });
-
             });
-
         }
     }
 }
