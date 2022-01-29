@@ -112,7 +112,7 @@ tasks.set('build', () => {
           '-o',
           path.resolve(__dirname, '../build'),
           '-f',
-          'netcoreapp2.0',
+          'netcoreapp3.1',
           '-c',
           config,
         ]
