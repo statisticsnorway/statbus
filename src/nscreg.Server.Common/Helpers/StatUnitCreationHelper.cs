@@ -84,6 +84,7 @@ namespace nscreg.Server.Common.Helpers
                 try
                 {
                     createdLegal = await CreateStatUnitAsync(legalUnit);
+                    await _dbContext.SaveChangesAsync();
                     if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
                     {
                         var sameStatIdEnterprise =
