@@ -102,7 +102,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var isAdmin = _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
             if (!isAdmin)
             {
-                var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
+                var regionIds = new List<int?>
+                {
+                    data.Address?.RegionId,
+                    data.ActualAddress?.RegionId,
+                    data.PostalAddress?.RegionId
+                }.Where(x => x != null)
+                .Select(x => (int)x)
+                .ToList();
                 _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, data.Activities.Select(x => x.ActivityCategoryId).ToList());
             }
             return await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
@@ -120,7 +127,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var isAdmin = _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
                 if (!isAdmin)
                 {
-                    var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
+                    var regionIds = new List<int?>
+                    {
+                        data.Address?.RegionId,
+                        data.ActualAddress?.RegionId,
+                        data.PostalAddress?.RegionId
+                    }.Where(x => x != null)
+                    .Select(x => (int)x)
+                    .ToList();
                     _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds,data.Activities.Select(x => x.ActivityCategoryId).ToList());
                 }
                 if (data.LegalUnits != null && data.LegalUnits.Any())
@@ -132,8 +146,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                     unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                 }
-                   
-
                 return Task.CompletedTask;
             });
 
@@ -151,8 +163,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
                     _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, new List<int>());
-
                 }
+
                 if (_commonSvc.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
                     if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
@@ -169,6 +181,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 
                 return Task.CompletedTask;
             });
+
         /// <summary>
         /// Static unit context creation method
         /// </summary>

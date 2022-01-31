@@ -127,11 +127,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="showDeleted">Remoteness flag</param>
         /// <param name="work">In work</param>
         /// <returns></returns>
-        public async Task<T> GetUnitById<T>(
-            int id,
-            bool showDeleted,
-            Func<IQueryable<T>, IQueryable<T>> work = null)
-            where T : class, IStatisticalUnit
+        public async Task<T> GetUnitById<T>( int id, bool showDeleted,
+            Func<IQueryable<T>, IQueryable<T>> work = null) where T : class, IStatisticalUnit
         {
             var query = GetUnitsList<T>(showDeleted);
             if (work != null) query = work(query);
