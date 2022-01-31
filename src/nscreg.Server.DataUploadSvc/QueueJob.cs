@@ -7,16 +7,12 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
-using nscreg.Utilities.Configuration;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Resources;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,29 +30,18 @@ namespace nscreg.Server.DataUploadSvc
         private QueueService _queueSvc;
         private DbLogBuffer _logBuffer;
         private readonly int _bufferMaxCount;
-        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
-        private readonly DbMandatoryFields _dbMandatoryFields;
-        private readonly ValidationSettings _validationSettings;
         private NSCRegDbContext _context;
-        private readonly bool _personsGoodQuality;
-        private readonly int _elementsForRecreateContext;
         private readonly IMapper _mapper;
         private readonly DataAccessService _dataAccessService;
         private readonly ImportExecutor _importExecutor;
 
-        public QueueJob( int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings,
-            int bufferMaxCount, bool personsGoodQuality, int elementsForRecreateContext,
+        public QueueJob( int dequeueInterval, ILogger logger,
+            int bufferMaxCount,
             IMapper mapper, DataAccessService dataAccessService, ImportExecutor importExecutor)
         {
-            _personsGoodQuality = personsGoodQuality;
             _logger = logger;
             Interval = dequeueInterval;
-            _statUnitAnalysisRules = statUnitAnalysisRules;
-            _dbMandatoryFields = dbMandatoryFields;
-            _validationSettings = validationSettings;
             _bufferMaxCount = bufferMaxCount;
-            _elementsForRecreateContext = elementsForRecreateContext;
             _mapper = mapper;
             _dataAccessService = dataAccessService;
             _importExecutor = importExecutor;
@@ -118,7 +103,7 @@ namespace nscreg.Server.DataUploadSvc
             }
 
             //var swParse = new Stopwatch();
-            var (parseError, parsed, problemLine) = await ParseFile(dequeued/*, swParse*/);
+            var (parseError, parsed, problemLine) = await ParseFile(dequeued);
            
             if (parseError.HasValue())
             {
@@ -132,7 +117,7 @@ namespace nscreg.Server.DataUploadSvc
             _logger.LogInformation("parsed {0} entities", parsed.Length);
             var anyWarnings = false;
             var exceptionMessage = string.Empty; 
-            await CatchAndLogException(async () => await _importExecutor.Start(dequeued, parsed, _bufferMaxCount), ex =>
+            await CatchAndLogException(async () => await _importExecutor.Start(dequeued, parsed), ex =>
             {
                 anyWarnings = true;
                 exceptionMessage = ex;
@@ -191,11 +176,10 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private async Task<(string error, IReadOnlyDictionary<string, object>[] result, string problemLine)> ParseFile(DataSourceQueue queueItem/*, Stopwatch swParseFile*/)
+        private async Task<(string error, IReadOnlyDictionary<string, object>[] result, string problemLine)> ParseFile(DataSourceQueue queueItem)
         {
             _logger.LogInformation("parsing queue entry #{0}", queueItem.Id);
             IEnumerable<IReadOnlyDictionary<string, object>> parsed;
-            // swParseFile.Start();
             try
             {
                 switch (queueItem.DataSourceFileName)

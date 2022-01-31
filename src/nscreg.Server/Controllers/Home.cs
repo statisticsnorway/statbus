@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
@@ -32,7 +33,7 @@ namespace nscreg.Server.Controllers
     /// </summary>
     public class HomeController : Controller
     {
-        private readonly IHostingEnvironment _env;
+        private readonly IWebHostEnvironment _env;
         private readonly IAntiforgery _antiforgery;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly LocalizationSettings _localization;
@@ -43,7 +44,7 @@ namespace nscreg.Server.Controllers
         private dynamic _assets;
 
         public HomeController(
-            IHostingEnvironment env,
+            IWebHostEnvironment env,
             IAntiforgery antiforgery,
             LocalizationSettings localization,
             DbMandatoryFields dbMandatoryFields,

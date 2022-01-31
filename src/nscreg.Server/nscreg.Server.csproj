@@ -2,6 +2,7 @@
   <PropertyGroup>
     <Authors>TimelySoft LLC</Authors>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+	<AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <NoWarn>$(NoWarn);RECS0145</NoWarn>
     <PreserveCompilationContext>true</PreserveCompilationContext>

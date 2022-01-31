@@ -5,11 +5,6 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.ServicesUtils;
-using PeterKottas.DotNetCore.WindowsService;
-using nscreg.Utilities.Configuration;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace nscreg.Server.DataUploadSvc

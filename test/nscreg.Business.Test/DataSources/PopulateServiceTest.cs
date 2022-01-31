@@ -48,8 +48,6 @@ namespace nscreg.Business.Test.DataSources
         [Fact]
         public async Task PopulateAsync_PersonMapping_Success()
         {
-            var mappings =
-    "statId-StatId,name-Name,PersonRole-Persons.Person.Role,PersonGivenName-Persons.Person.GivenName,PersonSurname-Persons.Person.Surname,PersonSex-Persons.Person.Sex,PersonalId-Persons.Person.PersonalId";
             var personTypes = new PersonType() {Name = "OWNER"};
             await DatabaseContext.AddAsync(personTypes);
             await DatabaseContext.SaveChangesAsync();

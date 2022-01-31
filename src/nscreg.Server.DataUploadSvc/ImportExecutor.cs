@@ -28,7 +28,6 @@ namespace nscreg.Server.DataUploadSvc
         private readonly ILogger _logger;
         private readonly DbLogBuffer _logBuffer;
         private readonly bool _personsGoodQuality;
-        private readonly int _elementsForRecreateContext;
         private AnalyzeService _analysisSvc;
         private readonly UserService _userService;
         private readonly CommonService _commonService;
@@ -36,29 +35,14 @@ namespace nscreg.Server.DataUploadSvc
         private readonly UpsertUnitBulkBuffer _upsertUnitBulkBuffer;
         private readonly SaveManager _saveManager;
 
-
-#if DEBUG
-        //public Stopwatch swPopulation = new Stopwatch();
-        //public long populationCount = 0;
-
-        //public Stopwatch swAnalyze = new Stopwatch();
-        //public long analyzeCount = 0;
-
-        //public Stopwatch swSave = new Stopwatch();
-        //public long saveCount = 0;
-
-        //public Stopwatch swDbLog = new Stopwatch();
-        //public long dbLogCount = 0;
-#endif
         public ImportExecutor(ILogger logger, DbLogBuffer logBuffer,
-            bool personsGoodQuality, int elementsForRecreateContext, UserService userService,
+            bool personsGoodQuality, UserService userService,
             CommonService commonService, UpsertUnitBulkBuffer upsertUnitBulkBuffer,
             SaveManager saveManager, PopulateService populateService)
         {
             _personsGoodQuality = personsGoodQuality;
             _logger = logger;
             _logBuffer = logBuffer;
-            _elementsForRecreateContext = elementsForRecreateContext;
             _userService = userService;
             _commonService = commonService;
             _populateService = populateService;
@@ -66,9 +50,9 @@ namespace nscreg.Server.DataUploadSvc
             _saveManager = saveManager;
         }
 
-        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => Task.Run(Job(dequeued, keyValues, bufferMaxCount));
+        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => Task.Run(Job(dequeued, keyValues));
 
-        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => async () =>
+        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => async () =>
         {
             var dbContextHelper = new DbContextHelper();
             var context = dbContextHelper.CreateDbContext(new string[] { });
@@ -79,17 +63,12 @@ namespace nscreg.Server.DataUploadSvc
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {
-                //Interlocked.Increment(ref InterlockedInt);
                 _logger.LogInformation("processing entity #{0}", i++);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-
-                //swPopulation.Start();
                 _logger.LogInformation("populating unit");
                 var (populated, isNew, populateError, historyUnit) = await _populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
-                //swPopulation.Stop();
-                //populationCount += 1;
                 if (populateError.HasValue())
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
@@ -107,11 +86,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation(
                     "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
-                //swAnalyze.Start();
-
                 var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(populated, dequeued);
-                //swAnalyze.Stop();
-                //analyzeCount += 1;
 
                 if (analysisError.HasValue())
                 {
@@ -133,11 +108,8 @@ namespace nscreg.Server.DataUploadSvc
 
                 _logger.LogInformation("saving unit");
 
-                // swSave.Start();
                 var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
-                //swSave.Stop();
-                // saveCount += 1;
 
                 if (saveError.HasValue())
                 {
@@ -155,7 +127,6 @@ namespace nscreg.Server.DataUploadSvc
                         IReadOnlyDictionary<string, string[]> analysisErrors = null,
                         IEnumerable<string> analysisSummary = null)
                 {
-                    // swDbLog.Start();
                     var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
                     {
                         var tmp = x.source.Split('.', 2);
@@ -165,7 +136,6 @@ namespace nscreg.Server.DataUploadSvc
                             dequeued, rawUnit, startedAt, populated,
                             status, note ?? "", analysisErrors, analysisSummary);
 
-                    //swDbLog.Stop();
                 }
             }
             await _upsertUnitBulkBuffer.FlushAsync();

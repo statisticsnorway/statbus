@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using AutoMapper;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Data.Entities.ComplexTypes;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
