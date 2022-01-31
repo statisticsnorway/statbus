@@ -11,8 +11,7 @@ namespace nscreg.Server.Common.Helpers
     {
         private async Task<T> CreateStatUnitAsync<T>(T entity) where T : class
         {
-            return (await _dbContext.Set<T>().AddAsync(entity)).Entity;
-            
+            return (await _dbContext.Set<T>().AddAsync(entity)).Entity;            
         }
         
         private async Task<LocalUnit> CreateLocalForLegalAsync(LegalUnit legalUnit)
@@ -27,7 +26,7 @@ namespace nscreg.Server.Common.Helpers
             _mapper.Map(legalUnit, localUnit);
             await _dbContext.LocalUnits.AddAsync(localUnit);
          
-            await CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
 
             return localUnit;
         }
@@ -43,7 +42,7 @@ namespace nscreg.Server.Common.Helpers
             await _dbContext.EnterpriseUnits.AddAsync(enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
             
-            await CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
 
             return enterpriseUnit;
         }
@@ -63,33 +62,34 @@ namespace nscreg.Server.Common.Helpers
             return enterpriseGroup;
         }
 
-        private async Task CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
+        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
         {
-            activities.ForEach(a =>
+            activities.ForEach(activiti =>
             {
                 _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
                 {
-                    ActivityId = a.Id,
+                    ActivityId = activiti.Id,
                     Unit = unit
                 });
             });
-            persons.ForEach(x =>
+
+            persons.ForEach(person =>
             {
                 _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
                 {
-                    PersonId = x.PersonId,
+                    PersonId = person.PersonId,
                     Unit = unit,
-                    PersonTypeId = x.PersonTypeId,
-                    EnterpriseGroupId = x.EnterpriseGroupId
+                    PersonTypeId = person.PersonTypeId,
+                    EnterpriseGroupId = person.EnterpriseGroupId
                 });
             });
 
-            foreignPartCountries.ForEach(z =>
+            foreignPartCountries.ForEach(country =>
             {
                 _dbContext.CountryStatisticalUnits.Add(new CountryStatisticalUnit
                 {
                     Unit = unit,
-                    CountryId = z.CountryId
+                    CountryId = country.CountryId
                 });
             });
         }
