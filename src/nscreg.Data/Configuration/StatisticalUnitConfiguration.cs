@@ -21,9 +21,9 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.RegId);
 
             builder.HasDiscriminator<string>(DiscriminatorColumnName)
-            .HasValue<EnterpriseUnit>("EnterpriseUnits")
-            .HasValue<LocalUnit>("LocalUnits")
-            .HasValue<LegalUnit>("LegalUnits");
+            .HasValue<EnterpriseUnit>("EnterpriseUnit")
+            .HasValue<LocalUnit>("LocalUnit")
+            .HasValue<LegalUnit>("LegalUnit");
 
             builder.Property(v => v.StatId)
                 .HasMaxLength(15);
