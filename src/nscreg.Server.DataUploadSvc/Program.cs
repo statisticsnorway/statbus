@@ -21,81 +21,40 @@ namespace nscreg.Server.DataUploadSvc
         /// </summary>
         public static void Main()
         {
-            var logger = new LoggerFactory()
-                .AddNLog()
-                .CreateLogger<Program>();
-
-            var mapperConfig = new MapperConfiguration(mc =>
+            ServiceRunner<JobService>.Run(config =>
             {
-                mc.AddProfile<AutoMapperProfile>();
+                config.SetName(serviceName);
+                config.SetDisplayName(serviceName);
+                config.SetDescription(serviceName);
+                config.Service(svcConfig =>
+                {
+                    svcConfig.ServiceFactory((extraArguments, controller) =>
+                    {
+                       
+                        return new JobService(
+                            logger,
+                            new QueueJob(
+                                servicesSettings.DataUploadServiceDequeueInterval,
+                                logger,
+                                statUnitAnalysisRules,
+                                dbMandatoryFields,
+                                validationSettings,
+                                servicesSettings.DataUploadMaxBufferCount,
+                                servicesSettings.PersonGoodQuality,
+                                servicesSettings.ElementsForRecreateContext, mapper),
+                            new QueueCleanupJob(
+                                servicesSettings.DataUploadServiceDequeueInterval,
+                                servicesSettings.DataUploadServiceCleanupTimeout,
+                                logger));
+                    });
+                    svcConfig.OnStart((svc, extraArguments) => svc.Start());
+                    svcConfig.OnStop(svc => svc.Stop());
+                    svcConfig.OnError(e =>
+                    {
+                        logger.LogError("Service errored with exception : {0}", e.Message);
+                    });
+                });
             });
-            IMapper mapper = mapperConfig.CreateMapper();
-
-            var configBuilder = new ConfigurationBuilder();
-            var baseDirectory = AppContext.BaseDirectory;
-            var configuration = configBuilder
-                .SetBasePath(baseDirectory)
-                .AddJsonFile("appsettings.Shared.json", true)
-                .Build();
-
-            const string serviceName = "nscreg.Server.DataUploadSvc";
-
-            ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
-            ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
-
-            //Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
-
-            //ServiceRunner<JobService>.Run(config =>
-            //{
-            //    config.SetName(serviceName);
-            //    config.SetDisplayName(serviceName);
-            //    config.SetDescription(serviceName);
-            //    config.Service(svcConfig =>
-            //    {
-            //        svcConfig.ServiceFactory((extraArguments, controller) =>
-            //        {
-            //            var servicesSettings = configuration
-            //                .GetSection(nameof(ServicesSettings))
-            //                .Get<ServicesSettings>();
-            //            var statUnitAnalysisRules = configuration
-            //                .GetSection(nameof(StatUnitAnalysisRules))
-            //                .Get<StatUnitAnalysisRules>();
-            //            var dbMandatoryFields = configuration
-            //                .GetSection(nameof(DbMandatoryFields))
-            //                .Get<DbMandatoryFields>();
-            //            var validationSettings = configuration
-            //                .GetSection(nameof(ValidationSettings))
-            //                .Get<ValidationSettings>();
-
-            //            return new JobService(
-            //                logger,
-            //                new QueueJob(
-            //                    servicesSettings.DataUploadServiceDequeueInterval,
-            //                    logger,
-            //                    statUnitAnalysisRules,
-            //                    dbMandatoryFields,
-            //                    validationSettings,
-            //                    servicesSettings.DataUploadMaxBufferCount,
-            //                    servicesSettings.PersonGoodQuality,
-            //                    servicesSettings.ElementsForRecreateContext, mapper),
-            //                new QueueCleanupJob(
-            //                    servicesSettings.DataUploadServiceDequeueInterval,
-            //                    servicesSettings.DataUploadServiceCleanupTimeout,
-            //                    logger));
-            //        });
-            //        svcConfig.OnStart((svc, extraArguments) => svc.Start());
-            //        svcConfig.OnStop(svc => svc.Stop());
-            //        svcConfig.OnError(e =>
-            //        {
-            //            logger.LogError("Service errored with exception : {0}", e.Message);
-            //        });
-            //    });
-            //});
-        }
-
-        public void ConfigureServices(IServiceCollection services)
-        {
-            services.AddSingleton<QueueJob>();
         }
     }
 }

@@ -1,10 +1,8 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
-using nscreg.ServicesUtils.Interfaces;
 using nscreg.Data.Constants;
 using Newtonsoft.Json;
 using nscreg.Utilities.Enums.Predicate;
@@ -16,12 +14,12 @@ using System.IO;
 using Microsoft.Extensions.Options;
 using NLog;
 
-namespace nscreg.SampleFrameGenerationSvc
+namespace nscreg.Services
 {
     /// <summary>
     /// Sample frame file generation job class
     /// </summary>
-    public class FileGenerationJob
+    public class FileGenerationService
     {
         public int Interval { get; }
         private readonly NSCRegDbContext _ctx;
@@ -31,12 +29,11 @@ namespace nscreg.SampleFrameGenerationSvc
         private readonly string _rootPath;
         private readonly string _sampleFramesDir;
         
-        public FileGenerationJob(NSCRegDbContext ctx,
-            IConfiguration configuration,
-            IOptions<ServicesSettings> servicesSettings)
+        public FileGenerationService(NSCRegDbContext ctx,
+            IOptions<ServicesSettings> servicesSettings, SampleFrameExecutor executor)
         {
             _ctx = ctx;
-            _sampleFrameExecutor = new SampleFrameExecutor(ctx, configuration);
+            _sampleFrameExecutor = executor;
             Interval = servicesSettings.Value.SampleFrameGenerationServiceDequeueInterval;
             _timeoutMilliseconds = servicesSettings.Value.SampleFrameGenerationServiceCleanupTimeout;
             _rootPath = servicesSettings.Value.RootPath;

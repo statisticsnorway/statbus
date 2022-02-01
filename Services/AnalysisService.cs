@@ -1,38 +1,35 @@
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using nscreg.Data;
 using nscreg.Server.Common.Services.Contracts;
 
-namespace nscreg.AnalysisService
+namespace nscreg.Services
 {
     /// <summary>
     /// Analysis work class
     /// </summary>
-    internal class AnalysisJob
+    public class AnalysisService
     {
         private readonly NSCRegDbContext _ctx;
-        public int Interval { get; }
         private readonly IStatUnitAnalyzeService _analysisService;
-        private static Logger _logger = LogManager.GetCurrentClassLogger();
+        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-        public AnalysisJob(NSCRegDbContext ctx, int dequeueInterval,
+        public AnalysisService(NSCRegDbContext ctx,
             IStatUnitAnalyzeService analysisService)
         {
             _ctx = ctx;
             _analysisService = analysisService;
-            Interval = dequeueInterval;
         }
 
         /// <summary>
         /// Analysis processing method
         /// </summary>
         /// <param name="cancellationToken"></param>
-        public async Task Execute(CancellationToken cancellationToken)
+        public async Task Execute()
         {
             _logger.Info("analysis queue attempt...");
-            var analysisQueue = await _ctx.AnalysisQueues.FirstOrDefaultAsync(aq => aq.ServerEndPeriod == null, cancellationToken);
+            var analysisQueue = await _ctx.AnalysisQueues.FirstOrDefaultAsync(aq => aq.ServerEndPeriod == null);
             if (analysisQueue != null)
             {
                 _logger.Info("analizing stat units queue {0}", analysisQueue.Id);

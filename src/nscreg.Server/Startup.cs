@@ -41,6 +41,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.DataProtection;
 using Newtonsoft.Json.Serialization;
+using nscreg.Server.HostedServices;
+using nscreg.Services;
+using nscreg.Server.Common.Services.SampleFrames;
 
 namespace nscreg.Server
 {
@@ -265,7 +268,18 @@ namespace nscreg.Server
             services.AddScoped<StatUnitCreationHelper>();
             services.TryAddSingleton<ModelExpressionProvider>();
 
-            services.AddTransient(config => Configuration);
+
+            services.AddSingleton(config => Configuration);
+            services.AddScoped<SampleFrameExecutor>();
+            services.AddScoped<FileGenerationService>();
+            services.AddScoped<AnalysisService>();
+            services.AddScoped<DataUploadSvcService>();
+
+            services.AddHostedService<SampleFrameGenerationHostedService>();
+            services.AddHostedService<AnalysisHostedService>();
+            services.AddHostedService<DataUploadSvcHostedService>();
+            services.AddHostedService<DataUploadSvcQueueCleanupHostedService>();
+
             services
                 .AddMvcCore(op =>
                 {

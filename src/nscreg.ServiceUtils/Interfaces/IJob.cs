@@ -8,6 +8,5 @@ namespace nscreg.ServicesUtils.Interfaces
     {
         int Interval { get; }
         Task Execute(CancellationToken cancellationToken);
-        void OnException(Exception e);
     }
 }

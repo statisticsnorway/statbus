@@ -46,7 +46,7 @@ namespace nscreg.ServicesUtils
         {
             try
             {
-                _job.OnException(e);
+               // _job.OnException(e);
             }
             catch (Exception exception)
             {
