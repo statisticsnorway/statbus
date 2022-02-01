@@ -8,7 +8,6 @@
     <ProjectReference Include="..\src\nscreg.Business\nscreg.Business.csproj" />
     <ProjectReference Include="..\src\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\src\nscreg.Server.Common\nscreg.Server.Common.csproj" />
-    <ProjectReference Include="..\src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj" />
   </ItemGroup>
 
 </Project>

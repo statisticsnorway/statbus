@@ -26,12 +26,12 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly IMapper _mapper;
 
         public BulkUpsertUnitService(NSCRegDbContext context, UpsertUnitBulkBuffer buffer,
-            CommonService commonSvc, DataAccessPermissions permissions, IMapper mapper)
+            CommonService commonSvc, DataAccessPermissions permissions, IMapper mapper, string userId)
         {
             _bufferService = buffer;
             _dbContext = context;
             _permissions = permissions;
-            //_userId = userId;
+            _userId = userId;
             _commonSvc = commonSvc;
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _mapper = mapper;
@@ -138,7 +138,6 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task EditLegalUnit(LegalUnit changedUnit, LegalUnit historyUnit)
         {
-           // _editTracer.liquidateStat.Start();
             var unitsHistoryHolder = new UnitsHistoryHolder(changedUnit);
             var deleteEnterprise = false;
             var existingLeuEntRegId = await _dbContext.LegalUnits.Where(leu => leu.RegId == changedUnit.RegId)

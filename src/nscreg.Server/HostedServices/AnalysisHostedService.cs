@@ -22,7 +22,7 @@ namespace nscreg.Server.HostedServices
             Action = async () =>
             {
                 using var scope = Services.CreateScope();
-                var service = scope.ServiceProvider.GetService<AnalysisService>();
+                var service = scope.ServiceProvider.GetService<AnalyseWorker>();
                 if (service != null) await service.Execute();
             };
         }

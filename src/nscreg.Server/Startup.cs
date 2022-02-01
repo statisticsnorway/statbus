@@ -271,9 +271,9 @@ namespace nscreg.Server
 
             services.AddSingleton(config => Configuration);
             services.AddScoped<SampleFrameExecutor>();
-            services.AddScoped<FileGenerationService>();
-            services.AddScoped<AnalysisService>();
-            services.AddScoped<DataUploadSvcService>();
+            services.AddScoped<FileGenerationWorker>();
+            services.AddScoped<AnalyseWorker>();
+            services.AddScoped<DataUploadSvcWorker>();
 
             services.AddHostedService<SampleFrameGenerationHostedService>();
             services.AddHostedService<AnalysisHostedService>();

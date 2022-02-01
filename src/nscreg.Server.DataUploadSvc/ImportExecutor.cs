@@ -14,64 +14,69 @@ using nscreg.Server.Common.Services;
 using nscreg.Data;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
+using NLog;
+using AutoMapper;
 
 namespace nscreg.Server.DataUploadSvc
 {
     internal class ImportExecutor
     {
-        public static volatile int InterlockedInt = 0;
         public bool AnyWarnings { get; private set; }
-
-        private readonly ILogger _logger;
+        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly DbLogBuffer _logBuffer;
+        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
+        private readonly IMapper _mapper;
+        private readonly DbMandatoryFields _dbMandatoryFields;
+        private readonly ValidationSettings _validationSettings;
+        private readonly UserService _userService;
         private readonly bool _personsGoodQuality;
         private AnalyzeService _analysisSvc;
-        private readonly UserService _userService;
-        private readonly CommonService _commonService;
-        private readonly PopulateService _populateService;
-        private readonly UpsertUnitBulkBuffer _upsertUnitBulkBuffer;
-        private readonly SaveManager _saveManager;
 
-        public ImportExecutor(ILogger logger, DbLogBuffer logBuffer,
-            bool personsGoodQuality, UserService userService,
-            CommonService commonService, UpsertUnitBulkBuffer upsertUnitBulkBuffer,
-            SaveManager saveManager, PopulateService populateService)
+        public ImportExecutor(StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields, ValidationSettings validationSettings, DbLogBuffer logBuffer, bool personsGoodQuality,
+            UserService userService, IMapper mapper)
         {
             _personsGoodQuality = personsGoodQuality;
-            _logger = logger;
+            _statUnitAnalysisRules = statUnitAnalysisRules;
+            _dbMandatoryFields = dbMandatoryFields;
+            _validationSettings = validationSettings;
             _logBuffer = logBuffer;
             _userService = userService;
-            _commonService = commonService;
-            _populateService = populateService;
-            _upsertUnitBulkBuffer = upsertUnitBulkBuffer;
-            _saveManager = saveManager;
+            _mapper = mapper;
         }
 
-        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => Task.Run(Job(dequeued, keyValues));
+        public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => Task.Run(Job(dequeued, keyValues, bufferMaxCount));
 
-        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => async () =>
+        private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues, int bufferMaxCount) => async () =>
         {
             var dbContextHelper = new DbContextHelper();
             var context = dbContextHelper.CreateDbContext(new string[] { });
             context.Database.SetCommandTimeout(180);
             await InitializeCacheForLookups(context);
-            var permissions = await _commonService.InitializeDataAccessAttributes<IStatUnitM>(null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-            bool isAdmin = await _userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
+            var permissions = await new Common.Services.StatUnit.Common(context).InitializeDataAccessAttributes<IStatUnitM>(_userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+            var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, bufferMaxCount);
+            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
+            _analysisSvc = new AnalyzeService(context, _statUnitAnalysisRules, _dbMandatoryFields, _validationSettings);
+            var saveService = new SaveManager(context, dequeued.UserId, permissions, sqlBulkBuffer);
+            bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {
-                _logger.LogInformation("processing entity #{0}", i++);
+                _logger.Info("processing entity #{0}", i++);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-                _logger.LogInformation("populating unit");
-                var (populated, isNew, populateError, historyUnit) = await _populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
+                _logger.Info("populating unit");
+                (StatisticalUnit populated, bool isNew, string populateError, StatisticalUnit historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _personsGoodQuality);
+              
                 if (populateError.HasValue())
                 {
-                    _logger.LogInformation("error during populating of unit: {0}", populateError);
+                    _logger.Info("error during populating of unit: {0}", populateError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
                     continue;
@@ -83,22 +88,22 @@ namespace nscreg.Server.DataUploadSvc
 
                 /// Analyze Unit
 
-                _logger.LogInformation(
+                _logger.Info(
                     "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
                 var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(populated, dequeued);
-
+                
                 if (analysisError.HasValue())
                 {
-                    _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
+                    _logger.Info("analysis attempt failed with error: {0}", analysisError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, analysisError);
                     continue;
                 }
                 if (errors.Any())
                 {
-                    _logger.LogInformation("analysis revealed {0} errors", errors.Count);
-                    errors.Values.ForEach(x => x.ForEach(e => _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
+                    _logger.Info("analysis revealed {0} errors", errors.Count);
+                    errors.Values.ForEach(x => x.ForEach(e => _logger.Info(Resource.ResourceManager.GetString(e.ToString()))));
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
@@ -106,14 +111,13 @@ namespace nscreg.Server.DataUploadSvc
 
                 /// Save Unit
 
-                _logger.LogInformation("saving unit");
+                _logger.Info("saving unit");
 
-                var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
-
+                var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
                 if (saveError.HasValue())
                 {
-                    _logger.LogError(saveError);
+                    _logger.Error(saveError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, saveError);
                     continue;
@@ -127,6 +131,7 @@ namespace nscreg.Server.DataUploadSvc
                         IReadOnlyDictionary<string, string[]> analysisErrors = null,
                         IEnumerable<string> analysisSummary = null)
                 {
+                   
                     var rawUnit = JsonConvert.SerializeObject(dequeued.DataSource.VariablesMappingArray.ToDictionary(x => x.target, x =>
                     {
                         var tmp = x.source.Split('.', 2);
@@ -138,7 +143,7 @@ namespace nscreg.Server.DataUploadSvc
 
                 }
             }
-            await _upsertUnitBulkBuffer.FlushAsync();
+            await sqlBulkBuffer.FlushAsync();
         };
 
         private async Task<(string, (IReadOnlyDictionary<string, string[]>, string[] test))> AnalyzeUnitAsync(IStatisticalUnit unit, DataSourceQueue queueItem)

@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -19,7 +18,7 @@ namespace nscreg.Services
     /// <summary>
     /// Sample frame file generation job class
     /// </summary>
-    public class FileGenerationService
+    public class FileGenerationWorker
     {
         public int Interval { get; }
         private readonly NSCRegDbContext _ctx;
@@ -29,7 +28,7 @@ namespace nscreg.Services
         private readonly string _rootPath;
         private readonly string _sampleFramesDir;
         
-        public FileGenerationService(NSCRegDbContext ctx,
+        public FileGenerationWorker(NSCRegDbContext ctx,
             IOptions<ServicesSettings> servicesSettings, SampleFrameExecutor executor)
         {
             _ctx = ctx;

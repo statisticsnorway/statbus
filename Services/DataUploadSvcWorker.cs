@@ -4,9 +4,10 @@ using NLog;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.Services;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Extensions;
 using System;
@@ -19,24 +20,29 @@ using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 
 namespace nscreg.Services
 {
-    public class DataUploadSvcService
+    public class DataUploadSvcWorker
     {
         private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
+        private readonly DataAccessService _dataAccessService;
+        private readonly ServicesSettings _serviceSettings;
+        private readonly IUserService _userService;
+        private readonly CommonService _commonService;
+        private readonly IStatUnitAnalyzeService _analyzeService;
+        private readonly IMapper _mapper;
         private QueueService _queueSvc;
+       
         private DbLogBuffer _logBuffer;
         private NSCRegDbContext _context;
-        private readonly IMapper _mapper;
-        private readonly DataAccessService _dataAccessService;
-        private readonly ImportExecutor _importExecutor;
-        private readonly ServicesSettings _serviceSettings;
-
-        public DataUploadSvcService(IOptions<ServicesSettings> servicesSettings,
-            IMapper mapper, DataAccessService dataAccessService, ImportExecutor importExecutor)
+       
+        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings,
+            IMapper mapper, DataAccessService dataAccessService, IUserService userService, CommonService commonService, IStatUnitAnalyzeService analyzeService)
         {
             _serviceSettings = servicesSettings.Value;
             _mapper = mapper;
+            _userService = userService;
             _dataAccessService = dataAccessService;
-            _importExecutor = importExecutor;
+            _commonService = commonService;
+            _analyzeService = analyzeService;
         }
 
         private void AddScopedServices()
@@ -94,6 +100,7 @@ namespace nscreg.Services
                 return;
             }
 
+            var executor = new ImportExecutor(_logBuffer, _userService, _mapper, _commonService, _serviceSettings, _analyzeService);
             var (parseError, parsed, problemLine) = await ParseFile(dequeued);
 
             if (parseError.HasValue())
@@ -108,7 +115,7 @@ namespace nscreg.Services
             _logger.Info("parsed {0} entities", parsed.Length);
             var anyWarnings = false;
             var exceptionMessage = string.Empty;
-            await CatchAndLogException(async () => await _importExecutor.Start(dequeued, parsed), ex =>
+            await CatchAndLogException(async () => await executor.Start(dequeued, parsed), ex =>
             {
                 anyWarnings = true;
                 exceptionMessage = ex;
@@ -121,7 +128,7 @@ namespace nscreg.Services
 
             await _queueSvc.FinishQueueItem(
                 dequeued,
-                anyWarnings || _importExecutor.AnyWarnings
+                anyWarnings || executor.AnyWarnings
                     ? QueueStatus.DataLoadCompletedPartially
                     : QueueStatus.DataLoadCompleted, exceptionMessage);
 
@@ -244,6 +251,7 @@ namespace nscreg.Services
         public async Task QueueCleanup()
         {
             _logger.Info("cleaning up queue...");
+            AddScopedServices();
             await new QueueService(_context).ResetDequeuedByTimeout(_serviceSettings.DataUploadServiceCleanupTimeout);
         }
     }

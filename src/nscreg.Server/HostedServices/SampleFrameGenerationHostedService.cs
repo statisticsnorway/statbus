@@ -18,11 +18,11 @@ namespace nscreg.Server.HostedServices
         {
             Logger = LogManager.GetLogger(nameof(SampleFrameGenerationHostedService));
             Services = services;
-            TimerInterval = TimeSpan.FromMinutes(settings.Value.SampleFrameGenerationServiceDequeueInterval);
+            TimerInterval = TimeSpan.FromSeconds(settings.Value.SampleFrameGenerationServiceDequeueInterval);
             Action = async () =>
             {
                 using var scope = Services.CreateScope();
-                var service = scope.ServiceProvider.GetService<FileGenerationService>();
+                var service = scope.ServiceProvider.GetService<FileGenerationWorker>();
                 if (service != null) await service.Execute();
             };
         }

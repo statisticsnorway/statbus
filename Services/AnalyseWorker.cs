@@ -9,13 +9,13 @@ namespace nscreg.Services
     /// <summary>
     /// Analysis work class
     /// </summary>
-    public class AnalysisService
+    public class AnalyseWorker
     {
         private readonly NSCRegDbContext _ctx;
         private readonly IStatUnitAnalyzeService _analysisService;
         private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-        public AnalysisService(NSCRegDbContext ctx,
+        public AnalyseWorker(NSCRegDbContext ctx,
             IStatUnitAnalyzeService analysisService)
         {
             _ctx = ctx;

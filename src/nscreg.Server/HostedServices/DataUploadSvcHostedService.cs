@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NLog;
+using nscreg.Services;
 using nscreg.Utilities.Configuration;
-using Services;
 using System;
 
 namespace nscreg.Server.HostedServices
@@ -13,11 +13,11 @@ namespace nscreg.Server.HostedServices
         {
             Logger = LogManager.GetLogger(nameof(SampleFrameGenerationHostedService));
             Services = services;
-            TimerInterval = TimeSpan.FromMinutes(settings.Value.DataUploadServiceDequeueInterval);
+            TimerInterval = TimeSpan.FromSeconds(settings.Value.DataUploadServiceDequeueInterval);
             Action = async () =>
             {
                 using var scope = Services.CreateScope();
-                var service = scope.ServiceProvider.GetService<DataUploadSvcService>();
+                var service = scope.ServiceProvider.GetService<DataUploadSvcWorker>();
                 if (service != null) await service.Execute();
             };
         }
