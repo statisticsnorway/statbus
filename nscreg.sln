@@ -56,6 +56,8 @@ Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "nsc.ImportDataBase", "src\n
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services", "Services\Services.csproj", "{D3E435A9-6A0A-45EB-87B8-0A1DE05691A3}"
 EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -154,6 +156,12 @@ Global
 		{D3E435A9-6A0A-45EB-87B8-0A1DE05691A3}.DebugLocal|Any CPU.Build.0 = Debug|Any CPU
 		{D3E435A9-6A0A-45EB-87B8-0A1DE05691A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D3E435A9-6A0A-45EB-87B8-0A1DE05691A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}.DebugLocal|Any CPU.ActiveCfg = Debug|Any CPU
+		{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}.DebugLocal|Any CPU.Build.0 = Debug|Any CPU
+		{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69BD70A8-A9C6-4B51-BEBB-1ABBDF324FFF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  nscreg.server:
+    image: ${DOCKER_REGISTRY-}nscregserver
+    build:
+      context: .
+      dockerfile: src/nscreg.Server/Dockerfile
