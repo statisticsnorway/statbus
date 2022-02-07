@@ -148,7 +148,6 @@ namespace nscreg.Server
                 NscRegDbInitializer.EnsureRoles(dbContext);
                 NscRegDbInitializer.EnsureEntGroupTypes(dbContext);
                 NscRegDbInitializer.EnsureEntGroupRoles(dbContext);
-
             }
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
@@ -319,7 +318,7 @@ namespace nscreg.Server
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
                 .UseContentRoot(Directory.GetCurrentDirectory())
-                .UseIISIntegration()
+                //.UseIISIntegration()
                 .UseStartup<Startup>()
                 .ConfigureKestrel((context, options) =>
                 {
