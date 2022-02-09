@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
@@ -8,6 +9,7 @@ using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Extensions;
 
@@ -17,13 +19,12 @@ namespace nscreg.Server.Controllers
     public class UsersController : Controller
     {
         private readonly UserManager<User> _userManager;
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
 
-        public UsersController(NSCRegDbContext context,
-            UserManager<User> userManager)
+        public UsersController(UserManager<User> userManager, IUserService userService)
         {
             _userManager = userManager;
-            _userService = new UserService(context);
+            _userService = userService;
         }
 
         [HttpGet]
@@ -40,7 +41,10 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.UserCreate, SystemFunctions.UserEdit)]
-        public async Task<IActionResult> IsLoginExist(string login) => Ok(await _userService.IsLoginExist(login));
+        public async Task<IActionResult> IsLoginExist(string login)
+        {            
+            return Ok(await _userService.IsLoginExist(login));
+        }
 
         [HttpPost]
         [SystemFunction(SystemFunctions.UserCreate)]

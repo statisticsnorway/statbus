@@ -25,10 +25,14 @@ namespace nscreg.Server.Common.Services.DataSources
         private List<EnterpriseUnit> BufferToDelete { get; }
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
-        public ElasticService ElasticSearchService { get; }
+        public IElasticUpsertService ElasticSearchService { get; }
         private readonly int _maxBulkOperationsBufferedCount;
         private readonly DataSourceQueue _dataSourceQueue;
-        public UpsertUnitBulkBuffer(NSCRegDbContext context, ElasticService elasticSearchService, DataAccessPermissions permissions, DataSourceQueue queue, int maxBufferCount = 1000)
+        private readonly IMapper _mapper;
+        private readonly CommonService _commonService;
+        public UpsertUnitBulkBuffer(NSCRegDbContext context, IElasticUpsertService elasticSearchService,
+            DataAccessPermissions permissions, DataSourceQueue queue, IMapper mapper, CommonService commonService,
+            int maxBufferCount = 1000)
         {
 
             _permissions = permissions;
@@ -39,6 +43,8 @@ namespace nscreg.Server.Common.Services.DataSources
             ElasticSearchService = elasticSearchService;
             _dataSourceQueue = queue;
             _maxBulkOperationsBufferedCount = maxBufferCount;
+            _mapper = mapper;
+            _commonService = commonService;
         }
 
         public void AddToDeleteBuffer(EnterpriseUnit unit)
@@ -107,7 +113,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var legalStatIds = new List<string>();
 
-                var hasAccess = StatUnit.Common.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits);
+                var hasAccess = _commonService.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits);
 
                 legals.ForEach(changedUnit =>
                 {
@@ -207,8 +213,8 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 if (Buffer.Any())
                 {
-                    var entities = Buffer.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)
-                        .Concat(groups.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList();
+                    var entities = Buffer.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>)
+                        .Concat(groups.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList();
                     await ElasticSearchService.UpsertDocumentList(entities);
                 }
                 transaction.Commit();

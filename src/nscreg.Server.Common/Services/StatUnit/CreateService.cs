@@ -31,24 +31,27 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class CreateService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
-        private readonly DbMandatoryFields _mandatoryFields;
-        private readonly UserService _userService;
-        private readonly Common _commonSvc;
-        private readonly ValidationSettings _validationSettings;
+        private readonly IUserService _userService;
+        private readonly CommonService _commonSvc;
         private readonly DataAccessService _dataAccessService;
-        private readonly bool _shouldAnalyze;
+        private const bool _shouldAnalyze = true;
+        private readonly IMapper _mapper;
+        private readonly IStatUnitAnalyzeService _analysisService;
+        private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
+        private readonly StatUnitCreationHelper _statUnitCreationHelper;
 
-        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings, bool shouldAnalyze)
+        public CreateService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService,
+            CommonService commonSvc, DataAccessService dataAccessService, IStatUnitAnalyzeService analysisService,
+            StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper, StatUnitCreationHelper statUnitCreationHelper)
         {
             _dbContext = dbContext;
-            _statUnitAnalysisRules = statUnitAnalysisRules;
-            _mandatoryFields = mandatoryFields;
-            _userService = new UserService(dbContext);
-            _commonSvc = new Common(dbContext);
-            _validationSettings = validationSettings;
-            _dataAccessService = new DataAccessService(dbContext);
-            _shouldAnalyze = shouldAnalyze;
+            _userService = userService;
+            _commonSvc = commonSvc;
+            _dataAccessService = dataAccessService;
+            _mapper = mapper;
+            _analysisService = analysisService;
+            _statUnitCheckPermissionsHelper = statUnitCheckPermissionsHelper;
+            _statUnitCreationHelper = statUnitCreationHelper;
         }
 
         /// <summary>
@@ -63,11 +66,17 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var isAdmin = _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
                 if (!isAdmin)
                 {
-                    var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                    var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
-                    helper.CheckRegionOrActivityContains(userId, regionIds, data.Activities.Select(x => x.ActivityCategoryId).ToList());
+                    var regionIds = new List<int?>
+                    {
+                        data.Address?.RegionId,
+                        data.ActualAddress?.RegionId,
+                        data.PostalAddress?.RegionId
+                    }.Where(x => x != null)
+                    .Select(x => (int)x)
+                    .ToList();
+                    _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, data.Activities.Select(x => x.ActivityCategoryId).ToList());
                 }
-                if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                if (_commonSvc.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     if (data.LocalUnits != null && data.LocalUnits.Any())
                     {
@@ -93,9 +102,15 @@ namespace nscreg.Server.Common.Services.StatUnit
             var isAdmin = _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
             if (!isAdmin)
             {
-                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
-                helper.CheckRegionOrActivityContains(userId, regionIds, data.Activities.Select(x => x.ActivityCategoryId).ToList());
+                var regionIds = new List<int?>
+                {
+                    data.Address?.RegionId,
+                    data.ActualAddress?.RegionId,
+                    data.PostalAddress?.RegionId
+                }.Where(x => x != null)
+                .Select(x => (int)x)
+                .ToList();
+                _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, data.Activities.Select(x => x.ActivityCategoryId).ToList());
             }
             return await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
         }
@@ -112,9 +127,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var isAdmin = _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
                 if (!isAdmin)
                 {
-                    var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                    var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
-                    helper.CheckRegionOrActivityContains(userId, regionIds,data.Activities.Select(x => x.ActivityCategoryId).ToList());
+                    var regionIds = new List<int?>
+                    {
+                        data.Address?.RegionId,
+                        data.ActualAddress?.RegionId,
+                        data.PostalAddress?.RegionId
+                    }.Where(x => x != null)
+                    .Select(x => (int)x)
+                    .ToList();
+                    _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds,data.Activities.Select(x => x.ActivityCategoryId).ToList());
                 }
                 if (data.LegalUnits != null && data.LegalUnits.Any())
                 {
@@ -125,8 +146,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                     unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                 }
-                   
-
                 return Task.CompletedTask;
             });
 
@@ -142,12 +161,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var isAdmin = _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator).Result;
                 if (!isAdmin)
                 {
-                    var helper = new StatUnitCheckPermissionsHelper(_dbContext);
                     var regionIds = new List<int?> { data.Address?.RegionId, data.ActualAddress?.RegionId, data.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
-                    helper.CheckRegionOrActivityContains(userId, regionIds, new List<int>());
-
+                    _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, regionIds, new List<int>());
                 }
-                if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
+
+                if (_commonSvc.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
                     if (data.EnterpriseUnits != null && data.EnterpriseUnits.Any())
                     {
@@ -163,6 +181,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 
                 return Task.CompletedTask;
             });
+
         /// <summary>
         /// Static unit context creation method
         /// </summary>
@@ -170,21 +189,18 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User Id</param>
         /// <param name="work">In work</param>
         /// <returns></returns>
-        private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>(
-            TModel data,
-            string userId,
-            Func<TUnit, Task> work)
+        private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>( TModel data, string userId, Func<TUnit, Task> work)
             where TModel : StatUnitModelBase
             where TUnit : StatisticalUnit, new()
             => await CreateContext<TUnit, TModel>(data, userId, async unit =>
             {
-                if (Common.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+                if (_commonSvc.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
                 {
                     var activitiesList = data.Activities ?? new List<ActivityM>();
 
                     unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
                         {
-                            var activity = Mapper.Map<ActivityM, Activity>(v);
+                            var activity = _mapper.Map<ActivityM, Activity>(v);
                             activity.Id = 0;
                             activity.ActivityCategoryId = v.ActivityCategoryId;
                             activity.UpdatedBy = userId;
@@ -200,7 +216,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         return new PersonStatisticalUnit { PersonId = (int)v.Id, PersonTypeId = v.Role };
                     }
-                    var newPerson = Mapper.Map<PersonM, Person>(v);
+                    var newPerson = _mapper.Map<PersonM, Person>(v);
                     return new PersonStatisticalUnit { Person = newPerson, PersonTypeId = v.Role };
                 }));
 
@@ -231,10 +247,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User Id</param>
         /// <param name="work">In Work</param>
         /// <returns></returns>
-        private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>(
-            TModel data,
-            string userId,
-            Func<TUnit, Task> work)
+        private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>( TModel data, string userId, Func<TUnit, Task> work)
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
@@ -244,8 +257,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
             }
 
-            await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
-            Mapper.Map(data, unit);
+            await _commonSvc.InitializeDataAccessAttributes(data, userId, unit.UnitType);
+            _mapper.Map(data, unit);
             await _commonSvc.AddAddresses<TUnit>(unit, data);
 
             if (work != null)
@@ -256,21 +269,19 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (_shouldAnalyze)
             {
-                IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
-                var analyzeResult = await analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
+                var analyzeResult = await _analysisService.AnalyzeStatUnit(unit, isSkipCustomCheck: true);
                 if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
             }
 
-            var helper = new StatUnitCreationHelper(_dbContext, new ElasticService(_dbContext));
-            await helper.CheckElasticConnect();
+            await _statUnitCreationHelper.CheckElasticConnect();
             if (unit is LocalUnit)
-                await helper.CreateLocalUnit(unit as LocalUnit);
+                await _statUnitCreationHelper.CreateLocalUnit(unit as LocalUnit);
             else if (unit is LegalUnit)
-                await helper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit);
+                await _statUnitCreationHelper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit);
             else if (unit is EnterpriseUnit)
-                await helper.CreateEnterpriseWithGroup(unit as EnterpriseUnit);
+                await _statUnitCreationHelper.CreateEnterpriseWithGroup(unit as EnterpriseUnit);
             else if (unit is EnterpriseGroup)
-                await helper.CreateGroup(unit as EnterpriseGroup);
+                await _statUnitCreationHelper.CreateGroup(unit as EnterpriseGroup);
 
             return null;
         }

@@ -107,7 +107,9 @@ namespace nscreg.Data
                     new DataAccessPermissions(daa.Select(x => new Permission(x, true, false)));
             }
 
-            var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
+            var adminUser = context.Users.Where(u => u.Email == "admin@email.xyz").ToList();
+            var sysAdminUser = adminUser.FirstOrDefault();
+
             if (sysAdminUser == null)
             {
                 sysAdminUser = new User

@@ -11,6 +11,7 @@ using nscreg.Data.Entities;
 using nscreg.Data.Entities.History;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using Activity = nscreg.Data.Entities.Activity;
@@ -24,21 +25,28 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class DeleteService
     {
-        private readonly Common _commonSvc;
-        private readonly UserService _userService;
+        private readonly CommonService _commonSvc;
+        private readonly IUserService _userService;
         private readonly Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>> _deleteUndeleteActions;
         private readonly Dictionary<StatUnitTypes, Action<IStatisticalUnit, bool, string>> _postDeleteActions;
         private readonly NSCRegDbContext _dbContext;
-        private readonly ElasticService _elasticService;
+        private readonly IElasticUpsertService _elasticService;
         private readonly DataAccessService _dataAccessService;
+        private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
+        private readonly IMapper _mapper;
 
-        public DeleteService(NSCRegDbContext dbContext)
+
+        public DeleteService(NSCRegDbContext dbContext, CommonService commonSvc, IUserService userService,
+            IElasticUpsertService elasticService, DataAccessService dataAccessService,
+            StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper, IMapper mapper)
         {
             _dbContext = dbContext;
-            _elasticService = new ElasticService(dbContext);
-            _dataAccessService = new DataAccessService(dbContext);
-            _commonSvc = new Common(dbContext);
-            _userService = new UserService(dbContext);
+            _elasticService = elasticService;
+            _dataAccessService = dataAccessService;
+            _commonSvc = commonSvc;
+            _userService = userService;
+            _statUnitCheckPermissionsHelper = statUnitCheckPermissionsHelper;
+
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
@@ -53,6 +61,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 [StatUnitTypes.LocalUnit] = PostDeleteLocalUnit,
                 [StatUnitTypes.LegalUnit] = PostDeleteLegalUnit
             };
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -71,15 +80,14 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var item = _commonSvc.GetStatisticalUnitByIdAndType(id, unitType, true).Result;
             bool isEmployee = _userService.IsInRoleAsync(userId, DefaultRoleNames.Employee).Result;
-            var mappedItem = Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item);
+            var mappedItem = _mapper.Map<IStatisticalUnit, ElasticStatUnit>(item);
             if (isEmployee)
             {
-                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
-                helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
+                _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
             if (item.IsDeleted == toDelete)
             {
-                _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(item)).Wait();
+                _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(item)).Wait();
             }
             else
             {
@@ -87,7 +95,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var deletedUnit = _deleteUndeleteActions[unitType](id, toDelete, userId);
                 _postDeleteActions[unitType](deletedUnit, toDelete, userId);
 
-                _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+                _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
             }
         }
 
@@ -102,14 +110,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.EnterpriseGroups.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new EnterpriseGroupHistory();
-            Mapper.Map(unit, hUnit);
+            _mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             if (!toDelete)
                 unit.UnitStatusId = _dbContext.EnterpriseGroupHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.EnterpriseGroupHistory.Add((EnterpriseGroupHistory)Common.TrackHistory(unit, hUnit));
+            _dbContext.EnterpriseGroupHistory.Add((EnterpriseGroupHistory)CommonService.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -126,14 +134,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new LegalUnitHistory();
-            Mapper.Map(unit, hUnit);
+            _mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             if (!toDelete)
                 unit.UnitStatusId = _dbContext.LegalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.LegalUnitHistory.Add((LegalUnitHistory)Common.TrackHistory(unit, hUnit));
+            _dbContext.LegalUnitHistory.Add((LegalUnitHistory)CommonService.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -150,14 +158,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new LocalUnitHistory();
-            Mapper.Map(unit, hUnit);
+            _mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             if (!toDelete)
                 unit.UnitStatusId = _dbContext.LocalUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.LocalUnitHistory.Add((LocalUnitHistory)Common.TrackHistory(unit, hUnit));
+            _dbContext.LocalUnitHistory.Add((LocalUnitHistory)CommonService.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -174,14 +182,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new EnterpriseUnitHistory();
-            Mapper.Map(unit, hUnit);
+            _mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             if (!toDelete)
                 unit.UnitStatusId = _dbContext.EnterpriseUnitHistory.Where(x => x.ParentId == unit.RegId).OrderBy(x => x.StartPeriod).LastOrDefault()?.UnitStatusId;
             unit.UserId = userId;
             unit.EditComment = null;
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.EnterpriseUnitHistory.Add((EnterpriseUnitHistory)Common.TrackHistory(unit, hUnit));
+            _dbContext.EnterpriseUnitHistory.Add((EnterpriseUnitHistory)CommonService.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
 
             return unit;
@@ -261,7 +269,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (localStartPeriod == legalStartPeriod)
                     {
                         var deletedUnit = DeleteUndeleteLocalUnit(localUnit.RegId, true, userId);
-                        _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+                        _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
                     }
                 }
 
@@ -269,7 +277,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (enterpriseUnit.LegalUnits.Count == 1)
                 {
                     var deletedUnit = DeleteUndeleteEnterpriseUnit(enterpriseUnit.RegId, true, userId);
-                    _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
+                    _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(deletedUnit)).Wait();
                 }
             }
             else
@@ -278,13 +286,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 foreach (var localUnit in deletedLocalUnits)
                 {
                     var restoredUnit = DeleteUndeleteLocalUnit(localUnit.RegId, false, userId);
-                    _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
+                    _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
                 }
                 var enterpriseUnit = _dbContext.EnterpriseUnits.FirstOrDefault(x => x.RegId == legalUnit.EnterpriseUnitRegId);
                 if (enterpriseUnit != null && enterpriseUnit.IsDeleted == true)
                 {
                     var restoredUnit = DeleteUndeleteEnterpriseUnit(legalUnit.EnterpriseUnit.RegId, false, userId);
-                    _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
+                    _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(restoredUnit)).Wait();
                 }
             }
         }
@@ -308,12 +316,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task UpdateUnitTask(dynamic unit, dynamic historyUnit, string userId, StatUnitTypes type)
         {
             var unitForUpdate = type == StatUnitTypes.LegalUnit
-                ? Mapper.Map<LegalUnit>(unit)
+                ? _mapper.Map<LegalUnit>(unit)
                 : (type == StatUnitTypes.LocalUnit
-                    ? Mapper.Map<LocalUnit>(unit)
-                    : Mapper.Map<EnterpriseUnit>(unit));
+                    ? _mapper.Map<LocalUnit>(unit)
+                    : _mapper.Map<EnterpriseUnit>(unit));
 
-            Mapper.Map(historyUnit, unitForUpdate);
+            _mapper.Map(historyUnit, unitForUpdate);
             unitForUpdate.EndPeriod = unit.EndPeriod;
             unitForUpdate.EditComment =
                 "This unit was edited by data source upload service and then data upload changes rejected";
@@ -324,15 +332,15 @@ namespace nscreg.Server.Common.Services.StatUnit
             unitForUpdate.ForeignParticipationCountriesUnits.Clear();
             foreach (var historyActUnit in historyUnit.ActivitiesUnits)
             {
-                unitForUpdate.ActivitiesUnits.Add(Mapper.Map(historyActUnit, new ActivityStatisticalUnit()));
+                unitForUpdate.ActivitiesUnits.Add(_mapper.Map(historyActUnit, new ActivityStatisticalUnit()));
             }
             foreach (var historyPersonUnit in historyUnit.PersonsUnits)
             {
-                unitForUpdate.PersonsUnits.Add(Mapper.Map(historyPersonUnit, new PersonStatisticalUnit()));
+                unitForUpdate.PersonsUnits.Add(_mapper.Map(historyPersonUnit, new PersonStatisticalUnit()));
             }
             foreach (var historyCountryUnit in historyUnit.ForeignParticipationCountriesUnits)
             {
-                unitForUpdate.ForeignParticipationCountriesUnits.Add(Mapper.Map(historyCountryUnit, new CountryStatisticalUnit()));
+                unitForUpdate.ForeignParticipationCountriesUnits.Add(_mapper.Map(historyCountryUnit, new CountryStatisticalUnit()));
             }
             switch (type)
             {
@@ -347,7 +355,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
             }
             await _dbContext.SaveChangesAsync();
-            await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
+            await _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(unitForUpdate));
         }
 
         /// <summary>
@@ -410,11 +418,11 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 _dbContext.LegalUnits.Remove(unit);
                 await _dbContext.SaveChangesAsync();
-                await _elasticService.DeleteDocumentAsync(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+                await _elasticService.DeleteDocumentAsync(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
 
                 if (local != null)
                 {
-                    await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(local));
+                    await _elasticService.EditDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(local));
                     _commonSvc.TrackUnitHistoryFor<LocalUnit>(local.RegId, userId, ChangeReasons.Edit, "Link to Legal Unit deleted by data source upload service reject functionality", DateTime.Now);
                 }
 
@@ -475,7 +483,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 _dbContext.LocalUnits.Remove(unit);
                 await _dbContext.SaveChangesAsync();
-                await _elasticService.DeleteDocumentAsync(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+                await _elasticService.DeleteDocumentAsync(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
             }
 
             return true;
@@ -531,7 +539,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 _dbContext.EnterpriseUnits.Remove(unit);
                 await _dbContext.SaveChangesAsync();
-                await _elasticService.DeleteDocumentAsync(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
+                await _elasticService.DeleteDocumentAsync(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
             }
 
             return true;
@@ -550,13 +558,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             switch (type)
             {
                 case StatUnitTypes.LegalUnit:
-                    unitsForUpdate.AddRange(units.Select(Mapper.Map<LegalUnit>));
+                    unitsForUpdate.AddRange(units.Select(_mapper.Map<LegalUnit>));
                     break;
                 case StatUnitTypes.LocalUnit:
-                    unitsForUpdate.AddRange(units.Select(Mapper.Map<LocalUnit>));
+                    unitsForUpdate.AddRange(units.Select(_mapper.Map<LocalUnit>));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
-                    unitsForUpdate.AddRange(units.Select(Mapper.Map<EnterpriseUnit>));
+                    unitsForUpdate.AddRange(units.Select(_mapper.Map<EnterpriseUnit>));
                     break;
             }
 
@@ -582,14 +590,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var exceptIds = z.unit.Activities.Select(x => x.Id).Except(historyUnitLast.Activities.Select(x => x.ParentId));
                 activitiesForDelete.AddRange(z.unit.Activities.Where(x => exceptIds.Contains(x.Id)).ToList());
 
-                Mapper.Map(historyUnitLast, z.unit);
+                _mapper.Map(historyUnitLast, z.unit);
                 z.unit.RegId = regId;
                 z.unit.EndPeriod = endPeriod;
                 z.unit.EditComment = "This unit was edited by data source upload service and then data upload changes rejected";
 
-                z.unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(y => Mapper.Map(y, new ActivityStatisticalUnit())).ToList();
-                z.unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(y => Mapper.Map(z, new PersonStatisticalUnit())).ToList();
-                z.unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(y => Mapper.Map(y, new CountryStatisticalUnit())).ToList();
+                z.unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(y => _mapper.Map(y, new ActivityStatisticalUnit())).ToList();
+                z.unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(y => _mapper.Map(z, new PersonStatisticalUnit())).ToList();
+                z.unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(y => _mapper.Map(y, new CountryStatisticalUnit())).ToList();
 
                 z.unit.ActivitiesUnits.ForEach(x => x.UnitId = z.unit.RegId);
                 z.unit.PersonsUnits.ForEach(x => x.UnitId = z.unit.RegId);
@@ -618,7 +626,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     await _dbContext.BulkUpdateAsync(unitsForUpdate.OfType<EnterpriseUnit>().ToList());
                     break;
             }
-            await _elasticService.UpsertDocumentList((unitsForUpdate).Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
+            await _elasticService.UpsertDocumentList((unitsForUpdate).Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
 
             unitsForUpdate.Clear();
             activitiesForDelete.Clear();
@@ -691,13 +699,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 x.LegalFormId = null;
                             });
                             await _dbContext.SaveChangesAsync();
-                            await _elasticService.UpsertDocumentList(locals.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
+                            await _elasticService.UpsertDocumentList(locals.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>).ToList());
                         }
                     }
                     await _dbContext.BulkDeleteAsync(units);
                     await _dbContext.BulkDeleteAsync(units.SelectMany(x => x.Activities).ToList());
                     await DeleteRangeEnterpriseUnitsFromDb(statIds, userId, dataUploadTime);
-                    await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
+                    await _elasticService.DeleteDocumentRangeAsync(units.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>));
                 }
                 transaction.Commit();
             }
@@ -755,7 +763,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await _dbContext.BulkDeleteAsync(units);
                 await _dbContext.BulkDeleteAsync(units.SelectMany(x => x.Activities).ToList());
-                await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
+                await _elasticService.DeleteDocumentRangeAsync(units.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>));
             }
 
             return true;
@@ -813,7 +821,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await _dbContext.BulkDeleteAsync(units);
                 await _dbContext.BulkDeleteAsync(units.SelectMany(x => x.Activities).ToList());
-                await _elasticService.DeleteDocumentRangeAsync(units.Select(Mapper.Map<IStatisticalUnit, ElasticStatUnit>));
+                await _elasticService.DeleteDocumentRangeAsync(units.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>));
             }
 
             return true;

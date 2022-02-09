@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Data.Entities.ComplexTypes;
-using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Services.StatUnit;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -16,29 +12,29 @@ namespace nscreg.Server.Common.Services.DataSources
 
 
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType;
+        private readonly BulkUpsertUnitService _bulkUpsertUnitService;
 
-        public  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, UpsertUnitBulkBuffer buffer)
-        {   
-            
-            var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, userId);
+        public  SaveManager(BulkUpsertUnitService bulkUpsertUnitService)
+        {
+            _bulkUpsertUnitService = bulkUpsertUnitService;
 
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, _) =>
-                    bulkUpsertUnitService.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
+                    _bulkUpsertUnitService.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
                 [StatUnitTypes.LocalUnit] = (unit, _) =>
-                    bulkUpsertUnitService.CreateLocalUnit(unit as LocalUnit),
+                    _bulkUpsertUnitService.CreateLocalUnit(unit as LocalUnit),
                 [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
-                   bulkUpsertUnitService.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
+                   _bulkUpsertUnitService.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
             };
             _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, hunit) =>
-                    bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
+                    _bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
                 [StatUnitTypes.LocalUnit] = (unit, hunit) =>
-                    bulkUpsertUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
+                    _bulkUpsertUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
                 [StatUnitTypes.EnterpriseUnit] = (unit, hunit) =>
-                    bulkUpsertUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
+                    _bulkUpsertUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
             };
         }
 
@@ -49,7 +45,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 return (null, false);
 
             var saveAction =
-                !isNeW && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter) ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                !isNeW && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter
+                || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter)
+                ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {

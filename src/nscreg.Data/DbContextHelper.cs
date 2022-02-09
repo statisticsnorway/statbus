@@ -34,17 +34,17 @@ namespace nscreg.Data
                         case ConnectionProvider.SqlServer:
                             op.UseSqlServer(connectionString,
                                 op2 => op2.MigrationsAssembly("nscreg.Data")
-                                    .CommandTimeout(300));
+                                    .CommandTimeout(30000));
                             break;
                         case ConnectionProvider.PostgreSql:
                             op.UseNpgsql(connectionString,
                                 op2 => op2.MigrationsAssembly("nscreg.Data")
-                                    .CommandTimeout(300));
+                                    .CommandTimeout(30000));
                             break;
                         case ConnectionProvider.MySql:
                             op.UseMySql(connectionString,
                                 op2 => op2.MigrationsAssembly("nscreg.Data")
-                                    .CommandTimeout(300));
+                                    .CommandTimeout(30000));
                             break;
                         default:
                             op.UseSqlite(new SqliteConnection("DataSource=:memory:"));
@@ -76,22 +76,30 @@ namespace nscreg.Data
                 case ConnectionProvider.SqlServer:
                     return new NSCRegDbContext(builder
                         .UseSqlServer(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
+#pragma warning disable CS0618 // Тип или член устарел
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                 case ConnectionProvider.PostgreSql:
                     return new NSCRegDbContext(builder
                         .UseNpgsql(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
+#pragma warning disable CS0618 // Тип или член устарел
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                 case ConnectionProvider.MySql:
                     return new NSCRegDbContext(builder
                         .UseMySql(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
+#pragma warning disable CS0618 // Тип или член устарел
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                 default:
                     var ctx = new NSCRegDbContext(builder
                         .UseSqlite("DataSource=:memory:")
+#pragma warning disable CS0618 // Тип или член устарел
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                     ctx.Database.OpenConnection();
                     ctx.Database.EnsureCreated();

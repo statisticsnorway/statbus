@@ -2,7 +2,6 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
@@ -12,8 +11,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Serialization;
-using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -21,7 +18,6 @@ using nscreg.Server.Common;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.Contracts;
-using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration;
@@ -38,7 +34,16 @@ using System.IO;
 using MySql.Data.MySqlClient;
 using Npgsql;
 using static nscreg.Server.Core.StartupConfiguration;
-using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
+using Microsoft.Extensions.Hosting;
+using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Server.Common.Helpers;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.AspNetCore.DataProtection;
+using Newtonsoft.Json.Serialization;
+using nscreg.Server.HostedServices;
+using nscreg.Services;
+using nscreg.Server.Common.Services.SampleFrames;
 
 namespace nscreg.Server
 {
@@ -49,11 +54,24 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
-        private IHostingEnvironment CurrentEnvironment { get; }
         private ILoggerFactory _loggerFactory;
+        private IWebHostEnvironment CurrentEnvironment { get; set; }
 
-        public Startup(IHostingEnvironment env)
+        public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
+            Configuration = configuration;
+            CurrentEnvironment = environment;
+        }
+
+        /// <summary>
+        /// Application Configuration Method
+        /// </summary>
+        /// <param name="app">App</param>
+        /// <param name="loggerFactory">loggerFactory</param>
+        // ReSharper disable once UnusedMember.Global
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILoggerFactory loggerFactory)
+        {
+
             var builder = new ConfigurationBuilder().SetBasePath(env.ContentRootPath);
 
             if (env.IsDevelopment())
@@ -67,25 +85,6 @@ namespace nscreg.Server
                 .AddJsonFile("appsettings.json", true, reloadOnChange: true)
                 .AddJsonFile(path: $"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables();
-
-            Configuration = builder.Build();
-            CurrentEnvironment = env;
-        }
-
-        /// <summary>
-        /// Application Configuration Method
-        /// </summary>
-        /// <param name="app">App</param>
-        /// <param name="loggerFactory">loggerFactory</param>
-        // ReSharper disable once UnusedMember.Global
-        public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            loggerFactory
-                .AddConsole(Configuration.GetSection("Logging"))
-                .AddDebug()
-                .AddNLog();
-#pragma warning restore CS0618 // Type or member is obsolete
 
             _loggerFactory = loggerFactory;
 
@@ -102,14 +101,21 @@ namespace nscreg.Server
                 SupportedCultures = supportedCultures,
                 SupportedUICultures = supportedCultures
             });
+            app.UseHttpsRedirection();
             app.UseStaticFiles();
-#pragma warning disable CS0618 // Type or member is obsolete
-            app.UseIdentity()
-#pragma warning restore CS0618 // Type or member is obsolete
-                .UseMvc(routes => routes.MapRoute(
-                    "default",
-                    "{*url}",
-                    new { controller = "Home", action = "Index" }));
+            app.UseRouting();
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapHealthChecks("/healthz").RequireAuthorization();
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{*url}",
+                    new { controller = "Home", action = "Index" });
+                endpoints.MapRazorPages();
+            });
 
             var provider = Configuration
                 .GetSection(nameof(ConnectionSettings))
@@ -135,14 +141,13 @@ namespace nscreg.Server
                     EvolveMigrate();
                 }
 
-                if (CurrentEnvironment.IsStaging()) {NscRegDbInitializer.RecreateDb(dbContext);}
+                if (env.IsStaging()) { NscRegDbInitializer.RecreateDb(dbContext); }
                 if (provider == ConnectionProvider.InMemory) { NscRegDbInitializer.Seed(dbContext); }
                 NscRegDbInitializer.CreateViewsProceduresAndFunctions(
                     dbContext, provider, reportingSettingsProvider);
                 NscRegDbInitializer.EnsureRoles(dbContext);
                 NscRegDbInitializer.EnsureEntGroupTypes(dbContext);
                 NscRegDbInitializer.EnsureEntGroupRoles(dbContext);
-
             }
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
@@ -187,6 +192,7 @@ namespace nscreg.Server
             evolve.Migrate();
         }
 
+
         /// <summary>
         /// Service Configurator Method
         /// </summary>
@@ -194,7 +200,6 @@ namespace nscreg.Server
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
-            ConfigureAutoMapper();
             services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
             services.Configure<LocalizationSettings>(x =>
@@ -216,9 +221,16 @@ namespace nscreg.Server
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
 
-            var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration["DataProtectionKeysDir"]);
-            if (!Directory.Exists(keysDirectory))
+            var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration.GetValue<string>("DataProtectionKeysDir") ?? "keys");
+            if (!Directory.Exists(keysDirectory))   
                 Directory.CreateDirectory(keysDirectory);
+
+            services.AddLogging(loggingBuilder =>
+            {
+                loggingBuilder.AddConfiguration(Configuration.GetSection("Logging"));
+                loggingBuilder.AddConsole();
+                loggingBuilder.AddDebug();
+            });
 
             services
                 .AddDataProtection()
@@ -228,8 +240,45 @@ namespace nscreg.Server
 
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
-                .AddScoped<IUserService, UserService>();
-            services.AddTransient(config => Configuration);
+                .AddScoped<IUserService, UserService>()
+                .AddScoped(typeof( UserManager <User>));
+            services.AddScoped<AnalysisQueueService>();
+            services.AddScoped<DataSourcesQueueService>();
+            services.AddScoped<DataSourcesService>();
+            services.AddScoped<LookupService>();
+            services.AddScoped<PersonService>();
+            services.AddScoped<RegionService>();
+            services.AddScoped<ReportService>();
+            services.AddScoped<RoleService>();
+            services.AddScoped<CommonService>();
+            services.AddScoped<IAddressService, AddressService>();
+            services.AddScoped<IElasticUpsertService, ElasticService>();
+            services.AddScoped<IStatUnitAnalyzeService, AnalyzeService>();
+            services.AddScoped<CreateService>();
+            services.AddScoped<DataAccessService>();
+            services.AddScoped<EditService>();
+            services.AddScoped<DeleteService>();
+            services.AddScoped<LinkService>();
+            services.AddScoped<SearchService>();
+            services.AddScoped<ViewService>();
+            services.AddScoped<HistoryService>();
+            services.AddScoped<StatUnitAnalysisHelper>();
+            services.AddScoped<StatUnitCheckPermissionsHelper>();
+            services.AddScoped<StatUnitCreationHelper>();
+            services.TryAddSingleton<ModelExpressionProvider>();
+
+
+            services.AddSingleton(config => Configuration);
+            services.AddScoped<SampleFrameExecutor>();
+            services.AddScoped<FileGenerationWorker>();
+            services.AddScoped<AnalyseWorker>();
+            services.AddScoped<DataUploadSvcWorker>();
+
+            services.AddHostedService<SampleFrameGenerationHostedService>();
+            services.AddHostedService<AnalysisHostedService>();
+            services.AddHostedService<DataUploadSvcHostedService>();
+            services.AddHostedService<DataUploadSvcQueueCleanupHostedService>();
+
             services
                 .AddMvcCore(op =>
                 {
@@ -243,40 +292,38 @@ namespace nscreg.Server
                 .AddAuthorization(options => options.AddPolicy(
                     nameof(SystemFunctions),
                     policyBuilder => { policyBuilder.Requirements.Add(new SystemFunctionAuthRequirement()); }))
-                .AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
+                .AddNewtonsoftJson(options =>
+                    {
+                        options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+                    }
+                )
                 .AddRazorViewEngine()
                 .AddDataAnnotationsLocalization()
                 .AddViewLocalization()
                 .AddViews();
-
-
+            services.AddHealthChecks();
+            services.AddCors();
+            services.AddRazorPages();
+            services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+            services.AddControllersWithViews();
         }
 
-        /// <summary>
-        /// Application Launch Method
-        /// </summary>
-        public static void Main()
+        public static void Main(string[] args)
         {
-            try
-            {
-                CreateWebHostBuilder().UseKestrel(options =>
-                    {
-                        options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
-                    })
-                    .UseContentRoot(Directory.GetCurrentDirectory())
-                    .UseKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue)
-                    .UseIISIntegration()
-                    .UseStartup<Startup>()
-                    .Build().Run();
-            }
-            catch (Exception ex)
-            {
-                var logger = NLog.LogManager.GetCurrentClassLogger();
-                logger.Error(ex);
-            }
+            CreateWebHostBuilder(args)
+                .Build()
+                .Run();
         }
-        public static IWebHostBuilder CreateWebHostBuilder() =>
-            WebHost.CreateDefaultBuilder()
-                .UseStartup<Startup>();
+
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+            WebHost.CreateDefaultBuilder(args)
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                //.UseIISIntegration()
+                .UseStartup<Startup>()
+                .ConfigureKestrel((context, options) =>
+                {
+                    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
+                    options.Limits.MaxRequestBodySize = long.MaxValue;
+                });
     }
 }

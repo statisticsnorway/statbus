@@ -14,14 +14,14 @@ namespace nscreg.TestUtils
         {
             ElasticService.ServiceAddress = "http://localhost:9200";
             ElasticService.StatUnitSearchIndexName = "statunitsearchviewtest";
-            var serviceProvider = new ServiceCollection().AddEntityFrameworkInMemoryDatabase().BuildServiceProvider();
+            //var serviceProvider = new ServiceCollection().AddEntityFrameworkInMemoryDatabase().BuildServiceProvider();
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
 #pragma warning disable CS0618 // Type or member is obsolete
             builder
-                .UseInMemoryDatabase()
+                //.UseInMemoryDatabase()
 #pragma warning restore CS0618 // Type or member is obsolete
-                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-                .UseInternalServiceProvider(serviceProvider);
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
+                //.UseInternalServiceProvider(serviceProvider);
             return builder.Options;
         }
     }

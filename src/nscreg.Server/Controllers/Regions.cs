@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -20,9 +21,9 @@ namespace nscreg.Server.Controllers
     {
         private readonly RegionService _regionsService;
 
-        public RegionsController(NSCRegDbContext db)
+        public RegionsController(RegionService regionsService)
         {
-            _regionsService = new RegionService(db);
+            _regionsService = regionsService;
         }
 
         /// <summary>

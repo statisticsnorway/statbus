@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc.Formatters.Internal;
+//using Microsoft.AspNetCore.Mvc.Formatters.Internal;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Business.Analysis.Contracts;
 using nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks;

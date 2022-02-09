@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -12,6 +13,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Links;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 
@@ -23,16 +25,16 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class LinkService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly Common _commonSvc;
-        private readonly ElasticService _elasticService;
-        private readonly UserService _userService;
+        private readonly CommonService _commonSvc;
+        private readonly IUserService _userService;
+        private readonly IElasticUpsertService _elasticService;
 
-        public LinkService(NSCRegDbContext dbContext)
+        public LinkService(NSCRegDbContext dbContext, CommonService commonSvc, IElasticUpsertService elasticService, IUserService userService)
         {
             _dbContext = dbContext;
-            _commonSvc = new Common(dbContext);
-            _elasticService = new ElasticService(dbContext);
-            _userService = new UserService(dbContext);
+            _commonSvc = commonSvc;
+            _elasticService = elasticService;
+            _userService = userService;
         }
 
         /// <summary>
@@ -85,13 +87,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             var result = new List<LinkM>();
 
             List<LinkInfo> links;
-            var node = Common.ToUnitLookupVm<UnitLookupVm>(unit);
+            var node = _commonSvc.ToUnitLookupVm<UnitLookupVm>(unit);
 
             if (LinksHierarchy.TryGetValue(unit.UnitType, out links))
             {
                 links.Select(v => v.Link(unit)).Where(v => v != null).ForEach(v => result.Add(new LinkM
                 {
-                    Source1 = Common.ToUnitLookupVm<UnitLookupVm>(v),
+                    Source1 = _commonSvc.ToUnitLookupVm<UnitLookupVm>(v),
                     Source2 = node,
                 }));
             }
@@ -118,23 +120,23 @@ namespace nscreg.Server.Common.Services.StatUnit
             switch (unit.Type)
             {
                 case StatUnitTypes.EnterpriseGroup:
-                    list.AddRange(Common.ToUnitLookupVm(
+                    list.AddRange(_commonSvc.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
-                            .Where(v => v.EntGroupId == unit.Id && v.UnitStatusId == 7).Select(Common.UnitMapping)
+                            .Where(v => v.EntGroupId == unit.Id && v.UnitStatusId == 7).Select(CommonService.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
-                    list.AddRange(Common.ToUnitLookupVm(
+                    list.AddRange(_commonSvc.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<LegalUnit>(false)
-                            .Where(v => v.EnterpriseUnitRegId == unit.Id && v.UnitStatusId == 7).Select(Common.UnitMapping)
+                            .Where(v => v.EnterpriseUnitRegId == unit.Id && v.UnitStatusId == 7).Select(CommonService.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.LegalUnit:
-                    list.AddRange(Common.ToUnitLookupVm(
+                    list.AddRange(_commonSvc.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<LocalUnit>(false)
-                            .Where(v => v.LegalUnitId == unit.Id && v.UnitStatusId == 7).Select(Common.UnitMapping)
+                            .Where(v => v.LegalUnitId == unit.Id && v.UnitStatusId == 7).Select(CommonService.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
@@ -558,7 +560,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                     continue;
                 }
-                node = Common.ToUnitLookupVm<UnitNodeVm>(unit);
+                node = _commonSvc.ToUnitLookupVm<UnitNodeVm>(unit);
                 if (child != null)
                 {
                     node.Children = new List<UnitNodeVm> { child };

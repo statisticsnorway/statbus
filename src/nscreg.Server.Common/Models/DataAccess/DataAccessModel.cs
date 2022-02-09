@@ -19,6 +19,16 @@ namespace nscreg.Server.Common.Models.DataAccess
         public List<DataAccessAttributeVm> LegalUnit { get; set; }
         public List<DataAccessAttributeVm> LocalUnit { get; set; }
 
+        private static readonly IMapper _mapper;
+        static DataAccessModel()
+        {
+            var mapperConfig = new MapperConfiguration(mc =>
+            {
+                mc.AddProfile<AutoMapperProfile>();
+            });
+            _mapper = mapperConfig.CreateMapper();
+        }
+
         /// <summary>
         /// Convert method to string collection
         /// </summary>
@@ -42,10 +52,9 @@ namespace nscreg.Server.Common.Models.DataAccess
         /// String conversion method
         /// </summary>
         /// <returns></returns>
-        public override string ToString()
-        {
-            return ToStringCollection(false).Join(",");
-        }
+#pragma warning disable EF1001 // Internal EF Core API usage.
+        public override string ToString() => ToStringCollection(false).Join(",");
+#pragma warning restore EF1001 // Internal EF Core API usage.
 
         /// <summary>
         /// String Conversion Method
@@ -69,7 +78,8 @@ namespace nscreg.Server.Common.Models.DataAccess
         /// <returns></returns>
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(ISet<string> dataAccess) where T: IStatisticalUnit
         {
-            return DataAccessAttributesProvider<T>.Attributes.Select(v => Mapper.Map(v, new DataAccessAttributeVm()
+            //return new List<DataAccessAttributeVm>();
+            return DataAccessAttributesProvider<T>.Attributes.Select(v => _mapper.Map(v, new DataAccessAttributeVm()
             {
                 Allowed = dataAccess.Contains(v.Name)
             })).ToList();
@@ -88,7 +98,8 @@ namespace nscreg.Server.Common.Models.DataAccess
 
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(DataAccessPermissions permissions) where T : IStatisticalUnit
         {
-            return DataAccessAttributesProvider<T>.Attributes.Select(v => Mapper.Map(v, new DataAccessAttributeVm()
+            //return new List<DataAccessAttributeVm>();
+            return DataAccessAttributesProvider<T>.Attributes.Select(v => _mapper.Map(v, new DataAccessAttributeVm()
             {
                 Allowed = permissions.HasWritePermission(v.Name),
                 CanRead = permissions.HasReadPermission(v.Name),
@@ -98,13 +109,13 @@ namespace nscreg.Server.Common.Models.DataAccess
 
         public DataAccessPermissions ToPermissionsModel()
         {
+            //return new DataAccessPermissions();
             var attributes = LegalUnit
                 .Concat(LocalUnit)
                 .Concat(EnterpriseUnit)
                 .Concat(EnterpriseGroup)
                 .ToList();
-                
-            return new DataAccessPermissions(Mapper.Map<List<Permission>>(attributes));
+            return new DataAccessPermissions(_mapper.Map<List<Permission>>(attributes));
         }
     }
 }

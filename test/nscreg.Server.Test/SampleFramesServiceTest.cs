@@ -24,7 +24,7 @@ namespace nscreg.Server.Test
     {
         public SampleFramesServiceTest()
         {
-            StartupConfiguration.ConfigureAutoMapper();
+            //StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]

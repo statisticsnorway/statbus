@@ -36,24 +36,26 @@ namespace nscreg.Server.Common.Services.DataSources
     public class EditUnitService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly StatUnit.Common _commonSvc;
+        private readonly CommonService _commonSvc;
         private readonly int? _liquidateStatusId;
         private readonly List<ElasticStatUnit> _editArrayStatisticalUnits;
         private readonly List<ElasticStatUnit> _addArrayStatisticalUnits;
         private readonly EditTracer _editTracer;
         private readonly string _userId;
         private readonly DataAccessPermissions _permissions;
+        private readonly IMapper _mapper;
 
-        public EditUnitService(NSCRegDbContext dbContext, string userId, DataAccessPermissions permissions)
+        public EditUnitService(NSCRegDbContext dbContext, CommonService commonSvc, string userId, DataAccessPermissions permissions, IMapper mapper)
         {
             _permissions = permissions;
             _userId = userId;
             _dbContext = dbContext;
-            _commonSvc = new StatUnit.Common(dbContext);
+            _commonSvc = commonSvc;
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
             _editTracer = new EditTracer();
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -110,7 +112,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 {
                     var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
                     var changedDateTime = DateTime.Now;
-                    _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
+                    _commonSvc.AddHistoryUnitByType(CommonService.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
 
                     _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                         changedDateTime, unitsHistoryHolder);
@@ -176,9 +178,9 @@ namespace nscreg.Server.Common.Services.DataSources
                     enterpriseUnit.UnitStatusId = changedUnit.UnitStatusId;
                     enterpriseUnit.LiqReason = changedUnit.LiqReason;
                     enterpriseUnit.LiqDate = changedUnit.LiqDate;
-                    _editArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
+                    _editArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                 }
-                if (StatUnit.Common.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
+                if (_commonSvc.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
                 {
                     if (changedUnit.LocalUnits != null && changedUnit.LocalUnits.Any())
                     {
@@ -187,7 +189,7 @@ namespace nscreg.Server.Common.Services.DataSources
                             localUnit.UnitStatusId = changedUnit.UnitStatusId;
                             localUnit.LiqReason = changedUnit.LiqReason;
                             localUnit.LiqDate = changedUnit.LiqDate;
-                            _addArrayStatisticalUnits.Add(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
+                            _addArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
                         }
                         changedUnit.HistoryLocalUnitIds = string.Join(",", changedUnit.LocalUnits);
                     }
@@ -212,7 +214,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
                 var changedDateTime = DateTime.Now;
                 _dbContext.Update(changedUnit);
-                _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
+                _commonSvc.AddHistoryUnitByType(StatUnit.CommonService.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
                 _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                     changedDateTime, unitsHistoryHolder);
                 if (deleteEnterprise)
@@ -294,7 +296,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 {
                     var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(historyUnit);
                     var changedDateTime = DateTime.Now;
-                    _commonSvc.AddHistoryUnitByType(StatUnit.Common.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
+                    _commonSvc.AddHistoryUnitByType(StatUnit.CommonService.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime));
 
                     _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                         changedDateTime, unitsHistoryHolder);

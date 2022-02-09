@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authorization;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
+using AutoMapper;
 
 namespace nscreg.Server.Controllers
 {
@@ -24,21 +25,11 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class DataSourcesQueueController : Controller
     {
-        private readonly DataSourcesQueueService _svc;
+        private readonly DataSourcesQueueService _dataSourcesQueueService;
 
-        public DataSourcesQueueController(
-            NSCRegDbContext ctx,
-            StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields,
-            ServicesSettings servicesSettings,
-            ValidationSettings validationSettings)
+        public DataSourcesQueueController(DataSourcesQueueService dataSourcesQueueService)
         {
-            _svc = new DataSourcesQueueService(
-                ctx,
-                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings, shouldAnalyze: true),
-                new EditService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings),
-                servicesSettings,
-                mandatoryFields);
+            _dataSourcesQueueService = dataSourcesQueueService;
         }
 
         /// <summary>
@@ -49,7 +40,7 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.DataSourcesQueueView)]
         public async Task<IActionResult> GetAllDataSourceQueues([FromQuery] SearchQueryM query) =>
-            Ok(await _svc.GetAllDataSourceQueues(query));
+            Ok(await _dataSourcesQueueService.GetAllDataSourceQueues(query));
 
         /// <summary>
         /// Method for creating a data source queue
@@ -62,7 +53,7 @@ namespace nscreg.Server.Controllers
         {
             var files = Request.Form.Files;
             if (files.Count < 1) return BadRequest(new {message = nameof(Resource.NoFilesAttached)});
-            await _svc.CreateAsync(files, data, User.GetUserId());
+            await _dataSourcesQueueService.CreateAsync(files, data, User.GetUserId());
             return Ok();
         }
 
@@ -75,7 +66,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("{queueId:int}/log")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetQueueLog(int queueId, [FromQuery] PaginatedQueryM query) =>
-            Ok(await _svc.GetQueueLog(queueId, query));
+            Ok(await _dataSourcesQueueService.GetQueueLog(queueId, query));
 
         /// <summary>
         /// Log Information Method
@@ -85,7 +76,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("logs/{logId:int}")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetLogDetails(int logId) =>
-            Ok(await _svc.GetLogDetails(logId));
+            Ok(await _dataSourcesQueueService.GetLogDetails(logId));
 
         /// <summary>
         /// Returns activities uploaded to stat unit
@@ -97,7 +88,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("queue/{queueId:int}/logs/{statId}")]
         //[SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetActivityLogDetailsByStatId(int queueId, string statId) =>
-            Ok(await _svc.GetActivityLogDetailsByStatId(queueId, statId));
+            Ok(await _dataSourcesQueueService.GetActivityLogDetailsByStatId(queueId, statId));
 
         /// <summary>
         /// Log Update Method
@@ -109,7 +100,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesQueueLogEdit)]
         public async Task<IActionResult> UpdateLog(int logId, [FromBody] string data)
         {
-            var errors = await _svc.UpdateLog(logId, data, User.GetUserId());
+            var errors = await _dataSourcesQueueService.UpdateLog(logId, data, User.GetUserId());
             return errors != null ? (IActionResult) BadRequest(errors) : NoContent();
         }
 
@@ -122,7 +113,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesQueueDelete)]
         public async Task<IActionResult> DeleteQueue(int id)
         {
-            await _svc.DeleteQueue(id, User.GetUserId());
+            await _dataSourcesQueueService.DeleteQueue(id, User.GetUserId());
             return NoContent();
         }
 
@@ -136,7 +127,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> DeleteLog(int logId)
         {
-            await _svc.DeleteLog(logId, User.GetUserId());
+            await _dataSourcesQueueService.DeleteLog(logId, User.GetUserId());
             return NoContent();
         }
     }

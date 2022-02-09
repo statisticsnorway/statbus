@@ -19,10 +19,12 @@ namespace nscreg.Server.Common.Services
     public class AddressService : IAddressService
     {
         private readonly NSCRegDbContext _context;
+        private readonly IMapper _mapper;
 
-        public AddressService(NSCRegDbContext context)
+        public AddressService(NSCRegDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -48,7 +50,7 @@ namespace nscreg.Server.Common.Services
             {
                 TotalCount = total,
                 CurrentPage = page,
-                Addresses = Mapper.Map<IList<AddressModel>>(resultGroup ?? new List<Address>()),
+                Addresses = _mapper.Map<IList<AddressModel>>(resultGroup ?? new List<Address>()),
                 PageSize = pageSize,
                 TotalPages = (int) Math.Ceiling((double) total / pageSize)
             };
@@ -60,7 +62,7 @@ namespace nscreg.Server.Common.Services
         /// <param name = "id"> Id addresses </param>
         /// <returns> </returns>
         public async Task<AddressModel> GetByIdAsync(int id)
-            => Mapper.Map<AddressModel>(
+            => _mapper.Map<AddressModel>(
                 await _context.Address.Include(x => x.Region).FirstOrDefaultAsync(x => x.Id == id));
 
         /// <summary>
@@ -70,10 +72,10 @@ namespace nscreg.Server.Common.Services
         /// <returns> </returns>
         public async Task<AddressModel> CreateAsync(AddressModel model)
         {
-            var result = Mapper.Map<Address>(model);
+            var result = _mapper.Map<Address>(model);
             _context.Address.Add(result);
             await _context.SaveChangesAsync();
-            return Mapper.Map<AddressModel>(result);
+            return _mapper.Map<AddressModel>(result);
         }
 
         /// <summary>
@@ -84,7 +86,7 @@ namespace nscreg.Server.Common.Services
         /// <returns> </returns>
         public async Task UpdateAsync(int id, AddressModel model)
         {
-            var address = Mapper.Map<Address>(model);
+            var address = _mapper.Map<Address>(model);
             address.Id = id;
             _context.Address.Update(address);
             await _context.SaveChangesAsync();

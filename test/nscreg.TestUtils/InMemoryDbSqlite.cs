@@ -22,14 +22,14 @@ namespace nscreg.TestUtils
 
         private static DbContextOptions<NSCRegDbContext> GetContextOptions()
         {
-            var serviceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+            //var serviceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
             var connection = new SqliteConnection("DataSource =:memory:");
             connection.Open();
             builder
                 .UseSqlite(connection)
-                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-                .UseInternalServiceProvider(serviceProvider);
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
+                //.UseInternalServiceProvider(serviceProvider);
             return builder.Options;
         }
     }

@@ -90,6 +90,7 @@ namespace nscreg.Data.DbInitializers
 
         #endregion
 
+        [System.Obsolete]
         public void Initialize(NSCRegDbContext context, ReportingSettings reportingSettings = null)
         {
             context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTableSqliteInmemory);

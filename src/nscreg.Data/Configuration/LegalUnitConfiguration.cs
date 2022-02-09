@@ -15,7 +15,7 @@ namespace nscreg.Data.Configuration
         /// </summary>
         public override void Configure(EntityTypeBuilder<LegalUnit> builder)
         {
-            builder.ToTable("LegalUnits");
+            //builder.ToTable("LegalUnits");
 
             builder.Property(x => x.TotalCapital)
                 .HasMaxLength(100);
