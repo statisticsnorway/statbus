@@ -101,9 +101,9 @@ namespace nscreg.Server
                 SupportedCultures = supportedCultures,
                 SupportedUICultures = supportedCultures
             });
+            app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
-            app.UseCors();
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -111,9 +111,9 @@ namespace nscreg.Server
             {
                 endpoints.MapHealthChecks("/healthz").RequireAuthorization();
                 endpoints.MapControllerRoute(
-                    "default",
-                    "{controller=Home}/{action=Index}"
-                    );
+                    name: "default",
+                    pattern: "{*url}",
+                    new { controller = "Home", action = "Index" });
                 endpoints.MapRazorPages();
             });
 
