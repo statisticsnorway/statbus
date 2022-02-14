@@ -87,5 +87,7 @@ namespace nscreg.Data.Constants
 
         [AllowedTo(DefaultRoleNames.Employee)]
         Reports = 50,
+        [AllowedTo(DefaultRoleNames.Administrator)]
+        Download = 51,
     }
 }

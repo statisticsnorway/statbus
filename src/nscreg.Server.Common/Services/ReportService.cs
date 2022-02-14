@@ -13,6 +13,8 @@ using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using Newtonsoft.Json;
+using System.IO;
+using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.Server.Common.Services
 {
@@ -41,10 +43,10 @@ namespace nscreg.Server.Common.Services
             var sqlWalletUser = role.FirstOrDefault()?.SqlWalletUser;
 
             if (string.IsNullOrEmpty(sqlWalletUser))
-                throw  new Exception("Please specify sqlWalletUser in Administrator or Employee roles");
+                throw new Exception("Please specify sqlWalletUser in Administrator or Employee roles");
 
             List<ReportTree> queryResult = await GetReportsTreeByProvider(_ctx, sqlWalletUser);
-            
+
             var resultNodes = new List<ReportTree>(queryResult);
             RemoveEmptyFolders(queryResult, resultNodes);
 
@@ -113,7 +115,7 @@ namespace nscreg.Server.Common.Services
 
                 userRequest.Headers.Authorization =
                     new AuthenticationHeaderValue(authResponse.Token_Type, authResponse.Access_Token);
-                userRequest.Headers.CacheControl = new CacheControlHeaderValue {NoCache = true};
+                userRequest.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true };
                 userRequest.Headers.Host = settings.HostName;
 
                 var accessToken = "";
@@ -132,7 +134,7 @@ namespace nscreg.Server.Common.Services
             {
                 client.CancelPendingRequests();
             }
-            
+
 
         }
 
@@ -174,7 +176,138 @@ namespace nscreg.Server.Common.Services
             public string Access_Token { get; set; }
             public string Expires_In { get; set; }
             public string Token_Type { get; set; }
+        }
+            
+        public async Task<byte[]> DownloadStatUnitEnterprise()
+        {
+            var records = await _ctx.StatUnitEnterprise_2021.ToListAsync();
+            using var mem = new MemoryStream();
+            using var writer = new StreamWriter(mem);
 
+            writer.Write("StatUnitEnterprise_2021");
+            writer.Write("StatId");
+            writer.Write("Oblast");
+            writer.Write("Rayon");
+            writer.Write("ActCat_section_code");
+            writer.Write("ActCat_section_desc");
+            writer.Write("ActCat_2dig_code");
+            writer.Write("ActCat_2dig_desc");
+            writer.Write("ActCat_3dig_code");
+            writer.Write("ActCat_3dig_desc");
+            writer.Write("LegalForm_code");
+            writer.Write("LegalForm_desc");
+            writer.Write("InstSectorCode_level1");
+            writer.Write("InstSectorCode_level1_desc");
+            writer.Write("InstSectorCode_level2");
+            writer.Write("InstSectorCode_level2_desc");
+            writer.Write("SizeCode");
+            writer.Write("SizeDesc");
+            writer.Write("Turnover");
+            writer.Write("Employees");
+            writer.Write("NumOfPeopleEmp");
+            writer.Write("RegistrationDate");
+            writer.Write("LiqDate");
+            writer.Write("StatusCode");
+            writer.Write("StatusDesc");
+            writer.Write("Sex");
+
+            foreach (var record in records)
+            {
+                writer.Write(record.StatId);
+                writer.Write(record.Oblast);
+                writer.Write(record.Rayon);
+                writer.Write(record.ActCat_section_code);
+                writer.Write(record.ActCat_section_desc);
+                writer.Write(record.ActCat_2dig_code);
+                writer.Write(record.ActCat_2dig_desc);
+                writer.Write(record.ActCat_3dig_code);
+                writer.Write(record.ActCat_3dig_desc);
+                writer.Write(record.LegalForm_code);
+                writer.Write(record.LegalForm_desc);
+                writer.Write(record.InstSectorCode_level1);
+                writer.Write(record.InstSectorCode_level1_desc);
+                writer.Write(record.InstSectorCode_level2);
+                writer.Write(record.InstSectorCode_level2_desc);
+                writer.Write(record.SizeCode);
+                writer.Write(record.SizeDesc);
+                writer.Write(record.Turnover);
+                writer.Write(record.Employees);
+                writer.Write(record.NumOfPeopleEmp);
+                writer.Write(record.RegistrationDate);
+                writer.Write(record.LiqDate);
+                writer.Write(record.StatusCode);
+                writer.Write(record.StatusDesc);
+                writer.Write(record.Sex);
+            }
+
+            writer.Flush();
+            return mem.ToArray();
+        }
+
+        public async Task<byte[]> DownloadStatUnitLocal()
+        {
+            var records = await _ctx.StatUnitEnterprise_2021.ToListAsync();
+            using var mem = new MemoryStream();
+            using var writer = new StreamWriter(mem);
+
+            writer.Write("StatUnitLocal_2021");
+            writer.Write("StatId");
+            writer.Write("Oblast");
+            writer.Write("Rayon");
+            writer.Write("ActCat_section_code");
+            writer.Write("ActCat_section_desc");
+            writer.Write("ActCat_2dig_code");
+            writer.Write("ActCat_2dig_desc");
+            writer.Write("ActCat_3dig_code");
+            writer.Write("ActCat_3dig_desc");
+            writer.Write("LegalForm_code");
+            writer.Write("LegalForm_desc");
+            writer.Write("InstSectorCode_level1");
+            writer.Write("InstSectorCode_level1_desc");
+            writer.Write("InstSectorCode_level2");
+            writer.Write("InstSectorCode_level2_desc");
+            writer.Write("SizeCode");
+            writer.Write("SizeDesc");
+            writer.Write("Turnover");
+            writer.Write("Employees");
+            writer.Write("NumOfPeopleEmp");
+            writer.Write("RegistrationDate");
+            writer.Write("LiqDate");
+            writer.Write("StatusCode");
+            writer.Write("StatusDesc");
+            writer.Write("Sex");
+
+            foreach (var record in records)
+            {
+                writer.Write(record.StatId);
+                writer.Write(record.Oblast);
+                writer.Write(record.Rayon);
+                writer.Write(record.ActCat_section_code);
+                writer.Write(record.ActCat_section_desc);
+                writer.Write(record.ActCat_2dig_code);
+                writer.Write(record.ActCat_2dig_desc);
+                writer.Write(record.ActCat_3dig_code);
+                writer.Write(record.ActCat_3dig_desc);
+                writer.Write(record.LegalForm_code);
+                writer.Write(record.LegalForm_desc);
+                writer.Write(record.InstSectorCode_level1);
+                writer.Write(record.InstSectorCode_level1_desc);
+                writer.Write(record.InstSectorCode_level2);
+                writer.Write(record.InstSectorCode_level2_desc);
+                writer.Write(record.SizeCode);
+                writer.Write(record.SizeDesc);
+                writer.Write(record.Turnover);
+                writer.Write(record.Employees);
+                writer.Write(record.NumOfPeopleEmp);
+                writer.Write(record.RegistrationDate);
+                writer.Write(record.LiqDate);
+                writer.Write(record.StatusCode);
+                writer.Write(record.StatusDesc);
+                writer.Write(record.Sex);
+            }
+
+            writer.Flush();
+            return mem.ToArray();
         }
     }
 }
