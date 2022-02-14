@@ -33,8 +33,8 @@ namespace nscreg.Services
         private readonly IStatUnitAnalyzeService _analyzeService;
         private readonly CommonService _commonService;
 
-        public ImportExecutor(DbLogBuffer logBuffer,
-            IUserService userService, IMapper mapper, CommonService commonService, ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService)
+        public ImportExecutor(DbLogBuffer logBuffer, IUserService userService, IMapper mapper,
+            CommonService commonService, ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService)
         {
             _logBuffer = logBuffer;
             _userService = userService;
