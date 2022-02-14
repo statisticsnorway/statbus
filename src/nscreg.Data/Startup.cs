@@ -46,7 +46,6 @@ namespace nscreg.Data
         {
 
         }
-
         /// <summary>
         /// Application Launch Method
         /// </summary>

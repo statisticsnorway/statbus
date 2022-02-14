@@ -267,8 +267,6 @@ namespace nscreg.Server
             services.AddScoped<StatUnitCreationHelper>();
             services.TryAddSingleton<ModelExpressionProvider>();
 
-
-            services.AddSingleton(config => Configuration);
             services.AddScoped<SampleFrameExecutor>();
             services.AddScoped<FileGenerationWorker>();
             services.AddScoped<AnalyseWorker>();

@@ -30,12 +30,13 @@ namespace nscreg.Services
         private readonly IStatUnitAnalyzeService _analyzeService;
         private readonly IMapper _mapper;
         private QueueService _queueSvc;
-       
+
         private DbLogBuffer _logBuffer;
         private NSCRegDbContext _context;
        
-        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings,
-            IMapper mapper, DataAccessService dataAccessService, IUserService userService, CommonService commonService, IStatUnitAnalyzeService analyzeService)
+        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings, IMapper mapper,
+            DataAccessService dataAccessService, IUserService userService, CommonService commonService,
+            IStatUnitAnalyzeService analyzeService)
         {
             _serviceSettings = servicesSettings.Value;
             _mapper = mapper;
@@ -51,7 +52,6 @@ namespace nscreg.Services
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _logBuffer = new DbLogBuffer(_context, _serviceSettings.DataUploadMaxBufferCount);
-
         }
 
         /// <summary>

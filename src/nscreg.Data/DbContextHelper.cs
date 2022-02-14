@@ -16,6 +16,7 @@ namespace nscreg.Data
     /// </summary>
     public class DbContextHelper : IDesignTimeDbContextFactory<NSCRegDbContext>
     {
+        private readonly IConfiguration configuration;
         public DbContextHelper()
         {
         }
@@ -60,6 +61,7 @@ namespace nscreg.Data
                 .SetBasePath(baseDirectory)
                 .AddJsonFile(Path.Combine(baseDirectory, "appsettings.Shared.json"), true);
 
+            var tt = this.configuration["elasticsearch:url"];
             var configuration = configBuilder.Build();
             var config = configuration.GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>();
