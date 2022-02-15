@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 using NLog;
 using AutoMapper;
 using nscreg.Server.Common.Services.Contracts;
+using Microsoft.Extensions.Configuration;
 
 namespace nscreg.Services
 {
@@ -32,9 +33,11 @@ namespace nscreg.Services
         private readonly ServicesSettings _servicesSettings;
         private readonly IStatUnitAnalyzeService _analyzeService;
         private readonly CommonService _commonService;
+        private readonly IConfiguration _configuration;
 
         public ImportExecutor(DbLogBuffer logBuffer, IUserService userService, IMapper mapper,
-            CommonService commonService, ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService)
+            CommonService commonService, ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService,
+            IConfiguration configuration)
         {
             _logBuffer = logBuffer;
             _userService = userService;
@@ -42,13 +45,14 @@ namespace nscreg.Services
             _commonService = commonService;
             _servicesSettings = servicesSettings;
             _analyzeService = analyzeService;
+            _configuration = configuration;
         }
 
         public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => Task.Run(Job(dequeued, keyValues));
 
         private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => async () =>
         {
-            var dbContextHelper = new DbContextHelper();
+            var dbContextHelper = new DbContextHelper(_configuration);
             var context = dbContextHelper.CreateDbContext(new string[] { });
             context.Database.SetCommandTimeout(180);
             await InitializeCacheForLookups(context);
