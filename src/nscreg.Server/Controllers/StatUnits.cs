@@ -20,6 +20,9 @@ using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
 using AutoMapper;
+using System.Net.Http;
+using System.Net;
+using System.Net.Http.Headers;
 
 namespace nscreg.Server.Controllers
 {
@@ -356,5 +359,20 @@ namespace nscreg.Server.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> ValidateStatId(int? unitId, StatUnitTypes unitType, string value) =>
             Ok(await _searchService.ValidateStatIdUniquenessAsync(unitId, unitType, value));
+
+        [HttpGet("[action]")]
+        public async Task<FileResult> DownloadStatUnitEnterpriseCsv()
+        {
+            var csvBytes = await _viewService.DownloadStatUnitEnterprise();
+            return File(csvBytes, System.Net.Mime.MediaTypeNames.Application.Octet, "StatUnitEnterprise.csv");
+        }
+
+
+        [HttpGet("[action]")]
+        public async Task<FileResult> DownloadStatUnitLocalCsv()
+        {
+            var csvBytes = await _viewService.DownloadStatUnitLocal();
+            return File(csvBytes, System.Net.Mime.MediaTypeNames.Application.Octet, "StatUnitLocal.csv");
+        }
     }
 }

@@ -18,6 +18,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using AutoMapper;
 using nscreg.Server.Common.Services.Contracts;
+using System.IO;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -215,6 +216,138 @@ namespace nscreg.Server.Common.Services.StatUnit
             return legalForm != null
                 ? new CodeLookupVm { Id = legalForm.Id, Code = legalForm.Code, Name = legalForm.Name, NameLanguage1 = legalForm.NameLanguage1, NameLanguage2 = legalForm.NameLanguage2 }
                 : new CodeLookupVm();
+        }
+
+        public async Task<byte[]> DownloadStatUnitEnterprise()
+        {
+            var records = await _context.StatUnitEnterprise_2021.ToListAsync();
+            using var mem = new MemoryStream();
+            using var writer = new StreamWriter(mem);
+
+            writer.Write("StatUnitEnterprise_2021");
+            writer.Write("StatId");
+            writer.Write("Oblast");
+            writer.Write("Rayon");
+            writer.Write("ActCat_section_code");
+            writer.Write("ActCat_section_desc");
+            writer.Write("ActCat_2dig_code");
+            writer.Write("ActCat_2dig_desc");
+            writer.Write("ActCat_3dig_code");
+            writer.Write("ActCat_3dig_desc");
+            writer.Write("LegalForm_code");
+            writer.Write("LegalForm_desc");
+            writer.Write("InstSectorCode_level1");
+            writer.Write("InstSectorCode_level1_desc");
+            writer.Write("InstSectorCode_level2");
+            writer.Write("InstSectorCode_level2_desc");
+            writer.Write("SizeCode");
+            writer.Write("SizeDesc");
+            writer.Write("Turnover");
+            writer.Write("Employees");
+            writer.Write("NumOfPeopleEmp");
+            writer.Write("RegistrationDate");
+            writer.Write("LiqDate");
+            writer.Write("StatusCode");
+            writer.Write("StatusDesc");
+            writer.Write("Sex");
+
+            foreach (var record in records)
+            {
+                writer.Write(record.StatId);
+                writer.Write(record.Oblast);
+                writer.Write(record.Rayon);
+                writer.Write(record.ActCat_section_code);
+                writer.Write(record.ActCat_section_desc);
+                writer.Write(record.ActCat_2dig_code);
+                writer.Write(record.ActCat_2dig_desc);
+                writer.Write(record.ActCat_3dig_code);
+                writer.Write(record.ActCat_3dig_desc);
+                writer.Write(record.LegalForm_code);
+                writer.Write(record.LegalForm_desc);
+                writer.Write(record.InstSectorCode_level1);
+                writer.Write(record.InstSectorCode_level1_desc);
+                writer.Write(record.InstSectorCode_level2);
+                writer.Write(record.InstSectorCode_level2_desc);
+                writer.Write(record.SizeCode);
+                writer.Write(record.SizeDesc);
+                writer.Write(record.Turnover);
+                writer.Write(record.Employees);
+                writer.Write(record.NumOfPeopleEmp);
+                writer.Write(record.RegistrationDate);
+                writer.Write(record.LiqDate);
+                writer.Write(record.StatusCode);
+                writer.Write(record.StatusDesc);
+                writer.Write(record.Sex);
+            }
+
+            writer.Flush();
+            return mem.ToArray();
+        }
+
+        public async Task<byte[]> DownloadStatUnitLocal()
+        {
+            var records = await _context.StatUnitEnterprise_2021.ToListAsync();
+            using var mem = new MemoryStream();
+            using var writer = new StreamWriter(mem);
+            var separator = ",";
+            writer.Write("StatUnitLocal_2021", separator);
+            writer.Write("StatId", separator);
+            writer.Write("Oblast", separator);
+            writer.Write("Rayon", separator);
+            writer.Write("ActCat_section_code", separator);
+            writer.Write("ActCat_section_desc", separator);
+            writer.Write("ActCat_2dig_code", separator);
+            writer.Write("ActCat_2dig_desc", separator);
+            writer.Write("ActCat_3dig_code", separator);
+            writer.Write("ActCat_3dig_desc", separator);
+            writer.Write("LegalForm_code", separator);
+            writer.Write("LegalForm_desc", separator);
+            writer.Write("InstSectorCode_level1", separator);
+            writer.Write("InstSectorCode_level1_desc", separator);
+            writer.Write("InstSectorCode_level2", separator);
+            writer.Write("InstSectorCode_level2_desc", separator);
+            writer.Write("SizeCode", separator);
+            writer.Write("SizeDesc", separator);
+            writer.Write("Turnover", separator);
+            writer.Write("Employees", separator);
+            writer.Write("NumOfPeopleEmp", separator);
+            writer.Write("RegistrationDate", separator);
+            writer.Write("LiqDate", separator);
+            writer.Write("StatusCode", separator);
+            writer.Write("StatusDesc", separator);
+            writer.Write("Sex", separator);
+
+            foreach (var record in records)
+            {
+                writer.Write(record.StatId);
+                writer.Write(record.Oblast);
+                writer.Write(record.Rayon);
+                writer.Write(record.ActCat_section_code);
+                writer.Write(record.ActCat_section_desc);
+                writer.Write(record.ActCat_2dig_code);
+                writer.Write(record.ActCat_2dig_desc);
+                writer.Write(record.ActCat_3dig_code);
+                writer.Write(record.ActCat_3dig_desc);
+                writer.Write(record.LegalForm_code);
+                writer.Write(record.LegalForm_desc);
+                writer.Write(record.InstSectorCode_level1);
+                writer.Write(record.InstSectorCode_level1_desc);
+                writer.Write(record.InstSectorCode_level2);
+                writer.Write(record.InstSectorCode_level2_desc);
+                writer.Write(record.SizeCode);
+                writer.Write(record.SizeDesc);
+                writer.Write(record.Turnover);
+                writer.Write(record.Employees);
+                writer.Write(record.NumOfPeopleEmp);
+                writer.Write(record.RegistrationDate);
+                writer.Write(record.LiqDate);
+                writer.Write(record.StatusCode);
+                writer.Write(record.StatusDesc);
+                writer.Write(record.Sex);
+            }
+
+            writer.Flush();
+            return mem.ToArray();
         }
     }
 }
