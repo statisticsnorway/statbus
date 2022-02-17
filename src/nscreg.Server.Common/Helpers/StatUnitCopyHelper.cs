@@ -41,7 +41,7 @@ namespace nscreg.Server.Common.Helpers
             _mapper.Map(legalUnit, enterpriseUnit);
             await _dbContext.EnterpriseUnits.AddAsync(enterpriseUnit);
             legalUnit.EnterpriseUnit = enterpriseUnit;
-            
+
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit);
 
             return enterpriseUnit;
