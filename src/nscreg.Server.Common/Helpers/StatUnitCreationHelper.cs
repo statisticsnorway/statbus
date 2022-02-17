@@ -116,7 +116,7 @@ namespace nscreg.Server.Common.Helpers
                     }
                     await _dbContext.SaveChangesAsync();
 
-                    var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdLegal.EnterpriseUnitRegId)
+                    var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.EnterpriseUnitRegId == createdEnterprise.RegId)
                         .Select(x => x.RegId).ToListAsync();
                     createdLegal.EnterpriseUnit.HistoryLegalUnitIds += string.Join(",", legalsOfEnterprise);
                     
