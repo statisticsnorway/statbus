@@ -8,11 +8,11 @@ namespace nscreg.Data.Entities
     public class StatUnitEnterprise_2021
     {
         [Key]
-        public int StatId {get; set;}
+        public string StatId {get; set;}
 
-        public int Oblast { get; set; }
+        public int? Oblast { get; set; }
 
-        public int Rayon { get; set; }
+        public int? Rayon { get; set; }
 
         public string ActCat_section_code { get; set; }
 
@@ -38,24 +38,24 @@ namespace nscreg.Data.Entities
 
         public string InstSectorCode_level2_desc { get; set; }
 
-        public int SizeCode { get; set; }
+        public int? SizeCode { get; set; }
 
         public string SizeDesc { get; set; }
 
-        public decimal Turnover { get; set; }
+        public decimal? Turnover { get; set; }
 
-        public int Employees { get; set; }
+        public int? Employees { get; set; }
 
-        public int NumOfPeopleEmp { get; set; }
+        public int? NumOfPeopleEmp { get; set; }
 
-        public DateTime RegistrationDate { get; set; }
+        public DateTime? RegistrationDate { get; set; }
 
-        public DateTime LiqDate { get; set; }
+        public DateTime? LiqDate { get; set; }
 
         public string StatusCode { get; set; }
 
         public string StatusDesc { get; set; }
 
-        public bool Sex { get; set; }
+        public bool? Sex { get; set; }
     }
 }

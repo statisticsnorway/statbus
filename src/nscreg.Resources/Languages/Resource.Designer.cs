@@ -19,7 +19,7 @@ namespace nscreg.Resources.Languages {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resource {
@@ -2793,6 +2793,15 @@ namespace nscreg.Resources.Languages {
         public static string ErrorsOccuredDuringManualAnalysis {
             get {
                 return ResourceManager.GetString("ErrorsOccuredDuringManualAnalysis", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export.
+        /// </summary>
+        public static string Export {
+            get {
+                return ResourceManager.GetString("Export", resourceCulture);
             }
         }
         
@@ -6685,6 +6694,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Stat Unit Enterprise.
+        /// </summary>
+        public static string StatUnitEnterprise {
+            get {
+                return ResourceManager.GetString("StatUnitEnterprise", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Name.
         /// </summary>
         public static string StatUnitFormPersonName {
@@ -6717,6 +6735,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitListView {
             get {
                 return ResourceManager.GetString("StatUnitListView", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat Unit Local.
+        /// </summary>
+        public static string StatUnitLocal {
+            get {
+                return ResourceManager.GetString("StatUnitLocal", resourceCulture);
             }
         }
         
