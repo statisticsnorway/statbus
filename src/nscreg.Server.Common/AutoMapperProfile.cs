@@ -371,7 +371,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
 
-                //it may be necessary to remove the ignoring ActivitiesUnits
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
