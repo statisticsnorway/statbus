@@ -98,8 +98,8 @@ namespace nscreg.Server.Common.Helpers
                         {
                             createdEnterprise = await CreateEnterpriseForLegalAsync(createdLegal);
                         }
-                            
                     }
+
                     var addressIds = legalUnit.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
                     var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id)).ToListAsync();
                     var sameAddresses = addresses.Where(x =>
@@ -116,8 +116,13 @@ namespace nscreg.Server.Common.Helpers
                     }
                     await _dbContext.SaveChangesAsync();
 
-                    var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.EnterpriseUnitRegId == createdEnterprise.RegId)
+                    var regId = legalUnit.EnterpriseUnitRegId ??= createdEnterprise.RegId;
+                    var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.EnterpriseUnitRegId == regId)
                         .Select(x => x.RegId).ToListAsync();
+
+                    if(createdLegal.EnterpriseUnit == null)
+                        createdLegal.EnterpriseUnit = await _dbContext.EnterpriseUnits.FirstOrDefaultAsync(x => x.RegId == regId);
+
                     createdLegal.EnterpriseUnit.HistoryLegalUnitIds += string.Join(",", legalsOfEnterprise);
                     
                     _dbContext.EnterpriseUnits.Update(createdLegal.EnterpriseUnit);
@@ -142,7 +147,6 @@ namespace nscreg.Server.Common.Helpers
                 await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterprise));
             Tracer.elastic.Stop();
             Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
-
         }
 
         /// <summary>
