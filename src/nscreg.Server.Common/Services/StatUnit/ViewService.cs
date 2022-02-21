@@ -287,19 +287,21 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private static void WriteStringToStream(StreamWriter writer, string value, string separator = ",")
         {
-            writer.Write(string.IsNullOrWhiteSpace(value) ? "null" : value);
+            if (!string.IsNullOrWhiteSpace(value))
+                writer.Write(value);
             writer.Write(separator);
         }
 
         private static void WriteNullableToStream<T>(StreamWriter writer, Nullable<T> value, string separator = ",") where T : struct
         {
-            writer.Write(value.HasValue ? value.Value.ToString() : "null");
+            if (value.HasValue)
+                writer.Write(value.Value.ToString());
             writer.Write(separator);
         }
 
         public async Task<byte[]> DownloadStatUnitLocal()
         {
-            var records = await _context.StatUnitLocal_2021.ToListAsync();
+            var records = _context.StatUnitLocal_2021.AsNoTracking().AsAsyncEnumerable();
             using var mem = new MemoryStream();
             using var writer = new StreamWriter(mem);
 
@@ -331,7 +333,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             writer.Write("Sex");
             writer.Write(Environment.NewLine);
 
-            foreach (var record in records)
+            await foreach (var record in records)
             {
                 WriteStringToStream(writer, record.StatId);
                 WriteNullableToStream(writer, record.Oblast);
