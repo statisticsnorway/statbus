@@ -34,7 +34,6 @@ namespace nscreg.Server.Common.Services.DataSources
             DataAccessPermissions permissions, DataSourceQueue queue, IMapper mapper, CommonService commonService,
             int maxBufferCount = 1000)
         {
-
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();

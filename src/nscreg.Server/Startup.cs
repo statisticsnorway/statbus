@@ -101,9 +101,9 @@ namespace nscreg.Server
                 SupportedCultures = supportedCultures,
                 SupportedUICultures = supportedCultures
             });
+            app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
-            app.UseCors();
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -111,9 +111,9 @@ namespace nscreg.Server
             {
                 endpoints.MapHealthChecks("/healthz").RequireAuthorization();
                 endpoints.MapControllerRoute(
-                    "default",
-                    "{controller=Home}/{action=Index}"
-                    );
+                    name: "default",
+                    pattern: "{*url}",
+                    new { controller = "Home", action = "Index" });
                 endpoints.MapRazorPages();
             });
 
@@ -148,7 +148,6 @@ namespace nscreg.Server
                 NscRegDbInitializer.EnsureRoles(dbContext);
                 NscRegDbInitializer.EnsureEntGroupTypes(dbContext);
                 NscRegDbInitializer.EnsureEntGroupRoles(dbContext);
-
             }
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
@@ -268,8 +267,6 @@ namespace nscreg.Server
             services.AddScoped<StatUnitCreationHelper>();
             services.TryAddSingleton<ModelExpressionProvider>();
 
-
-            services.AddSingleton(config => Configuration);
             services.AddScoped<SampleFrameExecutor>();
             services.AddScoped<FileGenerationWorker>();
             services.AddScoped<AnalyseWorker>();
@@ -319,7 +316,7 @@ namespace nscreg.Server
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
                 .UseContentRoot(Directory.GetCurrentDirectory())
-                .UseIISIntegration()
+                //.UseIISIntegration()
                 .UseStartup<Startup>()
                 .ConfigureKestrel((context, options) =>
                 {

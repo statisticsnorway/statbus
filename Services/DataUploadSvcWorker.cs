@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
 using nscreg.Data;
@@ -30,12 +31,14 @@ namespace nscreg.Services
         private readonly IStatUnitAnalyzeService _analyzeService;
         private readonly IMapper _mapper;
         private QueueService _queueSvc;
-       
+
         private DbLogBuffer _logBuffer;
         private NSCRegDbContext _context;
-       
-        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings,
-            IMapper mapper, DataAccessService dataAccessService, IUserService userService, CommonService commonService, IStatUnitAnalyzeService analyzeService)
+        private readonly IConfiguration _configuration;
+
+        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings, IMapper mapper,
+            DataAccessService dataAccessService, IUserService userService, CommonService commonService,
+            IStatUnitAnalyzeService analyzeService, IConfiguration configuration)
         {
             _serviceSettings = servicesSettings.Value;
             _mapper = mapper;
@@ -43,15 +46,15 @@ namespace nscreg.Services
             _dataAccessService = dataAccessService;
             _commonService = commonService;
             _analyzeService = analyzeService;
+            _configuration = configuration;
         }
 
         private void AddScopedServices()
         {
-            var dbContextHelper = new DbContextHelper();
+            var dbContextHelper = new DbContextHelper(_configuration);
             _context = dbContextHelper.CreateDbContext(new string[] { });
             _queueSvc = new QueueService(_context);
             _logBuffer = new DbLogBuffer(_context, _serviceSettings.DataUploadMaxBufferCount);
-
         }
 
         /// <summary>
@@ -100,7 +103,7 @@ namespace nscreg.Services
                 return;
             }
 
-            var executor = new ImportExecutor(_logBuffer, _userService, _mapper, _commonService, _serviceSettings, _analyzeService);
+            var executor = new ImportExecutor(_logBuffer, _userService, _mapper, _commonService, _serviceSettings, _analyzeService, _configuration);
             var (parseError, parsed, problemLine) = await ParseFile(dequeued);
 
             if (parseError.HasValue())

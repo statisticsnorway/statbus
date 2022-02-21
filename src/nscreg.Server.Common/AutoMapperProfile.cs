@@ -156,7 +156,11 @@ namespace nscreg.Server.Common
 
             CreateMap<ElasticStatUnit, SearchViewAdapterModel>()
                 .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(
-                    new StatUnitSearchView()){AddressPart1 = x.ActualAddressPart1 == null ?  x.AddressPart1 : x.AddressPart1 != x.ActualAddressPart1 ? x.ActualAddressPart1 : x.AddressPart1, AddressPart2 = x.ActualAddressPart2 == null ? x.AddressPart2 : x.AddressPart2 != x.ActualAddressPart2 ? x.ActualAddressPart2 : x.AddressPart2}))
+                    new StatUnitSearchView())
+                {
+                    AddressPart1 = x.ActualAddressPart1 == null ?  x.AddressPart1 : x.AddressPart1 != x.ActualAddressPart1 ? x.ActualAddressPart1 : x.AddressPart1,
+                    AddressPart2 = x.ActualAddressPart2 == null ? x.AddressPart2 : x.AddressPart2 != x.ActualAddressPart2 ? x.ActualAddressPart2 : x.AddressPart2
+                }))
                 .ForMember(x => x.Persons, opt => opt.Ignore())
                 .ForMember(x => x.Activities, opt => opt.Ignore());
 
@@ -344,18 +348,15 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
 
                 .ForMember(x => x.EnterpriseUnit, x => x.Ignore())
-
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
-               
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
-
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
@@ -366,7 +367,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LegalUnitIdDate, x => x.MapFrom(x => DateTime.Now))
 
                 .ForMember(x => x.RegId, x => x.Ignore())
-
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
@@ -376,7 +376,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
-
                 .ForMember(x => x.LegalForm, x => x.Ignore())
                 .ForMember(x => x.LegalUnit, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
@@ -442,12 +441,38 @@ namespace nscreg.Server.Common
             => CreateMap<T, T>()
                 .ForMember(v => v.Activities, v => v.Ignore())
                 .ForMember(v => v.ActivitiesUnits, v =>
-                    v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit { ActivityId = z.ActivityId, Activity = new Activity {Id = z.Activity.Id, IdDate = z.Activity.IdDate, ActivityCategory = z.Activity.ActivityCategory, ActivityCategoryId = z.Activity.ActivityCategoryId, ActivityType = z.Activity.ActivityType, ActivityYear = z.Activity.ActivityYear, Employees = z.Activity.Employees, Turnover = z.Activity.Turnover, UpdatedBy = z.Activity.UpdatedBy, UpdatedByUser = z.Activity.UpdatedByUser, UpdatedDate = z.Activity.UpdatedDate }, UnitId = z.UnitId })))
+                    v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit
+                    {
+                        ActivityId = z.ActivityId,
+                        Activity = new Activity
+                        {
+                            Id = z.Activity.Id,
+                            IdDate = z.Activity.IdDate,
+                            ActivityCategory = z.Activity.ActivityCategory,
+                            ActivityCategoryId = z.Activity.ActivityCategoryId,
+                            ActivityType = z.Activity.ActivityType,
+                            ActivityYear = z.Activity.ActivityYear,
+                            Employees = z.Activity.Employees,
+                            Turnover = z.Activity.Turnover,
+                            UpdatedBy = z.Activity.UpdatedBy,
+                            UpdatedByUser = z.Activity.UpdatedByUser,
+                            UpdatedDate = z.Activity.UpdatedDate
+                        },
+                        UnitId = z.UnitId })))
                 .ForMember(v => v.Persons, v => v.Ignore())
                 .ForMember(v => v.PersonsUnits, v =>
-                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId, PersonTypeId = z.PersonTypeId, UnitId = z.UnitId})))
+                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit
+                    {
+                        PersonId = z.PersonId,
+                        PersonTypeId = z.PersonTypeId,
+                        UnitId = z.UnitId
+                    })))
                 .ForMember(v => v.ForeignParticipationCountriesUnits, v =>
-                    v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit {CountryId = z.CountryId, UnitId = z.UnitId})));
+                    v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit
+                    {
+                        CountryId = z.CountryId,
+                        UnitId = z.UnitId
+                    })));
 
         /// <summary>
         /// Метод создания стат. единицы из модели сопоставления

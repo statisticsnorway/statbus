@@ -20,7 +20,6 @@ using System.Threading.Tasks;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.Contracts;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -62,17 +61,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UpsertUnitBulkBuffer _buffer;
         private readonly IMapper _mapper;
         private readonly IUserService _userService;
-        private readonly IModelMetadataProvider _modelMetadataProvider;
         private readonly ModelExpressionProvider _modelExpressionProvider;
 
-        public CommonService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService, IModelMetadataProvider modelMetadataProvider,
+        public CommonService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService,
             ModelExpressionProvider modelExpressionProvider, UpsertUnitBulkBuffer buffer= null)
         {
             _buffer = buffer;
             _dbContext = dbContext;
             _mapper = mapper;
             _userService = userService;
-            _modelMetadataProvider = modelMetadataProvider;
             _modelExpressionProvider = modelExpressionProvider;
         }
 
