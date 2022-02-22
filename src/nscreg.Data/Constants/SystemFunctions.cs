@@ -86,8 +86,6 @@ namespace nscreg.Data.Constants
         [AllowedTo(DefaultRoleNames.Employee)] SampleFramesPreview = 49,
 
         [AllowedTo(DefaultRoleNames.Employee)]
-        Reports = 50,
-        [AllowedTo(DefaultRoleNames.Administrator)]
-        Download = 51,
+        Reports = 50
     }
 }
