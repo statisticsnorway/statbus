@@ -7,6 +7,8 @@ import { withLocalize } from 'helpers/locale'
 import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
+// eslint-disable-next-line import/first
+import * as FileSaver from 'file-saver'
 
 class Header extends React.Component {
   state = {
@@ -17,10 +19,14 @@ class Header extends React.Component {
     this.setState({ isOpen: !this.state.isOpen })
   }
 
-  downloadExportFiles = (link) => {
+  downloadExportFiles = (link, fileName) => {
     fetch(`/api/${link}`, {
       method: 'GET',
     })
+      .then(response => response.blob())
+      .then((result) => {
+        FileSaver.saveAs(result, `${fileName}.csv`)
+      })
   }
 
   render() {
@@ -71,7 +77,10 @@ class Header extends React.Component {
                       <Dropdown.Item
                         className="item"
                         onClick={() =>
-                          this.downloadExportFiles('Statunits/DownloadStatUnitEnterpriseCsv')
+                          this.downloadExportFiles(
+                            'Statunits/DownloadStatUnitEnterpriseCsv',
+                            'StatUnitEnterprise',
+                          )
                         }
                       >
                         <Icon name="download" />
@@ -82,7 +91,10 @@ class Header extends React.Component {
                       <Dropdown.Item
                         className="item"
                         onClick={() =>
-                          this.downloadExportFiles('StatUnits/DownloadStatUnitLocalCsv')
+                          this.downloadExportFiles(
+                            'StatUnits/DownloadStatUnitLocalCsv',
+                            'StatUnitLocal',
+                          )
                         }
                       >
                         <Icon name="download" />
