@@ -2481,4 +2481,7 @@
   <data name="StatUnitRestoreError" xml:space="preserve">
     <value>Ошибка востановление статистической единицы</value>
   </data>
+  <data name="DoYouWantToDeleteUnit" xml:space="preserve">
+    <value>Вы хотите удалить единицу</value>
+  </data>
 </root>

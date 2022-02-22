@@ -2736,4 +2736,7 @@
   <data name="StatUnitRestoreError" xml:space="preserve">
     <value>Statistical unit restore error</value>
   </data>
+  <data name="DoYouWantToDeleteUnit" xml:space="preserve">
+    <value>Do you want to delete unit</value>
+  </data>
 </root>
