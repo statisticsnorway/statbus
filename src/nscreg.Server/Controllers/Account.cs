@@ -89,7 +89,7 @@ namespace nscreg.Server.Controllers
             ViewData["Localization"] = new Dictionary<string, string>
             {
                 { "LoginTitle", Resource.LoginTitle },
-                 { "LoginInputLogin", Resource.LoginInputLogin }, 
+                { "LoginInputLogin", Resource.LoginInputLogin }, 
                 { "LoginInputPassword", Resource.LoginInputPassword },
                 { "LoginInputRemember", Resource.LoginInputRemember },
                 { "LoginInputButton", Resource.LoginInputButton },

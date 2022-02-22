@@ -181,7 +181,7 @@
     <value>Ошибка при обновлении пользователя</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Не удалось войти</value>
+    <value>Неверный логин или пароль</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Текущий пароль неправильный</value>

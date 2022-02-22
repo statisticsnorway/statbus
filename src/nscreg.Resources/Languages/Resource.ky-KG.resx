@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -181,7 +181,7 @@
     <value>Колдонуучуну тактоо учурунда ката</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Жок кирүү</value>
+    <value>Логин же сыр сөз туура эмес</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Учурдагы Сырсөз туура эмес</value>
