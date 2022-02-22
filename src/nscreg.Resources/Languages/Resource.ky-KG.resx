@@ -2469,4 +2469,10 @@
   <data name="AnalysisMandatoryClassified" xml:space="preserve">
     <value>Stat unit doesn't have classified</value>
   </data>
+  <data name="StatisticalUnitRestoredSuccessfully" xml:space="preserve">
+    <value>Statistical unit restored successfully</value>
+  </data>
+  <data name="StatUnitRestoreError" xml:space="preserve">
+    <value>Statistical unit restore error</value>
+  </data>
 </root>
