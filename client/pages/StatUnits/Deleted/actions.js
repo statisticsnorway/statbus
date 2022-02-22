@@ -29,11 +29,11 @@ const restore = (type, regId, queryParams, index, onFail) =>
       setTimeout(() => {
         dispatch(fetchData(queryParams))
       }, 250)
-      NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
+      NotificationManager.success(getLocalizeText('StatisticalUnitRestoredSuccessfully'))
     },
     onFail: (_, error) => {
       onFail(error.message)
-      NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
+      NotificationManager.error(getLocalizeText('StatUnitRestoreError'))
     },
   })
 
