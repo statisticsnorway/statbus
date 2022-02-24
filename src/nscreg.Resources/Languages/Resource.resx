@@ -2730,10 +2730,13 @@
   <data name="AnalysisRelatedPersons" xml:space="preserve">
     <value>Unit does not have any persons related to it</value>
   </data>
-  <data name="StatisticalUnitRestoredSuccessfully" xml:space="preserve">
-    <value>Statistical unit restored successfully</value>
+  <data name="Export" xml:space="preserve">
+    <value>Export</value>
   </data>
-  <data name="StatUnitRestoreError" xml:space="preserve">
-    <value>Statistical unit restore error</value>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Stat Unit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
   </data>
 </root>

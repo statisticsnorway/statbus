@@ -1,4 +1,4 @@
-﻿@model nscreg.Server.Common.Models.Account.LoginVm
+@model nscreg.Server.Common.Models.Account.LoginVm
 @using nscreg.Resources.Languages
 
 <!doctype html>
@@ -20,6 +20,7 @@
   <div class="parent-cont-login">
     <div class="child-cont-login">
       <h2 class="login-form-head">@locale?["LoginTitle"]</h2>
+
       <form method="post" class="ui form">
         @Html.AntiForgeryToken()
         <div class="field">

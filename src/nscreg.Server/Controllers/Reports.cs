@@ -1,14 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using nscreg.Data;
-using nscreg.Data.Entities;
+using nscreg.Data.Constants;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Controllers

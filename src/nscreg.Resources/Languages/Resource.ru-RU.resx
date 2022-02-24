@@ -181,7 +181,7 @@
     <value>Ошибка при обновлении пользователя</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Не удалось войти</value>
+    <value>Неверный логин или пароль</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Текущий пароль неправильный</value>
@@ -2475,10 +2475,13 @@
   <data name="AnalysisMandatoryClassified" xml:space="preserve">
     <value>Stat unit doesn't have classified</value>
   </data>
-  <data name="StatisticalUnitRestoredSuccessfully" xml:space="preserve">
-    <value>Статистическая единица успешно восстановлена</value>
+  <data name="Export" xml:space="preserve">
+    <value>Экспорт</value>
   </data>
-  <data name="StatUnitRestoreError" xml:space="preserve">
-    <value>Ошибка востановление статистической единицы</value>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Sta tUnit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
   </data>
 </root>
