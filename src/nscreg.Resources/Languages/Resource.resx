@@ -193,7 +193,7 @@
     <value>Error while updating user</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Log in failed</value>
+    <value>Invalid username/password</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Current password is wrong</value>
