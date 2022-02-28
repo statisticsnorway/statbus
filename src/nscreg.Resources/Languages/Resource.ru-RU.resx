@@ -2484,4 +2484,16 @@
   <data name="StatUnitLocal" xml:space="preserve">
     <value>Stat Unit Local</value>
   </data>
+  <data name="DoYouWantToDeleteUnit" xml:space="preserve">
+    <value>Вы хотите удалить единицу</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>Экспорт</value>
+  </data>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Sta tUnit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
+  </data>
 </root>

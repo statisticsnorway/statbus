@@ -2212,6 +2212,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Do you want to delete unit.
+        /// </summary>
+        public static string DoYouWantToDeleteUnit {
+            get {
+                return ResourceManager.GetString("DoYouWantToDeleteUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Drop XML or CSV file here.
         /// </summary>
         public static string DropXmlOrCsvFileAmigo {
@@ -6505,6 +6514,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Statistical unit restored successfully.
+        /// </summary>
+        public static string StatisticalUnitRestoredSuccessfully {
+            get {
+                return ResourceManager.GetString("StatisticalUnitRestoredSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Statistical unit type.
         /// </summary>
         public static string StatisticalUnitType {
@@ -6744,6 +6762,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitLocal {
             get {
                 return ResourceManager.GetString("StatUnitLocal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Statistical unit restore error.
+        /// </summary>
+        public static string StatUnitRestoreError {
+            get {
+                return ResourceManager.GetString("StatUnitRestoreError", resourceCulture);
             }
         }
         

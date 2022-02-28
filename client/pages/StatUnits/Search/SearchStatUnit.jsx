@@ -111,7 +111,7 @@ class Search extends React.Component {
       <Confirm
         open={this.state.showConfirm}
         header={`${this.props.localize('AreYouSure')}?`}
-        content={`${this.props.localize('DeleteStatUnitMessage')} "${
+        content={`${this.props.localize('DoYouWantToDeleteUnit')} "${
           this.state.selectedUnit.name
         }"?`}
         onConfirm={this.handleConfirm}
