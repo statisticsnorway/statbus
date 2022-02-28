@@ -92,6 +92,11 @@ namespace nscreg.Data
         public DbSet<ActivityStatisticalUnitHistory> ActivityStatisticalUnitHistory { get; set; }
         public DbSet<CountryStatisticalUnitHistory> CountryStatisticalUnitHistory { get; set; }
         public DbSet<PersonStatisticalUnitHistory> PersonStatisticalUnitHistory { get; set; }
+
+        public DbSet<StatUnitEnterprise_2021> StatUnitEnterprise_2021 { get; set; }
+
+        public DbSet<StatUnitLocal_2021> StatUnitLocal_2021 { get; set; }
+
         #endregion
     }
 }

@@ -2,12 +2,13 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Dropdown, Icon, Responsive, Menu, Sidebar, Segment, Grid } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
-
 import config, { checkSystemFunction as sF } from 'helpers/config'
 import { withLocalize } from 'helpers/locale'
 import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
+// eslint-disable-next-line import/first
+import * as FileSaver from 'file-saver'
 
 class Header extends React.Component {
   state = {
@@ -16,6 +17,16 @@ class Header extends React.Component {
 
   onToggle = () => {
     this.setState({ isOpen: !this.state.isOpen })
+  }
+
+  downloadExportFiles = (link, fileName) => {
+    fetch(`/api/${link}`, {
+      method: 'GET',
+    })
+      .then(response => response.blob())
+      .then((result) => {
+        FileSaver.saveAs(result, `${fileName}.csv`)
+      })
   }
 
   render() {
@@ -53,6 +64,46 @@ class Header extends React.Component {
                   {localize('Reports')}
                 </Link>
               )}
+
+              <div className="right menu">
+                <Dropdown
+                  simple
+                  text={localize('Export') || localize('UserNameNotFound')}
+                  className="item"
+                  icon="caret down"
+                >
+                  <Dropdown.Menu className={styles['to-z-index']}>
+                    {sF('AccountView') && (
+                      <Dropdown.Item
+                        className="item"
+                        onClick={() =>
+                          this.downloadExportFiles(
+                            'Statunits/DownloadStatUnitEnterpriseCsv',
+                            'StatUnitEnterprise',
+                          )
+                        }
+                      >
+                        <Icon name="download" />
+                        {localize('StatUnitEnterprise')}
+                      </Dropdown.Item>
+                    )}
+                    {sF('AccountView') && (
+                      <Dropdown.Item
+                        className="item"
+                        onClick={() =>
+                          this.downloadExportFiles(
+                            'StatUnits/DownloadStatUnitLocalCsv',
+                            'StatUnitLocal',
+                          )
+                        }
+                      >
+                        <Icon name="download" />
+                        {localize('StatUnitLocal')}
+                      </Dropdown.Item>
+                    )}
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
             </Responsive>
             {isOpen && (
               <Responsive maxWidth={1200}>
