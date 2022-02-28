@@ -19,7 +19,7 @@ namespace nscreg.Resources.Languages {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resource {
@@ -3949,7 +3949,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Log in failed.
+        ///   Looks up a localized string similar to Invalid username/password.
         /// </summary>
         public static string LoginFailed {
             get {
@@ -6514,15 +6514,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Statistical unit restored successfully.
-        /// </summary>
-        public static string StatisticalUnitRestoredSuccessfully {
-            get {
-                return ResourceManager.GetString("StatisticalUnitRestoredSuccessfully", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Statistical unit type.
         /// </summary>
         public static string StatisticalUnitType {
@@ -6762,15 +6753,6 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitLocal {
             get {
                 return ResourceManager.GetString("StatUnitLocal", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Statistical unit restore error.
-        /// </summary>
-        public static string StatUnitRestoreError {
-            get {
-                return ResourceManager.GetString("StatUnitRestoreError", resourceCulture);
             }
         }
         
