@@ -2742,4 +2742,10 @@
   <data name="DoYouWantToDeleteUnit" xml:space="preserve">
     <value>Do you want to delete unit</value>
   </data>
+  <data name="StatisticalUnitRestoredSuccessfully" xml:space="preserve">
+    <value>Statistical unit restored successfully</value>
+  </data>
+  <data name="StatUnitRestoreError" xml:space="preserve">
+    <value>Statistical unit restore error</value>
+  </data>
 </root>
