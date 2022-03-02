@@ -2748,4 +2748,10 @@
   <data name="StatUnitRestoreError" xml:space="preserve">
     <value>Statistical unit restore error</value>
   </data>
+  <data name="ErrorExportStatUnitReport" xml:space="preserve">
+    <value>Error Export Stat unit report</value>
+  </data>
+  <data name="SuccessfullyExportedStatUnitReport" xml:space="preserve">
+    <value>Successfully Exported Stat unit report</value>
+  </data>
 </root>

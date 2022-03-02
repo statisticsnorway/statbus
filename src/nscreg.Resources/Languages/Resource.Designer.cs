@@ -2788,6 +2788,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Error Export Stat unit report.
+        /// </summary>
+        public static string ErrorExportStatUnitReport {
+            get {
+                return ResourceManager.GetString("ErrorExportStatUnitReport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error on.
         /// </summary>
         public static string ErrorOn {
@@ -6861,6 +6870,15 @@ namespace nscreg.Resources.Languages {
         public static string Submit {
             get {
                 return ResourceManager.GetString("Submit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Successfully Exported Stat unit report.
+        /// </summary>
+        public static string SuccessfullyExportedStatUnitReport {
+            get {
+                return ResourceManager.GetString("SuccessfullyExportedStatUnitReport", resourceCulture);
             }
         }
         
