@@ -1,14 +1,14 @@
 import React from 'react'
+import { NotificationManager } from 'react-notifications'
+import * as FileSaver from 'file-saver'
 import PropTypes from 'prop-types'
 import { Dropdown, Icon, Responsive, Menu, Sidebar, Segment, Grid } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 import config, { checkSystemFunction as sF } from 'helpers/config'
-import { withLocalize } from 'helpers/locale'
+import { getLocalizeText, withLocalize } from 'helpers/locale'
 import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
-// eslint-disable-next-line import/first
-import * as FileSaver from 'file-saver'
 
 class Header extends React.Component {
   state = {
@@ -20,12 +20,19 @@ class Header extends React.Component {
   }
 
   downloadExportFiles = (link, fileName) => {
+    this.props.changeLoading(true)
     fetch(`/api/${link}`, {
       method: 'GET',
     })
       .then(response => response.blob())
       .then((result) => {
         FileSaver.saveAs(result, `${fileName}.csv`)
+        NotificationManager.success(getLocalizeText('SuccessfullyExportedStatUnitReport'))
+        this.props.changeLoading(false)
+      })
+      .catch(() => {
+        NotificationManager.error(getLocalizeText('ErrorExportStatUnitReport'))
+        this.props.changeLoading(false)
       })
   }
 

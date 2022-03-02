@@ -2496,4 +2496,10 @@
   <data name="StatUnitLocal" xml:space="preserve">
     <value>Stat Unit Local</value>
   </data>
+  <data name="ErrorExportStatUnitReport" xml:space="preserve">
+    <value>Ошибках при экспорте отчета</value>
+  </data>
+  <data name="SuccessfullyExportedStatUnitReport" xml:space="preserve">
+    <value>Отчет успешно экспортированном</value>
+  </data>
 </root>
