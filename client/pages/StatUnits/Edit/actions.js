@@ -42,7 +42,7 @@ const submitStatUnit = (type, data, formikBag) =>
     },
     onFail: (_, errors) => {
       formikBag.failed(errors)
-      NotificationManager.success(getLocalizeText('StatUnitEditError'))
+      NotificationManager.error(getLocalizeText('StatUnitEditError'))
     },
   })
 

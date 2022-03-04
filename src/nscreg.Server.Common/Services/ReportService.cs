@@ -13,6 +13,8 @@ using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using Newtonsoft.Json;
+using System.IO;
+using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.Server.Common.Services
 {
@@ -41,10 +43,10 @@ namespace nscreg.Server.Common.Services
             var sqlWalletUser = role.FirstOrDefault()?.SqlWalletUser;
 
             if (string.IsNullOrEmpty(sqlWalletUser))
-                throw  new Exception("Please specify sqlWalletUser in Administrator or Employee roles");
+                throw new Exception("Please specify sqlWalletUser in Administrator or Employee roles");
 
             List<ReportTree> queryResult = await GetReportsTreeByProvider(_ctx, sqlWalletUser);
-            
+
             var resultNodes = new List<ReportTree>(queryResult);
             RemoveEmptyFolders(queryResult, resultNodes);
 
@@ -113,7 +115,7 @@ namespace nscreg.Server.Common.Services
 
                 userRequest.Headers.Authorization =
                     new AuthenticationHeaderValue(authResponse.Token_Type, authResponse.Access_Token);
-                userRequest.Headers.CacheControl = new CacheControlHeaderValue {NoCache = true};
+                userRequest.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true };
                 userRequest.Headers.Host = settings.HostName;
 
                 var accessToken = "";
@@ -132,7 +134,7 @@ namespace nscreg.Server.Common.Services
             {
                 client.CancelPendingRequests();
             }
-            
+
 
         }
 
@@ -174,7 +176,6 @@ namespace nscreg.Server.Common.Services
             public string Access_Token { get; set; }
             public string Expires_In { get; set; }
             public string Token_Type { get; set; }
-
         }
     }
 }
