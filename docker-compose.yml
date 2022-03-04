@@ -2,7 +2,23 @@ version: '3.4'
 
 services:
   nscreg.server:
-    image: ${DOCKER_REGISTRY-}nscregserver
-    build:
-      context: .
-      dockerfile: src/nscreg.Server/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+    image: nsq:last
+#    ports:
+#      - "80"
+#    volumes:
+#      - ${APPDATA}/Microsoft/UserSecrets:~/.microsoft/usersecrets/:ro
+    volumes:
+      - ~/.microsoft/usersecrets/:/root/.microsoft/usersecrets:ro
+      - /Library/Keychains/:/root/.aspnet/https:ro
+
+  nginx-proxy:
+    image: nginx
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d:ro
