@@ -4,7 +4,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80'
-    image: nscreg:latest
+    image: nscreg:last
 #    ports:
 #      - "80"
 #    volumes:
@@ -23,18 +23,18 @@ services:
     volumes:
       - ./conf.d:/etc/nginx/conf.d:ro
 
-#  sqlserver:
-#    image: mcr.microsoft.com/mssql/server:2019-latest
-#    container_name: sql19-latest
-#    ports:
-#      - "1433:1433"
-#    restart: always
-#    environment:
-#      ACCEPT_EULA: Y
-#      SA_PASSWORD: 12qw!@QW
-#      MSSQL_PID: Express
-#      MSSQL_LCID: 1049
-#      MSSQL_COLLATION: Cyrillic_General_CI_AS
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sql19-latest
+    ports:
+      - "1433:1433"
+    restart: always
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: 12qw!@QW
+      MSSQL_PID: Express
+      MSSQL_LCID: 1049
+      MSSQL_COLLATION: Cyrillic_General_CI_AS
 #      user: mssql
 #    volumes:
 #      - /var/opt/mssql:/var/opt/mssql
@@ -50,3 +50,6 @@ services:
       - xpack.watcher.enabled=false
       - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
       - discovery.type=single-node
+d=
+
+
