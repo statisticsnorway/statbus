@@ -1,28 +1,6 @@
 version: '3.4'
+
 services:
-  nscreg.server:
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80'
-    image: nscreg:last
-#    ports:
-#      - "80"
-#    volumes:
-#      - ${APPDATA}/Microsoft/UserSecrets:~/.microsoft/usersecrets/:ro
-    volumes:
-#      - ~/.microsoft/usersecrets/:/root/.microsoft/usersecrets:ro
-      - ./Library/Keychains/:/root/.aspnet/https
-
-  nginx-proxy:
-    image: nginx
-    container_name: nginx-proxy
-    restart: always
-    ports:
-      - "80:80"
-      - "9200:9200"
-    volumes:
-      - ./conf.d:/etc/nginx/conf.d:ro
-
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
     container_name: sql19-latest
@@ -35,18 +13,7 @@ services:
       MSSQL_PID: Express
       MSSQL_LCID: 1049
       MSSQL_COLLATION: Cyrillic_General_CI_AS
-#      user: mssql
+      user: ${CURRENT_UID}
 #    volumes:
 #      - /var/opt/mssql:/var/opt/mssql
 #      - /backup:/backup
-
-  elasticsearch:
-    container_name: elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
-#    ports:
-#      - "9200"
-    environment:
-      - xpack.monitoring.enabled=true
-      - xpack.watcher.enabled=false
-      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
-      - discovery.type=single-node
