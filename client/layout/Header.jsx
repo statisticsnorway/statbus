@@ -66,11 +66,11 @@ class Header extends React.Component {
                   </Dropdown>
                 </div>
               ))}
-              {sF('Reports') && (
+              {/* {sF('Reports') && (
                 <Link to="/reportsTree" className={`item ${styles['header-index-link']}`}>
                   {localize('Reports')}
                 </Link>
-              )}
+              )} */}
 
               <div className="right menu">
                 <Dropdown
@@ -145,13 +145,54 @@ class Header extends React.Component {
                           </Dropdown>
                         </Grid.Column>
                       ))}
+
                       <Grid.Column width={16}>
+                        <Dropdown
+                          simple
+                          text={localize('Export') || localize('UserNameNotFound')}
+                          className="item"
+                          icon="caret down"
+                        >
+                          <Dropdown.Menu className={styles['to-z-index']}>
+                            {sF('AccountView') && (
+                              <Dropdown.Item
+                                className="item"
+                                onClick={() =>
+                                  this.downloadExportFiles(
+                                    'Statunits/DownloadStatUnitEnterpriseCsv',
+                                    'StatUnitEnterprise',
+                                  )
+                                }
+                              >
+                                <Icon name="download" />
+                                {localize('StatUnitEnterprise')}
+                              </Dropdown.Item>
+                            )}
+                            {sF('AccountView') && (
+                              <Dropdown.Item
+                                className="item"
+                                onClick={() =>
+                                  this.downloadExportFiles(
+                                    'StatUnits/DownloadStatUnitLocalCsv',
+                                    'StatUnitLocal',
+                                  )
+                                }
+                              >
+                                <Icon name="download" />
+                                {localize('StatUnitLocal')}
+                              </Dropdown.Item>
+                            )}
+                          </Dropdown.Menu>
+                        </Dropdown>
+                      </Grid.Column>
+
+                      {/* <Grid.Column width={16}>
                         {sF('Reports') && (
                           <Link to="/reportsTree" className={`item ${styles['header-index-link']}`}>
                             {localize('Reports')}
                           </Link>
                         )}
-                      </Grid.Column>
+                      </Grid.Column> */}
                     </Grid.Row>
                   </Grid>
                 </Sidebar>

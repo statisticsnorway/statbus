@@ -15,27 +15,27 @@ const menu = {
       icon: 'add',
     },
   ],
-  DataSources: [
-    { sf: 'DataSourcesView', key: 'DataSources', route: '/datasources', icon: 'file text outline' },
-    {
-      sf: 'DataSourcesCreate',
-      key: 'DataSourcesCreate',
-      route: '/datasources/create',
-      icon: 'add',
-    },
-    {
-      sf: 'DataSourcesQueueAdd',
-      key: 'DataSourcesUpload',
-      route: '/datasources/upload',
-      icon: 'upload',
-    },
-    {
-      sf: 'DataSourcesQueueView',
-      key: 'DataSourceQueues',
-      route: '/datasourcesqueue',
-      icon: 'database',
-    },
-  ],
+  // DataSources: [
+  //   { sf: 'DataSourcesView', key: 'DataSources', route: '/datasources', icon: 'file text outline' },
+  //   {
+  //     sf: 'DataSourcesCreate',
+  //     key: 'DataSourcesCreate',
+  //     route: '/datasources/create',
+  //     icon: 'add',
+  //   },
+  //   {
+  //     sf: 'DataSourcesQueueAdd',
+  //     key: 'DataSourcesUpload',
+  //     route: '/datasources/upload',
+  //     icon: 'upload',
+  //   },
+  //   {
+  //     sf: 'DataSourcesQueueView',
+  //     key: 'DataSourceQueues',
+  //     route: '/datasourcesqueue',
+  //     icon: 'database',
+  //   },
+  // ],
   QualityManagement: [],
   AdministrativeTools: [
     { sf: 'UserView', key: 'Users', route: '/users', icon: 'users' },
