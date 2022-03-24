@@ -6,6 +6,8 @@ services:
     build:
       context: .
       dockerfile: src/nscreg.Server/Dockerfile
+    volumes:
+        - /docker/src/nscreg.Server/uploads:/app/uploads
 
   elasticsearch:
    container_name: elasticsearch

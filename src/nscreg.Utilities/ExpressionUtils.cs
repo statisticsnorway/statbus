@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Web.Mvc;
 
 namespace nscreg.Utilities
 {
@@ -12,6 +13,6 @@ namespace nscreg.Utilities
         /// </summary>
         /// <param name = "expr"> Expression </param>
         /// <returns> </returns>
-        public static string GetExpressionText(LambdaExpression expr) => GetExpressionText(expr);
+        public static string GetExpressionText(LambdaExpression expr) => ExpressionHelper.GetExpressionText(expr);
     }
 }
