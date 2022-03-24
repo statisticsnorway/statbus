@@ -26,6 +26,7 @@ using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 using AutoMapper;
+using System.Reflection;
 
 namespace nscreg.Server.Common.Services
 {
@@ -197,8 +198,9 @@ namespace nscreg.Server.Common.Services
         public async Task CreateAsync(IFormFileCollection files, UploadQueueItemVm data, string userId)
         {
             var today = DateTime.Now;
+            var pathDirectory = AssemblyDirectory;
             var path = Path.Combine(
-                Path.GetFullPath(_rootPath),
+                Path.GetFullPath(pathDirectory),
                 _uploadDir,
                 today.Year.ToString(),
                 today.Month.ToString(),
@@ -230,6 +232,17 @@ namespace nscreg.Server.Common.Services
             catch (Exception e)
             {
                 throw new BadRequestException(nameof(Resource.CantStoreFile), e);
+            }
+        }
+
+        public string AssemblyDirectory
+        {
+            get
+            {
+                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                UriBuilder uri = new UriBuilder(codeBase);
+                string path = Uri.UnescapeDataString(uri.Path);
+                return Path.GetDirectoryName(path);
             }
         }
 
