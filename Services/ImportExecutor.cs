@@ -54,7 +54,7 @@ namespace nscreg.Services
         {
             var dbContextHelper = new DbContextHelper(_configuration);
             var context = dbContextHelper.CreateDbContext(new string[] { });
-            context.Database.SetCommandTimeout(180);
+            context.Database.SetCommandTimeout(3000);
             await InitializeCacheForLookups(context);
             var permissions = await _commonService.InitializeDataAccessAttributes<IStatUnitM>(null, dequeued.UserId, dequeued.DataSource.StatUnitType);
             var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _commonService, _servicesSettings.DataUploadMaxBufferCount);

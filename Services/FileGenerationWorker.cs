@@ -12,6 +12,7 @@ using nscreg.Utilities.Configuration;
 using System.IO;
 using Microsoft.Extensions.Options;
 using NLog;
+using System.Reflection;
 
 namespace nscreg.Services
 {
@@ -25,7 +26,6 @@ namespace nscreg.Services
         private readonly SampleFrameExecutor _sampleFrameExecutor;
         private static Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly int _timeoutMilliseconds;
-        private readonly string _rootPath;
         private readonly string _sampleFramesDir;
         
         public FileGenerationWorker(NSCRegDbContext ctx,
@@ -35,7 +35,6 @@ namespace nscreg.Services
             _sampleFrameExecutor = executor;
             Interval = servicesSettings.Value.SampleFrameGenerationServiceDequeueInterval;
             _timeoutMilliseconds = servicesSettings.Value.SampleFrameGenerationServiceCleanupTimeout;
-            _rootPath = servicesSettings.Value.RootPath;
             _sampleFramesDir = servicesSettings.Value.SampleFramesDir;
         }
 
@@ -69,7 +68,7 @@ namespace nscreg.Services
                     sampleFrameQueue.Status = SampleFrameGenerationStatuses.InProgress;
                     _ctx.SaveChanges();
 
-                    var path = Path.Combine(Path.GetFullPath(_rootPath), _sampleFramesDir);
+                    var path = Path.Combine(Path.GetFullPath(AssemblyDirectory), _sampleFramesDir);
                     Directory.CreateDirectory(path);
                     var filePath = Path.Combine(path, Guid.NewGuid() + ".csv");
                     try
@@ -93,6 +92,17 @@ namespace nscreg.Services
                         throw new Exception("Error occurred during file generation", e);
                     }
                 }
+            }
+        }
+
+        private string AssemblyDirectory
+        {
+            get
+            {
+                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                UriBuilder uri = new UriBuilder(codeBase);
+                string path = Uri.UnescapeDataString(uri.Path);
+                return Path.GetDirectoryName(path);
             }
         }
     }

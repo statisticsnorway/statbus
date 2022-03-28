@@ -8,6 +8,7 @@ services:
       dockerfile: src/nscreg.Server/Dockerfile
     volumes:
         - /docker/src/nscreg.Server/uploads:/app/uploads
+        - /docker/src/nscreg.Server/uploads:/app/sampleframes
 
   elasticsearch:
    container_name: elasticsearch
