@@ -61,7 +61,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 }
 
-                var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
+                var deleteResponse = await _elasticClient.Indices.DeleteAsync(StatUnitSearchIndexName);
                 if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                     throw new Exception(deleteResponse.DebugInformation);
 
