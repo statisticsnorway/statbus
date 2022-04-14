@@ -14,20 +14,19 @@ using System.IO;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
-using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using Activity = nscreg.Data.Entities.Activity;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
+using AutoMapper;
+using System.Reflection;
 
 namespace nscreg.Server.Common.Services
 {
@@ -40,13 +39,15 @@ namespace nscreg.Server.Common.Services
         private readonly string _uploadDir;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly DeleteService _statUnitDeleteService;
-        private readonly ElasticService _elasticService;
+        private readonly IElasticUpsertService _elasticService;
+        private readonly ViewService _viewService;
+        private readonly IMapper _mapper;
 
         public DataSourcesQueueService(NSCRegDbContext ctx,
             CreateService createSvc,
-            EditService editSvc,
-            ServicesSettings config,
-            DbMandatoryFields dbMandatoryFields)
+            EditService editSvc, DeleteService statUnitDeleteService,
+            ServicesSettings config, IElasticUpsertService elasticService,
+            DbMandatoryFields dbMandatoryFields, ViewService viewService, IMapper mapper)
         {
             _dbContext = ctx;
             _createSvc = createSvc;
@@ -54,8 +55,10 @@ namespace nscreg.Server.Common.Services
             _rootPath = config.RootPath;
             _uploadDir = config.UploadDir;
             _dbMandatoryFields = dbMandatoryFields;
-            _statUnitDeleteService = new DeleteService(ctx);
-            _elasticService = new ElasticService(ctx);
+            _statUnitDeleteService = statUnitDeleteService;
+            _elasticService = elasticService;
+            _viewService = viewService;
+            _mapper = mapper;
         }
 
         public async Task<SearchVm<QueueVm>> GetAllDataSourceQueues(SearchQueryM query)
@@ -179,7 +182,7 @@ namespace nscreg.Server.Common.Services
                 throw new NotFoundException(nameof(Resource.NotFoundMessage));
             }
 
-            var metadata = await new ViewService(_dbContext, _dbMandatoryFields).GetViewModel(
+            var metadata = await _viewService.GetViewModel(
                 null,
                 logEntry.DataSourceQueue.DataSource.StatUnitType,
                 logEntry.DataSourceQueue.UserId,
@@ -195,8 +198,9 @@ namespace nscreg.Server.Common.Services
         public async Task CreateAsync(IFormFileCollection files, UploadQueueItemVm data, string userId)
         {
             var today = DateTime.Now;
+            var pathDirectory = AssemblyDirectory;
             var path = Path.Combine(
-                Path.GetFullPath(_rootPath),
+                Path.GetFullPath(pathDirectory),
                 _uploadDir,
                 today.Year.ToString(),
                 today.Month.ToString(),
@@ -228,6 +232,17 @@ namespace nscreg.Server.Common.Services
             catch (Exception e)
             {
                 throw new BadRequestException(nameof(Resource.CantStoreFile), e);
+            }
+        }
+
+        public string AssemblyDirectory
+        {
+            get
+            {
+                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                UriBuilder uri = new UriBuilder(codeBase);
+                string path = Uri.UnescapeDataString(uri.Path);
+                return Path.GetDirectoryName(path);
             }
         }
 

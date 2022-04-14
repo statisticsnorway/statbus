@@ -1,8 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<RptDataSource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Name="DataSourceNSCReg">
-  <ConnectionProperties>
-    <Extension>SQL</Extension>
-    <ConnectString>Data Source=localhost;Initial Catalog=nscreg2</ConnectString>
-  </ConnectionProperties>
-  <DataSourceID>d67ef538-8bc2-41d6-b287-52e05d0b87d9</DataSourceID>
-</RptDataSource>

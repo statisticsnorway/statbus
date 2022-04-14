@@ -1,10 +1,11 @@
 import React from 'react'
+import { NotificationManager } from 'react-notifications'
+import * as FileSaver from 'file-saver'
 import PropTypes from 'prop-types'
 import { Dropdown, Icon, Responsive, Menu, Sidebar, Segment, Grid } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
-
 import config, { checkSystemFunction as sF } from 'helpers/config'
-import { withLocalize } from 'helpers/locale'
+import { getLocalizeText, withLocalize } from 'helpers/locale'
 import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
@@ -16,6 +17,23 @@ class Header extends React.Component {
 
   onToggle = () => {
     this.setState({ isOpen: !this.state.isOpen })
+  }
+
+  downloadExportFiles = (link, fileName) => {
+    this.props.changeLoading(true)
+    fetch(`/api/${link}`, {
+      method: 'GET',
+    })
+      .then(response => response.blob())
+      .then((result) => {
+        FileSaver.saveAs(result, `${fileName}.csv`)
+        NotificationManager.success(getLocalizeText('SuccessfullyExportedStatUnitReport'))
+        this.props.changeLoading(false)
+      })
+      .catch(() => {
+        NotificationManager.error(getLocalizeText('ErrorExportStatUnitReport'))
+        this.props.changeLoading(false)
+      })
   }
 
   render() {
@@ -48,11 +66,51 @@ class Header extends React.Component {
                   </Dropdown>
                 </div>
               ))}
-              {sF('Reports') && (
+              {/* {sF('Reports') && (
                 <Link to="/reportsTree" className={`item ${styles['header-index-link']}`}>
                   {localize('Reports')}
                 </Link>
-              )}
+              )} */}
+
+              <div className="right menu">
+                <Dropdown
+                  simple
+                  text={localize('Export') || localize('UserNameNotFound')}
+                  className="item"
+                  icon="caret down"
+                >
+                  <Dropdown.Menu className={styles['to-z-index']}>
+                    {sF('AccountView') && (
+                      <Dropdown.Item
+                        className="item"
+                        onClick={() =>
+                          this.downloadExportFiles(
+                            'Statunits/DownloadStatUnitEnterpriseCsv',
+                            'StatUnitEnterprise',
+                          )
+                        }
+                      >
+                        <Icon name="download" />
+                        {localize('StatUnitEnterprise')}
+                      </Dropdown.Item>
+                    )}
+                    {sF('AccountView') && (
+                      <Dropdown.Item
+                        className="item"
+                        onClick={() =>
+                          this.downloadExportFiles(
+                            'StatUnits/DownloadStatUnitLocalCsv',
+                            'StatUnitLocal',
+                          )
+                        }
+                      >
+                        <Icon name="download" />
+                        {localize('StatUnitLocal')}
+                      </Dropdown.Item>
+                    )}
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
             </Responsive>
             {isOpen && (
               <Responsive maxWidth={1200}>
@@ -87,13 +145,54 @@ class Header extends React.Component {
                           </Dropdown>
                         </Grid.Column>
                       ))}
+
                       <Grid.Column width={16}>
+                        <Dropdown
+                          simple
+                          text={localize('Export') || localize('UserNameNotFound')}
+                          className="item"
+                          icon="caret down"
+                        >
+                          <Dropdown.Menu className={styles['to-z-index']}>
+                            {sF('AccountView') && (
+                              <Dropdown.Item
+                                className="item"
+                                onClick={() =>
+                                  this.downloadExportFiles(
+                                    'Statunits/DownloadStatUnitEnterpriseCsv',
+                                    'StatUnitEnterprise',
+                                  )
+                                }
+                              >
+                                <Icon name="download" />
+                                {localize('StatUnitEnterprise')}
+                              </Dropdown.Item>
+                            )}
+                            {sF('AccountView') && (
+                              <Dropdown.Item
+                                className="item"
+                                onClick={() =>
+                                  this.downloadExportFiles(
+                                    'StatUnits/DownloadStatUnitLocalCsv',
+                                    'StatUnitLocal',
+                                  )
+                                }
+                              >
+                                <Icon name="download" />
+                                {localize('StatUnitLocal')}
+                              </Dropdown.Item>
+                            )}
+                          </Dropdown.Menu>
+                        </Dropdown>
+                      </Grid.Column>
+
+                      {/* <Grid.Column width={16}>
                         {sF('Reports') && (
                           <Link to="/reportsTree" className={`item ${styles['header-index-link']}`}>
                             {localize('Reports')}
                           </Link>
                         )}
-                      </Grid.Column>
+                      </Grid.Column> */}
                     </Grid.Row>
                   </Grid>
                 </Sidebar>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Builder;
 
 namespace nscreg.Data
 {
@@ -25,7 +26,7 @@ namespace nscreg.Data
                         "..", "..", "..", "..",
                         "appsettings.Shared.json"),
                     true)
-                .AddJsonFile("appsettings.json", true)
+                //.AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>();
             Configuration = builder.Build();
         }
@@ -41,15 +42,18 @@ namespace nscreg.Data
             services.AddDbContext<NSCRegDbContext>(DbContextHelper.ConfigureOptions(Configuration));
         }
 
+        public void Configure(IApplicationBuilder app)
+        {
+
+        }
         /// <summary>
         /// Application Launch Method
         /// </summary>
-        public static void Main()
-            => BuildWebHost();
+        public static void Main(string[] args)
+            => CreateWebHostBuilder(args).Build().Run();
 
-        public static IWebHost BuildWebHost() =>
-            WebHost.CreateDefaultBuilder()
-                .UseStartup<Startup>()
-                .Build();
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+            WebHost.CreateDefaultBuilder(args)
+                .UseStartup<Startup>();
     }
 }

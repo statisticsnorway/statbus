@@ -27,10 +27,12 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
+        private readonly IMapper _mapper;
 
-        public ElasticService(NSCRegDbContext dbContext)
+        public ElasticService(NSCRegDbContext dbContext, IMapper mapper)
         {
             _dbContext = dbContext;
+            _mapper = mapper;
 
             var settings = new ConnectionSettings(new Uri(ServiceAddress)).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
@@ -59,7 +61,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 }
 
-                var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
+                var deleteResponse = await _elasticClient.Indices.DeleteAsync(StatUnitSearchIndexName);
                 if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                     throw new Exception(deleteResponse.DebugInformation);
 
@@ -76,7 +78,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 foreach (var item in query)
                 {
-                    var elasticItem = Mapper.Map<StatUnitSearchView, ElasticStatUnit>(item);
+                    var elasticItem = _mapper.Map<StatUnitSearchView, ElasticStatUnit>(item);
                     elasticItem.ActivityCategoryIds = elasticItem.UnitType == StatUnitTypes.EnterpriseGroup
                         ? new List<int>()
                         : activityCategoryStaticalUnits[elasticItem.RegId].ToList();

@@ -181,7 +181,7 @@
     <value>Ошибка при обновлении пользователя</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Не удалось войти</value>
+    <value>Неверный логин или пароль</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Текущий пароль неправильный</value>
@@ -2474,5 +2474,32 @@
   </data>
   <data name="AnalysisMandatoryClassified" xml:space="preserve">
     <value>Stat unit doesn't have classified</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>Экспорт</value>
+  </data>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Sta tUnit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
+  </data>
+  <data name="DoYouWantToDeleteUnit" xml:space="preserve">
+    <value>Вы хотите удалить единицу</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>Экспорт</value>
+  </data>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Sta tUnit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
+  </data>
+  <data name="ErrorExportStatUnitReport" xml:space="preserve">
+    <value>Ошибках при экспорте отчета</value>
+  </data>
+  <data name="SuccessfullyExportedStatUnitReport" xml:space="preserve">
+    <value>Отчет успешно экспортированном</value>
   </data>
 </root>

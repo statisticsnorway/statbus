@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -17,9 +18,9 @@ namespace nscreg.Server.Controllers
     {
         private readonly IAddressService _addressService;
 
-        public AddressesController(NSCRegDbContext context)
+        public AddressesController(IAddressService addressService)
         {
-            _addressService = new AddressService(context);
+            _addressService = addressService;
         }
         /// <summary>
         /// Method that returns a list of all addresses

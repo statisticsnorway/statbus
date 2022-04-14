@@ -1,9 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -11,11 +10,13 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly RoleService _roleService;
         private readonly UserService _userService;
+        private readonly IMapper _mapper;
 
-        public DataAccessService(NSCRegDbContext dbContext)
+        public DataAccessService(NSCRegDbContext dbContext, IMapper mapper)
         {
+            _mapper = mapper;
             _roleService = new RoleService(dbContext);
-            _userService = new UserService(dbContext);
+            _userService = new UserService(dbContext, _mapper);
         }
 
         public bool CheckWritePermissions(string userId, StatUnitTypes unitType)

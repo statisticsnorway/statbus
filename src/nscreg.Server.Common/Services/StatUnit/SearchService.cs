@@ -13,6 +13,7 @@ using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.StatUnits.Search;
 using nscreg.Utilities.Extensions;
 using nscreg.Server.Common.Helpers;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -21,19 +22,22 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class SearchService
     {
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
         private readonly NSCRegDbContext _dbContext;
-        private readonly ElasticService _elasticService;
-        private readonly Common _commonSvc;
-        private readonly LinkService _service;
+        private readonly IElasticUpsertService _elasticService;
+        private readonly CommonService _commonSvc;
+        private readonly LinkService _linkService;
+        private readonly IMapper _mapper;
 
-        public SearchService(NSCRegDbContext dbContext)
+        public SearchService(IUserService userService, IElasticUpsertService elasticService, CommonService commonSvc,
+            LinkService linkService, NSCRegDbContext dbContext, IMapper mapper)
         {
-            _userService = new UserService(dbContext);
+            _userService = userService;
             _dbContext = dbContext;
-            _elasticService = new ElasticService(dbContext);
-            _commonSvc = new Common(dbContext);
-            _service = new LinkService(_dbContext);
+            _elasticService = elasticService;
+            _commonSvc = commonSvc;
+            _linkService = linkService;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -57,7 +61,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 totalCount = baseQuery.Count();
                 units = (await baseQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToListAsync())
-                    .Select(Mapper.Map<StatUnitSearchView, ElasticStatUnit>).ToList();
+                    .Select(_mapper.Map<StatUnitSearchView, ElasticStatUnit>).ToList();
             }
             else
             {
@@ -81,7 +85,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],
-                    regions.GetValueOrDefault(x.ActualAddressRegionId ?? x.RegionId)))
+                    regions.GetValueOrDefault(x.ActualAddressRegionId ?? x.RegionId), _mapper))
                 .Select(x => SearchItemVm.Create(x, x.UnitType,
                     permissions.GetReadablePropNames(), !isAdmin &&
                     !helper.IsRegionOrActivityContains(userId, x.RegionId != null ? new List<int> { (int)x.RegionId } : new List<int>(), unitsToMainActivities[x.RegId].Select(z => z.Id).ToList())));
@@ -163,47 +167,47 @@ namespace nscreg.Server.Common.Services.StatUnit
                 switch (type)
                 {
                     case StatUnitTypes.EnterpriseGroup:
-                        list.AddRange(Common.ToUnitLookupVm(
+                        list.AddRange(_commonSvc.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
                                 .Where(v => v.EntGroupId == regId)
-                                .Select(Common.UnitMapping)
+                                .Select(CommonService.UnitMapping)
                                 .ToListAsync()
                         ));
                             break;
                     case StatUnitTypes.EnterpriseUnit:
-                        list.AddRange(Common.ToUnitLookupVm(
+                        list.AddRange(_commonSvc.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
                                 .Where(v => v.RegId == regId)
                                 .Include(v => v.EnterpriseGroup)
                                 .Select(v => v.EnterpriseGroup)
-                                .Select(Common.UnitMapping)
+                                .Select(CommonService.UnitMapping)
                                 .ToListAsync()
                         ));
-                        list.AddRange(Common.ToUnitLookupVm(
+                        list.AddRange(_commonSvc.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<LegalUnit>(false)
                                 .Where(v => v.EnterpriseUnitRegId == regId)
-                                .Select(Common.UnitMapping)
+                                .Select(CommonService.UnitMapping)
                                 .ToListAsync()
                         ));
                         break;
                     case StatUnitTypes.LegalUnit:
-                        list.AddRange(Common.ToUnitLookupVm(
+                        list.AddRange(_commonSvc.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<LegalUnit>(false)
                                 .Where(v => v.RegId == regId)
                                 .Include(v => v.EnterpriseUnit)
                                 .Select(v => v.EnterpriseUnit)
-                                .Select(Common.UnitMapping)
+                                .Select(CommonService.UnitMapping)
                                 .ToListAsync()
                         ));
-                        list.AddRange(Common.ToUnitLookupVm(
+                        list.AddRange(_commonSvc.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<LocalUnit>(false)
                                 .Where(v => v.LegalUnitId == regId)
-                                .Select(Common.UnitMapping)
+                                .Select(CommonService.UnitMapping)
                                 .ToListAsync()
                         ));
                         break;
                     case StatUnitTypes.LocalUnit:
-                        var linkedList =  await _service.LinksList(root);
+                        var linkedList =  await _linkService.LinksList(root);
                         if (linkedList.Count > 0)
                         {
                             list.Add(new UnitLookupVm { Id = linkedList[0].Source1.Id, Type = linkedList[0].Source1.Type, Code = linkedList[0].Source1.Code, Name = linkedList[0].Source1.Name });
@@ -258,11 +262,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit => !unit.IsDeleted &&
                     (unit.Name != null && unit.Name.ToLower().Contains(loweredwc) || unit.StatId.StartsWith(loweredwc));
             var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
-                .Select(Common.UnitMapping);
+                .Select(CommonService.UnitMapping);
             var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
-                .Select(Common.UnitMapping);
+                .Select(CommonService.UnitMapping);
             var list = await units.Concat(eg).OrderBy(o => o.Item1.Code).Take(limit).ToListAsync();
-            return Common.ToUnitLookupVm(list).ToList();
+            return _commonSvc.ToUnitLookupVm(list).ToList();
         }
 
         /// <summary>

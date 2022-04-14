@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\nscreg.Business\nscreg.Business.csproj" />
+    <ProjectReference Include="..\src\nscreg.Data\nscreg.Data.csproj" />
+    <ProjectReference Include="..\src\nscreg.Server.Common\nscreg.Server.Common.csproj" />
+  </ItemGroup>
+
+</Project>

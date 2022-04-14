@@ -19,7 +19,7 @@ namespace nscreg.Resources.Languages {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resource {
@@ -2212,6 +2212,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Do you want to delete unit.
+        /// </summary>
+        public static string DoYouWantToDeleteUnit {
+            get {
+                return ResourceManager.GetString("DoYouWantToDeleteUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Drop XML or CSV file here.
         /// </summary>
         public static string DropXmlOrCsvFileAmigo {
@@ -2779,6 +2788,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Error Export Stat unit report.
+        /// </summary>
+        public static string ErrorExportStatUnitReport {
+            get {
+                return ResourceManager.GetString("ErrorExportStatUnitReport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error on.
         /// </summary>
         public static string ErrorOn {
@@ -2793,6 +2811,15 @@ namespace nscreg.Resources.Languages {
         public static string ErrorsOccuredDuringManualAnalysis {
             get {
                 return ResourceManager.GetString("ErrorsOccuredDuringManualAnalysis", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export.
+        /// </summary>
+        public static string Export {
+            get {
+                return ResourceManager.GetString("Export", resourceCulture);
             }
         }
         
@@ -3931,7 +3958,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Log in failed.
+        ///   Looks up a localized string similar to Invalid username/password.
         /// </summary>
         public static string LoginFailed {
             get {
@@ -6685,6 +6712,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Stat Unit Enterprise.
+        /// </summary>
+        public static string StatUnitEnterprise {
+            get {
+                return ResourceManager.GetString("StatUnitEnterprise", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Name.
         /// </summary>
         public static string StatUnitFormPersonName {
@@ -6717,6 +6753,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitListView {
             get {
                 return ResourceManager.GetString("StatUnitListView", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat Unit Local.
+        /// </summary>
+        public static string StatUnitLocal {
+            get {
+                return ResourceManager.GetString("StatUnitLocal", resourceCulture);
             }
         }
         
@@ -6807,6 +6852,15 @@ namespace nscreg.Resources.Languages {
         public static string Submit {
             get {
                 return ResourceManager.GetString("Submit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Successfully Exported Stat unit report.
+        /// </summary>
+        public static string SuccessfullyExportedStatUnitReport {
+            get {
+                return ResourceManager.GetString("SuccessfullyExportedStatUnitReport", resourceCulture);
             }
         }
         

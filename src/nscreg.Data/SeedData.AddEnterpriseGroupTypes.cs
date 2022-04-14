@@ -7,7 +7,9 @@ namespace nscreg.Data
     {
         public static void AddEnterpriseGroupTypes(NSCRegDbContext context)
         {
+#pragma warning disable EF1001 // Internal EF Core API usage.
             if (!context.EnterpriseGroupTypes.Any())
+#pragma warning restore EF1001 // Internal EF Core API usage.
             {
                 context.EnterpriseGroupTypes.AddRange(
                     new EnterpriseGroupType() { Name = "All-residents", NameLanguage1 = "Все резиденты", NameLanguage2 = "Бардык резидент", Code = "1"},

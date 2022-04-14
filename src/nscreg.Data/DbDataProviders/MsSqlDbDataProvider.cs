@@ -11,18 +11,18 @@ namespace nscreg.Data.DbDataProviders
     {
         public async Task<List<ReportTree>> GetReportsTree(NSCRegDbContext context, string sqlWalletUser, IConfiguration config)
         {
-            return await context.ReportTree.FromSql("GetReportsTree @p0", sqlWalletUser).ToListAsync();
+            return await context.ReportTree.FromSqlRaw("GetReportsTree @p0", sqlWalletUser).ToListAsync();
         }
 
         public int[] GetActivityChildren(NSCRegDbContext context, object fieldValue, object fieldValues)
         {
-            return context.ActivityCategories.FromSql("SELECT * FROM [dbo].[GetActivityChildren]({0},{1})", fieldValue, fieldValues).Select(x => x.Id)
+            return context.ActivityCategories.FromSqlRaw("SELECT * FROM [dbo].[GetActivityChildren]({0},{1})", fieldValue, fieldValues).Select(x => x.Id)
                 .ToArray();
         }
 
         public int[] GetRegionChildren(NSCRegDbContext context, object fieldValue)
         {
-            return context.Regions.FromSql("SELECT * FROM [dbo].[GetRegionChildren]({0})", fieldValue).Select(x => x.Id)
+            return context.Regions.FromSqlRaw("SELECT * FROM [dbo].[GetRegionChildren]({0})", fieldValue).Select(x => x.Id)
                 .ToArray();
         }
     }

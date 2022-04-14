@@ -21,12 +21,14 @@ namespace nscreg.Server.Common.Services
         private readonly NSCRegDbContext _context;
         private readonly ViewService _viewSvc;
         private readonly EditService _editSvc;
+        private readonly IMapper _mapper;
 
-        public AnalysisQueueService(NSCRegDbContext context, ViewService viewSvc, EditService editSvc)
+        public AnalysisQueueService(NSCRegDbContext context, ViewService viewSvc, EditService editSvc, IMapper mapper)
         {
             _context = context;
             _viewSvc = viewSvc;
             _editSvc = editSvc;
+            _mapper = mapper;
         }
 
         public async Task<AnalysisQueueListModel> GetAsync(SearchQueryModel filter)
@@ -50,7 +52,7 @@ namespace nscreg.Server.Common.Services
             {
                 TotalCount = total,
                 CurrentPage = filter.Page,
-                Items = Mapper.Map<IList<AnalysisQueueModel>>(result ?? new List<AnalysisQueue>()),
+                Items = _mapper.Map<IList<AnalysisQueueModel>>(result ?? new List<AnalysisQueue>()),
                 PageSize = filter.PageSize,
                 TotalPages = (int) Math.Ceiling((double) total / filter.PageSize)
             };
@@ -58,7 +60,7 @@ namespace nscreg.Server.Common.Services
 
         public async Task<AnalysisQueue> CreateAsync(AnalisysQueueCreateModel data, string userId)
         {
-            var domain = Mapper.Map<AnalysisQueue>(data);
+            var domain = _mapper.Map<AnalysisQueue>(data);
             domain.UserId = userId;
             _context.AnalysisQueues.Add(domain);
             await _context.SaveChangesAsync();
@@ -177,7 +179,7 @@ namespace nscreg.Server.Common.Services
             async Task<TModel> PopulateModel<TModel>(IQueryable<IStatisticalUnit> source)
             {
                 var existingEntity = await source.FirstOrDefaultAsync(x => x.RegId == logEntry.AnalyzedUnitId);
-                var existingModel = Mapper.Map<TModel>(existingEntity);
+                var existingModel = _mapper.Map<TModel>(existingEntity);
                 JsonConvert.PopulateObject(data, existingModel);
                 return existingModel;
             }

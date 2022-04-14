@@ -17,7 +17,10 @@ namespace nscreg.Server.Controllers
     {
         private readonly DataSourcesService _svc;
 
-        public DataSourcesController(NSCRegDbContext ctx) => _svc = new DataSourcesService(ctx);
+        public DataSourcesController(DataSourcesService svc)
+        {
+            _svc = svc;
+        }
 
         /// <summary>
         /// The method of obtaining all data sources

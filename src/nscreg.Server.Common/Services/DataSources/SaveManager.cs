@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
-using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Services.StatUnit;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -16,11 +15,12 @@ namespace nscreg.Server.Common.Services.DataSources
 
 
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType;
+        //private readonly BulkUpsertUnitService _bulkUpsertUnitService;
+        //private readonly NSCRegDbContext _dbContext;
 
-        public  SaveManager(NSCRegDbContext context, string userId, DataAccessPermissions permissions, UpsertUnitBulkBuffer buffer)
-        {   
-            
-            var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, userId);
+        public  SaveManager(NSCRegDbContext context, UpsertUnitBulkBuffer buffer, DataAccessPermissions permissions, IMapper mapper, string userId)
+        {
+            var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, mapper, userId);
 
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
@@ -49,7 +49,9 @@ namespace nscreg.Server.Common.Services.DataSources
                 return (null, false);
 
             var saveAction =
-                !isNeW && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter) ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                !isNeW && ( dataSource.AllowedOperations == DataSourceAllowedOperation.Alter
+                || dataSource.AllowedOperations == DataSourceAllowedOperation.CreateAndAlter)
+                ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {

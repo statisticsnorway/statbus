@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -11,6 +11,7 @@ using nscreg.Data.Entities.History;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.History;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -23,14 +24,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
         private readonly ForeingKeysResolver _foreignKeysResolver;
-        private readonly Common _commonSvc;
+        private readonly CommonService _commonSvc;
+        private readonly IMapper _mapper;
 
-        public HistoryService(NSCRegDbContext dbContext)
+        public HistoryService(NSCRegDbContext dbContext, IMapper mapper /*IUserService userService, CommonService common*/)
         {
             _dbContext = dbContext;
-            _userService = new UserService(dbContext);
+            _mapper = mapper;
+            _userService = new UserService(dbContext, mapper);
             _foreignKeysResolver = new ForeingKeysResolver(dbContext);
-            _commonSvc = new Common(dbContext);
+            _commonSvc = new CommonService(dbContext, mapper);
         }
 
         /// <summary>

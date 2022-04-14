@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
@@ -32,7 +33,7 @@ namespace nscreg.Server.Controllers
     /// </summary>
     public class HomeController : Controller
     {
-        private readonly IHostingEnvironment _env;
+        private readonly IWebHostEnvironment _env;
         private readonly IAntiforgery _antiforgery;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly LocalizationSettings _localization;
@@ -43,7 +44,7 @@ namespace nscreg.Server.Controllers
         private dynamic _assets;
 
         public HomeController(
-            IHostingEnvironment env,
+            IWebHostEnvironment env,
             IAntiforgery antiforgery,
             LocalizationSettings localization,
             DbMandatoryFields dbMandatoryFields,
@@ -79,12 +80,14 @@ namespace nscreg.Server.Controllers
                 }
             }
 
-            var user = await _ctx.Users
+            var allUserIdentity = await _ctx.Users
                 .Include(x => x.UserRoles)
                 .ThenInclude(x=>x.Role)
-                .FirstAsync(u => u.Login == User.Identity.Name);
-            var roles = await _ctx.Roles
-                .Where(r => user.UserRoles.Any(ur => ur.RoleId == r.Id)).ToListAsync();
+                .ToListAsync();
+            var user = allUserIdentity.FirstOrDefault(u => u.Login == User.Identity.Name);
+            var allRole = await _ctx.Roles.ToListAsync();
+            var roles = allRole
+                .Where(r => user.UserRoles.Any(ur => ur.RoleId == r.Id)).ToList();
             if (user == null || !roles.Any()) return RedirectToAction("LogOut", "Account");
             var dataAccessAttributes = DataAccessPermissions.Combine(
                 roles.Select(r => r.StandardDataAccessArray));

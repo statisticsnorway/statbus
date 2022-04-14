@@ -193,7 +193,7 @@
     <value>Error while updating user</value>
   </data>
   <data name="LoginFailed" xml:space="preserve">
-    <value>Log in failed</value>
+    <value>Invalid username/password</value>
   </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
     <value>Current password is wrong</value>
@@ -2730,4 +2730,29 @@
   <data name="AnalysisRelatedPersons" xml:space="preserve">
     <value>Unit does not have any persons related to it</value>
   </data>
+  <data name="Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Stat Unit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
+  </data>
+  <data name="DoYouWantToDeleteUnit" xml:space="preserve">
+    <value>Do you want to delete unit</value>
+  </data>
+  <data name="StatUnitEnterprise" xml:space="preserve">
+    <value>Stat Unit Enterprise</value>
+  </data>
+  <data name="StatUnitLocal" xml:space="preserve">
+    <value>Stat Unit Local</value>
+  </data>
+  <data name="ErrorExportStatUnitReport" xml:space="preserve">
+    <value>Error Export Stat unit report</value>
+  </data>
+  <data name="SuccessfullyExportedStatUnitReport" xml:space="preserve">
+    <value>Successfully Exported Stat unit report</value>
+  </data>
 </root>
+

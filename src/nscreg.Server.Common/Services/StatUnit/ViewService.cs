@@ -17,24 +17,33 @@ using nscreg.Utilities.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using AutoMapper;
+using nscreg.Server.Common.Services.Contracts;
+using System.IO;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
     public class ViewService
     {
-        private readonly Common _commonSvc;
-        private readonly UserService _userService;
+        private readonly CommonService _commonSvc;
+        private readonly IUserService _userService;
         private readonly RegionService _regionService;
         private readonly NSCRegDbContext _context;
         private readonly DbMandatoryFields _mandatoryFields;
+        private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
+        private readonly IMapper _mapper;
 
-        public ViewService(NSCRegDbContext dbContext, DbMandatoryFields mandatoryFields)
+        public ViewService(NSCRegDbContext context, CommonService commonSvc,
+            IUserService userService, RegionService regionService, DbMandatoryFields mandatoryFields,
+            StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper,
+            IMapper mapper)
         {
-            _commonSvc = new Common(dbContext);
-            _userService = new UserService(dbContext);
-            _regionService = new RegionService(dbContext);
-            _context = dbContext;
+            _commonSvc = commonSvc;
+            _userService = userService;
+            _regionService = regionService;
+            _context = context;
             _mandatoryFields = mandatoryFields;
+            _statUnitCheckPermissionsHelper = statUnitCheckPermissionsHelper;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -63,7 +72,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
             foreach (var person in item.PersonsUnits)
             {
-                if (person.PersonTypeId != null) person.Person.Role = (int) person.PersonTypeId;
+                if (person.PersonTypeId != null) person.Person.Role = (int)person.PersonTypeId;
             }
             return SearchItemVm.Create(item, item.UnitType, dataAttributes.GetReadablePropNames());
         }
@@ -84,20 +93,19 @@ namespace nscreg.Server.Common.Services.StatUnit
                 : GetDefaultDomainForType(type);
 
             if (item == null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
-            
+
             if ((ignoredActions == ActionsEnum.Edit) && isEmployee)
             {
-                var helper = new StatUnitCheckPermissionsHelper(_context);
                 var mappedItem = new ElasticStatUnit();
-                Mapper.Map(item, mappedItem);
-                helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
+                _mapper.Map(item, mappedItem);
+                _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
-            
+
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
 
             var config = type == StatUnitTypes.EnterpriseGroup
                 ? _mandatoryFields.EnterpriseGroup
-                : (object) _mandatoryFields.StatUnit;
+                : (object)_mandatoryFields.StatUnit;
             var mandatoryDict = config.GetType().GetProperties().ToDictionary(x => x.Name, GetValueFrom(config));
             if (type != StatUnitTypes.EnterpriseGroup)
             {
@@ -145,7 +153,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 root = OrgLinksNode.Create(
                     await GetOrgLinkNode(root.ParentOrgLink.Value),
-                    new[] {root});
+                    new[] { root });
             }
             return root;
 
@@ -181,7 +189,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name = "type"> Type of stat. units </param>
         /// <returns> </returns>
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
-            => (IStatisticalUnit) Activator.CreateInstance(StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
+            => (IStatisticalUnit)Activator.CreateInstance(StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 
         public async Task<UnitLookupVm> GetStatUnitById(int id)
         {
@@ -198,7 +206,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var sectorCode = await _context.SectorCodes.FirstOrDefaultAsync(x => x.Id == sectorCodeId);
             return sectorCode != null
-                ? new CodeLookupVm {Id = sectorCode.Id, Code = sectorCode.Code, Name = sectorCode.Name, NameLanguage1 = sectorCode.NameLanguage1, NameLanguage2 = sectorCode.NameLanguage2}
+                ? new CodeLookupVm { Id = sectorCode.Id, Code = sectorCode.Code, Name = sectorCode.Name, NameLanguage1 = sectorCode.NameLanguage1, NameLanguage2 = sectorCode.NameLanguage2 }
                 : new CodeLookupVm();
         }
 
@@ -208,6 +216,154 @@ namespace nscreg.Server.Common.Services.StatUnit
             return legalForm != null
                 ? new CodeLookupVm { Id = legalForm.Id, Code = legalForm.Code, Name = legalForm.Name, NameLanguage1 = legalForm.NameLanguage1, NameLanguage2 = legalForm.NameLanguage2 }
                 : new CodeLookupVm();
+        }
+
+        public async Task<byte[]> DownloadStatUnitEnterprise()
+        {
+            var records = _context.StatUnitEnterprise_2021.AsNoTracking().AsAsyncEnumerable();
+            using var mem = new MemoryStream();
+            using var writer = new StreamWriter(mem);
+
+            writer.Write("StatUnitEnterprise_2021, ");
+            writer.Write("StatId, ");
+            writer.Write("Oblast, ");
+            writer.Write("Rayon, ");
+            writer.Write("ActCat_section_code, ");
+            writer.Write("ActCat_section_desc, ");
+            writer.Write("ActCat_2dig_code, ");
+            writer.Write("ActCat_2dig_desc, ");
+            writer.Write("ActCat_3dig_code, ");
+            writer.Write("ActCat_3dig_desc, ");
+            writer.Write("LegalForm_code, ");
+            writer.Write("LegalForm_desc, ");
+            writer.Write("InstSectorCode_level1, ");
+            writer.Write("InstSectorCode_level1_desc, ");
+            writer.Write("InstSectorCode_level2, ");
+            writer.Write("InstSectorCode_level2_desc, ");
+            writer.Write("SizeCode, ");
+            writer.Write("SizeDesc, ");
+            writer.Write("Turnover, ");
+            writer.Write("Employees, ");
+            writer.Write("NumOfPeopleEmp, ");
+            writer.Write("RegistrationDate, ");
+            writer.Write("LiqDate, ");
+            writer.Write("StatusCode, ");
+            writer.Write("StatusDesc, ");
+            writer.Write("Sex");
+            writer.Write(Environment.NewLine);
+
+            await foreach (var record in records)
+            {
+                WriteStringToStream(writer, record.StatId);
+                WriteNullableToStream(writer, record.Oblast);
+                WriteNullableToStream(writer, record.Rayon);
+                WriteStringToStream(writer, record.ActCat_section_code);
+                WriteStringToStream(writer, record.ActCat_section_desc);
+                WriteStringToStream(writer, record.ActCat_2dig_code);
+                WriteStringToStream(writer, record.ActCat_2dig_desc);
+                WriteStringToStream(writer, record.ActCat_3dig_code);
+                WriteStringToStream(writer, record.ActCat_3dig_desc);
+                WriteStringToStream(writer, record.LegalForm_code);
+                WriteStringToStream(writer, record.LegalForm_desc);
+                WriteStringToStream(writer, record.InstSectorCode_level1);
+                WriteStringToStream(writer, record.InstSectorCode_level1_desc);
+                WriteStringToStream(writer, record.InstSectorCode_level2);
+                WriteStringToStream(writer, record.InstSectorCode_level2_desc);
+                WriteNullableToStream(writer, record.SizeCode);
+                WriteStringToStream(writer, record.SizeDesc);
+                WriteNullableToStream(writer, record.Turnover);
+                WriteNullableToStream(writer, record.Employees);
+                WriteNullableToStream(writer, record.NumOfPeopleEmp);
+                WriteNullableToStream(writer, record.RegistrationDate);
+                WriteNullableToStream(writer, record.LiqDate);
+                WriteStringToStream(writer, record.StatusCode);
+                WriteStringToStream(writer, record.StatusDesc);
+                WriteNullableToStream(writer, record.Sex, Environment.NewLine);
+            }
+
+            writer.Flush();
+            return mem.ToArray();
+        }
+
+        private static void WriteStringToStream(StreamWriter writer, string value, string separator = ",")
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                writer.Write(value);
+            writer.Write(separator);
+        }
+
+        private static void WriteNullableToStream<T>(StreamWriter writer, Nullable<T> value, string separator = ",") where T : struct
+        {
+            if (value.HasValue)
+                writer.Write(value.Value.ToString());
+            writer.Write(separator);
+        }
+
+        public async Task<byte[]> DownloadStatUnitLocal()
+        {
+            var records = _context.StatUnitLocal_2021.AsNoTracking().AsAsyncEnumerable();
+            using var mem = new MemoryStream();
+            using var writer = new StreamWriter(mem);
+
+            writer.Write("StatUnitEnterprise_2021, ");
+            writer.Write("StatId, ");
+            writer.Write("Oblast, ");
+            writer.Write("Rayon, ");
+            writer.Write("ActCat_section_code, ");
+            writer.Write("ActCat_section_desc, ");
+            writer.Write("ActCat_2dig_code, ");
+            writer.Write("ActCat_2dig_desc, ");
+            writer.Write("ActCat_3dig_code, ");
+            writer.Write("ActCat_3dig_desc, ");
+            writer.Write("LegalForm_code, ");
+            writer.Write("LegalForm_desc, ");
+            writer.Write("InstSectorCode_level1, ");
+            writer.Write("InstSectorCode_level1_desc, ");
+            writer.Write("InstSectorCode_level2, ");
+            writer.Write("InstSectorCode_level2_desc, ");
+            writer.Write("SizeCode, ");
+            writer.Write("SizeDesc, ");
+            writer.Write("Turnover, ");
+            writer.Write("Employees, ");
+            writer.Write("NumOfPeopleEmp, ");
+            writer.Write("RegistrationDate, ");
+            writer.Write("LiqDate, ");
+            writer.Write("StatusCode, ");
+            writer.Write("StatusDesc, ");
+            writer.Write("Sex");
+            writer.Write(Environment.NewLine);
+
+            await foreach (var record in records)
+            {
+                WriteStringToStream(writer, record.StatId);
+                WriteNullableToStream(writer, record.Oblast);
+                WriteNullableToStream(writer, record.Rayon);
+                WriteStringToStream(writer, record.ActCat_section_code);
+                WriteStringToStream(writer, record.ActCat_section_desc);
+                WriteStringToStream(writer, record.ActCat_2dig_code);
+                WriteStringToStream(writer, record.ActCat_2dig_desc);
+                WriteStringToStream(writer, record.ActCat_3dig_code);
+                WriteStringToStream(writer, record.ActCat_3dig_desc);
+                WriteStringToStream(writer, record.LegalForm_code);
+                WriteStringToStream(writer, record.LegalForm_desc);
+                WriteStringToStream(writer, record.InstSectorCode_level1);
+                WriteStringToStream(writer, record.InstSectorCode_level1_desc);
+                WriteStringToStream(writer, record.InstSectorCode_level2);
+                WriteStringToStream(writer, record.InstSectorCode_level2_desc);
+                WriteNullableToStream(writer, record.SizeCode);
+                WriteStringToStream(writer, record.SizeDesc);
+                WriteNullableToStream(writer, record.Turnover);
+                WriteNullableToStream(writer, record.Employees);
+                WriteNullableToStream(writer, record.NumOfPeopleEmp);
+                WriteNullableToStream(writer, record.RegistrationDate);
+                WriteNullableToStream(writer, record.LiqDate);
+                WriteStringToStream(writer, record.StatusCode);
+                WriteStringToStream(writer, record.StatusDesc);
+                WriteNullableToStream(writer, record.Sex, Environment.NewLine);
+            }
+
+            writer.Flush();
+            return mem.ToArray();
         }
     }
 }

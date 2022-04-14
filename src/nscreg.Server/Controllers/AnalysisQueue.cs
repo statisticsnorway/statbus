@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -19,18 +20,11 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class AnalysisQueueController : Controller
     {
-        private readonly AnalysisQueueService _svc;
+        private readonly AnalysisQueueService _analysisQueueService;
 
-        public AnalysisQueueController(
-            NSCRegDbContext ctx,
-            DbMandatoryFields mandatoryFields,
-            StatUnitAnalysisRules analysisRules,
-            ValidationSettings validationSettings)
+        public AnalysisQueueController(AnalysisQueueService analysisQueueService)
         {
-            _svc = new AnalysisQueueService(
-                ctx,
-                new ViewService(ctx, mandatoryFields),
-                new EditService(ctx, analysisRules, mandatoryFields, validationSettings));
+            _analysisQueueService = analysisQueueService;
         }
 
         /// <summary>
@@ -40,7 +34,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.AnalysisQueueView)]
-        public async Task<IActionResult> Get([FromQuery] SearchQueryModel query) => Ok(await _svc.GetAsync(query));
+        public async Task<IActionResult> Get([FromQuery] SearchQueryModel query) => Ok(await _analysisQueueService.GetAsync(query));
 
         /// <summary>
         /// Creates analysis queue item
@@ -50,7 +44,7 @@ namespace nscreg.Server.Controllers
         [HttpPost]
         [SystemFunction(SystemFunctions.AnalysisQueueAdd)]
         public async Task<IActionResult> Create([FromBody] AnalisysQueueCreateModel data) =>
-            Ok(await _svc.CreateAsync(data, User.GetUserId()));
+            Ok(await _analysisQueueService.CreateAsync(data, User.GetUserId()));
 
         /// <summary>
         /// Get analysis queue item log
@@ -59,7 +53,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("{queueId:int}/log")]
         [SystemFunction(SystemFunctions.AnalysisQueueLogView)]
-        public async Task<IActionResult> GetQueueLog(LogsQueryModel query) => Ok(await _svc.GetLogs(query));
+        public async Task<IActionResult> GetQueueLog(LogsQueryModel query) => Ok(await _analysisQueueService.GetLogs(query));
 
         /// <summary>
         /// Get analysis queue log entry details
@@ -68,7 +62,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("logs/{id:int}")]
         [SystemFunction(SystemFunctions.AnalysisQueueLogView)]
-        public async Task<IActionResult> GetLogEntry(int id) => Ok(await _svc.GetLogEntry(id));
+        public async Task<IActionResult> GetLogEntry(int id) => Ok(await _analysisQueueService.GetLogEntry(id));
 
         /// <summary>
         /// Update statunit with fixes on analysis issues
@@ -80,7 +74,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.AnalysisQueueLogUpdate)]
         public async Task<IActionResult> SubmitLogEntry(int logId, [FromBody]string data)
         {
-            var errors = await _svc.UpdateLogEntry(logId, data, User.GetUserId());
+            var errors = await _analysisQueueService.UpdateLogEntry(logId, data, User.GetUserId());
             return errors != null ? (IActionResult) BadRequest(errors) : NoContent();
         }
 
@@ -93,7 +87,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.AnalysisQueueLogDelete)]
         public async Task<IActionResult> DeleteLog(int logId)
         {
-            await _svc.DeleteAnalyzeLogAsync(logId);
+            await _analysisQueueService.DeleteAnalyzeLogAsync(logId);
             return NoContent();
         }
     }

@@ -5,11 +5,7 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.ServicesUtils;
-using PeterKottas.DotNetCore.WindowsService;
-using nscreg.Utilities.Configuration;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -25,27 +21,6 @@ namespace nscreg.Server.DataUploadSvc
         /// </summary>
         public static void Main()
         {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var logger = new LoggerFactory()
-                .AddConsole()
-#pragma warning restore CS0618 // Type or member is obsolete
-                .AddNLog()
-                .CreateLogger<Program>();
-
-            var configBuilder = new ConfigurationBuilder();
-            var baseDirectory = AppContext.BaseDirectory;
-            var configuration = configBuilder
-                .SetBasePath(baseDirectory)
-                .AddJsonFile("appsettings.Shared.json", true)
-                .Build();
-
-            const string serviceName = "nscreg.Server.DataUploadSvc";
-
-            ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
-            ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
-
-            Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
-
             ServiceRunner<JobService>.Run(config =>
             {
                 config.SetName(serviceName);
@@ -55,19 +30,7 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
                     {
-                        var servicesSettings = configuration
-                            .GetSection(nameof(ServicesSettings))
-                            .Get<ServicesSettings>();
-                        var statUnitAnalysisRules = configuration
-                            .GetSection(nameof(StatUnitAnalysisRules))
-                            .Get<StatUnitAnalysisRules>();
-                        var dbMandatoryFields = configuration
-                            .GetSection(nameof(DbMandatoryFields))
-                            .Get<DbMandatoryFields>();
-                        var validationSettings = configuration
-                            .GetSection(nameof(ValidationSettings))
-                            .Get<ValidationSettings>();
-
+                       
                         return new JobService(
                             logger,
                             new QueueJob(
@@ -78,8 +41,7 @@ namespace nscreg.Server.DataUploadSvc
                                 validationSettings,
                                 servicesSettings.DataUploadMaxBufferCount,
                                 servicesSettings.PersonGoodQuality,
-                                servicesSettings.ElementsForRecreateContext
-                                ),
+                                servicesSettings.ElementsForRecreateContext, mapper),
                             new QueueCleanupJob(
                                 servicesSettings.DataUploadServiceDequeueInterval,
                                 servicesSettings.DataUploadServiceCleanupTimeout,

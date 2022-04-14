@@ -40,11 +40,13 @@ namespace nscreg.Server.Common.Helpers
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly IElasticUpsertService _elasticService;
+        private readonly IMapper _mapper;
 
-        public StatUnitCreationHelper(NSCRegDbContext dbContext, IElasticUpsertService service)
+        public StatUnitCreationHelper(NSCRegDbContext dbContext, IElasticUpsertService service, IMapper mapper)
         {
             _dbContext = dbContext;
             _elasticService = service;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -64,7 +66,7 @@ namespace nscreg.Server.Common.Helpers
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
 
-            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
+            await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
         }
 
         /// <summary>
@@ -82,6 +84,7 @@ namespace nscreg.Server.Common.Helpers
                 try
                 {
                     createdLegal = await CreateStatUnitAsync(legalUnit);
+                    await _dbContext.SaveChangesAsync();
                     if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
                     {
                         var sameStatIdEnterprise =
@@ -95,8 +98,8 @@ namespace nscreg.Server.Common.Helpers
                         {
                             createdEnterprise = await CreateEnterpriseForLegalAsync(createdLegal);
                         }
-                            
                     }
+
                     var addressIds = legalUnit.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
                     var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id)).ToListAsync();
                     var sameAddresses = addresses.Where(x =>
@@ -113,8 +116,13 @@ namespace nscreg.Server.Common.Helpers
                     }
                     await _dbContext.SaveChangesAsync();
 
-                    var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.RegId == createdLegal.EnterpriseUnitRegId)
+                    var regId = legalUnit.EnterpriseUnitRegId ??= createdEnterprise.RegId;
+                    var legalsOfEnterprise = await _dbContext.LegalUnits.Where(leu => leu.EnterpriseUnitRegId == regId)
                         .Select(x => x.RegId).ToListAsync();
+
+                    if(createdLegal.EnterpriseUnit == null)
+                        createdLegal.EnterpriseUnit = await _dbContext.EnterpriseUnits.FirstOrDefaultAsync(x => x.RegId == regId);
+
                     createdLegal.EnterpriseUnit.HistoryLegalUnitIds += string.Join(",", legalsOfEnterprise);
                     
                     _dbContext.EnterpriseUnits.Update(createdLegal.EnterpriseUnit);
@@ -132,14 +140,13 @@ namespace nscreg.Server.Common.Helpers
                 }
             }
             Tracer.elastic.Start();
-            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLegal));
+            await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLegal));
             if(createdLocal != null)
-               await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLocal));
+               await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLocal));
             if (createdEnterprise != null)
-                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterprise));
+                await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterprise));
             Tracer.elastic.Stop();
             Debug.WriteLine($"Elastic {Tracer.elastic.ElapsedMilliseconds / ++Tracer.countelastic}\n\n");
-
         }
 
         /// <summary>
@@ -181,9 +188,9 @@ namespace nscreg.Server.Common.Helpers
                 }
             }
 
-            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdUnit));
+            await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdUnit));
             if(createdGroup != null)
-                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdGroup));
+                await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdGroup));
         }
 
         /// <summary>
@@ -225,7 +232,7 @@ namespace nscreg.Server.Common.Helpers
                 }
             }
 
-            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterpriseGroup));
+            await _elasticService.AddDocument(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterpriseGroup));
         }
         public async Task CheckElasticConnect()
         {

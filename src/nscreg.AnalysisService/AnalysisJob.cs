@@ -1,39 +1,28 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using NLog;
 using nscreg.Data;
 using nscreg.Server.Common.Services.Contracts;
-using nscreg.Server.Common.Services.StatUnit;
-using nscreg.ServicesUtils.Interfaces;
-using nscreg.Utilities.Configuration;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.AnalysisService
 {
     /// <summary>
     /// Analysis work class
     /// </summary>
-    internal class AnalysisJob : IJob
+    internal class AnalysisJob
     {
         private readonly NSCRegDbContext _ctx;
         public int Interval { get; }
         private readonly IStatUnitAnalyzeService _analysisService;
-        private readonly ILogger _logger;
+        private static Logger _logger = LogManager.GetCurrentClassLogger();
 
-        public AnalysisJob(NSCRegDbContext ctx,
-            StatUnitAnalysisRules analysisRules,
-            DbMandatoryFields dbMandatoryFields,
-            int dequeueInterval,
-            ValidationSettings validationSettings,
-            ILogger logger)
+        public AnalysisJob(NSCRegDbContext ctx, int dequeueInterval,
+            IStatUnitAnalyzeService analysisService)
         {
             _ctx = ctx;
-            _analysisService = new AnalyzeService(ctx, analysisRules, dbMandatoryFields, validationSettings);
+            _analysisService = analysisService;
             Interval = dequeueInterval;
-            _logger = logger;
         }
 
         /// <summary>
@@ -42,21 +31,13 @@ namespace nscreg.AnalysisService
         /// <param name="cancellationToken"></param>
         public async Task Execute(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("analysis queue attempt...");
+            _logger.Info("analysis queue attempt...");
             var analysisQueue = await _ctx.AnalysisQueues.FirstOrDefaultAsync(aq => aq.ServerEndPeriod == null, cancellationToken);
             if (analysisQueue != null)
             {
-                _logger.LogInformation("analizing stat units queue {0}", analysisQueue.Id);
+                _logger.Info("analizing stat units queue {0}", analysisQueue.Id);
                 await _analysisService.AnalyzeStatUnits(analysisQueue);
             }
-        }
-
-        /// <summary>
-        /// Exception handler method
-        /// </summary>
-        public void OnException(Exception e)
-        {
-            _logger.LogError("queue exception {0}", e);
         }
     }
 }
