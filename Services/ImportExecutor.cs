@@ -20,6 +20,7 @@ using NLog;
 using AutoMapper;
 using nscreg.Server.Common.Services.Contracts;
 using Microsoft.Extensions.Configuration;
+using nscreg.Server.Common.Services;
 
 namespace nscreg.Services
 {
@@ -29,21 +30,22 @@ namespace nscreg.Services
         private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly DbLogBuffer _logBuffer;
         private readonly IMapper _mapper;
-        private readonly IUserService _userService;
+        //private readonly IUserService _userService;
         private readonly ServicesSettings _servicesSettings;
         private readonly IStatUnitAnalyzeService _analyzeService;
-        private readonly CommonService _commonService;
+        //private readonly CommonService _commonService;
         private readonly IConfiguration _configuration;
 
-        public ImportExecutor(DbLogBuffer logBuffer, IUserService userService, IMapper mapper,
-            CommonService commonService, ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService,
+        public ImportExecutor(DbLogBuffer logBuffer, /*IUserService userService,*/ IMapper mapper,
+            /*CommonService commonService,*/ ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService,
             IConfiguration configuration)
         {
             _logBuffer = logBuffer;
-            _userService = userService;
+            //_userService = userService;
             _mapper = mapper;
-            _commonService = commonService;
+            //_commonService = commonService;
             _servicesSettings = servicesSettings;
+            //TODO analyzeServis not create with new
             _analyzeService = analyzeService;
             _configuration = configuration;
         }
@@ -54,13 +56,14 @@ namespace nscreg.Services
         {
             var dbContextHelper = new DbContextHelper(_configuration);
             var context = dbContextHelper.CreateDbContext(new string[] { });
-            context.Database.SetCommandTimeout(3000);
+            context.Database.SetCommandTimeout(30000);
             await InitializeCacheForLookups(context);
-            var permissions = await _commonService.InitializeDataAccessAttributes<IStatUnitM>(null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-            var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _commonService, _servicesSettings.DataUploadMaxBufferCount);
+            var userService = new UserService(context, _mapper);
+            var permissions = await new CommonService(context, _mapper).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+            var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _servicesSettings.DataUploadMaxBufferCount);
             var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
-            var saveService = new SaveManager(new BulkUpsertUnitService(context, sqlBulkBuffer, _commonService, permissions, _mapper, dequeued.UserId));
-            bool isAdmin = await _userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
+            var saveService = new SaveManager(context, sqlBulkBuffer, permissions, _mapper, dequeued.UserId);
+            bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {

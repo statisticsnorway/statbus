@@ -26,26 +26,29 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class DeleteService
     {
         private readonly CommonService _commonSvc;
-        private readonly IUserService _userService;
+        private readonly UserService _userService;
         private readonly Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>> _deleteUndeleteActions;
         private readonly Dictionary<StatUnitTypes, Action<IStatisticalUnit, bool, string>> _postDeleteActions;
         private readonly NSCRegDbContext _dbContext;
-        private readonly IElasticUpsertService _elasticService;
+        private readonly ElasticService _elasticService;
         private readonly DataAccessService _dataAccessService;
-        private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
+        //private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
         private readonly IMapper _mapper;
 
 
-        public DeleteService(NSCRegDbContext dbContext, CommonService commonSvc, IUserService userService,
-            IElasticUpsertService elasticService, DataAccessService dataAccessService,
-            StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper, IMapper mapper)
+        public DeleteService(NSCRegDbContext dbContext,
+            //CommonService commonSvc, IUserService userService,
+            //IElasticUpsertService elasticService, DataAccessService dataAccessService,
+            //StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper,
+            IMapper mapper)
         {
             _dbContext = dbContext;
-            _elasticService = elasticService;
-            _dataAccessService = dataAccessService;
-            _commonSvc = commonSvc;
-            _userService = userService;
-            _statUnitCheckPermissionsHelper = statUnitCheckPermissionsHelper;
+            _mapper = mapper;
+            _elasticService = new ElasticService(dbContext, mapper);
+            _dataAccessService = new DataAccessService(dbContext, mapper);
+            _commonSvc = new CommonService(dbContext, mapper);
+            _userService = new UserService(dbContext, mapper);
+            //_statUnitCheckPermissionsHelper = statUnitCheckPermissionsHelper;
 
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
@@ -60,8 +63,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 [StatUnitTypes.EnterpriseUnit] = PostDeleteEnterpriseUnit,
                 [StatUnitTypes.LocalUnit] = PostDeleteLocalUnit,
                 [StatUnitTypes.LegalUnit] = PostDeleteLegalUnit
-            };
-            _mapper = mapper;
+            };            
         }
 
         /// <summary>
@@ -83,7 +85,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var mappedItem = _mapper.Map<IStatisticalUnit, ElasticStatUnit>(item);
             if (isEmployee)
             {
-                _statUnitCheckPermissionsHelper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
+                var helper = new StatUnitCheckPermissionsHelper(_dbContext);
+                helper.CheckRegionOrActivityContains(userId, mappedItem.RegionIds, mappedItem.ActivityCategoryIds);
             }
             if (item.IsDeleted == toDelete)
             {

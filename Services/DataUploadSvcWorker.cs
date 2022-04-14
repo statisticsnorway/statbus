@@ -26,7 +26,7 @@ namespace nscreg.Services
         private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly DataAccessService _dataAccessService;
         private readonly ServicesSettings _serviceSettings;
-        private readonly IUserService _userService;
+        //private readonly IUserService _userService;
         private readonly CommonService _commonService;
         private readonly IStatUnitAnalyzeService _analyzeService;
         private readonly IMapper _mapper;
@@ -42,7 +42,7 @@ namespace nscreg.Services
         {
             _serviceSettings = servicesSettings.Value;
             _mapper = mapper;
-            _userService = userService;
+            //_userService = userService;
             _dataAccessService = dataAccessService;
             _commonService = commonService;
             _analyzeService = analyzeService;
@@ -103,7 +103,7 @@ namespace nscreg.Services
                 return;
             }
 
-            var executor = new ImportExecutor(_logBuffer, _userService, _mapper, _commonService, _serviceSettings, _analyzeService, _configuration);
+            var executor = new ImportExecutor(_logBuffer, _mapper, _serviceSettings, _analyzeService, _configuration);
             var (parseError, parsed, problemLine) = await ParseFile(dequeued);
 
             if (parseError.HasValue())
@@ -136,8 +136,8 @@ namespace nscreg.Services
                     : QueueStatus.DataLoadCompleted, exceptionMessage);
 
             DisposeScopedServices();
-
         }
+
         private async Task CatchAndLogException(Func<Task> func, Action<string> onException)
         {
             try

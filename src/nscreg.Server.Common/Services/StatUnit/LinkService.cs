@@ -26,15 +26,17 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly CommonService _commonSvc;
-        private readonly IUserService _userService;
-        private readonly IElasticUpsertService _elasticService;
+        private readonly UserService _userService;
+        private readonly ElasticService _elasticService;
+        private readonly IMapper _mapper;
 
-        public LinkService(NSCRegDbContext dbContext, CommonService commonSvc, IElasticUpsertService elasticService, IUserService userService)
+        public LinkService(NSCRegDbContext dbContext, IMapper mapper /*CommonService commonSvc, IElasticUpsertService elasticService, IUserService userService*/)
         {
             _dbContext = dbContext;
-            _commonSvc = commonSvc;
-            _elasticService = elasticService;
-            _userService = userService;
+            _mapper = mapper;
+            _commonSvc = new CommonService(dbContext, mapper);
+            _elasticService = new ElasticService(dbContext, mapper);
+            _userService = new UserService(dbContext, mapper);
         }
 
         /// <summary>

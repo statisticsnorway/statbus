@@ -45,17 +45,17 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly DataAccessPermissions _permissions;
         private readonly IMapper _mapper;
 
-        public EditUnitService(NSCRegDbContext dbContext, CommonService commonSvc, string userId, DataAccessPermissions permissions, IMapper mapper)
+        public EditUnitService(NSCRegDbContext dbContext, /*CommonService commonSvc,*/ string userId, DataAccessPermissions permissions, IMapper mapper)
         {
             _permissions = permissions;
             _userId = userId;
             _dbContext = dbContext;
-            _commonSvc = commonSvc;
+            _mapper = mapper;
+            _commonSvc = new CommonService(dbContext, mapper);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
-            _editTracer = new EditTracer();
-            _mapper = mapper;
+            _editTracer = new EditTracer();            
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     enterpriseUnit.LiqDate = changedUnit.LiqDate;
                     _editArrayStatisticalUnits.Add(_mapper.Map<IStatisticalUnit, ElasticStatUnit>(enterpriseUnit));
                 }
-                if (_commonSvc.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
+                if (CommonService.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
                 {
                     if (changedUnit.LocalUnits != null && changedUnit.LocalUnits.Any())
                     {

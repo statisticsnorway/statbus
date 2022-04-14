@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using AutoMapper;
+using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -12,29 +15,30 @@ namespace nscreg.Server.Common.Services.DataSources
 
 
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType;
-        private readonly BulkUpsertUnitService _bulkUpsertUnitService;
+        //private readonly BulkUpsertUnitService _bulkUpsertUnitService;
+        //private readonly NSCRegDbContext _dbContext;
 
-        public  SaveManager(BulkUpsertUnitService bulkUpsertUnitService)
+        public  SaveManager(NSCRegDbContext context, UpsertUnitBulkBuffer buffer, DataAccessPermissions permissions, IMapper mapper, string userId)
         {
-            _bulkUpsertUnitService = bulkUpsertUnitService;
+            var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, mapper, userId);
 
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, _) =>
-                    _bulkUpsertUnitService.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
+                    bulkUpsertUnitService.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
                 [StatUnitTypes.LocalUnit] = (unit, _) =>
-                    _bulkUpsertUnitService.CreateLocalUnit(unit as LocalUnit),
+                    bulkUpsertUnitService.CreateLocalUnit(unit as LocalUnit),
                 [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
-                   _bulkUpsertUnitService.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
+                   bulkUpsertUnitService.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
             };
             _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, hunit) =>
-                    _bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
+                    bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
                 [StatUnitTypes.LocalUnit] = (unit, hunit) =>
-                    _bulkUpsertUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
+                    bulkUpsertUnitService.EditLocalUnit(unit as LocalUnit, hunit as LocalUnit),
                 [StatUnitTypes.EnterpriseUnit] = (unit, hunit) =>
-                    _bulkUpsertUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
+                    bulkUpsertUnitService.EditEnterpriseUnit(unit as EnterpriseUnit, hunit as EnterpriseUnit )
             };
         }
 

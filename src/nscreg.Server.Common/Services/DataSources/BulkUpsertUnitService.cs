@@ -25,14 +25,13 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly DataAccessPermissions _permissions;
         private readonly IMapper _mapper;
 
-        public BulkUpsertUnitService(NSCRegDbContext context, UpsertUnitBulkBuffer buffer,
-            CommonService commonSvc, DataAccessPermissions permissions, IMapper mapper, string userId)
+        public BulkUpsertUnitService(NSCRegDbContext context, UpsertUnitBulkBuffer buffer, DataAccessPermissions permissions, IMapper mapper, string userId)
         {
             _bufferService = buffer;
             _dbContext = context;
             _permissions = permissions;
             _userId = userId;
-            _commonSvc = commonSvc;
+            _commonSvc = new CommonService(context, mapper);
             _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _mapper = mapper;
         }
@@ -165,7 +164,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     enterpriseUnit.LiqDate = changedUnit.LiqDate;
                     await _bufferService.AddToBufferAsync(enterpriseUnit);
                 }
-                if (_commonSvc.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
+                if (CommonService.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits))
                 {
                     if (changedUnit.LocalUnits != null && changedUnit.LocalUnits.Any())
                     {

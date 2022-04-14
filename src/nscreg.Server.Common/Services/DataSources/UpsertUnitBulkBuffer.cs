@@ -29,10 +29,9 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly int _maxBulkOperationsBufferedCount;
         private readonly DataSourceQueue _dataSourceQueue;
         private readonly IMapper _mapper;
-        private readonly CommonService _commonService;
+
         public UpsertUnitBulkBuffer(NSCRegDbContext context, IElasticUpsertService elasticSearchService,
-            DataAccessPermissions permissions, DataSourceQueue queue, IMapper mapper, CommonService commonService,
-            int maxBufferCount = 1000)
+            DataAccessPermissions permissions, DataSourceQueue queue, IMapper mapper, int maxBufferCount = 100)
         {
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
@@ -43,7 +42,6 @@ namespace nscreg.Server.Common.Services.DataSources
             _dataSourceQueue = queue;
             _maxBulkOperationsBufferedCount = maxBufferCount;
             _mapper = mapper;
-            _commonService = commonService;
         }
 
         public void AddToDeleteBuffer(EnterpriseUnit unit)
@@ -112,7 +110,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var legalStatIds = new List<string>();
 
-                var hasAccess = _commonService.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits);
+                var hasAccess = CommonService.HasAccess<LegalUnit>(_permissions, v => v.LocalUnits);
 
                 legals.ForEach(changedUnit =>
                 {
@@ -244,6 +242,5 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             _isEnabledFlush = true;
         }
-
     }
 }

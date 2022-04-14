@@ -27,11 +27,13 @@ namespace nscreg.Server.Common.Services
     {
         private readonly NSCRegDbContext _context;
         private readonly RegionService _regionsService;
+        private readonly IMapper _mapper;
 
-        public UserService(NSCRegDbContext db, RegionService regionsService)
+        public UserService(NSCRegDbContext db, IMapper mapper)
         {
             _context = db;
-            _regionsService = regionsService;
+            _mapper = mapper;
+            _regionsService = new RegionService(db, _mapper);
         }
 
         /// <summary>

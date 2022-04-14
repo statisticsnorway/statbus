@@ -60,17 +60,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         private bool IsBulk => _buffer != null;
         private readonly UpsertUnitBulkBuffer _buffer;
         private readonly IMapper _mapper;
-        private readonly IUserService _userService;
-        private readonly ModelExpressionProvider _modelExpressionProvider;
+        //private readonly IUserService _userService;
 
-        public CommonService(NSCRegDbContext dbContext, IMapper mapper, IUserService userService,
-            ModelExpressionProvider modelExpressionProvider, UpsertUnitBulkBuffer buffer= null)
+        public CommonService(NSCRegDbContext dbContext, IMapper mapper,
+            /*IUserService userService,*/ UpsertUnitBulkBuffer buffer = null)
         {
             _buffer = buffer;
             _dbContext = dbContext;
             _mapper = mapper;
-            _userService = userService;
-            _modelExpressionProvider = modelExpressionProvider;
+            //_userService = userService;
         }
 
         public static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
@@ -464,12 +462,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">type</param>
         /// <returns></returns>
         public async Task<DataAccessPermissions> InitializeDataAccessAttributes<TModel>(
+            UserService userService,
             TModel data,
             string userId,
             StatUnitTypes type) where TModel: IStatUnitM
         {
             var dataAccess = data?.DataAccess ?? new DataAccessPermissions();
-            var userDataAccess = await _userService.GetDataAccessAttributes(userId, type);
+            var userDataAccess = await userService.GetDataAccessAttributes(userId, type);
             var dataAccessChanged = !dataAccess.IsEqualTo(userDataAccess);
             if (dataAccessChanged)
             {
@@ -489,9 +488,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="dataAccess">data access</param>
         /// <param name="property">property</param>
         /// <returns></returns>
-        public bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
+        public static bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
             dataAccess.HasWritePermission(
-                DataAccessAttributesHelper.GetName<T>(_modelExpressionProvider.GetExpressionText<T, object>(property)));
+                DataAccessAttributesHelper.GetName<T>(ExpressionUtils.GetExpressionText(property)));
 
         /// <summary>
         /// Add Address Method

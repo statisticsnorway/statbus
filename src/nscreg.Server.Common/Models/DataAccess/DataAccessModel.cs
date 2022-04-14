@@ -78,7 +78,6 @@ namespace nscreg.Server.Common.Models.DataAccess
         /// <returns></returns>
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(ISet<string> dataAccess) where T: IStatisticalUnit
         {
-            //return new List<DataAccessAttributeVm>();
             return DataAccessAttributesProvider<T>.Attributes.Select(v => _mapper.Map(v, new DataAccessAttributeVm()
             {
                 Allowed = dataAccess.Contains(v.Name)
@@ -98,7 +97,6 @@ namespace nscreg.Server.Common.Models.DataAccess
 
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(DataAccessPermissions permissions) where T : IStatisticalUnit
         {
-            //return new List<DataAccessAttributeVm>();
             return DataAccessAttributesProvider<T>.Attributes.Select(v => _mapper.Map(v, new DataAccessAttributeVm()
             {
                 Allowed = permissions.HasWritePermission(v.Name),
@@ -109,7 +107,6 @@ namespace nscreg.Server.Common.Models.DataAccess
 
         public DataAccessPermissions ToPermissionsModel()
         {
-            //return new DataAccessPermissions();
             var attributes = LegalUnit
                 .Concat(LocalUnit)
                 .Concat(EnterpriseUnit)

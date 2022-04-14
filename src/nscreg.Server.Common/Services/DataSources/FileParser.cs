@@ -22,7 +22,8 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             using (var fileStream = File.OpenRead(filePath))
             {
-                return XmlParser.GetRawEntities(await XDocument.LoadAsync(fileStream, LoadOptions.None, CancellationToken.None)).Select(x => XmlParser.ParseRawEntity(x, mappings, skipCount));
+                return XmlParser.GetRawEntities(await XDocument.LoadAsync(fileStream, LoadOptions.None, CancellationToken.None))
+                    .Select(x => XmlParser.ParseRawEntity(x, mappings, skipCount));
             }
         }
 
