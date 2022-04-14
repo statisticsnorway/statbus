@@ -416,10 +416,9 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PostalAddress, x => x.Ignore());
 
             CreateMap<AnalisysQueueCreateModel, AnalysisQueue>()
-                .ForMember(x=>x.UserStartPeriod, opt=>opt.MapFrom(x=>x.DateFrom))
-                .ForMember(x=> x.UserEndPeriod, opt=>opt.MapFrom(x=>x.DateTo))
-                .ForMember(x=>x.Comment, opt=>opt.MapFrom(x=>x.Comment))
-                .ForAllMembers(x=>x.Ignore());
++                .ForMember(x => x.UserStartPeriod, opt => opt.MapFrom(x => x.DateFrom))
+                .ForMember(x => x.UserEndPeriod, opt => opt.MapFrom(x => x.DateTo))
+                .ForMember(x => x.Comment, opt => opt.MapFrom(x => x.Comment));
 
             CreateMap<Activity, Activity>()
                 .ForMember(x => x.ActivityType, opt => opt.PreCondition(x => x.ActivityType != default(ActivityTypes)))
