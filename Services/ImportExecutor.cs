@@ -21,6 +21,7 @@ using AutoMapper;
 using nscreg.Server.Common.Services.Contracts;
 using Microsoft.Extensions.Configuration;
 using nscreg.Server.Common.Services;
+using nscreg.Data.Entities.ComplexTypes;
 
 namespace nscreg.Services
 {
@@ -55,18 +56,32 @@ namespace nscreg.Services
         private Func<Task> Job(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => async () =>
         {
             var dbContextHelper = new DbContextHelper(_configuration);
-            var context = dbContextHelper.CreateDbContext(new string[] { });
-            context.Database.SetCommandTimeout(30000);
-            await InitializeCacheForLookups(context);
-            var userService = new UserService(context, _mapper);
-            var permissions = await new CommonService(context, _mapper).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
-            var sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _servicesSettings.DataUploadMaxBufferCount);
-            var populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
-            var saveService = new SaveManager(context, sqlBulkBuffer, permissions, _mapper, dequeued.UserId);
-            bool isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
+            NSCRegDbContext context = null;
+            UpsertUnitBulkBuffer sqlBulkBuffer = null;
+            PopulateService populateService = null;
+            SaveManager saveService = null;
+            bool isAdmin = false;
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {
+                if(i % 1000 == 0)
+                {
+                    if(sqlBulkBuffer != null)
+                    {
+                        await sqlBulkBuffer.FlushAsync();
+                    }
+
+                    context = dbContextHelper.CreateDbContext(new string[] { });
+                    context.Database.SetCommandTimeout(180);
+                    await InitializeCacheForLookups(context);
+                    var userService = new UserService(context, _mapper);
+                    var permissions = await new CommonService(context, _mapper).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
+                    sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _servicesSettings.DataUploadMaxBufferCount);
+                    populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
+                    saveService = new SaveManager(context, sqlBulkBuffer, permissions, _mapper, dequeued.UserId);
+                    isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
+                }
+
                 _logger.Info("processing entity #{0}", i++);
                 var startedAt = DateTime.Now;
 
