@@ -31,8 +31,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly StatUnitAnalysisHelper _helper;
         private readonly ValidationSettings _validationSettings;
 
-        public AnalyzeService(NSCRegDbContext context, StatUnitAnalysisRules analysisRules,
-            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
+        public AnalyzeService(NSCRegDbContext context, StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _context = context;
             _analysisRules = analysisRules;
