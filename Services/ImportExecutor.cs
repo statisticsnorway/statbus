@@ -63,7 +63,7 @@ namespace nscreg.Services
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {
-                if(i % 1000 == 0)
+                if(i % _servicesSettings.DataUploadMaxBufferCount == 0)
                 {
                     if(sqlBulkBuffer != null)
                     {
@@ -76,7 +76,7 @@ namespace nscreg.Services
                     await InitializeCacheForLookups(context);
                     var userService = new UserService(context, _mapper);
                     analyzeService = new AnalyzeService(context, _analysisRules, _mandatoryFields, _validationSettings);
-                    logBuffer = new DbLogBuffer(context);
+                    logBuffer = new DbLogBuffer(context, _servicesSettings.DataUploadMaxBufferCount);
                     var permissions = await new CommonService(context, _mapper).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
                     sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _servicesSettings.DataUploadMaxBufferCount);
                     populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
