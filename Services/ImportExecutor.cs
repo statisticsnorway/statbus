@@ -68,6 +68,7 @@ namespace nscreg.Services
                     if(sqlBulkBuffer != null)
                     {
                         await sqlBulkBuffer.FlushAsync();
+                        await logBuffer.FlushAsync();
                     }
 
                     context = dbContextHelper.CreateDbContext(new string[] { });
