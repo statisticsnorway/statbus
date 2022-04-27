@@ -30,7 +30,6 @@ namespace nscreg.Services
     {
         public bool AnyWarnings { get; private set; }
         private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
-        private readonly DbLogBuffer _logBuffer;
         private readonly IMapper _mapper;
         private readonly ServicesSettings _servicesSettings;
         private readonly IConfiguration _configuration;
@@ -39,9 +38,8 @@ namespace nscreg.Services
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly ValidationSettings _validationSettings;
 
-        public ImportExecutor(DbLogBuffer logBuffer, IMapper mapper, ServicesSettings servicesSettings, IConfiguration configuration)
+        public ImportExecutor(IMapper mapper, ServicesSettings servicesSettings, IConfiguration configuration)
         {
-            _logBuffer = logBuffer;
             _mapper = mapper;
             _servicesSettings = servicesSettings;
             _configuration = configuration;
@@ -60,6 +58,7 @@ namespace nscreg.Services
             PopulateService populateService = null;
             SaveManager saveService = null;
             IStatUnitAnalyzeService analyzeService = null;
+            DbLogBuffer logBuffer = null;
             bool isAdmin = false;
             int i = 0;
             foreach (var parsedUnit in keyValues)
@@ -76,6 +75,7 @@ namespace nscreg.Services
                     await InitializeCacheForLookups(context);
                     var userService = new UserService(context, _mapper);
                     analyzeService = new AnalyzeService(context, _analysisRules, _mandatoryFields, _validationSettings);
+                    logBuffer = new DbLogBuffer(context);
                     var permissions = await new CommonService(context, _mapper).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
                     sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _servicesSettings.DataUploadMaxBufferCount);
                     populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
@@ -153,7 +153,7 @@ namespace nscreg.Services
                         var tmp = x.source.Split('.', 2);
                         return tmp[0];
                     }));
-                    await _logBuffer.LogUnitUpload(
+                    await logBuffer.LogUnitUpload(
                             dequeued, rawUnit, startedAt, populated,
                             status, note ?? "", analysisErrors, analysisSummary);
 

@@ -95,7 +95,7 @@ namespace nscreg.Services
                 return;
             }
 
-            var executor = new ImportExecutor(_logBuffer, _mapper, _serviceSettings, _configuration);
+            var executor = new ImportExecutor(_mapper, _serviceSettings, _configuration);
             var (parseError, parsed, problemLine) = await ParseFile(dequeued);
 
             if (parseError.HasValue())
