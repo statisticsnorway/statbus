@@ -24,7 +24,7 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class AnalyzeService : IStatUnitAnalyzeService
     {
-        private static Logger _logger = LogManager.GetCurrentClassLogger();
+        //private static Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly NSCRegDbContext _context;
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
@@ -111,7 +111,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             foreach (var x in unitsForAnalysis)
             {
                 var analyzeResult = await AnalyzeSingleStatUnit(x, analyzer);
-                _logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
+                //_logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
 
                 analysisLogs.Add(new AnalysisLog
                 {
@@ -151,7 +151,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             foreach (var x in unitsForAnalysis)
             {
                 var analyzeResult = await AnalyzeSingleStatUnit(x, analyzer);
-                _logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
+                //_logger.Info($"Analyze {x.UnitType} unit with Id = {x.RegId}, StatId = {x.StatId}, Name = {x.Name}");
 
                 analysisLogs.Add(new AnalysisLog
                 {
@@ -170,7 +170,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private async Task AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
         {
             var analyzeResult = await AnalyzeSingleStatUnit(unitForAnalysis, analyzer);
-            _logger.Info($"Analyze {unitForAnalysis.UnitType} unit with Id = {unitForAnalysis.RegId}, StatId = {unitForAnalysis.StatId}, Name = {unitForAnalysis.Name}");
+            //_logger.Info($"Analyze {unitForAnalysis.UnitType} unit with Id = {unitForAnalysis.RegId}, StatId = {unitForAnalysis.StatId}, Name = {unitForAnalysis.Name}");
 
             _context.AnalysisLogs.Add(new AnalysisLog
             {

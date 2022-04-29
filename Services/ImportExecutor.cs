@@ -29,7 +29,7 @@ namespace nscreg.Services
     public class ImportExecutor
     {
         public bool AnyWarnings { get; private set; }
-        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
+        //private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly IMapper _mapper;
         private readonly ServicesSettings _servicesSettings;
         private readonly IConfiguration _configuration;
@@ -84,16 +84,16 @@ namespace nscreg.Services
                     isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
                 }
 
-                _logger.Info("processing entity #{0}", i++);
+                //_logger.Info("processing entity #{0}", i++);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-                _logger.Info("populating unit");
+                //_logger.Info("populating unit");
                 (StatisticalUnit populated, bool isNew, string populateError, StatisticalUnit historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _servicesSettings.PersonGoodQuality);
 
                 if (populateError.HasValue())
                 {
-                    _logger.Info("error during populating of unit: {0}", populateError);
+                    //_logger.Info("error during populating of unit: {0}", populateError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
                     continue;
@@ -105,22 +105,21 @@ namespace nscreg.Services
 
                 /// Analyze Unit
 
-                _logger.Info(
-                    "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+                //_logger.Info("analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
                 var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(analyzeService, populated, dequeued);
 
                 if (analysisError.HasValue())
                 {
-                    _logger.Info("analysis attempt failed with error: {0}", analysisError);
+                    //_logger.Info("analysis attempt failed with error: {0}", analysisError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, analysisError);
                     continue;
                 }
                 if (errors.Any())
                 {
-                    _logger.Info("analysis revealed {0} errors", errors.Count);
-                    errors.Values.ForEach(x => x.ForEach(e => _logger.Info(Resource.ResourceManager.GetString(e.ToString()))));
+                    //_logger.Info("analysis revealed {0} errors", errors.Count);
+                    //errors.Values.ForEach(x => x.ForEach(e => _logger.Info(Resource.ResourceManager.GetString(e.ToString()))));
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
@@ -128,13 +127,13 @@ namespace nscreg.Services
 
                 /// Save Unit
 
-                _logger.Info("saving unit");
+                //_logger.Info("saving unit");
 
                 var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
                 if (saveError.HasValue())
                 {
-                    _logger.Error(saveError);
+                    //_logger.Error(saveError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, saveError);
                     continue;
