@@ -2,7 +2,6 @@ using System.Linq;
 using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Constants;
-using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {

@@ -26,9 +26,6 @@ namespace nscreg.Services
         private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly DataAccessService _dataAccessService;
         private readonly ServicesSettings _serviceSettings;
-        //private readonly IUserService _userService;
-        private readonly CommonService _commonService;
-        private readonly IStatUnitAnalyzeService _analyzeService;
         private readonly IMapper _mapper;
         private QueueService _queueSvc;
 
@@ -36,16 +33,11 @@ namespace nscreg.Services
         private NSCRegDbContext _context;
         private readonly IConfiguration _configuration;
 
-        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings, IMapper mapper,
-            DataAccessService dataAccessService, IUserService userService, CommonService commonService,
-            IStatUnitAnalyzeService analyzeService, IConfiguration configuration)
+        public DataUploadSvcWorker(IOptions<ServicesSettings> servicesSettings, IMapper mapper, DataAccessService dataAccessService, IConfiguration configuration)
         {
             _serviceSettings = servicesSettings.Value;
             _mapper = mapper;
-            //_userService = userService;
             _dataAccessService = dataAccessService;
-            _commonService = commonService;
-            _analyzeService = analyzeService;
             _configuration = configuration;
         }
 
@@ -103,7 +95,7 @@ namespace nscreg.Services
                 return;
             }
 
-            var executor = new ImportExecutor(_logBuffer, _mapper, _serviceSettings, _analyzeService, _configuration);
+            var executor = new ImportExecutor(_mapper, _serviceSettings, _configuration);
             var (parseError, parsed, problemLine) = await ParseFile(dequeued);
 
             if (parseError.HasValue())

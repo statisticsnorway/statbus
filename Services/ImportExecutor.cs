@@ -18,37 +18,34 @@ using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using AutoMapper;
-using nscreg.Server.Common.Services.Contracts;
 using Microsoft.Extensions.Configuration;
 using nscreg.Server.Common.Services;
-using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Server.Common.Services.Contracts;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 
 namespace nscreg.Services
 {
     public class ImportExecutor
     {
         public bool AnyWarnings { get; private set; }
-        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
-        private readonly DbLogBuffer _logBuffer;
+        //private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly IMapper _mapper;
-        //private readonly IUserService _userService;
         private readonly ServicesSettings _servicesSettings;
-        private readonly IStatUnitAnalyzeService _analyzeService;
-        //private readonly CommonService _commonService;
         private readonly IConfiguration _configuration;
 
-        public ImportExecutor(DbLogBuffer logBuffer, /*IUserService userService,*/ IMapper mapper,
-            /*CommonService commonService,*/ ServicesSettings servicesSettings, IStatUnitAnalyzeService analyzeService,
-            IConfiguration configuration)
+        private readonly StatUnitAnalysisRules _analysisRules;
+        private readonly DbMandatoryFields _mandatoryFields;
+        private readonly ValidationSettings _validationSettings;
+
+        public ImportExecutor(IMapper mapper, ServicesSettings servicesSettings, IConfiguration configuration)
         {
-            _logBuffer = logBuffer;
-            //_userService = userService;
             _mapper = mapper;
-            //_commonService = commonService;
             _servicesSettings = servicesSettings;
-            //TODO analyzeServis not create with new
-            _analyzeService = analyzeService;
             _configuration = configuration;
+            _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+            _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
+            _validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
         }
 
         public Task Start(DataSourceQueue dequeued, IReadOnlyDictionary<string, object>[] keyValues) => Task.Run(Job(dequeued, keyValues));
@@ -60,21 +57,26 @@ namespace nscreg.Services
             UpsertUnitBulkBuffer sqlBulkBuffer = null;
             PopulateService populateService = null;
             SaveManager saveService = null;
+            IStatUnitAnalyzeService analyzeService = null;
+            DbLogBuffer logBuffer = null;
             bool isAdmin = false;
             int i = 0;
             foreach (var parsedUnit in keyValues)
             {
-                if(i % 1000 == 0)
+                if(i % _servicesSettings.DataUploadMaxBufferCount == 0)
                 {
                     if(sqlBulkBuffer != null)
                     {
                         await sqlBulkBuffer.FlushAsync();
+                        await logBuffer.FlushAsync();
                     }
 
                     context = dbContextHelper.CreateDbContext(new string[] { });
                     context.Database.SetCommandTimeout(180);
                     await InitializeCacheForLookups(context);
                     var userService = new UserService(context, _mapper);
+                    analyzeService = new AnalyzeService(context, _analysisRules, _mandatoryFields, _validationSettings);
+                    logBuffer = new DbLogBuffer(context, _servicesSettings.DataUploadMaxBufferCount);
                     var permissions = await new CommonService(context, _mapper).InitializeDataAccessAttributes<IStatUnitM>(userService, null, dequeued.UserId, dequeued.DataSource.StatUnitType);
                     sqlBulkBuffer = new UpsertUnitBulkBuffer(context, new ElasticService(context, _mapper), permissions, dequeued, _mapper, _servicesSettings.DataUploadMaxBufferCount);
                     populateService = new PopulateService(dequeued.DataSource.VariablesMappingArray, dequeued.DataSource.AllowedOperations, dequeued.DataSource.StatUnitType, context, dequeued.UserId, permissions, _mapper);
@@ -82,16 +84,16 @@ namespace nscreg.Services
                     isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
                 }
 
-                _logger.Info("processing entity #{0}", i++);
+                //_logger.Info("processing entity #{0}", i++);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-                _logger.Info("populating unit");
+                //_logger.Info("populating unit");
                 (StatisticalUnit populated, bool isNew, string populateError, StatisticalUnit historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _servicesSettings.PersonGoodQuality);
 
                 if (populateError.HasValue())
                 {
-                    _logger.Info("error during populating of unit: {0}", populateError);
+                    //_logger.Info("error during populating of unit: {0}", populateError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
                     continue;
@@ -103,22 +105,21 @@ namespace nscreg.Services
 
                 /// Analyze Unit
 
-                _logger.Info(
-                    "analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+                //_logger.Info("analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
-                var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(populated, dequeued);
+                var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(analyzeService, populated, dequeued);
 
                 if (analysisError.HasValue())
                 {
-                    _logger.Info("analysis attempt failed with error: {0}", analysisError);
+                    //_logger.Info("analysis attempt failed with error: {0}", analysisError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, analysisError);
                     continue;
                 }
                 if (errors.Any())
                 {
-                    _logger.Info("analysis revealed {0} errors", errors.Count);
-                    errors.Values.ForEach(x => x.ForEach(e => _logger.Info(Resource.ResourceManager.GetString(e.ToString()))));
+                    //_logger.Info("analysis revealed {0} errors", errors.Count);
+                    //errors.Values.ForEach(x => x.ForEach(e => _logger.Info(Resource.ResourceManager.GetString(e.ToString()))));
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
@@ -126,13 +127,13 @@ namespace nscreg.Services
 
                 /// Save Unit
 
-                _logger.Info("saving unit");
+                //_logger.Info("saving unit");
 
                 var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
                 if (saveError.HasValue())
                 {
-                    _logger.Error(saveError);
+                    //_logger.Error(saveError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, saveError);
                     continue;
@@ -152,7 +153,7 @@ namespace nscreg.Services
                         var tmp = x.source.Split('.', 2);
                         return tmp[0];
                     }));
-                    await _logBuffer.LogUnitUpload(
+                    await logBuffer.LogUnitUpload(
                             dequeued, rawUnit, startedAt, populated,
                             status, note ?? "", analysisErrors, analysisSummary);
 
@@ -161,7 +162,7 @@ namespace nscreg.Services
             await sqlBulkBuffer.FlushAsync();
         };
 
-        private async Task<(string, (IReadOnlyDictionary<string, string[]>, string[] test))> AnalyzeUnitAsync(IStatisticalUnit unit, DataSourceQueue queueItem)
+        private async Task<(string, (IReadOnlyDictionary<string, string[]>, string[] test))> AnalyzeUnitAsync(IStatUnitAnalyzeService analyzeService, IStatisticalUnit unit, DataSourceQueue queueItem)
         {
             if (queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
                 return (null, (new Dictionary<string, string[]>(), new string[0]));
@@ -169,7 +170,7 @@ namespace nscreg.Services
             AnalysisResult analysisResult;
             try
             {
-                analysisResult = await _analyzeService.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true, false);
+                analysisResult = await analyzeService.AnalyzeStatUnit(unit, queueItem.DataSource.AllowedOperations == DataSourceAllowedOperation.Alter, true, false);
             }
             catch (Exception ex)
             {
