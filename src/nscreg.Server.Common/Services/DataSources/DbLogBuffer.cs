@@ -18,7 +18,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private readonly NSCRegDbContext _context;
         public  readonly int MaxCount;
-        public DbLogBuffer(NSCRegDbContext context, int maxCount = 1000)
+        public DbLogBuffer(NSCRegDbContext context, int maxCount = 100)
         {
             Buffer = new List<DataUploadingLog>();
             _context = context;
