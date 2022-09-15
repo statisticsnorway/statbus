@@ -37,7 +37,7 @@ services:
       interval: 20s
       retries: 5
     volumes:
-      - ./SBR_NOR.bak:/var/SBR_NOR.bak
+      - ./dbackups/:/var/dbackups/
       - nscreg-sql-data:/var/opt/mssql/data:rw
     networks:
       - elastic
