@@ -1,14 +1,42 @@
 version: '3.4'
-
 services:
   nscreg.server:
-    image: ${DOCKER_REGISTRY-}nscregserver
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80'
+    image: nscreg:latest
     build:
       context: .
       dockerfile: src/nscreg.Server/Dockerfile
+    ports:
+      - 80:80
     volumes:
-        - /docker/src/nscreg.Server/uploads:/app/uploads
-        - /docker/src/nscreg.Server/sampleframes:/app/sampleframes
+      - ./Library/Keychains/:/root/.aspnet/https
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - elastic
+      
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sql19-latest
+    ports:
+      - "1433:1433"
+    restart: always
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: 12qw!@QW
+      MSSQL_PID: Express
+      MSSQL_LCID: 1049
+      MSSQL_COLLATION: Cyrillic_General_CI_AS
+      user: ${CURRENT_UID}
+    healthcheck:
+      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
+      interval: 10s
+      retries: 5
+    volumes:
+      - ./SBR_NOR.bak:/var/SBR_NOR.bak
 
   elasticsearch:
    container_name: elasticsearch
