@@ -1,6 +1,7 @@
 version: '3.4'
 services:
   nscreg.server:
+    container_name: nscreg.server
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80'
@@ -21,6 +22,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
     container_name: sql19-latest
+    user: root
     ports:
       - "1433:1433"
     restart: always
@@ -30,14 +32,15 @@ services:
       MSSQL_PID: Express
       MSSQL_LCID: 1049
       MSSQL_COLLATION: Cyrillic_General_CI_AS
-      user: ${CURRENT_UID}
     healthcheck:
       test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
-      interval: 10s
+      interval: 20s
       retries: 5
     volumes:
       - ./SBR_NOR.bak:/var/SBR_NOR.bak
-
+      - nscreg-sql-data:/var/opt/mssql/data:rw
+    networks:
+      - elastic
   elasticsearch:
    container_name: elasticsearch
    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
@@ -59,3 +62,4 @@ networks:
 
 volumes:
   elasticsearch-data:
+  nscreg-sql-data:
