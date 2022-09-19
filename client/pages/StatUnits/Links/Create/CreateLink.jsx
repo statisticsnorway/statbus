@@ -1,9 +1,9 @@
 import React from 'react'
 import { func, arrayOf, shape, string, bool } from 'prop-types'
 
-import LinksGrid from '../components/LinksGrid'
-import LinksForm from '../components/LinkForm'
-import { defaultUnitSearchResult } from '../components/UnitSearch'
+import LinksGrid from '../Components/LinksGrid'
+import LinksForm from '../Components/LinkForm'
+import { defaultUnitSearchResult } from '../Components/UnitSearch'
 
 class CreateLink extends React.Component {
   static propTypes = {
