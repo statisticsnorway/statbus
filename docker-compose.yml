@@ -19,13 +19,13 @@ services:
         condition: service_healthy
     networks:
       - elastic
-      
+
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
     container_name: sql19-latest
     user: root
     ports:
-      - "1433:1433"
+      - "1434:1433"
     restart: always
     environment:
       ACCEPT_EULA: Y
@@ -43,20 +43,20 @@ services:
     networks:
       - elastic
   elasticsearch:
-   container_name: elasticsearch
-   image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
-   ports:
-    - 9200:9200
-   volumes:
-    - elasticsearch-data:/usr/share/elasticsearch/data
-   environment:
-    - xpack.monitoring.enabled=true
-    - xpack.watcher.enabled=false
-    - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    - discovery.type=single-node
-   networks:
-    - elastic
-  
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
+    ports:
+      - 9201:9200
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - xpack.monitoring.enabled=true
+      - xpack.watcher.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+    networks:
+      - elastic
+
 networks:
   elastic:
     driver: bridge
