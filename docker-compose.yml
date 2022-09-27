@@ -11,6 +11,7 @@ services:
       dockerfile: src/nscreg.Server/Dockerfile
     ports:
       - 80:80
+    restart: unless-stopped
     volumes:
       - ./Library/Keychains/:/root/.aspnet/https
     depends_on:
