@@ -30,8 +30,8 @@ services:
       ACCEPT_EULA: Y
       SA_PASSWORD: 12qw!@QW
       MSSQL_PID: Express
-      MSSQL_LCID: 1049
-      MSSQL_COLLATION: Cyrillic_General_CI_AS
+      MSSQL_LCID: 1033
+      MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
     healthcheck:
       test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
       interval: 20s
