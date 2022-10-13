@@ -13,12 +13,14 @@ services:
       - 80:80
     volumes:
       - ./Library/Keychains/:/root/.aspnet/https
+      - ./uploads:/app/uploads
+      - ./sampleframes:/app/sampleframes
     depends_on:
       sqlserver:
         condition: service_healthy
     networks:
       - elastic
-      
+
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
     container_name: sql19-latest
@@ -55,7 +57,7 @@ services:
     - discovery.type=single-node
    networks:
     - elastic
-  
+
 networks:
   elastic:
     driver: bridge
