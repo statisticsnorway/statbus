@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!--
-    Microsoft ResX Schema
-
+  <!-- 
+    Microsoft ResX Schema 
+    
     Version 2.0
-
-    The primary goals of this format is to allow a simple XML format
-    that is mostly human readable. The generation and parsing of the
-    various data types are done through the TypeConverter classes
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
     associated with the data types.
-
+    
     Example:
-
+    
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-
-    There are any number of "resheader" rows that contain simple
+                
+    There are any number of "resheader" rows that contain simple 
     name/value pairs.
-
-    Each data row contains a name, and value. The row also contains a
-    type or mimetype. Type corresponds to a .NET class that support
-    text/value conversion through the TypeConverter architecture.
-    Classes that don't support this are serialized and stored with the
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
     mimetype set.
-
-    The mimetype is used for serialized objects, and tells the
-    ResXResourceReader how to depersist the object. This is currently not
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
     extensible. For a given mimetype the value must be set accordingly:
-
-    Note - application/x-microsoft.net.object.binary.base64 is the format
-    that the ResXResourceWriter will generate, however the reader can
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
     read any of the formats listed below.
-
+    
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with
+    value   : The object must be serialized with 
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-
+    
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with
+    value   : The object must be serialized with 
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array
+    value   : The object must be serialized into a byte array 
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -143,12 +143,15 @@
   </data>
   <data name="LanguageEnglish" xml:space="preserve">
     <value>English</value>
+    <comment>ж</comment>
   </data>
   <data name="LanguageRussian" xml:space="preserve">
     <value>Russian</value>
+    <comment>ж</comment>
   </data>
   <data name="LanguageKyrgyz" xml:space="preserve">
     <value>Kyrgyz</value>
+    <comment>ж</comment>
   </data>
   <data name="Account" xml:space="preserve">
     <value>Account</value>
@@ -167,6 +170,7 @@
   </data>
   <data name="StatUnits" xml:space="preserve">
     <value>Statistical units</value>
+    <comment>ж 36 ж 37 Регистрационные данные</comment>
   </data>
   <data name="UsersList" xml:space="preserve">
     <value>Users list</value>
@@ -211,13 +215,13 @@
     <value>'Last change to' value is earlier than 'last change from'</value>
   </data>
   <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
-    <value>'Number of employees from' shouldn't be negative</value>
+    <value>"Number of employees from" cannot be a negative number</value>
   </data>
   <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
-    <value>'Number of employees from' is larger than 'number of employees to'</value>
+    <value>The number of "employees from" is greater than the "number of employees to"</value>
   </data>
   <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
-    <value>'Number of employees to' shouldn't be negative</value>
+    <value>"Number of employees to" cannot be a negative number</value>
   </data>
   <data name="EmployeesNumberToErrorLess" xml:space="preserve">
     <value>'Number of employees to' is less than 'number of employees from'</value>
@@ -254,6 +258,7 @@
   </data>
   <data name="StatisticalUnitNotExistError" xml:space="preserve">
     <value>Statistical unit doesn't exist</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="CreateLegalUnitError" xml:space="preserve">
     <value>Error while creating Legal Unit</value>
@@ -319,7 +324,7 @@
     <value>Phone</value>
   </data>
   <data name="AboutText" xml:space="preserve">
-    <value>SBR</value>
+    <value>Statbus</value>
   </data>
   <data name="HomeText" xml:space="preserve">
     <value>Welcome</value>
@@ -356,6 +361,7 @@
   </data>
   <data name="Submit" xml:space="preserve">
     <value>Save</value>
+    <comment>ж 50,47 отправить</comment>
   </data>
   <data name="EditRole" xml:space="preserve">
     <value>Editing role</value>
@@ -389,12 +395,14 @@
   </data>
   <data name="DeleteStatUnitMessage" xml:space="preserve">
     <value>Delete Statistical unit</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="Total" xml:space="preserve">
     <value>Total</value>
   </data>
   <data name="SearchStatisticalUnits" xml:space="preserve">
     <value>Search statistical units</value>
+    <comment>ж</comment>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
     <value>Name</value>
@@ -446,6 +454,7 @@
   </data>
   <data name="AssignedRoles" xml:space="preserve">
     <value>Assigned roles</value>
+    <comment>ж 49 присвоенные роли</comment>
   </data>
   <data name="SelectOrSearchRoles" xml:space="preserve">
     <value>Select or search roles...</value>
@@ -458,6 +467,7 @@
   </data>
   <data name="NSO_Employee" xml:space="preserve">
     <value>e.g. NSO employee</value>
+    <comment>ж 48 работник</comment>
   </data>
   <data name="TryReloadRoles" xml:space="preserve">
     <value>Try reload roles</value>
@@ -484,7 +494,7 @@
     <value>Total users</value>
   </data>
   <data name="NSCRegistry" xml:space="preserve">
-    <value>Statistical Business Register</value>
+    <value>Statbus</value>
   </data>
   <data name="RegId" xml:space="preserve">
     <value>Registration id</value>
@@ -506,15 +516,18 @@
   </data>
   <data name="ExternalId" xml:space="preserve">
     <value>External id</value>
+    <comment>ж</comment>
   </data>
   <data name="ExternalIdType" xml:space="preserve">
     <value>External id type</value>
+    <comment>ж</comment>
   </data>
   <data name="ExternalIdDate" xml:space="preserve">
     <value>External id date</value>
   </data>
   <data name="DataSource" xml:space="preserve">
     <value>Data source</value>
+    <comment>ж 14 Источник данных</comment>
   </data>
   <data name="RefNo" xml:space="preserve">
     <value>Reference number (for paper questionnaire)</value>
@@ -523,7 +536,7 @@
     <value>Short name</value>
   </data>
   <data name="Address" xml:space="preserve">
-    <value>Address</value>
+    <value>Address (as registered)</value>
   </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>Telephone</value>
@@ -566,6 +579,7 @@
   </data>
   <data name="ContactPerson" xml:space="preserve">
     <value>Contact person</value>
+    <comment>ж Контактное лицо</comment>
   </data>
   <data name="Employees" xml:space="preserve">
     <value>Number of Employees</value>
@@ -619,19 +633,19 @@
     <value>Institutional sector code</value>
   </data>
   <data name="TotalCapital" xml:space="preserve">
-    <value>Total capital (in thous. som)</value>
+    <value>Total capital</value>
   </data>
   <data name="MunCapitalShare" xml:space="preserve">
-    <value>Municipal capital share (in thous. som)</value>
+    <value>Municipal capital share</value>
   </data>
   <data name="StateCapitalShare" xml:space="preserve">
-    <value>State capital share (in thous. som)</value>
+    <value>State capital share</value>
   </data>
   <data name="PrivCapitalShare" xml:space="preserve">
-    <value>Private capital share (in thous. som)</value>
+    <value>Private capital share</value>
   </data>
   <data name="ForeignCapitalShare" xml:space="preserve">
-    <value>Foreign capital share (in thous. som)</value>
+    <value>Foreign capital share</value>
   </data>
   <data name="ForeignCapitalCurrency" xml:space="preserve">
     <value>Foreign capital currency</value>
@@ -640,7 +654,7 @@
     <value>Main Activity</value>
   </data>
   <data name="ActualMainActivityDate" xml:space="preserve">
-    <value>Date of Main Activity</value>
+    <value>Date of registration of main activity</value>
   </data>
   <data name="EntGroupRole" xml:space="preserve">
     <value>Enterprise  group role</value>
@@ -697,8 +711,8 @@
     <value>Type</value>
   </data>
   <data name="CreateStatUnit" xml:space="preserve">
-    <value>Create statistical unit</value>
-    <comment>CreateStatUnit</comment>
+    <value>add statistical unit</value>
+    <comment>ж 36 Регистрационные данныеCreateStatUnit </comment>
   </data>
   <data name="EditButton" xml:space="preserve">
     <value>Edit</value>
@@ -714,7 +728,7 @@
     <comment>EmailAddress</comment>
   </data>
   <data name="ActualAddressId" xml:space="preserve">
-    <value>Id of actual address</value>
+    <value>Actual address</value>
   </data>
   <data name="LegalUnits" xml:space="preserve">
     <value>Legal units</value>
@@ -724,10 +738,11 @@
   </data>
   <data name="EntGroupType" xml:space="preserve">
     <value>Enterprise group type</value>
-    <comment>EntGroupType</comment>
+    <comment>ж EntGroupType</comment>
   </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>Employees Full time equivalent</value>
+    <comment>ж 48 работников</comment>
   </data>
   <data name="EnterpriseUnits" xml:space="preserve">
     <value>enterprises</value>
@@ -742,15 +757,15 @@
   </data>
   <data name="EndPeriod" xml:space="preserve">
     <value>End Period</value>
-    <comment>EndPeriod</comment>
+    <comment>ж конец периода EndPeriod</comment>
   </data>
   <data name="RegMainActivityId" xml:space="preserve">
     <value>Registration main activity code</value>
-    <comment>RegMainActivityId</comment>
+    <comment>ж Регистрация главной активности ID RegMainActivityId</comment>
   </data>
   <data name="StartPeriod" xml:space="preserve">
     <value>Start period</value>
-    <comment>StartPeriod</comment>
+    <comment>ж Начало периода StartPeriod</comment>
   </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
     <value>Address is not linked with this record</value>
@@ -813,13 +828,15 @@
     <value>Statistical Unit List View</value>
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
-    <value>Create unit</value>
+    <value>add unit</value>
+    <comment>ж 38 Добавить данные</comment>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
     <value>Statistical Unit Edit</value>
   </data>
   <data name="StatUnitDelete" xml:space="preserve">
-    <value>Statistical Unit Delete</value>
+    <value>delete unit</value>
+    <comment>ж</comment>
   </data>
   <data name="Parrent" xml:space="preserve">
     <value>Parent</value>
@@ -828,7 +845,7 @@
     <value>Parent ID</value>
   </data>
   <data name="IncorrectIntegerValue" xml:space="preserve">
-    <value>Value can't be less than 0</value>
+    <value>Value cannot be a negative number</value>
   </data>
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Choose at least one item</value>
@@ -865,9 +882,11 @@
   </data>
   <data name="RegionAdd" xml:space="preserve">
     <value>Add new region</value>
+    <comment>ж</comment>
   </data>
   <data name="RegionDeleteMessage" xml:space="preserve">
     <value>Delete region</value>
+    <comment>ж</comment>
   </data>
   <data name="Regions" xml:space="preserve">
     <value>Regions</value>
@@ -951,7 +970,8 @@
     <value>History</value>
   </data>
   <data name="Links" xml:space="preserve">
-    <value>Links</value>
+    <value>business chart</value>
+    <comment>ж связь</comment>
   </data>
   <data name="Main" xml:space="preserve">
     <value>Main</value>
@@ -1003,6 +1023,7 @@
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
     <value>Number of employees</value>
+    <comment>ж 48 работников</comment>
   </data>
   <data name="TableNoRecords" xml:space="preserve">
     <value>No records to display</value>
@@ -1096,6 +1117,7 @@
   </data>
   <data name="Displaying" xml:space="preserve">
     <value>Displaying</value>
+    <comment>ж 34 показано все</comment>
   </data>
   <data name="PageSize" xml:space="preserve">
     <value>page size</value>
@@ -1104,16 +1126,19 @@
     <value>page number</value>
   </data>
   <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
-    <value>Deleted statistical units search</value>
+    <value>search for deleted units</value>
+    <comment>ж 35 Удаленные регистрационные единицы</comment>
   </data>
   <data name="Restore" xml:space="preserve">
     <value>restore</value>
   </data>
   <data name="StatUnitSearch" xml:space="preserve">
     <value>Search for units</value>
+    <comment>ж 37 поиск данных</comment>
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
     <value>List of deleted units</value>
+    <comment>ж 39 Список удаленных данных</comment>
   </data>
   <data name="route_notfound" xml:space="preserve">
     <value>Not found</value>
@@ -1137,7 +1162,8 @@
     <value>Activity types</value>
   </data>
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
-    <value>Undelete Statistic unit</value>
+    <value>undelete unit</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="ChangeReason" xml:space="preserve">
     <value>Change reason</value>
@@ -1192,6 +1218,7 @@
   </data>
   <data name="Comment" xml:space="preserve">
     <value>Comment</value>
+    <comment>ж Комментарий</comment>
   </data>
   <data name="ButtonCreate" xml:space="preserve">
     <value>Create</value>
@@ -1227,13 +1254,16 @@
     <value>Total changes</value>
   </data>
   <data name="DataSourceNameExists" xml:space="preserve">
-    <value>Data source name already exists</value>
+    <value>This name of data source already exists</value>
+    <comment>ж 14 Источник данных с таким наименованием уже есть в системе</comment>
   </data>
   <data name="DataSourceNameIsRequired" xml:space="preserve">
-    <value>Data source name is required</value>
+    <value>Name of data source is required</value>
+    <comment>ж 14 Источнику данных необходимо задать наименование</comment>
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Attributes to check is required for data source</value>
+    <comment>ж 14 Источнику данных нужно указать проверяемые аттрибуты</comment>
   </data>
   <data name="LinkDeleteConfirm" xml:space="preserve">
     <value>Are you sure you want to remove this link?</value>
@@ -1273,12 +1303,15 @@
   </data>
   <data name="DataSourceName" xml:space="preserve">
     <value>Data source file name</value>
+    <comment>ж 14 Имя файла источника данных</comment>
   </data>
   <data name="DataSourceQueues" xml:space="preserve">
     <value>View data source queue</value>
+    <comment>ж загрузка данных</comment>
   </data>
   <data name="DataSourceTemplateName" xml:space="preserve">
     <value>Template name</value>
+    <comment>ж 31</comment>
   </data>
   <data name="DateFrom" xml:space="preserve">
     <value>Date from</value>
@@ -1288,27 +1321,34 @@
   </data>
   <data name="InQueue" xml:space="preserve">
     <value>In queue</value>
+    <comment>ж 33 В очереди</comment>
   </data>
   <data name="Loading" xml:space="preserve">
     <value>Loading</value>
   </data>
   <data name="UploadDateTime" xml:space="preserve">
     <value>Source uploading date</value>
+    <comment>ж 15 Дата загрузки источника</comment>
   </data>
   <data name="DataSources" xml:space="preserve">
     <value>Data sources</value>
+    <comment>ж 14 Источники данных</comment>
   </data>
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>Create data source template</value>
+    <comment>ж 17 Создать шаблон источника данных</comment>
   </data>
   <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
     <value>Bad restriction value</value>
+    <comment>ж 14 Неверно указано ограничение источника данных</comment>
   </data>
   <data name="BadDataSourcePrioritySearch" xml:space="preserve">
     <value>Bad priority value</value>
+    <comment>ж 14 Неверно указан приоритет источника двнных</comment>
   </data>
   <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
     <value>Bad allowed operations value</value>
+    <comment>ж 14 Неверно указаны доступные операции источника данных</comment>
   </data>
   <data name="RegionCode" xml:space="preserve">
     <value>Region code</value>
@@ -1318,9 +1358,11 @@
   </data>
   <data name="UpLoad" xml:space="preserve">
     <value>Upload</value>
+    <comment>ж загрузка</comment>
   </data>
   <data name="SelectDataSource" xml:space="preserve">
     <value>Select data source template</value>
+    <comment>ж </comment>
   </data>
   <data name="EnterDescription" xml:space="preserve">
     <value>Enter description</value>
@@ -1330,24 +1372,29 @@
   </data>
   <data name="route_datasources" xml:space="preserve">
     <value>Data sources</value>
+    <comment>ж 14 Источники данных</comment>
   </data>
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Data import queue</value>
+    <comment>ж загрузки</comment>
   </data>
   <data name="Restriction" xml:space="preserve">
     <value>Restriction</value>
   </data>
   <data name="Priority" xml:space="preserve">
-    <value>Priority</value>
+    <value>Expected quality of source</value>
+    <comment>ж</comment>
   </data>
   <data name="AllowedOperations" xml:space="preserve">
     <value>Allowed operations</value>
   </data>
   <data name="CreateDataSource" xml:space="preserve">
     <value>Create data source template</value>
+    <comment>ж 16 Создать шаблон источника данных</comment>
   </data>
   <data name="Id" xml:space="preserve">
     <value>Id</value>
+    <comment>? ж</comment>
   </data>
   <data name="ParseAttributesNotFound" xml:space="preserve">
     <value>No attributes successfully parsed</value>
@@ -1369,21 +1416,26 @@
   </data>
   <data name="route_upload" xml:space="preserve">
     <value>Upload</value>
+    <comment>ж</comment>
   </data>
   <data name="DataSourcesUpload" xml:space="preserve">
     <value>Upload data</value>
+    <comment>ж</comment>
   </data>
   <data name="NextFilesReadyForUpload" xml:space="preserve">
     <value>Next files ready for upload</value>
+    <comment>ж</comment>
   </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
     <value>Only supported formats allowed</value>
   </data>
   <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
     <value>Next Files Will Not Be Uploaded</value>
+    <comment>ж</comment>
   </data>
   <data name="Ok" xml:space="preserve">
     <value>Ok</value>
+    <comment>ж ОК (trusted)</comment>
   </data>
   <data name="NoFilesAttached" xml:space="preserve">
     <value>No Files Attached</value>
@@ -1395,7 +1447,7 @@
     <value>Address contains a least two fields</value>
   </data>
   <data name="LogicalChecksNoContactPerson" xml:space="preserve">
-    <value>No contact person for this group</value>
+    <value>This unit has no contact person</value>
   </data>
   <data name="LogicalChecksNoOwner" xml:space="preserve">
     <value>Owner is missing</value>
@@ -1410,7 +1462,7 @@
     <value>No one local unit linked</value>
   </data>
   <data name="AnalyzeRegister" xml:space="preserve">
-    <value>Analyze register</value>
+    <value>Quality analyze of register</value>
   </data>
   <data name="route_analyzeregister" xml:space="preserve">
     <value>Analyze register</value>
@@ -1423,9 +1475,11 @@
   </data>
   <data name="NotTrusted" xml:space="preserve">
     <value>Not Trusted</value>
+    <comment>ж</comment>
   </data>
   <data name="Trusted" xml:space="preserve">
     <value>Trusted</value>
+    <comment>ж</comment>
   </data>
   <data name="Restrictions" xml:space="preserve">
     <value>Restrictions</value>
@@ -1483,6 +1537,7 @@
   </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Region Part</value>
+    <comment>ж СОАТЕ?</comment>
   </data>
   <data name="AllActivities" xml:space="preserve">
     <value>All activities</value>
@@ -1501,6 +1556,7 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Parent organization link</value>
+    <comment>ж</comment>
   </data>
   <data name="ForeignParticipationCountryId" xml:space="preserve">
     <value>Foreign participation country</value>
@@ -1513,15 +1569,19 @@
   </data>
   <data name="DataSourceHasQueuedItems" xml:space="preserve">
     <value>Data source template has queued items</value>
+    <comment>ж 14 Шаблон источника данных имеет записи в очереди</comment>
   </data>
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Data source template not found</value>
+    <comment>ж 14 Шаблон источника данных не найден</comment>
   </data>
   <data name="DeleteDataSourceMessage" xml:space="preserve">
     <value>Delete data source </value>
+    <comment>ж 14 Удалить источник данных</comment>
   </data>
   <data name="OrgLinks" xml:space="preserve">
     <value>Organization Links</value>
+    <comment>ж Организационные связи</comment>
   </data>
   <data name="route_account_edit" xml:space="preserve">
     <value>Update account</value>
@@ -1567,6 +1627,7 @@
   </data>
   <data name="DataSourceClassificationId" xml:space="preserve">
     <value>Data Source</value>
+    <comment>ж 14 Источник данных</comment>
   </data>
   <data name="ForeignParticipationId" xml:space="preserve">
     <value>Foreign Participation</value>
@@ -1591,6 +1652,7 @@
   </data>
   <data name="PostalAddress" xml:space="preserve">
     <value>Postal address</value>
+    <comment>ж</comment>
   </data>
   <data name="AND" xml:space="preserve">
     <value>AND</value>
@@ -1651,6 +1713,7 @@
   </data>
   <data name="AnalysisMandatoryDataSource" xml:space="preserve">
     <value>Stat unit doesn't have data source</value>
+    <comment>ж 14 Источник данных должен быть заполнен</comment>
   </data>
   <data name="AnalysisMandatoryName" xml:space="preserve">
     <value>Stat unit doesn't have name</value>
@@ -1692,16 +1755,17 @@
     <value>Connection rules warnings</value>
   </data>
   <data name="DuplicateFieldsRulesWarnings" xml:space="preserve">
-    <value>Duplicate fields rules warnings</value>
+    <value>Warning: Some fields are duplicated</value>
   </data>
   <data name="MandatoryFieldsRulesWarnings" xml:space="preserve">
     <value>Mandatory fields rules warnings</value>
   </data>
   <data name="OrphanUnitsRulesWarnings" xml:space="preserve">
-    <value>Orphan units rules warnings</value>
+    <value>There are "orphan" units</value>
   </data>
   <data name="UploadLogNotFound" xml:space="preserve">
     <value>Upload log entry not found</value>
+    <comment>ж</comment>
   </data>
   <data name="DataSourceCsvDelimiterNotValid" xml:space="preserve">
     <value>CSV delimiter is not valid</value>
@@ -1713,19 +1777,21 @@
     <value>CSV delimiter</value>
   </data>
   <data name="CsvSkipCount" xml:space="preserve">
-    <value>CSV skip rows</value>
+    <value>Number of rows skipped in CSV file</value>
   </data>
   <data name="AdministrativeCenter" xml:space="preserve">
     <value>Administrative Center</value>
   </data>
   <data name="AddressPart1" xml:space="preserve">
-    <value>Street and house number</value>
+    <value>CO/</value>
+    <comment>ж Номер квартиры</comment>
   </data>
   <data name="AddressPart2" xml:space="preserve">
-    <value />
+    <value>street and house number</value>
+    <comment>ж</comment>
   </data>
   <data name="AddressPart3" xml:space="preserve">
-    <value>postal Index</value>
+    <value>zip code and city</value>
   </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>
@@ -1756,6 +1822,7 @@
   </data>
   <data name="route_datasourcesqueue" xml:space="preserve">
     <value>Data sources queue</value>
+    <comment>ж 14 Очередь источников данных</comment>
   </data>
   <data name="Revise" xml:space="preserve">
     <value>Revise</value>
@@ -1777,6 +1844,7 @@
   </data>
   <data name="StatUnitInfo" xml:space="preserve">
     <value>Info about statistical unit</value>
+    <comment>ж 36 регистрационных данных</comment>
   </data>
   <data name="LinkInfo" xml:space="preserve">
     <value>Link info</value>
@@ -1801,6 +1869,7 @@
   </data>
   <data name="DataSourceClassification" xml:space="preserve">
     <value>Data source classification</value>
+    <comment>ж 14 Классификация источника данных</comment>
   </data>
   <data name="HasAnalysisError" xml:space="preserve">
     <value>Has analysis errors</value>
@@ -1815,31 +1884,39 @@
     <value>Write</value>
   </data>
   <data name="SampleFrameNotFound" xml:space="preserve">
-    <value>Sample frame not found</value>
+    <value>Population frame not found</value>
+    <comment>ж 28 Шаблон выборки не найден</comment>
   </data>
   <data name="route_analysisqueue" xml:space="preserve">
-    <value>Analysis</value>
+    <value>Quality analysis</value>
+    <comment>ж 41</comment>
   </data>
   <data name="ServerEndPeriod" xml:space="preserve">
     <value>Server end period</value>
+    <comment>ж 44 Период Завершения Анализа</comment>
   </data>
   <data name="UserEndPeriod" xml:space="preserve">
     <value>User end period</value>
+    <comment>ж Выборка с</comment>
   </data>
   <data name="UserStartPeriod" xml:space="preserve">
     <value>User start period</value>
+    <comment>ж 43 Выборка по</comment>
   </data>
   <data name="Analysis" xml:space="preserve">
     <value>Analysis</value>
+    <comment>ж 41</comment>
   </data>
   <data name="ServerStartPeriod" xml:space="preserve">
     <value>Server start period</value>
+    <comment>ж 44</comment>
   </data>
   <data name="EnqueueNewItem" xml:space="preserve">
     <value>Enqueue new item</value>
   </data>
   <data name="AnalysisQueue" xml:space="preserve">
     <value>Analysis queue</value>
+    <comment>ж 46 Очередь запросов на анализ</comment>
   </data>
   <data name="NoValue" xml:space="preserve">
     <value>No value</value>
@@ -1911,7 +1988,7 @@
     <value>Invalid checksum</value>
   </data>
   <data name="CustomAnalysisChecks" xml:space="preserve">
-    <value>Custom analysis checks</value>
+    <value>Custom quality analyzis check</value>
   </data>
   <data name="LastActivityByTurnover" xml:space="preserve">
     <value>Last activity by turnover</value>
@@ -1926,19 +2003,23 @@
     <value>Parish</value>
   </data>
   <data name="SampleFrames" xml:space="preserve">
-    <value>Sample frames</value>
+    <value>Population frames</value>
+    <comment>ж 28 Шаблон выборки </comment>
   </data>
   <data name="SampleFramesView" xml:space="preserve">
-    <value>View sample frames</value>
+    <value>View population frames</value>
+    <comment>ж 28 Просмотр шаблона выборки</comment>
   </data>
   <data name="SampleFramesCreate" xml:space="preserve">
-    <value>Create sample frames </value>
+    <value>Create population frames</value>
+    <comment>ж 30 Создание шаблона выборки</comment>
   </data>
   <data name="Reset" xml:space="preserve">
     <value>Reset</value>
   </data>
   <data name="Predicate" xml:space="preserve">
     <value>Predicate</value>
+    <comment>ж 26 Предикат</comment>
   </data>
   <data name="Comparisons" xml:space="preserve">
     <value>Comparisons</value>
@@ -1974,7 +2055,8 @@
     <value>Less than or equal</value>
   </data>
   <data name="route_sampleframes" xml:space="preserve">
-    <value>Sample frames</value>
+    <value>Population frames</value>
+    <comment>ж 28 шаблон выборки</comment>
   </data>
   <data name="Wildcard" xml:space="preserve">
     <value>Wildcard</value>
@@ -1984,6 +2066,7 @@
   </data>
   <data name="VariablesOfDataSource" xml:space="preserve">
     <value>Variables of data source</value>
+    <comment>ж 14 Значения источников данных</comment>
   </data>
   <data name="VariablesOfDatabase" xml:space="preserve">
     <value>Variables of database</value>
@@ -2013,7 +2096,8 @@
     <value>Data load complete failed</value>
   </data>
   <data name="DownloadSampleFrame" xml:space="preserve">
-    <value>Download sample frame</value>
+    <value>download population frame</value>
+    <comment>ж</comment>
   </data>
   <data name="FieldsToSelect" xml:space="preserve">
     <value>Fields to select</value>
@@ -2031,13 +2115,16 @@
     <value>Not In Range</value>
   </data>
   <data name="PreviewSampleFrame" xml:space="preserve">
-    <value>Preview sample frame</value>
+    <value>preview population frame</value>
+    <comment>ж 28 Предварительный просмотр шаблона выборки</comment>
   </data>
   <data name="route_preview" xml:space="preserve">
-    <value>Preview sample frame</value>
+    <value>Preview population frame</value>
+    <comment>ж</comment>
   </data>
   <data name="SampleFramesWildcard" xml:space="preserve">
-    <value>Search by sample frame name</value>
+    <value>Search by name of population frame</value>
+    <comment>ж 29 Поиск шаблона выборки по имени</comment>
   </data>
   <data name="SelectedFields" xml:space="preserve">
     <value>Selected fields</value>
@@ -2061,7 +2148,8 @@
     <value>View or edit</value>
   </data>
   <data name="DeleteSampleFrameMessage" xml:space="preserve">
-    <value>Delete sample frame</value>
+    <value>delete population frame</value>
+    <comment>ж шаблон выгрузки</comment>
   </data>
   <data name="ProcessedAt" xml:space="preserve">
     <value>Processed at</value>
@@ -2089,12 +2177,13 @@
   </data>
   <data name="StartDate" xml:space="preserve">
     <value>Analysis start date</value>
+    <comment>ж 44 Дата начала анализа</comment>
   </data>
   <data name="UnitId" xml:space="preserve">
     <value>Stat Unit id in database</value>
   </data>
   <data name="EnsureErrorsIsFixed" xml:space="preserve">
-    <value>Ensure errors are fixed</value>
+    <value>Make sure all errors are fixed</value>
   </data>
   <data name="route_view_type_id" xml:space="preserve">
     <value>View</value>
@@ -2158,6 +2247,7 @@
   </data>
   <data name="Employee" xml:space="preserve">
     <value>Employee</value>
+    <comment>ж 48 работник</comment>
   </data>
   <data name="ExternalUser" xml:space="preserve">
     <value>External user</value>
@@ -2203,6 +2293,7 @@
   </data>
   <data name="CantDeleteDatasourceTemp" xml:space="preserve">
     <value>This data sourse template should not be deleted</value>
+    <comment>ж 14 Шаблон источника данных не может быть удален</comment>
   </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
@@ -2211,7 +2302,7 @@
     <value>Size</value>
   </data>
   <data name="AnalysisMandatorySize" xml:space="preserve">
-    <value>Stat unit doesn't have size</value>
+    <value>Stat unit doesn't have size information</value>
   </data>
   <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
     <value>Stat unit doesn't have status set</value>
@@ -2221,15 +2312,17 @@
   </data>
   <data name="UploadFileEmpty" xml:space="preserve">
     <value>Uploading file is empty</value>
+    <comment>ж загружаемый</comment>
   </data>
   <data name="FileHasEmptyUnit" xml:space="preserve">
     <value>Uploading file has empty unit</value>
+    <comment>ж загружаемый</comment>
   </data>
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>New password not confirmed</value>
   </data>
   <data name="LiquidateEntrUnit" xml:space="preserve">
-    <value>You can't liquidate Enterprise unit</value>
+    <value>Enterprise units cannot be liquidated</value>
   </data>
   <data name="LiquidateLegalUnit" xml:space="preserve">
     <value>You will need to liquidate Legal unit</value>
@@ -2275,12 +2368,14 @@
   </data>
   <data name="route_statunits" xml:space="preserve">
     <value>Statistical Units</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
     <value>Error: The address already exists in the database</value>
   </data>
   <data name="ActualMainActivity2" xml:space="preserve">
-    <value>Actual main activity</value>
+    <value />
+    <comment>This should not be in use!</comment>
   </data>
   <data name="RegionDeleteError" xml:space="preserve">
     <value>Could not delete region</value>
@@ -2290,33 +2385,42 @@
   </data>
   <data name="SoateNotExistsError" xml:space="preserve">
     <value>Region code does not exist</value>
+    <comment>ж </comment>
   </data>
   <data name="SoateAlreadyExistsError" xml:space="preserve">
     <value>Region code already exists in database</value>
+    <comment>ж </comment>
   </data>
   <data name="route_soates" xml:space="preserve">
     <value>Region code</value>
+    <comment>ж </comment>
   </data>
   <data name="Soates" xml:space="preserve">
     <value>Region code</value>
+    <comment>ж </comment>
   </data>
   <data name="SoateAdd" xml:space="preserve">
     <value>Add region</value>
+    <comment>ж</comment>
   </data>
   <data name="SoateName" xml:space="preserve">
     <value>Name of region</value>
+    <comment>ж</comment>
   </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Administrative center</value>
   </data>
   <data name="SoateDeleteMessage" xml:space="preserve">
     <value>Delete region</value>
+    <comment>ж </comment>
   </data>
   <data name="COATEUndeleteMessage" xml:space="preserve">
     <value>Undelete region</value>
+    <comment>ж?</comment>
   </data>
   <data name="COATEDeleteMessage" xml:space="preserve">
     <value>Delеte region</value>
+    <comment>ж</comment>
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
     <value>Foreign Participation</value>
@@ -2337,10 +2441,10 @@
     <value>In progress</value>
   </data>
   <data name="SampleFrameGenerationEnqueue" xml:space="preserve">
-    <value>Queue to generate sample frame</value>
+    <value>Queue to generate population frame</value>
   </data>
   <data name="SampleFrameGenerationError" xml:space="preserve">
-    <value>Error generating sample frame</value>
+    <value>Error generating population frame</value>
   </data>
   <data name="FileDoesntExistOrInQueue" xml:space="preserve">
     <value>File does not exist or is already in queue</value>
@@ -2364,7 +2468,7 @@
     <value>restore local unit</value>
   </data>
   <data name="ElasticSearchIsDisable" xml:space="preserve">
-    <value>ElasticSearch Is Disable</value>
+    <value>ElasticSearch Is Disabled</value>
   </data>
   <data name="LoginTitle" xml:space="preserve">
     <value>Welcome to SBR system</value>
@@ -2374,24 +2478,30 @@
   </data>
   <data name="EnterpriseGroupTooltip" xml:space="preserve">
     <value>Enterprise group</value>
+    <comment>ж</comment>
   </data>
   <data name="EnterpriseUnitRegIdTooltip" xml:space="preserve">
     <value>primary key of enterprise (parent unit)</value>
+    <comment>ж</comment>
   </data>
   <data name="EntGroupIdDateTooltip" xml:space="preserve">
     <value>Date of Enterprise group added to the register</value>
+    <comment>ж</comment>
   </data>
   <data name="EntGroupRoleTooltip" xml:space="preserve">
     <value />
   </data>
   <data name="EntRegIdDateTooltip" xml:space="preserve">
     <value>Date when enterprise was entered into the register</value>
+    <comment>ж</comment>
   </data>
   <data name="ForeignCapitalShareTooltip" xml:space="preserve">
     <value>share of capital that is foreign</value>
+    <comment>ж</comment>
   </data>
   <data name="InstSectorCodeIdTooltip" xml:space="preserve">
     <value>sector code - code</value>
+    <comment>ж</comment>
   </data>
   <data name="LegalFormIdTooltip" xml:space="preserve">
     <value />
@@ -2400,33 +2510,38 @@
     <value />
   </data>
   <data name="MarketTooltip" xml:space="preserve">
-    <value />
+    <value>Does this unit operate in a market?</value>
   </data>
   <data name="MunCapitalShareTooltip" xml:space="preserve">
     <value>Share of capital belonging to municipality</value>
+    <comment>ж</comment>
   </data>
   <data name="ParentOrgLinkTooltip" xml:space="preserve">
     <value>ID of public sector parent unit</value>
+    <comment>ж</comment>
   </data>
   <data name="PrivCapitalShareTooltip" xml:space="preserve">
     <value>share of capital that is private</value>
+    <comment>ж</comment>
   </data>
   <data name="StateCapitalShareTooltip" xml:space="preserve">
     <value>Share of capital belonging to the state</value>
+    <comment>ж</comment>
   </data>
   <data name="TotalCapitalTooltip" xml:space="preserve">
     <value>Should be the sum of all capitals. In Local currency? in thousands of local currency?</value>
-    <comment>edit!</comment>
+    <comment>ж edit!</comment>
   </data>
   <data name="ActivitiesTooltip" xml:space="preserve">
-    <value />
+    <value>Activities</value>
   </data>
   <data name="ActualAddressTooltip" xml:space="preserve">
     <value>Actual address</value>
+    <comment>ж</comment>
   </data>
   <data name="AddressTooltip" xml:space="preserve">
     <value>Address as registered with registering authorities</value>
-    <comment>edit</comment>
+    <comment>ж edit</comment>
   </data>
   <data name="AnalysisDuplicationTaxRegId" xml:space="preserve">
     <value>There are two units with the same tax id</value>
@@ -2436,16 +2551,17 @@
   </data>
   <data name="AnalysisMandatoryActualAddress" xml:space="preserve">
     <value>Atuall address must have value</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryEmailAddress" xml:space="preserve">
-    <value />
+    <value>Email address is mandatory</value>
   </data>
   <data name="AnalysisOneOfTheseFieldsShouldBeFilled" xml:space="preserve">
-    <value />
+    <value>At leat one of these fields should be filled uin</value>
   </data>
   <data name="ClassifiedTooltip" xml:space="preserve">
     <value>Is information about this unit classified?</value>
-    <comment>edit</comment>
+    <comment>ж edit</comment>
   </data>
   <data name="ComercialTooltip" xml:space="preserve">
     <value />
@@ -2461,12 +2577,15 @@
   </data>
   <data name="EmployeesDateTooltip" xml:space="preserve">
     <value>date of info of number of employees</value>
+    <comment>ж</comment>
   </data>
   <data name="EmployeesTooltip" xml:space="preserve">
     <value>Number of employees</value>
+    <comment>ж</comment>
   </data>
   <data name="EmployeesYearTooltip" xml:space="preserve">
     <value>Year of "number of employees" was registered</value>
+    <comment>ж</comment>
   </data>
   <data name="EndPeriodTooltip" xml:space="preserve">
     <value />
@@ -2482,13 +2601,14 @@
   </data>
   <data name="ExternalIdTooltip" xml:space="preserve">
     <value>Info about external IDS</value>
-    <comment>edit</comment>
+    <comment>ж edit</comment>
   </data>
   <data name="ExternalIdTypeTooltip" xml:space="preserve">
     <value>name of institution of which the external ID belongs</value>
   </data>
   <data name="ForeignCapitalCurrencyTooltip" xml:space="preserve">
     <value>Currency of foreign capital</value>
+    <comment>ж</comment>
   </data>
   <data name="ForeignParticipationCountriesTooltip" xml:space="preserve">
     <value />
@@ -2501,13 +2621,15 @@
     <comment>edit</comment>
   </data>
   <data name="FreeEconZoneTooltip" xml:space="preserve">
-    <value>SASD</value>
+    <value />
   </data>
   <data name="LegalUnitIdDateTooltip" xml:space="preserve">
     <value>Date of link between local- and legal units</value>
+    <comment>ж</comment>
   </data>
   <data name="LegalUnitIdTooltip" xml:space="preserve">
     <value>ID of parent/child unit</value>
+    <comment>ж</comment>
   </data>
   <data name="LiqDateEndTooltip" xml:space="preserve">
     <value />
@@ -2517,6 +2639,7 @@
   </data>
   <data name="LiqDateStartTooltip" xml:space="preserve">
     <value>start date of liquidation of unit</value>
+    <comment>ж</comment>
   </data>
   <data name="LiqReasonTooltip" xml:space="preserve">
     <value />
@@ -2529,24 +2652,30 @@
   </data>
   <data name="NumOfPeopleEmpTooltip" xml:space="preserve">
     <value>includes non-employees working in the business (eg owner)</value>
+    <comment>ж</comment>
   </data>
   <data name="PersonsTooltip" xml:space="preserve">
     <value>persons related to this unit</value>
+    <comment>ж</comment>
   </data>
   <data name="PostalAddressTooltip" xml:space="preserve">
     <value>Postal address (bo box or similar)</value>
+    <comment>ж</comment>
   </data>
   <data name="RegDateTooltip" xml:space="preserve">
     <value>Date of unit entered into the register</value>
+    <comment>ж</comment>
   </data>
   <data name="RegistrationReasonTooltip" xml:space="preserve">
     <value />
   </data>
   <data name="ReorgDateTooltip" xml:space="preserve">
     <value>Date of reorganisation</value>
+    <comment>ж</comment>
   </data>
   <data name="ReorgReferencesTooltip" xml:space="preserve">
     <value>which units are involved in this reorgansation?</value>
+    <comment>ж</comment>
   </data>
   <data name="ReorgTypeCodeTooltip" xml:space="preserve">
     <value />
@@ -2563,40 +2692,48 @@
   </data>
   <data name="StatIdDateTooltip" xml:space="preserve">
     <value>Date of unit first registered at the NSO</value>
+    <comment>ж</comment>
   </data>
   <data name="StatIdTooltip" xml:space="preserve">
     <value>ID of unit as used in the NSO</value>
-    <comment>edit</comment>
+    <comment>ж edit</comment>
   </data>
   <data name="StatNameTooltip" xml:space="preserve">
     <value />
   </data>
   <data name="StatusDateTooltip" xml:space="preserve">
     <value>Date of last change of status of unit</value>
+    <comment>ж</comment>
   </data>
   <data name="SuspensionStartTooltip" xml:space="preserve">
     <value />
+    <comment>ж</comment>
   </data>
   <data name="TaxRegDateTooltip" xml:space="preserve">
     <value>date of unit first registered with the tax autorities</value>
+    <comment>ж</comment>
   </data>
   <data name="TaxRegIdTooltip" xml:space="preserve">
     <value>ID of unit as given by tax authorities</value>
+    <comment>ж</comment>
   </data>
   <data name="TelephoneNoTooltip" xml:space="preserve">
     <value />
+    <comment>ж</comment>
   </data>
   <data name="TurnoverDateTooltip" xml:space="preserve">
     <value>date of registration of turnover</value>
   </data>
   <data name="TurnoverTooltip" xml:space="preserve">
     <value />
+    <comment>ж</comment>
   </data>
   <data name="TurnoverYearTooltip" xml:space="preserve">
     <value>year of validity of turnover</value>
   </data>
   <data name="UnitSizeTooltip" xml:space="preserve">
     <value />
+    <comment>ж</comment>
   </data>
   <data name="UnitStatusTooltip" xml:space="preserve">
     <value />
@@ -2605,79 +2742,103 @@
     <value />
   </data>
   <data name="AnalysisMandatoryAddress" xml:space="preserve">
-    <value />
+    <value>Address is mandatory</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryClassified" xml:space="preserve">
     <value>Classified info is mandatory</value>
   </data>
   <data name="AnalysisMandatoryEmployees" xml:space="preserve">
     <value>Number of employees is mandatory</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryEmployeesDate" xml:space="preserve">
     <value>Date of employees information is mandatory</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryEmployeesYear" xml:space="preserve">
     <value>Year of validity of employees information is mandatory</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryExternalId" xml:space="preserve">
     <value>Stat unit doesn't have external id</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryExternalIdDate" xml:space="preserve">
     <value>Stat unit doesn't have external id date</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryExternalIdType" xml:space="preserve">
     <value>Stat unit doesn't have external id type</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryFreeEconZone" xml:space="preserve">
     <value>Stat unit doesn't have free economic zone</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryNumOfPeopleEmp" xml:space="preserve">
-    <value>Stat unit doesn't have number of people</value>
+    <value>Stat unit doesn't have number of people employed</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryPersons" xml:space="preserve">
     <value>Stat unit doesn't have persons</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryPostalAddress" xml:space="preserve">
     <value>Stat unit doesn't have postal address</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryRegistrationDate" xml:space="preserve">
     <value>Stat unit doesn't have registration date</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryRegistrationReasonId" xml:space="preserve">
     <value>Stat unit doesn't have registration reason</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryStatId" xml:space="preserve">
     <value>Stat unit doesn't have stat id</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryStatIdDate" xml:space="preserve">
     <value>Stat unit doesn't have stat id date</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryStatusDate" xml:space="preserve">
     <value>Stat unit doesn't have status date</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryTaxRegDate" xml:space="preserve">
     <value>Stat unit doesn't have tax reg date</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryTaxRegId" xml:space="preserve">
     <value>Stat unit doesn't have tax reg id</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryTurnover" xml:space="preserve">
     <value>Stat unit doesn't have turnover</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryTurnoverDate" xml:space="preserve">
     <value>Stat unit doesn't have turnover date</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryTurnoverYear" xml:space="preserve">
     <value>Stat unit doesn't have turnover year</value>
+    <comment>ж</comment>
   </data>
   <data name="ElasticsearchCacheNotFound" xml:space="preserve">
     <value>Clear error. Cache not found</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalyzeByIdNotFound" xml:space="preserve">
     <value>Analyze by id not found</value>
+    <comment>ж</comment>
   </data>
   <data name="RejectAnalyzeSourceMessage" xml:space="preserve">
     <value>Reject this analyze?</value>
+    <comment>ж</comment>
   </data>
   <data name="StatUnitCreateSuccessfully" xml:space="preserve">
     <value>Statistical unit created successfully</value>
@@ -2699,12 +2860,14 @@
   </data>
   <data name="EntGroupRoleId" xml:space="preserve">
     <value>Enterprise group role</value>
+    <comment>ж</comment>
   </data>
   <data name="StatisticalUnitWithSuchStatIDAlreadyExists" xml:space="preserve">
     <value>Statistical unit with StatId='{0}' already exists</value>
+    <comment>ж</comment>
   </data>
   <data name="UploadedFileProblem" xml:space="preserve">
-    <value>Uploaded file is problem</value>
+    <value>There is a problem with the uploaded file</value>
   </data>
   <data name="FileDataFormatError" xml:space="preserve">
     <value>The file is not in the correct data format</value>
@@ -2714,6 +2877,7 @@
   </data>
   <data name="AnalysisOrphanLegalUnitHaveParentWithInactiveStatus" xml:space="preserve">
     <value>This legal unit's enterprise has status inactive</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisOrphanLegalUnits" xml:space="preserve">
     <value>This legal unit is not a part of an enterprise</value>
@@ -2723,9 +2887,11 @@
   </data>
   <data name="AnalysisOrphanLocalUnitsHaveParentWithInactiveStatus" xml:space="preserve">
     <value>This Local unit has parent with status inactive</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisRelatedLocalUnits" xml:space="preserve">
     <value>This legal unit has no local units associated with it</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisRelatedPersons" xml:space="preserve">
     <value>Unit does not have any persons related to it</value>
@@ -2735,24 +2901,86 @@
   </data>
   <data name="StatUnitEnterprise" xml:space="preserve">
     <value>Stat Unit Enterprise</value>
+    <comment>ж Sta tUnit Enterprise</comment>
   </data>
   <data name="StatUnitLocal" xml:space="preserve">
     <value>Stat Unit Local</value>
+    <comment>ж Stat Unit Local</comment>
   </data>
   <data name="DoYouWantToDeleteUnit" xml:space="preserve">
     <value>Do you want to delete unit</value>
   </data>
-  <data name="StatUnitEnterprise" xml:space="preserve">
-    <value>Stat Unit Enterprise</value>
-  </data>
-  <data name="StatUnitLocal" xml:space="preserve">
-    <value>Stat Unit Local</value>
-  </data>
   <data name="ErrorExportStatUnitReport" xml:space="preserve">
-    <value>Error Export Stat unit report</value>
+    <value>Error when exporting report on statistical units</value>
   </data>
   <data name="SuccessfullyExportedStatUnitReport" xml:space="preserve">
     <value>Successfully Exported Stat unit report</value>
   </data>
+  <data name="Language1" xml:space="preserve">
+    <value />
+  </data>
+  <data name="Language2" xml:space="preserve">
+    <value />
+  </data>
+  <data name="LanguageMain" xml:space="preserve">
+    <value />
+  </data>
+  <data name="AnalysisLegalUnitRelatedLocalUnits" xml:space="preserve">
+    <value>legal unit has no local units</value>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterprises" xml:space="preserve">
+    <value>There are no enterprises in this enterprise group</value>
+  </data>
+  <data name="EntGroupTypeId" xml:space="preserve">
+    <value />
+  </data>
+  <data name="LastChangeDate" xml:space="preserve">
+    <value />
+  </data>
+  <data name="ActivityYear" xml:space="preserve">
+    <value>Year of validity for activity</value>
+  </data>
+  <data name="ActivityYearTooltip" xml:space="preserve">
+    <value>Enter starting year for this activity</value>
+  </data>
+  <data name="SurnameTooltip" xml:space="preserve">
+    <value />
+    <comment>ж</comment>
+  </data>
+  <data name="StatUnitFormPersonNameTooltip" xml:space="preserve">
+    <value />
+    <comment>ж</comment>
+  </data>
+  <data name="StatUnitActivityTypeTooltip" xml:space="preserve">
+    <value />
+    <comment>ж</comment>
+  </data>
+  <data name="StatUnitActivityEmployeesNumberTooltip" xml:space="preserve">
+    <value />
+    <comment>ж</comment>
+  </data>
+  <data name="StatUnitActivityDateTooltip" xml:space="preserve">
+    <value />
+    <comment>ж</comment>
+  </data>
+  <data name="ActivityCategoryIdTooltip" xml:space="preserve">
+    <value>Choose activity by entering code or -name</value>
+    <comment>ж</comment>
+  </data>
+  <data name="AddressPart1Tooltip" xml:space="preserve">
+    <value />
+    <comment>ж</comment>
+  </data>
+  <data name="AddressPart2Tooltip" xml:space="preserve">
+    <value />
+    <comment>ж Street and house number</comment>
+  </data>
+  <data name="AddressPart3Tooltip" xml:space="preserve">
+    <value />
+    <comment>ж Postal address Id</comment>
+  </data>
+  <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
+    <value>There are no enterprises in this enterprise group</value>
+    <comment>ж</comment>
+  </data>
 </root>
-

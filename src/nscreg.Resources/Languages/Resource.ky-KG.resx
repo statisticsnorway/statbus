@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!--
-    Microsoft ResX Schema
-
+  <!-- 
+    Microsoft ResX Schema 
+    
     Version 2.0
-
-    The primary goals of this format is to allow a simple XML format
-    that is mostly human readable. The generation and parsing of the
-    various data types are done through the TypeConverter classes
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
     associated with the data types.
-
+    
     Example:
-
+    
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-
-    There are any number of "resheader" rows that contain simple
+                
+    There are any number of "resheader" rows that contain simple 
     name/value pairs.
-
-    Each data row contains a name, and value. The row also contains a
-    type or mimetype. Type corresponds to a .NET class that support
-    text/value conversion through the TypeConverter architecture.
-    Classes that don't support this are serialized and stored with the
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
     mimetype set.
-
-    The mimetype is used for serialized objects, and tells the
-    ResXResourceReader how to depersist the object. This is currently not
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
     extensible. For a given mimetype the value must be set accordingly:
-
-    Note - application/x-microsoft.net.object.binary.base64 is the format
-    that the ResXResourceWriter will generate, however the reader can
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
     read any of the formats listed below.
-
+    
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with
+    value   : The object must be serialized with 
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-
+    
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with
+    value   : The object must be serialized with 
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array
+    value   : The object must be serialized into a byte array 
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -130,13 +130,13 @@
     <value>Тил</value>
   </data>
   <data name="Language1" xml:space="preserve">
-    <value>Орус тили</value>
-  </data>
-  <data name="Language2" xml:space="preserve">
     <value>Кыргыз тили</value>
   </data>
-  <data name="LanguageMain" xml:space="preserve">
+  <data name="Language2" xml:space="preserve">
     <value>Англис тили</value>
+  </data>
+  <data name="LanguageMain" xml:space="preserve">
+    <value>Орус тили</value>
   </data>
   <data name="Account" xml:space="preserve">
     <value>Каттоо эсеби</value>
@@ -155,6 +155,7 @@
   </data>
   <data name="StatUnits" xml:space="preserve">
     <value>Каттоо маалымат</value>
+    <comment>ж 36 ж 37 Регистрационные данные</comment>
   </data>
   <data name="UsersList" xml:space="preserve">
     <value>Пайдалануучулар тизме</value>
@@ -338,6 +339,7 @@
   </data>
   <data name="Submit" xml:space="preserve">
     <value>Жиберүү</value>
+    <comment>ж 50,47 отправить</comment>
   </data>
   <data name="EditRole" xml:space="preserve">
     <value>Ролду түзөтүү</value>
@@ -371,12 +373,14 @@
   </data>
   <data name="DeleteStatUnitMessage" xml:space="preserve">
     <value>Каттоо маалыматты жок кылуу</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="Total" xml:space="preserve">
     <value>Жалпы</value>
   </data>
   <data name="SearchStatisticalUnits" xml:space="preserve">
     <value>Статистикалык бирдикти издөө</value>
+    <comment>ж</comment>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
     <value>Аталышы</value>
@@ -428,6 +432,7 @@
   </data>
   <data name="AssignedRoles" xml:space="preserve">
     <value>Дайындалган ролу</value>
+    <comment>ж 49 присвоенные роли</comment>
   </data>
   <data name="SelectOrSearchRoles" xml:space="preserve">
     <value>Тандоо же издөө ролдорду...</value>
@@ -440,6 +445,7 @@
   </data>
   <data name="NSO_Employee" xml:space="preserve">
     <value>Кызматкердин NSO</value>
+    <comment>ж 48 работник</comment>
   </data>
   <data name="TryReloadRoles" xml:space="preserve">
     <value>Ролун кайра аракет</value>
@@ -485,6 +491,7 @@
   </data>
   <data name="DataSource" xml:space="preserve">
     <value>Маалымат булагы</value>
+    <comment>ж 14 Источник данных</comment>
   </data>
   <data name="ShortName" xml:space="preserve">
     <value>Кыскача аталышы</value>
@@ -509,6 +516,7 @@
   </data>
   <data name="ContactPerson" xml:space="preserve">
     <value>Байланышуучу адам</value>
+    <comment>ж Контактное лицо</comment>
   </data>
   <data name="Employees" xml:space="preserve">
     <value>Кызматкерлердин саны</value>
@@ -602,15 +610,18 @@
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>Электрондук дарек</value>
+    <comment>EmailAddress</comment>
   </data>
   <data name="LocalUnits" xml:space="preserve">
     <value>Жергиликтүү бирдик</value>
   </data>
   <data name="EndPeriod" xml:space="preserve">
     <value>мезгилдин акырына карата</value>
+    <comment>ж конец периода EndPeriod</comment>
   </data>
   <data name="StartPeriod" xml:space="preserve">
     <value>мезгилдин башталышы</value>
+    <comment>ж Начало периода StartPeriod</comment>
   </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
     <value>Бул жазуунун менен байланыштуу эмес</value>
@@ -674,12 +685,14 @@
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
     <value>Маалымат кошуу</value>
+    <comment>ж 38 Добавить данные</comment>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
     <value>Статистикалык Unit өңдоо</value>
   </data>
   <data name="StatUnitDelete" xml:space="preserve">
     <value>Статистикалык Unit өчүрүү</value>
+    <comment>ж</comment>
   </data>
   <data name="Parrent" xml:space="preserve">
     <value>ата-эне</value>
@@ -713,6 +726,7 @@
   </data>
   <data name="RegionAdd" xml:space="preserve">
     <value>Бир аймакты кошуу</value>
+    <comment>ж</comment>
   </data>
   <data name="Regions" xml:space="preserve">
     <value>Аймактар</value>
@@ -770,6 +784,7 @@
   </data>
   <data name="Links" xml:space="preserve">
     <value>Байланыштар</value>
+    <comment>ж связь</comment>
   </data>
   <data name="Main" xml:space="preserve">
     <value>Башкы</value>
@@ -797,6 +812,7 @@
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
     <value>Жумушчулардын саны</value>
+    <comment>ж 48 работников</comment>
   </data>
   <data name="RegionUndeleteMessage" xml:space="preserve">
     <value>Калыбына келтирүү регион</value>
@@ -818,6 +834,7 @@
   </data>
   <data name="Displaying" xml:space="preserve">
     <value>Бардыгы көрсөтүлдү</value>
+    <comment>ж 34 показано все</comment>
   </data>
   <data name="PageSize" xml:space="preserve">
     <value>Беттердин көлөмү</value>
@@ -827,15 +844,18 @@
   </data>
   <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
     <value>Өчүрүлгөн статикалык юниттер</value>
+    <comment>ж 35 Удаленные регистрационные единицы</comment>
   </data>
   <data name="Restore" xml:space="preserve">
     <value>восстановить</value>
   </data>
   <data name="StatUnitSearch" xml:space="preserve">
     <value>Маалымат издөө</value>
+    <comment>ж 37 поиск данных</comment>
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
     <value>Жок кылынган маалымат</value>
+    <comment>ж 39 Список удаленных данных</comment>
   </data>
   <data name="route_notfound" xml:space="preserve">
     <value>Ката бет</value>
@@ -854,12 +874,14 @@
   </data>
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Каттоо маалыматты калыбына келтирүү</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="ChangeReason" xml:space="preserve">
     <value>өзгөртүү үчүн негиз</value>
   </data>
   <data name="Comment" xml:space="preserve">
     <value>Билдирүү</value>
+    <comment>ж Комментарий</comment>
   </data>
   <data name="ReasonUndelete" xml:space="preserve">
     <value>айыгуу</value>
@@ -914,6 +936,7 @@
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Источнику данных нужно указать проверяемые аттрибуты</value>
+    <comment>ж 14 Источнику данных нужно указать проверяемые аттрибуты</comment>
   </data>
   <data name="RecordCreatedBy" xml:space="preserve">
     <value>Бул материалдар жайгаштырылды</value>
@@ -935,6 +958,7 @@
   </data>
   <data name="DataSources" xml:space="preserve">
     <value>Маалымат булагы</value>
+    <comment>ж 14 Источники данных</comment>
   </data>
   <data name="RegionCode" xml:space="preserve">
     <value>СОАТЕ коду</value>
@@ -947,9 +971,11 @@
   </data>
   <data name="UpLoad" xml:space="preserve">
     <value>Жүктөө</value>
+    <comment>ж загрузка</comment>
   </data>
   <data name="SelectDataSource" xml:space="preserve">
     <value>Маалымат булагын тандоо</value>
+    <comment>ж </comment>
   </data>
   <data name="EnterDescription" xml:space="preserve">
     <value>Баяндама киргизүү</value>
@@ -959,12 +985,14 @@
   </data>
   <data name="Priority" xml:space="preserve">
     <value>Артыкчылыгы</value>
+    <comment>ж</comment>
   </data>
   <data name="AllowedOperations" xml:space="preserve">
     <value>Жеткиликтүү иш</value>
   </data>
   <data name="Id" xml:space="preserve">
     <value>ИД</value>
+    <comment>? ж</comment>
   </data>
   <data name="ParseFileError" xml:space="preserve">
     <value>Ошибка при обработке файла</value>
@@ -980,18 +1008,22 @@
   </data>
   <data name="route_upload" xml:space="preserve">
     <value>Жүктөп алуу</value>
+    <comment>ж</comment>
   </data>
   <data name="DataSourcesUpload" xml:space="preserve">
     <value>Жүктөп алуу маалымат</value>
+    <comment>ж</comment>
   </data>
   <data name="NextFilesReadyForUpload" xml:space="preserve">
     <value>Кийинки файлдар жүктөөгө даяр</value>
+    <comment>ж</comment>
   </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
     <value>Ушул файлдык форматтар гана жарайт</value>
   </data>
   <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
     <value>Кийинки Files Uploaded ала албайт</value>
+    <comment>ж</comment>
   </data>
   <data name="NoFilesAttached" xml:space="preserve">
     <value>Файлдар кошулган жок</value>
@@ -1028,9 +1060,11 @@
   </data>
   <data name="NotTrusted" xml:space="preserve">
     <value>Ишенимсиз</value>
+    <comment>ж</comment>
   </data>
   <data name="Trusted" xml:space="preserve">
     <value>Ишенимдүү</value>
+    <comment>ж</comment>
   </data>
   <data name="Restrictions" xml:space="preserve">
     <value>Чектөөлөр</value>
@@ -1040,6 +1074,7 @@
   </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Бөлүгү СОАТЕ</value>
+    <comment>ж СОАТЕ?</comment>
   </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Тандалган аймак</value>
@@ -1091,6 +1126,7 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Уюмдук байланыш</value>
+    <comment>ж</comment>
   </data>
   <data name="ForeignParticipationCountryId" xml:space="preserve">
     <value>Чет элдик капиталдын катышуусу</value>
@@ -1102,7 +1138,8 @@
     <value>Тандалган жок ...</value>
   </data>
   <data name="OrgLinks" xml:space="preserve">
-    <value>Организационные связи</value>
+    <value>Гос.структура</value>
+    <comment>ж Организационные связи</comment>
   </data>
   <data name="route_account_edit" xml:space="preserve">
     <value>Профиль жанылоо</value>
@@ -1130,6 +1167,7 @@
   </data>
   <data name="DataSourceClassificationId" xml:space="preserve">
     <value>Маалымат булагы</value>
+    <comment>ж 14 Источник данных</comment>
   </data>
   <data name="ForeignParticipationId" xml:space="preserve">
     <value>Чет элдиктин катышуусунун белгиси</value>
@@ -1163,6 +1201,7 @@
   </data>
   <data name="AnalysisMandatoryDataSource" xml:space="preserve">
     <value>Источник данных должен быть заполнен</value>
+    <comment>ж 14 Источник данных должен быть заполнен</comment>
   </data>
   <data name="AnalysisMandatoryPersonOwner" xml:space="preserve">
     <value>Правовая единица должна иметь персону со статусом \"Владелец\"</value>
@@ -1250,6 +1289,7 @@
   </data>
   <data name="route_datasources" xml:space="preserve">
     <value>Маалымат булагы</value>
+    <comment>ж 14 Источники данных</comment>
   </data>
   <data name="DESC" xml:space="preserve">
     <value>Азайуу боюнча</value>
@@ -1268,6 +1308,7 @@
   </data>
   <data name="DeleteDataSourceMessage" xml:space="preserve">
     <value>Жок кылуу маалымат булагы</value>
+    <comment>ж 14 Удалить источник данных</comment>
   </data>
   <data name="PrimaryActivity" xml:space="preserve">
     <value>Иш-аракеттин негизи</value>
@@ -1276,10 +1317,12 @@
     <value>Кодду</value>
   </data>
   <data name="AddressPart1" xml:space="preserve">
-    <value>Батир номуру</value>
+    <value>Адрес</value>
+    <comment>ж Номер квартиры</comment>
   </data>
   <data name="AddressPart2" xml:space="preserve">
     <value>Көчө\үй номуру</value>
+    <comment>ж</comment>
   </data>
   <data name="ActivityType" xml:space="preserve">
     <value>Иш-аракеттин түрү</value>
@@ -1289,6 +1332,7 @@
   </data>
   <data name="StatUnitInfo" xml:space="preserve">
     <value>Каттоочу маалыматтар тууралуу билдирүү</value>
+    <comment>ж 36 регистрационных данных</comment>
   </data>
   <data name="LinkInfo" xml:space="preserve">
     <value>Байланыш жөнүндө маалымат</value>
@@ -1319,27 +1363,34 @@
   </data>
   <data name="route_analysisqueue" xml:space="preserve">
     <value>Анализ</value>
+    <comment>ж 41</comment>
   </data>
   <data name="ServerEndPeriod" xml:space="preserve">
     <value>Анализдин</value>
+    <comment>ж 44 Период Завершения Анализа</comment>
   </data>
   <data name="UserEndPeriod" xml:space="preserve">
     <value>Тандап алуу</value>
+    <comment>ж Выборка с</comment>
   </data>
   <data name="UserStartPeriod" xml:space="preserve">
     <value>б-ча</value>
+    <comment>ж 43 Выборка по</comment>
   </data>
   <data name="Analysis" xml:space="preserve">
     <value>Анализ</value>
+    <comment>ж 41</comment>
   </data>
   <data name="ServerStartPeriod" xml:space="preserve">
     <value>Анализдин</value>
+    <comment>ж 44</comment>
   </data>
   <data name="EnqueueNewItem" xml:space="preserve">
     <value>Кошуу</value>
   </data>
   <data name="AnalysisQueue" xml:space="preserve">
     <value>Анализге</value>
+    <comment>ж 46 Очередь запросов на анализ</comment>
   </data>
   <data name="NoValue" xml:space="preserve">
     <value>Маани жок</value>
@@ -1385,18 +1436,22 @@
   </data>
   <data name="SampleFrames" xml:space="preserve">
     <value>Тандоо үлгүсү</value>
+    <comment>ж 28 Шаблон выборки </comment>
   </data>
   <data name="SampleFramesView" xml:space="preserve">
     <value>Тандоо үлгүсүн кайра кароо</value>
+    <comment>ж 28 Просмотр шаблона выборки</comment>
   </data>
   <data name="SampleFramesCreate" xml:space="preserve">
     <value>Тандоо үлгүсү түзүү</value>
+    <comment>ж 30 Создание шаблона выборки</comment>
   </data>
   <data name="Reset" xml:space="preserve">
     <value>Кайра орнотуу</value>
   </data>
   <data name="Predicate" xml:space="preserve">
     <value>Предикат</value>
+    <comment>ж 26 Предикат</comment>
   </data>
   <data name="Comparisons" xml:space="preserve">
     <value>Жана\Же</value>
@@ -1436,15 +1491,18 @@
   </data>
   <data name="route_sampleframes" xml:space="preserve">
     <value>Тандоо үлгүсү</value>
+    <comment>ж 28 шаблон выборки</comment>
   </data>
   <data name="Ok" xml:space="preserve">
     <value>Ок</value>
+    <comment>ж ОК (trusted)</comment>
   </data>
   <data name="VisitingAddress" xml:space="preserve">
     <value>Чыныгы дарек</value>
   </data>
   <data name="PostalAddress" xml:space="preserve">
     <value>Почта дареги</value>
+    <comment>ж</comment>
   </data>
   <data name="Quit" xml:space="preserve">
     <value>Кызматкер бошотулду</value>
@@ -1460,6 +1518,7 @@
   </data>
   <data name="DownloadSampleFrame" xml:space="preserve">
     <value>Түшүрүү үлгүсүн тандоо</value>
+    <comment>ж</comment>
   </data>
   <data name="FieldsToSelect" xml:space="preserve">
     <value>Тандоо талаалары</value>
@@ -1478,12 +1537,15 @@
   </data>
   <data name="PreviewSampleFrame" xml:space="preserve">
     <value>Тандоо үлгүсүн кайра кароо</value>
+    <comment>ж 28 Предварительный просмотр шаблона выборки</comment>
   </data>
   <data name="route_preview" xml:space="preserve">
     <value>Тандоо үлгүсүн кайра кароо</value>
+    <comment>ж</comment>
   </data>
   <data name="SampleFramesWildcard" xml:space="preserve">
     <value>Тандоо үлгүсүн аталышы боюнча издөө</value>
+    <comment>ж 29 Поиск шаблона выборки по имени</comment>
   </data>
   <data name="SelectedFields" xml:space="preserve">
     <value>SelectedFields</value>
@@ -1508,6 +1570,7 @@
   </data>
   <data name="DeleteSampleFrameMessage" xml:space="preserve">
     <value>DeleteSampleFrameMessage</value>
+    <comment>ж шаблон выгрузки</comment>
   </data>
   <data name="ProcessedAt" xml:space="preserve">
     <value>Карйра иштетүүдө</value>
@@ -1535,6 +1598,7 @@
   </data>
   <data name="StartDate" xml:space="preserve">
     <value>Анализдин башталган датасы</value>
+    <comment>ж 44 Дата начала анализа</comment>
   </data>
   <data name="UnitId" xml:space="preserve">
     <value>Маалыматтар базасындагы статистикалык бирдиктердин идентификаторуу</value>
@@ -1592,6 +1656,7 @@
   </data>
   <data name="ExternalIdType" xml:space="preserve">
     <value>Тышкы ID түрү</value>
+    <comment>ж</comment>
   </data>
   <data name="GpsCoordinates" xml:space="preserve">
     <value>GPS координаты</value>
@@ -1634,6 +1699,7 @@
   </data>
   <data name="ExternalId" xml:space="preserve">
     <value>Сырткы Id</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisDuplicationExternalId" xml:space="preserve">
     <value>Сырткы Id кайталыш</value>
@@ -1667,18 +1733,23 @@
   </data>
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>Маалыматтар булагына үлгү түзүү</value>
+    <comment>ж 17 Создать шаблон источника данных</comment>
   </data>
   <data name="CreateDataSource" xml:space="preserve">
     <value>Маалыматтар булагына үлгү түзүү</value>
+    <comment>ж 16 Создать шаблон источника данных</comment>
   </data>
   <data name="DataSourceQueues" xml:space="preserve">
     <value>Жүктөлгөн  маалыматтардын кезегин кароо</value>
+    <comment>ж загрузка данных</comment>
   </data>
   <data name="route_statunits" xml:space="preserve">
     <value>Каттоо маалымат</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="VariablesOfDataSource" xml:space="preserve">
     <value>Маалыматтар булагынын мааниси</value>
+    <comment>ж 14 Значения источников данных</comment>
   </data>
   <data name="VariablesOfDatabase" xml:space="preserve">
     <value>Маалыматтар базасынын мааниси</value>
@@ -1694,9 +1765,11 @@
   </data>
   <data name="route_datasourcesqueue" xml:space="preserve">
     <value>Маалыматтар булагынын кезеги</value>
+    <comment>ж 14 Очередь источников данных</comment>
   </data>
   <data name="InQueue" xml:space="preserve">
     <value>Кезекте</value>
+    <comment>ж 33 В очереди</comment>
   </data>
   <data name="Loading" xml:space="preserve">
     <value>Жүктөлүүдө</value>
@@ -1709,12 +1782,15 @@
   </data>
   <data name="DataSourceName" xml:space="preserve">
     <value>Маалыматтар булагынын файлынын аты</value>
+    <comment>ж 14 Имя файла источника данных</comment>
   </data>
   <data name="DataSourceTemplateName" xml:space="preserve">
     <value>Үлгүнүн аты</value>
+    <comment>ж 31</comment>
   </data>
   <data name="UploadDateTime" xml:space="preserve">
     <value>Жүктөлгөн булактын датасы</value>
+    <comment>ж 15 Дата загрузки источника</comment>
   </data>
   <data name="Started" xml:space="preserve">
     <value>Башталды</value>
@@ -1748,6 +1824,7 @@
   </data>
   <data name="Employee" xml:space="preserve">
     <value>Кызматкер</value>
+    <comment>ж 48 работник</comment>
   </data>
   <data name="ExternalUser" xml:space="preserve">
     <value>Тышкы колдонуучу</value>
@@ -1781,6 +1858,7 @@
   </data>
   <data name="StatisticalUnitNotExistError" xml:space="preserve">
     <value>Каттоо маалыматтары жок</value>
+    <comment>ж 36 Регистрационные данные</comment>
   </data>
   <data name="UpdateLocalUnitError" xml:space="preserve">
     <value>Жергиликтүү  бирдикти жаңылоодогу ката</value>
@@ -1805,6 +1883,7 @@
   </data>
   <data name="ActualMainActivity2" xml:space="preserve">
     <value>Ишмердиктин түрү</value>
+    <comment>This should not be in use!</comment>
   </data>
   <data name="EntGroupRole" xml:space="preserve">
     <value>Ишкана тобунун ролу</value>
@@ -1838,6 +1917,7 @@
   </data>
   <data name="CreateStatUnit" xml:space="preserve">
     <value>Каттоо маалыматтарын түзүү</value>
+    <comment>ж 36 Регистрационные данныеCreateStatUnit </comment>
   </data>
   <data name="EditButton" xml:space="preserve">
     <value>Түзөтүү</value>
@@ -1856,18 +1936,22 @@
   </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>Жумушчулардык саны, иш менен толук камсыз болгон эквивалент</value>
+    <comment>ж 48 работников</comment>
   </data>
   <data name="EnterpriseUnits" xml:space="preserve">
     <value>Ишкананын түзүмдүк бөлүмдөрү</value>
   </data>
   <data name="LiqDateStart" xml:space="preserve">
     <value>Ликвидациялоо датасы менен</value>
+    <comment>LiqDateStart</comment>
   </data>
   <data name="LiqDateEnd" xml:space="preserve">
     <value>Ликвидациялоо датасы боюнча</value>
+    <comment>LiqDateEnd</comment>
   </data>
   <data name="RegMainActivityId" xml:space="preserve">
     <value>Башкы ID активдерин каттоо</value>
+    <comment>ж Регистрация главной активности ID RegMainActivityId</comment>
   </data>
   <data name="IncorrectIntegerValue" xml:space="preserve">
     <value>Маани 0дон аз же ага барабар болушу мүмкүн эмес</value>
@@ -1985,9 +2069,11 @@
   </data>
   <data name="DataSourceNameExists" xml:space="preserve">
     <value>Системада мындай аталыштагы маалымат булак бар</value>
+    <comment>ж 14 Источник данных с таким наименованием уже есть в системе</comment>
   </data>
   <data name="DataSourceNameIsRequired" xml:space="preserve">
     <value>Маалымат булагына ат берүү керек</value>
+    <comment>ж 14 Источнику данных необходимо задать наименование</comment>
   </data>
   <data name="LinkDeleteConfirm" xml:space="preserve">
     <value>Сиз бул байланышты чынында өчүрүүнү каалайсызбы?</value>
@@ -2000,15 +2086,19 @@
   </data>
   <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
     <value>Маалымат булактарына чектөө көрсөтүлгөн</value>
+    <comment>ж 14 Неверно указано ограничение источника данных</comment>
   </data>
   <data name="BadDataSourcePrioritySearch" xml:space="preserve">
     <value>Маалымат булактарынын приориттери туура эмес көрсөтулгөн</value>
+    <comment>ж 14 Неверно указан приоритет источника двнных</comment>
   </data>
   <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
     <value>Маалыматтар булагынын туура эмес көрсотулгон ореациялары</value>
+    <comment>ж 14 Неверно указаны доступные операции источника данных</comment>
   </data>
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Маалыматты жүктөө кезекте</value>
+    <comment>ж загрузки</comment>
   </data>
   <data name="ParseAttributesNotFound" xml:space="preserve">
     <value>Бир дагы отрибут таанылган эмес</value>
@@ -2036,9 +2126,11 @@
   </data>
   <data name="DataSourceHasQueuedItems" xml:space="preserve">
     <value>Маалымат булагынын жазууда кезекте турат</value>
+    <comment>ж 14 Шаблон источника данных имеет записи в очереди</comment>
   </data>
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Маалымат булагынны улгусу табылган жок</value>
+    <comment>ж 14 Шаблон источника данных не найден</comment>
   </data>
   <data name="HistoryEnterpriseUnitIds" xml:space="preserve">
     <value>Ишканалар</value>
@@ -2084,6 +2176,7 @@
   </data>
   <data name="UploadLogNotFound" xml:space="preserve">
     <value>Жүртөөчү журнал жөнүндө жазуу табылган жок</value>
+    <comment>ж</comment>
   </data>
   <data name="DataSourceCsvDelimiterNotValid" xml:space="preserve">
     <value>Туура эмес бөлүүчу CSV</value>
@@ -2123,12 +2216,14 @@
   </data>
   <data name="DataSourceClassification" xml:space="preserve">
     <value>Маалымат булактарынын  классификациясы</value>
+    <comment>ж 14 Классификация источника данных</comment>
   </data>
   <data name="Write" xml:space="preserve">
     <value>Жазуу</value>
   </data>
   <data name="SampleFrameNotFound" xml:space="preserve">
     <value>Тандоо үлгүсү табылган жок</value>
+    <comment>ж 28 Шаблон выборки не найден</comment>
   </data>
   <data name="LatitudeValidationMessage" xml:space="preserve">
     <value>Түндүк \түшүк  -90° +90° диапазондо болушу керек</value>
@@ -2192,6 +2287,7 @@
   </data>
   <data name="CantDeleteDatasourceTemp" xml:space="preserve">
     <value>Бул маалыматтар булагы үлгүсү өчүрө алынбайт</value>
+    <comment>ж 14 Шаблон источника данных не может быть удален</comment>
   </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
@@ -2237,9 +2333,11 @@
   </data>
   <data name="UploadFileEmpty" xml:space="preserve">
     <value>Жүктөлгөн файл толтурулган эмес</value>
+    <comment>ж загружаемый</comment>
   </data>
   <data name="FileHasEmptyUnit" xml:space="preserve">
     <value>Жүктөлгөн файлдын ичинде статистикалык бирдиктин маалыматтары толтурулган эмес</value>
+    <comment>ж загружаемый</comment>
   </data>
   <data name="ShouldBeGreaterThenZero" xml:space="preserve">
     <value>Талаа бош калтыра албайсыз</value>
@@ -2369,6 +2467,7 @@
   </data>
   <data name="UnitSizeTooltip" xml:space="preserve">
     <value>Unit size</value>
+    <comment>ж</comment>
   </data>
   <data name="TurnoverYearTooltip" xml:space="preserve">
     <value>Turnover Year</value>
@@ -2378,33 +2477,42 @@
   </data>
   <data name="TurnoverTooltip" xml:space="preserve">
     <value>Turnover Year</value>
+    <comment>ж</comment>
   </data>
   <data name="TurnoverDateTooltip" xml:space="preserve">
     <value>Turnover date</value>
   </data>
   <data name="TotalCapitalTooltip" xml:space="preserve">
     <value>Total Capital</value>
+    <comment>ж edit!</comment>
   </data>
   <data name="TelephoneNoTooltip" xml:space="preserve">
     <value>Telephone number</value>
+    <comment>ж</comment>
   </data>
   <data name="TaxRegIdTooltip" xml:space="preserve">
     <value>Tax reg id</value>
+    <comment>ж</comment>
   </data>
   <data name="TaxRegDateTooltip" xml:space="preserve">
     <value>Tax reg date</value>
+    <comment>ж</comment>
   </data>
   <data name="SuspensionStartTooltip" xml:space="preserve">
     <value>Suspension Start</value>
+    <comment>ж</comment>
   </data>
   <data name="SurnameTooltip" xml:space="preserve">
     <value>Surname</value>
+    <comment>ж</comment>
   </data>
   <data name="StatusDateTooltip" xml:space="preserve">
     <value>Status Date</value>
+    <comment>ж</comment>
   </data>
   <data name="StatUnitFormPersonNameTooltip" xml:space="preserve">
     <value>Person name</value>
+    <comment>ж</comment>
   </data>
   <data name="StatUnitEditSuccessfully" xml:space="preserve">
     <value>Statistical unit edit successfully</value>
@@ -2426,45 +2534,57 @@
   </data>
   <data name="StatUnitActivityTypeTooltip" xml:space="preserve">
     <value>Activity type</value>
+    <comment>ж</comment>
   </data>
   <data name="StatUnitActivityEmployeesNumberTooltip" xml:space="preserve">
     <value>Employees number</value>
+    <comment>ж</comment>
   </data>
   <data name="StatUnitActivityDateTooltip" xml:space="preserve">
     <value>Activity Date</value>
+    <comment>ж</comment>
   </data>
   <data name="ActivitiesTooltip" xml:space="preserve">
     <value>Activities</value>
   </data>
   <data name="ActivityCategoryIdTooltip" xml:space="preserve">
     <value>Activity code</value>
+    <comment>ж</comment>
   </data>
   <data name="ActualAddressTooltip" xml:space="preserve">
     <value>Actual Address</value>
+    <comment>ж</comment>
   </data>
   <data name="AddressPart1Tooltip" xml:space="preserve">
     <value>Apartment number</value>
+    <comment>ж</comment>
   </data>
   <data name="AddressPart2Tooltip" xml:space="preserve">
     <value>Street and house number</value>
+    <comment>ж Street and house number</comment>
   </data>
   <data name="AddressPart3Tooltip" xml:space="preserve">
     <value>Postal address Id</value>
+    <comment>ж Postal address Id</comment>
   </data>
   <data name="AddressTooltip" xml:space="preserve">
     <value>Address</value>
+    <comment>ж edit</comment>
   </data>
   <data name="AnalysisEnterpriseGroupRelatedEnterpriseUnits" xml:space="preserve">
     <value>This enterprise group doesn't have related enterprise unit(s)</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryActivities" xml:space="preserve">
     <value>Stat unit doesn't have activities</value>
   </data>
   <data name="AnalysisMandatoryActualAddress" xml:space="preserve">
     <value>Stat unit doesn't have actual address</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryAddress" xml:space="preserve">
     <value>Stat unit doesn't have address</value>
+    <comment>ж</comment>
   </data>
   <data name="AnalysisMandatoryClassified" xml:space="preserve">
     <value>Stat unit doesn't have classified</value>
@@ -2474,26 +2594,38 @@
   </data>
   <data name="StatUnitEnterprise" xml:space="preserve">
     <value>Stat Unit Enterprise</value>
+    <comment>ж Sta tUnit Enterprise</comment>
   </data>
   <data name="StatUnitLocal" xml:space="preserve">
     <value>Stat Unit Local</value>
+    <comment>ж Stat Unit Local</comment>
   </data>
   <data name="DoYouWantToDeleteUnit" xml:space="preserve">
     <value>Do you want to delete unit</value>
-  </data>
-  <data name="Export" xml:space="preserve">
-    <value>Экспорт</value>
-  </data>
-  <data name="StatUnitEnterprise" xml:space="preserve">
-    <value>Stat Unit Enterprise</value>
-  </data>
-  <data name="StatUnitLocal" xml:space="preserve">
-    <value>Stat Unit Local</value>
   </data>
   <data name="ErrorExportStatUnitReport" xml:space="preserve">
     <value>Error Export Stat unit report</value>
   </data>
   <data name="SuccessfullyExportedStatUnitReport" xml:space="preserve">
     <value>Successfully Exported Stat unit report</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>Англизче</value>
+    <comment>ж</comment>
+  </data>
+  <data name="LanguageRussian" xml:space="preserve">
+    <value>Орусча</value>
+    <comment>ж</comment>
+  </data>
+  <data name="LanguageKyrgyz" xml:space="preserve">
+    <value>Кыргызча</value>
+    <comment>ж</comment>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Удалить регион/СОАТЕ</value>
+    <comment>ж</comment>
+  </data>
+  <data name="AnalysisMandatoryEmailAddress" xml:space="preserve">
+    <value>Адрес электронной почты является обязательным</value>
   </data>
 </root>
