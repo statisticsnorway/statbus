@@ -14,6 +14,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./Library/Keychains/:/root/.aspnet/https
+      - ./uploads:/app/uploads
+      - ./sampleframes:/app/sampleframes
     depends_on:
       sqlserver:
         condition: service_healthy
