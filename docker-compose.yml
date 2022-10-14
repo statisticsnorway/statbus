@@ -11,6 +11,7 @@ services:
       dockerfile: src/nscreg.Server/Dockerfile
     ports:
       - 80:80
+    restart: unless-stopped
     volumes:
       - ./Library/Keychains/:/root/.aspnet/https
       - ./uploads:/app/uploads
@@ -32,8 +33,8 @@ services:
       ACCEPT_EULA: Y
       SA_PASSWORD: 12qw!@QW
       MSSQL_PID: Express
-      MSSQL_LCID: 1049
-      MSSQL_COLLATION: Cyrillic_General_CI_AS
+      MSSQL_LCID: 1033
+      MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
     healthcheck:
       test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
       interval: 20s
@@ -44,19 +45,19 @@ services:
     networks:
       - elastic
   elasticsearch:
-   container_name: elasticsearch
-   image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
-   ports:
-    - 9200:9200
-   volumes:
-    - elasticsearch-data:/usr/share/elasticsearch/data
-   environment:
-    - xpack.monitoring.enabled=true
-    - xpack.watcher.enabled=false
-    - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    - discovery.type=single-node
-   networks:
-    - elastic
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
+    ports:
+      - 9200:9200
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - xpack.monitoring.enabled=true
+      - xpack.watcher.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+    networks:
+      - elastic
 
 networks:
   elastic:
