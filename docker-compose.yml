@@ -32,7 +32,7 @@ services:
     environment:
       ACCEPT_EULA: Y
       SA_PASSWORD: 12qw!@QW
-      MSSQL_PID: Express
+#      MSSQL_PID: Express
       MSSQL_LCID: 1033
       MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
     healthcheck:
