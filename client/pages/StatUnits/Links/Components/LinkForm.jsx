@@ -2,7 +2,7 @@ import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
 import { func, string, bool, shape, object, number } from 'prop-types'
 
-import UnitSearch, { defaultUnitSearchResult } from '../components/UnitSearch'
+import UnitSearch, { defaultUnitSearchResult } from '../Components/UnitSearch'
 
 class LinkForm extends React.Component {
   static propTypes = {

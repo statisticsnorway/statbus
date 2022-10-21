@@ -1,8 +1,8 @@
 import React from 'react'
 import { func, bool, shape, string } from 'prop-types'
 
-import LinksForm from '../components/LinkForm'
-import { defaultUnitSearchResult } from '../components/UnitSearch'
+import LinksForm from '../Components/LinkForm'
+import { defaultUnitSearchResult } from '../Components/UnitSearch'
 
 class DeleteLink extends React.Component {
   static propTypes = {

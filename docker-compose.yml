@@ -1,33 +1,68 @@
 version: '3.4'
-
 services:
   nscreg.server:
-    image: ${DOCKER_REGISTRY-}nscregserver
+    container_name: nscreg.server
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80'
+    image: nscreg:latest
     build:
       context: .
       dockerfile: src/nscreg.Server/Dockerfile
+    ports:
+      - 80:80
+    restart: unless-stopped
     volumes:
-        - /docker/src/nscreg.Server/uploads:/app/uploads
-        - /docker/src/nscreg.Server/sampleframes:/app/sampleframes
+      - ./Library/Keychains/:/root/.aspnet/https
+      - ./uploads:/app/uploads
+      - ./sampleframes:/app/sampleframes
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - elastic
 
-#  elasticsearch:
-#   container_name: elasticsearch
-#   image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
-#   ports:
-#    - 9200:9200
-#   volumes:
-#    - elasticsearch-data:/usr/share/elasticsearch/data
-#   environment:
-#    - xpack.monitoring.enabled=true
-#    - xpack.watcher.enabled=false
-#    - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-#    - discovery.type=single-node
-#   networks:
-#    - elastic
-  
-#networks:
-#  elastic:
-#    driver: bridge
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sql19-latest
+    user: root
+    ports:
+      - "1433:1433"
+    restart: always
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: 12qw!@QW
+#      MSSQL_PID: Express
+      MSSQL_LCID: 1033
+      MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
+    healthcheck:
+      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
+      interval: 20s
+      retries: 5
+    volumes:
+      - ./dbackups/:/var/dbackups/
+      - nscreg-sql-data:/var/opt/mssql/data:rw
+    networks:
+      - elastic
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
+    ports:
+      - 9200:9200
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - xpack.monitoring.enabled=true
+      - xpack.watcher.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+    networks:
+      - elastic
 
-#volumes:
-#  elasticsearch-data:
+networks:
+  elastic:
+    driver: bridge
+
+volumes:
+  elasticsearch-data:
+  nscreg-sql-data:

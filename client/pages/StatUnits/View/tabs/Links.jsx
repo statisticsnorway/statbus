@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape, oneOfType, number, string } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
-import LinksTree from '../../Links/components/LinksTree'
+import LinksTree from '../../Links/Components/LinksTree'
 import styles from './styles.pcss'
 
 const Links = ({ filter, fetchData, localize, activeTab }) => (

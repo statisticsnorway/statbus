@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape, string } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
-import LinksTree from '../components/LinksTree'
+import LinksTree from '../Components/LinksTree'
 import ViewFilter from './ViewFilter'
 
 class ViewLinks extends React.Component {
