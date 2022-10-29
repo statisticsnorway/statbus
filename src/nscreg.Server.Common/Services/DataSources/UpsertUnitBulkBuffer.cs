@@ -31,7 +31,7 @@ namespace nscreg.Server.Common.Services.DataSources
         private readonly IMapper _mapper;
 
         public UpsertUnitBulkBuffer(NSCRegDbContext context, IElasticUpsertService elasticSearchService,
-            DataAccessPermissions permissions, DataSourceQueue queue, IMapper mapper, int maxBufferCount = 1000)
+            DataAccessPermissions permissions, DataSourceQueue queue, IMapper mapper, int maxBufferCount)
         {
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
