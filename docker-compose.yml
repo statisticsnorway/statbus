@@ -16,6 +16,7 @@ services:
       - ./Library/Keychains/:/root/.aspnet/https
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
+      - ./logs:/app/logs
     depends_on:
       sqlserver:
         condition: service_healthy
