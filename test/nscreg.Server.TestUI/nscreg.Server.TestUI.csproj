@@ -10,6 +10,11 @@
     <UserSecretsId>aspnet-nscreg.Server.TestUI-20160202011040</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="..\..\appsettings.Shared.json" Link="appsettings.Shared.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -19,7 +24,7 @@
     <PackageReference Include="CoreCompat.Selenium.WebDriver" Version="3.5.3-beta001" />
     <PackageReference Include="Microsoft.DotNet.InternalAbstractions" Version="1.0.500-preview2-1-003177" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="3.1.22" />
-    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="2.35.0" />
+    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="107.0.5304.6200" />
     <PackageReference Include="xunit" Version="2.3.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
   </ItemGroup>

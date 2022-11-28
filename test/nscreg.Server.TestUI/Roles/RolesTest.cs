@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using nscreg.Server.TestUI.Commons;
 using OpenQA.Selenium;
 using Xunit;

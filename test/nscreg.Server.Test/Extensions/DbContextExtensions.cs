@@ -65,7 +65,7 @@ namespace nscreg.Server.Test.Extensions
             });
             var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == role.Id);
             if (anyAdminHere) return;
-            var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
+            var sysAdminUser = context.Users.FirstOrDefault(u => u.UserName == "admin");
             if (sysAdminUser == null)
             {
                 sysAdminUser = new User

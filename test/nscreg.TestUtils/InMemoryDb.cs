@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,14 +15,22 @@ namespace nscreg.TestUtils
         {
             ElasticService.ServiceAddress = "http://localhost:9200";
             ElasticService.StatUnitSearchIndexName = "statunitsearchviewtest";
-            //var serviceProvider = new ServiceCollection().AddEntityFrameworkInMemoryDatabase().BuildServiceProvider();
+            // The key to keeping the databases unique and not shared is 
+            // generating a unique db name for each.
+            string dbName = Guid.NewGuid().ToString();
+
+            // Create a fresh service provider, and therefore a fresh 
+            // InMemory database instance.
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkInMemoryDatabase()
+                .BuildServiceProvider();
+
+            // Create a new options instance telling the context to use an
+            // InMemory database and the new service provider.
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
-#pragma warning disable CS0618 // Type or member is obsolete
-            builder
-                //.UseInMemoryDatabase()
-#pragma warning restore CS0618 // Type or member is obsolete
-                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
-                //.UseInternalServiceProvider(serviceProvider);
+            builder.UseInMemoryDatabase(dbName)
+                   .UseInternalServiceProvider(serviceProvider);
+
             return builder.Options;
         }
     }
