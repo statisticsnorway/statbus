@@ -21,9 +21,13 @@ COPY ["Services/Services.csproj", "Services/"]
 COPY ["src/nscreg.Business/nscreg.Business.csproj", "src/nscreg.Business/"]
 COPY ["src/nscreg.Server.Common/nscreg.Server.Common.csproj", "src/nscreg.Server.Common/"]
 RUN dotnet restore "src/nscreg.Server/nscreg.Server.csproj"
-COPY . .
+
+COPY package*.json .
+COPY .*ignore .
 RUN npm ci --legacy-peer-deps
-RUN npm run build 
+COPY . .
+RUN npm run build
+
 WORKDIR "/src/src/nscreg.Server"
 RUN dotnet build "nscreg.Server.csproj" -c Release -o /app/build
 

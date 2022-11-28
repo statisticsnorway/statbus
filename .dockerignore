@@ -23,3 +23,11 @@
 **/values.dev.yaml
 LICENSE
 README.md
+
+**/uploads
+**/.devcontainer
+**/*.s3db
+**/logs
+**/wwwroot
+microsoft
+dbackups

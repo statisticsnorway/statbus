@@ -490,7 +490,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public static bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property) =>
             dataAccess.HasWritePermission(
-                DataAccessAttributesHelper.GetName<T>(ExpressionUtils.GetExpressionText(property)));
+                DataAccessAttributesHelper.GetName<T>(ExpressionUtils.GetExpressionText<T>(property)));
 
         /// <summary>
         /// Add Address Method

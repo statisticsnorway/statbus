@@ -6,7 +6,6 @@
     <PackageId>nscreg.Utilities</PackageId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNet.Mvc" Version="5.2.7" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.22" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="3.1.22" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.22" />

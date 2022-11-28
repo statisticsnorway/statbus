@@ -85,16 +85,6 @@ namespace nscreg.Services
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, message);
             }
 
-            _logger.Info("mutation queue file #{0}", dequeued.Id);
-
-            var mutateError = await MutateFileAsync(dequeued);
-            if (mutateError.HasValue())
-            {
-                _logger.Info("finish queue item with error: {0}", mutateError);
-                await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, mutateError);
-                return;
-            }
-
             var executor = new ImportExecutor(_mapper, _serviceSettings, _configuration);
             var (parseError, parsed, problemLine) = await ParseFile(dequeued);
 
