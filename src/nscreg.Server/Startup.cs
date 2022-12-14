@@ -222,7 +222,7 @@ namespace nscreg.Server
                 .AddDefaultTokenProviders();
 
             var keysDirectory = Path.Combine(CurrentEnvironment.ContentRootPath, Configuration.GetValue<string>("DataProtectionKeysDir") ?? "keys");
-            if (!Directory.Exists(keysDirectory))   
+            if (!Directory.Exists(keysDirectory))
                 Directory.CreateDirectory(keysDirectory);
 
             services.AddLogging(loggingBuilder =>
@@ -320,7 +320,6 @@ namespace nscreg.Server
                 .ConfigureKestrel((context, options) =>
                 {
                     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
-                    options.Limits.MaxRequestBodySize = long.MaxValue;
                 });
     }
 }

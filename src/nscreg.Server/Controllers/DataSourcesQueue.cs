@@ -48,6 +48,9 @@ namespace nscreg.Server.Controllers
         /// <param name="data"></param>
         /// <returns></returns>
         [HttpPost]
+        [DisableRequestSizeLimit]
+        [RequestFormLimits(MultipartBodyLengthLimit = int.MaxValue,
+        ValueLengthLimit = int.MaxValue)]
         [SystemFunction(SystemFunctions.DataSourcesQueueAdd)]
         public async Task<IActionResult> Create([FromForm] UploadQueueItemVm data)
         {
