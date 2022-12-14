@@ -2,6 +2,8 @@
 
 Statistical Business Registry (SBR)
 
+[![CI](https://github.com/statisticsnorway/statbus/actions/workflows/ci.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/ci.yaml)
+
 ## tools stack
 
 * ASP.NET Core 3.1, Entity Framework Core 3.1.22, ElasticSearch 6.5.3
