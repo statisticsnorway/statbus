@@ -8,6 +8,8 @@
 **/.toolstarget
 **/.vs
 **/.vscode
+**/.microsoft
+**/.devcontainer
 **/*.*proj.user
 **/*.dbmdl
 **/*.jfm
@@ -28,7 +30,9 @@ README.md
 **/.devcontainer
 **/*.s3db
 **/logs
-**/wwwroot
+**/dist
+build
+SQLWallet
 microsoft
 dbackups
 keys

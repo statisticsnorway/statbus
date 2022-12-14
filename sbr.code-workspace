@@ -19,7 +19,6 @@
       "eamodio.gitlens",
       "EditorConfig.editorconfig",
       "oderwat.indent-rainbow",
-      "robertohuertasm.vscode-icons",
       "DotJoshJohnson.xml",
       "mohsen1.prettify-json",
       "rafaelmaiolla.diff"
@@ -54,7 +53,7 @@
     "javascript.format.enable": false,
     "editor.formatOnSave": true,
     "eslint.enable": true,
-    "eslint.autoFixOnSave": true,
+    "eslint.codeActionsOnSave.mode": "all",
     "prettier.eslintIntegration": true,
     "npm-intellisense.scanDevDependencies": true,
     "path-autocomplete.pathMappings": {

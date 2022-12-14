@@ -8,6 +8,12 @@
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
   </PropertyGroup>
   <ItemGroup>
+    <AssemblyAttribute Include="Xunit.AssemblyTraitAttribute">
+      <_Parameter1>Category</_Parameter1>
+      <_Parameter2>Unit</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup>
     <None Include="Helpers\StatUnitTestHelper.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -1,17 +1,21 @@
+# Please refer https://aka.ms/HTTPSinContainer on how to setup an https developer certificate for your ASP .NET Core service.
+
 version: '3.4'
 services:
-  nscreg.server:
-    container_name: nscreg.server
+  server:
+    container_name: nscreg-server
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80'
-    image: nscreg:latest
+      - ASPNETCORE_ENVIRONMENT=Development
+    image: nscreg
     build:
       context: .
       dockerfile: src/nscreg.Server/Dockerfile
+      args:
+        CONFIGURATION: Development
+      tags:
+        - "dev"
     ports:
       - 80:80
-    restart: unless-stopped
     volumes:
       - ./Library/Keychains/:/root/.aspnet/https
       - ./uploads:/app/uploads
@@ -22,7 +26,6 @@ services:
         condition: service_healthy
     networks:
       - elastic
-
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
     container_name: sql19-latest

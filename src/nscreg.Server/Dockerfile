@@ -1,16 +1,23 @@
 #See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-FROM mcr.microsoft.com/dotnet/aspnet:3.1 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:3.1-focal AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:3.1 AS build
-RUN apt-get update
-RUN apt-get install -y curl
-RUN apt-get install -y libpng-dev libjpeg-dev curl libxi6 build-essential libgl1-mesa-glx
-RUN curl -sL https://deb.nodesource.com/setup_lts.x | bash -
-RUN apt-get install -y nodejs
+FROM node:19-bullseye-slim AS spa-build
+WORKDIR /src
+COPY package*.json .
+RUN npm ci --legacy-peer-deps
+COPY jsconfig.json .
+COPY client/. client/.
+COPY tools/. tools/.
+COPY appsettings.Shared.json .
+RUN mkdir -p src/nscreg.Server/wwwroot/dist
+RUN npm run build
+ENTRYPOINT [ "/bin/sh" ]
+
+FROM mcr.microsoft.com/dotnet/sdk:3.1-focal AS build
+ARG CONFIGURATION=Release
 WORKDIR /src
 COPY ["src/nscreg.Server/nscreg.Server.csproj", "src/nscreg.Server/"]
 COPY ["src/nscreg.ModelGeneration/nscreg.ModelGeneration.csproj", "src/nscreg.ModelGeneration/"]
@@ -22,19 +29,16 @@ COPY ["src/nscreg.Business/nscreg.Business.csproj", "src/nscreg.Business/"]
 COPY ["src/nscreg.Server.Common/nscreg.Server.Common.csproj", "src/nscreg.Server.Common/"]
 RUN dotnet restore "src/nscreg.Server/nscreg.Server.csproj"
 
-COPY package*.json .
-COPY .*ignore .
-RUN npm ci --legacy-peer-deps
-COPY . .
-RUN npm run build
-
 WORKDIR "/src/src/nscreg.Server"
-RUN dotnet build "nscreg.Server.csproj" -c Release -o /app/build
+COPY . /src
+RUN dotnet build "nscreg.Server.csproj" -c ${CONFIGURATION} -f netcoreapp3.1 --no-restore
 
 FROM build AS publish
-RUN dotnet publish "nscreg.Server.csproj" -c Release -o /app/publish
+COPY --from=spa-build /src/src/nscreg.Server/. /src/src/nscreg.Server/
+RUN dotnet publish "nscreg.Server.csproj" -c ${CONFIGURATION} -o /app/publish -f netcoreapp3.1 --no-build
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "nscreg.Server.dll"]
+

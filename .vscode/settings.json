@@ -8,5 +8,8 @@
     "src": false,
     "test": false,
     "client": false
-  }
+  },
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/ci.yaml"
+  ]
 }
