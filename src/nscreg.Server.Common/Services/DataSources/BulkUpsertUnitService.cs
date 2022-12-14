@@ -389,8 +389,11 @@ namespace nscreg.Server.Common.Services.DataSources
                 unit.PersonsUnits.Add(new PersonStatisticalUnit
                 {
                     PersonId = x.PersonId,
+                    Person = x.Person,
                     PersonTypeId = x.PersonTypeId,
-                    EnterpriseGroupId = x.EnterpriseGroupId
+                    PersonType = x.PersonType,
+                    EnterpriseGroupId = x.EnterpriseGroupId,
+                    EnterpriseGroup = x.EnterpriseGroup
                 });
             });
 
