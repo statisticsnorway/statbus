@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 3.1.x
@@ -16,8 +18,6 @@ jobs:
           versionSpec: "5.x"
       - name: Determine Version
         uses: gittools/actions/gitversion/execute@v0.9.7
-        with:
-          fetch-depth: 0
 
       - name: Docker meta
         id: docker-meta
