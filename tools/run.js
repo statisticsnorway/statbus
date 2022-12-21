@@ -92,7 +92,6 @@ tasks.set(
         localCfg = {}
       }
       const source = { ...rootCfg, ...localCfg }
-      delete source.Logging
       environments.forEach((env) => {
         const filename = path.resolve(__dirname, `../src/nscreg.Server/appsettings.${env}.json`)
         try {

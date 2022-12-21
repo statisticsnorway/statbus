@@ -17,11 +17,17 @@
   "extensions": {
     "recommendations": [
       "eamodio.gitlens",
-      "EditorConfig.editorconfig",
+      "editorconfig.editorconfig",
       "oderwat.indent-rainbow",
-      "DotJoshJohnson.xml",
+      "dotjoshjohnson.xml",
       "mohsen1.prettify-json",
-      "rafaelmaiolla.diff"
+      "rafaelmaiolla.diff",
+      "redhat.vscode-yaml",
+      "me-dutour-mathieu.vscode-github-actions",
+      "github.vscode-pull-request-github",
+      "cschleiden.vscode-github-actions",
+      "henriiik.docker-linter",
+      "github.copilot"
     ]
   },
   "settings": {
@@ -44,7 +50,10 @@
       "nscreg.sln.DotSettings": true,
       ".idea": true,
       ".vscode": true,
-      "yarn-error.log": true
+      "yarn-error.log": true,
+      "client/": true,
+      "src/": true,
+      "test/": true
     },
     "flow.enabled": false,
     "flow.useNPMPackagedFlow": true,
@@ -62,6 +71,12 @@
       "layout": "${workspace}/client/layout",
       "pages": "${workspace}/client/pages"
     },
-    "vsicons.presets.angular": false
+    "vsicons.presets.angular": false,
+    "yaml.suggest.parentSkeletonSelectedFirst": true,
+    "github-actions.workflows.pinned.refresh.enabled": true,
+    "yaml.schemas": {
+      "https://json.schemastore.org/github-action.json": "file:///workspaces/nscreg/.github/actions/**/action.yaml",
+      "https://json.schemastore.org/github-workflow.json": "file:///workspaces/nscreg/.github/workflows/*-workflow.yaml"
+    }
   }
 }

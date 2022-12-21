@@ -1,24 +1,43 @@
 {
-	"name": "C# (.NET)",
-	"image": "mcr.microsoft.com/devcontainers/dotnet:6.0-jammy",
-	"features": {
-		"ghcr.io/devcontainers/features/node:1": {},
-		"ghcr.io/devcontainers/features/docker-in-docker:1": {
-			"version": "latest",
-			"moby": true
-		},
-		"ghcr.io/devcontainers/features/git:1": {}
-	},
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [80, 80],
-
-	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "dotnet restore"
-
-	// Configure tool-specific properties.
-	// "customizations": {},
-
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
+  "name": "C# (.NET)",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:6.0-focal",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet": {
+      "version": "3.1"
+    },
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/docker-from-docker:1": {
+      "version": "latest",
+      "moby": true
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers-contrib/features/act-asdf:1": {}
+  },
+  "mounts": [
+    "type=bind,source=${localEnv:HOME}${localEnv:USERPROFILE}/.aspnet/https,target=/workspaces/.aspnet/https,readonly,consistency=cached"
+  ],
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  "forwardPorts": [
+    80,
+    443
+  ],
+  "remoteEnv": {
+    "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
+  },
+  // Use 'postCreateCommand' to run commands after the container is created.
+  "postCreateCommand": "dotnet restore",
+  // Configure tool-specific properties.
+  // "customizations": {},
+  // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+  // "remoteUser": "root"
+  "extensions": [
+    "eamodio.gitlens",
+    "EditorConfig.editorconfig",
+    "redhat.vscode-yaml",
+    "me-dutour-mathieu.vscode-github-actions",
+    "GitHub.vscode-pull-request-github",
+    "formulahendry.github-actions",
+    "cschleiden.vscode-github-actions",
+    "henriiik.docker-linter"
+  ]
 }

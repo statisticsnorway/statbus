@@ -320,6 +320,7 @@ namespace nscreg.Server
                 .ConfigureKestrel((context, options) =>
                 {
                     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(1); //20
+                    options.Limits.MaxRequestBodySize = long.MaxValue;
                 });
     }
 }

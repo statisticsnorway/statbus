@@ -6,6 +6,9 @@ services:
     container_name: nscreg-server
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=localhost
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/localhost.pfx
     image: nscreg
     build:
       context: .
@@ -16,11 +19,13 @@ services:
         - "dev"
     ports:
       - 80:80
+      - 443:443
     volumes:
-      - ./Library/Keychains/:/root/.aspnet/https
+      - /workspaces/.aspnet/https:/https:ro
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
       - ./logs:/app/logs
+      - keys:/app/keys
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -44,7 +49,6 @@ services:
       interval: 20s
       retries: 5
     volumes:
-      - ./dbackups/:/var/dbackups/
       - nscreg-sql-data:/var/opt/mssql/data:rw
     networks:
       - elastic
@@ -70,3 +74,5 @@ networks:
 volumes:
   elasticsearch-data:
   nscreg-sql-data:
+  keys:
+  certs:

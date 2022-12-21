@@ -1,0 +1,34 @@
+name: "Build for PR"
+description: "Build and test dotnet project"
+
+inputs:
+  test_filter:
+    description: Test filter
+    required: true
+  configuration:
+    description: "Development|Production"
+    required: true
+  project:
+    description: "Path to the project or solution file"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 3.1.x
+    - shell: bash
+      run: dotnet restore
+    - shell: bash
+      run: dotnet build --configuration ${{ inputs.configuration }} --no-restore
+    - shell: bash
+      run: dotnet test --configuration ${{ inputs.configuration }} --no-build --filter "${{ inputs.test_filter }}" --logger "trx;LogFileName=test-results.trx" || true
+    - uses: dorny/test-reporter@v1.6.0
+      if: (!env.ACT && (success() || failure()))
+      with:
+        name: dotnet - Test
+        path: "**/test-results.trx"
+        reporter: dotnet-trx
+        fail-on-error: false

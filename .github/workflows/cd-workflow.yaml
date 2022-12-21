@@ -1,0 +1,60 @@
+name: CD
+on:
+  push:
+    branches:
+      - AddingDockerSupportCore3.1
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 3.1.x
+      - uses: gittools/actions/gitversion/setup@v0.9.7
+        with:
+          versionSpec: "5.x"
+      - name: Determine Version
+        uses: gittools/actions/gitversion/execute@v0.9.7
+        with:
+          fetch-depth: 0
+
+      - name: Docker meta
+        id: docker-meta
+        uses: docker/metadata-action@v4
+        with:
+          github-token: ${{ github.token }}
+          images: gatepoet/nscreg
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./src/nscreg.Server/Dockerfile
+          push: ${{ false && github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    runs-on: ubuntu-20.04
+    needs: build
+    steps:
+      - name: Fetch image
+        shell: bash
+        run: "echo Deploy 1"
+      - name: Deploy image
+        shell: bash
+        run: "echo Deploy 2"
+  e2e_test:
+    runs-on: ubuntu-20.04
+    needs: deploy
+    steps:
+      - name: run e2e tests
+        shell: bash
+        run: "echo e2e"
