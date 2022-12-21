@@ -1,3 +1,9 @@
+---
+##################################
+##################################
+## Continuous Delivery workflow ##
+##################################
+##################################
 name: CD
 on:
   push:
@@ -37,9 +43,9 @@ jobs:
         with:
           context: .
           file: ./src/nscreg.Server/Dockerfile
-          push: ${{ false && github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.docker-meta.outputs.tags }}
+          labels: ${{ steps.docker-meta.outputs.labels }}
 
   deploy:
     runs-on: ubuntu-20.04
