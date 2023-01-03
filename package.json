@@ -9,7 +9,7 @@
     "eslint": "eslint client test/client.test tools",
     "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
     "stylelint": "stylelint \"./client/**/*.pcss\"",
-    "lint": "run-p eslint stylelint",
+    "lint": "npm-run-all -p eslint stylelint",
     "format": "prettier-eslint \"client/**/*.js*\" --write",
     "test": "jest",
     "test:watch": "jest --watch",

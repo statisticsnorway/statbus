@@ -100,18 +100,51 @@
       }
     },
     {
-      "label": "act",
+      "label": "act: lint",
       "type": "shell",
       "command": "/home/vscode/.asdf/shims/act",
       "args": [
         "push",
-        "--bind",
         "--secret",
         "GITHUB_TOKEN=$GITHUB_TOKEN",
         "--rm",
+        "--reuse",
         "--workflows",
         "./.github/workflows/linter-workflow.yaml",
-        // "--verbose",
+        "--userns",
+        "vscode"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "act: cd",
+      "type": "shell",
+      "command": "/home/vscode/.asdf/shims/act",
+      "args": [
+        "push",
+        "--secret",
+        "GITHUB_TOKEN=$GITHUB_TOKEN",
+        "--rm",
+        "--reuse",
+        "--workflows",
+        "./.github/workflows/cd-workflow.yaml",
+        "--userns",
+        "vscode"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "act: ci",
+      "type": "shell",
+      "command": "/home/vscode/.asdf/shims/act",
+      "args": [
+        "push",
+        "--secret",
+        "GITHUB_TOKEN=$GITHUB_TOKEN",
+        "--rm",
+        "--reuse",
+        "--workflows",
+        "./.github/workflows/ci-workflow.yaml",
         "--userns",
         "vscode"
       ],

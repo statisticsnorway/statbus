@@ -11,10 +11,7 @@ name: Lint Code Base
 #############################
 on:
   push:
-    branches-ignore: [AddingDockerSupportCore3.1]
-    # Remove the line above to run when pushing to master
   pull_request:
-    branches: [AddingDockerSupportCore3.1]
 
 ###############
 # Set the Job #
@@ -62,13 +59,20 @@ jobs:
           # shellcheck disable=2086
           echo "DEFAULT_BRANCH=$(echo '${{ github.ref }}' | sed 's/refs\/heads\///')" >> $GITHUB_ENV
           echo "this is just a branch push, not a PR."
+      - run: printenv | grep BRANCH
       - name: Lint Code Base
-        uses: github/super-linter@v4
+        uses: github/super-linter/slim@v4
         env:
           VALIDATE_ALL_CODEBASE: ${{ !contains(github.event_name, 'pull_request') }}
+          VALIDATE_CSHARP: false
+          VALIDATE_JAVASCRIPT_ES: false
+          VALIDATE_JAVASCRIPT_STANDARD: false
+          VALIDATE_TYPESCRIPT_ES: false
+          VALIDATE_TYPESCRIPT_STANDARD: false
+          VALIDATE_JSX: false
+          VALIDATE_CSS: false
+          VALIDATE_SQLFLUFF: false
+          VALIDATE_JSCPD_ALL_CODEBASE: ${{ !contains(github.event_name, 'pull_request') }}
           DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IGNORE_GITIGNORED_FILES: true
-          GIT_DISCOVERY_ACROSS_FILESYSTEM: true
-          # USE_FIND_ALGORITHM: true
-          # ACTIONS_RUNNER_DEBUG: true

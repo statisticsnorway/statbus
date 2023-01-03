@@ -1,3 +1,4 @@
+---
 version: '3.4'
 services:
   nscreg.server:
@@ -5,12 +6,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80'
-    image: nscreg:latest
+    image: gatepoet/nscreg:latest
     build:
       context: .
       dockerfile: src/nscreg.Server/Dockerfile
     ports:
       - 80:80
+      - 443:443
     restart: unless-stopped
     volumes:
       - ./Library/Keychains/:/root/.aspnet/https
@@ -32,19 +34,18 @@ services:
     restart: always
     environment:
       ACCEPT_EULA: Y
-      SA_PASSWORD: 12qw!@QW
-#      MSSQL_PID: Express
       MSSQL_LCID: 1033
       MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
     healthcheck:
-      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
+      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P ${ secrets.nscreg-sql-password } -Q "Select 1"'
       interval: 20s
       retries: 5
     volumes:
-      - ./dbackups/:/var/dbackups/
       - nscreg-sql-data:/var/opt/mssql/data:rw
     networks:
       - elastic
+    secrets:
+      - nscreg-sql-password
   elasticsearch:
     container_name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
@@ -63,6 +64,10 @@ services:
 networks:
   elastic:
     driver: bridge
+
+secrets:
+  nscreg-sql-password:
+    environment: SA_PASSWORD
 
 volumes:
   elasticsearch-data:

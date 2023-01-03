@@ -1,3 +1,4 @@
+---
 name: "Build for PR"
 description: "Build and test dotnet project"
 
@@ -22,13 +23,8 @@ runs:
     - shell: bash
       run: dotnet restore
     - shell: bash
+      run: dotnet format --verify-no-changes || true
+    - shell: bash
       run: dotnet build --configuration ${{ inputs.configuration }} --no-restore
     - shell: bash
-      run: dotnet test --configuration ${{ inputs.configuration }} --no-build --filter "${{ inputs.test_filter }}" --logger "trx;LogFileName=test-results.trx" || true
-    - uses: dorny/test-reporter@v1.6.0
-      if: (!env.ACT && (success() || failure()))
-      with:
-        name: dotnet - Test
-        path: "**/test-results.trx"
-        reporter: dotnet-trx
-        fail-on-error: false
+      run: dotnet test --configuration ${{ inputs.configuration }} --no-build --verbosity normal --filter "${{ inputs.test_filter }}" --logger "github" || true

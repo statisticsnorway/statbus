@@ -17,10 +17,7 @@
     "type=bind,source=${localEnv:HOME}${localEnv:USERPROFILE}/.aspnet/https,target=/workspaces/.aspnet/https,readonly,consistency=cached"
   ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  "forwardPorts": [
-    80,
-    443
-  ],
+  "forwardPorts": [80, 443],
   "remoteEnv": {
     "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
   },

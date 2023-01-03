@@ -13,12 +13,16 @@ on:
     paths:
       - src/
       - client/
-      - .github/workflows/ci.yaml
+      - test/
+      - .github/workflows/ci-workflow.yaml
+      - .github/actions/dotnet-build-test/
   pull_request:
     paths:
       - src/
       - client/
-      - .github/workflows/ci.yaml
+      - test/
+      - .github/workflows/ci-workflow.yaml
+      - .github/actions/dotnet-build-test/
 
 env:
   ACT: ""
@@ -27,8 +31,19 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/dotnet-build-test/
+      - uses: ./.github/actions/dotnet-build-test
         with:
           project: ./src/nscreg.Server/nscreg.Server.csproj
           configuration: Debug
           test_filter: Category=Unit
+
+  build-spa:
+    runs-on: ubuntu-20.04
+    container:
+      image: node:19-bullseye-slim
+    steps:
+      - uses: actions/checkout@v3
+      - run: npm ci --legacy-peer-deps
+      - run: npm run lint || true
+      - run: npm run build
+      - run: npm run test

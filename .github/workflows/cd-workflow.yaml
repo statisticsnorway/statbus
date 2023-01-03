@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - AddingDockerSupportCore3.1
+  pull_request:
 jobs:
   build:
     runs-on: ubuntu-20.04
