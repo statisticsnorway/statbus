@@ -27,4 +27,4 @@ runs:
     - shell: bash
       run: dotnet build --configuration ${{ inputs.configuration }} --no-restore
     - shell: bash
-      run: dotnet test --configuration ${{ inputs.configuration }} --no-build --verbosity normal --filter "${{ inputs.test_filter }}" --logger "GitHubActionsTestLogger" || true
+      run: dotnet test --configuration ${{ inputs.configuration }} --no-build --verbosity normal --filter "${{ inputs.test_filter }}" --logger "GitHubActions" || true
