@@ -11,23 +11,23 @@ on:
     branches:
       - "!AddingDockerSupportCore3.1"
     paths:
-      - src/
-      - client/
-      - test/
+      - src/**
+      - client/**
+      - test/**
       - .github/workflows/ci-workflow.yaml
-      - .github/actions/dotnet-build-test/
+      - .github/actions/dotnet-build-test/**
   pull_request:
     paths:
-      - src/
-      - client/
-      - test/
+      - src/**
+      - client/**
+      - test/**
       - .github/workflows/ci-workflow.yaml
-      - .github/actions/dotnet-build-test/
+      - .github/actions/dotnet-build-test/**
 
 env:
   ACT: ""
 jobs:
-  Build:
+  build-aspnet:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -37,7 +37,7 @@ jobs:
           configuration: Debug
           test_filter: Category=Unit
 
-  build-spa:
+  build-react:
     runs-on: ubuntu-20.04
     container:
       image: node:19-bullseye-slim
