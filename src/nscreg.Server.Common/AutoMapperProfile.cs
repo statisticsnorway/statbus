@@ -194,38 +194,24 @@ namespace nscreg.Server.Common
             CreateStatUnitByRules();
         }
 
-        /// <summary>
-        /// Метод конфигурации поиска
-        /// </summary>
-        private void ConfigureLookups()
-        {
-            CreateMap<EnterpriseUnit, CodeLookupVm>()
+        private IMappingExpression<TStatUnit, CodeLookupVm> CreateStatUnitMap<TStatUnit>()
+        where TStatUnit : IStatisticalUnit {
+            return CreateMap<TStatUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
                 .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId))
                 .ForMember(x=>x.NameLanguage1, opt=>opt.Ignore())
                 .ForMember(x=>x.NameLanguage2, opt=>opt.Ignore());
-
-            CreateMap<EnterpriseGroup, CodeLookupVm>()
-                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
-                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId))
-                .ForMember(x => x.NameLanguage1, opt => opt.Ignore())
-                .ForMember(x => x.NameLanguage2, opt => opt.Ignore());
-
-            CreateMap<LocalUnit, CodeLookupVm>()
-                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
-                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId))
-                .ForMember(x => x.NameLanguage1, opt => opt.Ignore())
-                .ForMember(x => x.NameLanguage2, opt => opt.Ignore());
-
-            CreateMap<LegalUnit, CodeLookupVm>()
-                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
-                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId))
-                .ForMember(x => x.NameLanguage1, opt => opt.Ignore())
-                .ForMember(x => x.NameLanguage2, opt => opt.Ignore());
+        }
+        /// <summary>
+        /// Метод конфигурации поиска
+        /// </summary>
+        private void ConfigureLookups()
+        {
+            CreateStatUnitMap<EnterpriseUnit>();
+            CreateStatUnitMap<EnterpriseGroup>();
+            CreateStatUnitMap<LocalUnit>();
+            CreateStatUnitMap<LegalUnit>();
 
             CreateMap<Country, CodeLookupVm>();
             CreateMap<SectorCode, CodeLookupVm>();
@@ -447,7 +433,6 @@ namespace nscreg.Server.Common
                         {
                             Id = z.Activity.Id,
                             IdDate = z.Activity.IdDate,
-                            ActivityCategory = z.Activity.ActivityCategory,
                             ActivityCategoryId = z.Activity.ActivityCategoryId,
                             ActivityType = z.Activity.ActivityType,
                             ActivityYear = z.Activity.ActivityYear,
@@ -471,7 +456,8 @@ namespace nscreg.Server.Common
                     {
                         CountryId = z.CountryId,
                         UnitId = z.UnitId
-                    })));
+                    })))
+                .ForPath(v => v.Address.Region, v => v.Ignore());
 
         /// <summary>
         /// Метод создания стат. единицы из модели сопоставления
@@ -518,7 +504,7 @@ namespace nscreg.Server.Common
                 {
                     var name = DataAccessAttributesHelper.GetName(dst.GetType(), v.DestinationMember.Name);
                     return DataAccessAttributesProvider.Find(name) == null
-                           || (src.DataAccess?.HasWritePermission(name) ?? false);
+                        || (src.DataAccess?.HasWritePermission(name) ?? false);
                 }));
     }
 }
