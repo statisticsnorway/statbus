@@ -447,7 +447,6 @@ namespace nscreg.Server.Common
                         {
                             Id = z.Activity.Id,
                             IdDate = z.Activity.IdDate,
-                            ActivityCategory = z.Activity.ActivityCategory,
                             ActivityCategoryId = z.Activity.ActivityCategoryId,
                             ActivityType = z.Activity.ActivityType,
                             ActivityYear = z.Activity.ActivityYear,
@@ -471,7 +470,8 @@ namespace nscreg.Server.Common
                     {
                         CountryId = z.CountryId,
                         UnitId = z.UnitId
-                    })));
+                    })))
+                .ForPath(v => v.Address.Region, v => v.Ignore());
 
         /// <summary>
         /// Метод создания стат. единицы из модели сопоставления
