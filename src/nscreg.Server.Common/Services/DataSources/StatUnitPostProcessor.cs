@@ -20,45 +20,45 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
         {
             List<string> errors = new List<string>();
+            void Try(Action action)
+            {
+                try
+                {
+                    action.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(ex.Message);
+                }
+            }
             try
             {
-                
-                unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
-                    .ForEach(au =>
-                    {
-                        try
-                        {
-                            au.Activity = GetFilledActivity(au.Activity);
-                        }
-                        catch (Exception ex)
-                        {
-                            errors.Add(ex.Message);
-                        }
-                    });
+
+                unit.ActivitiesUnits?
+                    .Where(activityUnit => activityUnit.Activity.Id == 0)
+                    .ForEach(au => Try(() =>
+                        au.Activity = GetFilledActivity(au.Activity)
+                    ));
 
                 if (unit.Address?.Id == 0)
-                    unit.Address = GetFilledAddress(unit.Address);
+                    Try(() => unit.Address = GetFilledAddress(unit.Address));
 
                 if (unit.PostalAddress?.Id == 0)
-                    unit.PostalAddress = GetFilledAddress(unit.PostalAddress);
+                    Try(() => unit.PostalAddress = GetFilledAddress(unit.PostalAddress));
 
                 if (unit.ActualAddress?.Id == 0)
-                    unit.ActualAddress = GetFilledAddress(unit.ActualAddress);
+                    Try(() => unit.ActualAddress = GetFilledAddress(unit.ActualAddress));
 
-                unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
-                    {
-                        try
+                unit.ForeignParticipationCountriesUnits?
+                    .Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
+                        Try(() =>
                         {
                             var country = GetFilledCountry(fpcu.Country);
                             fpcu.Country = country;
                             fpcu.CountryId = country.Id;
                             fpcu.UnitId = unit.RegId;
-                        }
-                        catch (Exception ex)
-                        {
-                            errors.Add(ex.Message);
-                        }
-                    });
+                        })
+                    );
 
                 if (unit.ForeignParticipation?.Id == 0)
                 {
@@ -76,18 +76,11 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.LegalFormId = unit.LegalForm?.Id;
 
                 // TODO: It can attach Person with the same name as other person, if other fields are not filled
-                unit.PersonsUnits?.Where(personUnit => personUnit.PersonId == null)
-                    .ForEach(per =>
-                    {
-                        try
-                        {
-                            per.Person = GetFilledPerson(per.Person);
-                        }
-                        catch (Exception ex)
-                        {
-                            errors.Add(ex.Message);
-                        }
-                    });
+                unit.PersonsUnits?
+                    .Where(personUnit => personUnit.PersonId == null)
+                    .ForEach(per => Try(() =>
+                        per.Person = GetFilledPerson(per.Person)
+                    ));
 
                 switch (unit)
                 {
