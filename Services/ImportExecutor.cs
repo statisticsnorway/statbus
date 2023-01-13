@@ -184,19 +184,19 @@ namespace nscreg.Services
 
         private static async Task InitializeCacheForLookups(NSCRegDbContext context)
         {
-            await context.ActivityCategories.LoadAsync();
-            await context.PersonTypes.LoadAsync();
-            await context.RegistrationReasons.LoadAsync();
-            await context.Regions.LoadAsync();
-            await context.UnitsSize.LoadAsync();
-            await context.Statuses.LoadAsync();
-            await context.ReorgTypes.LoadAsync();
-            await context.SectorCodes.LoadAsync();
-            await context.DataSourceClassifications.LoadAsync();
-            await context.LegalForms.LoadAsync();
-            await context.ForeignParticipations.LoadAsync();
-            await context.Countries.LoadAsync();
-            await context.UserRegions.LoadAsync();
+            await context.ActivityCategories.AsNoTracking().LoadAsync();
+            await context.PersonTypes.AsNoTracking().LoadAsync();
+            await context.RegistrationReasons.AsNoTracking().LoadAsync();
+            await context.Regions.AsNoTracking().LoadAsync();
+            await context.UnitsSize.AsNoTracking().LoadAsync();
+            await context.Statuses.AsNoTracking().LoadAsync();
+            await context.ReorgTypes.AsNoTracking().LoadAsync();
+            await context.SectorCodes.AsNoTracking().LoadAsync();
+            await context.DataSourceClassifications.AsNoTracking().LoadAsync();
+            await context.LegalForms.AsNoTracking().LoadAsync();
+            await context.ForeignParticipations.AsNoTracking().LoadAsync();
+            await context.Countries.AsNoTracking().LoadAsync();
+            await context.UserRegions.AsNoTracking().LoadAsync();
         }
     }
 }
