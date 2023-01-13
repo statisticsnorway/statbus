@@ -60,9 +60,9 @@ namespace nscreg.Services
             IStatUnitAnalyzeService analyzeService = null;
             DbLogBuffer logBuffer = null;
             bool isAdmin = false;
-            int i = 0;
-            foreach (var parsedUnit in keyValues)
+            for (int i = 0; i < keyValues.Length; i++)
             {
+                var parsedUnit = keyValues[i];
                 if(i % _servicesSettings.DataUploadMaxBufferCount == 0)
                 {
                     if(sqlBulkBuffer != null)
@@ -85,7 +85,7 @@ namespace nscreg.Services
                     isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
                 }
 
-                //_logger.Info("processing entity #{0}", i++);
+                //_logger.Info("processing entity #{0}", i);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
