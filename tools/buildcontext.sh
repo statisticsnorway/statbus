@@ -10,7 +10,7 @@
 # 3. You should see list of files in build context
 # 4. If unwanted files in context, adjust .dockerignore file and go back to step 2
 
-cat <<EOF > Dockerfile.build-context
+cat <<EOF >Dockerfile.build-context
 FROM busybox
 COPY . /build-context
 WORKDIR /build-context

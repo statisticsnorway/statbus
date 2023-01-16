@@ -1,6 +1,4 @@
 {
-  // See https://go.microsoft.com/fwlink/?LinkId=759670
-  // for the documentation about the jsconfig.json format
   "compilerOptions": {
     "target": "ES6",
     "allowSyntheticDefaultImports": false,
@@ -12,11 +10,5 @@
       "pages/*": ["./client/pages/*"]
     }
   },
-  "exclude": [
-    "build",
-    "node_modules",
-    "src/nscreg.Server",
-    "temp",
-    "tmp"
-  ]
+  "exclude": ["build", "node_modules", "src/nscreg.Server", "temp", "tmp"]
 }
