@@ -160,7 +160,7 @@ namespace nscreg.Server.Common.Services.DataSources
             if (parsedActivity.ActivityCategory != null && (parsedActivity.ActivityCategory.Code.HasValue() || parsedActivity.ActivityCategory.Name.HasValue()))
             {
                 var activityCategory = _ctx.ActivityCategories.AsNoTracking().FirstOrDefault(ac => !ac.IsDeleted && (!string.IsNullOrEmpty(parsedActivity.ActivityCategory.Code) && parsedActivity.ActivityCategory.Code == ac.Code) || (!string.IsNullOrEmpty(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name))
-                                 ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
+                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
                 parsedActivity.ActivityCategory = activityCategory;
                 parsedActivity.ActivityCategoryId = activityCategory.Id;
@@ -189,18 +189,18 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             return  _ctx.Countries.AsNoTracking().FirstOrDefault(c =>
                         !c.IsDeleted
-                       && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
-                       && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
-                       ?? throw new Exception($"Country by `{parsedCountry.Code}` code or `{parsedCountry.Name}` name not found");
+                        && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
+                        && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
+                    ?? throw new Exception($"Country by `{parsedCountry.Code}` code or `{parsedCountry.Name}` name not found");
         }
 
         private ForeignParticipation GetFilledForeignParticipation(ForeignParticipation foreignParticipation)
         {
             return  _ctx.ForeignParticipations.AsNoTracking().FirstOrDefault(c =>
-                       !c.IsDeleted
-                       && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
-                       && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name) || foreignParticipation.NameLanguage1 != null  && c.Name == foreignParticipation.NameLanguage1 || foreignParticipation.NameLanguage2 != null && c.Name == foreignParticipation.NameLanguage2)
-                   ?? throw new Exception($"Country by `{foreignParticipation.Code}` code or `{foreignParticipation.Name}` name not found");
+                        !c.IsDeleted
+                        && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
+                        && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name) || foreignParticipation.NameLanguage1 != null  && c.Name == foreignParticipation.NameLanguage1 || foreignParticipation.NameLanguage2 != null && c.Name == foreignParticipation.NameLanguage2)
+                    ?? throw new Exception($"Country by `{foreignParticipation.Code}` code or `{foreignParticipation.Name}` name not found");
         }
 
         private LegalForm GetFilledLegalForm(LegalForm parsedLegalForm)
@@ -236,12 +236,13 @@ namespace nscreg.Server.Common.Services.DataSources
             if (parsedPerson.NationalityCode?.Code != null && parsedPerson.NationalityCode?.Name != null)
             {
                 // TODO: dont do it, if person exists in DB
-                var country = _ctx.Countries.AsNoTracking().FirstOrDefault(c => !c.IsDeleted
-                                                                 && (parsedPerson.NationalityCode.Code.HasValue()
-                                                                     && c.Code == parsedPerson.NationalityCode.Code
-                                                                     || parsedPerson.NationalityCode.Name.HasValue()
-                                                                     && c.Name == parsedPerson.NationalityCode.Name))
-                              ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
+                var country = _ctx.Countries.AsNoTracking()
+                    .FirstOrDefault(c => !c.IsDeleted
+                        && (parsedPerson.NationalityCode.Code.HasValue()
+                        && c.Code == parsedPerson.NationalityCode.Code
+                        || parsedPerson.NationalityCode.Name.HasValue()
+                        && c.Name == parsedPerson.NationalityCode.Name))
+                    ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
                 parsedPerson.CountryId = country.Id;
             }
             return parsedPerson;
@@ -249,11 +250,12 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private SectorCode GetFilledSectorCode(SectorCode parsedSectorCode)
         {
-            return   _ctx.SectorCodes.AsNoTracking().FirstOrDefault(sc =>
-                       !sc.IsDeleted
-                       && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
-                       && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
-                       ?? throw new Exception($"Sector code by `{parsedSectorCode.Code}` code or `{parsedSectorCode.Name}` name not found");
+            return  _ctx.SectorCodes.AsNoTracking()
+                        .FirstOrDefault(sc =>
+                            !sc.IsDeleted
+                            && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
+                            && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
+                        ?? throw new Exception($"Sector code by `{parsedSectorCode.Code}` code or `{parsedSectorCode.Name}` name not found");
         }
 
         private DataSourceClassification GetFilledDataSourceClassification(DataSourceClassification parseDataSourceClassification)
@@ -289,7 +291,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             return _ctx.UnitsSize.AsNoTracking().FirstOrDefault(s =>
                 !s.IsDeleted && (s.Name == size.Name || s.NameLanguage1 == size.Name || s.NameLanguage2 == size.Name))
-                   ?? throw new Exception($"Size with {size.Name} name wasn't found");
+            ?? throw new Exception($"Size with {size.Name} name wasn't found");
         }
 
         private UnitStatus GetFilledUnitStatus(UnitStatus unitStatus)
