@@ -13,7 +13,7 @@ namespace nscreg.Server.HostedServices
         {
             Logger = LogManager.GetLogger(nameof(DataUploadSvcQueueCleanupHostedService));
             Services = services;
-            TimerInterval = TimeSpan.FromSeconds(settings.Value.DataUploadServiceDequeueInterval);
+            TimerInterval = TimeSpan.FromSeconds(settings.Value.DataUploadServiceCleanupTimeout);
             Action = async () =>
             {
                 using var scope = Services.CreateScope();
