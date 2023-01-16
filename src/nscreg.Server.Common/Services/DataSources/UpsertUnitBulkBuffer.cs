@@ -210,7 +210,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 if (Buffer.Any())
                 {
-                    var entities = Buffer.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>)
+                    var entities = Buffer.Select(x => _mapper.Map<IStatisticalUnit, ElasticStatUnit>(x))
                         .Concat(groups.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList();
                     await ElasticSearchService.UpsertDocumentList(entities);
                 }
