@@ -121,9 +121,9 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task<bool> CheckIfUnitExists(StatUnitTypes unitType, string statId) =>
             await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId);
 
-        public async Task ResetDequeuedByTimeout(int timeoutMilliseconds)
+        public async Task ResetDequeuedByTimeout(int timeoutSeconds)
         {
-            var moment = DateTime.Now.AddMilliseconds(-timeoutMilliseconds);
+            var moment = DateTime.Now.AddSeconds(-timeoutSeconds);
             var hanged = (await _ctx.DataSourceQueues
                     .Where(x => x.Status == DataSourceQueueStatuses.Loading)
                     .ToListAsync())
@@ -138,7 +138,7 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         private async Task<IReadOnlyDictionary<string, object>> TransformReferenceField<TEntity>(IReadOnlyDictionary<string, object> raw, Dictionary<string, string[]> mappings, string referenceField, Func<string, Task<TEntity>> getEntityAction)
-            where TEntity : LookupBase 
+            where TEntity : LookupBase
         {
             Dictionary<string,object> result = new Dictionary<string, object>();
 
