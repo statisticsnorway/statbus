@@ -675,7 +675,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(legU => test.Contains(legU.ParentId.Value) && legU.StartPeriod < dataUploadTime)
+                .Where(legU => regIds.Contains(legU.ParentId.Value) && legU.StartPeriod < dataUploadTime)
                 .OrderBy(legU => legU.StartPeriod)
                 .ToListAsync();
 
