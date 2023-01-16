@@ -132,7 +132,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 enterprises.Join(legalsOfEnterprises, e => e.StatId,
                     l => l.StatId, (enterpriseUnit, legalsList) => (enterpriseUnit: enterpriseUnit, legalsList: legalsList)).ForEach(z =>
-                         z.enterpriseUnit.HistoryLegalUnitIds = string.Join(",", z.legalsList.RegId)
+                        z.enterpriseUnit.HistoryLegalUnitIds = string.Join(",", z.legalsList.RegId)
                     );
 
                 await _context.BulkUpdateAsync(enterprises, bulkConfig);
@@ -187,17 +187,17 @@ namespace nscreg.Server.Common.Services.DataSources
                         statColl.ForeignParticipationCountriesUnits = x.stathistory.ForeignParticipationCountriesUnits;
 
                         activitiesHistory.GroupJoin(statColl.Activities, inner => inner.ParentId, outer => outer.ParentId, (activity, collection) => (activity: activity, collection: collection)).ForEach(gr =>
-                       {
-                           var activity = gr.collection.FirstOrDefault();
-                           if (activity != null)
-                           {
-                               activity.Id = gr.activity.Id;
-                           }
-                           else
-                           {
-                               activity = gr.activity;
-                           }
-                       });
+                        {
+                            var activity = gr.collection.FirstOrDefault();
+                            if (activity != null)
+                            {
+                                activity.Id = gr.activity.Id;
+                            }
+                            else
+                            {
+                                activity = gr.activity;
+                            }
+                        });
                         statColl.ActivitiesUnits.ForEach(y => { y.ActivityId = y.Activity.Id; y.UnitId = statColl.RegId; });
                         statColl.PersonsUnits.ForEach(y => y.UnitId = statColl.RegId);
                         statColl.ForeignParticipationCountriesUnits.ForEach(y => y.UnitId = statColl.RegId);
@@ -210,7 +210,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 if (Buffer.Any())
                 {
-                    var entities = Buffer.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>)
+                    var entities = Buffer.Select(x => _mapper.Map<IStatisticalUnit, ElasticStatUnit>(x))
                         .Concat(groups.Select(_mapper.Map<IStatisticalUnit, ElasticStatUnit>)).ToList();
                     await ElasticSearchService.UpsertDocumentList(entities);
                 }

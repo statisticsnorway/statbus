@@ -20,45 +20,45 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
         {
             List<string> errors = new List<string>();
+            void Try(Action action)
+            {
+                try
+                {
+                    action.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(ex.Message);
+                }
+            }
             try
             {
-                
-                unit.ActivitiesUnits?.Where(activityUnit => activityUnit.Activity.Id == 0)
-                    .ForEach(au =>
-                    {
-                        try
-                        {
-                            au.Activity = GetFilledActivity(au.Activity);
-                        }
-                        catch (Exception ex)
-                        {
-                            errors.Add(ex.Message);
-                        }
-                    });
+
+                unit.ActivitiesUnits?
+                    .Where(activityUnit => activityUnit.Activity.Id == 0)
+                    .ForEach(au => Try(() =>
+                        au.Activity = GetFilledActivity(au.Activity)
+                    ));
 
                 if (unit.Address?.Id == 0)
-                    unit.Address = GetFilledAddress(unit.Address);
+                    Try(() => unit.Address = GetFilledAddress(unit.Address));
 
                 if (unit.PostalAddress?.Id == 0)
-                    unit.PostalAddress = GetFilledAddress(unit.PostalAddress);
+                    Try(() => unit.PostalAddress = GetFilledAddress(unit.PostalAddress));
 
                 if (unit.ActualAddress?.Id == 0)
-                    unit.ActualAddress = GetFilledAddress(unit.ActualAddress);
+                    Try(() => unit.ActualAddress = GetFilledAddress(unit.ActualAddress));
 
-                unit.ForeignParticipationCountriesUnits?.Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
-                    {
-                        try
+                unit.ForeignParticipationCountriesUnits?
+                    .Where(fpcu => fpcu.Id == 0).ForEach(fpcu =>
+                        Try(() =>
                         {
                             var country = GetFilledCountry(fpcu.Country);
                             fpcu.Country = country;
                             fpcu.CountryId = country.Id;
                             fpcu.UnitId = unit.RegId;
-                        }
-                        catch (Exception ex)
-                        {
-                            errors.Add(ex.Message);
-                        }
-                    });
+                        })
+                    );
 
                 if (unit.ForeignParticipation?.Id == 0)
                 {
@@ -76,18 +76,11 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.LegalFormId = unit.LegalForm?.Id;
 
                 // TODO: It can attach Person with the same name as other person, if other fields are not filled
-                unit.PersonsUnits?.Where(personUnit => personUnit.PersonId == null)
-                    .ForEach(per =>
-                    {
-                        try
-                        {
-                            per.Person = GetFilledPerson(per.Person);
-                        }
-                        catch (Exception ex)
-                        {
-                            errors.Add(ex.Message);
-                        }
-                    });
+                unit.PersonsUnits?
+                    .Where(personUnit => personUnit.PersonId == null)
+                    .ForEach(per => Try(() =>
+                        per.Person = GetFilledPerson(per.Person)
+                    ));
 
                 switch (unit)
                 {
@@ -166,8 +159,8 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             if (parsedActivity.ActivityCategory != null && (parsedActivity.ActivityCategory.Code.HasValue() || parsedActivity.ActivityCategory.Name.HasValue()))
             {
-                var activityCategory = _ctx.ActivityCategories.Local.FirstOrDefault(ac => !ac.IsDeleted && (!string.IsNullOrEmpty(parsedActivity.ActivityCategory?.Code) && parsedActivity.ActivityCategory.Code == ac.Code) || (!string.IsNullOrEmpty(parsedActivity.ActivityCategory?.Name) && parsedActivity.ActivityCategory.Name == ac.Name))
-                                 ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
+                var activityCategory = _ctx.ActivityCategories.AsNoTracking().FirstOrDefault(ac => !ac.IsDeleted && (!string.IsNullOrEmpty(parsedActivity.ActivityCategory.Code) && parsedActivity.ActivityCategory.Code == ac.Code) || (!string.IsNullOrEmpty(parsedActivity.ActivityCategory.Name) && parsedActivity.ActivityCategory.Name == ac.Name))
+                    ?? throw new Exception($"Activity category by: {parsedActivity.ActivityCategory.Code} code or {parsedActivity.ActivityCategory.Name} name not found");
 
                 parsedActivity.ActivityCategory = activityCategory;
                 parsedActivity.ActivityCategoryId = activityCategory.Id;
@@ -180,7 +173,7 @@ namespace nscreg.Server.Common.Services.DataSources
             var code = parsedAddress.Region?.Code?.ToUpper();
             var name = parsedAddress.Region?.Name?.ToUpper();
 
-            var region = _ctx.Regions.Local.FirstOrDefault(reg => !reg.IsDeleted
+            var region = _ctx.Regions.AsNoTracking().FirstOrDefault(reg => !reg.IsDeleted
                 && (code.HasValue()
                     && code == reg.Code.ToUpper()
                     || name.HasValue()
@@ -194,20 +187,20 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private Country GetFilledCountry(Country parsedCountry)
         {
-            return  _ctx.Countries.Local.FirstOrDefault(c =>
+            return  _ctx.Countries.AsNoTracking().FirstOrDefault(c =>
                         !c.IsDeleted
-                       && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
-                       && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
-                       ?? throw new Exception($"Country by `{parsedCountry.Code}` code or `{parsedCountry.Name}` name not found");
+                        && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
+                        && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
+                    ?? throw new Exception($"Country by `{parsedCountry.Code}` code or `{parsedCountry.Name}` name not found");
         }
 
         private ForeignParticipation GetFilledForeignParticipation(ForeignParticipation foreignParticipation)
         {
-            return  _ctx.ForeignParticipations.Local.FirstOrDefault(c =>
-                       !c.IsDeleted
-                       && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
-                       && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name) || foreignParticipation.NameLanguage1 != null  && c.Name == foreignParticipation.NameLanguage1 || foreignParticipation.NameLanguage2 != null && c.Name == foreignParticipation.NameLanguage2)
-                   ?? throw new Exception($"Country by `{foreignParticipation.Code}` code or `{foreignParticipation.Name}` name not found");
+            return  _ctx.ForeignParticipations.AsNoTracking().FirstOrDefault(c =>
+                        !c.IsDeleted
+                        && (string.IsNullOrWhiteSpace(foreignParticipation.Code) || c.Code == foreignParticipation.Code)
+                        && (string.IsNullOrWhiteSpace(foreignParticipation.Name) || c.Name == foreignParticipation.Name) || foreignParticipation.NameLanguage1 != null  && c.Name == foreignParticipation.NameLanguage1 || foreignParticipation.NameLanguage2 != null && c.Name == foreignParticipation.NameLanguage2)
+                    ?? throw new Exception($"Country by `{foreignParticipation.Code}` code or `{foreignParticipation.Name}` name not found");
         }
 
         private LegalForm GetFilledLegalForm(LegalForm parsedLegalForm)
@@ -215,18 +208,18 @@ namespace nscreg.Server.Common.Services.DataSources
             LegalForm lf = null;
             if (!string.IsNullOrEmpty(parsedLegalForm.Name) && !string.IsNullOrEmpty(parsedLegalForm.Code))
             {
-                lf = _ctx.LegalForms.Local.FirstOrDefault(dsc =>
+                lf = _ctx.LegalForms.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == parsedLegalForm.Name || dsc.NameLanguage1 == parsedLegalForm.Name || dsc.NameLanguage2 == parsedLegalForm.Name) &&
                     dsc.Code == parsedLegalForm.Code);
             }
             else if (!string.IsNullOrEmpty(parsedLegalForm.Name))
             {
-                lf =  _ctx.LegalForms.Local.FirstOrDefault(dsc =>
+                lf =  _ctx.LegalForms.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == parsedLegalForm.Name || dsc.NameLanguage1 == parsedLegalForm.Name || dsc.NameLanguage2 == parsedLegalForm.Name));
             }
             else if (!string.IsNullOrEmpty(parsedLegalForm.Code))
             {
-                lf = _ctx.LegalForms.Local.FirstOrDefault(dsc =>
+                lf = _ctx.LegalForms.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && dsc.Code == parsedLegalForm.Code);
             }
 
@@ -243,12 +236,13 @@ namespace nscreg.Server.Common.Services.DataSources
             if (parsedPerson.NationalityCode?.Code != null && parsedPerson.NationalityCode?.Name != null)
             {
                 // TODO: dont do it, if person exists in DB
-                var country = _ctx.Countries.Local.FirstOrDefault(c => !c.IsDeleted
-                                                                 && (parsedPerson.NationalityCode.Code.HasValue()
-                                                                     && c.Code == parsedPerson.NationalityCode.Code
-                                                                     || parsedPerson.NationalityCode.Name.HasValue()
-                                                                     && c.Name == parsedPerson.NationalityCode.Name))
-                              ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
+                var country = _ctx.Countries.AsNoTracking()
+                    .FirstOrDefault(c => !c.IsDeleted
+                        && (parsedPerson.NationalityCode.Code.HasValue()
+                        && c.Code == parsedPerson.NationalityCode.Code
+                        || parsedPerson.NationalityCode.Name.HasValue()
+                        && c.Name == parsedPerson.NationalityCode.Name))
+                    ?? throw new Exception($"Person Nationality Code by `{parsedPerson.NationalityCode.Code}` code or `{parsedPerson.NationalityCode.Name}` name not found");
                 parsedPerson.CountryId = country.Id;
             }
             return parsedPerson;
@@ -256,11 +250,12 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private SectorCode GetFilledSectorCode(SectorCode parsedSectorCode)
         {
-            return   _ctx.SectorCodes.Local.FirstOrDefault(sc =>
-                       !sc.IsDeleted
-                       && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
-                       && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
-                       ?? throw new Exception($"Sector code by `{parsedSectorCode.Code}` code or `{parsedSectorCode.Name}` name not found");
+            return  _ctx.SectorCodes.AsNoTracking()
+                        .FirstOrDefault(sc =>
+                            !sc.IsDeleted
+                            && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
+                            && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
+                        ?? throw new Exception($"Sector code by `{parsedSectorCode.Code}` code or `{parsedSectorCode.Name}` name not found");
         }
 
         private DataSourceClassification GetFilledDataSourceClassification(DataSourceClassification parseDataSourceClassification)
@@ -270,17 +265,17 @@ namespace nscreg.Server.Common.Services.DataSources
             var code = parseDataSourceClassification.Code?.ToUpper();
             if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(code))
             {
-                ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
+                ds = _ctx.DataSourceClassifications.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name.ToUpper() == name || dsc.NameLanguage1.ToUpper() == name || dsc.NameLanguage2.ToUpper() == name) &&
                     dsc.Code == code);
             }else if (!string.IsNullOrEmpty(name))
             {
-                ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
+                ds = _ctx.DataSourceClassifications.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name.ToUpper() == name || dsc.NameLanguage1.ToUpper() == name || dsc.NameLanguage2.ToUpper() == name));
             }
             else if (!string.IsNullOrEmpty(code))
             {
-                ds = _ctx.DataSourceClassifications.Local.FirstOrDefault(dsc =>
+                ds = _ctx.DataSourceClassifications.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && dsc.Code.ToUpper() == code);
             }
 
@@ -294,9 +289,9 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private UnitSize GetFilledSize(UnitSize size)
         {
-            return _ctx.UnitsSize.Local.FirstOrDefault(s =>
+            return _ctx.UnitsSize.AsNoTracking().FirstOrDefault(s =>
                 !s.IsDeleted && (s.Name == size.Name || s.NameLanguage1 == size.Name || s.NameLanguage2 == size.Name))
-                   ?? throw new Exception($"Size with {size.Name} name wasn't found");
+            ?? throw new Exception($"Size with {size.Name} name wasn't found");
         }
 
         private UnitStatus GetFilledUnitStatus(UnitStatus unitStatus)
@@ -304,18 +299,18 @@ namespace nscreg.Server.Common.Services.DataSources
             UnitStatus us = null;
             if (!string.IsNullOrEmpty(unitStatus.Name) && !string.IsNullOrEmpty(unitStatus.Code))
             {
-                us = _ctx.Statuses.Local.FirstOrDefault(dsc =>
+                us = _ctx.Statuses.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == unitStatus.Name || dsc.NameLanguage1 == unitStatus.Name || dsc.NameLanguage2 == unitStatus.Name) &&
                     dsc.Code == unitStatus.Code);
             }
             else if (!string.IsNullOrEmpty(unitStatus.Name))
             {
-                us = _ctx.Statuses.Local.FirstOrDefault(dsc =>
+                us = _ctx.Statuses.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == unitStatus.Name || dsc.NameLanguage1 == unitStatus.Name || dsc.NameLanguage2 == unitStatus.Name));
             }
             else if (!string.IsNullOrEmpty(unitStatus.Code))
             {
-                us = _ctx.Statuses.Local.FirstOrDefault(dsc =>
+                us = _ctx.Statuses.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && dsc.Code == unitStatus.Code);
             }
 
@@ -332,18 +327,18 @@ namespace nscreg.Server.Common.Services.DataSources
             ReorgType rt = null;
             if (!string.IsNullOrEmpty(reorgType.Name) && !string.IsNullOrEmpty(reorgType.Code))
             {
-                rt = _ctx.ReorgTypes.Local.FirstOrDefault(dsc =>
+                rt = _ctx.ReorgTypes.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == reorgType.Name || dsc.NameLanguage1 == reorgType.Name || dsc.NameLanguage2 == reorgType.Name) &&
                     dsc.Code == reorgType.Code);
             }
             else if (!string.IsNullOrEmpty(reorgType.Name))
             {
-                rt = _ctx.ReorgTypes.Local.FirstOrDefault(dsc =>
+                rt = _ctx.ReorgTypes.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == reorgType.Name || dsc.NameLanguage1 == reorgType.Name || dsc.NameLanguage2 == reorgType.Name));
             }
             else if (!string.IsNullOrEmpty(reorgType.Code))
             {
-                rt = _ctx.ReorgTypes.Local.FirstOrDefault(dsc =>
+                rt = _ctx.ReorgTypes.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && dsc.Code == reorgType.Code);
             }
 
@@ -360,18 +355,18 @@ namespace nscreg.Server.Common.Services.DataSources
             RegistrationReason rr = null;
             if (!string.IsNullOrEmpty(registrationReason.Name) && !string.IsNullOrEmpty(registrationReason.Code))
             {
-                rr = _ctx.RegistrationReasons.Local.FirstOrDefault(dsc =>
+                rr = _ctx.RegistrationReasons.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == registrationReason.Name || dsc.NameLanguage1 == registrationReason.Name || dsc.NameLanguage2 == registrationReason.Name) &&
                     dsc.Code == registrationReason.Code);
             }
             else if (!string.IsNullOrEmpty(registrationReason.Name))
             {
-                rr = _ctx.RegistrationReasons.Local.FirstOrDefault(dsc =>
+                rr = _ctx.RegistrationReasons.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == registrationReason.Name || dsc.NameLanguage1 == registrationReason.Name || dsc.NameLanguage2 == registrationReason.Name));
             }
             else if (!string.IsNullOrEmpty(registrationReason.Code))
             {
-                rr = _ctx.RegistrationReasons.Local.FirstOrDefault(dsc =>
+                rr = _ctx.RegistrationReasons.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && dsc.Code == registrationReason.Code);
             }
 

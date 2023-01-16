@@ -63,7 +63,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 [StatUnitTypes.EnterpriseUnit] = PostDeleteEnterpriseUnit,
                 [StatUnitTypes.LocalUnit] = PostDeleteLocalUnit,
                 [StatUnitTypes.LegalUnit] = PostDeleteLegalUnit
-            };            
+            };
         }
 
         /// <summary>
@@ -660,9 +660,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .ToListAsync();
 
             if (!units.Any()) return false;
-
+            var regIds = units.Select(u => u.RegId).ToArray();
             var afterUploadLegalUnitsList = await _dbContext.LegalUnitHistory
-                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod >= dataUploadTime)
+                .Where(legU => regIds.Contains(legU.ParentId.Value) && legU.StartPeriod >= dataUploadTime)
                 .ToListAsync();
 
             if (afterUploadLegalUnitsList.Any()) return false;
@@ -675,7 +675,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(legU => units.Any(x => x.RegId == legU.ParentId) && legU.StartPeriod < dataUploadTime)
+                .Where(legU => regIds.Contains(legU.ParentId.Value) && legU.StartPeriod < dataUploadTime)
                 .OrderBy(legU => legU.StartPeriod)
                 .ToListAsync();
 
@@ -794,9 +794,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .ToListAsync();
 
             if (!units.Any()) return false;
-
+            var regIds = units.Select(u => u.RegId).ToArray();
             var afterUploadEnterpriseUnitsList = await _dbContext.EnterpriseUnitHistory
-                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod >= dataUploadTime)
+                .Where(ent => ent.ParentId.HasValue && regIds.Contains(ent.ParentId.Value) && ent.StartPeriod >= dataUploadTime)
                 .ToListAsync();
 
             if (afterUploadEnterpriseUnitsList.Any()) return false;

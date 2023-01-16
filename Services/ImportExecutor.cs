@@ -29,7 +29,7 @@ namespace nscreg.Services
     public class ImportExecutor
     {
         public bool AnyWarnings { get; private set; }
-        //private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
+        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly IMapper _mapper;
         private readonly ServicesSettings _servicesSettings;
         private readonly IConfiguration _configuration;
@@ -60,13 +60,16 @@ namespace nscreg.Services
             IStatUnitAnalyzeService analyzeService = null;
             DbLogBuffer logBuffer = null;
             bool isAdmin = false;
-            int i = 0;
-            foreach (var parsedUnit in keyValues)
+            for (int i = 0; i < keyValues.Length; i++)
             {
+                var parsedUnit = keyValues[i];
                 if(i % _servicesSettings.DataUploadMaxBufferCount == 0)
                 {
                     if(sqlBulkBuffer != null)
                     {
+                        _logger.Debug("Flushing!" + _servicesSettings.DataUploadMaxBufferCount);
+
+
                         await sqlBulkBuffer.FlushAsync();
                         await logBuffer.FlushAsync();
                         await context.DisposeAsync();
@@ -85,16 +88,16 @@ namespace nscreg.Services
                     isAdmin = await userService.IsInRoleAsync(dequeued.UserId, DefaultRoleNames.Administrator);
                 }
 
-                //_logger.Info("processing entity #{0}", i++);
+                _logger.Debug("processing entity #{0}", i);
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-                //_logger.Info("populating unit");
+                _logger.Info("populating unit");
                 (StatisticalUnit populated, bool isNew, string populateError, StatisticalUnit historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _servicesSettings.PersonGoodQuality);
 
                 if (populateError.HasValue())
                 {
-                    //_logger.Info("error during populating of unit: {0}", populateError);
+                    _logger.Trace("error during populating of unit: {0}", populateError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, populateError, analysisSummary: new List<string>() { populateError });
                     continue;
@@ -106,21 +109,21 @@ namespace nscreg.Services
 
                 /// Analyze Unit
 
-                //_logger.Info("analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+                _logger.Trace("analyzing populated unit RegId={0}", populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
 
                 var (analysisError, (errors, summary)) = await AnalyzeUnitAsync(analyzeService, populated, dequeued);
 
                 if (analysisError.HasValue())
                 {
-                    //_logger.Info("analysis attempt failed with error: {0}", analysisError);
+                    _logger.Trace("analysis attempt failed with error: {0}", analysisError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Error, analysisError);
                     continue;
                 }
                 if (errors.Any())
                 {
-                    //_logger.Info("analysis revealed {0} errors", errors.Count);
-                    //errors.Values.ForEach(x => x.ForEach(e => _logger.Info(Resource.ResourceManager.GetString(e.ToString()))));
+                    _logger.Trace("analysis revealed {0} errors", errors.Count);
+                    errors.Values.ForEach(x => x.ForEach(e => _logger.Trace(Resource.ResourceManager.GetString(e.ToString()))));
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, string.Join(",", errors.SelectMany(c => c.Value)), errors, summary);
                     continue;
@@ -128,13 +131,13 @@ namespace nscreg.Services
 
                 /// Save Unit
 
-                //_logger.Info("saving unit");
+                _logger.Trace("saving unit");
 
                 var (saveError, saved) = await saveService.SaveUnit(populated, dequeued.DataSource, dequeued.UserId, isNew, historyUnit);
 
                 if (saveError.HasValue())
                 {
-                    //_logger.Error(saveError);
+                    _logger.Debug(saveError);
                     AnyWarnings = true;
                     await LogUpload(LogStatus.Warning, saveError);
                     continue;
@@ -184,19 +187,19 @@ namespace nscreg.Services
 
         private static async Task InitializeCacheForLookups(NSCRegDbContext context)
         {
-            await context.ActivityCategories.LoadAsync();
-            await context.PersonTypes.LoadAsync();
-            await context.RegistrationReasons.LoadAsync();
-            await context.Regions.LoadAsync();
-            await context.UnitsSize.LoadAsync();
-            await context.Statuses.LoadAsync();
-            await context.ReorgTypes.LoadAsync();
-            await context.SectorCodes.LoadAsync();
-            await context.DataSourceClassifications.LoadAsync();
-            await context.LegalForms.LoadAsync();
-            await context.ForeignParticipations.LoadAsync();
-            await context.Countries.LoadAsync();
-            await context.UserRegions.LoadAsync();
+            await context.ActivityCategories.AsNoTracking().LoadAsync();
+            await context.PersonTypes.AsNoTracking().LoadAsync();
+            await context.RegistrationReasons.AsNoTracking().LoadAsync();
+            await context.Regions.AsNoTracking().LoadAsync();
+            await context.UnitsSize.AsNoTracking().LoadAsync();
+            await context.Statuses.AsNoTracking().LoadAsync();
+            await context.ReorgTypes.AsNoTracking().LoadAsync();
+            await context.SectorCodes.AsNoTracking().LoadAsync();
+            await context.DataSourceClassifications.AsNoTracking().LoadAsync();
+            await context.LegalForms.AsNoTracking().LoadAsync();
+            await context.ForeignParticipations.AsNoTracking().LoadAsync();
+            await context.Countries.AsNoTracking().LoadAsync();
+            await context.UserRegions.AsNoTracking().LoadAsync();
         }
     }
 }
