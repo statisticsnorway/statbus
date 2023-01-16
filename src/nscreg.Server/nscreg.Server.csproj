@@ -49,6 +49,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="3.1.22" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.11.1" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
+    <PackageReference Include="NLog.Web.AspNetCore" Version="5.2.1" />
     <PackageReference Include="System.Data.SqlClient" Version="4.6.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.1.22" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="3.2.15" />
@@ -60,7 +61,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="3.1.22" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="3.1.22" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.22" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.5.0" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="5.2.1" />
   </ItemGroup>
   <ItemGroup>
     <Content Update="nlog.config">
@@ -69,11 +70,6 @@
     <Content Update="web.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="nlog.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="uploads\" />

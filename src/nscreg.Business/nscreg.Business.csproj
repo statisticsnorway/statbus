@@ -5,7 +5,7 @@
     <PackageId>nscreg.Business</PackageId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.5.0" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="5.2.1" />
     <PackageReference Include="ServiceStack.Text.Core" Version="5.2.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.6.0" />
   </ItemGroup>
