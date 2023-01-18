@@ -6,7 +6,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
-    image: gatepoet/nscreg:latest
+    image: ghcr.io/statisticsnorway/nscreg:latest
+    pull_policy: always
     deploy:
       resources:
         reservations:
