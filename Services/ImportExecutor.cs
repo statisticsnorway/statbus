@@ -67,7 +67,7 @@ namespace nscreg.Services
                 {
                     if(sqlBulkBuffer != null)
                     {
-                        _logger.Debug("Flushing!" + _servicesSettings.DataUploadMaxBufferCount);
+                        _logger.Debug("Flushing");
 
 
                         await sqlBulkBuffer.FlushAsync();
@@ -92,7 +92,7 @@ namespace nscreg.Services
                 var startedAt = DateTime.Now;
 
                 /// Populate Unit
-                _logger.Info("populating unit");
+                _logger.Trace("populating unit");
                 (StatisticalUnit populated, bool isNew, string populateError, StatisticalUnit historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _servicesSettings.PersonGoodQuality);
 
                 if (populateError.HasValue())
