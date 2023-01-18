@@ -455,23 +455,27 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId))
                 return false;
 
-            var afterUploadLocalUnitsList = _dbContext.LocalUnitHistory
+            var afterUploadLocalUnitsList = _dbContext.LocalUnitHistory.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(local => local.ParentId == unit.RegId && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
+                .Where(local => local.ParentId.Value == unit.RegId && local.StartPeriod >= dataUploadTime)
+                .OrderBy(local => local.StartPeriod)
+                .ToList();
 
-            var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory
+            var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory.AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
                 .Include(x => x.ForeignParticipationCountriesUnits)
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(local => local.ParentId == unit.RegId && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
+                .Where(local => local.ParentId.Value == unit.RegId && local.StartPeriod < dataUploadTime)
+                .OrderBy(local => local.StartPeriod)
+                .ToList();
 
             if (afterUploadLocalUnitsList.Any())
                 return false;
@@ -739,8 +743,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (!units.Any())
                 return false;
 
+            var regIds = units.Select(u => u.RegId).ToArray();
             var afterUploadLocalUnitsList = await _dbContext.LocalUnitHistory
-                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod >= dataUploadTime)
+                .Where(local => regIds.Contains(local.ParentId.Value) && local.StartPeriod >= dataUploadTime)
                 .ToListAsync();
 
             if (afterUploadLocalUnitsList.Any())
@@ -754,7 +759,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(local => units.Any(x => x.RegId == local.ParentId) && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod)
+                .Where(local => regIds.Contains(local.ParentId.Value) && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod)
                 .ToListAsync();
 
             if (beforeUploadLocalUnitsList.Any())
@@ -810,7 +815,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .Include(x => x.PostalAddress)
                 .Include(x => x.ActualAddress)
-                .Where(ent => units.Any(x => x.RegId == ent.ParentId) && ent.StartPeriod < dataUploadTime)
+                .Where(ent => ent.ParentId.HasValue && regIds.Contains(ent.ParentId.Value) && ent.StartPeriod < dataUploadTime)
                 .OrderBy(ent => ent.StartPeriod)
                 .ToListAsync();
 

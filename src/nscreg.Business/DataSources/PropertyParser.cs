@@ -355,9 +355,9 @@ namespace nscreg.Business.DataSources
         }
 
         private static Exception UnsupportedPropertyOf<T>(string propPath) =>
-            new Exception($"Property path `{propPath}` in type `{nameof(T)}` is not supported");
+            new Exception($"Property path `{propPath}` in type `{typeof(T).Name}` is not supported");
 
         private static Exception BadValueFor<T>(string propPath, string rawValue) =>
-            new Exception($"Value `{rawValue}` at property path `{propPath}` in type `{nameof(T)}` couldn't be parsed");
+            new Exception($"Value `{rawValue}` at property path `{propPath}` in type `{typeof(T).Name}` couldn't be parsed");
     }
 }

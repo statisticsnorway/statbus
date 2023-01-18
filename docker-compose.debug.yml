@@ -5,25 +5,21 @@ services:
     container_name: nscreg-server
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=https://+:443;http://+:80
-      - ASPNETCORE_Kestrel__Certificates__Default__Password=localhost
-      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/localhost.pfx
-    image: nscreg
+      - ASPNETCORE_URLS=http://+:80
+    image: ghcr.io/statisticsnorway/nscreg:latest
     build:
       context: .
       dockerfile: src/nscreg.Server/Dockerfile
       args:
-        CONFIGURATION: Development
+        CONFIGURATION: Release
       tags:
         - "dev"
     ports:
       - 80:80
-      - 443:443
     volumes:
-      - /workspaces/.aspnet/https:/https:ro
+      - ./Library/Keychains/:/root/.aspnet/https
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
-      - ./logs:/app/logs
       - keys:/app/keys
     depends_on:
       sqlserver:
@@ -37,14 +33,15 @@ services:
     ports:
       - "1433:1433"
     restart: always
+    secrets:
+      - nscreg-sql-password
     environment:
+      SA_PASSWORD: /run/secrets/nscreg-sql-password
       ACCEPT_EULA: Y
-      SA_PASSWORD: 12qw!@QW
-#      MSSQL_PID: Express
       MSSQL_LCID: 1033
       MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
     healthcheck:
-      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 12qw!@QW -Q "Select 1"'
+      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P $$(cat $$SA_PASSWORD) -Q "Select 1"'
       interval: 20s
       retries: 5
     volumes:
@@ -61,7 +58,7 @@ services:
     environment:
       - xpack.monitoring.enabled=true
       - xpack.watcher.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx1024m"
       - discovery.type=single-node
     networks:
       - elastic
@@ -69,6 +66,10 @@ services:
 networks:
   elastic:
     driver: bridge
+
+secrets:
+  nscreg-sql-password:
+    file: mssql_password.txt
 
 volumes:
   elasticsearch-data:
