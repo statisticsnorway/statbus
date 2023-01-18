@@ -1,24 +1,26 @@
 ---
 version: '3.4'
 services:
-  nscreg.server:
-    container_name: nscreg.server
+  server:
+    container_name: nscreg-server
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80'
+      - ASPNETCORE_URLS=http://+:80
     image: gatepoet/nscreg:latest
-    build:
-      context: .
-      dockerfile: src/nscreg.Server/Dockerfile
+    deploy:
+      resources:
+        reservations:
+          cpus: "1"
+        limits:
+          cpus: "4"
     ports:
       - 80:80
-      - 443:443
     restart: unless-stopped
+    tmpfs:
+      - /app/sampleframes
+      - /app/uploads
     volumes:
-      - ./Library/Keychains/:/root/.aspnet/https
-      - ./uploads:/app/uploads
-      - ./sampleframes:/app/sampleframes
-      - ./logs:/app/logs
+      - keys:/app/keys
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -32,20 +34,29 @@ services:
     ports:
       - "1433:1433"
     restart: always
+    deploy:
+      resources:
+        reservations:
+          cpus: "2"
+          memory: 4g
+        limits:
+          cpus: "4"
+          memory: 8g
+    secrets:
+      - nscreg-sql-password
     environment:
+      SA_PASSWORD: /run/secrets/nscreg-sql-password
       ACCEPT_EULA: Y
       MSSQL_LCID: 1033
       MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
     healthcheck:
-      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P ${ secrets.nscreg-sql-password } -Q "Select 1"'
+      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P $$(cat $$SA_PASSWORD) -Q "Select 1"'
       interval: 20s
       retries: 5
     volumes:
       - nscreg-sql-data:/var/opt/mssql/data:rw
     networks:
       - elastic
-    secrets:
-      - nscreg-sql-password
   elasticsearch:
     container_name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
@@ -56,7 +67,7 @@ services:
     environment:
       - xpack.monitoring.enabled=true
       - xpack.watcher.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx1024m"
       - discovery.type=single-node
     networks:
       - elastic
@@ -67,8 +78,9 @@ networks:
 
 secrets:
   nscreg-sql-password:
-    environment: SA_PASSWORD
+    file: mssql_password.txt
 
 volumes:
   elasticsearch-data:
   nscreg-sql-data:
+  keys:
