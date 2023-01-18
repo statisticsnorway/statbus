@@ -342,7 +342,7 @@ namespace nscreg.Server.Common.Services.DataSources
             if (!(unit is StatisticalUnit statUnit)) return true;
             var historyStatUnit = (StatisticalUnit)hUnit;
             return historyStatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId)
-                   && historyStatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
+                && historyStatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
         }
 
         private void CreateEnterpriseForLegal(LegalUnit legalUnit)
