@@ -193,8 +193,8 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _bufferService.AddToBufferAsync(changedUnit);
 
                 var hUnit = CommonService.TrackHistory(changedUnit, mappedHistoryUnit, changedDateTime);
-                 _commonSvc.AddHistoryUnitByType(hUnit);
-                 _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
+                _commonSvc.AddHistoryUnitByType(hUnit);
+                _commonSvc.TrackRelatedUnitsHistory(changedUnit, historyUnit, _userId, changedUnit.ChangeReason, changedUnit.EditComment,
                     changedDateTime, unitsHistoryHolder);
                 if (deleteEnterprise)
                 {
