@@ -616,7 +616,7 @@ namespace nscreg.Server.Test
                         DataAccess = DbContextExtensions.DataAccessLegalUnit,
                         Activities = new List<ActivityM>
                         {
-                           new ActivityM //New
+                            new ActivityM //New
                             {
                                 ActivityCategoryId = 1,
                                 ActivityType = ActivityTypes.Primary,
@@ -625,7 +625,7 @@ namespace nscreg.Server.Test
                                 ActivityYear = 2016,
                                 IdDate = new DateTime(2017, 03, 28)
                             },
-                           new ActivityM //Not Changed
+                            new ActivityM //Not Changed
                             {
                                 Id = activity1.Id,
                                 ActivityCategoryId = 1,
@@ -635,7 +635,7 @@ namespace nscreg.Server.Test
                                 Turnover = activity1.Turnover,
                                 ActivityYear = activity1.ActivityYear
                             },
-                           new ActivityM //Changed
+                            new ActivityM //Changed
                             {
                                 Id = activity2.Id,
                                 ActivityCategoryId = 2,
