@@ -1,0 +1,20 @@
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  fast_forward_job:
+    name: Fast Forward
+    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/fast-forward')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Fast Forward PR
+        id: ff-action
+        uses:  ./
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          success_message: 'Success! Fast forwarded ***target_base*** to ***source_head***! ```git checkout target_base && git merge source_head --ff-only``` '
+          failure_message: 'Failed! Cannot do fast forward!'
