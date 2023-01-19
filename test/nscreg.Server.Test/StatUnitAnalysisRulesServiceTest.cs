@@ -16,7 +16,7 @@ namespace nscreg.Server.Test
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly ValidationSettings _validationSettings;
-        private readonly StatUnitTestHelper _helper;
+        // private readonly StatUnitTestHelper _helper;
         private readonly ConnectionSettings _connectionSettings;
         public StatUnitAnalysisRulesServiceTest()
         {
