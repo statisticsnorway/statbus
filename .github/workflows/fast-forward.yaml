@@ -1,4 +1,10 @@
-
+---
+##################################
+##################################
+### Fast-forward merge to main ###
+##################################
+##################################
+name: Fast-forward merge to main
 on:
   issue_comment:
     types: [created]
@@ -18,3 +24,5 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           success_message: 'Success! Fast forwarded ***target_base*** to ***source_head***! ```git checkout target_base && git merge source_head --ff-only``` '
           failure_message: 'Failed! Cannot do fast forward!'
+          production_branch: main
+          staging_branch: develop
