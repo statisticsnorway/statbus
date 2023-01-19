@@ -224,31 +224,30 @@ namespace nscreg.Server.Common.Services.StatUnit
             using var mem = new MemoryStream();
             using var writer = new StreamWriter(mem);
 
-            writer.Write("StatUnitEnterprise_2021, ");
-            writer.Write("StatId, ");
-            writer.Write("Oblast, ");
-            writer.Write("Rayon, ");
-            writer.Write("ActCat_section_code, ");
-            writer.Write("ActCat_section_desc, ");
-            writer.Write("ActCat_2dig_code, ");
-            writer.Write("ActCat_2dig_desc, ");
-            writer.Write("ActCat_3dig_code, ");
-            writer.Write("ActCat_3dig_desc, ");
-            writer.Write("LegalForm_code, ");
-            writer.Write("LegalForm_desc, ");
-            writer.Write("InstSectorCode_level1, ");
-            writer.Write("InstSectorCode_level1_desc, ");
-            writer.Write("InstSectorCode_level2, ");
-            writer.Write("InstSectorCode_level2_desc, ");
-            writer.Write("SizeCode, ");
-            writer.Write("SizeDesc, ");
-            writer.Write("Turnover, ");
-            writer.Write("Employees, ");
-            writer.Write("NumOfPeopleEmp, ");
-            writer.Write("RegistrationDate, ");
-            writer.Write("LiqDate, ");
-            writer.Write("StatusCode, ");
-            writer.Write("StatusDesc, ");
+            writer.Write("StatId\t ");
+            writer.Write("Oblast\t ");
+            writer.Write("Rayon\t ");
+            writer.Write("ActCat_section_code\t ");
+            writer.Write("ActCat_section_desc\t ");
+            writer.Write("ActCat_2dig_code\t ");
+            writer.Write("ActCat_2dig_desc\t ");
+            writer.Write("ActCat_3dig_code\t ");
+            writer.Write("ActCat_3dig_desc\t ");
+            writer.Write("LegalForm_code\t ");
+            writer.Write("LegalForm_desc\t ");
+            writer.Write("InstSectorCode_level1\t ");
+            writer.Write("InstSectorCode_level1_desc\t ");
+            writer.Write("InstSectorCode_level2\t ");
+            writer.Write("InstSectorCode_level2_desc\t ");
+            writer.Write("SizeCode\t ");
+            writer.Write("SizeDesc\t ");
+            writer.Write("Turnover\t ");
+            writer.Write("Employees\t ");
+            writer.Write("NumOfPeopleEmp\t ");
+            writer.Write("RegistrationDate\t ");
+            writer.Write("LiqDate\t ");
+            writer.Write("StatusCode\t ");
+            writer.Write("StatusDesc\t ");
             writer.Write("Sex");
             writer.Write(Environment.NewLine);
 
@@ -285,14 +284,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             return mem.ToArray();
         }
 
-        private static void WriteStringToStream(StreamWriter writer, string value, string separator = ",")
+        private static void WriteStringToStream(StreamWriter writer, string value, string separator = "\t")
         {
             if (!string.IsNullOrWhiteSpace(value))
                 writer.Write(value);
             writer.Write(separator);
         }
 
-        private static void WriteNullableToStream<T>(StreamWriter writer, Nullable<T> value, string separator = ",") where T : struct
+        private static void WriteNullableToStream<T>(StreamWriter writer, Nullable<T> value, string separator = "\t") where T : struct
         {
             if (value.HasValue)
                 writer.Write(value.Value.ToString());
@@ -304,32 +303,31 @@ namespace nscreg.Server.Common.Services.StatUnit
             var records = _context.StatUnitLocal_2021.AsNoTracking().AsAsyncEnumerable();
             using var mem = new MemoryStream();
             using var writer = new StreamWriter(mem);
-
-            writer.Write("StatUnitEnterprise_2021, ");
-            writer.Write("StatId, ");
-            writer.Write("Oblast, ");
-            writer.Write("Rayon, ");
-            writer.Write("ActCat_section_code, ");
-            writer.Write("ActCat_section_desc, ");
-            writer.Write("ActCat_2dig_code, ");
-            writer.Write("ActCat_2dig_desc, ");
-            writer.Write("ActCat_3dig_code, ");
-            writer.Write("ActCat_3dig_desc, ");
-            writer.Write("LegalForm_code, ");
-            writer.Write("LegalForm_desc, ");
-            writer.Write("InstSectorCode_level1, ");
-            writer.Write("InstSectorCode_level1_desc, ");
-            writer.Write("InstSectorCode_level2, ");
-            writer.Write("InstSectorCode_level2_desc, ");
-            writer.Write("SizeCode, ");
-            writer.Write("SizeDesc, ");
-            writer.Write("Turnover, ");
-            writer.Write("Employees, ");
-            writer.Write("NumOfPeopleEmp, ");
-            writer.Write("RegistrationDate, ");
-            writer.Write("LiqDate, ");
-            writer.Write("StatusCode, ");
-            writer.Write("StatusDesc, ");
+            
+            writer.Write("StatId\t ");
+            writer.Write("Oblast\t ");
+            writer.Write("Rayon\t ");
+            writer.Write("ActCat_section_code\t ");
+            writer.Write("ActCat_section_desc\t ");
+            writer.Write("ActCat_2dig_code\t ");
+            writer.Write("ActCat_2dig_desc\t ");
+            writer.Write("ActCat_3dig_code\t ");
+            writer.Write("ActCat_3dig_desc\t ");
+            writer.Write("LegalForm_code\t ");
+            writer.Write("LegalForm_desc\t ");
+            writer.Write("InstSectorCode_level1\t ");
+            writer.Write("InstSectorCode_level1_desc\t ");
+            writer.Write("InstSectorCode_level2\t ");
+            writer.Write("InstSectorCode_level2_desc\t ");
+            writer.Write("SizeCode\t ");
+            writer.Write("SizeDesc\t ");
+            writer.Write("Turnover\t ");
+            writer.Write("Employees\t ");
+            writer.Write("NumOfPeopleEmp\t ");
+            writer.Write("RegistrationDate\t ");
+            writer.Write("LiqDate\t ");
+            writer.Write("StatusCode\t ");
+            writer.Write("StatusDesc\t ");
             writer.Write("Sex");
             writer.Write(Environment.NewLine);
 
