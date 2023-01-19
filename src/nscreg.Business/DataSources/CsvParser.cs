@@ -27,9 +27,9 @@ namespace nscreg.Business.DataSources
             {
                 rowsFromCsv = rawLines.FromCsv<List<Dictionary<string, string>>>();
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                throw new Exception(nameof(Resource.FileDataFormatError));
+                throw new Exception(nameof(Resource.FileDataFormatError), ex);
             }
             var rowsFromCsvCount = rowsFromCsv.Count();
 
@@ -51,7 +51,7 @@ namespace nscreg.Business.DataSources
                 var unitResult = new Dictionary<string, object>();
 
                 unitPartCsv.Where(x => !StatisticalUnitArrayPropertyNames.Contains(x.targetKeySplitted[0]))
-                    .ForEach(csvUnitPrimitiveProperty => 
+                    .ForEach(csvUnitPrimitiveProperty =>
                         unitResult.Add(csvUnitPrimitiveProperty.targetKey, csvUnitPrimitiveProperty.value)
                     );
 
@@ -133,5 +133,5 @@ namespace nscreg.Business.DataSources
         }
     }
 
-    
+
 }

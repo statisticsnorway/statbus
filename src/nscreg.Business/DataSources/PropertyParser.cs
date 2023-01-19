@@ -4,11 +4,14 @@ using System.Globalization;
 using System.Reflection;
 using nscreg.Data.Constants;
 using static nscreg.Utilities.JsonPathHelper;
+using NLog;
 
 namespace nscreg.Business.DataSources
 {
     public static class PropertyParser
     {
+        private static readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+
         public static object ConvertOrDefault(Type type, string raw)
         {
             try
@@ -17,8 +20,9 @@ namespace nscreg.Business.DataSources
                 DateTime.TryParse(raw, out var date);
                 return date;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.Debug<Exception>("Error in ConvertOrDefault", ex);
                 return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
             }
         }

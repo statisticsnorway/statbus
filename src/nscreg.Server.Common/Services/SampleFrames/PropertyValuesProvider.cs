@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NLog;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -10,13 +11,15 @@ namespace nscreg.Server.Common.Services.SampleFrames
 {
     internal class PropertyValuesProvider
     {
+        private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+
         private readonly Dictionary<FieldEnum, Func<IStatisticalUnit, FieldEnum, string>> _paramExtractors;
 
         public PropertyValuesProvider(NSCRegDbContext context)
         {
             _paramExtractors = new Dictionary<FieldEnum, Func<IStatisticalUnit, FieldEnum, string>>
             {
-                
+
                 [FieldEnum.ActivityCodes] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ActivitiesUnits.Select(y => y.Activity?.ActivityCategory.Code))),
                 [FieldEnum.Region] = CreateReferenceValueExtractor(x => x.Address?.Region.FullPath),
@@ -77,8 +80,9 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 {
                     return selector(unit);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    _logger.Debug<Exception>("Error in CreateReferenceValueExtractor", ex);
                     return string.Empty;
                 }
             };
