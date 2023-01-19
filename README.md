@@ -2,7 +2,7 @@
 
 Statistical Business Registry (SBR)
 
-[![CI](https://github.com/statisticsnorway/statbus/actions/workflows/ci.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/ci.yaml)
+[![CI](https://github.com/statisticsnorway/statbus/actions/workflows/ci-workflow.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/ci-workflow.yaml)
 
 ## tools stack
 
