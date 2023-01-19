@@ -8,8 +8,9 @@ name: CI
 on:
   workflow_dispatch:
   push:
-    branches:
-      - "!AddingDockerSupportCore3.1"
+    branches-ignore:
+      - develop
+      - main
     paths:
       - src/**
       - client/**

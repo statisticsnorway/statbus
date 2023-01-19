@@ -8,7 +8,8 @@ name: CD
 on:
   push:
     branches:
-      - AddingDockerSupportCore3.1
+      - develop
+      - main
   pull_request:
 jobs:
   build:

@@ -1,10 +1,5 @@
 ---
 mode: Mainline
-branches: {
-  develop: {
-    regex: ^AddingDockerSupportCore3.1$
-  }
-}
 ignore:
   sha: [ ]
 merge-message-formats: { }
