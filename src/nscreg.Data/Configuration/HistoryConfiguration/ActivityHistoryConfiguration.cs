@@ -31,7 +31,7 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
             builder.Property(p => p.ActivityYear).HasColumnName("Activity_Year");
             builder.Property(p => p.ActivityType).HasColumnName("Activity_Type");
             builder.Property(p => p.Employees).HasColumnName("Employees");
-            builder.Property(p => p.Turnover).HasColumnName("Turnover");
+            builder.Property(p => p.Turnover).HasColumnName("Turnover").HasColumnType("decimal(18,2)");
             builder.Property(p => p.UpdatedBy).HasColumnName("Updated_By");
             builder.Property(p => p.UpdatedDate).HasColumnName("Updated_Date");
         }

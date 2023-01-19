@@ -1,13 +1,9 @@
 using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace nscreg.Data.Entities
 {
-    [Table("V_StatUnitLocal_2021")]
     public class StatUnitLocal_2021
     {
-        [Key]
         public string StatId { get; set; }
 
         public int? Oblast { get; set; }

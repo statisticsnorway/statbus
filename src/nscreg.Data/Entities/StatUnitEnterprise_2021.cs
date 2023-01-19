@@ -4,10 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace nscreg.Data.Entities
 {
-    [Table("V_StatUnitEnterprise_2021")]
     public class StatUnitEnterprise_2021
     {
-        [Key]
         public string StatId {get; set;}
 
         public int? Oblast { get; set; }

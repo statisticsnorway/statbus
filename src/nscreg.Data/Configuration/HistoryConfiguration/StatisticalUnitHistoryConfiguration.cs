@@ -25,6 +25,7 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
             builder.HasOne(x => x.InstSectorCode).WithMany().HasForeignKey(x => x.InstSectorCodeId);
             builder.HasOne(x => x.LegalForm).WithMany().HasForeignKey(x => x.LegalFormId);
             builder.Property(x => x.Name).HasMaxLength(400);
+            builder.Property(x => x.Turnover).HasColumnType("decimal(18,2)");
             builder.HasIndex(x => x.Name);
             builder.HasIndex(x => x.StartPeriod);
             builder.HasIndex(x => new { x.StatId, x.EndPeriod }).IsUnique(false);
