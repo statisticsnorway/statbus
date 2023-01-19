@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
+using AutoMapper;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services;
-using nscreg.Server.Core;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 
@@ -13,9 +13,11 @@ namespace nscreg.Server.Test
 {
     public class UserServiceTest
     {
+        private static IMapper CreateMapper() => new MapperConfiguration(mc =>
+            mc.AddMaps(typeof(Startup).Assembly)).CreateMapper();
+
         public UserServiceTest()
         {
-            //StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]
@@ -54,14 +56,14 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
 
-                //var userList = await new UserService(context).GetAllPagedAsync(new UserListFilter()
-                //{
-                //    Page = 2,
-                //    PageSize = 4,
-                //});
+                var userList = await new UserService(context, CreateMapper()).GetAllPagedAsync(new UserListFilter()
+                {
+                    Page = 2,
+                    PageSize = 4,
+                });
 
-                //Assert.Equal(expected, userList.TotalCount);
-                //Assert.Equal(3, userList.TotalPages);
+                Assert.Equal(expected, userList.TotalCount);
+                Assert.Equal(3, userList.TotalPages);
             }
         }
 
@@ -132,9 +134,9 @@ namespace nscreg.Server.Test
                 context.Users.AddRange(user, user2);
                 context.SaveChanges();
 
-                //await new UserService(context).SetUserStatus(user.Id, true);
+                await new UserService(context,CreateMapper()).SetUserStatus(user.Id, true);
 
-                //Assert.Equal(UserStatuses.Suspended, context.Users.Single(x => x.Id == user.Id).Status);
+                Assert.Equal(UserStatuses.Suspended, context.Users.Single(x => x.Id == user.Id).Status);
             }
         }
 
@@ -156,9 +158,9 @@ namespace nscreg.Server.Test
                 context.Users.Add(user);
                 context.SaveChanges();
 
-                //await new UserService(context).SetUserStatus(user.Id, false);
+                await new UserService(context, CreateMapper()).SetUserStatus(user.Id, false);
 
-                //Assert.Equal(UserStatuses.Active, context.Users.Single(x => x.Id == user.Id).Status);
+                Assert.Equal(UserStatuses.Active, context.Users.Single(x => x.Id == user.Id).Status);
             }
         }
     }

@@ -32,6 +32,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly StatUnitCheckPermissionsHelper _statUnitCheckPermissionsHelper;
         private readonly IMapper _mapper;
 
+        private const string _separator = "\t";
+
         public ViewService(NSCRegDbContext context, CommonService commonSvc,
             IUserService userService, RegionService regionService, DbMandatoryFields mandatoryFields,
             StatUnitCheckPermissionsHelper statUnitCheckPermissionsHelper,
@@ -224,32 +226,31 @@ namespace nscreg.Server.Common.Services.StatUnit
             using var mem = new MemoryStream();
             using var writer = new StreamWriter(mem);
 
-            writer.Write("StatUnitEnterprise_2021, ");
-            writer.Write("StatId, ");
-            writer.Write("Oblast, ");
-            writer.Write("Rayon, ");
-            writer.Write("ActCat_section_code, ");
-            writer.Write("ActCat_section_desc, ");
-            writer.Write("ActCat_2dig_code, ");
-            writer.Write("ActCat_2dig_desc, ");
-            writer.Write("ActCat_3dig_code, ");
-            writer.Write("ActCat_3dig_desc, ");
-            writer.Write("LegalForm_code, ");
-            writer.Write("LegalForm_desc, ");
-            writer.Write("InstSectorCode_level1, ");
-            writer.Write("InstSectorCode_level1_desc, ");
-            writer.Write("InstSectorCode_level2, ");
-            writer.Write("InstSectorCode_level2_desc, ");
-            writer.Write("SizeCode, ");
-            writer.Write("SizeDesc, ");
-            writer.Write("Turnover, ");
-            writer.Write("Employees, ");
-            writer.Write("NumOfPeopleEmp, ");
-            writer.Write("RegistrationDate, ");
-            writer.Write("LiqDate, ");
-            writer.Write("StatusCode, ");
-            writer.Write("StatusDesc, ");
-            writer.Write("Sex");
+            writer.Write($"StatId{_separator} ");
+            writer.Write($"Oblast{_separator} ");
+            writer.Write($"Rayon{_separator} ");
+            writer.Write($"ActCat_section_code{_separator} ");
+            writer.Write($"ActCat_section_desc{_separator} ");
+            writer.Write($"ActCat_2dig_code{_separator} ");
+            writer.Write($"ActCat_2dig_desc{_separator} ");
+            writer.Write($"ActCat_3dig_code{_separator} ");
+            writer.Write($"ActCat_3dig_desc{_separator} ");
+            writer.Write($"LegalForm_code{_separator} ");
+            writer.Write($"LegalForm_desc{_separator} ");
+            writer.Write($"InstSectorCode_level1{_separator} ");
+            writer.Write($"InstSectorCode_level1_desc{_separator} ");
+            writer.Write($"InstSectorCode_level2{_separator} ");
+            writer.Write($"InstSectorCode_level2_desc{_separator} ");
+            writer.Write($"SizeCode{_separator} ");
+            writer.Write($"SizeDesc{_separator} ");
+            writer.Write($"Turnover{_separator} ");
+            writer.Write($"Employees{_separator} ");
+            writer.Write($"NumOfPeopleEmp{_separator} ");
+            writer.Write($"RegistrationDate{_separator} ");
+            writer.Write($"LiqDate{_separator} ");
+            writer.Write($"StatusCode{_separator} ");
+            writer.Write($"StatusDesc{_separator} ");
+            writer.Write($"Sex");
             writer.Write(Environment.NewLine);
 
             await foreach (var record in records)
@@ -285,14 +286,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             return mem.ToArray();
         }
 
-        private static void WriteStringToStream(StreamWriter writer, string value, string separator = ",")
+        private static void WriteStringToStream(StreamWriter writer, string value, string separator = _separator)
         {
             if (!string.IsNullOrWhiteSpace(value))
                 writer.Write(value);
             writer.Write(separator);
         }
 
-        private static void WriteNullableToStream<T>(StreamWriter writer, Nullable<T> value, string separator = ",") where T : struct
+        private static void WriteNullableToStream<T>(StreamWriter writer, Nullable<T> value, string separator = _separator) where T : struct
         {
             if (value.HasValue)
                 writer.Write(value.Value.ToString());
@@ -305,32 +306,31 @@ namespace nscreg.Server.Common.Services.StatUnit
             using var mem = new MemoryStream();
             using var writer = new StreamWriter(mem);
 
-            writer.Write("StatUnitEnterprise_2021, ");
-            writer.Write("StatId, ");
-            writer.Write("Oblast, ");
-            writer.Write("Rayon, ");
-            writer.Write("ActCat_section_code, ");
-            writer.Write("ActCat_section_desc, ");
-            writer.Write("ActCat_2dig_code, ");
-            writer.Write("ActCat_2dig_desc, ");
-            writer.Write("ActCat_3dig_code, ");
-            writer.Write("ActCat_3dig_desc, ");
-            writer.Write("LegalForm_code, ");
-            writer.Write("LegalForm_desc, ");
-            writer.Write("InstSectorCode_level1, ");
-            writer.Write("InstSectorCode_level1_desc, ");
-            writer.Write("InstSectorCode_level2, ");
-            writer.Write("InstSectorCode_level2_desc, ");
-            writer.Write("SizeCode, ");
-            writer.Write("SizeDesc, ");
-            writer.Write("Turnover, ");
-            writer.Write("Employees, ");
-            writer.Write("NumOfPeopleEmp, ");
-            writer.Write("RegistrationDate, ");
-            writer.Write("LiqDate, ");
-            writer.Write("StatusCode, ");
-            writer.Write("StatusDesc, ");
-            writer.Write("Sex");
+            writer.Write($"StatId{_separator} ");
+            writer.Write($"Oblast{_separator} ");
+            writer.Write($"Rayon{_separator} ");
+            writer.Write($"ActCat_section_code{_separator} ");
+            writer.Write($"ActCat_section_desc{_separator} ");
+            writer.Write($"ActCat_2dig_code{_separator} ");
+            writer.Write($"ActCat_2dig_desc{_separator} ");
+            writer.Write($"ActCat_3dig_code{_separator} ");
+            writer.Write($"ActCat_3dig_desc{_separator} ");
+            writer.Write($"LegalForm_code{_separator} ");
+            writer.Write($"LegalForm_desc{_separator} ");
+            writer.Write($"InstSectorCode_level1{_separator} ");
+            writer.Write($"InstSectorCode_level1_desc{_separator} ");
+            writer.Write($"InstSectorCode_level2{_separator} ");
+            writer.Write($"InstSectorCode_level2_desc{_separator} ");
+            writer.Write($"SizeCode{_separator} ");
+            writer.Write($"SizeDesc{_separator} ");
+            writer.Write($"Turnover{_separator} ");
+            writer.Write($"Employees{_separator} ");
+            writer.Write($"NumOfPeopleEmp{_separator} ");
+            writer.Write($"RegistrationDate{_separator} ");
+            writer.Write($"LiqDate{_separator} ");
+            writer.Write($"StatusCode{_separator} ");
+            writer.Write($"StatusDesc{_separator} ");
+            writer.Write($"Sex");
             writer.Write(Environment.NewLine);
 
             await foreach (var record in records)

@@ -1,15 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
-    [Table("V_StatUnitSearch")]
     public class StatUnitSearchView
     {
-        [Key]
         public int RegId { get; set; }
         public string Name { get; set; }
         public string StatId { get; set; }

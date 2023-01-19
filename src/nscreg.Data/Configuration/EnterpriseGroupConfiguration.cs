@@ -44,6 +44,7 @@ namespace nscreg.Data.Configuration
             builder.HasIndex(x => x.Name);
 
             builder.HasIndex(x => x.StartPeriod);
+            builder.Property(x => x.Turnover).HasColumnType("decimal(18,2)");
 
             builder.Ignore(x => x.LegalForm);
             builder.Ignore(x => x.InstSectorCode);

@@ -12,7 +12,6 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities.ComplexTypes;
-using nscreg.Server.Common;
 using nscreg.Server.Common.Services;
 using Xunit;
 using Xunit.Abstractions;
@@ -22,16 +21,17 @@ namespace nscreg.Business.Test.DataSources
 {
     public class PopulateServiceTest : BaseTest
     {
-        public static object locker = new object(); 
+        private static IMapper CreateMapper() => new MapperConfiguration(mc =>
+            mc.AddMaps(typeof(Startup).Assembly)).CreateMapper();
+
+        public static object locker = new object();
         public PopulateServiceTest(ITestOutputHelper helper) : base(helper)
         {
             lock (locker)
             {
                 //Mapper.Reset();
-                //Mapper.(cfg =>
-                //{
-                //    cfg.AddProfile<AutoMapperProfile>();
-                //});
+
+
             }
 
         }
@@ -48,6 +48,8 @@ namespace nscreg.Business.Test.DataSources
         [Fact]
         public async Task PopulateAsync_PersonMapping_Success()
         {
+            var mappings = "StatId-StatId,Name-Name";
+
             var personTypes = new PersonType() {Name = "OWNER"};
             await DatabaseContext.AddAsync(personTypes);
             await DatabaseContext.SaveChangesAsync();
@@ -159,23 +161,30 @@ namespace nscreg.Business.Test.DataSources
                             Sex = 1,
                         }
                     },
-                    
+
                 }
             };
             DatabaseContext.StatisticalUnits.Add(dbunit);
             await DatabaseContext.SaveChangesAsync();
             string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
             Initialize(DatabaseContext, userId);
-            //var userService = new UserService(DatabaseContext);
-            //var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
-            //var populateService = new PopulateService(GetArrayMappingByString(mappings),
-            //    DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
-            //    DatabaseContext, userId, dataAccess);
+            IMapper mapper = CreateMapper();
+            var userService = new UserService(DatabaseContext, mapper);
+            var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
+            var populateService = new PopulateService(
+                GetArrayMappingByString(mappings),
+                DataSourceAllowedOperation.CreateAndAlter,
+                StatUnitTypes.LegalUnit,
+                DatabaseContext,
+                userId,
+                dataAccess,
+                mapper
+            );
 
-            
-            //var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw,true, DateTime.Now);
 
-            //popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits).Excluding(x => x.Person.Id));
+            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw,true, DateTime.Now);
+
+            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits).Excluding(x => x.Person.Id));
         }
 
         [Fact]
@@ -189,11 +198,12 @@ namespace nscreg.Business.Test.DataSources
                 {"Name", "LAST FRIDAY INVEST AS"},
             };
 
-            //var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter,StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
-            //var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
+            var populateService = new PopulateService(GetArrayMappingByString(unitMapping), DataSourceAllowedOperation.Alter,StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions(), CreateMapper());
+            var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
 
-            //errors.Should().Be($"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
-            //    $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
+            errors.Should().Be(
+                $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({popUnit.StatId})",
+                $"Stat unit with StatId {popUnit.StatId} doesn't exist in database");
 
         }
 
@@ -214,11 +224,11 @@ namespace nscreg.Business.Test.DataSources
                 Name = "LAST FRIDAY INVEST AS"
             });
             await DatabaseContext.SaveChangesAsync();
-            //var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions());
-            //var (popUnit, _, error, historyUnit) = await populateService.PopulateAsync(keyValueDict, true, DateTime.Now);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings), DataSourceAllowedOperation.Create, StatUnitTypes.LegalUnit, DatabaseContext, Guid.NewGuid().ToString(), new DataAccessPermissions(), CreateMapper());
+            var (popUnit, _, error, historyUnit) = await populateService.PopulateAsync(keyValueDict, true, DateTime.Now);
 
-            //error.Should().Be(string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, popUnit.StatId),
-            //    $"Stat unit with StatId - {popUnit.StatId} exist in database");
+            error.Should().Be(string.Format(Resource.StatisticalUnitWithSuchStatIDAlreadyExists, popUnit.StatId),
+                $"Stat unit with StatId - {popUnit.StatId} exist in database");
 
         }
 
@@ -291,15 +301,16 @@ namespace nscreg.Business.Test.DataSources
             };
             string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
             Initialize(DatabaseContext, userId);
-            //var userService = new UserService(DatabaseContext);
-            //var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
-            //var populateService = new PopulateService(GetArrayMappingByString(mappings),
-            //    DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
-            //    DatabaseContext, userId, dataAccess);
-            //var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
-            //popUnit.ActivitiesUnits.Should().BeEquivalentTo(unit.ActivitiesUnits,
-            //    op => op.Excluding(z => z.Activity.IdDate).Excluding(z => z.Activity.UpdatedDate));
-            //popUnit.Should().BeEquivalentTo(unit, op => op.Excluding(z => z.StartPeriod).Excluding(z => z.ActivitiesUnits).Excluding(x => x.RegIdDate).Excluding(x => x.Activities));
+            var mapper = CreateMapper();
+            var userService = new UserService(DatabaseContext, mapper);
+            var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings),
+                DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
+                DatabaseContext, userId, dataAccess, mapper);
+            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
+            popUnit.ActivitiesUnits.Should().BeEquivalentTo(unit.ActivitiesUnits,
+                op => op.Excluding(z => z.Activity.IdDate).Excluding(z => z.Activity.UpdatedDate));
+            popUnit.Should().BeEquivalentTo(unit, op => op.Excluding(z => z.StartPeriod).Excluding(z => z.ActivitiesUnits).Excluding(x => x.RegIdDate).Excluding(x => x.Activities));
 
 
         }
@@ -452,18 +463,18 @@ namespace nscreg.Business.Test.DataSources
             };
             string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
             Initialize(DatabaseContext, userId);
-           
-            //var userService = new UserService(DatabaseContext);
-            //var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
-            //var populateService = new PopulateService(GetArrayMappingByString(mappings),
-            //    DataSourceAllowedOperation.CreateAndAlter,StatUnitTypes.LegalUnit,
-            //    DatabaseContext, userId, dataAccess);
-            //var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
-            //popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
-            //    op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
-            //        .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy)
-            //        .Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.ActivityCategory.Id)
-            //        .Excluding(x => x.Activity.IdDate).Excluding(x => x.Activity.UpdatedDate));
+            var mapper = CreateMapper();
+            var userService = new UserService(DatabaseContext, mapper);
+            var dataAccess = await userService.GetDataAccessAttributes(userId, StatUnitTypes.LegalUnit);
+            var populateService = new PopulateService(GetArrayMappingByString(mappings),
+                DataSourceAllowedOperation.CreateAndAlter,StatUnitTypes.LegalUnit,
+                DatabaseContext, userId, dataAccess, mapper);
+            var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
+            popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
+                op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
+                    .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy)
+                    .Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.ActivityCategory.Id)
+                    .Excluding(x => x.Activity.IdDate).Excluding(x => x.Activity.UpdatedDate));
         }
 
         private void Initialize(NSCRegDbContext context, string userId)

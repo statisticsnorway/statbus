@@ -86,6 +86,7 @@ namespace nscreg.Data.Configuration
             builder.Property(DiscriminatorColumnName)
                 .HasMaxLength(20);
 
+            builder.Property(x => x.Turnover).HasColumnType("decimal(18,2)");
 
             builder.HasIndex(x => x.Name);
 
