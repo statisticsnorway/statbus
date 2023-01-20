@@ -6,7 +6,6 @@ Statistical Business Registry (SBR)
 [![CI](https://github.com/statisticsnorway/statbus/actions/workflows/cd-workflow.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/cd-workflow.yaml)
 [![Linter](https://github.com/statisticsnorway/statbus/actions/workflows/linter-workflow.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/linter-workflow.yaml)
 
-
 ## tools stack
 
 * ASP.NET Core 3.1, Entity Framework Core 3.1.22, ElasticSearch 6.5.3
@@ -18,12 +17,13 @@ Statistical Business Registry (SBR)
 
 ## Running a development build
 
-Requirements
+### Without Docker
+
+#### Requirements
 
 * Windows, Linux, macOS (Apple M1 is currently a problem)
 * .NET Core 3.1 SDK
 * Node.js 16
-* Docker
 
 ```sh
 npm ci --legacy-peer-deps
@@ -33,13 +33,39 @@ dotnet build
 dotnet test (TODO)
 ```
 
-or
+### With Docker
+
+#### Requirements
+
+* Windows, Linux, macOS (Apple M1 is currently a problem)
 
 ```sh
-docker-compose up -–build -d
+docker-compose up -d
 ```
 
 Visit <http://localhost/> u:admin p:123qwe
+
+## Running a production build
+
+### .env file
+
+We use an `.env`-file for selecting the correct Docker Compose file. This is by default configured to:
+
+```sh
+COMPOSE_FILE=docker-compose.debug.yml
+```
+
+To run a production build, change it to:
+
+```sh
+COMPOSE_FILE=docker-compose.yml
+```
+
+and then do a compose up
+
+```sh
+docker-compose up -d
+```
 
 ## Database language (TODO)
 
