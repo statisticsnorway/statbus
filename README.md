@@ -180,6 +180,10 @@ HTTPS/SSL can be enabled in statbus with the following changes to `docker-compos
 
 The Docker Compose files are configured with a bridged network, allowing the services to reach the outside. If you want to run statbus with an external database you need to change the references to sql19-latest to the IP addreess of the database you want to use.
 
+## Versioning
+
+Statbus uses the [GitVersion action](https://github.com/GitTools/actions) for semantic versioning. Major and minor versions can be bumped by commit messages and git tags
+
 ## Notes
 
 To clean everything docker related run ```docker system prune --all --volumes```
