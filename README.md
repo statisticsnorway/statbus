@@ -15,6 +15,10 @@ Statistical Business Registry (SBR)
 
 ## test servers / Credentials
 
+## Devcontainer
+
+The project specifies a devcontainer that can be used when workling locally. This has the advantage that you don't need to install tools such as dotnet, nodejs etc locally. More info can be found in the [vscode documentation](https://code.visualstudio.com/docs/devcontainers/containers)
+
 ## Running a development build
 
 ### Without Docker
@@ -178,11 +182,15 @@ HTTPS/SSL can be enabled in statbus with the following changes to `docker-compos
 
 ## Use an external database
 
-The Docker Compose files are configured with a bridged network, allowing the services to reach the outside. If you want to run statbus with an external database you need to change the references to sql19-latest to the IP addreess of the database you want to use.
+The Docker Compose files are configured with a bridged network, allowing the services to reach the outside. If you want to run statbus with an external database you need to change the references to sql19-latest to the IP address of the database you want to use.
 
 ## Versioning
 
 Statbus uses the [GitVersion action](https://github.com/GitTools/actions) for semantic versioning. Major and minor versions can be bumped by commit messages and git tags
+
+## GitHub Actions Workflows
+
+The GitHub workflows can be run locally with [ACT](https://github.com/nektos/act). This is installed in the [devcontainer](#devcontainer). There are vscode tasks for running each of the workflows.
 
 ## Notes
 
