@@ -46,7 +46,7 @@
     "react-router-redux": "^4.0.8",
     "react-select": "^1.2.1",
     "react-to-print": "^1.0.17",
-    "recompose": "^0.26.0",
+    "recompose": "^0.30.0",
     "redux": "^3.7.2",
     "redux-act": "^1.7.1",
     "redux-thunk": "^2.2.0",
