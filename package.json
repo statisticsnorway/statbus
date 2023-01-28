@@ -51,7 +51,7 @@
     "redux-act": "^1.7.1",
     "redux-thunk": "^2.2.0",
     "reselect": "^3.0.1",
-    "semantic-ui-react": "^0.86.0",
+    "semantic-ui-react": "^0.88.2",
     "yup": "^0.28.5"
   },
   "devDependencies": {
