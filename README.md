@@ -25,7 +25,7 @@ The project specifies a devcontainer that can be used when workling locally. Thi
 
 #### Requirements
 
-* Windows, Linux, macOS (Apple M1 is currently a problem)
+* Windows, Linux, MacOS
 * .NET Core 3.1 SDK
 * Node.js 16
 
@@ -41,7 +41,7 @@ dotnet test (TODO)
 
 #### Requirements
 
-* Windows, Linux, macOS (Apple M1 is currently a problem)
+* Windows, Linux, MacOS
 
 ```sh
 docker-compose up -d
@@ -206,4 +206,9 @@ node -p "process.arch"
 x64                     # 'arm64' wil not work yet
 ```
 
-[mcr.microsoft.com/mssql/server](https://hub.docker.com/_/microsoft-mssql-server) does not support Apple M1 (ARM64), some suggest to use [mcr.microsoft.com/azure-sql-edge](https://hub.docker.com/_/microsoft-azure-sql-edge)
+[mcr.microsoft.com/mssql/server](https://hub.docker.com/_/microsoft-mssql-server) does not support Apple M1 (ARM64)~~, some suggest to use [mcr.microsoft.com/azure-sql-edge](https://hub.docker.com/_/microsoft-azure-sql-edge)~~
+
+[Docker Desktop 4.16](https://docs.docker.com/desktop/release-notes/#4160) and newer now supports Apple M1 (ARM64)
+
+> New Beta feature for MacOS 13, Rosetta for Linux, has been added
+for faster emulation of Intel-based images on Apple Silicon.
