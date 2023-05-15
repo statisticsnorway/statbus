@@ -23,9 +23,9 @@ The project specifies a devcontainer that can be used when workling locally. Thi
 
 ### Without Docker
 
-#### Requirements
+Requirements
 
-* Windows, Linux, MacOS
+* Windows, Linux, macOS
 * .NET Core 3.1 SDK
 * Node.js 16
 
@@ -39,9 +39,9 @@ dotnet test (TODO)
 
 ### With Docker
 
-#### Requirements
+Requirements
 
-* Windows, Linux, MacOS
+* Windows, Linux, macOS
 
 ```sh
 docker-compose up -d
@@ -210,5 +210,5 @@ x64                     # 'arm64' wil not work yet
 
 [Docker Desktop 4.16](https://docs.docker.com/desktop/release-notes/#4160) and newer now supports Apple M1 (ARM64)
 
-> New Beta feature for MacOS 13, Rosetta for Linux, has been added
+> New Beta feature for macOS 13, Rosetta for Linux, has been added
 for faster emulation of Intel-based images on Apple Silicon.
