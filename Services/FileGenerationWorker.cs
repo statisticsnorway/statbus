@@ -27,7 +27,7 @@ namespace nscreg.Services
         private static Logger _logger = LogManager.GetCurrentClassLogger();
         private readonly int _timeoutMilliseconds;
         private readonly string _sampleFramesDir;
-        
+
         public FileGenerationWorker(NSCRegDbContext ctx,
             IOptions<ServicesSettings> servicesSettings, SampleFrameExecutor executor)
         {
@@ -99,7 +99,7 @@ namespace nscreg.Services
         {
             get
             {
-                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                string codeBase = Assembly.GetExecutingAssembly().Location;
                 UriBuilder uri = new UriBuilder(codeBase);
                 string path = Uri.UnescapeDataString(uri.Path);
                 return Path.GetDirectoryName(path);
