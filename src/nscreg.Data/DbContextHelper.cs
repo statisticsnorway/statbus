@@ -69,30 +69,18 @@ namespace nscreg.Data
                 case ConnectionProvider.SqlServer:
                     return new NSCRegDbContext(builder
                         .UseSqlServer(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
-#pragma warning disable CS0618 // Тип или член устарел
-                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
-#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                 case ConnectionProvider.PostgreSql:
                     return new NSCRegDbContext(builder
                         .UseNpgsql(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
-#pragma warning disable CS0618 // Тип или член устарел
-                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
-#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                 case ConnectionProvider.MySql:
                     return new NSCRegDbContext(builder
-                        .UseMySql(config.ConnectionString, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
-#pragma warning disable CS0618 // Тип или член устарел
-                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
-#pragma warning restore CS0618 // Тип или член устарел
+                        .UseMySql(config.ConnectionString, MariaDbServerVersion.LatestSupportedServerVersion, options => { options.CommandTimeout(defaultCommandTimeOutInSeconds); })
                         .Options);
                 default:
                     var ctx = new NSCRegDbContext(builder
                         .UseSqlite("DataSource=:memory:")
-#pragma warning disable CS0618 // Тип или член устарел
-                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
-#pragma warning restore CS0618 // Тип или член устарел
                         .Options);
                     ctx.Database.OpenConnection();
                     ctx.Database.EnsureCreated();
