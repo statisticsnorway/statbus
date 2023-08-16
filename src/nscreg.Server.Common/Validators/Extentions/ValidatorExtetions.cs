@@ -11,48 +11,6 @@ namespace nscreg.Server.Common.Validators.Extentions
     public static class ValidatorExtensions
     {
         /// <summary>
-        /// Method validator number greater than 0 or less value
-        /// </summary>
-        /// <param name = "ruleBuilder"> Rule constructor </param>
-        /// <param name = "compareTo"> Comparison with </param>
-        /// <returns> </returns>
-        public static IRuleBuilderOptions<T, int> CheckIntGreaterThan0OrLessThanValueValidator<T>(
-            this IRuleBuilder<T, int> ruleBuilder,
-            int compareTo = 0)
-            =>
-                compareTo <= 0
-                    ? ruleBuilder.SetValidator(new CheckIntGreaterThanZeroOrGreaterThanValueValidator())
-                        .WithMessage(nameof(Resource.IncorrectIntegerValue))
-                    : ruleBuilder.SetValidator(new CheckIntGreaterThanZeroOrGreaterThanValueValidator(compareTo))
-                        .WithMessage(
-                            JsonConvert.SerializeObject(
-                                new
-                                {
-                                    LocalizedKey = nameof(Resource.IncorrectIntegerValueExt),
-                                    Parameters = new[] {compareTo}
-                                }));
-
-        /// <summary>
-        /// The string validator method on non-empty and larger values
-        /// </summary>
-        /// <typeparam name = "T"> </typeparam>
-        /// <param name = "ruleBuilder"> </param>
-        /// <param name = "maxLength"> </param>
-        /// <returns> </returns>
-        public static IRuleBuilderOptions<T, string> CheckStringNotEmptyAndGreaterThanValidator<T>(
-            this IRuleBuilder<T, string> ruleBuilder,
-            int maxLength)
-            =>
-                ruleBuilder.SetValidator(new CheckStringNotEmptyAndGreaterThanValidator(maxLength))
-                    .WithMessage(JsonConvert.SerializeObject(
-                        new
-                        {
-                            LocalizedKey = nameof(Resource.IncorrectStringValue),
-                            Parameters = new[] {maxLength}
-                        })
-                    );
-
-        /// <summary>
         /// Method validator of the year
         /// </summary>
         /// <param name = "ruleBuilder"> Rule constructor </param>
