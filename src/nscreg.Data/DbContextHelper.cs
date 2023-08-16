@@ -44,7 +44,8 @@ namespace nscreg.Data
                                     .CommandTimeout(30000));
                             break;
                         case ConnectionProvider.MySql:
-                            op.UseMySql(connectionString,
+                            op.UseMySql(connectionString: connectionString,
+                                MariaDbServerVersion.LatestSupportedServerVersion,
                                 op2 => op2.MigrationsAssembly("nscreg.Data")
                                     .CommandTimeout(30000));
                             break;
