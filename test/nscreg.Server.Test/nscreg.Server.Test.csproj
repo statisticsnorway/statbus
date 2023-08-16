@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <NoWarn>$(NoWarn);RECS0145</NoWarn>
     <PreserveCompilationContext>true</PreserveCompilationContext>
     <AssemblyName>nscreg.Server.Test</AssemblyName>
