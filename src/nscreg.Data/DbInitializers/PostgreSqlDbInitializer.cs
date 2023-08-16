@@ -13,14 +13,14 @@ namespace nscreg.Data.DbInitializers
             const string dropStatUnitSearchViewTable = @"DO
                                                          $$
                                                          BEGIN
-                                                         IF EXISTS 
+                                                         IF EXISTS
                                                          (
                                                          	SELECT 1
-                                                         	FROM information_schema.tables 
+                                                         	FROM information_schema.tables
                                                          	WHERE table_name = 'V_StatUnitSearch'
                                                          	AND table_type = 'BASE TABLE'
                                                          )
-                                                         THEN 
+                                                         THEN
                                                          DROP TABLE ""V_StatUnitSearch"";
                                                          END IF;
                                                          END
@@ -29,14 +29,14 @@ namespace nscreg.Data.DbInitializers
             const string dropStatUnitSearchView = @"DO
                                                     $$
                                                     BEGIN
-                                                    IF EXISTS 
+                                                    IF EXISTS
                                                     (
                                                     	SELECT 1
-                                                    	FROM information_schema.tables 
+                                                    	FROM information_schema.tables
                                                     	WHERE table_name = 'V_StatUnitSearch'
                                                     	AND table_type = 'VIEW'
                                                     )
-                                                    THEN 
+                                                    THEN
                                                     DROP VIEW ""V_StatUnitSearch"";
                                                     END IF;
                                                     END
@@ -80,7 +80,7 @@ namespace nscreg.Data.DbInitializers
                                                          AS ""UnitType""
                                                      FROM    ""StatisticalUnits""
                                                          LEFT JOIN ""Address"" as ""addr""
-                                                             ON ""AddressId"" = ""Address_id""                                                        
+                                                             ON ""AddressId"" = ""Address_id""
                                                          LEFT JOIN ""Address"" as ""act_addr""
                                                              ON ""ActualAddressId"" = ""act_addr"".""Address_id""
 
@@ -123,14 +123,14 @@ namespace nscreg.Data.DbInitializers
             const string dropReportTreeTable = @"DO
                                                          $$
                                                          BEGIN
-                                                         IF EXISTS 
+                                                         IF EXISTS
                                                          (
                                                          	SELECT 1
-                                                         	FROM information_schema.tables 
+                                                         	FROM information_schema.tables
                                                          	WHERE table_name = 'ReportTree'
                                                          	AND table_type = 'BASE TABLE'
                                                          )
-                                                         THEN 
+                                                         THEN
                                                          DROP TABLE ""ReportTree"";
                                                          END IF;
                                                          END
@@ -139,21 +139,21 @@ namespace nscreg.Data.DbInitializers
             const string dropFunctionGetActivityChildren = @"DO
                                                             $$
                                                             BEGIN
-                                                            IF EXISTS 
+                                                            IF EXISTS
                                                             (
                                                             	SELECT 1
-                                                            	FROM information_schema.routines 
+                                                            	FROM information_schema.routines
                                                             	WHERE routine_name = 'GetActivityChildren'
                                                             	AND routine_type = 'FUNCTION'
                                                             )
-                                                            THEN 
+                                                            THEN
                                                             DROP FUNCTION ""GetActivityChildren"";
                                                             END IF;
                                                             END
                                                             $$ language 'plpgsql'";
 
             const string createFunctionGetActivityChildren = @"CREATE OR REPLACE FUNCTION public.""GetActivityChildren""(activityid integer,activitiesids varchar(400))
-                                                               RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer, ""ActivityCategoryLevel"" integer) 
+                                                               RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer, ""ActivityCategoryLevel"" integer)
                                                                LANGUAGE 'plpgsql'
                                                                AS $BODY$
                                                                BEGIN
@@ -201,14 +201,14 @@ namespace nscreg.Data.DbInitializers
             const string dropFunctionGetRegionChildren = @"DO
                                                            $$
                                                            BEGIN
-                                                           IF EXISTS 
+                                                           IF EXISTS
                                                            (
                                                            	SELECT 1
-                                                           	FROM information_schema.routines 
+                                                           	FROM information_schema.routines
                                                            	WHERE routine_name = 'GetRegionChildren'
                                                            	AND routine_type = 'FUNCTION'
                                                            )
-                                                           THEN 
+                                                           THEN
                                                            DROP FUNCTION ""GetRegionChildren"";
                                                            END IF;
                                                            END

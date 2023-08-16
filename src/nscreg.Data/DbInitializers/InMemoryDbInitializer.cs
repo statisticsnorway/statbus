@@ -46,7 +46,7 @@ namespace nscreg.Data.DbInitializers
                     END
                     AS UnitType
                 FROM	StatisticalUnits
-                    LEFT JOIN Address as addr 
+                    LEFT JOIN Address as addr
                         ON AddressId = addr.Address_id
                     LEFT JOIN Address as act_addr
                         ON ActualAddressId = act_addr.Address_id
