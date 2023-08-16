@@ -12,7 +12,7 @@ using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.Contracts;
-using nscreg.Server.Common.Validators.Extentions;
+using nscreg.Server.Common.Validators.Extensions;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;

@@ -1,9 +1,8 @@
 using System;
 using FluentValidation;
-using nscreg.Resources.Languages;
 using Newtonsoft.Json;
 
-namespace nscreg.Server.Common.Validators.Extentions
+namespace nscreg.Server.Common.Validators.Extensions
 {
     /// <summary>
     /// Validation extension class
