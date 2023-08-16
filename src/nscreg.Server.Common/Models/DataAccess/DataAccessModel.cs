@@ -52,9 +52,7 @@ namespace nscreg.Server.Common.Models.DataAccess
         /// String conversion method
         /// </summary>
         /// <returns></returns>
-#pragma warning disable EF1001 // Internal EF Core API usage.
-        public override string ToString() => ToStringCollection(false).Join(",");
-#pragma warning restore EF1001 // Internal EF Core API usage.
+        public override string ToString() => string.Join(',', ToStringCollection(false));
 
         /// <summary>
         /// String Conversion Method
