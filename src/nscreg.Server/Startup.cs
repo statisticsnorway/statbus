@@ -183,7 +183,7 @@ namespace nscreg.Server
                 default:
                     throw new Exception( "Invalid connection provider");
             }
-            var evolve = new Evolve.Evolve(connection, Console.WriteLine)
+            var evolve = new EvolveDb.Evolve(connection, Console.WriteLine)
             {
                 Locations = new[] {$"EvolveMigrations/{migrationFolderName}"},
                 IsEraseDisabled = true,
