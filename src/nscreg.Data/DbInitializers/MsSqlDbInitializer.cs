@@ -511,30 +511,30 @@ namespace nscreg.Data.DbInitializers
 
             #endregion
 
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchView);
-            context.Database.ExecuteSqlCommand(createStatUnitSearchView);
-            context.Database.ExecuteSqlCommand(dropReportTreeTable);
-            context.Database.ExecuteSqlCommand(dropProcedureGetReportsTree);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchView);
+            context.Database.ExecuteSqlRaw(createStatUnitSearchView);
+            context.Database.ExecuteSqlRaw(dropReportTreeTable);
+            context.Database.ExecuteSqlRaw(dropProcedureGetReportsTree);
 #pragma warning disable EF1000 // Possible SQL injection vulnerability.
-            context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
+            context.Database.ExecuteSqlRaw(createProcedureGetReportsTree);
 #pragma warning restore EF1000 // Possible SQL injection vulnerability.
-            context.Database.ExecuteSqlCommand(dropFunctionGetActivityChildren);
-            context.Database.ExecuteSqlCommand(createFunctionGetActivityChildren);
-            context.Database.ExecuteSqlCommand(dropFunctionGetRegionChildren);
-            context.Database.ExecuteSqlCommand(createFunctionGetRegionChildren);
-            context.Database.ExecuteSqlCommand(dropStatUnitEnterpriseViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitEnterpriseTable);
-            context.Database.ExecuteSqlCommand(dropFunctionGetRegionParent);
-            context.Database.ExecuteSqlCommand(createFunctionGetRegionParent);
-            context.Database.ExecuteSqlCommand(dropGetActivityParent);
-            context.Database.ExecuteSqlCommand(createFunctionGetActivityParent);
-            context.Database.ExecuteSqlCommand(dropGetSectorParent);
-            context.Database.ExecuteSqlCommand(createFunctionGetSectorParent);
-            context.Database.ExecuteSqlCommand(createStatUnitEnterprise);
-            context.Database.ExecuteSqlCommand(dropStatUnitLocalViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitLocalTable);
-            context.Database.ExecuteSqlCommand(createStatUnitLocal);
+            context.Database.ExecuteSqlRaw(dropFunctionGetActivityChildren);
+            context.Database.ExecuteSqlRaw(createFunctionGetActivityChildren);
+            context.Database.ExecuteSqlRaw(dropFunctionGetRegionChildren);
+            context.Database.ExecuteSqlRaw(createFunctionGetRegionChildren);
+            context.Database.ExecuteSqlRaw(dropStatUnitEnterpriseViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitEnterpriseTable);
+            context.Database.ExecuteSqlRaw(dropFunctionGetRegionParent);
+            context.Database.ExecuteSqlRaw(createFunctionGetRegionParent);
+            context.Database.ExecuteSqlRaw(dropGetActivityParent);
+            context.Database.ExecuteSqlRaw(createFunctionGetActivityParent);
+            context.Database.ExecuteSqlRaw(dropGetSectorParent);
+            context.Database.ExecuteSqlRaw(createFunctionGetSectorParent);
+            context.Database.ExecuteSqlRaw(createStatUnitEnterprise);
+            context.Database.ExecuteSqlRaw(dropStatUnitLocalViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitLocalTable);
+            context.Database.ExecuteSqlRaw(createStatUnitLocal);
         }
     }
 }

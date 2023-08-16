@@ -267,14 +267,14 @@ namespace nscreg.Data.DbInitializers
             #endregion
 
 
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchView);
-            context.Database.ExecuteSqlCommand(createStatUnitSearchView);
-            context.Database.ExecuteSqlCommand(dropReportTreeTable);
-            context.Database.ExecuteSqlCommand(dropFunctionGetActivityChildren);
-            context.Database.ExecuteSqlCommand(createFunctionGetActivityChildren);
-            context.Database.ExecuteSqlCommand(dropFunctionGetRegionChildren);
-            context.Database.ExecuteSqlCommand(createFunctionGetRegionChildren);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchView);
+            context.Database.ExecuteSqlRaw(createStatUnitSearchView);
+            context.Database.ExecuteSqlRaw(dropReportTreeTable);
+            context.Database.ExecuteSqlRaw(dropFunctionGetActivityChildren);
+            context.Database.ExecuteSqlRaw(createFunctionGetActivityChildren);
+            context.Database.ExecuteSqlRaw(dropFunctionGetRegionChildren);
+            context.Database.ExecuteSqlRaw(createFunctionGetRegionChildren);
         }
     }
 }
