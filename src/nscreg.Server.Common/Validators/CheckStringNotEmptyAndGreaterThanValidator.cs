@@ -1,3 +1,5 @@
+using System;
+using FluentValidation;
 using FluentValidation.Validators;
 
 namespace nscreg.Server.Common.Validators
@@ -5,11 +7,12 @@ namespace nscreg.Server.Common.Validators
     /// <summary>
     /// String validator class on non-empty and larger values
     /// </summary>
-    public class CheckStringNotEmptyAndGreaterThanValidator : PropertyValidator
+    public class CheckStringNotEmptyAndGreaterThanValidator<T,TProperty> : PropertyValidator<T,TProperty>
     {
         private readonly int _maxLength;
+        public override string Name => "CheckStringNotEmptyAndGreaterThanValidator";
 
-        public CheckStringNotEmptyAndGreaterThanValidator(int maxLength) : base(string.Empty)
+        public CheckStringNotEmptyAndGreaterThanValidator(int maxLength) //: base(string.Empty)
         {
             _maxLength = maxLength;
         }
@@ -19,10 +22,14 @@ namespace nscreg.Server.Common.Validators
         /// </summary>
         /// <param name = "context"> Context of the property validator </param>
         /// <returns> </returns>
-        protected override bool IsValid(PropertyValidatorContext context)
+        public override bool IsValid(ValidationContext<T> context, TProperty value)
         {
-            var value = context.PropertyValue as string;
-            return value != null && value.Length <= _maxLength;
+            if (value is string str)
+            {
+                return str.Length <= _maxLength;
+            }
+            return false;
         }
+
     }
 }
