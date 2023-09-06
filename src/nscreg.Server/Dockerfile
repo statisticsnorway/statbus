@@ -31,11 +31,11 @@ RUN dotnet restore "src/nscreg.Server/nscreg.Server.csproj"
 
 WORKDIR "/src/src/nscreg.Server"
 COPY . /src
-RUN dotnet build "nscreg.Server.csproj" -c ${CONFIGURATION} -f netcoreapp3.1 --no-restore
+RUN dotnet build "nscreg.Server.csproj" -c ${CONFIGURATION} -f net7.0 --no-restore
 
 FROM build AS publish
 COPY --from=spa-build /src/src/nscreg.Server/. /src/src/nscreg.Server/
-RUN dotnet publish "nscreg.Server.csproj" -c ${CONFIGURATION} -o /app/publish -f netcoreapp3.1 --no-build
+RUN dotnet publish "nscreg.Server.csproj" -c ${CONFIGURATION} -o /app/publish -f net7.0 --no-build
 
 FROM base AS final
 WORKDIR /app
