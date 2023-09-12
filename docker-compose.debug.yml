@@ -17,7 +17,6 @@ services:
     ports:
       - 80:80
     volumes:
-      - ./Library/Keychains/:/root/.aspnet/https
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
       - keys:/app/keys
