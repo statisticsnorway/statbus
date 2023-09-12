@@ -162,23 +162,23 @@ If you want to use a local database in a docker container and restore the databa
 HTTPS/SSL can be enabled in statbus with the following changes to `docker-compose.debug.yml`
 
 - `services.server.environment` - Add environment variables for certificate location and password
-   ``` yaml
-   - ASPNETCORE_Kestrel__Certificates__Default__Password=CERT_PASSWORD
-   - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/CERT_NAME
-   ```
+  ``` yaml
+  - ASPNETCORE_Kestrel__Certificates__Default__Password=CERT_PASSWORD
+  - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/CERT_NAME
+  ```
   Example with password `MySecurePassword` and certificate name `localhost.pfx`
-   ``` yaml
-   - ASPNETCORE_Kestrel__Certificates__Default__Password=MySecurePassword
-   - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/localhost.pfx
-   ```
+  ``` yaml
+  - ASPNETCORE_Kestrel__Certificates__Default__Password=MySecurePassword
+  - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/localhost.pfx
+  ```
 - `services.server.volumes` - Add volume mapping for certificate
-   ``` yaml
-   - LOCAL_CERTIFICATE_PATH:/https:ro
-   ```
-   Example with certificate stored in the `.aspnet/https` subfolder of the users home directory
-   ``` yaml
-   - ~/.aspnet/https:/https:ro
-   ```
+  ``` yaml
+  - LOCAL_CERTIFICATE_PATH:/https:ro
+  ```
+  Example with certificate stored in the `.aspnet/https` subfolder of the users home directory
+  ``` yaml
+  - ~/.aspnet/https:/https:ro
+  ```
 
 ## Use an external database
 
