@@ -19,6 +19,8 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
+      # Used to persist keys for signing cookies and verifying them https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/consumer-apis/overview?view=aspnetcore-7.0
+      - keys:/app/keys
     depends_on:
       postgres:
         condition: service_healthy
