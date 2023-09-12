@@ -15,37 +15,63 @@ services:
       tags:
         - "dev"
     ports:
-      - 80:80
+      - 6080:80
     volumes:
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
     depends_on:
-      sqlserver:
+      postgres:
         condition: service_healthy
+      #sqlserver:
+      #  condition: service_healthy
     networks:
       - elastic
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2019-latest
-    container_name: sql19-latest
-    user: root
+  postgres:
+    # We use the same version supported by the latest Ubuntu LTS release
+    image: postgres:14
+    container_name: statbus-postgres
+    user: postgres
     ports:
-      - "1433:1433"
+      - "6543:5432"
     restart: always
     secrets:
       - nscreg-sql-password
     environment:
-      MSSQL_SA_PASSWORD_FILE: /run/secrets/nscreg-sql-password
-      ACCEPT_EULA: Y
-      MSSQL_LCID: 1033
-      MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/nscreg-sql-password
     healthcheck:
-      test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P $$(cat $$MSSQL_SA_PASSWORD_FILE) -Q "Select 1"'
-      interval: 20s
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
       retries: 5
     volumes:
-      - nscreg-sql-data:/var/opt/mssql/data:rw
+      # Local mount of directory fails due to docker file system ownership problems.
+      # So instead of the line below, we must use a volume
+      #- ./postgres-data:/var/lib/postgresql/data:rw
+      - statbus-postgres-data:/var/lib/postgresql/data:rw
+      - ./postgres-initdb.d:/docker-entrypoint-initdb.d:r
     networks:
       - elastic
+  #sqlserver:
+  #  image: mcr.microsoft.com/azure-sql-edge:latest
+  #  container_name: azure-sql-latest
+  #  user: root
+  #  ports:
+  #    - "1433:1433"
+  #  restart: always
+  #  secrets:
+  #    - nscreg-sql-password
+  #  environment:
+  #    MSSQL_SA_PASSWORD_FILE: /run/secrets/nscreg-sql-password
+  #    ACCEPT_EULA: Y
+  #  healthcheck:
+  #    test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P $$(cat $$MSSQL_SA_PASSWORD_FILE) -Q "Select 1"'
+  #    interval: 20s
+  #    retries: 5
+  #  volumes:
+  #    - nscreg-mssql-data:/var/opt/mssql/data:rw
+  #  networks:
+  #    - elastic
   elasticsearch:
     container_name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
@@ -70,5 +96,11 @@ secrets:
     file: mssql_password.txt
 
 volumes:
+  statbus-postgres-data:
+    # This volume is independent, and therefore protected from accidental deletion
+    # when using docker compose.
+    # docker volume create --name=statbus-postgres-data
+    #external: true
   elasticsearch-data:
-  nscreg-sql-data:
+  nscreg-mssql-data:
+  keys:
