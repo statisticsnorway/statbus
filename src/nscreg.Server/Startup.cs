@@ -31,7 +31,6 @@ using System.Data.Common;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
-using MySql.Data.MySqlClient;
 using Npgsql;
 using static nscreg.Server.Core.StartupConfiguration;
 using Microsoft.Extensions.Hosting;
@@ -40,6 +39,7 @@ using nscreg.Server.Common.Helpers;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.DataProtection;
+using MySqlConnector;
 using Newtonsoft.Json.Serialization;
 using nscreg.Server.HostedServices;
 using nscreg.Services;
@@ -183,7 +183,7 @@ namespace nscreg.Server
                 default:
                     throw new Exception( "Invalid connection provider");
             }
-            var evolve = new Evolve.Evolve(connection, Console.WriteLine)
+            var evolve = new EvolveDb.Evolve(connection, Console.WriteLine)
             {
                 Locations = new[] {$"EvolveMigrations/{migrationFolderName}"},
                 IsEraseDisabled = true,

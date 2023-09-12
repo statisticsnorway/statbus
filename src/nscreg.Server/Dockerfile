@@ -1,5 +1,5 @@
 #See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
-FROM mcr.microsoft.com/dotnet/aspnet:3.1-focal AS base
+FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
@@ -16,7 +16,7 @@ RUN mkdir -p src/nscreg.Server/wwwroot/dist
 RUN npm run build
 ENTRYPOINT [ "/bin/sh" ]
 
-FROM mcr.microsoft.com/dotnet/sdk:3.1-focal AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 ARG CONFIGURATION=Release
 WORKDIR /src
 COPY ["src/nscreg.Server/nscreg.Server.csproj", "src/nscreg.Server/"]
@@ -31,11 +31,11 @@ RUN dotnet restore "src/nscreg.Server/nscreg.Server.csproj"
 
 WORKDIR "/src/src/nscreg.Server"
 COPY . /src
-RUN dotnet build "nscreg.Server.csproj" -c ${CONFIGURATION} -f netcoreapp3.1 --no-restore
+RUN dotnet build "nscreg.Server.csproj" -c ${CONFIGURATION} -f net7.0 --no-restore
 
 FROM build AS publish
 COPY --from=spa-build /src/src/nscreg.Server/. /src/src/nscreg.Server/
-RUN dotnet publish "nscreg.Server.csproj" -c ${CONFIGURATION} -o /app/publish -f netcoreapp3.1 --no-build
+RUN dotnet publish "nscreg.Server.csproj" -c ${CONFIGURATION} -o /app/publish -f net7.0 --no-build
 
 FROM base AS final
 WORKDIR /app

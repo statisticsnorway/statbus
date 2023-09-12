@@ -1,7 +1,7 @@
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits;
 
-namespace nscreg.Server.Common.Validators.Extentions
+namespace nscreg.Server.Common.Validators.Extensions
 {
     /// <summary>
     /// Stat extension class. units

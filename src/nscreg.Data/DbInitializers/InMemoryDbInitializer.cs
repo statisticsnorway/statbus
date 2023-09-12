@@ -46,7 +46,7 @@ namespace nscreg.Data.DbInitializers
                     END
                     AS UnitType
                 FROM	StatisticalUnits
-                    LEFT JOIN Address as addr 
+                    LEFT JOIN Address as addr
                         ON AddressId = addr.Address_id
                     LEFT JOIN Address as act_addr
                         ON ActualAddressId = act_addr.Address_id
@@ -93,10 +93,10 @@ namespace nscreg.Data.DbInitializers
         [System.Obsolete]
         public void Initialize(NSCRegDbContext context, ReportingSettings reportingSettings = null)
         {
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTableSqliteInmemory);
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchViewSqliteInmemory);
-            context.Database.ExecuteSqlCommand(createStatUnitSearchViewSqliteInmemory);
-            context.Database.ExecuteSqlCommand(dropReportTreeTableSqliteInmemory);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchViewTableSqliteInmemory);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchViewSqliteInmemory);
+            context.Database.ExecuteSqlRaw(createStatUnitSearchViewSqliteInmemory);
+            context.Database.ExecuteSqlRaw(dropReportTreeTableSqliteInmemory);
         }
     }
 }

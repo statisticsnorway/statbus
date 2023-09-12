@@ -1,4 +1,4 @@
-version: '3.4'
+version: "3.4"
 services:
   server:
     container_name: nscreg-server
@@ -17,10 +17,8 @@ services:
     ports:
       - 80:80
     volumes:
-      - ./Library/Keychains/:/root/.aspnet/https
       - ./uploads:/app/uploads
       - ./sampleframes:/app/sampleframes
-      - keys:/app/keys
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -74,5 +72,3 @@ secrets:
 volumes:
   elasticsearch-data:
   nscreg-sql-data:
-  keys:
-  certs:

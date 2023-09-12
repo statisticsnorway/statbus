@@ -8,10 +8,10 @@ Statistical Business Registry (SBR)
 
 ## tools stack
 
-* ASP.NET Core 3.1, Entity Framework Core 3.1.22, ElasticSearch 6.5.3
+* .Net 7.0 with Asp.Net 7.x and Entity Framework Core 7.x,
+* ElasticSearch 6.5.3
 * React 16.8.4/Redux 3.7.2/React-Router 3.2.0, Semantic UI 0.86.0
 * Node 8.11.4
-* Dotnet-Sdk-3.1.416
 
 ## test servers / Credentials
 
@@ -26,7 +26,7 @@ The project specifies a devcontainer that can be used when workling locally. Thi
 Requirements
 
 * Windows, Linux, macOS
-* .NET Core 3.1 SDK
+* .Net 7.x
 * Node.js 16
 
 ```sh
@@ -37,17 +37,33 @@ dotnet build
 dotnet test (TODO)
 ```
 
-### With Docker
+### With Docker Compose
 
 Requirements
 
 * Windows, Linux, macOS
+* Docker, recent version with Compose support.
+
+Docker compose is used to start the required servers, databsae and elasticsearch,
+as well as to build and run the backend and frontend in a consistent environment.
+
+There are two configuration files, one for running in development mode with debug
+support and one for running with relase code.
+
+To start with local development with debug support, i.e. possibility to attach to the
+dotnet server, use
 
 ```sh
-docker-compose up -d
+docker compose -f docker-compose.debug.yml up
 ```
 
-Visit <http://localhost/> u:admin p:123qwe
+To start with local development without debug support, i.e. frontend only development, use
+
+```sh
+docker compose -f docker-compose.yml up
+```
+
+Then Visit <http://localhost/> u:admin p:123qwe
 
 ## Running a production build
 
@@ -70,6 +86,8 @@ and then do a compose up
 ```sh
 docker-compose up -d
 ```
+
+The `-d` parameter runs docker in the background. You can inspect docker log output with `docker compose logs`.
 
 ## Database language (TODO)
 
@@ -162,23 +180,23 @@ If you want to use a local database in a docker container and restore the databa
 HTTPS/SSL can be enabled in statbus with the following changes to `docker-compose.debug.yml`
 
 - `services.server.environment` - Add environment variables for certificate location and password
-   ``` yaml
-   - ASPNETCORE_Kestrel__Certificates__Default__Password=CERT_PASSWORD
-   - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/CERT_NAME
-   ```
+  ``` yaml
+  - ASPNETCORE_Kestrel__Certificates__Default__Password=CERT_PASSWORD
+  - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/CERT_NAME
+  ```
   Example with password `MySecurePassword` and certificate name `localhost.pfx`
-   ``` yaml
-   - ASPNETCORE_Kestrel__Certificates__Default__Password=MySecurePassword
-   - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/localhost.pfx
-   ```
+  ``` yaml
+  - ASPNETCORE_Kestrel__Certificates__Default__Password=MySecurePassword
+  - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/localhost.pfx
+  ```
 - `services.server.volumes` - Add volume mapping for certificate
-   ``` yaml
-   - LOCAL_CERTIFICATE_PATH:/https:ro
-   ```
-   Example with certificate stored in the `.aspnet/https` subfolder of the users home directory
-   ``` yaml
-   - ~/.aspnet/https:/https:ro
-   ```
+  ``` yaml
+  - LOCAL_CERTIFICATE_PATH:/https:ro
+  ```
+  Example with certificate stored in the `.aspnet/https` subfolder of the users home directory
+  ``` yaml
+  - ~/.aspnet/https:/https:ro
+  ```
 
 ## Use an external database
 

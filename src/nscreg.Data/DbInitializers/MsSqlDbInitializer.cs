@@ -58,7 +58,7 @@ namespace nscreg.Data.DbInitializers
                     END
                     AS UnitType
                 FROM	StatisticalUnits
-                    LEFT JOIN Address as addr 
+                    LEFT JOIN Address as addr
                         ON AddressId = addr.Address_id
                     LEFT JOIN Address as act_addr
                         ON ActualAddressId = act_addr.Address_id
@@ -112,11 +112,11 @@ namespace nscreg.Data.DbInitializers
 
 
             string createProcedureGetReportsTree = $@"
-                CREATE PROCEDURE GetReportsTree 
+                CREATE PROCEDURE GetReportsTree
 	                @user NVARCHAR(100)
                 AS
                 BEGIN
-                    DECLARE @ReportTree TABLE 
+                    DECLARE @ReportTree TABLE
 	                (
 		                Id INT,
 		                Title NVARCHAR(500) NULL,
@@ -130,7 +130,7 @@ namespace nscreg.Data.DbInitializers
 
 	                DECLARE @query NVARCHAR(1000) = N'SELECT *
 		                FROM OPENQUERY({reportingSettings?.LinkedServerName},
-		                ''SELECT 
+		                ''SELECT
 			                Id,
 			                Title,
 			                Type,
@@ -153,18 +153,18 @@ namespace nscreg.Data.DbInitializers
                 DROP FUNCTION GetActivityChildren";
 
             const string createFunctionGetActivityChildren = @"
-                CREATE FUNCTION [dbo].[GetActivityChildren] 
-                (	
+                CREATE FUNCTION [dbo].[GetActivityChildren]
+                (
 	                @activityId INT,
                     @activitiesIds NVARCHAR(max)
                 )
-                RETURNS TABLE 
+                RETURNS TABLE
                 AS
-                RETURN 
+                RETURN
                 (
-	                  WITH ActivityCte ([Id], [Code], [DicParentId], [IsDeleted], [Name], [NameLanguage1], [NameLanguage2], [ParentId], [Section], [VersionId], [ActivityCategoryLevel]) AS 
+	                  WITH ActivityCte ([Id], [Code], [DicParentId], [IsDeleted], [Name], [NameLanguage1], [NameLanguage2], [ParentId], [Section], [VersionId], [ActivityCategoryLevel]) AS
 	                  (
-		                SELECT 
+		                SELECT
 		                   [Id]
 		                  ,[Code]
 		                  ,[DicParentId]
@@ -181,7 +181,7 @@ namespace nscreg.Data.DbInitializers
 
 		                UNION ALL
 
-		                SELECT 
+		                SELECT
 		                   ac.[Id]
 		                  ,ac.[Code]
 		                  ,ac.[DicParentId]
@@ -194,7 +194,7 @@ namespace nscreg.Data.DbInitializers
 		                  ,ac.[VersionId]
                           ,ac.[ActivityCategoryLevel]
 		                FROM [dbo].[ActivityCategories] ac
-			                INNER JOIN ActivityCte  
+			                INNER JOIN ActivityCte
 			                ON ActivityCte.[Id] = ac.[ParentId]
 	                )
 
@@ -206,17 +206,17 @@ namespace nscreg.Data.DbInitializers
                 DROP FUNCTION GetRegionChildren";
 
             const string createFunctionGetRegionChildren = @"
-                CREATE FUNCTION [dbo].[GetRegionChildren] 
-                (	
-	                @regionId INT 
-                )
-                RETURNS TABLE 
-                AS
-                RETURN 
+                CREATE FUNCTION [dbo].[GetRegionChildren]
                 (
-	                 WITH RegionsCte ([Id], [AdminstrativeCenter], [Code], [IsDeleted], [Name], [NameLanguage1], [NameLanguage2], [ParentId], [FullPath], [FullPathLanguage1], [FullPathLanguage2], [RegionLevel]) AS 
+	                @regionId INT
+                )
+                RETURNS TABLE
+                AS
+                RETURN
+                (
+	                 WITH RegionsCte ([Id], [AdminstrativeCenter], [Code], [IsDeleted], [Name], [NameLanguage1], [NameLanguage2], [ParentId], [FullPath], [FullPathLanguage1], [FullPathLanguage2], [RegionLevel]) AS
 	                  (
-		                SELECT 
+		                SELECT
 		                   [Id]
 		                  ,[AdminstrativeCenter]
 		                  ,[Code]
@@ -234,7 +234,7 @@ namespace nscreg.Data.DbInitializers
 
 		                UNION ALL
 
-		                SELECT 
+		                SELECT
 		                   r.[Id]
 		                  ,r.[AdminstrativeCenter]
 		                  ,r.[Code]
@@ -250,7 +250,7 @@ namespace nscreg.Data.DbInitializers
 		                FROM [dbo].[Regions] r
 			                INNER JOIN RegionsCte rc
 			                ON rc.[Id] = r.[ParentId]
-		
+
 	                  )
 
 	                 SELECT * FROM RegionsCte
@@ -261,12 +261,12 @@ namespace nscreg.Data.DbInitializers
                 DROP FUNCTION GetRegionParent";
 
             const string createFunctionGetRegionParent = @"
-                CREATE FUNCTION [dbo].[GetRegionParent] 
-                (	
+                CREATE FUNCTION [dbo].[GetRegionParent]
+                (
 	                @regionid INT,
                     @level TINYINT
                 )
-                RETURNS INT 
+                RETURNS INT
                 AS
                 BEGIN
                     DECLARE @res int;
@@ -275,7 +275,7 @@ namespace nscreg.Data.DbInitializers
 		            (
 			        SELECT id, parentid, 0 as lvl
 			        FROM [dbo].[regions]
-			        WHERE id = @regionid			
+			        WHERE id = @regionid
 		                UNION ALL
 			        SELECT r.id, r.parentid, lvl + 1
 			        FROM region_tree p, [dbo].[regions] r
@@ -284,8 +284,8 @@ namespace nscreg.Data.DbInitializers
 
 	                region_tree_levels as
 		                (
-			                SELECT row_number() over (order by lvl desc) as [level], 
-				            region_tree.* 
+			                SELECT row_number() over (order by lvl desc) as [level],
+				            region_tree.*
 			                FROM region_tree
                     )
 
@@ -301,8 +301,8 @@ namespace nscreg.Data.DbInitializers
                 DROP FUNCTION GetActivityParent";
 
             const string createFunctionGetActivityParent = @"
-                CREATE FUNCTION [dbo].[GetActivityParent] 
-                (	
+                CREATE FUNCTION [dbo].[GetActivityParent]
+                (
 	                @activity_id INT,
                     @level TINYINT,
                     @param_name	NVARCHAR(50)
@@ -317,7 +317,7 @@ namespace nscreg.Data.DbInitializers
 		            (
 			        SELECT id, parentid, 0 as lvl, Code, [Name]
 			        FROM [dbo].[ActivityCategories]
-			        WHERE id = @activity_id			
+			        WHERE id = @activity_id
 		                UNION ALL
 			        SELECT ac.id, ac.parentid, tr.lvl + 1, ac.Code, ac.[Name]
 			        FROM activity_tree tr, [dbo].[ActivityCategories] ac
@@ -326,8 +326,8 @@ namespace nscreg.Data.DbInitializers
 
 	                activity_levels as
 		                (
-			                SELECT row_number() over (order by lvl desc) as [level], 
-				            tr.* 
+			                SELECT row_number() over (order by lvl desc) as [level],
+				            tr.*
 			                FROM activity_tree tr
                         )
 
@@ -347,8 +347,8 @@ namespace nscreg.Data.DbInitializers
                 DROP FUNCTION GetSectorParent";
 
             const string createFunctionGetSectorParent = @"
-                CREATE FUNCTION [dbo].[GetSectorParent] 
-                (	
+                CREATE FUNCTION [dbo].[GetSectorParent]
+                (
 	                @sector_id INT,
                     @level TINYINT,
                     @param_name	NVARCHAR(50)
@@ -363,7 +363,7 @@ namespace nscreg.Data.DbInitializers
 		            (
 			        SELECT id, parentid, 0 as lvl, Code, [Name]
 			        FROM [dbo].[SectorCodes] sc
-			        WHERE id = @sector_id			
+			        WHERE id = @sector_id
 		                UNION ALL
 			        SELECT sc.id, sc.parentid, tr.lvl + 1, sc.Code, sc.[Name]
 			        FROM sector_tree tr, [dbo].[SectorCodes] sc
@@ -372,8 +372,8 @@ namespace nscreg.Data.DbInitializers
 
 	                sector_levels as
 		                (
-			                SELECT row_number() over (order by lvl desc) as [level], 
-				            tr.* 
+			                SELECT row_number() over (order by lvl desc) as [level],
+				            tr.*
 			                FROM sector_tree tr
                         )
 
@@ -401,9 +401,9 @@ namespace nscreg.Data.DbInitializers
             const string createStatUnitEnterprise = @"
             CREATE view [dbo].[V_StatUnitEnterprise_2021]
             as
-                select 
+                select
 	                stu.StatId,
-	                isnull([dbo].GetRegionParent(adr.Region_id,1) ,adr.Region_id) Oblast, 
+	                isnull([dbo].GetRegionParent(adr.Region_id,1) ,adr.Region_id) Oblast,
 	                isnull([dbo].GetRegionParent(adr.Region_id,2) ,adr.Region_id) Rayon,
 	                dbo.GetActivityParent(acg.Id,1,'code') ActCat_section_code,
 	                dbo.GetActivityParent(acg.Id,1,'name') ActCat_section_desc,
@@ -423,14 +423,14 @@ namespace nscreg.Data.DbInitializers
                             or year(stu.TurnoverDate) = year(getdate()) -1),stu.Turnover, null) Turnover,
 	                iif((stu.EmployeesYear = year(getdate()) -1
                             or year(stu.EmployeesDate) = year(getdate()) -1), act.Employees, null) Employees,
-	                iif((stu.EmployeesYear = year(getdate()) -1	
+	                iif((stu.EmployeesYear = year(getdate()) -1
 			                or year(stu.EmployeesDate) = year(getdate()) -1), stu.NumOfPeopleEmp, null) NumOfPeopleEmp,
 	                stu.RegistrationDate,
 	                stu.LiqDate,
 	                sts.Code StatusCode,
 	                sts.Name StatusDesc,
 	                psn.Sex
-                from 
+                from
 	                dbo.StatisticalUnits stu
 	                left join dbo.Address adr on stu.AddressId = adr.Address_id
 	                left join dbo.Address aad on stu.ActualAddressId = aad.Address_id
@@ -443,7 +443,7 @@ namespace nscreg.Data.DbInitializers
 	                left join dbo.Persons psn on psu.Person_Id = psn.Id
 	                left join dbo.Statuses sts on stu.UnitStatusId = sts.Id
 
-                where 
+                where
 	                lower(stu.Discriminator) = 'enterpriseunit'";
 
             const string dropStatUnitLocalViewTable = @"
@@ -459,10 +459,10 @@ namespace nscreg.Data.DbInitializers
             const string createStatUnitLocal = @"
                 CREATE view [dbo].[V_StatUnitLocal_2021]
                 as
-                select 
+                select
 	                stu.StatId,
 	                isnull(dbo.GetRegionParent(adr.Region_id,1)
-			            ,adr.Region_id) Oblast, 
+			            ,adr.Region_id) Oblast,
 	                isnull(dbo.GetRegionParent(adr.Region_id,2)
 			            ,adr.Region_id) Rayon,
 	            dbo.GetActivityParent(acg.Id,1,'code') ActCat_section_code,
@@ -482,10 +482,10 @@ namespace nscreg.Data.DbInitializers
 	            iif((stu.TurnoverYear = year(getdate()) -1
 			            or year(stu.TurnoverDate) = year(getdate()) -1
 			            ),stu.Turnover, null) Turnover,
-	            iif((stu.EmployeesYear = year(getdate()) -1	
+	            iif((stu.EmployeesYear = year(getdate()) -1
 			            or year(stu.EmployeesDate) = year(getdate()) -1
 			            ), act.Employees, null) Employees,
-	            iif((stu.EmployeesYear = year(getdate()) -1	
+	            iif((stu.EmployeesYear = year(getdate()) -1
 			            or year(stu.EmployeesDate) = year(getdate()) -1
 			            ), stu.NumOfPeopleEmp, null) NumOfPeopleEmp,
 	            stu.RegistrationDate,
@@ -493,7 +493,7 @@ namespace nscreg.Data.DbInitializers
 	            sts.Code StatusCode,
 	            sts.Name StatusDesc,
 	            psn.Sex
-            from 
+            from
 	            dbo.StatisticalUnits stu
 	            left join dbo.Address adr on stu.AddressId = adr.Address_id
 	            left join dbo.Address aad on stu.ActualAddressId = aad.Address_id
@@ -506,35 +506,35 @@ namespace nscreg.Data.DbInitializers
 	            left join dbo.Persons psn on psu.Person_Id = psn.Id
 	            left join dbo.Statuses sts on stu.UnitStatusId = sts.Id
 
-            where 
+            where
 	            lower(stu.Discriminator) = 'localunit'";
 
             #endregion
 
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitSearchView);
-            context.Database.ExecuteSqlCommand(createStatUnitSearchView);
-            context.Database.ExecuteSqlCommand(dropReportTreeTable);
-            context.Database.ExecuteSqlCommand(dropProcedureGetReportsTree);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitSearchView);
+            context.Database.ExecuteSqlRaw(createStatUnitSearchView);
+            context.Database.ExecuteSqlRaw(dropReportTreeTable);
+            context.Database.ExecuteSqlRaw(dropProcedureGetReportsTree);
 #pragma warning disable EF1000 // Possible SQL injection vulnerability.
-            context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
+            context.Database.ExecuteSqlRaw(createProcedureGetReportsTree);
 #pragma warning restore EF1000 // Possible SQL injection vulnerability.
-            context.Database.ExecuteSqlCommand(dropFunctionGetActivityChildren);
-            context.Database.ExecuteSqlCommand(createFunctionGetActivityChildren);
-            context.Database.ExecuteSqlCommand(dropFunctionGetRegionChildren);
-            context.Database.ExecuteSqlCommand(createFunctionGetRegionChildren);
-            context.Database.ExecuteSqlCommand(dropStatUnitEnterpriseViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitEnterpriseTable);
-            context.Database.ExecuteSqlCommand(dropFunctionGetRegionParent);
-            context.Database.ExecuteSqlCommand(createFunctionGetRegionParent);
-            context.Database.ExecuteSqlCommand(dropGetActivityParent);
-            context.Database.ExecuteSqlCommand(createFunctionGetActivityParent);
-            context.Database.ExecuteSqlCommand(dropGetSectorParent);
-            context.Database.ExecuteSqlCommand(createFunctionGetSectorParent);
-            context.Database.ExecuteSqlCommand(createStatUnitEnterprise);
-            context.Database.ExecuteSqlCommand(dropStatUnitLocalViewTable);
-            context.Database.ExecuteSqlCommand(dropStatUnitLocalTable);
-            context.Database.ExecuteSqlCommand(createStatUnitLocal);
+            context.Database.ExecuteSqlRaw(dropFunctionGetActivityChildren);
+            context.Database.ExecuteSqlRaw(createFunctionGetActivityChildren);
+            context.Database.ExecuteSqlRaw(dropFunctionGetRegionChildren);
+            context.Database.ExecuteSqlRaw(createFunctionGetRegionChildren);
+            context.Database.ExecuteSqlRaw(dropStatUnitEnterpriseViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitEnterpriseTable);
+            context.Database.ExecuteSqlRaw(dropFunctionGetRegionParent);
+            context.Database.ExecuteSqlRaw(createFunctionGetRegionParent);
+            context.Database.ExecuteSqlRaw(dropGetActivityParent);
+            context.Database.ExecuteSqlRaw(createFunctionGetActivityParent);
+            context.Database.ExecuteSqlRaw(dropGetSectorParent);
+            context.Database.ExecuteSqlRaw(createFunctionGetSectorParent);
+            context.Database.ExecuteSqlRaw(createStatUnitEnterprise);
+            context.Database.ExecuteSqlRaw(dropStatUnitLocalViewTable);
+            context.Database.ExecuteSqlRaw(dropStatUnitLocalTable);
+            context.Database.ExecuteSqlRaw(createStatUnitLocal);
         }
     }
 }

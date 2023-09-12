@@ -9,7 +9,5 @@
     "test": false,
     "client": false
   },
-  "github-actions.workflows.pinned.workflows": [
-    ".github/workflows/ci.yaml"
-  ]
+  "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yaml"]
 }
