@@ -37,17 +37,33 @@ dotnet build
 dotnet test (TODO)
 ```
 
-### With Docker
+### With Docker Compose
 
 Requirements
 
 * Windows, Linux, macOS
+* Docker, recent version with Compose support.
+
+Docker compose is used to start the required servers, databsae and elasticsearch,
+as well as to build and run the backend and frontend in a consistent environment.
+
+There are two configuration files, one for running in development mode with debug
+support and one for running with relase code.
+
+To start with local development with debug support, i.e. possibility to attach to the
+dotnet server, use
 
 ```sh
-docker-compose up -d
+docker compose -f docker-compose.debug.yml up
 ```
 
-Visit <http://localhost/> u:admin p:123qwe
+To start with local development without debug support, i.e. frontend only development, use
+
+```sh
+docker compose -f docker-compose.yml up
+```
+
+Then Visit <http://localhost/> u:admin p:123qwe
 
 ## Running a production build
 
@@ -70,6 +86,8 @@ and then do a compose up
 ```sh
 docker-compose up -d
 ```
+
+The `-d` parameter runs docker in the background. You can inspect docker log output with `docker compose logs`.
 
 ## Database language (TODO)
 
