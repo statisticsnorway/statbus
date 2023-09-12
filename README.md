@@ -1,4 +1,4 @@
-# nscreg-norway
+# Statbus
 
 Statistical Business Registry (SBR)
 
