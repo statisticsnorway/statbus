@@ -8,10 +8,10 @@ Statistical Business Registry (SBR)
 
 ## tools stack
 
-* ASP.NET Core 3.1, Entity Framework Core 3.1.22, ElasticSearch 6.5.3
+* .Net 7.0 with Asp.Net 7.x and Entity Framework Core 7.x,
+* ElasticSearch 6.5.3
 * React 16.8.4/Redux 3.7.2/React-Router 3.2.0, Semantic UI 0.86.0
 * Node 8.11.4
-* Dotnet-Sdk-3.1.416
 
 ## test servers / Credentials
 
@@ -26,7 +26,7 @@ The project specifies a devcontainer that can be used when workling locally. Thi
 Requirements
 
 * Windows, Linux, macOS
-* .NET Core 3.1 SDK
+* .Net 7.x
 * Node.js 16
 
 ```sh
