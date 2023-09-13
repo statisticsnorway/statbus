@@ -22,46 +22,30 @@ The project specifies a devcontainer that can be used when workling locally. Thi
 
 ## Running a development build
 
-### Without Docker
-
 Requirements
 
 * Windows, Linux, macOS
 * .Net 7.x
 * Node.js 16
+* Docker
+
+To run a local development build, the required services must be run with
+
+```sh
+docker compose -f docker-compose.support-services.yml up
+```
+
+Then the backend can be started with an IDE or with the following command
+
+```sh
+dotnet run --environment Development --project src\nscreg.Server
+```
+
+And the frontend is started with
 
 ```sh
 npm ci --legacy-peer-deps
-npm run build
-dotnet restore
-dotnet build
-dotnet test (TODO)
-```
-
-### With Docker Compose
-
-Requirements
-
-* Windows, Linux, macOS
-* Docker, recent version with Compose support.
-
-Docker compose is used to start the required servers, databsae and elasticsearch,
-as well as to build and run the backend and frontend in a consistent environment.
-
-There are two configuration files, one for running in development mode with debug
-support and one for running with relase code.
-
-To start with local development with debug support, i.e. possibility to attach to the
-dotnet server, use
-
-```sh
-docker compose -f docker-compose.debug.yml up
-```
-
-To start with local development without debug support, i.e. frontend only development, use
-
-```sh
-docker compose -f docker-compose.yml up
+npm run start
 ```
 
 Then Visit <http://localhost/> u:admin p:123qwe
