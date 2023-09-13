@@ -138,7 +138,7 @@ tasks.set('build', () => {
 })
 
 // Build website and launch it in a browser for testing in watch mode
-tasks.set('start', () => {
+tasks.set('watch', () => {
   global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
   return Promise.resolve()
     .then(() => run('clean'))
@@ -152,11 +152,22 @@ tasks.set('start', () => {
           publicPath: webpackConfig.output.publicPath,
           stats: webpackConfig.stats,
         })
+        require('browser-sync')
+          .create()
+          .init(
+            {
+              proxy: {
+                target: 'localhost:5000',
+                middleware: [webpackDevMiddleware, require('webpack-hot-middleware')(compiler)],
+              },
+            },
+            resolve,
+          )
       }))
 })
 
 // Build website and launch it in a browser for testing in watch mode
-tasks.set('dotnet', () => {
+tasks.set('start', () => {
   global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
   return Promise.resolve()
     .then(() => run('clean'))
