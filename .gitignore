@@ -460,6 +460,5 @@ src/nscreg.Server/wwwroot/react-datepicker.min.css
 src/nscreg.Server/wwwroot/react-select.min.css
 src/nscreg.Server/wwwroot/semantic.min.css
 uploads
-src/nscreg.Server/appsettings.Development.json
 src/nscreg.Server.DataUploadSvc/appsettings.json
 key-*.xml
