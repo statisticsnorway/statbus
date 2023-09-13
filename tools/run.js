@@ -143,6 +143,16 @@ tasks.set('start', () => {
   return Promise.resolve()
     .then(() => run('clean'))
     .then(() => run('copy'))
+    .then(() =>
+      new Promise((resolve) => {
+        const webpackConfig = require('./webpack.config')
+        const compiler = webpack(webpackConfig)
+        // Node.js middleware that compiles application in watch mode with HMR support
+        const webpackDevMiddleware = require('webpack-dev-middleware')(compiler, {
+          publicPath: webpackConfig.output.publicPath,
+          stats: webpackConfig.stats,
+        })
+      }))
 })
 
 // Build website and launch it in a browser for testing in watch mode
