@@ -26,16 +26,19 @@ function run(taskName) {
 tasks.set('clean', () =>
   Promise.resolve()
     .then(() =>
-      del([
-        './build/*',
-        './src/nscreg.Server/wwwroot/dist/*',
-        '!./build/.git',
-        './src/nscreg.Server/wwwroot/semantic.min.css',
-        './src/nscreg.Server/wwwroot/themes',
-        './src/nscreg.Server/wwwroot/antd-tree.css',
-        './src/nscreg.Server/wwwroot/react-datepicker.min.css',
-        './src/nscreg.Server/wwwroot/react-select.min.css',
-      ], { dot: true }))
+      del(
+        [
+          './build/*',
+          './src/nscreg.Server/wwwroot/dist/*',
+          '!./build/.git',
+          './src/nscreg.Server/wwwroot/semantic.min.css',
+          './src/nscreg.Server/wwwroot/themes',
+          './src/nscreg.Server/wwwroot/antd-tree.css',
+          './src/nscreg.Server/wwwroot/react-datepicker.min.css',
+          './src/nscreg.Server/wwwroot/react-select.min.css',
+        ],
+        { dot: true },
+      ))
     .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/dist')))
 
 // Copy vendor bundles (styles, scripts, fonts, etc.)
@@ -110,32 +113,40 @@ tasks.set('build', () => {
     .then(() => run('copy'))
     .then(() => run('bundle'))
     .then(() => run('appsettings'))
-    // .then(() =>
-    //   new Promise((resolve, reject) => {
-    //     const options = { stdio: ['ignore', 'inherit', 'inherit'] }
-    //     const config = global.DEBUG ? 'Debug' : 'Release'
-    //     const args = [
-    //       'publish',
-    //       path.resolve(__dirname, '../src/nscreg.Server'),
-    //       '-o',
-    //       path.resolve(__dirname, '../build'),
-    //       '-f',
-    //       'netcoreapp3.1',
-    //       '-c',
-    //       config,
-    //     ]
-    //     cp.spawn('dotnet', args, options).on('close', (code) => {
-    //       if (code === 0) {
-    //         resolve()
-    //       } else {
-    //         reject(new Error(`dotnet ${args.join(' ')} => ${code} (error)`))
-    //       }
-    //     })
-    //   }))
+  // .then(() =>
+  //   new Promise((resolve, reject) => {
+  //     const options = { stdio: ['ignore', 'inherit', 'inherit'] }
+  //     const config = global.DEBUG ? 'Debug' : 'Release'
+  //     const args = [
+  //       'publish',
+  //       path.resolve(__dirname, '../src/nscreg.Server'),
+  //       '-o',
+  //       path.resolve(__dirname, '../build'),
+  //       '-f',
+  //       'netcoreapp3.1',
+  //       '-c',
+  //       config,
+  //     ]
+  //     cp.spawn('dotnet', args, options).on('close', (code) => {
+  //       if (code === 0) {
+  //         resolve()
+  //       } else {
+  //         reject(new Error(`dotnet ${args.join(' ')} => ${code} (error)`))
+  //       }
+  //     })
+  //   }))
 })
 
 // Build website and launch it in a browser for testing in watch mode
 tasks.set('start', () => {
+  global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
+  return Promise.resolve()
+    .then(() => run('clean'))
+    .then(() => run('copy'))
+})
+
+// Build website and launch it in a browser for testing in watch mode
+tasks.set('dotnet', () => {
   global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
   return Promise.resolve()
     .then(() => run('clean'))
