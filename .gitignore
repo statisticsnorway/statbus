@@ -451,7 +451,6 @@ __pycache__/
 build/
 
 # custom paths
-**/Properties/*
 **/.DS_Store
 src/nscreg.Server/wwwroot/dist
 src/nscreg.Server/wwwroot/themes/*
