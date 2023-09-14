@@ -1,7 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { func, string, arrayOf, shape, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
-
 import { groupByToArray, mapToArray } from 'helpers/enumerable'
 import { statUnitTypes } from 'helpers/enums'
 import { toCamelCase } from 'helpers/string'
@@ -14,7 +13,7 @@ const unitTypes = mapToArray(statUnitTypes).map(v => v.value)
 const validUnit = arrayOf(shape({
   name: string.isRequired,
   allowed: bool.isRequired,
-}).isRequired).isRequired
+}).isRequired)
 
 const compareByName = (a, b) => {
   if (a.name < b.name) return -1
@@ -22,24 +21,12 @@ const compareByName = (a, b) => {
   return 0
 }
 
-class DataAccess extends React.Component {
-  static propTypes = {
-    label: string.isRequired,
-    value: shape({
-      legalUnit: validUnit,
-      localUnit: validUnit,
-      enterpriseUnit: validUnit,
-      enterpriseGroup: validUnit,
-    }).isRequired,
-    name: string.isRequired,
-    onChange: func.isRequired,
-    localize: func.isRequired,
-    readEditable: bool.isRequired,
-    writeEditable: bool.isRequired,
-  }
+function DataAccess(props) {
+  const [checkedReadKeys, setCheckedReadKeys] = useState([])
+  const [checkedWriteKeys, setCheckedWriteKeys] = useState([])
 
-  onCheck = permission => (checkedKeys, { node }) => {
-    const { value, name, onChange } = this.props
+  const onCheck = permission => (checkedKeys, { node }) => {
+    const { value, name, onChange } = props
     const keys = new Set(checkedKeys)
     const { type } = node.props.node
     onChange(null, {
@@ -56,80 +43,96 @@ class DataAccess extends React.Component {
                 ? allowed
                 : permission === 'canWrite' && allowed
                   ? allowed && v.canRead
-                  : permission === 'canWrite' ? allowed : v.canWrite,
+                  : permission === 'canWrite'
+                    ? allowed
+                    : v.canWrite,
           }
         }),
       },
     })
   }
 
-  render() {
-    const { name, value, label, localize, readEditable, writeEditable } = this.props
+  const { name, value, label, localize, readEditable, writeEditable } = props
 
-    const dataAccessItems = (type, items) =>
-      items
-        .map(x => ({
-          key: x.name,
-          name: localize(x.localizeKey),
-          type,
-          children: null,
-        }))
-        .sort(compareByName)
-
-    const dataAccessGroups = (type, items) =>
-      groupByToArray(items, v => v.groupName)
-        .map(x => ({
-          key: `Group-${type}-${x.key}`,
-          type,
-          name: localize(x.key || 'Other'),
-          children: dataAccessItems(type, x.value),
-        }))
-        .sort(compareByName)
-
-    const dataAccessByType = (items, localizeKey) => {
-      const type = toCamelCase(localizeKey)
-      return {
-        key: localizeKey,
+  const dataAccessItems = (type, items) =>
+    items
+      .map(x => ({
+        key: x.name,
+        name: localize(x.localizeKey),
         type,
-        name: localize(localizeKey),
-        children: dataAccessGroups(type, items),
-      }
+        children: null,
+      }))
+      .sort(compareByName)
+
+  const dataAccessGroups = (type, items) =>
+    groupByToArray(items, v => v.groupName)
+      .map(x => ({
+        key: `Group-${type}-${x.key}`,
+        type,
+        name: localize(x.key || 'Other'),
+        children: dataAccessItems(type, x.value),
+      }))
+      .sort(compareByName)
+
+  const dataAccessByType = (items, localizeKey) => {
+    const type = toCamelCase(localizeKey)
+    return {
+      key: localizeKey,
+      type,
+      name: localize(localizeKey),
+      children: dataAccessGroups(type, items),
     }
+  }
 
-    const loop = (nodes, editable) =>
-      nodes.map(item => (
-        <TreeNode key={`${item.key}`} title={item.name} node={item} disabled={!editable}>
-          {item.children !== null && loop(item.children, editable)}
-        </TreeNode>
-      ))
+  const loop = (nodes, editable, checkedKeys, onCheck) =>
+    nodes.map(item => (
+      <TreeNode
+        key={`${item.key}`}
+        title={item.name}
+        node={item}
+        disabled={!editable}
+        checked={checkedKeys.includes(item.key)}
+      >
+        {item.children !== null && loop(item.children, editable, checkedKeys, onCheck)}
+      </TreeNode>
+    ))
 
-    const root = unitTypes.map(v => dataAccessByType(value[toCamelCase(v)], v))
+  const root = unitTypes.map(v => dataAccessByType(value[toCamelCase(v)], v))
 
-    const checkedReadKeys = [].concat(...unitTypes.map(v =>
-      this.props.value[toCamelCase(v)].filter(x => x.canRead).map(x => x.name)))
-    const checkedWriteKeys = [].concat(...unitTypes.map(v =>
-      this.props.value[toCamelCase(v)].filter(x => x.canWrite).map(x => x.name)))
-
-    return (
-      <div className="field">
-        <label htmlFor={name}>{label}</label>
-        <div id={name} className={styles['tree-wrapper']}>
-          <div className={styles['tree-column']}>
-            <span>{localize('Read')}</span>
-            <Tree checkable checkedKeys={checkedReadKeys} onCheck={this.onCheck('canRead')}>
-              {loop(root, readEditable)}
-            </Tree>
-          </div>
-          <div className={styles['tree-column']}>
-            <span>{localize('Write')}</span>
-            <Tree checkable checkedKeys={checkedWriteKeys} onCheck={this.onCheck('canWrite')}>
-              {loop(root, writeEditable)}
-            </Tree>
-          </div>
+  return (
+    <div className="field">
+      <label htmlFor={name}>{label}</label>
+      <div id={name} className={styles['tree-wrapper']}>
+        <div className={styles['tree-column']}>
+          <span>{localize('Read')}</span>
+          <Tree checkable checkedKeys={checkedReadKeys} onCheck={onCheck('canRead')}>
+            {loop(root, readEditable, checkedReadKeys, onCheck('canRead'))}
+          </Tree>
+        </div>
+        <div className={styles['tree-column']}>
+          <span>{localize('Write')}</span>
+          <Tree checkable checkedKeys={checkedWriteKeys} onCheck={onCheck('canWrite')}>
+            {loop(root, writeEditable, checkedWriteKeys, onCheck('canWrite'))}
+          </Tree>
         </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
+
+DataAccess.propTypes = {
+  label: string.isRequired,
+  value: shape({
+    legalUnit: validUnit,
+    localUnit: validUnit,
+    enterpriseUnit: validUnit,
+    enterpriseGroup: validUnit,
+  }).isRequired,
+  name: string.isRequired,
+  onChange: func.isRequired,
+  localize: func.isRequired,
+  readEditable: bool.isRequired,
+  writeEditable: bool.isRequired,
 }
 
 export default DataAccess
