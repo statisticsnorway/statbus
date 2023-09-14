@@ -211,14 +211,21 @@ tasks.set('watch', async () => {
 
     // Set up a watcher to rebuild when files change
     await new Promise((resolve, reject) => {
-      compiler.watch({}, (err, stats) => {
+      const watcher = compiler.watch({}, (err, stats) => {
         if (err) {
           console.error(err);
-          reject(err); // reject the promise if there's an error
+          reject(err);
         } else {
           console.log(stats.toString({ colors: true }));
-          resolve(); // resolve the promise when the watch callback is invoked
         }
+      });
+
+      process.on('SIGINT', () => {
+        watcher.close(() => {
+          console.log('Stopping webpack watch...');
+          resolve();
+          process.exit(0);
+        });
       });
     });
   } catch (error) {
