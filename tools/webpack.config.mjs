@@ -1,9 +1,11 @@
 import Path from 'path';
 import Webpack from 'webpack';
 import AssetsWebpackPlugin from 'assets-webpack-plugin';
-import pkg from '../package.json' assert { type: 'json' };
-import appConfig from '../appsettings.Shared.json' assert { type: 'json' };
 import { fileURLToPath } from 'url';
+import { promises as fs } from 'fs';
+
+const pkg = JSON.parse(await fs.readFile('./package.json', 'utf-8'));
+const appConfig = JSON.parse(await fs.readFile('./appsettings.Shared.json', 'utf-8'));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = Path.dirname(__filename);
@@ -95,6 +97,8 @@ const config = {
 if (!isDebug) {
   config.plugins = [...config.plugins, new Webpack.optimize.AggressiveMergingPlugin()]
   config.mode = 'production'
+} else {
+  config.mode = 'development'
 }
 
 if (isDebug && useHMR) {
