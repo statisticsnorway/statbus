@@ -1,18 +1,17 @@
-/* eslint-disable global-require */
-const Path = require('path')
-const Webpack = require('webpack')
-const AssetsWebpackPlugin = require('assets-webpack-plugin')
+import Path from 'path';
+import Webpack from 'webpack';
+import AssetsWebpackPlugin from 'assets-webpack-plugin';
+import pkg from '../package.json' assert { type: 'json' };
+import appConfig from '../appsettings.Shared.json' assert { type: 'json' };
+import { fileURLToPath } from 'url';
 
-const pkg = require('../package.json')
-const appConfig = require('../appsettings.Shared.json')
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = Path.dirname(__filename);
 
-const isDebug = global.DEBUG === false ? false : !process.argv.includes('--release')
-const isVerbose = process.argv.includes('--verbose') || process.argv.includes('-v')
-const useHMR = !!global.HMR
-const babelConfig = Object.assign({}, pkg.babel, {
-  babelrc: false,
-  cacheDirectory: useHMR,
-})
+const isDebug = global.DEBUG === false ? false : !process.argv.includes('--release');
+const isVerbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+const useHMR = !!global.HMR;
+const babelConfig = { ...pkg.babel, babelrc: false, cacheDirectory: useHMR };
 
 const config = {
   context: Path.resolve(__dirname, '../client'),
@@ -110,4 +109,5 @@ if (isDebug && useHMR) {
   config.mode = 'development'
 }
 
-module.exports = config
+
+export default config;

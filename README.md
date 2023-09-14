@@ -44,9 +44,14 @@ dotnet run --environment Development --project src\nscreg.Server
 And the frontend is started with
 
 ```sh
-npm ci --legacy-peer-deps
-npm run start
+npm install
+npm run watch
 ```
+
+This will read the client files and continously update the files served by the dotnet
+backend from src/nscreg.Server/wwwwroot
+To load new frontend code the page must be reloaded, as hot reload is not possible
+with this configuration.
 
 Then Visit <http://localhost/> u:admin p:123qwe
 

@@ -1,26 +1,38 @@
 /* eslint-disable global-require, no-console, import/newline-after-import */
-const cp = require('child_process')
-const cpy = require('cpy')
-const copyDir = require('copy-dir')
-const del = require('del')
-const fs = require('fs')
-const mkdirp = require('mkdirp')
-const path = require('path')
-const webpack = require('webpack')
+import { spawn } from 'child_process';
+import cpy from 'cpy';
+import copyDir from 'copy-dir';
+import del from 'del';
+import { writeFileSync } from 'fs';
+import mkdirp from 'mkdirp';
+import path from 'path';
+import webpack from 'webpack';
+import browsersync from 'browser-sync';
+import config from './webpack.config.mjs';
+import { default as webpackConfig } from './webpack.config.mjs';
+import { fileURLToPath } from 'url';
+import webpackDevMiddlewarePackage from 'webpack-dev-middleware';
+import webpackHotMiddleware from 'webpack-hot-middleware';
+import fs from 'fs';
 
-const tasks = new Map()
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const tasks = new Map();
 
 function run(taskName) {
-  const task = tasks.get(taskName)
-  const start = new Date()
-  console.log(`Starting '${taskName}'...`)
+  const task = tasks.get(taskName);
+  const start = new Date();
+  console.log(`Starting '${taskName}'...`);
   return Promise.resolve()
     .then(task)
     .then(
       () => console.log(`Finished '${taskName}' after ${new Date().getTime() - start.getTime()}ms`),
       err => console.error(err.stack),
-    )
+    );
 }
+
 
 // Clean up the output directory
 tasks.set('clean', () =>
@@ -41,32 +53,72 @@ tasks.set('clean', () =>
       ))
     .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/dist')))
 
+
 // Copy vendor bundles (styles, scripts, fonts, etc.)
-tasks.set('copy', () =>
-  Promise.resolve()
-    // Semantic-UI css
-    .then(() =>
-      cpy('./node_modules/semantic-ui-css/semantic.min.css', './src/nscreg.Server/wwwroot'))
-    .then(() =>
-      copyDir.sync('./node_modules/semantic-ui-css/themes', './src/nscreg.Server/wwwroot/themes'))
-    // ant.design tree css
-    .then(() =>
-      cpy('./node_modules/antd/lib/tree/style/index.css', './src/nscreg.Server/wwwroot', {
-        rename: 'antd-tree.css',
-      }))
-    // react-datepicker css
-    .then(() =>
-      cpy(
-        './node_modules/react-datepicker/dist/react-datepicker.min.css',
-        './src/nscreg.Server/wwwroot',
-      ))
-    // react-select css
-    .then(() =>
-      cpy('./node_modules/react-select/dist/react-select.min.css', './src/nscreg.Server/wwwroot')))
+const copyTasks = [
+  {
+    src: './node_modules/semantic-ui-css/semantic.min.css',
+    dest: './src/nscreg.Server/wwwroot',
+    message: "Copying semantic.min.css...",
+    rename: undefined,
+  },
+  {
+    src: './node_modules/semantic-ui-css/themes',
+    dest: './src/nscreg.Server/wwwroot/themes',
+    message: "Copying themes...",
+    isSync: true,
+  },
+  {
+    src: './node_modules/antd/lib/tree/style/index.css',
+    dest: './src/nscreg.Server/wwwroot',
+    message: "Copying antd-tree.css...",
+    rename: 'antd-tree.css',
+  },
+  {
+    src: './node_modules/react-datepicker/dist/react-datepicker.min.css',
+    dest: './src/nscreg.Server/wwwroot',
+    message: "Copying react-datepicker.min.css...",
+    rename: undefined,
+  },
+  {
+    src: './node_modules/react-select/dist/react-select.min.css',
+    dest: './src/nscreg.Server/wwwroot',
+    message: "Copying react-select.min.css...",
+    rename: undefined,
+  },
+];
+
+tasks.set('copy', async () => {
+  try {
+    for (const task of copyTasks) {
+      console.log(task.message);
+      if (task.isSync) {
+        try {
+          copyDir.sync(task.src, task.dest);
+          console.log(`Copied successfully: ${task.src}`);
+        } catch (error) {
+          console.error(`Error copying: ${task.src}`, error);
+        }
+      } else {
+        try {
+          var cpyOptions = { flat: true };
+          if ( task.rename )
+           cpyOptions["rename"] = task.rename;
+          var destination = await cpy(task.src, task.dest, cpyOptions)
+          console.log(`Copied ${task.src} to ${destination} successfully`);
+        } catch (error) {
+          console.error(`Error copying: ${task.src}`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in copy task:", error);
+  }
+});
+
 
 // Bundle JavaScript, CSS and image files with Webpack
 tasks.set('bundle', () => {
-  const webpackConfig = require('./webpack.config')
   return new Promise((resolve, reject) => {
     webpack(webpackConfig).run((err, stats) => {
       if (err) {
@@ -79,31 +131,42 @@ tasks.set('bundle', () => {
   })
 })
 
-// Copy ASP.NET application config file for production and development environments
+
 tasks.set(
   'appsettings',
   () =>
-    new Promise((resolve) => {
-      const environments = ['Production', 'Development']
-      let count = environments.length
-      const rootCfg = require('../appsettings.Shared.json')
-      let localCfg
+    new Promise(async (resolve) => {
+      const environments = ['Production', 'Development'];
+      let count = environments.length;
+
       try {
-        // eslint-disable-next-line import/no-unresolved
-        localCfg = require('../src/nscreg.Server/appsettings.json')
-      } catch (err) {
-        localCfg = {}
-      }
-      const source = { ...rootCfg, ...localCfg }
-      environments.forEach((env) => {
-        const filename = path.resolve(__dirname, `../src/nscreg.Server/appsettings.${env}.json`)
+        // Use fs.promises to read JSON files
+        const rootCfg = JSON.parse(await fs.readFile('../appsettings.Shared.json', 'utf8'));
+        let localCfg;
+
         try {
-          fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' })
-        } catch (err) {} // eslint-disable-line no-empty
-        if (--count === 0) resolve()
-      })
-    }),
-)
+          localCfg = JSON.parse(await fs.readFile('../src/nscreg.Server/appsettings.json', 'utf8'));
+        } catch (err) {
+          localCfg = {};
+        }
+
+        const source = { ...rootCfg, ...localCfg };
+        environments.forEach((env) => {
+          const filename = path.resolve(process.cwd(), `../src/nscreg.Server/appsettings.${env}.json`);
+          try {
+            fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' });
+          } catch (err) {
+            // handle error
+          }
+
+          if (--count === 0) resolve();
+        });
+      } catch (error) {
+        console.error('Error loading config files:', error);
+      }
+    })
+);
+
 
 // Copy static files into the output folder
 tasks.set('build', () => {
@@ -137,34 +200,33 @@ tasks.set('build', () => {
   //   }))
 })
 
-// Build website and launch it in a browser for testing in watch mode
-tasks.set('watch', () => {
-  global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
-  return Promise.resolve()
-    .then(() => run('clean'))
-    .then(() => run('copy'))
-    .then(() =>
-      new Promise((resolve) => {
-        const webpackConfig = require('./webpack.config')
-        const compiler = webpack(webpackConfig)
-        // Node.js middleware that compiles application in watch mode with HMR support
-        const webpackDevMiddleware = require('webpack-dev-middleware')(compiler, {
-          publicPath: webpackConfig.output.publicPath,
-          stats: webpackConfig.stats,
-        })
-        require('browser-sync')
-          .create()
-          .init(
-            {
-              proxy: {
-                target: 'localhost:5000',
-                middleware: [webpackDevMiddleware, require('webpack-hot-middleware')(compiler)],
-              },
-            },
-            resolve,
-          )
-      }))
-})
+
+tasks.set('watch', async () => {
+  global.HMR = !process.argv.includes('--no-hmr'); // Hot Module Replacement (HMR)
+  try {
+    await run('clean');
+    await run('copy');
+
+    const compiler = webpack(webpackConfig);
+
+    // Set up a watcher to rebuild when files change
+    await new Promise((resolve, reject) => {
+      compiler.watch({}, (err, stats) => {
+        if (err) {
+          console.error(err);
+          reject(err); // reject the promise if there's an error
+        } else {
+          console.log(stats.toString({ colors: true }));
+          resolve(); // resolve the promise when the watch callback is invoked
+        }
+      });
+    });
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+
 
 // Build website and launch it in a browser for testing in watch mode
 tasks.set('start', () => {
@@ -218,3 +280,6 @@ tasks.set('start', () => {
 
 // Execute the specified task or default one. E.g.: node run build
 run(/^\w/.test(process.argv[2] || '') ? process.argv[2] : 'start' /* default */)
+
+
+export { run };
