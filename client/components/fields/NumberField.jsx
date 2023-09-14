@@ -4,7 +4,7 @@ import { Message, Form } from 'semantic-ui-react'
 
 import { hasValue } from 'helpers/validation'
 
-const NumberField = ({
+function NumberField({
   value,
   onChange,
   label: labelKey,
@@ -17,39 +17,32 @@ const NumberField = ({
   localize,
   popuplocalizedKey,
   ...restProps
-}) => {
+}) {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
   const hasErrors = touched !== false && hasValue(errorKeys)
-  const props = {
-    ...restProps,
-    value: value != null ? value : '',
-    onChange: (event, { value: nextValue, ...data }) => {
-      onChange(event, { ...data, value: hasValue(nextValue) ? nextValue : null })
-    },
-    error: error || hasErrors,
-    type,
-    label,
-    title,
-    placeholder: placeholderKey ? localize(placeholderKey) : label,
-    autoComplete: 'off',
+
+  const handleInputChange = (event, { value: nextValue, ...data }) => {
+    onChange(event, { ...data, value: hasValue(nextValue) ? nextValue : null })
   }
-  return popuplocalizedKey ? (
+
+  return (
     <div
       className="field"
       data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
       data-position="top left"
     >
-      <Form.Input {...props} />
-      {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
-    </div>
-  ) : (
-    <div
-      className="field"
-      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
-      data-position="top left"
-    >
-      <Form.Input {...props} />
+      <Form.Input
+        {...restProps}
+        value={value != null ? value : ''}
+        onChange={handleInputChange}
+        error={error || hasErrors}
+        type={type}
+        label={label}
+        title={title}
+        placeholder={placeholderKey ? localize(placeholderKey) : label}
+        autoComplete="off"
+      />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
