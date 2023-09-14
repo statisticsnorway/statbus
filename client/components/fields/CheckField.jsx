@@ -21,16 +21,11 @@ const CheckField = ({
   const id =
     ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'CheckField'
   const hasErrors = touched !== false && errorKeys.length !== 0
-  const props = {
-    ...restProps,
-    id,
-    name: ambiguousName,
-    label,
-    title,
-    checked: value,
-    onChange: (e, { checked, ...inputProps }) => onChange(e, { ...inputProps, value: checked }),
-    error: error || hasErrors,
+
+  const handleChange = (e, { checked, ...inputProps }) => {
+    onChange(e, { ...inputProps, value: checked })
   }
+
   return (
     <div
       className="field"
@@ -38,7 +33,16 @@ const CheckField = ({
       data-position="top left"
     >
       <label htmlFor={id}>&nbsp;</label>
-      <Form.Checkbox {...props} />
+      <Form.Checkbox
+        id={id}
+        name={ambiguousName}
+        label={label}
+        title={title}
+        checked={value}
+        onChange={handleChange}
+        error={error || hasErrors}
+        {...restProps}
+      />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
