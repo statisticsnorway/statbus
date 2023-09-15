@@ -20,9 +20,21 @@
     "start": "node tools/run.mjs start",
     "watch": "node tools/run.mjs watch"
   },
+  "targets": {
+    "default": {
+      "distDir": "src/nscreg.Server/wwwroot/dist/"
+    }
+  },
+  "staticFiles": [
+    { "staticPath": "./node_modules/semantic-ui-css/semantic.min.css", "distDir": "./src/nscreg.Server/wwwroot"},
+    { "staticPath": "./node_modules/semantic-ui-css/themes", "distDir": "./src/nscreg.Server/wwwroot/themes"},
+    { "staticPath": "./node_modules/antd/lib/tree/style/index.css", "distDir": "./src/nscreg.Server/wwwroot"},
+    { "staticPath": "./node_modules/react-datepicker/dist/react-datepicker.min.css", "distDir": "./src/nscreg.Server/wwwroot"},
+    { "staticPath": "./node_modules/react-select/dist/react-select.min.css", "distDir": "./src/nscreg.Server/wwwroot"}
+  ],
   "repository": {
     "type": "git",
-    "url": "http://ci2.timelysoft.org:8080/tfs/defaultcollection/_git/nscreg"
+    "url": "https://github.com/statisticsnorway/statbus"
   },
   "sideEffects": false,
   "dependencies": {
@@ -56,6 +68,7 @@
     "yup": "^0.28.5"
   },
   "devDependencies": {
+    "@parcel/transformer-sass": "^2.9.3",
     "@types/file-saver": "^2.0.5",
     "assets-webpack-plugin": "^3.9.7",
     "babel-cli": "^6.26.0",
@@ -101,7 +114,10 @@
     "lint-staged": "^6.1.1",
     "mkdirp": "^0.5.1",
     "npm-run-all": "^4.1.2",
-    "postcss": "^6.0.18",
+    "parcel": "^2.9.3",
+    "parcel-reporter-bundle-manifest": "^1.0.0",
+    "parcel-reporter-static-files-copy": "^1.5.2",
+    "postcss": "^8.2.1",
     "postcss-cssnext": "^3.1.0",
     "postcss-easy-import": "^3.0.0",
     "postcss-flexibility": "^2.0.0",

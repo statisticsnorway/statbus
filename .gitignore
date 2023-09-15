@@ -453,6 +453,10 @@ __pycache__/
 ### VisualStudio Patch ###
 build/
 
+# Parcel Intermediate Files
+.parcel-cache/**
+parcel-trace-*.json
+
 # custom paths
 **/.DS_Store
 src/nscreg.Server/wwwroot/dist
