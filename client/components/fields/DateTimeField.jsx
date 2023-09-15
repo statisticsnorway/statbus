@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 import * as dateFns from '/client/helpers/dateHelper'
 import { hasValue } from '/client/helpers/validation'
 

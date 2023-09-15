@@ -3,7 +3,7 @@ import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-type
 import { Message, Select as SemanticUiSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { hasValue, createPropType } from '../../helpers/validation'
 import { internalRequest } from '../../helpers/request'

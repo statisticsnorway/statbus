@@ -1,4 +1,4 @@
-import R from 'ramda'
+import * as R from 'ramda'
 
 const shouldPropBeMapped = value => typeof value === 'number' || value
 const addStartPrefix = str => (str.length > 0 ? `?${str}` : str)

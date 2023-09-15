@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd'
 import { List } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
 const ListWithDnd = ({ value, renderItem, getItemKey, id, listProps, listItemProps, onChange }) => {
   const onDragEnd = ({ source, destination }) => {

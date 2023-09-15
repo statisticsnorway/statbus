@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { func, number, string, shape, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { statUnitTypes } from '/client/helpers/enums'
 import { internalRequest } from '/client/helpers/request'

@@ -1,4 +1,4 @@
-import R from 'ramda'
+import * as R from 'ramda'
 
 import getUid from '/client/helpers/getUid'
 import { createClauseDefaults } from './model'

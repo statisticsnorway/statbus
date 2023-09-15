@@ -1,6 +1,6 @@
 import React from 'react'
 import { func, shape, string } from 'prop-types'
-import R from 'ramda'
+import * as R from 'ramda'
 
 const Address = ({ localize, addressKey, address }) => {
   const list = [

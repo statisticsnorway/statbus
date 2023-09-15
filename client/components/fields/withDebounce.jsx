@@ -1,6 +1,6 @@
 import React from 'react'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import tryPersist from '/client/helpers/tryPersist'
 

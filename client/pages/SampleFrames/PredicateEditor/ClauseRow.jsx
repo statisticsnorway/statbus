@@ -2,7 +2,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Dropdown, Table, Input, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { predicateFields } from '/client/helpers/config'
 import { pairsToOptions } from '/client/helpers/enumerable'

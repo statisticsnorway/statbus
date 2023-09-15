@@ -1,7 +1,7 @@
 import React from 'react'
 import { arrayOf, shape, func, string, number, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
-import R from 'ramda'
+import * as R from 'ramda'
 import { Button, Table, Segment, Confirm, Modal, Header } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from '/client/helpers/config'

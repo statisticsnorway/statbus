@@ -1,7 +1,7 @@
 import React from 'react'
 import { func, arrayOf, shape, object, bool } from 'prop-types'
 import { Table } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import LinksGridRow from './LinksGridRow'
 

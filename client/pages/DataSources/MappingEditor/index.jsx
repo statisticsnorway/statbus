@@ -1,7 +1,7 @@
 import React from 'react'
 import { arrayOf, func, shape, string } from 'prop-types'
 import { Grid, Label, Header, Segment, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 import { groupByToArray } from '/client/helpers/enumerable'
 
 import ListWithDnd from '/client/components/ListWithDnd'

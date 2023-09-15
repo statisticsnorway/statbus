@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { Input, Icon, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 import { hasValue } from '/client/helpers/validation'
 
 const style = { width: '100%' }
