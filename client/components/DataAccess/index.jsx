@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { func, string, arrayOf, shape, bool } from 'prop-types'
+import PropTypes from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { groupByToArray, mapToArray } from 'helpers/enumerable'
 import { statUnitTypes } from 'helpers/enums'
@@ -10,9 +10,9 @@ const { TreeNode } = Tree
 
 const unitTypes = mapToArray(statUnitTypes).map(v => v.value)
 
-const validUnit = arrayOf(shape({
-  name: string.isRequired,
-  allowed: bool.isRequired,
+const validUnit = PropTypes.arrayOf(PropTypes.shape({
+  name: PropTypes.string.isRequired,
+  allowed: PropTypes.bool.isRequired,
 }).isRequired)
 
 const compareByName = (a, b) => {
@@ -121,18 +121,18 @@ function DataAccess(props) {
 }
 
 DataAccess.propTypes = {
-  label: string.isRequired,
-  value: shape({
+  label: PropTypes.string.isRequired,
+  value: PropTypes.shape({
     legalUnit: validUnit,
     localUnit: validUnit,
     enterpriseUnit: validUnit,
     enterpriseGroup: validUnit,
   }).isRequired,
-  name: string.isRequired,
-  onChange: func.isRequired,
-  localize: func.isRequired,
-  readEditable: bool.isRequired,
-  writeEditable: bool.isRequired,
+  name: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  localize: PropTypes.func.isRequired,
+  readEditable: PropTypes.bool.isRequired,
+  writeEditable: PropTypes.bool.isRequired,
 }
 
 export default DataAccess
