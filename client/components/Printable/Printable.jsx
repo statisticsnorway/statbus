@@ -2,8 +2,8 @@ import React, { useRef } from 'react'
 import { node, bool, string } from 'prop-types'
 import ReactToPrint from 'react-to-print'
 
-import getUid from 'helpers/getUid'
-import styles from './styles.pcss'
+import getUid from '../../helpers/getUid'
+import styles from './styles.scss'
 
 const Printable = ({ children, btnPrint, btnShowCondition }) => {
   const printContainerId = useRef(`printContainer${getUid()}`)

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
 
 import ConnectedForm from './ConnectedForm'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const { func, number, shape, string } = PropTypes
 

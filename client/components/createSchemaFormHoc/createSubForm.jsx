@@ -1,7 +1,6 @@
 import React from 'react'
 import { Form, Segment, Message, Grid, Icon, Header, Loader } from 'semantic-ui-react'
 import R from 'ramda'
-
 import { ensureArray, hasValue } from 'helpers/validation'
 import { capitalizeFirstLetter } from 'helpers/string'
 import { subForm as propTypes } from './propTypes'

@@ -3,13 +3,13 @@ import { func, oneOfType, bool, object } from 'prop-types'
 import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
-import ActivityTree from 'components/ActivityTree'
-import RegionTree from 'components/RegionTree'
-import { internalRequest } from 'helpers/request'
-import { userStatuses, roles } from 'helpers/enums'
-import { distinctBy } from 'helpers/enumerable'
-import { hasValue } from 'helpers/validation'
-import styles from './styles.pcss'
+import ActivityTree from './components/ActivityTree'
+import RegionTree from './components/RegionTree'
+import { internalRequest } from './helpers/request'
+import { userStatuses, roles } from './helpers/enums'
+import { distinctBy } from './helpers/enumerable'
+import { hasValue } from './helpers/validation'
+import styles from './styles.scss'
 
 const Create = ({
   localize,

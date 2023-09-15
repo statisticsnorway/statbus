@@ -2,8 +2,8 @@ import React from 'react'
 import { shape, func, arrayOf, string } from 'prop-types'
 import { Header } from 'semantic-ui-react'
 
-import { ActivitiesField } from 'components/fields'
-import styles from './styles.pcss'
+import { ActivitiesField } from './components/fields'
+import styles from './styles.scss'
 
 const Activity = ({ data, localize, activeTab }) => (
   <div>
