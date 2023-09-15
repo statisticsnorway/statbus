@@ -1,6 +1,6 @@
 import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import {
   request as rqstActions,
@@ -35,7 +35,9 @@ export const internalRequest = ({
           return onForbidden()
         default:
           return resp.status < 300
-            ? method === 'get' || method === 'post' ? resp.json().then(onSuccess) : onSuccess(resp)
+            ? method === 'get' || method === 'post'
+              ? resp.json().then(onSuccess)
+              : onSuccess(resp)
             : resp.json().then(onFail)
       }
     })

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { number, shape, string, func, oneOfType, bool } from 'prop-types'
-import R from 'ramda'
+import * as R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 import { Link } from 'react-router'
 

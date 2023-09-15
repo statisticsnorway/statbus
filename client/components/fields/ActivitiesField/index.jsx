@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { shape, arrayOf, func, string, bool } from 'prop-types'
 import { Icon, Table, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { getDate, formatDate } from '/client/helpers/dateHelper'
 import ActivityView from './View'

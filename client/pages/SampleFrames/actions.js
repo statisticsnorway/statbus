@@ -1,6 +1,6 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { navigateBack } from '/client/helpers/actionCreators'
 import dispatchRequest from '/client/helpers/request'

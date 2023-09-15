@@ -1,6 +1,6 @@
 import { connect } from 'react-redux'
 import { lifecycle } from 'recompose'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import withSpinnerUnless from '/client/components/withSpinnerUnless'
 import getUid from '/client/helpers/getUid'

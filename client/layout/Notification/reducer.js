@@ -1,5 +1,5 @@
 import { createReducer } from 'redux-act'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { notification as actions } from '/client/helpers/actionCreators'
 

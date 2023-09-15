@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { shape, arrayOf, func, string, bool, number, target, value } from 'prop-types'
 import { Icon, Table, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import { internalRequest } from '/client/helpers/request'
 import { hasValue } from '/client/helpers/validation'

@@ -1,5 +1,5 @@
 import { number, object, string, array, bool, mixed } from 'yup'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import config, { getMandatoryFields } from '/client/helpers/config'
 import { getDate } from '/client/helpers/dateHelper'
