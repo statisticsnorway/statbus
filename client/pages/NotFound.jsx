@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 
-import { withLocalize } from 'helpers/locale'
+import { withLocalize } from '/client/helpers/locale'
 
 const NotFound = ({ localize }) => (
   <div>

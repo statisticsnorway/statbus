@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Container, Header } from 'semantic-ui-react'
 
-import { shapeOf } from 'helpers/validation'
-import createSchemaFormHoc from 'components/createSchemaFormHoc'
+import { shapeOf } from '/client/helpers/validation'
+import createSchemaFormHoc from '/client/components/createSchemaFormHoc'
 import { schema, meta } from './model'
 import FormBody from './FormBody'
 

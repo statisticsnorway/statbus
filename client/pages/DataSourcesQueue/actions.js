@@ -1,10 +1,10 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
-import dispatchRequest from 'helpers/request'
+import dispatchRequest from '/client/helpers/request'
 import { pipe } from 'ramda'
 
-import { navigateBack } from 'helpers/actionCreators'
-import { castEmptyOrNull } from 'helpers/modelProperties'
+import { navigateBack } from '/client/helpers/actionCreators'
+import { castEmptyOrNull } from '/client/helpers/modelProperties'
 
 const updateQueueFilter = createAction('update search dataSourcesQueue form')
 const fetchQueueStarted = createAction('fetch regions started')
@@ -19,15 +19,9 @@ const fetchLogEntryFailed = createAction('fetch log entry failed')
 const clear = createAction('clear filter on DataSourceQueue')
 
 const setQuery = pathname => query => (dispatch) => {
-  pipe(
-    updateQueueFilter,
-    dispatch,
-  )(query)
+  pipe(updateQueueFilter, dispatch)(query)
   const status = query.status === 'any' ? undefined : query.status
-  pipe(
-    push,
-    dispatch,
-  )({ pathname, query: { ...query, status } })
+  pipe(push, dispatch)({ pathname, query: { ...query, status } })
 }
 
 const fetchQueue = queryParams =>

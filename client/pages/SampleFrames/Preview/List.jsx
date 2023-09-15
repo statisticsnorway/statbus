@@ -3,10 +3,9 @@ import PropTypes from 'prop-types'
 import R from 'ramda'
 import { Container, Table, Button, Grid, Segment, Header } from 'semantic-ui-react'
 
-import { capitalizeFirstLetter } from 'helpers/string'
+import { capitalizeFirstLetter } from '/client/helpers/string'
 
 const getHeaders = R.pipe(R.head, R.dissoc('uid'), R.keys)
-
 const tableWrapperStyle = { maxHeight: '500px', overflow: 'auto' }
 
 const List = ({ id, sampleFrame, list, localize, error }) => {

@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
-import FunctionalAttributes from './components/FunctionalAttributes'
-import DataAccess from './components/DataAccess'
-import ActivityTree from './components/ActivityTree'
-import { internalRequest } from './helpers/request'
+import FunctionalAttributes from '/client/components/FunctionalAttributes'
+import DataAccess from '/client/components/DataAccess'
+import ActivityTree from '/client/components/ActivityTree'
+import { internalRequest } from '/client/helpers/request'
 import styles from './styles.scss'
 
 function CreateForm({ localize, submitRole, navigateBack }) {

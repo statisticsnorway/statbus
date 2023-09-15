@@ -1,8 +1,8 @@
 import { array, number, object, string, lazy, boolean } from 'yup'
 
-import { predicateFields } from 'helpers/config'
-import { predicateComparison } from 'helpers/enums'
-import getUid from 'helpers/getUid'
+import { predicateFields } from '/client/helpers/config'
+import { predicateComparison } from '/client/helpers/enums'
+import getUid from '/client/helpers/getUid'
 
 const fields = [...predicateFields.keys()]
 const comparison = [...predicateComparison.keys()]

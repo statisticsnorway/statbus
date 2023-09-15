@@ -2,11 +2,10 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table, Segment, Form, Confirm } from 'semantic-ui-react'
-import config from 'helpers/config'
+import config, { checkSystemFunction as sF } from '/client/helpers/config'
 
-import { checkSystemFunction as sF } from 'helpers/config'
-import { internalRequest } from 'helpers/request'
-import Paginate from 'components/Paginate'
+import { internalRequest } from '/client/helpers/request'
+import Paginate from '/client/components/Paginate'
 
 class List extends React.Component {
   state = { id: undefined }

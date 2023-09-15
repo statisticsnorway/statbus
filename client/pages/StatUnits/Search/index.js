@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe, equals, isEmpty } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import actionCreators from './actions'
 import SearchStatUnit from './SearchStatUnit'
 
@@ -66,12 +66,6 @@ const mapDispatchToProps = (dispatch, props) => ({
   setQuery: (...params) => dispatch(setQuery(props.location.pathname)(...params)),
 })
 
-const enhance = pipe(
-  lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
-)
+const enhance = pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))
 
 export default enhance(SearchStatUnit)

@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 import { NotificationManager } from 'react-notifications'
-import { getLocalizeText } from 'helpers/locale'
-import dispatchRequest from 'helpers/request'
+import { getLocalizeText } from '/client/helpers/locale'
+import dispatchRequest from '/client/helpers/request'
 import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')

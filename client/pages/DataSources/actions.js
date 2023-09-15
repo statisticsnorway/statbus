@@ -1,9 +1,9 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
-import { nullsToUndefined } from 'helpers/validation'
-import dispatchRequest from 'helpers/request'
-import { navigateBack, request } from 'helpers/actionCreators'
+import { nullsToUndefined } from '/client/helpers/validation'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack, request } from '/client/helpers/actionCreators'
 import { createSchema, transformMapping } from './model'
 import replaceComplexEntitiesForDataSourceTemplate from './replaceComplexEntitiesForDataSourceTemplate'
 
@@ -12,14 +12,8 @@ export const fetchError = createAction('handle error response')
 
 const updateFilter = createAction('update data sources search form')
 const setQuery = pathname => query => (dispatch) => {
-  pipe(
-    updateFilter,
-    dispatch,
-  )(query)
-  pipe(
-    push,
-    dispatch,
-  )({ pathname, query })
+  pipe(updateFilter, dispatch)(query)
+  pipe(push, dispatch)({ pathname, query })
 }
 
 const fetchDataSourcesSucceeded = createAction('fetched data sources')
@@ -69,11 +63,7 @@ const fetchColumns = () =>
   dispatchRequest({
     url: '/api/datasources/MappingProperties',
     onSuccess: (dispatch, response) =>
-      pipe(
-        replaceComplexEntitiesForDataSourceTemplate,
-        fetchColumnsSucceeded,
-        dispatch,
-      )(response),
+      pipe(replaceComplexEntitiesForDataSourceTemplate, fetchColumnsSucceeded, dispatch)(response),
   })
 
 const createDataSource = (data, formikBag) => {

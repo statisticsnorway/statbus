@@ -3,9 +3,9 @@ import { bindActionCreators } from 'redux'
 import { pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import { getText } from 'helpers/locale'
-import { hasValue } from 'helpers/validation'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import { getText } from '/client/helpers/locale'
+import { hasValue } from '/client/helpers/validation'
 import { details } from '../actions'
 import Page from './Page'
 
@@ -42,8 +42,5 @@ const assert = props => !props.fetching && hasValue(props.info)
 export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
+  connect(mapStateToProps, mapDispatchToProps),
 )(Page)

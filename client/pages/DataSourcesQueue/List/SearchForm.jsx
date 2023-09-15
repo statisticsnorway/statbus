@@ -2,17 +2,17 @@ import React from 'react'
 import { func, shape, string, number, oneOfType } from 'prop-types'
 import { Form } from 'semantic-ui-react'
 
-import { DateTimeField } from 'components/fields'
-import { dataSourceQueueStatuses } from 'helpers/enums'
+import { DateTimeField } from '/client/components/fields'
+import { dataSourceQueueStatuses } from '/client/helpers/enums'
 import {
   getDate,
   formatDate,
   getDateSubtractMonth,
   isDatesCorrect,
   formatDateTimeEndOfDay,
-} from 'helpers/dateHelper'
+} from '/client/helpers/dateHelper'
 
-import { hasValue } from 'helpers/validation'
+import { hasValue } from '/client/helpers/validation'
 
 const types = [['any', 'AnyType'], ...dataSourceQueueStatuses]
 

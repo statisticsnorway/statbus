@@ -2,12 +2,12 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Grid, Form } from 'semantic-ui-react'
 
-import { formBody as bodyPropTypes } from './components/createSchemaFormHoc/propTypes'
+import { formBody as bodyPropTypes } from '/client/components/createSchemaFormHoc/propTypes'
 import {
   SelectField as PlainSelectField,
   TextField as PlainTextField,
   withDebounce,
-} from './components/fields'
+} from '/client/components/fields'
 import { getMandatoryFields as getMandatoryFieldsForStatUnitUpload } from '../../helpers/config'
 import handlerFor from '../../helpers/handleSetFieldValue'
 import { toCamelCase } from '../../helpers/string'

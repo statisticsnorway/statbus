@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Select } from 'semantic-ui-react'
 
-import { statUnitTypes } from './helpers/enums'
+import { statUnitTypes } from '/client/helpers/enums'
 import ConnectedForm from './ConnectedForm'
 import styles from './styles.scss'
 

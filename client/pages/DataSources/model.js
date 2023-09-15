@@ -1,9 +1,9 @@
 import { array, number, object, string } from 'yup'
 import { map } from 'ramda'
 
-import { getMandatoryFields } from 'helpers/config'
-import * as enums from 'helpers/enums'
-import { toCamelCase } from 'helpers/string'
+import { getMandatoryFields } from '/client/helpers/config'
+import * as enums from '/client/helpers/enums'
+import { toCamelCase } from '/client/helpers/string'
 
 export const defaults = {
   name: '',

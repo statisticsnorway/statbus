@@ -1,5 +1,5 @@
-import dispatchRequest from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
 import { createAction } from 'redux-act'
 
 export const fetchReportsTreeSucceeded = createAction('Fetch reports Tree')

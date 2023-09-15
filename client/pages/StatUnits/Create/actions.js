@@ -1,9 +1,9 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
-import { getLocalizeText } from 'helpers/locale'
-import dispatchRequest from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
-import { statUnitTypes } from 'helpers/enums'
+import { getLocalizeText } from '/client/helpers/locale'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
+import { statUnitTypes } from '/client/helpers/enums'
 import { NotificationManager } from 'react-notifications'
 
 const clear = createAction('clear create statunit')

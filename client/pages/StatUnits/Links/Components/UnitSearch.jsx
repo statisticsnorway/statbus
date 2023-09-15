@@ -4,8 +4,8 @@ import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
 
-import { statUnitTypes } from 'helpers/enums'
-import { internalRequest } from 'helpers/request'
+import { statUnitTypes } from '/client/helpers/enums'
+import { internalRequest } from '/client/helpers/request'
 
 export const defaultUnitSearchResult = {
   id: undefined,

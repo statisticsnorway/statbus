@@ -6,10 +6,10 @@ import { Segment, Button } from 'semantic-ui-react'
 import { equals, pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import Info from 'components/Info'
-import { getText } from 'helpers/locale'
-import { internalRequest } from 'helpers/request'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import Info from '/client/components/Info'
+import { getText } from '/client/helpers/locale'
+import { internalRequest } from '/client/helpers/request'
 
 const { string, func } = PropTypes
 

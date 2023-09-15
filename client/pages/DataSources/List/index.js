@@ -1,7 +1,7 @@
 import { connect } from 'react-redux'
 import { merge, pipe } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import { fetchDataSources, search, clear, deleteDataSource, fetchError } from '../actions'
 import List from './List'
 

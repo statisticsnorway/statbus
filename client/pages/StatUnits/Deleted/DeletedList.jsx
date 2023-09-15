@@ -3,8 +3,8 @@ import { func, arrayOf, shape, string, number, oneOfType, bool } from 'prop-type
 import { Item, Confirm, Modal, Button } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
 
-import { getSearchFormErrors, getCorrectQuery } from './helpers/validation'
-import Paginate from './components/Paginate'
+import { getSearchFormErrors, getCorrectQuery } from '/client/helpers/validation'
+import Paginate from '/client/components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.scss'

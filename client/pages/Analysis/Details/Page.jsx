@@ -2,10 +2,10 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
-import Info from 'components/Info'
-import FormBody from 'components/StatUnitFormBody'
-import { formatDateTime } from 'helpers/dateHelper'
-import { statUnitTypes } from 'helpers/enums'
+import Info from '/client/components/Info'
+import FormBody from '/client/components/StatUnitFormBody'
+import { formatDateTime } from '/client/helpers/dateHelper'
+import { statUnitTypes } from '/client/helpers/enums'
 import connectFormBody from './connectFormBody'
 
 const ConnectedForm = connectFormBody(FormBody)

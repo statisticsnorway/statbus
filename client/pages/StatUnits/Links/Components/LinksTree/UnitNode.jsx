@@ -4,7 +4,7 @@ import { equals } from 'ramda'
 import { Icon, Popup } from 'semantic-ui-react'
 import shouldUpdate from 'recompose/shouldUpdate'
 
-import { statUnitTypes, statUnitIcons } from 'helpers/enums'
+import { statUnitTypes, statUnitIcons } from '/client/helpers/enums'
 
 const UnitNode = (props) => {
   const { localize, code, type, name } = props

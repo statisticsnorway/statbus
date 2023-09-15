@@ -3,17 +3,17 @@ import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 
-import createSchemaFormHoc from 'components/createSchemaFormHoc/'
-import FormBody from 'components/StatUnitFormBody'
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import createSchema from 'helpers/createStatUnitSchema'
-import { getText } from 'helpers/locale'
+import createSchemaFormHoc from '/client/components/createSchemaFormHoc/'
+import FormBody from '/client/components/StatUnitFormBody'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import createSchema from '/client/helpers/createStatUnitSchema'
+import { getText } from '/client/helpers/locale'
 import {
   createFieldsMeta,
   createModel,
   createValues,
   updateProperties,
-} from 'helpers/modelProperties'
+} from '/client/helpers/modelProperties'
 
 const getSchema = props => props.schema
 const mapPropsToValues = props => createValues(props.updatedProperties)

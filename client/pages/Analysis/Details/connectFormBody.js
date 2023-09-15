@@ -4,18 +4,21 @@ import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 import { withRouter } from 'react-router'
 
-import createSchemaFormHoc from 'components/createSchemaFormHoc'
-import createStatUnitSchema from 'helpers/createStatUnitSchema'
+import createSchemaFormHoc from '/client/components/createSchemaFormHoc'
+import createStatUnitSchema from '/client/helpers/createStatUnitSchema'
 import {
   createFieldsMeta,
   createModel,
   createValues,
   updateProperties,
-} from 'helpers/modelProperties'
-import { getText } from 'helpers/locale'
+} from '/client/helpers/modelProperties'
+import { getText } from '/client/helpers/locale'
 import { details as actions } from '../actions'
 
-const withSchemaForm = createSchemaFormHoc(props => props.schema, props => props.values)
+const withSchemaForm = createSchemaFormHoc(
+  props => props.schema,
+  props => props.values,
+)
 
 const withConnect = connect(
   () =>
@@ -60,8 +63,4 @@ const withConnect = connect(
     ),
 )
 
-export default pipe(
-  withRouter,
-  withSchemaForm,
-  withConnect,
-)
+export default pipe(withRouter, withSchemaForm, withConnect)

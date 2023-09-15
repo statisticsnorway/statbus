@@ -1,9 +1,17 @@
 import { connect } from 'react-redux'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import Paginate from './Paginate'
 
-export default connect(({ locale, routing: { locationBeforeTransitions: { pathname, query, search } } }, ownProps) => ({
+export default connect((
+  {
+    locale,
+    routing: {
+      locationBeforeTransitions: { pathname, query, search },
+    },
+  },
+  ownProps,
+) => ({
   routing: {
     ...query,
     pathname,

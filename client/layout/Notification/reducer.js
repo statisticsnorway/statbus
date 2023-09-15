@@ -1,7 +1,7 @@
 import { createReducer } from 'redux-act'
 import R from 'ramda'
 
-import { notification as actions } from 'helpers/actionCreators'
+import { notification as actions } from '/client/helpers/actionCreators'
 
 const defaultState = {
   title: undefined,

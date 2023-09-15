@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { func, string, number } from 'prop-types'
 import { Button, Confirm } from 'semantic-ui-react'
-import { checkSystemFunction as sF } from 'helpers/config'
+import { checkSystemFunction as sF } from '/client/helpers/config'
 
 const ColumnActions = ({ localize, setUserStatus, getFilter, id, status, name }) => {
   const [confirmShow, setConfirmShow] = useState(false)

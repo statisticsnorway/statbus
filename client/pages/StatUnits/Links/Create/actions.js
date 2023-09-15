@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 
-import { notification } from 'helpers/actionCreators'
-import dispatchRequest from 'helpers/request'
+import { notification } from '/client/helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
 
 export const linkCreateStarted = createAction('linkCreateStarted')
 export const linkCreateSuccess = createAction('linkCreateSuccess')

@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import { distinctBy } from 'helpers/enumerable'
+import { distinctBy } from '/client/helpers/enumerable'
 import * as actions from './actions'
 
 const initialState = {

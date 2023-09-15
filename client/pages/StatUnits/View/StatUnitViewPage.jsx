@@ -4,9 +4,9 @@ import R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
-import Printable from 'components/Printable/Printable'
-import { checkSystemFunction as sF } from 'helpers/config'
-import { statUnitChangeReasons } from 'helpers/enums'
+import Printable from '/client/components/Printable/Printable'
+import { checkSystemFunction as sF } from '/client/helpers/config'
+import { statUnitChangeReasons } from '/client/helpers/enums'
 import { Main, History, Activity, OrgLinks, Links, ContactInfo, BarInfo } from './tabs'
 import tabs from './tabs/tabEnum'
 

@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import { queue } from '../actions'
 import Queue from './Queue'
 
