@@ -19,35 +19,23 @@ const TextField = ({
   const title = titleKey ? localize(titleKey) : label
   const hasErrors =
     (touched !== false && errorKeys.length !== 0) || (error === true && errorKeys.length !== 0)
+  const props = {
+    ...restProps,
+    value: value !== null ? value : '',
+    error: error || hasErrors,
+    label,
+    title,
+    placeholder: placeholderKey ? localize(placeholderKey) : label,
+    autoComplete: 'off',
+  }
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
-
   return (
     <div
       className={cssClass}
       data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
       data-position="top left"
     >
-      {restProps.name === 'name' ? (
-        <Form.TextArea
-          {...restProps}
-          value={value !== null ? value : ''}
-          error={error || hasErrors}
-          label={label}
-          title={title}
-          placeholder={placeholderKey ? localize(placeholderKey) : label}
-          autoComplete="off"
-        />
-      ) : (
-        <Form.Input
-          {...restProps}
-          value={value !== null ? value : ''}
-          error={error || hasErrors}
-          label={label}
-          title={title}
-          placeholder={placeholderKey ? localize(placeholderKey) : label}
-          autoComplete="off"
-        />
-      )}
+      {restProps.name === 'name' ? <Form.TextArea {...props} /> : <Form.Input {...props} />}
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )

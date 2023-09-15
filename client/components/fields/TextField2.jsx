@@ -22,27 +22,22 @@ const TextField2 = ({
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
   const hasErrors = touched !== false && errorKeys.length !== 0
-
-  const handleChange = (e, data) => {
-    const separator = getSeparator(field, operation)
-    if (isAllowedValue(data.value, separator) || data.value.length === 0) {
-      onChange(e, data)
-    }
-  }
-
   const props = {
     ...restProps,
     value: value !== null ? value : '',
     error: error || hasErrors,
-    onChange: handleChange,
+    onChange: (e, data) => {
+      const separator = getSeparator(field, operation)
+      if (isAllowedValue(data.value, separator) || data.value.length === 0) {
+        onChange(e, data)
+      }
+    },
     label,
     title,
     placeholder: placeholderKey ? localize(placeholderKey) : label,
     autoComplete: 'off',
   }
-
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
-
   return (
     <div
       className={cssClass}
