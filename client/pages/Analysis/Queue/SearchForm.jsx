@@ -2,8 +2,8 @@ import React from 'react'
 import { func, shape, string } from 'prop-types'
 import { Form } from 'semantic-ui-react'
 
-import { DateTimeField } from 'components/fields'
-import { getDate, formatDate } from 'helpers/dateHelper'
+import { DateTimeField } from '/client/components/fields'
+import { getDate, formatDate } from '/client/helpers/dateHelper'
 
 const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   const handleChange = (_, { name, value }) => {

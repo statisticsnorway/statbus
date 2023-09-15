@@ -1,7 +1,7 @@
 import { arrayOf, bool, number, oneOf, shape, string } from 'prop-types'
 
-import { predicateFields } from 'helpers/config'
-import { predicateComparison, predicateOperations } from 'helpers/enums'
+import { predicateFields } from '/client/helpers/config'
+import { predicateComparison, predicateOperations } from '/client/helpers/enums'
 
 const comparison = [...predicateComparison.keys()]
 const operations = [...predicateOperations.keys()]

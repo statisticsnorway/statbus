@@ -1,4 +1,4 @@
-import { reduxRequest } from 'helpers/request'
+import { reduxRequest } from '/client/helpers/request'
 
 export const getUnitLinks = data =>
   reduxRequest({

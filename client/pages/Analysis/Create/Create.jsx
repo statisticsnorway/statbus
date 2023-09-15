@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form, TextArea } from 'semantic-ui-react'
 
-import { DateTimeField } from 'components/fields'
+import { DateTimeField } from '/client/components/fields'
 
 const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
   const handleChange = (_, { name, value }) => editQueueItem({ name, value })

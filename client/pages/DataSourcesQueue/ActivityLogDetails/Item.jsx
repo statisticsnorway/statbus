@@ -1,7 +1,7 @@
 import React from 'react'
 import { shape, number, func } from 'prop-types'
 import { Table } from 'semantic-ui-react'
-import { activityTypes } from 'helpers/enums'
+import { activityTypes } from '/client/helpers/enums'
 
 const TableItem = ({ data, localize }) => (
   <Table.Row>

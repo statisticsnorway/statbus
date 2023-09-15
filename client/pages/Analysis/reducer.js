@@ -1,5 +1,5 @@
 import { createReducer } from 'redux-act'
-import { toUtc } from 'helpers/dateHelper'
+import { toUtc } from '/client/helpers/dateHelper'
 
 import actions from './actions'
 

@@ -1,6 +1,6 @@
 import { createAction } from 'redux-act'
 
-import dispatchRequest from 'helpers/request'
+import dispatchRequest from '/client/helpers/request'
 
 export const fetchUsersStarted = createAction('fetch users started')
 export const fetchUsersSucceeded = createAction('fetch users succeeded')

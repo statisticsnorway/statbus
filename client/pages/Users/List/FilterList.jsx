@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { func, shape } from 'prop-types'
 import { Button, Icon, Form } from 'semantic-ui-react'
-import { internalRequest } from 'helpers/request'
-import { userStatuses } from 'helpers/enums'
+import { internalRequest } from '/client/helpers/request'
+import { userStatuses } from '/client/helpers/enums'
 
 const statuses = [['', 'UserStatusAny'], ...userStatuses]
 

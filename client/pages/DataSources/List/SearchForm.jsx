@@ -3,7 +3,7 @@ import { string, number, func, oneOfType, shape } from 'prop-types'
 import { Form, Grid } from 'semantic-ui-react'
 import { map } from 'ramda'
 
-import * as enums from 'helpers/enums'
+import * as enums from '/client/helpers/enums'
 
 const numOrZero = value => Number(value) || 0
 

@@ -3,8 +3,8 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
 
-import { getText } from 'helpers/locale'
-import { navigateBack } from 'helpers/actionCreators'
+import { getText } from '/client/helpers/locale'
+import { navigateBack } from '/client/helpers/actionCreators'
 import { actionCreators } from './actions'
 import Edit from './Edit'
 
@@ -30,10 +30,4 @@ const mapStateToProps = (state, props) => ({
 const { fetchMeta, submitStatUnit } = actionCreators
 const mapDispatchToProps = dispatch => bindActionCreators({ fetchMeta, submitStatUnit }, dispatch)
 
-export default pipe(
-  lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
-)(Edit)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Edit)

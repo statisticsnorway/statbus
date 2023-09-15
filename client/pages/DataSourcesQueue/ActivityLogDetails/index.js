@@ -3,8 +3,8 @@ import { bindActionCreators } from 'redux'
 import { pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import { getText } from 'helpers/locale'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import { getText } from '/client/helpers/locale'
 import { details } from '../actions'
 import Page from './Page'
 

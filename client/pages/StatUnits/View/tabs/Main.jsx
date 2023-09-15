@@ -4,8 +4,8 @@ import { equals } from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 import { Grid, Label, Segment, Header } from 'semantic-ui-react'
 
-import { hasValue } from './helpers/validation'
-import { getNewName } from './helpers/locale'
+import { hasValue } from '/client/helpers/validation'
+import { getNewName } from '/client/helpers/locale'
 import styles from './styles.scss'
 
 const Main = ({ unit, localize, activeTab }) => {

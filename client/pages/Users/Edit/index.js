@@ -1,7 +1,7 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import actions from './actions'
 import { checkExistLogin, checkExistLoginSuccess } from '../Create/actions'
 import Edit from './Edit'

@@ -1,8 +1,8 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import { notification as actionCreators } from 'helpers/actionCreators'
-import { getText } from 'helpers/locale'
+import { notification as actionCreators } from '/client/helpers/actionCreators'
+import { getText } from '/client/helpers/locale'
 import Notification from './Notification'
 
 export default connect(

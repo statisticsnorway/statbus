@@ -3,9 +3,9 @@ import { Form, Message, Button, Icon, Segment, Header, Popup } from 'semantic-ui
 import { arrayOf, func, shape, string, bool } from 'prop-types'
 import { equals } from 'ramda'
 
-import config from 'helpers/config'
-import { hasValue } from 'helpers/validation'
-import { SelectField } from 'components/fields'
+import config from '/client/helpers/config'
+import { hasValue } from '/client/helpers/validation'
+import { SelectField } from '/client/components/fields'
 
 const defaultAddressState = {
   id: 0,

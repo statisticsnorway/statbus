@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 import { goBack } from 'react-router-redux'
 
-import getUid from 'helpers/getUid'
+import getUid from '/client/helpers/getUid'
 
 export const navigateBack = () => dispatch => dispatch(goBack())
 

@@ -3,8 +3,8 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
-import { hasValue } from 'helpers/validation'
-import { getText } from 'helpers/locale'
+import { hasValue } from '/client/helpers/validation'
+import { getText } from '/client/helpers/locale'
 import { log } from '../actions'
 import QueueLog from './QueueLog'
 

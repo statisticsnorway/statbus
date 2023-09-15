@@ -3,8 +3,8 @@ import { func, bool, shape, number, string, arrayOf } from 'prop-types'
 import { Segment, Table, Button, Confirm } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
-import { getDate, formatDate } from 'helpers/dateHelper'
-import Paginate from 'components/Paginate'
+import { getDate, formatDate } from '/client/helpers/dateHelper'
+import Paginate from '/client/components/Paginate'
 import Item from './Item'
 import SearchForm from './SearchForm'
 

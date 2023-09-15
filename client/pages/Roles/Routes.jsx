@@ -2,7 +2,7 @@ import React from 'react'
 import { Route, IndexRoute } from 'react-router'
 import { node } from 'prop-types'
 
-import { checkSystemFunction as sF } from 'helpers/config'
+import { checkSystemFunction as sF } from '/client/helpers/config'
 import List from './List'
 import Create from './Create'
 import Edit from './Edit'

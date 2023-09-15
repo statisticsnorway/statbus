@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape, number, string } from 'prop-types'
 import { Table, Icon, Loader, Button, Label, Popup, Header } from 'semantic-ui-react'
 
-import { formatDateTime } from './helpers/dateHelper'
+import { formatDateTime } from '/client/helpers/dateHelper'
 import styles from './styles.scss'
 
 const reasons = {

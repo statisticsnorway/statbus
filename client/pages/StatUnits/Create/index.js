@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import { actionCreators } from './actions'
 import Create from './Create'
 
@@ -27,10 +27,4 @@ const mapStateToProps = ({ createStatUnit: { isSubmitting }, locale }, { params:
 const { changeType, fetchMeta } = actionCreators
 const mapDispatchToProps = dispatch => bindActionCreators({ changeType, fetchMeta }, dispatch)
 
-export default pipe(
-  lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
-)(Create)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Create)

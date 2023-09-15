@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import { defaultPageSize } from 'helpers/paginate'
+import { defaultPageSize } from '/client/helpers/paginate'
 import * as actions from './actions'
 import { submitUserFailed } from '../Edit/actions'
 import { checkExistLoginSuccess } from '../Create/actions'

@@ -4,7 +4,7 @@ import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import { equals, isEmpty, isNil } from 'ramda'
 
-import { internalRequest } from 'helpers/request'
+import { internalRequest } from '/client/helpers/request'
 import simpleName from './nameCreator'
 
 const waitTime = 250

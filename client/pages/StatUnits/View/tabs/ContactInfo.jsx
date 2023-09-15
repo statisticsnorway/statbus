@@ -2,9 +2,9 @@ import React from 'react'
 import { shape, func, string, number, oneOfType, arrayOf } from 'prop-types'
 import { Label, Grid, Header, Segment } from 'semantic-ui-react'
 
-import { PersonsField } from './components/fields'
-import { hasValue } from './helpers/validation'
-import { getNewName } from './helpers/locale'
+import { PersonsField } from '/client/components/fields'
+import { hasValue } from '/client/helpers/validation'
+import { getNewName } from '/client/helpers/locale'
 import styles from './styles.scss'
 
 class ContactInfo extends React.Component {

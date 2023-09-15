@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { shape, number, string, func } from 'prop-types'
 import { Table, Button } from 'semantic-ui-react'
 
-import { formatDateTime } from 'helpers/dateHelper'
+import { formatDateTime } from '/client/helpers/dateHelper'
 
 const AnalysisQueueItem = ({ data, localize, deleteQueue }) => {
   const formatDate = x => (x === null ? localize('NoValue') : formatDateTime(x))

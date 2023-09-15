@@ -1,8 +1,8 @@
 import { push } from 'react-router-redux'
 import { createAction } from 'redux-act'
 
-import dispatchRequest from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
 import { submitUserFailed } from '../Edit/actions'
 
 const submitUser = data =>

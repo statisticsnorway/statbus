@@ -3,7 +3,7 @@ import { bool, func, number, oneOfType, shape, string, objectOf } from 'prop-typ
 import { Button, Form, Segment, Checkbox, Grid, Message } from 'semantic-ui-react'
 
 import { confirmHasOnlySortRule, confirmIsEmpty } from '../../helpers/validation'
-import { DateTimeField, SelectField } from './components/fields'
+import { DateTimeField, SelectField } from '/client/components/fields'
 import { canRead } from '../../helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from '../../helpers/enums'
 import { isDatesCorrect } from '../../helpers/dateHelper'

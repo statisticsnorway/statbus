@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { shape, number, string, func, array } from 'prop-types'
 import { Table, Button } from 'semantic-ui-react'
 
-import { formatDateTime } from 'helpers/dateHelper'
+import { formatDateTime } from '/client/helpers/dateHelper'
 
 const LogItem = ({
   data: { id, unitName, unitType, issuedAt, resolvedAt, summaryMessages },
@@ -23,7 +23,9 @@ const LogItem = ({
       {resolvedAt != null ? formatDateTime(resolvedAt) : '-'}
     </Table.Cell>
     <Table.Cell className="wrap-content" width={4}>
-      {summaryMessages.map(x => <p key={x}>{localize(x)}</p>)}
+      {summaryMessages.map(x => (
+        <p key={x}>{localize(x)}</p>
+      ))}
     </Table.Cell>
     <Table.Cell width={2}>
       {resolvedAt == null && (

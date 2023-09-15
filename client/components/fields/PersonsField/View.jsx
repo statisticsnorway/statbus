@@ -2,10 +2,10 @@ import React, { useState } from 'react'
 import { shape, string, number, func, bool, oneOfType, arrayOf } from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
-import { getDate, formatDate } from 'helpers/dateHelper'
-import { personSex } from 'helpers/enums'
-import { hasValue } from 'helpers/validation'
-import { getNewName } from 'helpers/locale'
+import { getDate, formatDate } from '/client/helpers/dateHelper'
+import { personSex } from '/client/helpers/enums'
+import { hasValue } from '/client/helpers/validation'
+import { getNewName } from '/client/helpers/locale'
 
 function PersonView({ data, onEdit, onDelete, readOnly, editMode, localize, countries, roles }) {
   const [showConfirm, setShowConfirm] = useState(false)

@@ -3,11 +3,11 @@ import { shape, arrayOf, func, string, bool, number, target, value } from 'prop-
 import { Icon, Table, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
-import { internalRequest } from 'helpers/request'
-import { hasValue } from 'helpers/validation'
+import { internalRequest } from '/client/helpers/request'
+import { hasValue } from '/client/helpers/validation'
 import PersonView from './View'
 import PersonEdit from './Edit'
-import { getNewName } from 'helpers/locale'
+import { getNewName } from '/client/helpers/locale'
 
 function PersonsList({
   localize,

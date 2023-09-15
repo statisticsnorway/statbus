@@ -3,9 +3,9 @@ import { bindActionCreators } from 'redux'
 import { pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import { getText } from 'helpers/locale'
-import { hasValue } from 'helpers/validation'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import { getText } from '/client/helpers/locale'
+import { hasValue } from '/client/helpers/validation'
 import { details as actions } from '../actions'
 import Page from './Page'
 

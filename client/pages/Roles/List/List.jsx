@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Table, Confirm } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
-import Paginate from 'components/Paginate'
+import Paginate from '/client/components/Paginate'
 import TableHeader from './Table/TableHeader'
 import ListItem from './ListItem'
 

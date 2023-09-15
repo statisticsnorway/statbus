@@ -3,14 +3,14 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import {
   getDate,
   getDateSubtractMonth,
   formatDateTimeStartOfDay,
   formatDateTimeEndOfDay,
-} from 'helpers/dateHelper'
-import { hasValues } from 'helpers/validation'
+} from '/client/helpers/dateHelper'
+import { hasValues } from '/client/helpers/validation'
 
 import { list } from '../actions'
 import Queue from './Queue'
@@ -60,10 +60,4 @@ const hooks = {
   },
 }
 
-export default pipe(
-  lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
-)(Queue)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Queue)

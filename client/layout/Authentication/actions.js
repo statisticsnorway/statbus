@@ -1,5 +1,5 @@
-import dispatchRequest from 'helpers/request'
-import { authentication } from 'helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
+import { authentication } from '/client/helpers/actionCreators'
 
 const hideAuthentication = () => dispatch => dispatch(authentication.hideAuthentication())
 

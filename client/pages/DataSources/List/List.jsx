@@ -4,8 +4,8 @@ import { Link } from 'react-router'
 import R from 'ramda'
 import { Button, Table, Segment, Confirm, Modal, Header } from 'semantic-ui-react'
 
-import { checkSystemFunction as sF } from 'helpers/config'
-import Paginate from 'components/Paginate'
+import { checkSystemFunction as sF } from '/client/helpers/config'
+import Paginate from '/client/components/Paginate'
 import SearchForm from './SearchForm'
 import ListItem from './ListItem'
 

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 import { map, pipe } from 'ramda'
 
-import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
+import { formBody as bodyPropTypes } from '/client/components/createSchemaFormHoc/propTypes'
 import FormSection from './FormSection'
 import FieldGroup from './FieldGroup'
 import Field from './Field'

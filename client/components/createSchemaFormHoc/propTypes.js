@@ -1,6 +1,6 @@
 import { shape, bool, func, string, oneOfType, arrayOf, objectOf } from 'prop-types'
 
-import { shapeOf } from 'helpers/validation'
+import { shapeOf } from '/client/helpers/validation'
 
 const fieldsOf = shapeOf([])
 export const subForm = {

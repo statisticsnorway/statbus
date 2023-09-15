@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 
-import dispatchRequest, { reduxRequest } from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
+import dispatchRequest, { reduxRequest } from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 export const fetchHistorySucceeded = createAction('fetch History succeeded')

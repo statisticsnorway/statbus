@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import { fetchDataSourcesList, uploadFile } from '../actions'
 import Upload from './Upload'
 

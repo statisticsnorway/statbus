@@ -3,11 +3,11 @@ import PropTypes from 'prop-types'
 import { Button, Table, Form, Search, Popup, Message } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
-import { DateTimeField } from 'components/fields'
-import { personTypes, personSex } from 'helpers/enums'
-import { internalRequest } from 'helpers/request'
-import getUid from 'helpers/getUid'
-import config from 'helpers/config'
+import { DateTimeField } from '/client/components/fields'
+import { personTypes, personSex } from '/client/helpers/enums'
+import { internalRequest } from '/client/helpers/request'
+import getUid from '/client/helpers/getUid'
+import config from '/client/helpers/config'
 
 const options = {
   sex: [...personSex],

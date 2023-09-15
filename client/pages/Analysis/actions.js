@@ -2,8 +2,8 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
 
-import dispatchRequest from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
 
 const fetchQueueStarted = createAction('fetch Analysis Queue started')
 const fetchQueueFailed = createAction('fetch Analysis Queue failed')
@@ -48,14 +48,8 @@ const fetchAnalysisLogs = queueId => queryParams =>
   })
 
 const setQuery = pathname => query => (dispatch) => {
-  pipe(
-    updateQueueFilter,
-    dispatch,
-  )(query)
-  pipe(
-    push,
-    dispatch,
-  )({ pathname, query })
+  pipe(updateQueueFilter, dispatch)(query)
+  pipe(push, dispatch)({ pathname, query })
 }
 
 const submitItem = data =>

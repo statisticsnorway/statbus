@@ -1,13 +1,28 @@
-import { checkSystemFunction as sF } from 'helpers/config'
+import { checkSystemFunction as sF } from '/client/helpers/config'
 
 const menu = {
   StatUnits: [
     { sf: 'StatUnitView', key: 'StatUnitSearch', route: '/', icon: 'search' },
-    { sf: 'StatUnitDelete', key: 'StatUnitUndelete', route: '/statunits/deleted', icon: 'undo' },
-    { sf: 'StatUnitCreate', key: 'StatUnitCreate', route: '/statunits/create/2', icon: 'add' },
+    {
+      sf: 'StatUnitDelete',
+      key: 'StatUnitUndelete',
+      route: '/statunits/deleted',
+      icon: 'undo',
+    },
+    {
+      sf: 'StatUnitCreate',
+      key: 'StatUnitCreate',
+      route: '/statunits/create/2',
+      icon: 'add',
+    },
   ],
   SampleFrames: [
-    { sf: 'SampleFramesView', key: 'SampleFramesView', route: '/sampleframes', icon: 'tasks' },
+    {
+      sf: 'SampleFramesView',
+      key: 'SampleFramesView',
+      route: '/sampleframes',
+      icon: 'tasks',
+    },
     {
       sf: 'SampleFramesCreate',
       key: 'SampleFramesCreate',
@@ -16,7 +31,12 @@ const menu = {
     },
   ],
   DataSources: [
-    { sf: 'DataSourcesView', key: 'DataSources', route: '/datasources', icon: 'file text outline' },
+    {
+      sf: 'DataSourcesView',
+      key: 'DataSources',
+      route: '/datasources',
+      icon: 'file text outline',
+    },
     {
       sf: 'DataSourcesCreate',
       key: 'DataSourcesCreate',
@@ -40,7 +60,12 @@ const menu = {
   AdministrativeTools: [
     { sf: 'UserView', key: 'Users', route: '/users', icon: 'users' },
     { sf: 'RoleView', key: 'Roles', route: '/roles', icon: 'setting' },
-    { sf: 'AnalysisQueueView', key: 'Analysis', route: '/analysisqueue', icon: 'line graph' },
+    {
+      sf: 'AnalysisQueueView',
+      key: 'Analysis',
+      route: '/analysisqueue',
+      icon: 'line graph',
+    },
   ],
 }
 

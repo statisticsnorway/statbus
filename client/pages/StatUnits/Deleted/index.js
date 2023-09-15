@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe, equals } from 'ramda'
 
-import { getText } from 'helpers/locale'
+import { getText } from '/client/helpers/locale'
 import actionCreators from './actions'
 import DeletedList from './DeletedList'
 
@@ -59,12 +59,6 @@ const mapDispatchToProps = (dispatch, { location: { pathname } }) => ({
   },
 })
 
-const enhance = pipe(
-  lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
-)
+const enhance = pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))
 
 export default enhance(DeletedList)

@@ -1,4 +1,4 @@
-import { oneOf } from 'helpers/enumerable'
+import { oneOf } from '/client/helpers/enumerable'
 
 export const statUnitTypes = new Map([
   [1, 'LocalUnit'],
@@ -14,9 +14,17 @@ export const statUnitIcons = new Map([
   [4, 'sitemap'],
 ])
 
-export const dataSourceOperations = new Map([[1, 'Create'], [2, 'Update'], [3, 'CreateAndUpdate']])
+export const dataSourceOperations = new Map([
+  [1, 'Create'],
+  [2, 'Update'],
+  [3, 'CreateAndUpdate'],
+])
 
-export const dataSourcePriorities = new Map([[1, 'Trusted'], [2, 'Ok'], [3, 'NotTrusted']])
+export const dataSourcePriorities = new Map([
+  [1, 'Trusted'],
+  [2, 'Ok'],
+  [3, 'NotTrusted'],
+])
 
 export const dataSourceQueueStatuses = new Map([
   [1, 'InQueue'],
@@ -26,9 +34,16 @@ export const dataSourceQueueStatuses = new Map([
   [5, 'DataLoadCompletedFailed'],
 ])
 
-export const dataSourceQueueLogStatuses = new Map([[1, 'Done'], [2, 'Warning'], [3, 'Error']])
+export const dataSourceQueueLogStatuses = new Map([
+  [1, 'Done'],
+  [2, 'Warning'],
+  [3, 'Error'],
+])
 
-export const personSex = new Map([[1, 'Male'], [2, 'Female']])
+export const personSex = new Map([
+  [1, 'Male'],
+  [2, 'Female'],
+])
 
 export const personTypes = new Map([
   [1, 'ContactPerson'],
@@ -37,7 +52,11 @@ export const personTypes = new Map([
   [4, 'Director'],
 ])
 
-export const userStatuses = new Map([[2, 'Active'], [1, 'Suspended'], [0, 'Quit']])
+export const userStatuses = new Map([
+  [2, 'Active'],
+  [1, 'Suspended'],
+  [0, 'Quit'],
+])
 
 export const activityTypes = new Map([
   [1, 'ActivityPrimary'],
@@ -68,7 +87,10 @@ export const statUnitSearchOptions = [
   { key: 4, text: 'Employees', value: 4 },
 ]
 
-export const predicateComparison = new Map([[1, 'SfAnd'], [2, 'SfOr']])
+export const predicateComparison = new Map([
+  [1, 'SfAnd'],
+  [2, 'SfOr'],
+])
 
 export const predicateOperations = new Map([
   [1, 'Equal'],

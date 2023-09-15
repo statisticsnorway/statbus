@@ -2,8 +2,8 @@ import React from 'react'
 import { func, shape, string, number, bool } from 'prop-types'
 import { Table, Icon, Popup } from 'semantic-ui-react'
 
-import { checkSystemFunction as sF } from 'helpers/config'
-import { statUnitTypes } from 'helpers/enums'
+import { checkSystemFunction as sF } from '/client/helpers/config'
+import { statUnitTypes } from '/client/helpers/enums'
 
 const shapeOfSource = shape({
   code: string,

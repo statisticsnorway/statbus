@@ -5,18 +5,18 @@ import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 import moment from 'moment'
 
-import createSchemaFormHoc from 'components/createSchemaFormHoc/'
-import FormBody from 'components/StatUnitFormBody'
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import createSchema from 'helpers/createStatUnitSchema'
-import { getText } from 'helpers/locale'
+import createSchemaFormHoc from '/client/components/createSchemaFormHoc/'
+import FormBody from '/client/components/StatUnitFormBody'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import createSchema from '/client/helpers/createStatUnitSchema'
+import { getText } from '/client/helpers/locale'
 import {
   createFieldsMeta,
   createModel,
   createValues,
   updateProperties,
-} from 'helpers/modelProperties'
-import { getDate, toUtc } from 'helpers/dateHelper'
+} from '/client/helpers/modelProperties'
+import { getDate, toUtc } from '/client/helpers/dateHelper'
 import { actionCreators } from './actions'
 
 const getSchema = props => props.schema
