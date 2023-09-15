@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import { Checkbox, Table, List, Label } from 'semantic-ui-react'
 
@@ -9,17 +9,24 @@ const listStyle = { display: 'inline-block' }
 const floatRight = { float: 'right' }
 const fields = [...sampleFrameFields]
 
-const FieldsEditor = ({ value: selected, onChange, localize }) => {
+function FieldsEditor({ value: selected, onChange, localize }) {
+  const [isAllSelected, setIsAllSelected] = useState(selected.length === fields.length)
+
+  const toggleSelectAll = () => {
+    const updatedSelected = isAllSelected ? [] : fields.map(([key]) => key)
+    onChange(updatedSelected)
+    setIsAllSelected(!isAllSelected)
+  }
+
   const onAdd = (_, { id }) => onChange([...selected, id])
   const onRemove = (_, { id }) => onChange(selected.filter(y => y !== id))
-  const isAllSelected = selected.length === fields.length
-  const selectAllItems = () => onChange(isAllSelected ? [] : fields.map(([key]) => key))
 
   const allItems = fields.map(([key, value]) => {
     const checked = selected.includes(key)
     const props = { id: key, checked, label: localize(value), onClick: checked ? onRemove : onAdd }
     return { key, content: <Checkbox {...props} /> }
   })
+
   return (
     <Table basic="very" celled>
       <Table.Header>
@@ -29,7 +36,7 @@ const FieldsEditor = ({ value: selected, onChange, localize }) => {
               id="selectAllFields"
               checked={isAllSelected}
               label={localize('SelectAll')}
-              onClick={selectAllItems}
+              onClick={toggleSelectAll}
             />
             <span style={floatRight}>{localize('FieldsToSelect')}</span>
           </Table.HeaderCell>

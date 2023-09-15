@@ -1,4 +1,3 @@
-/* eslint-disable consistent-return,no-else-return,arrow-parens */
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Grid, Message, Tab, Form } from 'semantic-ui-react'
@@ -13,7 +12,7 @@ import { predicate as predicatePropTypes } from './propTypes'
 
 const TextField = withDebounce(PlainTextField)
 
-const FormBody = ({
+function FormBody({
   values,
   getFieldErrors,
   touched,
@@ -23,7 +22,7 @@ const FormBody = ({
   localize,
   locale,
   isEdit,
-}) => {
+}) {
   const propsFor = key => ({
     name: key,
     value: values[key],
@@ -34,10 +33,13 @@ const FormBody = ({
     onBlur: handleBlur,
     localize,
   })
+
   const predicateProps = propsFor('predicate')
   const fieldsProps = propsFor('fields')
+
   const filteredPredicateErrors =
     hasValue(predicateProps.errors) && filterPredicateErrors(predicateProps.errors[0])
+
   const renderPredicateEditor = () => (
     <PredicateEditor
       value={values.predicate}
@@ -47,6 +49,7 @@ const FormBody = ({
       locale={locale}
     />
   )
+
   const renderFieldsEditor = () => (
     <FieldsEditor
       value={values.fields}
@@ -54,6 +57,7 @@ const FormBody = ({
       localize={localize}
     />
   )
+
   return (
     <div>
       <br />
