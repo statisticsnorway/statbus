@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, shape, string, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
@@ -9,115 +9,98 @@ import simpleName from './nameCreator'
 
 const waitTime = 250
 
-class SearchInput extends React.Component {
-  static propTypes = {
-    localize: func.isRequired,
-    searchData: shape({
-      url: string.isRequired,
-      editUrl: string,
-      label: string.isRequired,
-      placeholder: string.isRequired,
-      data: shape({}).isRequred,
-    }).isRequired,
-    onValueSelected: func.isRequired,
-    onValueChanged: func.isRequired,
-    required: bool.isRequired,
-    disabled: bool.isRequired,
-  }
+function SearchInput({
+  localize,
+  searchData: { url, editUrl, label, placeholder, data: initialData },
+  onValueSelected,
+  onValueChanged,
+  required,
+  disabled,
+}) {
+  const [data, setData] = useState(initialData)
+  const [results, setResults] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
 
-  state = {
-    data: this.props.searchData.data,
-    results: [],
-    isLoading: false,
-  }
-
-  componentWillReceiveProps(newProps) {
-    const newData = newProps.searchData.data
-    if (!isEmpty(newData) && !equals(this.state.data, newData)) {
-      this.setState({ data: newData })
+  useEffect(() => {
+    if (!isEmpty(initialData) && !equals(data, initialData)) {
+      setData(initialData)
     }
-  }
+  }, [initialData])
 
-  handleSearchResultSelect = (e, { result: { data } }) => {
+  const handleSearchResultSelect = (e, { result: { data } }) => {
     e.preventDefault()
-    this.setState(
-      {
-        data: { ...data, name: simpleName(data) },
-      },
-      () => this.props.onValueSelected(data),
-    )
+    setData({ ...data, name: simpleName(data) })
+    onValueSelected(data)
   }
 
-  handleSearchChange = (e, { value }) => {
+  const handleSearchChange = (e, { value }) => {
     if (isNil(value) || isEmpty(value)) {
       return
     }
-    this.setState(
-      s => ({
-        data: { ...s.data, name: value },
-        isLoading: true,
-      }),
-      () => {
-        this.props.onValueChanged(value)
-        this.search(value)
-      },
-    )
+    setData(prevData => ({
+      ...prevData,
+      name: value,
+    }))
+    setSearchValue(value)
+    onValueChanged(value)
+    search(value)
   }
 
-  search = debounce((params) => {
+  const search = debounce((params) => {
     internalRequest({
-      url: this.props.searchData.url,
+      url,
       queryParams: { wildcard: params },
       method: 'get',
       onSuccess: (result) => {
-        this.setState({
-          isLoading: false,
-          results: [
-            ...result.map(x => ({
-              title: simpleName(x),
-              description: x.code,
-              data: x,
-              key: x.code,
-            })),
-          ],
-        })
+        setIsLoading(false)
+        setResults(result.map(x => ({
+          title: simpleName(x),
+          description: x.code,
+          data: x,
+          key: x.code,
+        })))
       },
       onFail: () => {
-        this.setState(
-          {
-            isLoading: false,
-            results: [],
-          },
-          () => {
-            this.props.onValueSelected({})
-          },
-        )
+        setIsLoading(false)
+        setResults([])
+        onValueSelected({})
       },
     })
   }, waitTime)
 
-  render() {
-    const { localize, searchData, disabled, required } = this.props
-    const { isLoading, results } = this.state
+  return (
+    <Form.Input
+      control={Search}
+      onResultSelect={handleSearchResultSelect}
+      onSearchChange={handleSearchChange}
+      results={results}
+      showNoResults={false}
+      placeholder={localize(placeholder)}
+      loading={isLoading}
+      label={localize(label)}
+      value={searchValue}
+      disabled={disabled}
+      fluid
+      required={required}
+      autoComplete="off"
+    />
+  )
+}
 
-    return (
-      <Form.Input
-        control={Search}
-        onResultSelect={this.handleSearchResultSelect}
-        onSearchChange={this.handleSearchChange}
-        results={results}
-        showNoResults={false}
-        placeholder={localize(searchData.placeholder)}
-        loading={isLoading}
-        label={localize(searchData.label)}
-        value={searchData.value && searchData.value.name}
-        disabled={disabled}
-        fluid
-        required={required}
-        autoComplete="off"
-      />
-    )
-  }
+SearchInput.propTypes = {
+  localize: func.isRequired,
+  searchData: shape({
+    url: string.isRequired,
+    editUrl: string,
+    label: string.isRequired,
+    placeholder: string.isRequired,
+    data: shape({}).isRequired,
+  }).isRequired,
+  onValueSelected: func.isRequired,
+  onValueChanged: func.isRequired,
+  required: bool.isRequired,
+  disabled: bool.isRequired,
 }
 
 export default SearchInput

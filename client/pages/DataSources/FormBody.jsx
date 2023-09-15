@@ -1,8 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import { Grid, Form } from 'semantic-ui-react'
 
-import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import {
   SelectField as PlainSelectField,
   TextField as PlainTextField,
@@ -26,7 +25,7 @@ const { Group } = Form
 const TextField = withDebounce(PlainTextField)
 const SelectField = withDebounce(PlainSelectField)
 
-const FormBody = ({
+function FormBody({
   values,
   getFieldErrors,
   touched,
@@ -37,7 +36,9 @@ const FormBody = ({
   localize,
   columns,
   location: { pathname },
-}) => {
+}) {
+  const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
+
   const createProps = (key) => {
     const props = {
       ...meta.get(key),
@@ -61,7 +62,7 @@ const FormBody = ({
   }
 
   const updateValues = data => setValues({ ...values, ...data })
-  const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
+
   const columnsByUnitType = columns[getTypeName(values.statUnitType)]
   const filteredColumnsForActivities = columnsByUnitType.filter(el => variablesForActivities.filter(varForAc => varForAc === el.name).length === 1)
 
@@ -113,31 +114,35 @@ const FormBody = ({
   )
 }
 
-const { arrayOf, number, shape, string, oneOfType } = PropTypes
-const unitColumnPropType = arrayOf(shape({ name: string })).isRequired
 FormBody.propTypes = {
-  ...bodyPropTypes,
-  values: shape({
-    name: string.isRequired,
-    description: string.isRequired,
-    allowedOperations: number.isRequired,
-    priority: number.isRequired,
-    statUnitType: number.isRequired,
-    attributesToCheck: arrayOf(string).isRequired,
-    variablesMapping: arrayOf(arrayOf(string)).isRequired,
-    csvDelimiter: string.isRequired,
-    csvSkipCount: oneOfType([string, number]).isRequired,
+  values: PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    description: PropTypes.string.isRequired,
+    allowedOperations: PropTypes.number.isRequired,
+    priority: PropTypes.number.isRequired,
+    statUnitType: PropTypes.number.isRequired,
+    attributesToCheck: PropTypes.arrayOf(PropTypes.string).isRequired,
+    variablesMapping: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)).isRequired,
+    csvDelimiter: PropTypes.string.isRequired,
+    csvSkipCount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   }).isRequired,
-  columns: shape({
-    localUnit: unitColumnPropType,
-    legalUnit: unitColumnPropType,
-    enterpriseUnit: unitColumnPropType,
+  getFieldErrors: PropTypes.func.isRequired,
+  touched: PropTypes.object.isRequired,
+  isSubmitting: PropTypes.bool.isRequired,
+  setFieldValue: PropTypes.func.isRequired,
+  setValues: PropTypes.func.isRequired,
+  handleBlur: PropTypes.func.isRequired,
+  localize: PropTypes.func.isRequired,
+  columns: PropTypes.shape({
+    localUnit: PropTypes.arrayOf(PropTypes.shape({ name: PropTypes.string })),
+    legalUnit: PropTypes.arrayOf(PropTypes.shape({ name: PropTypes.string })),
+    enterpriseUnit: PropTypes.arrayOf(PropTypes.shape({ name: PropTypes.string })),
   }).isRequired,
-  mandatoryColumns: arrayOf(string),
+  location: PropTypes.shape({ pathname: PropTypes.string }),
 }
 
 FormBody.defaultProps = {
-  mandatoryColumns: [],
+  location: { pathname: '' },
 }
 
 export default FormBody
