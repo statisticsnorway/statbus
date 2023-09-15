@@ -50,13 +50,11 @@
   z-index: 99;
 }
 
-:global {
-  .ant-tree {
-    li.filter-node {
-      span {
-        color: #2185d0 !important;
-        font-weight: 400 !important;
-      }
+.ant-tree {
+  li.filter-node {
+    span {
+      color: #2185d0 !important;
+      font-weight: 400 !important;
     }
   }
 }
