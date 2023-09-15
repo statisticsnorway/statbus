@@ -4,13 +4,11 @@ import { Message, Select as SemanticUiSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
-
-import { hasValue, createPropType } from 'helpers/validation'
-import { internalRequest } from 'helpers/request'
-import { getNewName } from 'helpers/locale'
-
-import styles from './styles.pcss'
-import './SelectField.css'
+import { hasValue, createPropType } from '../../helpers/validation'
+import { internalRequest } from '../../helpers/request'
+import { getNewName } from '../../helpers/locale'
+import styles from './styles.scss'
+import './SelectField.scss'
 
 const notSelected = { value: undefined, text: 'NotSelected' }
 

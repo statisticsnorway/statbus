@@ -4,7 +4,7 @@ import Tree from 'antd/lib/tree'
 import { groupByToArray, mapToArray } from 'helpers/enumerable'
 import { statUnitTypes } from 'helpers/enums'
 import { toCamelCase } from 'helpers/string'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const { TreeNode } = Tree
 

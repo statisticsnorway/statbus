@@ -3,7 +3,7 @@ import { func, shape, oneOfType, number, string } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
 import LinksTree from '../../Links/Components/LinksTree'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const Links = ({ filter, fetchData, localize, activeTab }) => (
   <div>

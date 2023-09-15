@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from 'semantic-ui-react'
 
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const InsertButton = ({ onClick, title }) => (
   <Icon.Group onClick={onClick} className="cursor-pointer" title={title} size="large">

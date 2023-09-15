@@ -1,7 +1,7 @@
 import React from 'react'
 import { string, bool, func } from 'prop-types'
 import { Label } from 'semantic-ui-react'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const Item = ({
   text,

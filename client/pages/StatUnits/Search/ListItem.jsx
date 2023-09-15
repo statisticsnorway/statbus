@@ -3,10 +3,10 @@ import { number, string, func, shape, bool } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table, Popup } from 'semantic-ui-react'
 
-import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
-import { statUnitTypes } from 'helpers/enums'
-import { getNewName } from 'helpers/locale'
-import styles from './styles.pcss'
+import { canRead, checkSystemFunction as checkSF } from './helpers/config'
+import { statUnitTypes } from './helpers/enums'
+import { getNewName } from './helpers/locale'
+import styles from './styles.scss'
 
 const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormColumn }) => {
   const title = statUnitTypes.get(statUnit.type)
@@ -30,7 +30,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
         {showLegalFormColumn && (
           <Table.Cell>
             {canRead('LegalFormId', statUnit.type) &&
-              (legalForm && `${getNewName(legalForm, false)}`)}
+              legalForm && `${getNewName(legalForm, false)}`}
           </Table.Cell>
         )}
         <Table.Cell>

@@ -5,11 +5,11 @@ import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
 
-import { hasValue, createPropType } from 'helpers/validation'
-import { internalRequest } from 'helpers/request'
+import { hasValue, createPropType } from '../../helpers/validation'
+import { internalRequest } from '../../helpers/request'
 import { getNewName } from '../../helpers/locale'
 
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const notSelected = { value: undefined, text: 'NotSelected' }
 

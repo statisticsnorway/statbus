@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { Router, browserHistory } from 'react-router'
 import { syncHistoryWithStore } from 'react-router-redux'
 
-import './styles.pcss'
+import './styles.scss'
 import routes from './routes'
 
 // eslint-disable-next-line react/prop-types

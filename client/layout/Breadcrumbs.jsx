@@ -6,9 +6,9 @@ import { Breadcrumb } from 'semantic-ui-react'
 import { equals, pipe } from 'ramda'
 import { shouldUpdate } from 'recompose'
 
-import { statUnitTypes } from 'helpers/enums'
-import { getText } from 'helpers/locale'
-import styles from './styles.pcss'
+import { statUnitTypes } from '../helpers/enums'
+import { getText } from '../helpers/locale'
+import styles from '../styles.scss'
 
 const getKey = (path, routerProps) => {
   if (routerProps.location.pathname.startsWith('/statunits/create/') && path === 'type') {
@@ -32,8 +32,12 @@ const Breadcrumbs = ({ routerProps, localize, previousRoute }) => {
     .map((x) => {
       const match =
         x.path.indexOf('/:') === -1
-          ? x.path.indexOf(':') === -1 ? x.path : x.path.replace(/:/g, '')
-          : x.path.indexOf(':') === -1 ? x.path.match(/[^/:]*/) : x.path.replace(/:/g, '')
+          ? x.path.indexOf(':') === -1
+            ? x.path
+            : x.path.replace(/:/g, '')
+          : x.path.indexOf(':') === -1
+            ? x.path.match(/[^/:]*/)
+            : x.path.replace(/:/g, '')
       const path = typeof match === 'string' ? match : match[0]
       return { ...x, path }
     })

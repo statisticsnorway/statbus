@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 
-import { withLocalize } from 'helpers/locale'
-import styles from './styles.pcss'
+import { withLocalize } from '../helpers/locale'
+import styles from './styles.scss'
 
 const Footer = ({ localize }) => (
   <div className={styles['footer-root']}>

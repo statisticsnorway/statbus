@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Table, Icon } from 'semantic-ui-react'
 import InsertButton from './InsertButton'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 function Header(props) {
   const { maxShift, canGroup, anySelected, group, toggleAll, onInsert, localize } = props

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Grid, Input, Dropdown, Button, Segment, List } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
 
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 function Upload({ dataSources, uploadFile, localize }) {
   const [description, setDescription] = useState('')

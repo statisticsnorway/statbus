@@ -3,12 +3,12 @@ import { func, shape, oneOfType, number, string, arrayOf, object, bool } from 'p
 import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
-import ActivityTree from 'components/ActivityTree'
-import RegionTree from 'components/RegionTree'
-import { roles, userStatuses } from 'helpers/enums'
-import { internalRequest } from 'helpers/request'
-import { hasValue } from 'helpers/validation'
-import styles from './styles.pcss'
+import ActivityTree from './components/ActivityTree'
+import RegionTree from './components/RegionTree'
+import { roles, userStatuses } from './helpers/enums'
+import { internalRequest } from './helpers/request'
+import { hasValue } from './helpers/validation'
+import styles from './styles.scss'
 
 const Edit = ({
   id,

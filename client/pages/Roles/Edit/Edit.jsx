@@ -3,9 +3,9 @@ import PropTypes from 'prop-types'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
-import DataAccess from 'components/DataAccess'
-import { roles } from 'helpers/enums'
-import styles from './styles.pcss'
+import DataAccess from './components/DataAccess'
+import { roles } from './helpers/enums'
+import styles from './styles.scss'
 
 function Edit({ id, activityTree, role, editForm, fetchRole, submitRole, navigateBack, localize }) {
   useEffect(() => {
