@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, number, string, oneOfType } from 'prop-types'
 import Dropzone from 'react-dropzone'
 import { Message, Icon } from 'semantic-ui-react'
@@ -6,35 +6,23 @@ import { Message, Icon } from 'semantic-ui-react'
 import { fromCsv, fromXml } from 'helpers/parseDataSourceAttributes'
 import styles from './styles.pcss'
 
-class TemplateFileAttributesParser extends React.Component {
-  static propTypes = {
-    csvDelimiter: string.isRequired,
-    csvSkipCount: oneOfType([string, number]).isRequired,
-    onChange: func.isRequired,
-    localize: func.isRequired,
-  }
+function TemplateFileAttributesParser({ csvDelimiter, csvSkipCount, onChange, localize }) {
+  const [file, setFile] = useState(undefined)
+  const [fileError, setFileError] = useState(undefined)
 
-  state = {
-    file: undefined,
-    fileError: undefined,
-  }
+  useEffect(() => () => {
+    revokeCurrentFileUrl()
+  }, [])
 
-  componentWillUnmount() {
-    this.revokeCurrentFileUrl()
-  }
-
-  revokeCurrentFileUrl() {
-    const { file } = this.state
+  const revokeCurrentFileUrl = () => {
     if (file) URL.revokeObjectURL(file.preview)
   }
 
-  parseFile = () => {
-    const { csvDelimiter, csvSkipCount, localize, onChange } = this.props
-    const { file } = this.state
+  const parseFile = () => {
     const reader = new FileReader()
     reader.onload = (e) => {
       const raw = e.target.result
-      this.revokeCurrentFileUrl()
+      revokeCurrentFileUrl()
       const nextValues = { variablesMapping: [], csvDelimiter, csvSkipCount }
       if (file.name.endsWith('.csv')) {
         const parsed = fromCsv(raw)
@@ -46,62 +34,61 @@ class TemplateFileAttributesParser extends React.Component {
       } else {
         nextValues.attributesToCheck = []
       }
-      this.setState(
-        {
-          fileError:
-            nextValues.attributesToCheck.length === 0
-              ? localize('ParseAttributesNotFound')
-              : undefined,
-        },
-        () => onChange(nextValues),
-      )
+      setFileError(nextValues.attributesToCheck.length === 0 ? localize('ParseAttributesNotFound') : undefined)
+      onChange(nextValues)
     }
     try {
       reader.readAsText(file)
     } catch (error) {
-      this.setState({ fileError: localize('ParseFileError') })
+      setFileError(localize('ParseFileError'))
     }
   }
 
-  handleRef = (dz) => {
+  const handleRef = (dz) => {
     this.dropzone = dz
   }
 
-  handleDropFile = (files) => {
-    this.setState({ file: files[0] }, this.parseFile)
+  const handleDropFile = (files) => {
+    setFile(files[0])
+    parseFile()
   }
 
-  render() {
-    const { localize } = this.props
-    const { file, fileError } = this.state
-    const [hasFile, hasError] = [file !== undefined, fileError !== undefined]
-    const color = hasError ? 'red' : hasFile ? 'olive' : undefined
-    return (
-      <Dropzone
-        ref={this.handleRef}
-        accept=".csv, .xml"
-        onDrop={this.handleDropFile}
-        multiple={false}
-        className={styles['dz-container']}
-      >
-        <Message
-          header={localize('DropXmlOrCsvFileAmigo')}
-          content={
-            hasFile && (
-              <div>
-                <p>
-                  <Icon name={hasError ? 'close' : 'check'} /> {file.name}
-                </p>
-                <p>{fileError}</p>
-              </div>
-            )
-          }
-          icon="upload"
-          color={color}
-        />
-      </Dropzone>
-    )
-  }
+  const hasFile = file !== undefined
+  const hasError = fileError !== undefined
+  const color = hasError ? 'red' : hasFile ? 'olive' : undefined
+
+  return (
+    <Dropzone
+      ref={handleRef}
+      accept=".csv, .xml"
+      onDrop={handleDropFile}
+      multiple={false}
+      className={styles['dz-container']}
+    >
+      <Message
+        header={localize('DropXmlOrCsvFileAmigo')}
+        content={
+          hasFile && (
+            <div>
+              <p>
+                <Icon name={hasError ? 'close' : 'check'} /> {file.name}
+              </p>
+              <p>{fileError}</p>
+            </div>
+          )
+        }
+        icon="upload"
+        color={color}
+      />
+    </Dropzone>
+  )
+}
+
+TemplateFileAttributesParser.propTypes = {
+  csvDelimiter: string.isRequired,
+  csvSkipCount: oneOfType([string, number]).isRequired,
+  onChange: func.isRequired,
+  localize: func.isRequired,
 }
 
 export default TemplateFileAttributesParser
