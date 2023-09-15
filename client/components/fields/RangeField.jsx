@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { Input, Icon, Message } from 'semantic-ui-react'
 import R from 'ramda'
@@ -25,23 +25,29 @@ export default function RangeField({
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const hasErrors = touched && hasValue(errorKeys)
   const id = ambiguousId != null ? ambiguousId : name
-  const from = Number(ambiguousFrom) || 0
-  const to = Number(ambiguousTo) || 0
-  const props = {
-    ...restProps,
-    onChange: (e, inputProps) => {
+  const [from, setFrom] = useState(Number(ambiguousFrom) || 0)
+  const [to, setTo] = useState(Number(ambiguousTo) || 0)
+
+  const handleChange = useCallback(
+    (e, inputProps) => {
+      const updatedValue = Number(inputProps.value) || 0
+      if (inputProps.name === 'from') {
+        setFrom(updatedValue)
+      } else if (inputProps.name === 'to') {
+        setTo(updatedValue)
+      }
       const data = {
         ...restProps,
         from,
         to,
-        [inputProps.name]: Number(inputProps.value) || 0,
+        [inputProps.name]: updatedValue,
         name: name != null ? name : inputProps.name,
       }
       onChange(e, data)
     },
-    type: 'number',
-    style,
-  }
+    [onChange, name, restProps, from, to],
+  )
+
   return (
     <div
       className="field"
@@ -59,9 +65,25 @@ export default function RangeField({
           />
         )}
         &nbsp;&nbsp;
-        <Input {...props} name="from" label={localize('RangeFrom')} value={from} />
+        <Input
+          {...restProps}
+          onChange={handleChange}
+          type="number"
+          style={style}
+          name="from"
+          label={localize('RangeFrom')}
+          value={from}
+        />
         &nbsp;&nbsp;{delimiter}&nbsp;&nbsp;
-        <Input {...props} name="to" label={localize('RangeTo')} value={to} />
+        <Input
+          {...restProps}
+          onChange={handleChange}
+          type="number"
+          style={style}
+          name="to"
+          label={localize('RangeTo')}
+          value={to}
+        />
       </Input>
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
