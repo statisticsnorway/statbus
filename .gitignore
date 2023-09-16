@@ -447,6 +447,9 @@ __pycache__/
 # Cake - Uncomment if you are using it
 # tools/
 
+# Ignore Rider (IDE) run time files
+.run/
+
 ### VisualStudio Patch ###
 build/
 
