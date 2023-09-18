@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { bindActionCreators } from 'redux'
-import { connect } from 'react-redux'
+import { connect, useDispatch, useSelector } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 import moment from 'moment'
@@ -31,21 +31,33 @@ const createMapStateToProps = () =>
       (_, props) => props.type,
     ],
     (permissions, properties, locale, type) => {
-      if (properties === undefined || permissions === undefined) {
+      const { locale: currentLocale } = useSelector(state => state)
+      const dispatch = useDispatch()
+
+      useEffect(() => {
+        dispatch(actionCreators.fetchData())
+      }, [dispatch])
+
+      const propertiesSelector = useSelector(state => state.createStatUnit.properties)
+      const permissionsSelector = useSelector(state => state.createStatUnit.permissions)
+
+      if (propertiesSelector === undefined || permissionsSelector === undefined) {
         return { spinner: true }
       }
-      const schema = createSchema(type, permissions, properties, null)
+
+      const schema = createSchema(type, permissionsSelector, propertiesSelector, null)
       const updatedProperties = updateProperties(
-        schema.cast(createModel(permissions, properties)),
-        properties,
+        schema.cast(createModel(permissionsSelector, propertiesSelector)),
+        propertiesSelector,
       )
+
       return {
         schema,
-        permissions,
+        permissions: permissionsSelector,
         updatedProperties,
         fieldsMeta: createFieldsMeta(type, updatedProperties),
-        localize: getText(locale),
-        locale,
+        localize: getText(currentLocale),
+        locale: currentLocale,
       }
     },
   )
@@ -65,81 +77,41 @@ const assert = props => !props.spinner
 const enhance = pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
   withSpinnerUnless(assert),
-  connect(
-    createMapStateToProps,
-    mapDispatchToProps,
-  ),
+  connect(createMapStateToProps, mapDispatchToProps),
 )
 
-export default enhance((props) => {
+const StatUnitForm = (props) => {
   const { values } = props
   const currentDate = moment(getDate(), 'YYYY-MM-DD')
   const lastYear = moment().format('YYYY') - 1
-  if (values.taxRegId) {
-    values.taxRegDate = values.taxRegDate || currentDate
-  } else {
-    values.taxRegDate = undefined
-  }
-  if (values.externalId) {
-    values.externalIdDate = values.externalIdDate || currentDate
-  } else {
-    values.externalIdDate = undefined
-  }
-  if (values.turnover) {
-    values.turnoverYear = values.turnoverYear || lastYear
-    values.turnoverDate = values.turnoverDate || currentDate
-  } else {
-    values.turnoverYear = undefined
-    values.turnoverDate = undefined
-  }
-  if (values.employees) {
-    values.employeesYear = values.turnoverYear || lastYear
-    values.employeesDate = values.turnoverDate || currentDate
-  } else {
-    values.employeesYear = undefined
-    values.employeesDate = undefined
-  }
 
-  if (values.registrationReasonId) {
-    values.registrationDate = values.registrationDate || currentDate
-  } else {
-    values.registrationDate = undefined
-  }
-
-  if (props.type === 1) {
-    if (values.legalUnitId) {
-      values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+  useEffect(() => {
+    if (values.taxRegId) {
+      values.taxRegDate = values.taxRegDate || currentDate
     } else {
-      values.legalUnitIdDate = undefined
+      values.taxRegDate = undefined
     }
-  }
 
-  if (props.type === 2 && values.enterpriseUnitRegId) {
-    if (values.enterpriseUnitRegId) {
-      values.entRegIdDate = values.entRegIdDate || currentDate
+    if (values.externalId) {
+      values.externalIdDate = values.externalIdDate || currentDate
     } else {
-      values.entRegIdDate = undefined
+      values.externalIdDate = undefined
     }
-  }
 
-  if (props.type === 3) {
-    if (values.entGroupId) {
-      values.entGroupIdDate = values.entGroupIdDate || currentDate
+    if (values.turnover) {
+      values.turnoverYear = values.turnoverYear || lastYear
+      values.turnoverDate = values.turnoverDate || currentDate
     } else {
-      values.entGroupIdDate = undefined
+      values.turnoverYear = undefined
+      values.turnoverDate = undefined
     }
-  }
 
-  if (props.type === 4) {
-    if (values.reorgTypeId) {
-      values.registrationDate = values.registrationDate || currentDate
+    if (values.employees) {
+      values.employeesYear = values.turnoverYear || lastYear
+      values.employeesDate = values.turnoverDate || currentDate
     } else {
-      values.registrationDate = undefined
-    }
-    if (values.reorgTypeCode) {
-      values.reorgDate = values.reorgDate || currentDate
-    } else {
-      values.reorgDate = undefined
+      values.employeesYear = undefined
+      values.employeesDate = undefined
     }
 
     if (values.registrationReasonId) {
@@ -148,12 +120,57 @@ export default enhance((props) => {
       values.registrationDate = undefined
     }
 
-    if (values.reorgTypeId) {
-      values.reorgDate = values.reorgDate || currentDate
-    } else {
-      values.reorgDate = undefined
+    if (props.type === 1) {
+      if (values.legalUnitId) {
+        values.legalUnitIdDate = values.legalUnitIdDate || currentDate
+      } else {
+        values.legalUnitIdDate = undefined
+      }
     }
-  }
+
+    if (props.type === 2 && values.enterpriseUnitRegId) {
+      if (values.enterpriseUnitRegId) {
+        values.entRegIdDate = values.entRegIdDate || currentDate
+      } else {
+        values.entRegIdDate = undefined
+      }
+    }
+
+    if (props.type === 3) {
+      if (values.entGroupId) {
+        values.entGroupIdDate = values.entGroupIdDate || currentDate
+      } else {
+        values.entGroupIdDate = undefined
+      }
+    }
+
+    if (props.type === 4) {
+      if (values.reorgTypeId) {
+        values.registrationDate = values.registrationDate || currentDate
+      } else {
+        values.registrationDate = undefined
+      }
+      if (values.reorgTypeCode) {
+        values.reorgDate = values.reorgDate || currentDate
+      } else {
+        values.reorgDate = undefined
+      }
+
+      if (values.registrationReasonId) {
+        values.registrationDate = values.registrationDate || currentDate
+      } else {
+        values.registrationDate = undefined
+      }
+
+      if (values.reorgTypeId) {
+        values.reorgDate = values.reorgDate || currentDate
+      } else {
+        values.reorgDate = undefined
+      }
+    }
+  }, [values, currentDate, lastYear, props.type])
 
   return <FormBody {...{ ...props }} />
-})
+}
+
+export default enhance(StatUnitForm)

@@ -1,64 +1,69 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, bool, shape, string } from 'prop-types'
 
 import LinksForm from '../Components/LinkForm'
 import { defaultUnitSearchResult } from '../Components/UnitSearch'
 
-class DeleteLink extends React.Component {
-  static propTypes = {
-    localize: func.isRequired,
-    deleteLink: func.isRequired,
-    isLoading: bool.isRequired,
-    params: shape({
-      id: string,
-      type: string,
-    }),
-  }
-
-  static defaultProps = {
-    params: undefined,
-  }
-
-  state = {
-    data: {
-      source1: {
-        ...defaultUnitSearchResult,
-        id: this.props.params ? Number(this.props.params.id) : undefined,
-        type: this.props.params ? Number(this.props.params.type) : undefined,
-      },
-      source2: defaultUnitSearchResult,
-      comment: '',
-      statUnitType: this.props.params ? Number(this.props.params.type) : undefined,
-      isDeleted: true,
+function DeleteLink({ localize, deleteLink, isLoading, params }) {
+  const [data, setData] = useState({
+    source1: {
+      ...defaultUnitSearchResult,
+      id: params ? Number(params.id) : undefined,
+      type: params ? Number(params.type) : undefined,
     },
+    source2: defaultUnitSearchResult,
+    comment: '',
+    statUnitType: params ? Number(params.type) : undefined,
+    isDeleted: true,
+  })
+
+  useEffect(() => {
+    setData(prevData => ({
+      ...prevData,
+      source1: {
+        ...prevData.source1,
+        id: params ? Number(params.id) : undefined,
+        type: params ? Number(params.type) : undefined,
+      },
+      statUnitType: params ? Number(params.type) : undefined,
+    }))
+  }, [params])
+
+  const onChange = (value) => {
+    setData(value)
   }
 
-  onChange = (value) => {
-    this.setState({ data: value })
+  const onSubmit = (value) => {
+    deleteLink(value).then(() => onChange(undefined))
   }
 
-  onSubmit = (value) => {
-    const { deleteLink } = this.props
-    deleteLink(value).then(() => this.onChange(undefined))
-  }
+  return (
+    <div>
+      <LinksForm
+        data={data}
+        isLoading={isLoading}
+        onChange={onChange}
+        onSubmit={onSubmit}
+        localize={localize}
+        submitButtonText="ButtonDelete"
+        submitButtonColor="red"
+      />
+    </div>
+  )
+}
 
-  render() {
-    const { localize, isLoading } = this.props
-    const { data } = this.state
-    return (
-      <div>
-        <LinksForm
-          data={data}
-          isLoading={isLoading}
-          onChange={this.onChange}
-          onSubmit={this.onSubmit}
-          localize={localize}
-          submitButtonText="ButtonDelete"
-          submitButtonColor="red"
-        />
-      </div>
-    )
-  }
+DeleteLink.propTypes = {
+  localize: func.isRequired,
+  deleteLink: func.isRequired,
+  isLoading: bool.isRequired,
+  params: shape({
+    id: string,
+    type: string,
+  }),
+}
+
+DeleteLink.defaultProps = {
+  params: undefined,
 }
 
 export default DeleteLink

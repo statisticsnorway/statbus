@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Loader } from 'semantic-ui-react'
@@ -33,60 +33,36 @@ const getExpandedKeys = (tree) => {
 
 const filterTreeNode = node => node.props.node.highlight
 
-class LinksTree extends React.Component {
-  static propTypes = {
-    filter: shape({}).isRequired,
-    localize: func.isRequired,
-    getUnitsTree: func.isRequired,
-    getUnitLinks: func.isRequired,
-    getNestedLinks: func.isRequired,
-  }
+function LinksTree({ filter, localize, getUnitsTree, getUnitLinks, getNestedLinks }) {
+  const [tree, setTree] = useState([])
+  const [selectedKeys, setSelectedKeys] = useState([])
+  const [expandedKeys, setExpandedKeys] = useState([])
+  const [links, setLinks] = useState([])
+  const [isLoading, setIsLoading] = useState(undefined)
 
-  state = {
-    tree: [],
-    selectedKeys: [],
-    expandedKeys: [],
-    links: [],
-    isLoading: undefined,
-  }
+  useEffect(() => {
+    fetchUnitsTree(filter)
+  }, [filter])
 
-  componentDidMount() {
-    this.fetchUnitsTree(this.props.filter)
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.filter, this.props.filter)) {
-      this.fetchUnitsTree(nextProps.filter)
-    }
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return !equals(this.props, nextProps) || !equals(this.state, nextState)
-  }
-
-  onLoadData = ({ props: { node } }) =>
+  const onLoadData = ({ props: { node } }) =>
     node.children !== null
       ? new Promise((resolve) => {
         resolve()
       })
-      : this.props
-        .getNestedLinks({ id: node.id, type: node.type })
+      : getNestedLinks({ id: node.id, type: node.type })
         .then((resp) => {
-          this.setState(s => ({
-            tree: patchTree(s.tree, node, resp),
-            expandedKeys:
-                resp.length === 0
-                  ? s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`)
-                  : s.expandedKeys,
-          }))
+          setTree(prevTree => patchTree(prevTree, node, resp))
+          setExpandedKeys(prevExpandedKeys =>
+            resp.length === 0
+              ? prevExpandedKeys.filter(v => v !== `${node.id}-${node.type}`)
+              : prevExpandedKeys)
         })
         .catch(() => {
-          this.setState(s => ({
-            expandedKeys: s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`),
-          }))
+          setExpandedKeys(prevExpandedKeys =>
+            prevExpandedKeys.filter(v => v !== `${node.id}-${node.type}`))
         })
 
-  onSelect = (
+  const onSelect = (
     keys,
     {
       node: {
@@ -96,75 +72,72 @@ class LinksTree extends React.Component {
       },
     },
   ) => {
-    this.setState({ selectedKeys: keys, links: [] })
+    setSelectedKeys(keys)
+    setLinks([])
     window.open(`/statunits/view/${type}/${id}`, '_blank')
   }
 
-  onExpand = (expandedKeys) => {
-    this.setState({ expandedKeys })
+  const onExpand = (newExpandedKeys) => {
+    setExpandedKeys(newExpandedKeys)
   }
 
-  fetchUnitsTree(filter) {
-    const setResultState = (resp) => {
-      this.setState({
-        isLoading: false,
-        tree: resp,
-        expandedKeys: getExpandedKeys(resp),
-        selectedKeys: [],
-        links: [],
+  const fetchUnitsTree = (filter) => {
+    setIsLoading(true)
+    getUnitsTree(filter)
+      .then((resp) => {
+        setTree(resp)
+        setExpandedKeys(getExpandedKeys(resp))
+        setSelectedKeys([])
+        setLinks([])
+        setIsLoading(false)
       })
-    }
-
-    this.setState(
-      {
-        isLoading: true,
-      },
-      () => {
-        this.props
-          .getUnitsTree(filter)
-          .then(setResultState)
-          .catch(() => setResultState([]))
-      },
-    )
+      .catch(() => {
+        setTree([])
+        setIsLoading(false)
+      })
   }
 
-  renderChildren(nodes) {
-    return nodes.map((node) => {
+  const renderChildren = nodes =>
+    nodes.map((node) => {
       const props = {
         key: `${node.id}-${node.type}`,
-        title: <UnitNode localize={this.props.localize} {...node} />,
+        title: <UnitNode localize={localize} {...node} />,
         node,
       }
       if (node.children !== null) {
         if (node.children.length === 0) props.isLeaf = true
-        else props.children = this.renderChildren(node.children)
+        else props.children = renderChildren(node.children)
       }
       return <Tree.TreeNode {...props} />
     })
-  }
 
-  render() {
-    const { tree, selectedKeys, expandedKeys, isLoading } = this.state
-    return isLoading ? (
-      <Loader active inline="centered" />
-    ) : (
-      <div>
-        {tree.length !== 0 && (
-          <Tree
-            autoExpandParent={false}
-            selectedKeys={selectedKeys}
-            expandedKeys={expandedKeys}
-            onSelect={this.onSelect}
-            onExpand={this.onExpand}
-            filterTreeNode={filterTreeNode}
-            loadData={this.onLoadData}
-          >
-            {this.renderChildren(tree)}
-          </Tree>
-        )}
-      </div>
-    )
-  }
+  return isLoading ? (
+    <Loader active inline="centered" />
+  ) : (
+    <div>
+      {tree.length !== 0 && (
+        <Tree
+          autoExpandParent={false}
+          selectedKeys={selectedKeys}
+          expandedKeys={expandedKeys}
+          onSelect={onSelect}
+          onExpand={onExpand}
+          filterTreeNode={filterTreeNode}
+          loadData={onLoadData}
+        >
+          {renderChildren(tree)}
+        </Tree>
+      )}
+    </div>
+  )
+}
+
+LinksTree.propTypes = {
+  filter: shape({}).isRequired,
+  localize: func.isRequired,
+  getUnitsTree: func.isRequired,
+  getUnitLinks: func.isRequired,
+  getNestedLinks: func.isRequired,
 }
 
 export default LinksTree

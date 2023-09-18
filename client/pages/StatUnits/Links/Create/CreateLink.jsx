@@ -1,63 +1,69 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, arrayOf, shape, string, bool } from 'prop-types'
 
 import LinksGrid from '../Components/LinksGrid'
 import LinksForm from '../Components/LinkForm'
 import { defaultUnitSearchResult } from '../Components/UnitSearch'
 
-class CreateLink extends React.Component {
-  static propTypes = {
-    links: arrayOf(shape({})).isRequired,
-    isLoading: bool.isRequired,
-    params: shape({
-      id: string,
-      type: string,
-    }),
-    createLink: func.isRequired,
-    deleteLink: func.isRequired,
-    localize: func.isRequired,
-  }
-
-  static defaultProps = {
-    params: undefined,
-  }
-
-  state = {
-    data: {
-      source1: {
-        ...defaultUnitSearchResult,
-        id: this.props.params ? Number(this.props.params.id) : undefined,
-        type: this.props.params ? Number(this.props.params.type) : undefined,
-      },
-      source2: defaultUnitSearchResult,
-      comment: '',
-      statUnitType: this.props.params ? Number(this.props.params.type) : undefined,
-      isDeleted: false,
+function CreateLink({ links, isLoading, params, createLink, deleteLink, localize }) {
+  const [data, setData] = useState({
+    source1: {
+      ...defaultUnitSearchResult,
+      id: params ? Number(params.id) : undefined,
+      type: params ? Number(params.type) : undefined,
     },
+    source2: defaultUnitSearchResult,
+    comment: '',
+    statUnitType: params ? Number(params.type) : undefined,
+    isDeleted: false,
+  })
+
+  useEffect(() => {
+    setData(prevData => ({
+      ...prevData,
+      source1: {
+        ...prevData.source1,
+        id: params ? Number(params.id) : undefined,
+        type: params ? Number(params.type) : undefined,
+      },
+      statUnitType: params ? Number(params.type) : undefined,
+    }))
+  }, [params])
+
+  const onChange = (value) => {
+    setData(value)
   }
 
-  onChange = (value) => {
-    this.setState({ data: value })
-  }
+  return (
+    <div>
+      <LinksForm
+        data={data}
+        isLoading={isLoading}
+        onChange={onChange}
+        onSubmit={createLink}
+        localize={localize}
+        submitButtonText="ButtonCreate"
+        submitButtonColor="green"
+      />
+      <LinksGrid localize={localize} data={links} deleteLink={deleteLink} />
+    </div>
+  )
+}
 
-  render() {
-    const { localize, links, createLink, deleteLink, isLoading } = this.props
-    const { data } = this.state
-    return (
-      <div>
-        <LinksForm
-          data={data}
-          isLoading={isLoading}
-          onChange={this.onChange}
-          onSubmit={createLink}
-          localize={localize}
-          submitButtonText="ButtonCreate"
-          submitButtonColor="green"
-        />
-        <LinksGrid localize={localize} data={links} deleteLink={deleteLink} />
-      </div>
-    )
-  }
+CreateLink.propTypes = {
+  links: arrayOf(shape({})).isRequired,
+  isLoading: bool.isRequired,
+  params: shape({
+    id: string,
+    type: string,
+  }),
+  createLink: func.isRequired,
+  deleteLink: func.isRequired,
+  localize: func.isRequired,
+}
+
+CreateLink.defaultProps = {
+  params: undefined,
 }
 
 export default CreateLink

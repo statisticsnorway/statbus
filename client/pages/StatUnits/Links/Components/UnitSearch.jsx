@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { func, number, string, shape, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
@@ -36,185 +36,153 @@ StatUnitView.propTypes = {
   localize: func.isRequired,
 }
 
-class UnitSearch extends React.Component {
-  static propTypes = {
-    localize: func.isRequired,
-    name: string.isRequired,
-    onChange: func,
-    value: shape({
-      id: number,
-      code: string,
-      name: string,
-      type: number,
-      regId: number,
-    }),
-    disabled: bool,
-    type: number,
-    isDeleted: bool,
-  }
+function UnitSearch({ localize, name, onChange, value, disabled, type, isDeleted }) {
+  const [isLoading, setIsLoading] = useState(value.id > 0 && value.type > 0)
+  const [codes, setCodes] = useState(undefined)
 
-  static defaultProps = {
-    onChange: R.identity,
-    value: defaultUnitSearchResult,
-    disabled: false,
-    isDeleted: false,
-    type: undefined,
-  }
-
-  state = {
-    isLoading: this.props.value.id > 0 && this.props.value.type > 0,
-    codes: undefined,
-  }
-
-  componentDidMount() {
-    const { id, type } = this.props.value
+  useEffect(() => {
+    const { id, type } = value
     if (id > 0 && type > 0) {
       internalRequest({
         url: `/api/statunits/getunitbyid/${type}/${id}`,
         onSuccess: (resp) => {
           const code = resp.properties.find(p => p.name === 'statId').value
           const name = resp.properties.find(p => p.name === 'name').value
-          this.setState(
+          setCodes([
             {
-              isLoading: false,
-              codes: [
-                {
-                  'data-id': id,
-                  'data-type': type,
-                  'data-code': code,
-                  'data-name': name,
-                  title: id.toString(),
-                  localize: this.props.localize,
-                },
-              ],
+              'data-id': id,
+              'data-type': type,
+              'data-code': code,
+              'data-name': name,
+              title: id.toString(),
+              localize,
             },
-            () => {
-              this.onChange({ id, code, name, type })
-            },
-          )
+          ])
+          onChange({
+            id,
+            code,
+            name,
+            type,
+          })
+          setIsLoading(false)
         },
         onFail: () => {
-          this.setState({
-            isLoading: false,
-            codes: undefined,
-          })
+          setIsLoading(false)
+          setCodes(undefined)
         },
       })
     }
+  }, [value, localize, onChange])
+
+  useEffect(() => {
+    setIsLoading(value.id > 0 && value.type > 0)
+  }, [value])
+
+  const onCodeChange = (e, { value }) => {
+    setIsLoading(value !== '')
+    onChange({
+      ...defaultUnitSearchResult,
+      code: value,
+    })
+    if (value !== '') {
+      searchData(type, value, isDeleted)
+    }
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
-    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
-  }
-
-  onCodeChange = (e, { value }) => {
-    this.setState(
-      {
-        isLoading: value !== '',
-      },
-      () => {
-        this.onChange({
-          ...defaultUnitSearchResult,
-          code: value,
-        })
-        if (value !== '') {
-          this.searchData(this.props.type, value, this.props.isDeleted)
-        }
-      },
-    )
-  }
-
-  onChange = (value) => {
-    const { name, onChange } = this.props
-    onChange(undefined, { name, value })
-  }
-
-  searchData = debounce(
-    (type, value, isDeleted) =>
-      internalRequest({
-        url: '/api/StatUnits/SearchByStatId',
-        method: 'get',
-        queryParams:
-          this.props.name === 'source2'
-            ? { type, code: value, regId: this.props.value.regId, isDeleted }
-            : { type, code: value, isDeleted },
-        onSuccess: (resp) => {
-          const data = resp.find(v => v.code === this.props.value.code)
-          this.setState(
-            {
-              isLoading: false,
-              codes: resp.map(v => ({
-                title: v.id.toString(),
-                'data-name': v.name,
-                'data-code': v.code,
-                'data-id': v.id,
-                'data-type': v.type,
-                localize: this.props.localize,
-              })),
-            },
-            () => {
-              if (data) this.onChange(data)
-            },
-          )
-        },
-        onFail: () => {
-          this.setState({
-            isLoading: false,
-          })
-        },
-      }),
-    250,
+  const searchData = useCallback(
+    debounce(
+      (type, value, isDeleted) =>
+        internalRequest({
+          url: '/api/StatUnits/SearchByStatId',
+          method: 'get',
+          queryParams:
+            name === 'source2'
+              ? { type, code: value, regId: value.regId, isDeleted }
+              : { type, code: value, isDeleted },
+          onSuccess: (resp) => {
+            const data = resp.find(v => v.code === value.code)
+            setCodes(resp.map(v => ({
+              title: v.id.toString(),
+              'data-name': v.name,
+              'data-code': v.code,
+              'data-id': v.id,
+              'data-type': v.type,
+              localize,
+            })))
+            if (data) onChange(data)
+            setIsLoading(false)
+          },
+          onFail: () => {
+            setIsLoading(false)
+          },
+        }),
+      250,
+    ),
+    [localize, onChange, name, type, isDeleted],
   )
 
-  codeSelectHandler = (e, { result }) => {
-    const value = {
+  const codeSelectHandler = (e, { result }) => {
+    const newValue = {
       id: result['data-id'],
       code: result['data-code'],
       name: result['data-name'],
       type: result['data-type'],
     }
-    this.onChange(value)
+    onChange(newValue)
   }
 
-  render() {
-    const { localize, name, value, disabled } = this.props
-    const { isLoading, codes } = this.state
-    const unitType = statUnitTypes.get(value.type)
-    return (
-      <Form.Group>
-        <Form.Field
-          as={Search}
-          name={name}
-          loading={isLoading}
-          placeholder={localize('StatId')}
-          results={codes}
-          required
-          showNoResults={false}
-          fluid
-          onSearchChange={this.onCodeChange}
-          value={value.code}
-          onResultSelect={this.codeSelectHandler}
-          resultRenderer={StatUnitView}
-          disabled={disabled}
-          width={3}
-        />
-        <Form.Input
-          value={value.name}
-          disabled={disabled}
-          width={10}
-          placeholder={localize('Name')}
-          readOnly
-        />
-        <Form.Input
-          value={unitType !== undefined ? localize(unitType) : ''}
-          disabled={disabled}
-          width={3}
-          placeholder={localize('UnitType')}
-          readOnly
-        />
-      </Form.Group>
-    )
-  }
+  const unitType = statUnitTypes.get(value.type)
+
+  return (
+    <Form.Group>
+      <Form.Field
+        as={Search}
+        name={name}
+        loading={isLoading}
+        placeholder={localize('StatId')}
+        results={codes}
+        required
+        showNoResults={false}
+        fluid
+        onSearchChange={onCodeChange}
+        value={value.code}
+        onResultSelect={codeSelectHandler}
+        resultRenderer={StatUnitView}
+        disabled={disabled}
+        width={3}
+      />
+      <Form.Input
+        value={value.name}
+        disabled={disabled}
+        width={10}
+        placeholder={localize('Name')}
+        readOnly
+      />
+      <Form.Input
+        value={unitType !== undefined ? localize(unitType) : ''}
+        disabled={disabled}
+        width={3}
+        placeholder={localize('UnitType')}
+        readOnly
+      />
+    </Form.Group>
+  )
+}
+
+UnitSearch.propTypes = {
+  localize: func.isRequired,
+  name: string.isRequired,
+  onChange: func,
+  value: shape({
+    id: number,
+    code: string,
+    name: string,
+    type: number,
+    regId: number,
+  }),
+  disabled: bool,
+  type: number,
+  isDeleted: bool,
 }
 
 export default UnitSearch

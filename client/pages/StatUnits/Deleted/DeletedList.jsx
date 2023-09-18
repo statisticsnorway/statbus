@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, arrayOf, shape, string, number, oneOfType, bool } from 'prop-types'
 import { Item, Confirm, Modal, Button } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
@@ -9,57 +9,37 @@ import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
 
-class DeletedList extends React.Component {
-  static propTypes = {
-    actions: shape({
-      updateFilter: func.isRequired,
-      setQuery: func.isRequired,
-      fetchData: func.isRequired,
-      restore: func.isRequired,
-      clearSearchFormForDeleted: func.isRequired,
-      setSearchConditionForDeleted: func.isRequired,
-    }).isRequired,
-    formData: shape({}).isRequired,
-    statUnits: arrayOf(shape({
-      regId: number.isRequired,
-      name: string.isRequired,
-    })),
-    query: shape({
-      wildcard: string,
-      includeLiquidated: string,
-    }),
-    totalCount: oneOfType([number, string]),
-    localize: func.isRequired,
-    locale: string.isRequired,
-    isLoading: bool.isRequired,
+function DeletedList({
+  actions: {
+    updateFilter,
+    setQuery,
+    fetchData,
+    restore,
+    clearSearchFormForDeleted,
+    setSearchConditionForDeleted,
+  },
+  formData,
+  statUnits,
+  query,
+  totalCount,
+  localize,
+  locale,
+  isLoading,
+}) {
+  const [displayConfirm, setDisplayConfirm] = useState(false)
+  const [selectedUnit, setSelectedUnit] = useState(undefined)
+  const [restoreFailed, setRestoreFailed] = useState(undefined)
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleChangeForm = (name, value) => {
+    updateFilter({ [name]: value })
   }
 
-  static defaultProps = {
-    query: shape({
-      wildcard: '',
-      includeLiquidated: false,
-    }),
-    statUnits: [],
-    totalCount: 0,
-  }
-
-  state = {
-    displayConfirm: false,
-    selectedUnit: undefined,
-    restoreFailed: undefined,
-  }
-
-  handleChangeForm = (name, value) => {
-    this.props.actions.updateFilter({ [name]: value })
-  }
-
-  handleSubmitForm = (e) => {
+  const handleSubmitForm = (e) => {
     e.preventDefault()
-    const {
-      actions: { setQuery },
-      query,
-      formData,
-    } = this.props
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
       qdata.page = 1
@@ -67,108 +47,127 @@ class DeletedList extends React.Component {
     }
   }
 
-  showConfirm = (unit) => {
-    this.setState({ selectedUnit: unit, displayConfirm: true })
+  const showConfirm = (unit) => {
+    setSelectedUnit(unit)
+    setDisplayConfirm(true)
   }
 
-  setError = (message) => {
-    this.setState({ restoreFailed: message })
+  const setError = (message) => {
+    setRestoreFailed(message)
   }
 
-  clearError = () => {
-    this.setState({ restoreFailed: undefined })
+  const clearError = () => {
+    setRestoreFailed(undefined)
   }
 
-  handleConfirm = () => {
-    const unit = this.state.selectedUnit
-    const { query, formData } = this.props
+  const handleConfirm = () => {
     const queryParams = { ...query, ...formData }
-    this.setState({ selectedUnit: undefined, displayConfirm: false })
-    const unitIndex = this.props.statUnits.indexOf(unit)
-    this.props.actions.restore(unit.type, unit.regId, queryParams, unitIndex, this.setError)
+    setSelectedUnit(undefined)
+    setDisplayConfirm(false)
+    const unitIndex = statUnits.indexOf(selectedUnit)
+    restore(selectedUnit.type, selectedUnit.regId, queryParams, unitIndex, setError)
   }
 
-  handleCancel = () => {
-    this.setState({ selectedUnit: undefined, displayConfirm: false })
+  const handleCancel = () => {
+    setSelectedUnit(undefined)
+    setDisplayConfirm(false)
   }
 
-  handleResetForm = () => {
-    this.props.actions.clearSearchFormForDeleted()
-    this.props.actions.setQuery({})
+  const handleResetForm = () => {
+    clearSearchFormForDeleted()
+    setQuery({})
   }
 
-  renderConfirm = () => (
+  const renderConfirm = () => (
     <Confirm
-      open={this.state.displayConfirm}
-      header={`${this.props.localize('AreYouSure')}?`}
-      content={`${this.props.localize('UndeleteStatUnitMessage')} "${
-        this.state.selectedUnit.name
-      }"?`}
-      onConfirm={this.handleConfirm}
-      onCancel={this.handleCancel}
+      open={displayConfirm}
+      header={`${localize('AreYouSure')}?`}
+      content={`${localize('UndeleteStatUnitMessage')} "${selectedUnit.name}"?`}
+      onConfirm={handleConfirm}
+      onCancel={handleCancel}
     />
   )
 
-  renderErrorModal = () => (
+  const renderErrorModal = () => (
     <Modal
       className="errorModal"
       size="small"
-      open={this.state.restoreFailed !== undefined}
-      onClose={this.clearError}
+      open={restoreFailed !== undefined}
+      onClose={clearError}
     >
-      <Modal.Header>{this.props.localize('Error')}</Modal.Header>
-      <Modal.Content>{this.props.localize(this.state.restoreFailed)}</Modal.Content>
+      <Modal.Header>{localize('Error')}</Modal.Header>
+      <Modal.Content>{localize(restoreFailed)}</Modal.Content>
       <Modal.Actions>
-        <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
+        <Button primary onClick={clearError} content={localize('Ok')} />
       </Modal.Actions>
     </Modal>
   )
 
-  renderRow = item => (
+  const renderRow = item => (
     <ListItem
       key={`${item.regId}_${item.type}`}
       statUnit={item}
-      restore={this.showConfirm}
-      localize={this.props.localize}
+      restore={showConfirm}
+      localize={localize}
     />
   )
 
-  render() {
-    const {
-      formData,
-      localize,
-      totalCount,
-      statUnits,
-      isLoading,
-      locale,
-      actions: { setSearchConditionForDeleted, updateFilter },
-    } = this.props
-    const searchFormErrors = getSearchFormErrors(formData, localize)
+  return (
+    <div className={styles.root}>
+      {displayConfirm && renderConfirm()}
+      {renderErrorModal()}
+      <h2>{localize('SearchDeletedStatisticalUnits')}</h2>
+      <SearchForm
+        formData={formData}
+        onChange={handleChangeForm}
+        onSubmit={handleSubmitForm}
+        onReset={handleResetForm}
+        setSearchCondition={setSearchConditionForDeleted}
+        locale={locale}
+        errors={getSearchFormErrors(formData, localize)}
+        localize={localize}
+        disabled={isLoading}
+      />
+      <Paginate totalCount={Number(totalCount)} updateFilter={updateFilter}>
+        <Item.Group divided className={styles.items}>
+          {statUnits.map(renderRow)}
+        </Item.Group>
+      </Paginate>
+    </div>
+  )
+}
 
-    return (
-      <div className={styles.root}>
-        {this.state.displayConfirm && this.renderConfirm()}
-        {this.renderErrorModal()}
-        <h2>{localize('SearchDeletedStatisticalUnits')}</h2>
-        <SearchForm
-          formData={formData}
-          onChange={this.handleChangeForm}
-          onSubmit={this.handleSubmitForm}
-          onReset={this.handleResetForm}
-          setSearchCondition={setSearchConditionForDeleted}
-          locale={locale}
-          errors={searchFormErrors}
-          localize={localize}
-          disabled={isLoading}
-        />
-        <Paginate totalCount={Number(totalCount)} updateFilter={updateFilter}>
-          <Item.Group divided className={styles.items}>
-            {statUnits.map(this.renderRow)}
-          </Item.Group>
-        </Paginate>
-      </div>
-    )
-  }
+DeletedList.propTypes = {
+  actions: shape({
+    updateFilter: func.isRequired,
+    setQuery: func.isRequired,
+    fetchData: func.isRequired,
+    restore: func.isRequired,
+    clearSearchFormForDeleted: func.isRequired,
+    setSearchConditionForDeleted: func.isRequired,
+  }).isRequired,
+  formData: shape({}).isRequired,
+  statUnits: arrayOf(shape({
+    regId: number.isRequired,
+    name: string.isRequired,
+  })),
+  query: shape({
+    wildcard: string,
+    includeLiquidated: string,
+  }),
+  totalCount: oneOfType([number, string]),
+  localize: func.isRequired,
+  locale: string.isRequired,
+  isLoading: bool.isRequired,
+}
+
+DeletedList.defaultProps = {
+  query: {
+    wildcard: '',
+    includeLiquidated: false,
+  },
+  statUnits: [],
+  totalCount: 0,
 }
 
 export default DeletedList
