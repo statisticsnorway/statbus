@@ -16,11 +16,7 @@ namespace nscreg.Data
     /// </summary>
     public class DbContextHelper : IDesignTimeDbContextFactory<NSCRegDbContext>
     {
-        private readonly IConfiguration _configuration;
-        public DbContextHelper(IConfiguration configuration)
-        {
-            _configuration = configuration;
-        }
+        private IConfiguration _configuration;
 
         /// <summary>
         /// DB context configuration method
@@ -57,7 +53,21 @@ namespace nscreg.Data
 
         public NSCRegDbContext CreateDbContext(string[] args)
         {
-            var config = _configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            var configBuilder = new ConfigurationBuilder();
+            var baseDirectory = AppContext.BaseDirectory;
+            var appsettingsSharedPath = Path.Combine(
+                baseDirectory,
+                "..", "..","..","..","..",
+                "appsettings.Shared.json");
+
+            configBuilder
+                .SetBasePath(baseDirectory)
+                .AddJsonFile(appsettingsSharedPath, true);
+
+            _configuration = configBuilder.Build();
+            var config = _configuration.GetSection(nameof(ConnectionSettings))
+                .Get<ConnectionSettings>();
+
             return Create(config);
         }
 
