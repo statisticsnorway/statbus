@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, func, string, bool } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
-const CheckField = ({
+function CheckField({
   id: ambiguousId,
   name: ambiguousName,
   value,
@@ -15,7 +15,7 @@ const CheckField = ({
   localize,
   popuplocalizedKey,
   ...restProps
-}) => {
+}) {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
   const id =
