@@ -18,6 +18,28 @@ namespace nscreg.Data
     {
         private IConfiguration _configuration;
 
+        public DbContextHelper(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
+        // Used by `dotnet ef` commands to get the database context.
+        public DbContextHelper()
+        {
+            var configBuilder = new ConfigurationBuilder();
+            var baseDirectory = AppContext.BaseDirectory;
+            var appsettingsSharedPath = Path.Combine(
+                baseDirectory,
+                "..", "..","..","..","..",
+                "appsettings.Shared.json");
+
+            configBuilder
+                .SetBasePath(baseDirectory)
+                .AddJsonFile(appsettingsSharedPath, true);
+
+            _configuration = configBuilder.Build();
+        }
+
         /// <summary>
         /// DB context configuration method
         /// </summary>
@@ -53,18 +75,6 @@ namespace nscreg.Data
 
         public NSCRegDbContext CreateDbContext(string[] args)
         {
-            var configBuilder = new ConfigurationBuilder();
-            var baseDirectory = AppContext.BaseDirectory;
-            var appsettingsSharedPath = Path.Combine(
-                baseDirectory,
-                "..", "..","..","..","..",
-                "appsettings.Shared.json");
-
-            configBuilder
-                .SetBasePath(baseDirectory)
-                .AddJsonFile(appsettingsSharedPath, true);
-
-            _configuration = configBuilder.Build();
             var config = _configuration.GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>();
 
