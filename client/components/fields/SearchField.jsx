@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { arrayOf, func, string, oneOfType, number, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
-
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { internalRequest } from 'helpers/request'
@@ -18,7 +17,7 @@ const getSearchData = (name) => {
     case 'reorgReferences':
       return sources.reorgReferences
     default:
-      throw new Error(`SearchField couldn't find search source for given name: "${name}"`)
+      throw new Error(`SearchField couldn't find search source for the given name: "${name}"`)
   }
 }
 

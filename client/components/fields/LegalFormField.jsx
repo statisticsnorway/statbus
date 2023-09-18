@@ -1,5 +1,5 @@
-import React from 'react'
-import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
+import React, { useState, useEffect } from 'react'
+import PropTypes, { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
 import { Message, Select as SemanticUiSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
@@ -54,88 +54,107 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-class LegalFormField extends React.Component {
-  static propTypes = {
-    name: string.isRequired,
-    value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
-    onChange: func.isRequired,
-    onBlur: func,
-    errors: arrayOf(string),
-    label: string,
-    title: string,
-    placeholder: string,
-    multiselect: bool,
-    required: bool,
-    touched: bool,
-    disabled: bool,
-    inline: bool,
-    width: numOrStr,
-    createOptionComponent: func,
-    localize: func.isRequired,
-    locale: string.isRequired,
-    popuplocalizedKey: string,
-    pageSize: number,
-    waitTime: number,
-    lookup: number,
-    responseToOption: func,
-    options: arrayOf(shape({
-      value: numOrStr.isRequired,
-      text: numOrStr.isRequired,
-    })),
+function LegalFormField(props) {
+  const {
+    name,
+    value: initialValue,
+    onChange,
+    onBlur,
+    errors: errorKeys,
+    label: labelKey,
+    title: titleKey,
+    placeholder: placeholderKey,
+    multiselect,
+    required,
+    touched,
+    disabled,
+    inline,
+    width,
+    createOptionComponent,
+    localize,
+    popuplocalizedKey,
+    pageSize,
+    waitTime,
+    lookup,
+    responseToOption,
+    options,
+  } = props
+
+  const [value, setValue] = useState(hasValue(initialValue) ? initialValue : multiselect ? [] : notSelected.value)
+  const [optionsFetched, setOptionsFetched] = useState(false)
+  const [optionsState, setOptionsState] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [page, setPage] = useState(0)
+  const [wildcard, setWildcard] = useState('')
+
+  const handleAsyncSelect = (data) => {
+    const raw = data !== null ? data : { value: notSelected.value }
+    const newValue = multiselect ? raw.map(x => x.value) : raw.value
+    if (!R.equals(value, newValue)) {
+      setValue(newValue)
+      onChange(undefined, { ...props, value }, data)
+    }
   }
 
-  static defaultProps = {
-    value: null,
-    onBlur: R.identity,
-    label: null,
-    title: null,
-    placeholder: null,
-    multiselect: false,
-    required: false,
-    errors: [],
-    disabled: false,
-    inline: false,
-    width: null,
-    createOptionComponent: NameCodeOption.render,
-    pageSize: 10,
-    waitTime: 250,
-    lookup: null,
-    responseToOption: NameCodeOption.transform,
-    options: null,
-    touched: false,
-    popuplocalizedKey: null,
+  const handlePlainSelect = (event, { value: newValue, ...data }) => {
+    const nextData = { ...data, ...props, value: newValue }
+    if (!R.equals(value, newValue)) {
+      setValue(newValue)
+      onChange(event, nextData)
+    }
   }
 
-  state = {
-    initialValue: this.props.multiselect ? [] : null,
-    value: hasValue(this.props.value)
-      ? this.props.value
-      : this.props.multiselect
-        ? []
-        : notSelected.value,
-    optionsFetched: false,
-    options: [],
-    isLoading: false,
-    page: 0,
-    wildcard: '',
+  const handleInputChange = (newValue) => {
+    if (newValue && lookup !== null) {
+      setIsLoading(true)
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page: 0, pageSize, wildcard: newValue },
+        method: 'get',
+        onSuccess: (data) => {
+          let newOptions = [...data]
+          if (responseToOption) newOptions = newOptions.map(responseToOption)
+          setOptionsState(optionsState.concat(newOptions))
+          setPage(page + 1)
+          setIsLoading(false)
+        },
+      })
+    }
   }
 
-  componentDidMount() {
-    if (hasValue(this.props.options)) return
-    const { value: ids, lookup, multiselect, responseToOption } = this.props
+  const loadOptions = () => {
+    if (!isLoading) {
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page, pageSize, wildcard },
+        method: 'get',
+        onSuccess: (data) => {
+          let newOptions = [...data]
+          if (responseToOption) newOptions = newOptions.map(responseToOption)
+          setOptionsState(optionsState.concat(newOptions))
+          setPage(page + 1)
+        },
+      })
+    }
+  }
+
+  const handleLoadOptions = debounce(loadOptions, waitTime)
+
+  useEffect(() => {
+    if (hasValue(options)) return
+
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
-      queryParams: { ids },
+      queryParams: { ids: initialValue },
       method: 'get',
-      onSuccess: (value) => {
-        if (hasValue(value)) {
-          this.setState({
-            value: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
-            initialValue: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
-          })
+      onSuccess: (data) => {
+        if (hasValue(data)) {
+          setValue(multiselect ? data.map(responseToOption) : responseToOption(data[0]))
+          props.onChange(undefined, { ...props, value: data })
         }
       },
     })
+
     fetch(`/api/lookup/paginated/${lookup}?page=0&pageSize=10`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -143,201 +162,156 @@ class LegalFormField extends React.Component {
     })
       .then(resp => resp.json())
       .then((result) => {
-        const options =
+        const newOptions =
           Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
-        this.setState({ options, isLoading: false, page: this.state.page + 1 })
+        setOptionsState(newOptions)
+        setIsLoading(false)
+        setPage(page + 1)
       })
-  }
+  }, [])
 
-  componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption, isEdit } = this.props
-    const { value, initialValue } = this.state
+  useEffect(() => {
     const ids =
-      isEdit && R.is(Array, nextProps.value)
+      props.isEdit && R.is(Array, props.value)
         ? R.is(Array, initialValue) && initialValue.map(x => x.id)
         : initialValue && initialValue.id
-    if (isEdit && R.equals(ids, nextProps.value)) {
-      this.setState({ value: initialValue })
+    if (props.isEdit && R.equals(ids, props.value)) {
+      setValue(initialValue)
     }
-    if (!R.equals(nextProps.value && value)) {
-      this.setState({ value: nextProps.value })
+    if (!R.equals(props.value && value)) {
+      setValue(props.value)
     }
-    if (nextProps.value === 0 || nextProps.value.length === 0 || nextProps.value[0] === 0) {
-      this.setState({ value: '' })
+    if (props.value === 0 || props.value.length === 0 || props.value[0] === 0) {
+      setValue('')
     }
-    if (nextProps.locale !== locale) {
-      this.setState({
-        value: multiselect ? value.map(responseToOption) : responseToOption(value),
-        options: this.state.options.map(responseToOption),
-      })
+    if (props.locale !== props.locale) {
+      setValue(multiselect ? value.map(responseToOption) : responseToOption(value))
+      setOptionsState(optionsState.map(responseToOption))
     }
-  }
+  }, [props.value])
 
-  componentWillUnmount() {
-    this.handleLoadOptions.cancel()
-  }
+  const hasErrors = touched && hasValue(errorKeys)
+  const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
+  const title = titleKey ? localize(titleKey) : label
+  const placeholder = placeholderKey ? localize(placeholderKey) : label
+  const hasOptions = hasValue(options)
 
-  loadOptions = () => {
-    const { lookup, pageSize, multiselect, required, responseToOption } = this.props
-    const { wildcard, page, isLoading } = this.state
+  const Select = hasOptions ? SemanticUiSelect : ReactSelect
 
-    if (!isLoading) {
-      internalRequest({
-        url: `/api/lookup/paginated/${lookup}`,
-        queryParams: { page, pageSize, wildcard },
-        method: 'get',
-        onSuccess: (data) => {
-          let options = [...data]
-
-          if (responseToOption) options = options.map(responseToOption)
-          this.setState({
-            options: this.state.options.concat(options),
-            page: this.state.page + 1,
-          })
-        },
-      })
-    }
-  }
-
-  handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
-
-  handleAsyncSelect = (data) => {
-    const { multiselect, onChange, responseToOption } = this.props
-    const raw = data !== null ? data : { value: notSelected.value }
-    const value = multiselect ? raw.map(x => x.value) : raw.value
-    if (!R.equals(this.state.value, value)) {
-      this.setState(
-        {
-          value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
-        },
-        () => onChange(undefined, { ...this.props, value }, data),
-      )
-    }
-  }
-
-  handlePlainSelect = (event, { value, ...data }) => {
-    const nextData = { ...data, ...this.props, value }
-    if (!R.equals(this.state.value, value)) {
-      this.setState({ value }, () => this.props.onChange(event, nextData))
-    }
-  }
-
-  handleInputChange = (newValue) => {
-    const { lookup, pageSize, responseToOption } = this.props
-
-    if (newValue && lookup !== null) {
-      this.setState({ isLoading: true })
-
-      internalRequest({
-        url: `/api/lookup/paginated/${lookup}`,
-        queryParams: { page: 0, pageSize, wildcard: newValue },
-        method: 'get',
-        onSuccess: (data) => {
-          let options = [...data]
-
-          if (responseToOption) options = options.map(responseToOption)
-          this.setState({
-            options,
-            page: 0,
-            isLoading: false,
-          })
-        },
-      })
-    }
-  }
-
-  render() {
-    const {
-      name,
-      label: labelKey,
-      touched,
-      errors: errorKeys,
-      options,
-      multiselect,
-      title: titleKey,
-      placeholder: placeholderKey,
-      createOptionComponent,
+  const ownProps = hasOptions
+    ? {
+      onChange: handlePlainSelect,
+      error: hasErrors,
+      multiple: multiselect,
+      options:
+          multiselect || !required
+            ? options
+            : [
+              {
+                value: notSelected.value,
+                text: localize(notSelected.text),
+              },
+              ...options,
+            ],
       required,
-      disabled,
+      title,
       inline,
       width,
-      onBlur,
-      localize,
-      popuplocalizedKey,
-    } = this.props
-    const hasErrors = touched && hasValue(errorKeys)
-    const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
-    const title = titleKey ? localize(titleKey) : label
-    const placeholder = placeholderKey ? localize(placeholderKey) : label
-    const hasOptions = hasValue(options)
-    const [Select, ownProps] = hasOptions
-      ? [
-        SemanticUiSelect,
-        {
-          onChange: this.handlePlainSelect,
-          error: hasErrors,
-          multiple: multiselect,
-          options:
-              multiselect || !required
-                ? options
-                : [
-                  {
-                    value: notSelected.value,
-                    text: localize(notSelected.text),
-                  },
-                  ...options,
-                ],
-          required,
-          title,
-          inline,
-          width,
-        },
-      ]
-      : [
-        ReactSelect,
-        {
-          onChange: this.handleAsyncSelect,
-          loadOptions: this.loadOptions,
-          valueComponent: multiselect
-            ? createRemovableValueComponent(localize)
-            : createValueComponent(localize),
-          optionRenderer: createOptionComponent,
-          inputProps: { type: 'react-select', name },
-          className: hasErrors ? 'react-select--error' : '',
-          multi: multiselect,
-          backspaceRemoves: true,
-          searchable: true,
-          pagination: true,
-          isLoading: this.state.isLoading,
-          onMenuScrollToBottom: this.loadOptions,
-          onInputChange: this.handleInputChange,
-        },
-      ]
-    const className = `field${!hasOptions && required ? ' required' : ''}`
-    return (
-      <div
-        className={className}
-        style={{ opacity: `${disabled ? 0.25 : 1}` }}
-        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
-        data-position="top left"
-      >
-        {label !== undefined && <label htmlFor={name}>{label}</label>}
-        <Select
-          {...ownProps}
-          value={this.state.value}
-          options={this.state.options}
-          onBlur={onBlur}
-          name={name}
-          placeholder={placeholder}
-          disabled={disabled}
-          openOnFocus
-        />
-        {hasErrors && (
-          <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
-        )}
-      </div>
-    )
-  }
+    }
+    : {
+      onChange: handleAsyncSelect,
+      loadOptions: handleLoadOptions,
+      valueComponent: multiselect
+        ? createRemovableValueComponent(localize)
+        : createValueComponent(localize),
+      optionRenderer: createOptionComponent,
+      inputProps: { type: 'react-select', name },
+      className: hasErrors ? 'react-select--error' : '',
+      multi: multiselect,
+      backspaceRemoves: true,
+      searchable: true,
+      pagination: true,
+      isLoading,
+      onMenuScrollToBottom: handleLoadOptions,
+      onInputChange: handleInputChange,
+    }
+
+  const className = `field${!hasOptions && required ? ' required' : ''}`
+
+  return (
+    <div
+      className={className}
+      style={{ opacity: `${disabled ? 0.25 : 1}` }}
+      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+      data-position="top left"
+    >
+      {label !== undefined && <label htmlFor={name}>{label}</label>}
+      <Select
+        {...ownProps}
+        value={value}
+        options={optionsState}
+        onBlur={onBlur}
+        name={name}
+        placeholder={placeholder}
+        disabled={disabled}
+        openOnFocus
+      />
+      {hasErrors && (
+        <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
+      )}
+    </div>
+  )
+}
+
+LegalFormField.propTypes = {
+  name: string.isRequired,
+  value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
+  onChange: func.isRequired,
+  onBlur: func,
+  errors: arrayOf(string),
+  label: string,
+  title: string,
+  placeholder: string,
+  multiselect: bool,
+  required: bool,
+  touched: bool,
+  disabled: bool,
+  inline: bool,
+  width: numOrStr,
+  createOptionComponent: func,
+  localize: func.isRequired,
+  locale: string.isRequired,
+  popuplocalizedKey: string,
+  pageSize: number,
+  waitTime: number,
+  lookup: number,
+  responseToOption: func,
+  options: arrayOf(shape({
+    value: numOrStr.isRequired,
+    text: numOrStr.isRequired,
+  })),
+}
+
+LegalFormField.defaultProps = {
+  value: null,
+  onBlur: R.identity,
+  label: null,
+  title: null,
+  placeholder: null,
+  multiselect: false,
+  required: false,
+  errors: [],
+  disabled: false,
+  inline: false,
+  width: null,
+  createOptionComponent: NameCodeOption.render,
+  pageSize: 10,
+  waitTime: 250,
+  lookup: null,
+  responseToOption: NameCodeOption.transform,
+  options: null,
+  touched: false,
+  popuplocalizedKey: null,
 }
 
 export default LegalFormField
