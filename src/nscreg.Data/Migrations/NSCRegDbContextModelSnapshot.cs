@@ -138,7 +138,7 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("Employees");
 
-                    b.Property<DateTime>("IdDate")
+                    b.Property<DateTimeOffset>("IdDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("Id_Date");
 
@@ -151,7 +151,7 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("Updated_By");
 
-                    b.Property<DateTime>("UpdatedDate")
+                    b.Property<DateTimeOffset>("UpdatedDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("Updated_Date");
 
@@ -316,10 +316,10 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ErrorValues")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("IssuedAt")
+                    b.Property<DateTimeOffset>("IssuedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("ResolvedAt")
+                    b.Property<DateTimeOffset?>("ResolvedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SummaryMessages")
@@ -343,20 +343,20 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Comment")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("ServerEndPeriod")
+                    b.Property<DateTimeOffset?>("ServerEndPeriod")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("ServerStartPeriod")
+                    b.Property<DateTimeOffset?>("ServerStartPeriod")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("UserEndPeriod")
+                    b.Property<DateTimeOffset>("UserEndPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("UserStartPeriod")
+                    b.Property<DateTimeOffset>("UserStartPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
@@ -547,7 +547,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("EndImportDate")
+                    b.Property<DateTimeOffset?>("EndImportDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Note")
@@ -556,7 +556,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("SkipLinesCount")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("StartImportDate")
+                    b.Property<DateTimeOffset?>("StartImportDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
@@ -585,7 +585,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("DataSourceQueueId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("EndImportDate")
+                    b.Property<DateTimeOffset?>("EndImportDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Errors")
@@ -600,7 +600,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("SerializedUnit")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("StartImportDate")
+                    b.Property<DateTimeOffset?>("StartImportDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("StatUnitName")
@@ -681,13 +681,13 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("Employees")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("EmployeesDate")
+                    b.Property<DateTimeOffset?>("EmployeesDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EmployeesYear")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("EndPeriod")
+                    b.Property<DateTimeOffset>("EndPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EntGroupTypeId")
@@ -696,7 +696,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ExternalId")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("ExternalIdDate")
+                    b.Property<DateTimeOffset?>("ExternalIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalIdType")
@@ -708,10 +708,10 @@ namespace nscreg.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime?>("LiqDateEnd")
+                    b.Property<DateTimeOffset?>("LiqDateEnd")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("LiqDateStart")
+                    b.Property<DateTimeOffset?>("LiqDateStart")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LiqReason")
@@ -730,16 +730,16 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("PostalAddressId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("RegIdDate")
+                    b.Property<DateTimeOffset>("RegIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("RegistrationDate")
+                    b.Property<DateTimeOffset>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("RegistrationReasonId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("ReorgDate")
+                    b.Property<DateTimeOffset?>("ReorgDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ReorgReferences")
@@ -757,16 +757,16 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("SizeId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("StartPeriod")
+                    b.Property<DateTimeOffset>("StartPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("StatId")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("StatIdDate")
+                    b.Property<DateTimeOffset?>("StatIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("StatusDate")
+                    b.Property<DateTimeOffset>("StatusDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SuspensionEnd")
@@ -775,7 +775,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("SuspensionStart")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("TaxRegDate")
+                    b.Property<DateTimeOffset?>("TaxRegDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TaxRegId")
@@ -787,7 +787,7 @@ namespace nscreg.Data.Migrations
                     b.Property<decimal?>("Turnover")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime?>("TurnoverDate")
+                    b.Property<DateTimeOffset?>("TurnoverDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("TurnoverYear")
@@ -939,7 +939,7 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("Employees");
 
-                    b.Property<DateTime>("IdDate")
+                    b.Property<DateTimeOffset>("IdDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("Id_Date");
 
@@ -955,7 +955,7 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("Updated_By");
 
-                    b.Property<DateTime>("UpdatedDate")
+                    b.Property<DateTimeOffset>("UpdatedDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("Updated_Date");
 
@@ -1039,13 +1039,13 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("Employees")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("EmployeesDate")
+                    b.Property<DateTimeOffset?>("EmployeesDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EmployeesYear")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("EndPeriod")
+                    b.Property<DateTimeOffset>("EndPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EntGroupTypeId")
@@ -1054,7 +1054,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ExternalId")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("ExternalIdDate")
+                    b.Property<DateTimeOffset?>("ExternalIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalIdType")
@@ -1066,10 +1066,10 @@ namespace nscreg.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime?>("LiqDateEnd")
+                    b.Property<DateTimeOffset?>("LiqDateEnd")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("LiqDateStart")
+                    b.Property<DateTimeOffset?>("LiqDateStart")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LiqReason")
@@ -1091,16 +1091,16 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("PostalAddressId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("RegIdDate")
+                    b.Property<DateTimeOffset>("RegIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("RegistrationDate")
+                    b.Property<DateTimeOffset>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("RegistrationReasonId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("ReorgDate")
+                    b.Property<DateTimeOffset?>("ReorgDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ReorgReferences")
@@ -1118,16 +1118,16 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("SizeId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("StartPeriod")
+                    b.Property<DateTimeOffset>("StartPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("StatId")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("StatIdDate")
+                    b.Property<DateTimeOffset?>("StatIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("StatusDate")
+                    b.Property<DateTimeOffset>("StatusDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SuspensionEnd")
@@ -1136,7 +1136,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("SuspensionStart")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("TaxRegDate")
+                    b.Property<DateTimeOffset?>("TaxRegDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TaxRegId")
@@ -1148,7 +1148,7 @@ namespace nscreg.Data.Migrations
                     b.Property<decimal?>("Turnover")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime?>("TurnoverDate")
+                    b.Property<DateTimeOffset?>("TurnoverDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("TurnoverYear")
@@ -1261,19 +1261,19 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("Employees")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("EmployeesDate")
+                    b.Property<DateTimeOffset?>("EmployeesDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EmployeesYear")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("EndPeriod")
+                    b.Property<DateTimeOffset>("EndPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalId")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("ExternalIdDate")
+                    b.Property<DateTimeOffset?>("ExternalIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalIdType")
@@ -1294,7 +1294,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("LegalFormId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("LiqDate")
+                    b.Property<DateTimeOffset?>("LiqDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LiqReason")
@@ -1323,16 +1323,16 @@ namespace nscreg.Data.Migrations
                         .HasMaxLength(25)
                         .HasColumnType("character varying(25)");
 
-                    b.Property<DateTime>("RegIdDate")
+                    b.Property<DateTimeOffset>("RegIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("RegistrationDate")
+                    b.Property<DateTimeOffset>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("RegistrationReasonId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("ReorgDate")
+                    b.Property<DateTimeOffset?>("ReorgDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("ReorgReferences")
@@ -1350,26 +1350,26 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("SizeId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("StartPeriod")
+                    b.Property<DateTimeOffset>("StartPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("StatId")
                         .HasMaxLength(15)
                         .HasColumnType("character varying(15)");
 
-                    b.Property<DateTime?>("StatIdDate")
+                    b.Property<DateTimeOffset?>("StatIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("StatusDate")
+                    b.Property<DateTimeOffset?>("StatusDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("SuspensionEnd")
+                    b.Property<DateTimeOffset?>("SuspensionEnd")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("SuspensionStart")
+                    b.Property<DateTimeOffset?>("SuspensionStart")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("TaxRegDate")
+                    b.Property<DateTimeOffset?>("TaxRegDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TaxRegId")
@@ -1381,7 +1381,7 @@ namespace nscreg.Data.Migrations
                     b.Property<decimal?>("Turnover")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime?>("TurnoverDate")
+                    b.Property<DateTimeOffset?>("TurnoverDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("TurnoverYear")
@@ -1479,7 +1479,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("BirthDate")
+                    b.Property<DateTimeOffset?>("BirthDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("CountryId")
@@ -1489,7 +1489,7 @@ namespace nscreg.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
-                    b.Property<DateTime>("IdDate")
+                    b.Property<DateTimeOffset>("IdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("MiddleName")
@@ -1801,13 +1801,13 @@ namespace nscreg.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreationDate")
+                    b.Property<DateTimeOffset>("CreationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("EditingDate")
+                    b.Property<DateTimeOffset?>("EditingDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Fields")
@@ -1817,7 +1817,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("FilePath")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("GeneratedDateTime")
+                    b.Property<DateTimeOffset?>("GeneratedDateTime")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
@@ -1924,7 +1924,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("LegalForm_desc")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("LiqDate")
+                    b.Property<DateTimeOffset?>("LiqDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("NumOfPeopleEmp")
@@ -1936,7 +1936,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("Rayon")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("RegistrationDate")
+                    b.Property<DateTimeOffset?>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool?>("Sex")
@@ -2008,7 +2008,7 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("LegalForm_desc")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("LiqDate")
+                    b.Property<DateTimeOffset?>("LiqDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("NumOfPeopleEmp")
@@ -2020,7 +2020,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("Rayon")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("RegistrationDate")
+                    b.Property<DateTimeOffset?>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool?>("Sex")
@@ -2098,7 +2098,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("LegalFormId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("LiqDate")
+                    b.Property<DateTimeOffset?>("LiqDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LiqReason")
@@ -2116,7 +2116,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("SectorCodeId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("StartPeriod")
+                    b.Property<DateTimeOffset>("StartPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TaxRegId")
@@ -2180,20 +2180,20 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("Employees")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("EmployeesDate")
+                    b.Property<DateTimeOffset?>("EmployeesDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EmployeesYear")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("EndPeriod")
+                    b.Property<DateTimeOffset>("EndPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalId")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<DateTime?>("ExternalIdDate")
+                    b.Property<DateTimeOffset?>("ExternalIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalIdType")
@@ -2215,7 +2215,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("LegalFormId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("LiqDate")
+                    b.Property<DateTimeOffset?>("LiqDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LiqReason")
@@ -2242,16 +2242,16 @@ namespace nscreg.Data.Migrations
                         .HasMaxLength(25)
                         .HasColumnType("character varying(25)");
 
-                    b.Property<DateTime>("RegIdDate")
+                    b.Property<DateTimeOffset>("RegIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("RegistrationDate")
+                    b.Property<DateTimeOffset?>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("RegistrationReasonId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("ReorgDate")
+                    b.Property<DateTimeOffset?>("ReorgDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("ReorgReferences")
@@ -2271,26 +2271,26 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("SizeId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("StartPeriod")
+                    b.Property<DateTimeOffset>("StartPeriod")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("StatId")
                         .HasMaxLength(15)
                         .HasColumnType("character varying(15)");
 
-                    b.Property<DateTime?>("StatIdDate")
+                    b.Property<DateTimeOffset?>("StatIdDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("StatusDate")
+                    b.Property<DateTimeOffset?>("StatusDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("SuspensionEnd")
+                    b.Property<DateTimeOffset?>("SuspensionEnd")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("SuspensionStart")
+                    b.Property<DateTimeOffset?>("SuspensionStart")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("TaxRegDate")
+                    b.Property<DateTimeOffset?>("TaxRegDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TaxRegId")
@@ -2304,7 +2304,7 @@ namespace nscreg.Data.Migrations
                     b.Property<decimal?>("Turnover")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime?>("TurnoverDate")
+                    b.Property<DateTimeOffset?>("TurnoverDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("TurnoverYear")
@@ -2431,7 +2431,7 @@ namespace nscreg.Data.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("CreationDate")
+                    b.Property<DateTimeOffset>("CreationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DataAccess")
@@ -2479,7 +2479,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("SuspensionDate")
+                    b.Property<DateTimeOffset?>("SuspensionDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -2543,7 +2543,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("EntGroupId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("EntGroupIdDate")
+                    b.Property<DateTimeOffset>("EntGroupIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("EntGroupRole")
@@ -2591,7 +2591,7 @@ namespace nscreg.Data.Migrations
                 {
                     b.HasBaseType("nscreg.Data.Entities.History.StatisticalUnitHistory");
 
-                    b.Property<DateTime?>("EntRegIdDate")
+                    b.Property<DateTimeOffset?>("EntRegIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EnterpriseUnitRegId")
@@ -2645,7 +2645,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("LegalUnitId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("LegalUnitIdDate")
+                    b.Property<DateTimeOffset>("LegalUnitIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasIndex("LegalUnitId");
@@ -2663,7 +2663,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("EntGroupId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("EntGroupIdDate")
+                    b.Property<DateTimeOffset?>("EntGroupIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EntGroupRoleId")
@@ -2719,7 +2719,7 @@ namespace nscreg.Data.Migrations
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
 
-                    b.Property<DateTime?>("EntRegIdDate")
+                    b.Property<DateTimeOffset?>("EntRegIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("EnterpriseUnitRegId")
@@ -2780,7 +2780,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("LegalUnitId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("LegalUnitIdDate")
+                    b.Property<DateTimeOffset?>("LegalUnitIdDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasIndex("LegalUnitId");
