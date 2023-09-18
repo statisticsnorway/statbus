@@ -9,7 +9,7 @@ import PersonView from './View'
 import PersonEdit from './Edit'
 import { getNewName } from '/client/helpers/locale'
 
-function PersonsList({
+export function PersonsList({
   localize,
   locale,
   name,
@@ -217,4 +217,3 @@ PersonsList.defaultProps = {
   regId: null,
 }
 
-export default PersonsList

@@ -4,7 +4,7 @@ import { Message, Form } from 'semantic-ui-react'
 
 import { hasValue } from '/client/helpers/validation'
 
-function NumberField({
+export function NumberField({
   value,
   onChange,
   label: labelKey,
@@ -75,5 +75,3 @@ NumberField.defaultProps = {
   type: 'number',
   popuplocalizedKey: undefined,
 }
-
-export default NumberField
