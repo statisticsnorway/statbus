@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { func, shape, string, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
@@ -34,18 +34,21 @@ function SearchInput({
     onValueSelected(data)
   }
 
-  const handleSearchChange = (e, { value }) => {
-    if (isNil(value) || isEmpty(value)) {
-      return
-    }
-    setData(prevData => ({
-      ...prevData,
-      name: value,
-    }))
-    setSearchValue(value)
-    onValueChanged(value)
-    search(value)
-  }
+  const handleSearchChange = useCallback(
+    (e, { value }) => {
+      if (isNil(value) || isEmpty(value)) {
+        return
+      }
+      setData(prevData => ({
+        ...prevData,
+        name: value,
+      }))
+      setSearchValue(value)
+      onValueChanged(value)
+      search(value)
+    },
+    [onValueChanged],
+  )
 
   const search = debounce((params) => {
     internalRequest({
