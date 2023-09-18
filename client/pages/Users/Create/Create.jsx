@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, oneOfType, bool, object } from 'prop-types'
 import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
@@ -11,333 +11,304 @@ import { distinctBy } from 'helpers/enumerable'
 import { hasValue } from 'helpers/validation'
 import styles from './styles.pcss'
 
-class Create extends React.Component {
-  static propTypes = {
-    localize: func.isRequired,
-    submitUser: func.isRequired,
-    navigateBack: func.isRequired,
-    checkExistLogin: func.isRequired,
-    loginError: oneOfType([bool, object]),
-    checkExistLoginSuccess: func.isRequired,
-  }
-
-  state = {
-    data: {
-      name: '',
-      login: '',
-      email: '',
-      phone: '',
-      password: '',
-      confirmPassword: '',
-      assignedRole: roles.admin,
-      status: 2,
-      dataAccess: {
-        localUnit: [],
-        legalUnit: [],
-        enterpriseGroup: [],
-        enterpriseUnit: [],
-      },
-      userRegions: [],
-      description: '',
-      activityCategoryIds: [],
+const Create = ({
+  localize,
+  submitUser,
+  navigateBack,
+  checkExistLogin,
+  loginError,
+  checkExistLoginSuccess,
+}) => {
+  const [data, setData] = useState({
+    name: '',
+    login: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    assignedRole: roles.admin,
+    status: 2,
+    dataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
     },
-    regionTree: undefined,
-    rolesList: [],
-    fetchingRoles: true,
-    fetchingRegions: true,
-    fetchingActivities: true,
-    rolesFailMessage: undefined,
-    activityTree: [],
-    spinner: false,
-  }
+    userRegions: [],
+    description: '',
+    activityCategoryIds: [],
+  })
 
-  componentDidMount() {
-    this.props.checkExistLoginSuccess(false)
-    this.fetchRegionTree()
-    this.fetchRoles()
-    this.fetchActivityTree()
-  }
+  const [regionTree, setRegionTree] = useState(undefined)
+  const [rolesList, setRolesList] = useState([])
+  const [fetchingRoles, setFetchingRoles] = useState(true)
+  const [fetchingRegions, setFetchingRegions] = useState(true)
+  const [fetchingActivities, setFetchingActivities] = useState(true)
+  const [rolesFailMessage, setRolesFailMessage] = useState(undefined)
+  const [activityTree, setActivityTree] = useState([])
+  const [spinner, setSpinner] = useState(false)
 
-  shouldComponentUpdate(nextProps, nextState) {
-    return (
-      this.props.localize.lang !== nextProps.localize.lang ||
-      !equals(this.props, nextProps) ||
-      !equals(this.state, nextState)
-    )
-  }
+  useEffect(() => {
+    checkExistLoginSuccess(false)
+    fetchRegionTree()
+    fetchRoles()
+    fetchActivityTree()
+  }, [])
 
-  setActivities = (activities) => {
-    this.setState(s => ({
-      data: {
-        ...s.data,
-        activityCategoryIds: activities.filter(x => x !== 'all'),
-        isAllActivitiesSelected: activities.some(x => x === 'all'),
-      },
+  useEffect(() => {
+    setRolesFailMessage(undefined)
+  }, [fetchingRoles, fetchingRegions, fetchingActivities])
+
+  const setActivities = (activities) => {
+    setData(prevData => ({
+      ...prevData,
+      activityCategoryIds: activities.filter(x => x !== 'all'),
+      isAllActivitiesSelected: activities.some(x => x === 'all'),
     }))
   }
 
-  fetchRegionTree = () =>
+  const fetchRegionTree = () => {
     internalRequest({
       url: '/api/Regions/GetAllRegionTree',
       method: 'get',
       onSuccess: (result) => {
-        this.setState({
-          regionTree: result,
-          fetchingRegions: false,
-        })
+        setRegionTree(result)
+        setFetchingRegions(false)
       },
       onFail: () => {
-        this.setState({
-          rolesFailMessage: 'failed loading regions',
-          fetchingRegions: false,
-        })
+        setRolesFailMessage('failed loading regions')
+        setFetchingRegions(false)
       },
     })
+  }
 
-  fetchRoles = () => {
+  const fetchRoles = () => {
     internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
-        this.setState({
-          rolesList: result,
-          fetchingRoles: false,
-        })
+        setRolesList(result)
+        setFetchingRoles(false)
       },
       onFail: () => {
-        this.setState({
-          rolesFailMessage: 'failed loading roles',
-          fetchingRoles: false,
-        })
+        setRolesFailMessage('failed loading roles')
+        setFetchingRoles(false)
       },
     })
   }
 
-  fetchActivityTree = (parentId = 0) => {
+  const fetchActivityTree = (parentId = 0) => {
     internalRequest({
       url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
       onSuccess: (result) => {
-        this.setState({
-          activityTree: distinctBy([...this.state.activityTree, ...result], x => x.id),
-          fetchingActivities: false,
-        })
+        setActivityTree(prevActivityTree => distinctBy([...prevActivityTree, ...result], x => x.id))
+        setFetchingActivities(false)
       },
       onFail: () => {
-        this.setState({
-          rolesFailMessage: 'failed loading activities',
-          fetchingActivities: false,
-        })
+        setRolesFailMessage('failed loading activities')
+        setFetchingActivities(false)
       },
     })
   }
 
-  handleEdit = (e, { name, value }) => {
-    this.setState(s => ({ data: { ...s.data, [name]: value } }))
+  const handleEdit = (e, { name, value }) => {
+    setData(prevData => ({ ...prevData, [name]: value }))
   }
 
-  checkExistLogin = (e) => {
+  const checkExistLoginHandler = (e) => {
     const loginName = e.target.value
-    if (loginName.length > 0) this.props.checkExistLogin(loginName)
+    if (loginName.length > 0) checkExistLogin(loginName)
   }
 
-  handleSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
-    this.setState({ spinner: true })
-    this.props.submitUser(this.state.data)
+    setSpinner(true)
+    submitUser(data)
   }
 
-  handleCheck = value => this.handleEdit(null, { name: 'userRegions', value })
+  const handleCheck = value => handleEdit(null, { name: 'userRegions', value })
 
-  render() {
-    const { localize, navigateBack, loginError } = this.props
-    const {
-      data,
-      fetchingRoles,
-      fetchingRegions,
-      fetchingActivities,
-      rolesList,
-      rolesFailMessage,
-      regionTree,
-      activityTree,
-      spinner,
-    } = this.state
-    return (
-      <div className={styles.root}>
-        <Form onSubmit={this.handleSubmit}>
-          <h2>{localize('CreateNewUser')}</h2>
-          <Form.Input
-            name="name"
-            value={data.name}
-            onChange={this.handleEdit}
-            label={localize('UserName')}
-            disabled={spinner}
-            maxLength={64}
-            placeholder="e.g. Robert Diggs"
-            autoComplete="off"
-            required
-          />
-          <Form.Input
-            name="login"
-            value={data.login}
-            onChange={this.handleEdit}
-            onBlur={this.checkExistLogin}
-            label={localize('UserLogin')}
-            disabled={spinner}
-            placeholder="e.g. rdiggs"
-            autoComplete="off"
-            required
-          />
-          {loginError && (
-            <Message size="small" visible error>
-              {localize('LoginError')}
-            </Message>
-          )}
-          <Form.Input
-            name="email"
-            value={data.email}
-            onChange={this.handleEdit}
-            type="email"
-            label={localize('UserEmail')}
-            disabled={spinner}
-            placeholder="e.g. robertdiggs@site.domain"
-            autoComplete="off"
-            required
-          />
-          <Popup
-            trigger={
-              <Form.Input
-                name="password"
-                value={data.password}
-                onChange={this.handleEdit}
-                type="password"
-                label={localize('UserPassword')}
-                disabled={spinner}
-                placeholder={localize('TypeStrongPasswordHere')}
-                autoComplete="off"
-                required
-              />
-            }
-            content={localize('PasswordLengthRestriction')}
-            open={hasValue(data.password) && data.password.length < 6}
-          />
-          <Popup
-            trigger={
-              <Form.Input
-                name="confirmPassword"
-                value={data.confirmPassword}
-                onChange={this.handleEdit}
-                type="password"
-                label={localize('ConfirmPassword')}
-                disabled={spinner}
-                placeholder={localize('TypePasswordAgain')}
-                error={data.confirmPassword !== data.password}
-                autoComplete="off"
-                required
-              />
-            }
-            content={localize('PasswordLengthRestriction')}
-            open={hasValue(data.confirmPassword) && data.confirmPassword.length < 6}
-          />
-          <Form.Input
-            name="phone"
-            value={data.phone}
-            onChange={this.handleEdit}
-            type="number"
-            label={localize('UserPhone')}
-            disabled={spinner}
-            placeholder="555123456"
-            autoComplete="off"
-          />
-          {fetchingRoles ? (
-            <Loader content="fetching roles" active />
-          ) : (
-            <Form.Select
-              name="assignedRole"
-              value={data.assignedRole}
-              onChange={this.handleEdit}
-              options={rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
-              label={localize('AssignedRoles')}
+  return (
+    <div className={styles.root}>
+      <Form onSubmit={handleSubmit}>
+        <h2>{localize('CreateNewUser')}</h2>
+        <Form.Input
+          name="name"
+          value={data.name}
+          onChange={handleEdit}
+          label={localize('UserName')}
+          disabled={spinner}
+          maxLength={64}
+          placeholder="e.g. Robert Diggs"
+          autoComplete="off"
+          required
+        />
+        <Form.Input
+          name="login"
+          value={data.login}
+          onChange={handleEdit}
+          onBlur={checkExistLoginHandler}
+          label={localize('UserLogin')}
+          disabled={spinner}
+          placeholder="e.g. rdiggs"
+          autoComplete="off"
+          required
+        />
+        {loginError && (
+          <Message size="small" visible error>
+            {localize('LoginError')}
+          </Message>
+        )}
+        <Form.Input
+          name="email"
+          value={data.email}
+          onChange={handleEdit}
+          type="email"
+          label={localize('UserEmail')}
+          disabled={spinner}
+          placeholder="e.g. robertdiggs@site.domain"
+          autoComplete="off"
+          required
+        />
+        <Popup
+          trigger={
+            <Form.Input
+              name="password"
+              value={data.password}
+              onChange={handleEdit}
+              type="password"
+              label={localize('UserPassword')}
               disabled={spinner}
-              placeholder={localize('SelectOrSearchRoles')}
+              placeholder={localize('TypeStrongPasswordHere')}
               autoComplete="off"
-              search
+              required
             />
-          )}
+          }
+          content={localize('PasswordLengthRestriction')}
+          open={hasValue(data.password) && data.password.length < 6}
+        />
+        <Popup
+          trigger={
+            <Form.Input
+              name="confirmPassword"
+              value={data.confirmPassword}
+              onChange={handleEdit}
+              type="password"
+              label={localize('ConfirmPassword')}
+              disabled={spinner}
+              placeholder={localize('TypePasswordAgain')}
+              error={data.confirmPassword !== data.password}
+              autoComplete="off"
+              required
+            />
+          }
+          content={localize('PasswordLengthRestriction')}
+          open={hasValue(data.confirmPassword) && data.confirmPassword.length < 6}
+        />
+        <Form.Input
+          name="phone"
+          value={data.phone}
+          onChange={handleEdit}
+          type="number"
+          label={localize('UserPhone')}
+          disabled={spinner}
+          placeholder="555123456"
+          autoComplete="off"
+        />
+        {fetchingRoles ? (
+          <Loader content="fetching roles" active />
+        ) : (
           <Form.Select
-            name="status"
-            value={data.status}
-            onChange={this.handleEdit}
-            options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
-            autoComplete="off"
+            name="assignedRole"
+            value={data.assignedRole}
+            onChange={handleEdit}
+            options={rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
+            label={localize('AssignedRoles')}
             disabled={spinner}
-            label={localize('UserStatus')}
-          />
-          {!fetchingRoles && data.assignedRole !== roles.admin && (
-            <ActivityTree
-              name="activityCategoryIds"
-              label="ActivityCategoryLookup"
-              dataTree={activityTree}
-              loaded={!fetchingActivities}
-              checked={data.activityCategoryIds}
-              callBack={this.setActivities}
-              disabled={spinner}
-              localize={localize}
-              loadNode={this.fetchActivityTree}
-            />
-          )}
-          {!fetchingRoles && data.assignedRole !== roles.admin && (
-            <RegionTree
-              name="RegionTree"
-              label="Regions"
-              loaded={!fetchingRegions}
-              dataTree={regionTree}
-              checked={data.userRegions}
-              callBack={this.handleCheck}
-              disabled={spinner}
-              localize={localize}
-            />
-          )}
-          <Form.Input
-            name="description"
-            value={data.description}
-            onChange={this.handleEdit}
-            label={localize('Description')}
-            disabled={spinner}
-            placeholder={localize('NSO_Employee')}
+            placeholder={localize('SelectOrSearchRoles')}
             autoComplete="off"
-            maxLength={64}
+            search
           />
-          <Button
-            content={localize('Back')}
-            onClick={navigateBack}
-            icon={<Icon size="large" name="chevron left" />}
-            size="small"
-            color="grey"
-            type="button"
+        )}
+        <Form.Select
+          name="status"
+          value={data.status}
+          onChange={handleEdit}
+          options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
+          autoComplete="off"
+          disabled={spinner}
+          label={localize('UserStatus')}
+        />
+        {!fetchingRoles && data.assignedRole !== roles.admin && (
+          <ActivityTree
+            name="activiyCategoryIds"
+            label="ActivityCategoryLookup"
+            dataTree={activityTree}
+            loaded={!fetchingActivities}
+            checked={data.activiyCategoryIds}
+            callBack={setActivities}
+            disabled={spinner}
+            localize={localize}
+            loadNode={fetchActivityTree}
           />
-          <Button
-            content={localize('Submit')}
-            type="submit"
-            disabled={
-              fetchingRoles || fetchingActivities || fetchingRegions || loginError || spinner
-            }
-            floated="right"
-            primary
+        )}
+        {!fetchingRoles && data.assignedRole !== roles.admin && (
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            loaded={!fetchingRegions}
+            dataTree={regionTree}
+            checked={data.userRegions}
+            callBack={handleCheck}
+            disabled={spinner}
+            localize={localize}
           />
-          <div className="submitUserLoader">
-            {this.state.spinner && <Loader inline active size="small" />}
+        )}
+        <Form.Input
+          name="description"
+          value={data.description}
+          onChange={handleEdit}
+          label={localize('Description')}
+          disabled={spinner}
+          placeholder={localize('NSO_Employee')}
+          autoComplete="off"
+          maxLength={64}
+        />
+        <Button
+          content={localize('Back')}
+          onClick={navigateBack}
+          icon={<Icon size="large" name="chevron left" />}
+          size="small"
+          color="grey"
+          type="button"
+        />
+        <Button
+          content={localize('Submit')}
+          type="submit"
+          disabled={fetchingRoles || fetchingActivities || fetchingRegions || loginError || spinner}
+          floated="right"
+          primary
+        />
+        <div className="submitUserLoader">{spinner && <Loader inline active size="small" />}</div>
+        {rolesFailMessage && (
+          <div>
+            <Message content={rolesFailMessage} negative />
+            <Button onClick={fetchRoles} type="button">
+              {localize('TryReloadRoles')}
+            </Button>
           </div>
-          {rolesFailMessage && (
-            <div>
-              <Message content={rolesFailMessage} negative />
-              <Button onClick={this.fetchRoles} type="button">
-                {localize('TryReloadRoles')}
-              </Button>
-            </div>
-          )}
-        </Form>
-      </div>
-    )
-  }
+        )}
+      </Form>
+    </div>
+  )
+}
+
+Create.propTypes = {
+  localize: func.isRequired,
+  submitUser: func.isRequired,
+  navigateBack: func.isRequired,
+  checkExistLogin: func.isRequired,
+  loginError: oneOfType([bool, object]),
+  checkExistLoginSuccess: func.isRequired,
 }
 
 export default Create
