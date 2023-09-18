@@ -18,14 +18,13 @@ namespace nscreg.Data
         public Startup()
         {
             var workDir = Directory.GetCurrentDirectory();
+            var appsettingsSharedPath = Path.Combine(
+                workDir,
+                "..", "..",
+                "appsettings.Shared.json");
             var builder = new ConfigurationBuilder()
                 .SetBasePath(workDir)
-                .AddJsonFile(
-                    Path.Combine(
-                        workDir,
-                        "..", "..", "..", "..",
-                        "appsettings.Shared.json"),
-                    true)
+                .AddJsonFile(appsettingsSharedPath, false)
                 //.AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>();
             Configuration = builder.Build();
