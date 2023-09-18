@@ -1,52 +1,46 @@
-import React, { Component } from 'react'
+import React, { useState } from 'react'
 import { Button, Modal, Form } from 'semantic-ui-react'
 
-export default class Authentication extends Component {
-  state = { login: '', password: '', rememberMe: true }
+const Authentication = ({ open, localize, sendAuthenticationRequest, hideAuthentication }) => {
+  const [credentials, setCredentials] = useState({ login: '', password: '', rememberMe: true })
 
-  handleChange = (e, { name, value }) => {
-    this.setState(state => ({ ...state, [name]: value }))
+  const handleChange = (e, { name, value }) => {
+    setCredentials({ ...credentials, [name]: value })
   }
 
-  sendRequest = () => {
-    this.props.sendAuthenticationRequest(this.state)
+  const sendRequest = () => {
+    sendAuthenticationRequest(credentials)
   }
 
-  render() {
-    const { open, localize } = this.props
+  return (
+    <Modal open={open} size="mini">
+      <Modal.Header content={localize('NSCRegistry')} />
+      <Modal.Content>
+        <Form>
+          <Form.Input
+            label={localize('Login')}
+            name="login"
+            value={credentials.login}
+            onChange={handleChange}
+          />
 
-    return (
-      <Modal open={open} size="mini">
-        <Modal.Header content={localize('NSCRegistry')} />
-        <Modal.Content>
-          <Form>
-            <Form.Input
-              label={localize('Login')}
-              name="login"
-              value={this.state.login}
-              onChange={this.handleChange}
-            />
-
-            <Form.Input
-              label={localize('Password')}
-              name="password"
-              type="password"
-              value={this.state.password}
-              onChange={this.handleChange}
-            />
-          </Form>
-        </Modal.Content>
-        <Modal.Actions>
-          <Button.Group>
-            <Button
-              onClick={this.props.hideAuthentication}
-              content={localize('ButtonCancel')}
-              negative
-            />
-            <Button content={localize('Submit')} onClick={this.sendRequest} positive />
-          </Button.Group>
-        </Modal.Actions>
-      </Modal>
-    )
-  }
+          <Form.Input
+            label={localize('Password')}
+            name="password"
+            type="password"
+            value={credentials.password}
+            onChange={handleChange}
+          />
+        </Form>
+      </Modal.Content>
+      <Modal.Actions>
+        <Button.Group>
+          <Button onClick={hideAuthentication} content={localize('ButtonCancel')} negative />
+          <Button content={localize('Submit')} onClick={sendRequest} positive />
+        </Button.Group>
+      </Modal.Actions>
+    </Modal>
+  )
 }
+
+export default Authentication

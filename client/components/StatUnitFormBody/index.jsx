@@ -34,44 +34,43 @@ const FormBody = ({
   locale,
   regId,
 }) => {
-  const toSection = renderSection(localize)
-  const toFieldMeta = ([key, value]) => {
-    const {
-      selector,
-      isRequired,
-      localizeKey,
-      groupName,
-      writable,
-      popupLocalizedKey,
-      ...restProps
-    } = fieldsMeta[key]
-    const props = {
-      ...restProps,
-      key,
-      fieldType: selector,
-      name: key,
-      value,
-      setFieldValue,
-      onChange: handleChange,
-      onBlur: handleBlur,
-      label: localizeKey,
-      touched: !!touched[key],
-      errors: getFieldErrors(key),
-      disabled: isSubmitting || !writable,
-      required: isRequired,
-      localize,
-      locale,
-      popuplocalizedKey: popupLocalizedKey,
-      regId,
-    }
-    return { section: groupName, props }
-  }
   const sections = pipe(
     Object.entries,
-    map(toFieldMeta),
+    map(([key, value]) => {
+      const {
+        selector,
+        isRequired,
+        localizeKey,
+        groupName,
+        writable,
+        popupLocalizedKey,
+        ...restProps
+      } = fieldsMeta[key]
+      const props = {
+        ...restProps,
+        key,
+        fieldType: selector,
+        name: key,
+        value,
+        setFieldValue,
+        onChange: handleChange,
+        onBlur: handleBlur,
+        label: localizeKey,
+        touched: !!touched[key],
+        errors: getFieldErrors(key),
+        disabled: isSubmitting || !writable,
+        required: isRequired,
+        localize,
+        locale,
+        popuplocalizedKey: popupLocalizedKey,
+        regId,
+      }
+      return { section: groupName, props }
+    }),
     getSectioned,
-    map(toSection),
+    map(renderSection(localize)),
   )(values)
+
   return <Segment.Group>{sections}</Segment.Group>
 }
 
