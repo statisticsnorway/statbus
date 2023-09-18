@@ -5,17 +5,15 @@ import { Container, Table, Button, Grid, Segment, Header } from 'semantic-ui-rea
 
 import { capitalizeFirstLetter } from 'helpers/string'
 
-const getHeaders = R.pipe(
-  R.head,
-  R.dissoc('uid'),
-  R.keys,
-)
+const getHeaders = R.pipe(R.head, R.dissoc('uid'), R.keys)
+
 const tableWrapperStyle = { maxHeight: '500px', overflow: 'auto' }
 
 const List = ({ id, sampleFrame, list, localize, error }) => {
   if (error !== undefined) return <h2>{localize(error)}</h2>
   if (list.length === 0) return <h2>{localize('Empty')}</h2>
   const headers = getHeaders(list)
+
   return (
     <Container>
       <Grid>

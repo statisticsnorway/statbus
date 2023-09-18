@@ -20,15 +20,27 @@ import { hasValue } from 'helpers/validation'
 
 const separator = ','
 const delimiter = '—'
+
 const unitTypeOptions = localize =>
   [...statUnitTypes].map(([, v]) => ({ value: v, text: localize(v) }))
+
 const freeEconZoneOptions = localize =>
-  [{ value: '0', text: 'No' }, { value: '1', text: 'Yes' }].map(x => ({
+  [
+    { value: '0', text: 'No' },
+    { value: '1', text: 'Yes' },
+  ].map(x => ({
     value: x.value,
     text: localize(x.text),
   }))
 
-const fieldToLookup = new Map([[2, 12], [3, 13], [4, 9], [10, 11], [22, 5], [23, 6]])
+const fieldToLookup = new Map([
+  [2, 12],
+  [3, 13],
+  [4, 9],
+  [10, 11],
+  [22, 5],
+  [23, 6],
+])
 
 const selectFields = [1, 9]
 const lookupFields = [2, 3, 4, 10, 22, 23]
@@ -141,10 +153,7 @@ const setAdditionalProps = R.cond([
   [R.T, R.omit(['field', 'operation'])],
 ])
 
-const getProps = R.pipe(
-  addValueConverting,
-  setAdditionalProps,
-)
+const getProps = R.pipe(addValueConverting, setAdditionalProps)
 
 export default function ValueInput(props) {
   const Component = getComponent(props)
