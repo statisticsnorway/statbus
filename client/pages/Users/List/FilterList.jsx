@@ -1,99 +1,92 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, shape } from 'prop-types'
 import { Button, Icon, Form } from 'semantic-ui-react'
-
 import { internalRequest } from 'helpers/request'
 import { userStatuses } from 'helpers/enums'
 
 const statuses = [['', 'UserStatusAny'], ...userStatuses]
 
-class FilterList extends React.Component {
-  static propTypes = {
-    localize: func.isRequired,
-    onChange: func.isRequired,
-    filter: shape({}).isRequired,
-  }
+const FilterList = ({ localize, onChange, filter }) => {
+  const [roles, setRoles] = useState([])
+  const [filterState, setFilterState] = useState({
+    userName: '',
+    roleId: '',
+    status: 2,
+    ...filter,
+  })
 
-  state = {
-    filter: {
-      userName: '',
-      roleId: '',
-      status: 2,
-      ...this.props.filter,
-    },
-    roles: [],
-  }
+  useEffect(() => {
+    fetchRoles()
+  }, [])
 
-  componentDidMount() {
-    this.fetchRoles()
-  }
-
-  fetchRoles = () => {
+  const fetchRoles = () => {
     internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
-        this.setState(() => ({ roles: result.map(r => ({ value: r.id, text: r.name })) }))
+        setRoles(result.map(r => ({ value: r.id, text: r.name })))
       },
       onFail: () => {
-        this.setState(() => ({ roles: [], failure: true }))
+        setRoles([])
       },
     })
   }
 
-  handleSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
-    const { onChange } = this.props
-    onChange(this.state.filter)
+    onChange(filterState)
   }
 
-  handleChange = (e) => {
+  const handleChange = (e) => {
     e.persist()
-    this.setState(s => ({ filter: { ...s.filter, [e.target.name]: e.target.value } }))
+    setFilterState(prevFilter => ({ ...prevFilter, [e.target.name]: e.target.value }))
   }
 
-  handleSelect = (e, { name, value }) => {
+  const handleSelect = (e, { name, value }) => {
     e.persist()
-    this.setState(s => ({ filter: { ...s.filter, [name]: value } }))
+    setFilterState(prevFilter => ({ ...prevFilter, [name]: value }))
   }
 
-  render() {
-    const { filter, roles } = this.state
-    const { localize } = this.props
-    const statusesList = statuses.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
-    const rolesList = roles.map(roleObJ => ({ value: roleObJ.value, text: localize(roleObJ.text) }))
-    return (
-      <Form loading={!roles}>
-        <Form.Group widths="equal">
-          <Form.Field
-            name="userName"
-            placeholder={localize('UserName')}
-            control="input"
-            value={filter.userName}
-            onChange={this.handleChange}
-          />
-          <Form.Select
-            value={filter.roleId}
-            name="roleId"
-            options={[{ value: '', text: localize('RolesAll') }, ...(rolesList || [])]}
-            placeholder={localize('RolesAll')}
-            onChange={this.handleSelect}
-            search
-            error={!roles}
-          />
-          <Form.Select
-            value={filter.status}
-            name="status"
-            options={statusesList}
-            placeholder={localize('UserStatusAny')}
-            onChange={this.handleSelect}
-          />
-          <Button type="submit" icon onClick={this.handleSubmit}>
-            <Icon name="filter" />
-          </Button>
-        </Form.Group>
-      </Form>
-    )
-  }
+  const statusesList = statuses.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
+  const rolesList = roles.map(roleObJ => ({ value: roleObJ.value, text: localize(roleObJ.text) }))
+
+  return (
+    <Form loading={!roles.length}>
+      <Form.Group widths="equal">
+        <Form.Field
+          name="userName"
+          placeholder={localize('UserName')}
+          control="input"
+          value={filterState.userName}
+          onChange={handleChange}
+        />
+        <Form.Select
+          value={filterState.roleId}
+          name="roleId"
+          options={[{ value: '', text: localize('RolesAll') }, ...(rolesList || [])]}
+          placeholder={localize('RolesAll')}
+          onChange={handleSelect}
+          search
+          error={!roles.length}
+        />
+        <Form.Select
+          value={filterState.status}
+          name="status"
+          options={statusesList}
+          placeholder={localize('UserStatusAny')}
+          onChange={handleSelect}
+        />
+        <Button type="submit" icon onClick={handleSubmit}>
+          <Icon name="filter" />
+        </Button>
+      </Form.Group>
+    </Form>
+  )
+}
+
+FilterList.propTypes = {
+  localize: func.isRequired,
+  onChange: func.isRequired,
+  filter: shape({}).isRequired,
 }
 
 export default FilterList
