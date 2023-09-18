@@ -22,7 +22,9 @@
   },
   "targets": {
     "default": {
-      "distDir": "src/nscreg.Server/wwwroot/dist/"
+      "distDir": "./src/nscreg.Server/wwwroot/dist/",
+      "source": ["./client/index.js"],
+      "publicUrl": "/dist"
     }
   },
   "staticFiles": [
