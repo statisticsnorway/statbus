@@ -20,7 +20,7 @@ namespace nscreg.Data.Entities
         public int RegId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public DateTime RegIdDate { get; set; }
+        public DateTimeOffset RegIdDate { get; set; }
 
         [DataAccessCommon]
         [Display(Order = 100, GroupName = GroupNames.StatUnitInfo)]
@@ -30,7 +30,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 105, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatIdDateTooltip))]
-        public DateTime? StatIdDate { get; set; }
+        public DateTimeOffset? StatIdDate { get; set; }
 
         [DataAccessCommon]
         [Display(Order = 110, GroupName = GroupNames.StatUnitInfo)]
@@ -52,7 +52,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.TaxRegDateTooltip))]
-        public DateTime? TaxRegDate { get; set; }
+        public DateTimeOffset? TaxRegDate { get; set; }
 
         [Reference(LookupEnum.RegistrationReasonLookup)]
         [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
@@ -61,7 +61,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.RegDateTooltip))]
-        public DateTime? RegistrationDate { get; set; }
+        public DateTimeOffset? RegistrationDate { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -73,7 +73,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 131, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ExternalIdDateTooltip))]
-        public DateTime? ExternalIdDate { get; set; }
+        public DateTimeOffset? ExternalIdDate { get; set; }
 
         [Display(Order = 132, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ExternalIdTypeTooltip))]
@@ -133,7 +133,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 523, GroupName = GroupNames.EconomicInformation)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EmployeesDateTooltip))]
-        public DateTime? EmployeesDate { get; set; }
+        public DateTimeOffset? EmployeesDate { get; set; }
 
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.TurnoverTooltip))]
         [Display(Order = 505, GroupName = GroupNames.EconomicInformation)]
@@ -141,7 +141,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 515, GroupName = GroupNames.EconomicInformation)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.TurnoverDateTooltip))]
-        public DateTime? TurnoverDate { get; set; }
+        public DateTimeOffset? TurnoverDate { get; set; }
 
         [Display(Order = 510, GroupName = GroupNames.EconomicInformation)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.TurnoverYearTooltip))]
@@ -157,7 +157,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 143, GroupName = GroupNames.StatUnitInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.StatusDateTooltip))]
-        public DateTime? StatusDate { get; set; }
+        public DateTimeOffset? StatusDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [MaxLength(25)]
@@ -177,7 +177,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 711, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public DateTime? LiqDate { get; set; }
+        public DateTimeOffset? LiqDate { get; set; }
 
         [Display(Order = 712, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
@@ -185,18 +185,18 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 720, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public DateTime? SuspensionStart { get; set; }
+        public DateTimeOffset? SuspensionStart { get; set; }
 
         [Display(Order = 730, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public DateTime? SuspensionEnd { get; set; }
+        public DateTimeOffset? SuspensionEnd { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string ReorgTypeCode { get; set; }
 
         [Display(Order = 740, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public DateTime? ReorgDate { get; set; }
+        public DateTimeOffset? ReorgDate { get; set; }
 
         [SearchComponent]
         [Display(Order = 750, GroupName = GroupNames.RegistrationInfo)]
@@ -209,10 +209,10 @@ namespace nscreg.Data.Entities
         public abstract StatUnitTypes UnitType { get; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public DateTime StartPeriod { get; set; }
+        public DateTimeOffset StartPeriod { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public DateTime EndPeriod { get; set; }
+        public DateTimeOffset EndPeriod { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; } =

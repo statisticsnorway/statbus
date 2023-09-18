@@ -19,11 +19,11 @@ namespace nscreg.Data.Entities
         public int? Employees { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int ChangeReason { get; set; }
-        public DateTime StartPeriod { get; set; }
+        public DateTimeOffset StartPeriod { get; set; }
         public StatUnitTypes UnitType { get; set; }
         public bool IsDeleted { get; set; }
         public string LiqReason { get; set; }
-        public DateTime? LiqDate { get; set; }
+        public DateTimeOffset? LiqDate { get; set; }
         public int? AddressId { get; set; }
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }

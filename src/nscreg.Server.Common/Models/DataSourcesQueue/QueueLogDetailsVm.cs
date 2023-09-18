@@ -52,8 +52,8 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             => new QueueLogDetailsVm(item, statUnitType, properties, permissions);
 
         public int Id { get; }
-        public DateTime? Started { get; }
-        public DateTime? Ended { get; }
+        public DateTimeOffset? Started { get; }
+        public DateTimeOffset? Ended { get; }
         public string StatId { get; }
         public string Name { get; }
         public string Unit { get; }

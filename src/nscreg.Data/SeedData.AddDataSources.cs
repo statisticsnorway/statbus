@@ -51,8 +51,8 @@ namespace nscreg.Data
                 {
                     new DataUploadingLog
                     {
-                        StartImportDate = DateTime.Now,
-                        EndImportDate = DateTime.Now,
+                        StartImportDate = DateTimeOffset.Now,
+                        EndImportDate = DateTimeOffset.Now,
                         StatUnitName = "qwe",
                         SerializedUnit =
                             JsonConvert.SerializeObject(new LegalUnit {Name = "42", DataSource = "qwe.xml"}),
@@ -61,8 +61,8 @@ namespace nscreg.Data
                             new Dictionary<string, string[]> {[nameof(LegalUnit.UnitStatusId)] = new[] {"err1", "err2"}}),
                     }
                 },
-                EndImportDate = DateTime.Now,
-                StartImportDate = DateTime.Now,
+                EndImportDate = DateTimeOffset.Now,
+                StartImportDate = DateTimeOffset.Now,
                 User = context.Users.FirstOrDefault(),
                 Status = DataSourceQueueStatuses.DataLoadCompletedPartially,
             };

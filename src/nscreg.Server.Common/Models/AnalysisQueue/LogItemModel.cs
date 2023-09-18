@@ -8,8 +8,8 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
         public int UnitId { get; set; }
         public string UnitName { get; set; }
         public string UnitType { get; set; }
-        public DateTime IssuedAt { get; set; }
-        public DateTime? ResolvedAt { get; set; }
+        public DateTimeOffset IssuedAt { get; set; }
+        public DateTimeOffset? ResolvedAt { get; set; }
         public string[] SummaryMessages { get; set; }
     }
 }

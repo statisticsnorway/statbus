@@ -4,7 +4,7 @@ namespace nscreg.TestUtils
 {
     public static class DateTimeExtensions
     {
-        public static DateTime FlushSeconds(this DateTime source)
+        public static DateTimeOffset FlushSeconds(this DateTimeOffset source)
             => source.AddTicks(-source.Ticks % TimeSpan.TicksPerSecond);
     }
 }

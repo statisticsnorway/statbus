@@ -83,7 +83,7 @@ namespace nscreg.Business.Test.DataSources.PropertyParserTest
         [Fact]
         private void ShouldReturnValueForDateTime()
         {
-            var expected = DateTime.Now.FlushSeconds();
+            var expected = DateTimeOffset.Now.FlushSeconds();
             var raw = expected.ToString(CultureInfo.InvariantCulture);
 
             var actual = PropertyParser.ConvertOrDefault(typeof(DateTime), raw);

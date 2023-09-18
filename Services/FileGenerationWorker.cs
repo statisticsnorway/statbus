@@ -46,7 +46,7 @@ namespace nscreg.Services
         {
             _logger.Info("sample frame generation/clearing attempt...");
 
-            var moment = DateTime.Now.AddMilliseconds(-_timeoutMilliseconds);
+            var moment = DateTimeOffset.UtcNow.AddMilliseconds(-_timeoutMilliseconds);
             var sampleFrameToDelete = await _ctx.SampleFrames.FirstOrDefaultAsync(sf => sf.Status == SampleFrameGenerationStatuses.Downloaded
                 || (sf.Status == SampleFrameGenerationStatuses.GenerationCompleted && sf.GeneratedDateTime < moment));
             if (sampleFrameToDelete != null)

@@ -17,8 +17,8 @@ namespace nscreg.Data.Entities.History
 
         public int? EnterpriseUnitRegId { get; set; }
 
-        public DateTime? EntRegIdDate { get; set; }
-        
+        public DateTimeOffset? EntRegIdDate { get; set; }
+
         public bool Market { get; set; }
         [Column(nameof(TotalCapital))]
         public string TotalCapital { get; set; }

@@ -16,7 +16,7 @@ namespace nscreg.Data.Entities
         public int Id { get; set; }
 
         [JsonIgnore]
-        public DateTime IdDate { get; set; }
+        public DateTimeOffset IdDate { get; set; }
         [MaxLength(150)]
         public string GivenName { get; set; }
 
@@ -26,7 +26,7 @@ namespace nscreg.Data.Entities
         public string Surname { get; set; }
         [MaxLength(150)]
         public string MiddleName { get; set; }
-        public DateTime? BirthDate { get; set; }
+        public DateTimeOffset? BirthDate { get; set; }
         public byte? Sex { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

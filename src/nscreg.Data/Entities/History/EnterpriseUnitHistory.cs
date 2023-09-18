@@ -16,8 +16,8 @@ namespace nscreg.Data.Entities.History
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
 
         public int? EntGroupId { get; set; }
-    
-        public DateTime EntGroupIdDate { get; set; }
+
+        public DateTimeOffset EntGroupIdDate { get; set; }
 
         public string EntGroupRole { get; set; }
 

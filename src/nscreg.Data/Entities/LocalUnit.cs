@@ -21,7 +21,7 @@ namespace nscreg.Data.Entities
         // MIGRATION BUG - NULL REFERENCE (IN DB FIELD IS NULLABLE, but migration doesnt generate changes for type.)
         [Display(Order = 201, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LegalUnitIdDateTooltip))]
-        public DateTime? LegalUnitIdDate { get; set; }
+        public DateTimeOffset? LegalUnitIdDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalUnit LegalUnit { get; set; }

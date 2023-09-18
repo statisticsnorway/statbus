@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string PersonalId { get; set; } // National personal ID of person (if it exists)(In Kyrgyzstan it calls ИНН)
         public string Surname { get; set; }
         public string MiddleName { get; set; }
-        public DateTime? BirthDate { get; set; }
+        public DateTimeOffset? BirthDate { get; set; }
         public byte? Sex { get; set; }
         public int? Role { get; set; }
         public int? CountryId { get; set; }

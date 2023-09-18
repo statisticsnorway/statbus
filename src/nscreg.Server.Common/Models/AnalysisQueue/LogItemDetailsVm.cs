@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
     {
         private LogItemDetailsVm(
             int id, int unitId, StatUnitTypes unitType,
-            DateTime issuedAt, DateTime? resolvedAt,
+            DateTimeOffset issuedAt, DateTimeOffset? resolvedAt,
             string errors, string summary,
             IEnumerable<PropertyMetadataBase> properties,
             IEnumerable<Permission> permisisons)
@@ -43,8 +43,8 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
         public int Id { get; }
         public int UnitId { get; }
         public StatUnitTypes UnitType { get; }
-        public DateTime IssuedAt { get; set; }
-        public DateTime? ResolvedAt { get; set; }
+        public DateTimeOffset IssuedAt { get; set; }
+        public DateTimeOffset? ResolvedAt { get; set; }
         public Dictionary<string, string[]> Errors { get; set; }
         public IEnumerable<string> Summary { get; }
         public IEnumerable<PropertyMetadataBase> Properties { get; }

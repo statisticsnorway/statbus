@@ -11,7 +11,7 @@ namespace nscreg.Data.Entities
     public class Activity : IModelWithId
     {
         public int Id { get; set; }
-        public DateTime IdDate { get; set; }
+        public DateTimeOffset IdDate { get; set; }
         [JsonIgnore]
         public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
         public int ActivityCategoryId { get; set; }
@@ -24,6 +24,6 @@ namespace nscreg.Data.Entities
         public string UpdatedBy { get; set; }
         [JsonIgnore]
         public virtual User UpdatedByUser { get; set; }
-        public DateTime UpdatedDate { get; set; }
+        public DateTimeOffset UpdatedDate { get; set; }
     }
 }

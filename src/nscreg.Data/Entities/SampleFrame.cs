@@ -13,9 +13,9 @@ namespace nscreg.Data.Entities
         public string UserId { get; set; }
         public SampleFrameGenerationStatuses Status { get; set; }
         public string FilePath { get; set; }
-        public DateTime? GeneratedDateTime { get; set; }
+        public DateTimeOffset? GeneratedDateTime { get; set; }
         public User User { get; set; }
-        public DateTime CreationDate { get; set; }
-        public DateTime? EditingDate { get; set; }
+        public DateTimeOffset CreationDate { get; set; }
+        public DateTimeOffset? EditingDate { get; set; }
     }
 }

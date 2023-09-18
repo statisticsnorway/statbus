@@ -19,29 +19,29 @@ namespace nscreg.Data
             {
                 Name = "local unit 1",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
-                Address = new Address {AddressPart1 = "local address 1", RegionId = 1},
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
+                Address = new Address { AddressPart1 = "local address 1", RegionId = 1 },
             }, new LocalUnit
             {
                 Name = "local unit 2",
                 StatId = "OKPO2LU",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
-                Address = new Address {AddressPart1 = "local address 2", RegionId = 1},
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
+                Address = new Address { AddressPart1 = "local address 2", RegionId = 1 },
             });
 
             var le1 = new LegalUnit
             {
                 Name = "legal unit 1",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
+                RegIdDate = DateTimeOffset.Now,
                 StatId = "OKPO2LEGALU",
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "legal address 1",
@@ -53,11 +53,11 @@ namespace nscreg.Data
                     {
                         Activity = new Activity
                         {
-                            IdDate = new DateTime(2017, 03, 17),
+                            IdDate = new DateTimeOffset(new DateTime(2017, 03, 17)),
                             Turnover = 2000,
                             ActivityType = ActivityTypes.Primary,
                             UpdatedByUser = sysAdminUser,
-                            ActivityYear = DateTime.Today.Year,
+                            ActivityYear = DateTimeOffset.UtcNow.Year,
                             ActivityCategory = context.ActivityCategories.Single(v => v.Code == "11.07.9")
                         },
                     },
@@ -66,7 +66,7 @@ namespace nscreg.Data
                         Activity =
                             new Activity
                             {
-                                IdDate = new DateTime(2017, 03, 28),
+                                IdDate = new DateTimeOffset(new DateTime(2017, 03, 28)),
                                 Turnover = 4000,
                                 ActivityType = ActivityTypes.Secondary,
                                 UpdatedByUser = sysAdminUser,
@@ -82,9 +82,9 @@ namespace nscreg.Data
                 Name = "legal unit 2",
                 UserId = sysAdminUser.Id,
                 IsDeleted = true,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "legal address 2",
@@ -97,9 +97,9 @@ namespace nscreg.Data
                 Name = "enterprise unit 1",
                 StatId = "OKPO1EU",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
             };
 
             var eu2 = new EnterpriseUnit
@@ -107,9 +107,9 @@ namespace nscreg.Data
                 Name = "enterprise unit 2",
                 StatId = "OKPO2EU",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "enterprise address 2",
@@ -123,9 +123,9 @@ namespace nscreg.Data
                 StatId = "OKPO3EU",
                 UserId = sysAdminUser.Id,
                 IsDeleted = true,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "enterprise address 2",
@@ -136,9 +136,9 @@ namespace nscreg.Data
                 StatId = "OKPO4EU",
                 Name = "enterprise unit 4",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "enterprise address 2",
@@ -148,9 +148,9 @@ namespace nscreg.Data
             {
                 Name = "enterprise unit 5",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "enterprise address 2",
@@ -160,9 +160,9 @@ namespace nscreg.Data
             {
                 Name = "enterprise unit 6",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address = new Address
                 {
                     AddressPart1 = "enterprise address 2",
@@ -175,11 +175,11 @@ namespace nscreg.Data
                 Name = "enterprise group 1",
                 UserId = sysAdminUser.Id,
                 StatId = "EG1",
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address =
-                    new Address {AddressPart1 = "ent. group address 1", RegionId = 1},
+                    new Address { AddressPart1 = "ent. group address 1", RegionId = 1 },
             };
 
             var eg2 = new EnterpriseGroup
@@ -187,11 +187,11 @@ namespace nscreg.Data
                 Name = "enterprise group 2",
                 StatId = "EG2",
                 UserId = sysAdminUser.Id,
-                RegIdDate = DateTime.Now,
-                StartPeriod = DateTime.Now,
-                EndPeriod = DateTime.MaxValue,
+                RegIdDate = DateTimeOffset.Now,
+                StartPeriod = DateTimeOffset.Now,
+                EndPeriod = DateTimeOffset.MaxValue,
                 Address =
-                    new Address {AddressPart1 = "ent. group address 2", RegionId = 1}
+                    new Address { AddressPart1 = "ent. group address 2", RegionId = 1 }
             };
 
             context.EnterpriseGroups.AddRange(eg1, eg2);

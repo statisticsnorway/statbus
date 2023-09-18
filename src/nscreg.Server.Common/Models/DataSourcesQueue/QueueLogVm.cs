@@ -7,7 +7,7 @@ using nscreg.Data.Entities;
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     /// <summary>
-    /// View log queue model  
+    /// View log queue model
     /// </summary>
     public class QueueLogVm
     {
@@ -30,8 +30,8 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         public static QueueLogVm Create(DataUploadingLog item) => new QueueLogVm(item);
 
         public int Id { get; }
-        public DateTime? Started { get; }
-        public DateTime? Ended { get; }
+        public DateTimeOffset? Started { get; }
+        public DateTimeOffset? Ended { get; }
         public string StatId { get; }
         public string Name { get; }
         public DataUploadingLogStatuses Status { get; }
