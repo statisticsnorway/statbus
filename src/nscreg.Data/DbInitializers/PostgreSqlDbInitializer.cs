@@ -10,11 +10,6 @@ namespace nscreg.Data.DbInitializers
         {
             #region Scripts
 
-            const string dropStatUnitSearchViewTable =
-                """
-                DROP TABLE IF EXISTS "V_StatUnitSearch";
-                """;
-
             const string dropStatUnitSearchView =
                 """
                 DROP VIEW IF EXISTS "V_StatUnitSearch";
@@ -212,8 +207,6 @@ namespace nscreg.Data.DbInitializers
                 """;
             #endregion
 
-
-            context.Database.ExecuteSqlRaw(dropStatUnitSearchViewTable);
             context.Database.ExecuteSqlRaw(dropStatUnitSearchView);
             context.Database.ExecuteSqlRaw(createStatUnitSearchView);
             context.Database.ExecuteSqlRaw(dropReportTreeTable);
