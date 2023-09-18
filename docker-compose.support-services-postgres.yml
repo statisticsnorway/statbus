@@ -53,7 +53,11 @@ volumes:
   statbus-postgres-data:
     # This volume is independent, and therefore protected from accidental deletion
     # when using docker compose.
-    # docker volume create --name=statbus-postgres-data
+    #   docker volume create --name=statbus-postgres-data
+    # and to remove use
+    #   docker volume remove statbus-postgres-data
+    # When external is not used, then remove with
+    #   docker compose down --volumes
     #external: true
   elasticsearch-data:
   nscreg-mssql-data:
