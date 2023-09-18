@@ -22,7 +22,7 @@ namespace nscreg.Data.Entities.History
     public class ActivityHistory : IModelWithId
     {
         public int Id { get; set; }
-        public DateTime IdDate { get; set; }
+        public DateTimeOffset IdDate { get; set; }
         [JsonIgnore]
         public virtual ICollection<ActivityStatisticalUnitHistory> ActivitiesUnits { get; set; }
         public int ActivityCategoryId { get; set; }
@@ -35,7 +35,7 @@ namespace nscreg.Data.Entities.History
         public string UpdatedBy { get; set; }
         [JsonIgnore]
         public virtual User UpdatedByUser { get; set; }
-        public DateTime UpdatedDate { get; set; }
+        public DateTimeOffset UpdatedDate { get; set; }
         public int ParentId { get; set; }
     }
 }

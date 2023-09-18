@@ -73,7 +73,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.NotNull(actual);
             Assert.Equal(DataSourceQueueStatuses.Loading, actual.Status);
             Assert.NotNull(actual.StartImportDate);
-            Assert.Equal(actual.StartImportDate.Value.FlushSeconds(), DateTime.Now.FlushSeconds());
+            Assert.Equal(actual.StartImportDate.Value.FlushSeconds(), DateTimeOffset.Now.FlushSeconds());
         }
 
         [Fact]

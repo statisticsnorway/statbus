@@ -15,11 +15,11 @@ namespace nscreg.Server.Common.Models.SampleFrames
         public string Description { get; set; }
         public IEnumerable<FieldEnum> Fields { get; set; }
         public ExpressionGroup Predicate { get; set; }
-        public DateTime CreationDate { get; set; }
-        public DateTime? EditingDate { get; set; }
+        public DateTimeOffset CreationDate { get; set; }
+        public DateTimeOffset? EditingDate { get; set; }
         public SampleFrameGenerationStatuses Status { get; set; }
         public string FilePath { get; set; }
-        public DateTime? GeneratedDateTime { get; set; }
+        public DateTimeOffset? GeneratedDateTime { get; set; }
 
 
         public static SampleFrameM Create(SampleFrame entity)

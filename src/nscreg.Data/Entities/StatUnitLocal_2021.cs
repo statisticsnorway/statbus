@@ -44,9 +44,9 @@ namespace nscreg.Data.Entities
 
         public int? NumOfPeopleEmp { get; set; }
 
-        public DateTime? RegistrationDate { get; set; }
+        public DateTimeOffset? RegistrationDate { get; set; }
 
-        public DateTime? LiqDate { get; set; }
+        public DateTimeOffset? LiqDate { get; set; }
 
         public string StatusCode { get; set; }
 

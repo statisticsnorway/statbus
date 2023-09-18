@@ -23,7 +23,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 220, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntGroupIdDateTooltip))]
-        public DateTime? EntGroupIdDate { get; set; }
+        public DateTimeOffset? EntGroupIdDate { get; set; }
 
         [SearchComponent]
         [Display(Order = 205, GroupName = GroupNames.LinkInfo)]

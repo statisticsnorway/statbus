@@ -11,8 +11,8 @@ namespace nscreg.Data.Entities
     public class DataUploadingLog
     {
         public int Id { get; set; }
-        public DateTime? StartImportDate { get; set; }
-        public DateTime? EndImportDate { get; set; }
+        public DateTimeOffset? StartImportDate { get; set; }
+        public DateTimeOffset? EndImportDate { get; set; }
         public string TargetStatId { get; set; }
         public string StatUnitName { get; set; }
         public string SerializedUnit { get; set; }

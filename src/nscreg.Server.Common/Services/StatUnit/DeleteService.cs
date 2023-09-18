@@ -367,7 +367,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statId">Id of stat unit</param>
         /// <param name="userId">Id of user for edit unit if there is history</param>
         /// <param name="dataUploadTime">data source upload time</param>
-        public async Task<bool> DeleteLegalUnitFromDb(string statId, string userId, DateTime? dataUploadTime)
+        public async Task<bool> DeleteLegalUnitFromDb(string statId, string userId, DateTimeOffset? dataUploadTime)
         {
             var unit = _dbContext.LegalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
@@ -441,7 +441,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statId">Id of stat unit</param>
         /// <param name="dataUploadTime">data source upload time</param>
         /// <param name="userId">Id of user</param>
-        public async Task<bool> DeleteLocalUnitFromDb(string statId, string userId, DateTime? dataUploadTime)
+        public async Task<bool> DeleteLocalUnitFromDb(string statId, string userId, DateTimeOffset? dataUploadTime)
         {
             var unit = _dbContext.LocalUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
@@ -502,7 +502,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statId">Id of stat unit</param>
         /// <param name="dataUploadTime">data source upload time</param>
         /// <param name="userId">Id of user</param>
-        public async Task<bool> DeleteEnterpriseUnitFromDb(string statId, string userId, DateTime? dataUploadTime)
+        public async Task<bool> DeleteEnterpriseUnitFromDb(string statId, string userId, DateTimeOffset? dataUploadTime)
         {
             var unit = _dbContext.EnterpriseUnits.AsNoTracking()
                 .Include(x => x.PersonsUnits)
@@ -648,7 +648,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statIds">Ids of stat units</param>
         /// <param name="userId">Id of user for edit unit if there is history</param>
         /// <param name="dataUploadTime">data source upload time</param>
-        public async Task<bool> DeleteRangeLegalUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
+        public async Task<bool> DeleteRangeLegalUnitsFromDb(List<string> statIds, string userId, DateTimeOffset? dataUploadTime)
         {
             if (!dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
 
@@ -725,7 +725,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statId">Id of stat unit</param>
         /// <param name="dataUploadTime">data source upload time</param>
         /// <param name="userId">Id of user</param>
-        public async Task<bool> DeleteRangeLocalUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
+        public async Task<bool> DeleteRangeLocalUnitsFromDb(List<string> statIds, string userId, DateTimeOffset? dataUploadTime)
         {
             if (!dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
 
@@ -783,7 +783,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="statIds">Id of stat unit</param>
         /// <param name="dataUploadTime">data source upload time</param>
         /// <param name="userId">Id of user</param>
-        public async Task<bool> DeleteRangeEnterpriseUnitsFromDb(List<string> statIds, string userId, DateTime? dataUploadTime)
+        public async Task<bool> DeleteRangeEnterpriseUnitsFromDb(List<string> statIds, string userId, DateTimeOffset? dataUploadTime)
         {
             if (!dataUploadTime.HasValue || string.IsNullOrEmpty(userId)) return false;
 

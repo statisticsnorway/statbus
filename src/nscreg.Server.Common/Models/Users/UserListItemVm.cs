@@ -31,8 +31,8 @@ namespace nscreg.Server.Common.Models.Users
         public string Name { get; private set; }
         public string Description { get; private set; }
         public UserStatuses Status { get; private set; }
-        public DateTime CreationDate { get; private set; }
-        public DateTime? SuspensionDate { get; private set; }
+        public DateTimeOffset CreationDate { get; private set; }
+        public DateTimeOffset? SuspensionDate { get; private set; }
         public List<UserRoleVm> Roles { get; set; }
         public int[] Regions { get; set; }
     }

@@ -9,9 +9,9 @@ namespace nscreg.TestUtils.Test
         [Fact]
         private void ParseAsStringTest()
         {
-            var source = DateTime.Now;
+            var source = DateTimeOffset.Now;
             var stringified = source.ToString(CultureInfo.InvariantCulture);
-            var expected = DateTime.Parse(stringified, CultureInfo.InvariantCulture);
+            var expected = DateTimeOffset.Parse(stringified, CultureInfo.InvariantCulture);
 
             var actual = source.FlushSeconds();
 

@@ -12,8 +12,8 @@ namespace nscreg.Data.Entities
         public int AnalysisQueueId { get; set; }
         public int AnalyzedUnitId { get; set; }
         public StatUnitTypes AnalyzedUnitType { get; set; }
-        public DateTime IssuedAt { get; set; }
-        public DateTime? ResolvedAt { get; set; }
+        public DateTimeOffset IssuedAt { get; set; }
+        public DateTimeOffset? ResolvedAt { get; set; }
         public string SummaryMessages { get; set; }
         public string ErrorValues { get; set; }
 

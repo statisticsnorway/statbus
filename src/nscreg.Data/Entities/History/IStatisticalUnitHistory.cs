@@ -22,8 +22,8 @@ namespace nscreg.Data.Entities.History
         decimal? Turnover { get; set; }
         StatUnitTypes UnitType { get; }
         int? ParentId { get; set; }
-        DateTime StartPeriod { get; set; }
-        DateTime EndPeriod { get; set; }
+        DateTimeOffset StartPeriod { get; set; }
+        DateTimeOffset EndPeriod { get; set; }
         string UserId { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }

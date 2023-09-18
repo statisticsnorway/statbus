@@ -22,7 +22,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 201, GroupName = GroupNames.LinkInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.EntRegIdDateTooltip))]
-        public DateTime? EntRegIdDate { get; set; }
+        public DateTimeOffset? EntRegIdDate { get; set; }
 
         [Reference(LookupEnum.LegalFormLookup)]
         [Display(Order = 150, GroupName = GroupNames.StatUnitInfo)]

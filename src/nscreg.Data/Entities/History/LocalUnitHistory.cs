@@ -15,7 +15,7 @@ namespace nscreg.Data.Entities.History
 
         public int? LegalUnitId { get; set; }
 
-        public DateTime LegalUnitIdDate { get; set; }
+        public DateTimeOffset LegalUnitIdDate { get; set; }
 
         public override int? InstSectorCodeId
         {

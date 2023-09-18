@@ -43,8 +43,8 @@ namespace nscreg.Data.Entities
             }
         }
 
-        public DateTime CreationDate { get; set; } = DateTime.Now;
-        public DateTime? SuspensionDate { get; set; }
+        public DateTimeOffset CreationDate { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset? SuspensionDate { get; set; }
         public virtual ICollection<DataSource> DataSources { get; set; }
         public virtual ICollection<DataSourceQueue> DataSourceQueues { get; set; }
         public virtual ICollection<UserRegion> UserRegions { get; set; } = new HashSet<UserRegion>();

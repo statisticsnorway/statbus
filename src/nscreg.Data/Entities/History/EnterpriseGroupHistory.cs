@@ -17,29 +17,29 @@ namespace nscreg.Data.Entities.History
 
         public int RegId { get; set; }
 
-        public DateTime RegIdDate { get; set; }
+        public DateTimeOffset RegIdDate { get; set; }
 
         public string StatId { get; set; }
 
-        public DateTime? StatIdDate { get; set; }
+        public DateTimeOffset? StatIdDate { get; set; }
 
         public string Name { get; set; }
 
         public string ShortName { get; set; }
 
-        public DateTime RegistrationDate { get; set; }
+        public DateTimeOffset RegistrationDate { get; set; }
 
         public int? RegistrationReasonId { get; set; }
 
         public string TaxRegId { get; set; }
 
-        public DateTime? TaxRegDate { get; set; }
+        public DateTimeOffset? TaxRegDate { get; set; }
 
         public string ExternalId { get; set; }
 
         public string ExternalIdType { get; set; }
 
-        public DateTime? ExternalIdDate { get; set; }
+        public DateTimeOffset? ExternalIdDate { get; set; }
 
         public string DataSource { get; set; }
 
@@ -65,21 +65,21 @@ namespace nscreg.Data.Entities.History
 
         public string WebAddress { get; set; }
 
-        public DateTime? LiqDateStart { get; set; }
+        public DateTimeOffset? LiqDateStart { get; set; }
 
-        public DateTime? LiqDateEnd { get; set; }
+        public DateTimeOffset? LiqDateEnd { get; set; }
 
         public string ReorgTypeCode { get; set; }
 
-        public DateTime? ReorgDate { get; set; }
+        public DateTimeOffset? ReorgDate { get; set; }
 
         public string ReorgReferences { get; set; }
 
         public string ContactPerson { get; set; }
 
-        public DateTime StartPeriod { get; set; }
+        public DateTimeOffset StartPeriod { get; set; }
 
-        public DateTime EndPeriod { get; set; }
+        public DateTimeOffset EndPeriod { get; set; }
 
         public int? LegalFormId { get; set; }
         public string LiqReason { get; set; }
@@ -92,15 +92,15 @@ namespace nscreg.Data.Entities.History
 
         public int? EmployeesYear { get; set; }
 
-        public DateTime? EmployeesDate { get; set; }
+        public DateTimeOffset? EmployeesDate { get; set; }
 
         public decimal? Turnover { get; set; }
 
         public int? TurnoverYear { get; set; }
 
-        public DateTime? TurnoverDate { get; set; }
+        public DateTimeOffset? TurnoverDate { get; set; }
 
-        public DateTime StatusDate { get; set; }
+        public DateTimeOffset StatusDate { get; set; }
 
         public string Notes { get; set; }
 
