@@ -6,7 +6,7 @@ import R from 'ramda'
 import * as dateFns from 'helpers/dateHelper'
 import { hasValue } from 'helpers/validation'
 
-const DateTimeField = ({
+function DateTimeField({
   id: ambiguousId,
   name: ambiguousName,
   value,
@@ -23,7 +23,7 @@ const DateTimeField = ({
   disabled,
   readOnly,
   ...restProps
-}) => {
+}) {
   const [isDateValid, setIsDateValid] = useState(true)
   const [errorMessages, setErrorMessages] = useState([])
 
