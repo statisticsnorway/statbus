@@ -7,7 +7,7 @@ import { getDate, formatDate } from '/client/helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
-function ActivitiesList(props) {
+export function ActivitiesList(props) {
   const { localize, locale, name, value, onChange, label, readOnly, errors, disabled } = props
 
   const [addRow, setAddRow] = useState(false)

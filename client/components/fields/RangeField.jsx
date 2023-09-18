@@ -6,7 +6,7 @@ import { hasValue } from '/client/helpers/validation'
 
 const style = { width: '100%' }
 
-export default function RangeField({
+export function RangeField({
   from: ambiguousFrom,
   to: ambiguousTo,
   onChange,

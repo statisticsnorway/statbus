@@ -2,7 +2,7 @@ import React from 'react'
 import { shape, func, string, number, oneOfType, arrayOf } from 'prop-types'
 import { Label, Grid, Header, Segment } from 'semantic-ui-react'
 
-import { PersonsField } from '/client/components/fields'
+import { PersonsList } from '/client/components/fields'
 import { hasValue } from '/client/helpers/validation'
 import { getNewName } from '/client/helpers/locale'
 import styles from './styles.scss'
@@ -406,7 +406,7 @@ class ContactInfo extends React.Component {
             <Grid.Row>
               <Grid.Column width={16}>
                 <label className={styles.boldText}>{localize('PersonsRelatedToTheUnit')}</label>
-                <PersonsField name="persons" value={data.persons} localize={localize} readOnly />
+                <PersonsList name="persons" value={data.persons} localize={localize} readOnly />
               </Grid.Column>
             </Grid.Row>
           </Grid>
