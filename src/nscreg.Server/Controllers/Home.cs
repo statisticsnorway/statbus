@@ -71,7 +71,7 @@ namespace nscreg.Server.Controllers
         {
             if (_env.IsDevelopment() || _assets == null)
             {
-                var assetsFileName = Path.Combine(_env.WebRootPath, "./dist/assets.json");
+                var assetsFileName = Path.Combine(_env.WebRootPath, "./dist/parcel-manifest.json");
                 using (var stream = System.IO.File.OpenRead(assetsFileName))
                 using (var reader = new StreamReader(stream))
                 {
@@ -97,7 +97,7 @@ namespace nscreg.Server.Controllers
                 .Distinct()
                 .Select(x => ((SystemFunctions) x).ToString());
 
-            ViewData["assets:main:js"] = (string) _assets.main.js;
+            ViewData["assets:index.js"] = (string) _assets["index.js"];
             ViewData["userName"] = User.Identity.Name;
             ViewData["dataAccessAttributes"] = SerializeObject(dataAccessAttributes);
             ViewData["systemFunctions"] = string.Join(",", systemFunctions);
