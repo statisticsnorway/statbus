@@ -68,11 +68,10 @@ function FieldsEditor({ value: selected, onChange, localize }) {
   )
 }
 
-const { arrayOf, func, number } = PropTypes
 FieldsEditor.propTypes = {
-  value: arrayOf(number).isRequired,
-  onChange: func.isRequired,
-  localize: func.isRequired,
+  value: PropTypes.arrayOf(PropTypes.number).isRequired,
+  onChange: PropTypes.func.isRequired,
+  localize: PropTypes.func.isRequired,
 }
 
 export default FieldsEditor
