@@ -1,5 +1,5 @@
-import React from 'react'
-import { func } from 'prop-types'
+import React, { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
@@ -9,162 +9,149 @@ import ActivityTree from 'components/ActivityTree'
 import { internalRequest } from 'helpers/request'
 import styles from './styles.pcss'
 
-class CreateForm extends React.Component {
-  static propTypes = {
-    localize: func.isRequired,
-    submitRole: func.isRequired,
-    navigateBack: func.isRequired,
-  }
-
-  state = {
-    data: {
-      name: '',
-      description: '',
-      accessToSystemFunctions: [],
-      standardDataAccess: {
-        localUnit: [],
-        legalUnit: [],
-        enterpriseGroup: [],
-        enterpriseUnit: [],
-      },
-      activityCategoryIds: [],
+function CreateForm({ localize, submitRole, navigateBack }) {
+  const [data, setData] = useState({
+    name: '',
+    description: '',
+    accessToSystemFunctions: [],
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
     },
-    activityTree: undefined,
-    fetchingStandardDataAccess: true,
-  }
+    activityCategoryIds: [],
+  })
 
-  componentDidMount() {
-    this.fetchActivityTree()
-    this.fetchStandardDataAccess()
-  }
+  const [activityTree, setActivityTree] = useState(undefined)
+  const [fetchingStandardDataAccess, setFetchingStandardDataAccess] = useState(true)
 
-  shouldComponentUpdate(nextProps, nextState) {
-    return (
-      this.props.localize.lang !== nextProps.localize.lang ||
-      !equals(this.props, nextProps) ||
-      !equals(this.state, nextState)
-    )
-  }
+  useEffect(() => {
+    fetchActivityTree()
+    fetchStandardDataAccess()
+  }, [])
 
-  setActivities = (activities) => {
-    this.setState(s => ({
-      data: { ...s.data, activityCategoryIds: activities.filter(x => x !== 'all') },
+  const setActivities = (activities) => {
+    setData(prevData => ({
+      ...prevData,
+      activityCategoryIds: activities.filter(x => x !== 'all'),
     }))
   }
 
-  fetchStandardDataAccess() {
+  const fetchStandardDataAccess = () => {
     internalRequest({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
-        this.setState(s => ({
-          data: { ...s.data, standardDataAccess: result },
-          fetchingStandardDataAccess: false,
+        setData(prevData => ({
+          ...prevData,
+          standardDataAccess: result,
         }))
+        setFetchingStandardDataAccess(false)
       },
       onFail: () => {
-        this.setState({
-          fetchingStandardDataAccess: false,
-        })
+        setFetchingStandardDataAccess(false)
       },
     })
   }
 
-  fetchActivityTree = () =>
+  const fetchActivityTree = () => {
     internalRequest({
       url: '/api/roles/fetchActivityTree',
       onSuccess: (activityTree) => {
-        this.setState({ activityTree })
+        setActivityTree(activityTree)
       },
     })
+  }
 
-  handleAccessToSystemFunctionsChange = (data) => {
-    this.setState(s => ({
-      ...s,
-      data: {
-        ...s.data,
-        [data.name]: data.checked
-          ? [...s.data.accessToSystemFunctions, data.value]
-          : s.data.accessToSystemFunctions.filter(x => x !== data.value),
-      },
+  const handleAccessToSystemFunctionsChange = (data) => {
+    setData(prevData => ({
+      ...prevData,
+      [data.name]: data.checked
+        ? [...prevData.accessToSystemFunctions, data.value]
+        : prevData.accessToSystemFunctions.filter(x => x !== data.value),
     }))
   }
 
-  handleEdit = (e, { name, value }) => {
-    this.setState(s => ({ data: { ...s.data, [name]: value } }))
+  const handleEdit = (e, { name, value }) => {
+    setData(prevData => ({
+      ...prevData,
+      [name]: value,
+    }))
   }
 
-  handleSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
-    this.props.submitRole(this.state.data)
+    submitRole(data)
   }
 
-  render() {
-    const { localize, navigateBack } = this.props
-    const { data, fetchingStandardDataAccess, activityTree } = this.state
-
-    return (
-      <div className={styles.rolecreate}>
-        <Form className={styles.form} onSubmit={this.handleSubmit}>
-          <h2>{localize('CreateNewRole')}</h2>
-          <Form.Input
-            name="name"
-            onChange={this.handleEdit}
-            value={data.name}
-            label={localize('RoleName')}
-            placeholder={localize('RoleNamePlaceholder')}
-            required
-          />
-          <Form.Input
-            name="description"
-            onChange={this.handleEdit}
-            value={data.description}
-            label={localize('Description')}
-            placeholder={localize('RoleDescriptionPlaceholder')}
-            required
-          />
-          {fetchingStandardDataAccess ? (
-            <Loader />
-          ) : (
-            <DataAccess
-              value={data.standardDataAccess}
-              name="standardDataAccess"
-              label={localize('DataAccess')}
-              onChange={this.handleEdit}
-              localize={localize}
-            />
-          )}
-          {activityTree && (
-            <ActivityTree
-              name="activityCategoryIds"
-              label="ActivityCategoryLookup"
-              dataTree={activityTree}
-              checked={this.state.data.activityCategoryIds}
-              callBack={this.setActivities}
-              localize={localize}
-            />
-          )}
-          <FunctionalAttributes
-            label={localize('AccessToSystemFunctions')}
-            value={this.state.data.accessToSystemFunctions}
-            onChange={this.handleAccessToSystemFunctionsChange}
-            name="accessToSystemFunctions"
+  return (
+    <div className={styles.rolecreate}>
+      <Form className={styles.form} onSubmit={handleSubmit}>
+        <h2>{localize('CreateNewRole')}</h2>
+        <Form.Input
+          name="name"
+          onChange={handleEdit}
+          value={data.name}
+          label={localize('RoleName')}
+          placeholder={localize('RoleNamePlaceholder')}
+          required
+        />
+        <Form.Input
+          name="description"
+          onChange={handleEdit}
+          value={data.description}
+          label={localize('Description')}
+          placeholder={localize('RoleDescriptionPlaceholder')}
+          required
+        />
+        {fetchingStandardDataAccess ? (
+          <Loader />
+        ) : (
+          <DataAccess
+            value={data.standardDataAccess}
+            name="standardDataAccess"
+            label={localize('DataAccess')}
+            onChange={handleEdit}
             localize={localize}
           />
-          <Button
-            content={localize('Back')}
-            onClick={navigateBack}
-            icon={<Icon size="large" name="chevron left" />}
-            size="small"
-            color="grey"
-            type="button"
+        )}
+        {activityTree && (
+          <ActivityTree
+            name="activityCategoryIds"
+            label="ActivityCategoryLookup"
+            dataTree={activityTree}
+            checked={data.activityCategoryIds}
+            callBack={setActivities}
+            localize={localize}
           />
-          <Button className={styles.sybbtn} type="submit" primary>
-            {localize('Submit')}
-          </Button>
-        </Form>
-      </div>
-    )
-  }
+        )}
+        <FunctionalAttributes
+          label={localize('AccessToSystemFunctions')}
+          value={data.accessToSystemFunctions}
+          onChange={handleAccessToSystemFunctionsChange}
+          name="accessToSystemFunctions"
+          localize={localize}
+        />
+        <Button
+          content={localize('Back')}
+          onClick={navigateBack}
+          icon={<Icon size="large" name="chevron left" />}
+          size="small"
+          color="grey"
+          type="button"
+        />
+        <Button className={styles.sybbtn} type="submit" primary>
+          {localize('Submit')}
+        </Button>
+      </Form>
+    </div>
+  )
+}
+
+CreateForm.propTypes = {
+  localize: PropTypes.func.isRequired,
+  submitRole: PropTypes.func.isRequired,
+  navigateBack: PropTypes.func.isRequired,
 }
 
 export default CreateForm

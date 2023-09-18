@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { func, arrayOf, bool, shape, number, string } from 'prop-types'
+import PropTypes from 'prop-types'
 import { Segment, Table, Confirm } from 'semantic-ui-react'
 
 import {
@@ -21,7 +21,7 @@ const headerKeys = [
   'Note',
 ]
 
-const Queue = ({
+function Queue({
   query,
   result,
   localize,
@@ -29,7 +29,7 @@ const Queue = ({
   totalCount,
   formData,
   actions: { setQuery, updateQueueFilter, deleteDataSourceQueue },
-}) => {
+}) {
   const [selectedQueue, setSelectedQueue] = useState(undefined)
   const [showConfirm, setShowConfirm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -55,7 +55,7 @@ const Queue = ({
 
   const handleConfirm = () => {
     setIsLoading(true)
-    deleteDataSourceQueue(selectedQueue.id).then(data => setIsLoading(false))
+    deleteDataSourceQueue(selectedQueue.id).then(() => setIsLoading(false))
     handleCancel()
   }
 
@@ -119,19 +119,19 @@ const Queue = ({
 }
 
 Queue.propTypes = {
-  localize: func.isRequired,
-  result: arrayOf(shape({})).isRequired,
-  totalCount: number.isRequired,
-  actions: shape({
-    updateQueueFilter: func.isRequired,
-    setQuery: func.isRequired,
+  localize: PropTypes.func.isRequired,
+  result: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  totalCount: PropTypes.number.isRequired,
+  actions: PropTypes.shape({
+    updateQueueFilter: PropTypes.func.isRequired,
+    setQuery: PropTypes.func.isRequired,
   }).isRequired,
-  fetching: bool.isRequired,
-  formData: shape({}).isRequired,
-  query: shape({
-    status: string,
-    dateTo: string,
-    dateFrom: string,
+  fetching: PropTypes.bool.isRequired,
+  formData: PropTypes.shape({}).isRequired,
+  query: PropTypes.shape({
+    status: PropTypes.string,
+    dateTo: PropTypes.string,
+    dateFrom: PropTypes.string,
   }),
 }
 
