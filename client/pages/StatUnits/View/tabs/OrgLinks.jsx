@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { func, oneOfType, number, string, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Segment, Loader, Header } from 'semantic-ui-react'
@@ -6,68 +6,66 @@ import { Segment, Loader, Header } from 'semantic-ui-react'
 import styles from './styles.pcss'
 
 const hasChildren = node => node.orgLinksNodes && node.orgLinksNodes.length > 0
-const TreeNode = Tree.TreeNode
 
-class OrgLinks extends React.Component {
-  static propTypes = {
-    id: oneOfType([number, string]).isRequired,
-    fetchData: func.isRequired,
-    activeTab: string.isRequired,
-    localize: func.isRequired,
-    isDeletedUnit: bool.isRequired,
-  }
+function OrgLinks({ id, fetchData, activeTab, localize, isDeletedUnit }) {
+  const [orgLinksRoot, setOrgLinksRoot] = useState(undefined)
 
-  state = { orgLinksRoot: undefined }
-
-  componentDidMount() {
-    const { id, fetchData, isDeletedUnit } = this.props
-    if (!isDeletedUnit) {
-      fetchData({ id }).then(orgLinksRoot => this.setState({ orgLinksRoot }))
+  useEffect(() => {
+    const fetchOrgLinks = async () => {
+      if (!isDeletedUnit) {
+        const orgLinksRoot = await fetchData({ id })
+        setOrgLinksRoot(orgLinksRoot)
+      }
     }
-  }
 
-  renderChildren(nodes) {
-    return nodes.map((node) => {
-      const anyChild = hasChildren(node)
-      return (
-        <TreeNode uid={node.regId} key={node.regId} title={node.name} isLeaf={!anyChild}>
-          {anyChild && this.renderChildren(node.orgLinksNodes)}
-        </TreeNode>
-      )
-    })
-  }
+    fetchOrgLinks()
+  }, [id, fetchData, isDeletedUnit])
 
-  render() {
-    const { orgLinksRoot } = this.state
-    const { activeTab, localize, isDeletedUnit } = this.props
-    const highLight = node => node.props.uid === this.props.id
+  const renderChildren = nodes => nodes.map((node) => {
+    const anyChild = hasChildren(node)
     return (
-      <div>
-        {activeTab !== 'orgLinks' && (
-          <Header as="h5" className={styles.heigthHeader} content={localize('OrgLinks')} />
-        )}
-        <Segment>
-          {!isDeletedUnit ? (
-            orgLinksRoot ? (
-              <Tree filterTreeNode={highLight} defaultExpandAll>
-                <TreeNode
-                  uid={orgLinksRoot.regId}
-                  title={orgLinksRoot.name}
-                  key={orgLinksRoot.regId}
-                >
-                  {hasChildren(orgLinksRoot) && this.renderChildren(orgLinksRoot.orgLinksNodes)}
-                </TreeNode>
-              </Tree>
-            ) : (
-              <Loader active />
-            )
-          ) : (
-            <Header size="small" content={localize('OrgLinksNotFound')} textAlign="center" />
-          )}
-        </Segment>
-      </div>
+      <Tree.TreeNode uid={node.regId} key={node.regId} title={node.name} isLeaf={!anyChild}>
+        {anyChild && renderChildren(node.orgLinksNodes)}
+      </Tree.TreeNode>
     )
-  }
+  })
+
+  const highLight = node => node.props.uid === id
+
+  return (
+    <div>
+      {activeTab !== 'orgLinks' && (
+        <Header as="h5" className={styles.heigthHeader} content={localize('OrgLinks')} />
+      )}
+      <Segment>
+        {!isDeletedUnit ? (
+          orgLinksRoot ? (
+            <Tree filterTreeNode={highLight} defaultExpandAll>
+              <Tree.TreeNode
+                uid={orgLinksRoot.regId}
+                title={orgLinksRoot.name}
+                key={orgLinksRoot.regId}
+              >
+                {hasChildren(orgLinksRoot) && renderChildren(orgLinksRoot.orgLinksNodes)}
+              </Tree.TreeNode>
+            </Tree>
+          ) : (
+            <Loader active />
+          )
+        ) : (
+          <Header size="small" content={localize('OrgLinksNotFound')} textAlign="center" />
+        )}
+      </Segment>
+    </div>
+  )
+}
+
+OrgLinks.propTypes = {
+  id: oneOfType([number, string]).isRequired,
+  fetchData: func.isRequired,
+  activeTab: string.isRequired,
+  localize: func.isRequired,
+  isDeletedUnit: bool.isRequired,
 }
 
 export default OrgLinks
