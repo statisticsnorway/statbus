@@ -1,3 +1,4 @@
+/* eslint-disable no-mixed-operators */
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Dropdown, Table, Input, Icon } from 'semantic-ui-react'
@@ -17,46 +18,39 @@ const getCellClassName = (isStart, isEnd, i) =>
   `${isEnd ? styles['group-end'] : ''}`
 
 const { Row, Cell } = Table
-
-function ClauseRow(props) {
-  const {
-    value: clause,
-    path,
-    meta: { shift, startAt, endAt, allSelectedAt },
-    isHead,
-    maxShift,
-    onChange,
-    onInsert,
-    onToggle,
-    onToggleGroup,
-    onRemove,
-    onUngroup,
-    localize,
-    locale,
-    isEdit,
-  } = props
-
+const ClauseRow = ({
+  value: clause,
+  path,
+  meta: { shift, startAt, endAt, allSelectedAt },
+  isHead,
+  maxShift,
+  onChange,
+  onInsert,
+  onToggle,
+  onToggleGroup,
+  onRemove,
+  onUngroup,
+  localize,
+  locale,
+  isEdit,
+}) => {
   const handleChange = onChange(path)
-
   const propsFor = name => ({
     name,
     value: clause[name],
     onChange: handleChange,
   })
-
   const lastGroupCellSpan = maxShift - shift + 1
-
   const toGroupCell = (i) => {
     const isTop = startAt.includes(i)
     const className = getCellClassName(isTop, endAt.includes(i), i)
     const allSelected = allSelectedAt.includes(i)
     const colSpan = i === shift ? lastGroupCellSpan : 1
-
     return (
       <Cell key={i} className={className} colSpan={colSpan} collapsing>
         {isTop && (
           <Icon
-            onClick={() => onToggleGroup(path, !allSelected)}
+            onClick={onToggleGroup(path, !allSelected)}
             name={allSelected ? 'checkmark box' : 'square outline'}
             color={allSelected ? 'blue' : undefined}
             title={localize(allSelected ? 'UnselectClauseGroup' : 'SelectClauseGroup')}
@@ -76,18 +70,15 @@ function ClauseRow(props) {
       </Cell>
     )
   }
-
   const allOperations = pairsToOptions(predicateOperations, localize)
-
   const operationsFor = field =>
     allOperations.filter(x => predicateFields.get(field).operations.includes(x.value))
-
   return (
     <Row active={clause.selected}>
       {R.range(1, shift + 1).map(toGroupCell)}
       <Cell colSpan={shift === 0 ? lastGroupCellSpan : 1} textAlign="right" collapsing>
         <Icon
-          onClick={() => onToggle(path)}
+          onClick={onToggle(path)}
           name={clause.selected ? 'checkmark box' : 'square outline'}
           color={clause.selected ? 'blue' : undefined}
           title={localize(clause.selected ? 'UnselectClause' : 'SelectClause')}
@@ -135,7 +126,7 @@ function ClauseRow(props) {
       </Cell>
       <Cell textAlign="center" collapsing>
         <Icon
-          onClick={isHead ? undefined : () => onRemove(path)}
+          onClick={isHead ? undefined : onRemove(path)}
           disabled={isHead}
           name="x"
           color="red"
@@ -144,7 +135,7 @@ function ClauseRow(props) {
           className="cursor-pointer"
         />
         <InsertButton
-          onClick={() => onInsert(R.take(path.length - 1, path), R.last(path) + 1)}
+          onClick={onInsert(R.take(path.length - 1, path), R.last(path) + 1)}
           title={localize('InsertAfter')}
         />
       </Cell>
@@ -153,7 +144,6 @@ function ClauseRow(props) {
 }
 
 const { arrayOf, bool, func, number, oneOfType, shape, string } = PropTypes
-
 ClauseRow.propTypes = {
   value: clausePropTypes.isRequired,
   path: arrayOf(oneOfType([number, string])).isRequired,
