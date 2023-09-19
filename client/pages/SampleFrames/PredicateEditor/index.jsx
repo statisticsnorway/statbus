@@ -1,23 +1,22 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Table } from 'semantic-ui-react'
+
 import { predicate as predicatePropTypes } from '../propTypes'
-import { flatten, getSequentiallySelected } from '../predicateFns'
+import * as fns from '../predicateFns'
 import Header from './Header'
 import ClauseRow from './ClauseRow'
 
-function PredicateEditor({ value: predicate, onChange, localize, locale, isEdit }) {
-  const { clauses, maxShift } = flatten(predicate)
-  const selected = getSequentiallySelected(clauses)
+const PredicateEditor = ({ value: predicate, onChange, localize, locale, isEdit }) => {
+  const { clauses, maxShift } = fns.flatten(predicate)
+  const selected = fns.getSequentiallySelected(clauses)
   const anySelected = clauses.some(x => x.clause.selected)
-
   const group = () =>
     onChange(fns.group(
       predicate,
       selected.map(x => x.path),
     ))
   const toggleAll = () => onChange(fns.toggleAll(!anySelected)(predicate))
-
   const edit = path => (_, data) => onChange(fns.edit(path, data)(predicate))
   const add = (path, at) => () => onChange(fns.add(path, at)(predicate))
   const toggle = path => () => onChange(fns.toggle(path)(predicate))
@@ -26,7 +25,6 @@ function PredicateEditor({ value: predicate, onChange, localize, locale, isEdit 
   const remove = path => () => onChange(fns.remove(path)(predicate))
   const firstClausePath = clauses.length > 0 ? clauses[0].path : undefined
   const addHeadClause = () => onChange(fns.addHeadClause(predicate, firstClausePath))
-
   return (
     <Table basic="very" compact="very" size="small">
       <Header
@@ -64,7 +62,6 @@ function PredicateEditor({ value: predicate, onChange, localize, locale, isEdit 
 }
 
 const { func, string } = PropTypes
-
 PredicateEditor.propTypes = {
   value: predicatePropTypes.isRequired,
   onChange: func.isRequired,
