@@ -17,6 +17,7 @@ function createSubForm(Body, showReset) {
     const [status, setStatus] = useState({})
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [dirty, setDirty] = useState(false)
+    const { localize } = props
 
     useEffect(() => {
       // Initialize errors, initialErrors, and status from props
@@ -28,11 +29,6 @@ function createSubForm(Body, showReset) {
       const isFormDirty = Object.keys(props.values).some(key => props.values[key] !== props.initialValues[key])
       setDirty(isFormDirty)
     }, [props.errors, props.initialErrors, props.status, props.values, props.initialValues])
-
-    const localize = value =>
-      // Implement the localization logic here
-      // You can use your localization library or method here
-      value
 
     const unmappedErrors = [
       ...unmappedEntries(errors, props.values),
