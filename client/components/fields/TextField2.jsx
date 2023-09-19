@@ -1,5 +1,5 @@
 import React from 'react'
-import { arrayOf, bool, func, string, oneOfType } from 'prop-types'
+import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 import { getSeparator, isAllowedValue } from '../../helpers/validation'
 
@@ -22,27 +22,22 @@ const TextField2 = ({
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
   const hasErrors = touched !== false && errorKeys.length !== 0
-
-  const handleChange = (e, data) => {
-    const separator = getSeparator(field, operation)
-    if (isAllowedValue(data.value, separator) || data.value.length === 0) {
-      onChange(e, data)
-    }
-  }
-
   const props = {
     ...restProps,
     value: value !== null ? value : '',
     error: error || hasErrors,
-    onChange: handleChange,
+    onChange: (e, data) => {
+      const separator = getSeparator(field, operation)
+      if (isAllowedValue(data.value, separator) || data.value.length === 0) {
+        onChange(e, data)
+      }
+    },
     label,
     title,
     placeholder: placeholderKey ? localize(placeholderKey) : label,
     autoComplete: 'off',
   }
-
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
-
   return (
     <div
       className={cssClass}
@@ -59,14 +54,13 @@ TextField2.propTypes = {
   label: string,
   title: string,
   placeholder: string,
-  value: oneOfType([string, null]),
+  value: string,
   touched: bool,
   error: bool,
   errors: arrayOf(string),
   localize: func.isRequired,
   highlighted: bool,
   popuplocalizedKey: string,
-  onChange: func.isRequired,
 }
 
 TextField2.defaultProps = {
