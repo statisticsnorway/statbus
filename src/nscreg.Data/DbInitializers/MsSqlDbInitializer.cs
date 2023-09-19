@@ -324,7 +324,7 @@ namespace nscreg.Data.DbInitializers
                 """;
 
 
-            const string dropGetActivityParent =
+            const string dropFunctionGetActivityParent =
                 """
                 IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'GetActivityParent' AND ROUTINE_TYPE = 'FUNCTION')
                 DROP FUNCTION GetActivityParent
@@ -376,7 +376,7 @@ namespace nscreg.Data.DbInitializers
                 """;
 
 
-            const string dropGetSectorParent =
+            const string dropFunctionGetSectorParent =
                 """
                 IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'GetSectorParent' AND ROUTINE_TYPE = 'FUNCTION')
                 DROP FUNCTION GetSectorParent
@@ -442,7 +442,7 @@ namespace nscreg.Data.DbInitializers
                 """;
 
 
-            const string createStatUnitEnterprise =
+            const string createStatUnitEnterpriseView =
                 """
                 CREATE view [dbo].[V_StatUnitEnterprise_2021]
                 as
@@ -507,7 +507,7 @@ namespace nscreg.Data.DbInitializers
                 """;
 
 
-            const string createStatUnitLocal =
+            const string createStatUnitLocalView =
                 """
                 CREATE view [dbo].[V_StatUnitLocal_2021]
                 as
@@ -567,27 +567,35 @@ namespace nscreg.Data.DbInitializers
             context.Database.ExecuteSqlRaw(dropStatUnitSearchViewTable);
             context.Database.ExecuteSqlRaw(dropStatUnitSearchView);
             context.Database.ExecuteSqlRaw(createStatUnitSearchView);
+
             context.Database.ExecuteSqlRaw(dropReportTreeTable);
             context.Database.ExecuteSqlRaw(dropProcedureGetReportsTree);
 #pragma warning disable EF1000 // Possible SQL injection vulnerability.
             context.Database.ExecuteSqlRaw(createProcedureGetReportsTree);
 #pragma warning restore EF1000 // Possible SQL injection vulnerability.
+
             context.Database.ExecuteSqlRaw(dropFunctionGetActivityChildren);
             context.Database.ExecuteSqlRaw(createFunctionGetActivityChildren);
+
             context.Database.ExecuteSqlRaw(dropFunctionGetRegionChildren);
             context.Database.ExecuteSqlRaw(createFunctionGetRegionChildren);
+
             context.Database.ExecuteSqlRaw(dropStatUnitEnterpriseViewTable);
             context.Database.ExecuteSqlRaw(dropStatUnitEnterpriseTable);
+            context.Database.ExecuteSqlRaw(createStatUnitEnterpriseView);
+
             context.Database.ExecuteSqlRaw(dropFunctionGetRegionParent);
             context.Database.ExecuteSqlRaw(createFunctionGetRegionParent);
-            context.Database.ExecuteSqlRaw(dropGetActivityParent);
+
+            context.Database.ExecuteSqlRaw(dropFunctionGetActivityParent);
             context.Database.ExecuteSqlRaw(createFunctionGetActivityParent);
-            context.Database.ExecuteSqlRaw(dropGetSectorParent);
+
+            context.Database.ExecuteSqlRaw(dropFunctionGetSectorParent);
             context.Database.ExecuteSqlRaw(createFunctionGetSectorParent);
-            context.Database.ExecuteSqlRaw(createStatUnitEnterprise);
+
             context.Database.ExecuteSqlRaw(dropStatUnitLocalViewTable);
             context.Database.ExecuteSqlRaw(dropStatUnitLocalTable);
-            context.Database.ExecuteSqlRaw(createStatUnitLocal);
+            context.Database.ExecuteSqlRaw(createStatUnitLocalView);
         }
     }
 }
