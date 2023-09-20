@@ -22,7 +22,7 @@
 
 SET NOCOUNT ON;
 
-SELECT 'BEGIN';
+SELECT 'BEGIN;';
 
 SELECT 'INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -31,7 +31,8 @@ SELECT 'INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES (' +
     ISNULL(''''+ CAST([ParentId] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [LegalForms]
 ORDER BY [Id];
-SELECT 'SELECT setval(pg_get_serial_sequence(''LegalForms'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM LegalForms), 1), false);'
+
+SELECT 'SELECT setval(pg_get_serial_sequence(''"LegalForms'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "LegalForms"), 1), false);'
 
 SELECT 'INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -40,7 +41,7 @@ SELECT 'INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES (' +
     ISNULL(''''+ CAST([ParentId] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [SectorCodes]
 ORDER BY [Id];
-SELECT 'SELECT setval(pg_get_serial_sequence(''SectorCodes'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM SectorCodes), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"SectorCodes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "SectorCodes"), 1), false);'
 
 SELECT 'INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -48,35 +49,35 @@ SELECT 'INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES (' +
     ISNULL(''''+ CAST([IsoCode] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [Countries];
-SELECT 'SELECT setval(pg_get_serial_sequence(''Countries'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM Countries), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"Countries"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Countries"), 1), false);'
 
 SELECT 'INSERT INTO "ReorgTypes" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [ReorgTypes];
-SELECT 'SELECT setval(pg_get_serial_sequence(''ReorgTypes'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM ReorgTypes), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"ReorgTypes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "ReorgTypes"), 1), false);'
 
 SELECT 'INSERT INTO "ForeignParticipations" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [ForeignParticipations];
-SELECT 'SELECT setval(pg_get_serial_sequence(''ForeignParticipations'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM ForeignParticipations), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"ForeignParticipations"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "ForeignParticipations"), 1), false);'
 
 SELECT 'INSERT INTO "DataSourceClassifications" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [DataSourceClassifications];
-SELECT 'SELECT setval(pg_get_serial_sequence(''DataSourceClassifications'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM DataSourceClassifications), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"DataSourceClassifications"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "DataSourceClassifications"), 1), false);'
 
 SELECT 'INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [Statuses];
-SELECT 'SELECT setval(pg_get_serial_sequence(''Statuses'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM Statuses), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"Statuses"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Statuses"), 1), false);'
 
 SELECT 'INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -85,20 +86,20 @@ SELECT 'INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2",
     ISNULL(''''+ CAST([NameLanguage2] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [UnitsSize];
-SELECT 'SELECT setval(pg_get_serial_sequence(''UnitsSize'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM UnitsSize), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"UnitsSize"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "UnitsSize"), 1), false);'
 
 SELECT 'INSERT INTO "RegistrationReasons" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [RegistrationReasons];
-SELECT 'SELECT setval(pg_get_serial_sequence(''RegistrationReasons'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM RegistrationReasons), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"RegistrationReasons"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "RegistrationReasons"), 1), false);'
 
 SELECT 'INSERT INTO "PersonTypes" ("Id", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [PersonTypes];
-SELECT 'SELECT setval(pg_get_serial_sequence(''PersonTypes'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM PersonTypes), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"PersonTypes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "PersonTypes"), 1), false);'
 
 SELECT 'INSERT INTO "DictionaryVersions" ("Id", "VersionId", "VersionName") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -106,7 +107,7 @@ SELECT 'INSERT INTO "DictionaryVersions" ("Id", "VersionId", "VersionName") VALU
     ISNULL(''''+ CAST([VersionName] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [DictionaryVersions];
 
-SELECT 'SELECT setval(pg_get_serial_sequence(''DictionaryVersions'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM DictionaryVersions), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"DictionaryVersions"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "DictionaryVersions"), 1), false);'
 
 SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "VersionId", "DicParentId", "ActivityCategoryLevel") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -119,7 +120,7 @@ SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Sec
     ISNULL(''''+ CAST([ActivityCategoryLevel] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [ActivityCategories]
 ORDER BY [Id];
-SELECT 'SELECT setval(pg_get_serial_sequence(''ActivityCategories'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM ActivityCategories), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"ActivityCategories"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "ActivityCategories"), 1), false);'
 
 SELECT 'INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -130,19 +131,19 @@ SELECT 'INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "Par
     ISNULL(''''+ CAST([FullPath] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([RegionLevel] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [Regions];
-SELECT 'SELECT setval(pg_get_serial_sequence(''Regions'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM Regions), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"Regions"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Regions"), 1), false);'
 
 SELECT 'INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [EnterpriseGroupTypes];
-SELECT 'SELECT setval(pg_get_serial_sequence(''EnterpriseGroupTypes'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM EnterpriseGroupTypes), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"EnterpriseGroupTypes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupTypes"), 1), false);'
 
 SELECT 'INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + '); '
 FROM [EnterpriseGroupRoles];
-SELECT 'SELECT setval(pg_get_serial_sequence(''EnterpriseGroupRoles'', "Id"), COALESCE((SELECT MAX("Id")+1 FROM EnterpriseGroupRoles), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"EnterpriseGroupRoles"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupRoles"), 1), false);'
 
-SELECT 'END';
+SELECT 'END;';
