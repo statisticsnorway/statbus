@@ -1,4 +1,4 @@
-BEGIN
+BEGIN;
 
 INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('1', 'ADOS', '(ADOS)', NULL);                                                                                                            
 INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('2', 'ANNA', 'Other body corporate', NULL);                                                                                              
@@ -46,7 +46,7 @@ INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('43', 'UDEF'
 INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('44', 'UTLA', 'Foreign entity', NULL);                                                                                                   
 INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('45', 'VPFO', 'Unit trusts', NULL);                                                                                                      
 
-SELECT setval(pg_get_serial_sequence('LegalForms', "Id"), COALESCE((SELECT MAX("Id")+1 FROM LegalForms), 1), false);
+SELECT setval(pg_get_serial_sequence('"LegalForms"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "LegalForms"), 1), false);
 
 INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES ('1', 'DOMESTIC', 'Domestic sectors', NULL);                                                                                              
 INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES ('2', 'R_OF_WORLD', 'Rest of the world', NULL);                                                                                           
@@ -82,7 +82,7 @@ INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES ('31', '8300
 INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES ('32', '8500', 'Employees, recipients of prope', '7');                                                                                    
 INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES ('33', '9000', 'Rest of the world', '8');                                                                                                 
 
-SELECT setval(pg_get_serial_sequence('SectorCodes', "Id"), COALESCE((SELECT MAX("Id")+1 FROM SectorCodes), 1), false);
+SELECT setval(pg_get_serial_sequence('"SectorCodes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "SectorCodes"), 1), false);
 
 INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES ('1', 'SL', NULL, 'Sierra Leone');                                                                                                        
 INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES ('2', 'TW', NULL, 'Taiwan');                                                                                                              
@@ -230,13 +230,13 @@ INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES ('143', 'KZ', N
 INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES ('144', 'SN', NULL, 'Senegal');                                                                                                           
 INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES ('145', 'CZ', NULL, 'Tsjekkia');                                                                                                          
 
-SELECT setval(pg_get_serial_sequence('Countries', "Id"), COALESCE((SELECT MAX("Id")+1 FROM Countries), 1), false);
+SELECT setval(pg_get_serial_sequence('"Countries"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "Countries"), 1), false);
 
 INSERT INTO "ReorgTypes" ("Id", "Code", "Name") VALUES ('1', '1', 'Merger');                                                                                   
 INSERT INTO "ReorgTypes" ("Id", "Code", "Name") VALUES ('2', '2', 'Aquisition');                                                                               
 INSERT INTO "ReorgTypes" ("Id", "Code", "Name") VALUES ('3', '3', 'Re-branding');                                                                              
 
-SELECT setval(pg_get_serial_sequence('ReorgTypes', "Id"), COALESCE((SELECT MAX("Id")+1 FROM ReorgTypes), 1), false);
+SELECT setval(pg_get_serial_sequence('"ReorgTypes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "ReorgTypes"), 1), false);
 
 INSERT INTO "ForeignParticipations" ("Id", "Code", "Name") VALUES ('1', 'a', 'Exports or imports of goods');                                                              
 INSERT INTO "ForeignParticipations" ("Id", "Code", "Name") VALUES ('2', 'b', 'Exports or imports of services');                                                           
@@ -247,12 +247,12 @@ INSERT INTO "ForeignParticipations" ("Id", "Code", "Name") VALUES ('6', 'f', 'Ex
 INSERT INTO "ForeignParticipations" ("Id", "Code", "Name") VALUES ('7', 'g', 'no foreign participation');                                                                 
 INSERT INTO "ForeignParticipations" ("Id", "Code", "Name") VALUES ('8', 'h', 'multiple kinds of foreign part');                                                           
 
-SELECT setval(pg_get_serial_sequence('ForeignParticipations', "Id"), COALESCE((SELECT MAX("Id")+1 FROM ForeignParticipations), 1), false);
+SELECT setval(pg_get_serial_sequence('"ForeignParticipations"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "ForeignParticipations"), 1), false);
 
 INSERT INTO "DataSourceClassifications" ("Id", "Code", "Name") VALUES ('1', '1', 'State register centre');                                                                    
 INSERT INTO "DataSourceClassifications" ("Id", "Code", "Name") VALUES ('2', '2', 'manually entered');                                                                         
 
-SELECT setval(pg_get_serial_sequence('DataSourceClassifications', "Id"), COALESCE((SELECT MAX("Id")+1 FROM DataSourceClassifications), 1), false);
+SELECT setval(pg_get_serial_sequence('"DataSourceClassifications"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "DataSourceClassifications"), 1), false);
 
 INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('1', '1', 'Active');                                                                                   
 INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('2', '2', 'Dormant');                                                                                  
@@ -263,17 +263,17 @@ INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('6', '6', 'In
 INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('7', '7', 'Liquidated');                                                                               
 INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('8', '9', 'Unknown status');                                                                           
 
-SELECT setval(pg_get_serial_sequence('Statuses', "Id"), COALESCE((SELECT MAX("Id")+1 FROM Statuses), 1), false);
+SELECT setval(pg_get_serial_sequence('"Statuses"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "Statuses"), 1), false);
 
 INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('1', 'Small', NULL, NULL, '1');                                                                                                                                            
 INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('2', 'Medium', NULL, NULL, '2');                                                                                                                                           
 INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('3', 'Large', NULL, NULL, '3');                                                                                                                                            
 
-SELECT setval(pg_get_serial_sequence('UnitsSize', "Id"), COALESCE((SELECT MAX("Id")+1 FROM UnitsSize), 1), false);
+SELECT setval(pg_get_serial_sequence('"UnitsSize"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "UnitsSize"), 1), false);
 
 INSERT INTO "RegistrationReasons" ("Id", "Code", "Name") VALUES ('1', '1', 'Whatever');                                                                                 
 
-SELECT setval(pg_get_serial_sequence('RegistrationReasons', "Id"), COALESCE((SELECT MAX("Id")+1 FROM RegistrationReasons), 1), false);
+SELECT setval(pg_get_serial_sequence('"RegistrationReasons"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "RegistrationReasons"), 1), false);
 
 INSERT INTO "PersonTypes" ("Id", "Name") VALUES ('1', 'DIRECTOR');                                                    
 INSERT INTO "PersonTypes" ("Id", "Name") VALUES ('2', 'OWNER');                                                       
@@ -286,11 +286,11 @@ INSERT INTO "PersonTypes" ("Id", "Name") VALUES ('8', 'EMPLOYEE');
 INSERT INTO "PersonTypes" ("Id", "Name") VALUES ('9', 'HEADTEACHER');                                                 
 INSERT INTO "PersonTypes" ("Id", "Name") VALUES ('10', 'CONTACT PERSON/UNKNOWN');                                     
 
-SELECT setval(pg_get_serial_sequence('PersonTypes', "Id"), COALESCE((SELECT MAX("Id")+1 FROM PersonTypes), 1), false);
+SELECT setval(pg_get_serial_sequence('"PersonTypes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "PersonTypes"), 1), false);
 
 INSERT INTO "DictionaryVersions" ("Id", "VersionId", "VersionName") VALUES ('1', '1', 'Migration version');                                                                        
 
-SELECT setval(pg_get_serial_sequence('DictionaryVersions', "Id"), COALESCE((SELECT MAX("Id")+1 FROM DictionaryVersions), 1), false);
+SELECT setval(pg_get_serial_sequence('"DictionaryVersions"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "DictionaryVersions"), 1), false);
 
 INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "VersionId", "DicParentId", "ActivityCategoryLevel") VALUES ('1', '01', 'Crop and animal production, hu', '1791', 'A', '1', '1', '2');                                                                                                                                                                                                        
 INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "VersionId", "DicParentId", "ActivityCategoryLevel") VALUES ('2', '01.1', 'Growing of non-perennial crops', '1', 'A', '1', '2', '3');                                                                                                                                                                                                         
@@ -2108,7 +2108,7 @@ INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "
 INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "VersionId", "DicParentId", "ActivityCategoryLevel") VALUES ('1814', '00.00', 'Unknown', '1813', '0', '1', '1814', '3');                                                                                                                                                                                                                      
 INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "VersionId", "DicParentId", "ActivityCategoryLevel") VALUES ('1815', '00.000', 'Unknown', '1814', '0', '1', '1815', '4');                                                                                                                                                                                                                     
 
-SELECT setval(pg_get_serial_sequence('ActivityCategories', "Id"), COALESCE((SELECT MAX("Id")+1 FROM ActivityCategories), 1), false);
+SELECT setval(pg_get_serial_sequence('"ActivityCategories"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "ActivityCategories"), 1), false);
 
 INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES ('1', NULL, '03', 'Oslo', NULL, 'Oslo', '1');                                                                                                                                                                                                   
 INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES ('2', NULL, '11', 'Rogaland', NULL, 'Rogaland', '1');                                                                                                                                                                                           
@@ -2483,13 +2483,13 @@ INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", 
 INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES ('371', NULL, '2100', 'Svalbard', NULL, 'Svalbard', '2');                                                                                                                                                                                       
 INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES ('372', NULL, '0', 'Utlandet', NULL, 'Utlandet', '1');                                                                                                                                                                                          
 
-SELECT setval(pg_get_serial_sequence('Regions', "Id"), COALESCE((SELECT MAX("Id")+1 FROM Regions), 1), false);
+SELECT setval(pg_get_serial_sequence('"Regions"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "Regions"), 1), false);
 
 INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES ('1', 'Multinational foreign controll');                              
 INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES ('2', 'Multinational domestically con');                              
 INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES ('3', 'All-residents');                                               
 
-SELECT setval(pg_get_serial_sequence('EnterpriseGroupTypes', "Id"), COALESCE((SELECT MAX("Id")+1 FROM EnterpriseGroupTypes), 1), false);
+SELECT setval(pg_get_serial_sequence('"EnterpriseGroupTypes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupTypes"), 1), false);
 
 INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES ('1', 'Other', '5');                                                                                    
 INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES ('2', 'Highest level consolidation un', '4');                                                           
@@ -2497,7 +2497,7 @@ INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES ('3', 'Global d
 INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES ('4', 'Global group head (controlling', '2');                                                           
 INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES ('5', 'Management/control unit', '1');                                                                  
 
-SELECT setval(pg_get_serial_sequence('EnterpriseGroupRoles', "Id"), COALESCE((SELECT MAX("Id")+1 FROM EnterpriseGroupRoles), 1), false);
+SELECT setval(pg_get_serial_sequence('"EnterpriseGroupRoles"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupRoles"), 1), false);
 
-END
+END;
 
