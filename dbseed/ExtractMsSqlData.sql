@@ -32,7 +32,7 @@ SELECT 'INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES (' +
 FROM [LegalForms]
 ORDER BY [Id];
 
-SELECT 'SELECT setval(pg_get_serial_sequence(''"LegalForms'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "LegalForms"), 1), false);'
+SELECT 'SELECT setval(pg_get_serial_sequence(''"LegalForms"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "LegalForms"), 1), false);'
 
 SELECT 'INSERT INTO "SectorCodes" ("Id", "Code", "Name", "ParentId") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
