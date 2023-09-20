@@ -5,7 +5,6 @@
 -- Tables with Seed data, require for Statbus to be operational.
 --   LegalForms(Code, IsDeleted, Name, ParentId)
 --   SectorCodes(Code, IsDeleted, Name, ParentId)
---   Countries(Code, IsDeleted, IsoCode, Name)
 --   ReorgTypes(Code, IsDeleted, Name)
 --   ForeignParticipations(Code, IsDeleted, Name)
 --   DataSourceClassifications(Code, IsDeleted, Name)
@@ -19,6 +18,8 @@
 --   EnterpriseGroupTypes(IsDeleted, Name)
 --   EnterpriseGroupRoles(Name, IsDeleted, Code)
 
+-- Automatically created by dotnet startup code
+--   Countries(Code, IsDeleted, IsoCode, Name)
 
 SET NOCOUNT ON;
 
@@ -43,13 +44,14 @@ FROM [SectorCodes]
 ORDER BY [Id];
 SELECT 'SELECT setval(pg_get_serial_sequence(''"SectorCodes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "SectorCodes"), 1), false);'
 
-SELECT 'INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES (' +
-    ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([IsoCode] AS NVARCHAR) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
-FROM [Countries];
-SELECT 'SELECT setval(pg_get_serial_sequence(''"Countries"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Countries"), 1), false);'
+-- Countries are automatically created by dotnet during startup.
+-- SELECT 'INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES (' +
+--     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
+--     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
+--     ISNULL(''''+ CAST([IsoCode] AS NVARCHAR) + '''', 'NULL') + ', ' +
+--     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + '); '
+-- FROM [Countries];
+-- SELECT 'SELECT setval(pg_get_serial_sequence(''"Countries"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Countries"), 1), false);'
 
 SELECT 'INSERT INTO "ReorgTypes" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
