@@ -184,7 +184,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -506,12 +508,16 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -521,6 +527,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("DataSourceClassifications");
                 });
@@ -637,9 +646,6 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("VersionId", "VersionName")
-                        .IsUnique();
 
                     b.ToTable("DictionaryVersions");
                 });
@@ -839,12 +845,16 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -854,6 +864,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("EnterpriseGroupRoles");
                 });
@@ -867,12 +880,16 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -882,6 +899,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("EnterpriseGroupTypes");
                 });
@@ -895,12 +915,16 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -910,6 +934,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("ForeignParticipations");
                 });
@@ -1441,6 +1468,7 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
@@ -1458,12 +1486,10 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("NameLanguage2")
                         .HasColumnType("text");
 
-                    b.Property<int?>("ParentId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ParentId");
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("LegalForms");
                 });
@@ -1561,9 +1587,12 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -1614,6 +1643,7 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("FullPath")
@@ -1665,6 +1695,7 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
@@ -1699,12 +1730,16 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -1714,6 +1749,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("ReorgTypes");
                 });
@@ -2375,9 +2413,12 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -2388,7 +2429,10 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UnitsSize");
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("UnitSizes");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.UnitStatus", b =>
@@ -2400,12 +2444,16 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -2416,7 +2464,10 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Statuses");
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("UnitStatuses");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.User", b =>
@@ -3223,15 +3274,6 @@ namespace nscreg.Data.Migrations
                     b.Navigation("Size");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.LegalForm", "Parent")
-                        .WithMany("LegalForms")
-                        .HasForeignKey("ParentId");
-
-                    b.Navigation("Parent");
-                });
-
             modelBuilder.Entity("nscreg.Data.Entities.Person", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.Country", "NationalityCode")
@@ -3500,11 +3542,6 @@ namespace nscreg.Data.Migrations
                     b.Navigation("ForeignParticipationCountriesUnits");
 
                     b.Navigation("PersonsUnits");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
-                {
-                    b.Navigation("LegalForms");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Person", b =>

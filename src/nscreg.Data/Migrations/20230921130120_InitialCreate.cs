@@ -24,7 +24,7 @@ namespace nscreg.Data.Migrations
                     VersionId = table.Column<int>(type: "integer", nullable: false),
                     ActivityCategoryLevel = table.Column<int>(type: "integer", nullable: true),
                     Name = table.Column<string>(type: "text", nullable: false),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
                     Code = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false)
@@ -123,11 +123,11 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -154,11 +154,11 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -171,11 +171,11 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -188,11 +188,11 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -205,21 +205,15 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ParentId = table.Column<int>(type: "integer", nullable: true),
                     Name = table.Column<string>(type: "text", nullable: false),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_LegalForms", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_LegalForms_LegalForms_ParentId",
-                        column: x => x.ParentId,
-                        principalTable: "LegalForms",
-                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -228,8 +222,8 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true)
                 },
@@ -270,7 +264,7 @@ namespace nscreg.Data.Migrations
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -292,7 +286,7 @@ namespace nscreg.Data.Migrations
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -305,11 +299,11 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -359,37 +353,37 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Statuses",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
-                    NameLanguage1 = table.Column<string>(type: "text", nullable: true),
-                    NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Statuses", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "UnitsSize",
+                name: "UnitSizes",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Code = table.Column<int>(type: "integer", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UnitsSize", x => x.Id);
+                    table.PrimaryKey("PK_UnitSizes", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UnitStatuses",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    NameLanguage1 = table.Column<string>(type: "text", nullable: true),
+                    NameLanguage2 = table.Column<string>(type: "text", nullable: true),
+                    Code = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UnitStatuses", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -897,14 +891,14 @@ namespace nscreg.Data.Migrations
                         principalTable: "ReorgTypes",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroups_Statuses_UnitStatusId",
-                        column: x => x.UnitStatusId,
-                        principalTable: "Statuses",
+                        name: "FK_EnterpriseGroups_UnitSizes_SizeId",
+                        column: x => x.SizeId,
+                        principalTable: "UnitSizes",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroups_UnitsSize_SizeId",
-                        column: x => x.SizeId,
-                        principalTable: "UnitsSize",
+                        name: "FK_EnterpriseGroups_UnitStatuses_UnitStatusId",
+                        column: x => x.UnitStatusId,
+                        principalTable: "UnitStatuses",
                         principalColumn: "Id");
                 });
 
@@ -1004,14 +998,14 @@ namespace nscreg.Data.Migrations
                         principalTable: "ReorgTypes",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_Statuses_UnitStatusId",
-                        column: x => x.UnitStatusId,
-                        principalTable: "Statuses",
+                        name: "FK_EnterpriseGroupsHistory_UnitSizes_SizeId",
+                        column: x => x.SizeId,
+                        principalTable: "UnitSizes",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_UnitsSize_SizeId",
-                        column: x => x.SizeId,
-                        principalTable: "UnitsSize",
+                        name: "FK_EnterpriseGroupsHistory_UnitStatuses_UnitStatusId",
+                        column: x => x.UnitStatusId,
+                        principalTable: "UnitStatuses",
                         principalColumn: "Id");
                 });
 
@@ -1190,14 +1184,14 @@ namespace nscreg.Data.Migrations
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId");
                     table.ForeignKey(
-                        name: "FK_StatisticalUnits_Statuses_UnitStatusId",
-                        column: x => x.UnitStatusId,
-                        principalTable: "Statuses",
+                        name: "FK_StatisticalUnits_UnitSizes_SizeId",
+                        column: x => x.SizeId,
+                        principalTable: "UnitSizes",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_StatisticalUnits_UnitsSize_SizeId",
-                        column: x => x.SizeId,
-                        principalTable: "UnitsSize",
+                        name: "FK_StatisticalUnits_UnitStatuses_UnitStatusId",
+                        column: x => x.UnitStatusId,
+                        principalTable: "UnitStatuses",
                         principalColumn: "Id");
                 });
 
@@ -1407,9 +1401,9 @@ namespace nscreg.Data.Migrations
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId");
                     table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_UnitsSize_SizeId",
+                        name: "FK_StatisticalUnitHistory_UnitSizes_SizeId",
                         column: x => x.SizeId,
-                        principalTable: "UnitsSize",
+                        principalTable: "UnitSizes",
                         principalColumn: "Id");
                 });
 
@@ -1606,6 +1600,12 @@ namespace nscreg.Data.Migrations
                 column: "Country_Id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DataSourceClassifications_Code",
+                table: "DataSourceClassifications",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DataSourceQueues_DataSourceId",
                 table: "DataSourceQueues",
                 column: "DataSourceId");
@@ -1632,9 +1632,9 @@ namespace nscreg.Data.Migrations
                 column: "DataSourceQueueId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DictionaryVersions_VersionId_VersionName",
-                table: "DictionaryVersions",
-                columns: new[] { "VersionId", "VersionName" },
+                name: "IX_EnterpriseGroupRoles_Code",
+                table: "EnterpriseGroupRoles",
+                column: "Code",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -1748,9 +1748,22 @@ namespace nscreg.Data.Migrations
                 column: "UnitStatusId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_LegalForms_ParentId",
+                name: "IX_EnterpriseGroupTypes_Code",
+                table: "EnterpriseGroupTypes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ForeignParticipations_Code",
+                table: "ForeignParticipations",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LegalForms_Code",
                 table: "LegalForms",
-                column: "ParentId");
+                column: "Code",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Persons_CountryId",
@@ -1813,6 +1826,12 @@ namespace nscreg.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_RegistrationReasons_Code",
                 table: "RegistrationReasons",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ReorgTypes_Code",
+                table: "ReorgTypes",
                 column: "Code",
                 unique: true);
 
@@ -2013,6 +2032,18 @@ namespace nscreg.Data.Migrations
                 column: "UnitStatusId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UnitSizes_Code",
+                table: "UnitSizes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UnitStatuses_Code",
+                table: "UnitStatuses",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserRegions_Region_Id",
                 table: "UserRegions",
                 column: "Region_Id");
@@ -2154,10 +2185,10 @@ namespace nscreg.Data.Migrations
                 name: "ReorgTypes");
 
             migrationBuilder.DropTable(
-                name: "Statuses");
+                name: "UnitSizes");
 
             migrationBuilder.DropTable(
-                name: "UnitsSize");
+                name: "UnitStatuses");
 
             migrationBuilder.DropTable(
                 name: "Regions");
