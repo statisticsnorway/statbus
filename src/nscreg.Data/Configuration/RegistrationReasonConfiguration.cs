@@ -5,9 +5,9 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
-    public class RegionConfiguration : EntityTypeConfigurationBase<Region>
+    public class RegistrationReasonConfiguration : EntityTypeConfigurationBase<RegistrationReason>
     {
-        public override void Configure(EntityTypeBuilder<Region> builder)
+        public override void Configure(EntityTypeBuilder<RegistrationReason> builder)
         {
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Name).IsRequired();

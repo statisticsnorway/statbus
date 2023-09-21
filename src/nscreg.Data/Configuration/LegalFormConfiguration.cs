@@ -5,18 +5,14 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
-    /// <summary>
-    ///  Legal form configuration class
-    /// </summary>
     public class LegalFormConfiguration : EntityTypeConfigurationBase<LegalForm>
     {
-        /// <summary>
-        ///  Legal form configuration method
-        /// </summary>
         public override void Configure(EntityTypeBuilder<LegalForm> builder)
         {
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Name).IsRequired();
+            builder.HasIndex(x => x.Code).IsUnique();
+            builder.Property(x => x.Code).IsRequired();
             builder.Property(x => x.IsDeleted).HasDefaultValue(false);
         }
     }
