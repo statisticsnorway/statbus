@@ -32,6 +32,7 @@ import RolesRoutes from 'pages/Roles/Routes'
 import UsersRoutes from 'pages/Users/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
 import ClassFlowExample from 'pages/DataFlowExamples/ClassFlowExample'
+import RecomposeFlowExample from 'pages/DataFlowExamples/RecomposeFlowExample'
 
 export default (
   <Route path="/" component={Layout}>
@@ -85,6 +86,7 @@ export default (
       </Route>
     )}
     <Route path="classflowexample" component={ClassFlowExample} />
+    <Route path="recomposeflowexample" component={RecomposeFlowExample} />
     <Route path="reportsTree" component={ReportsTree} />
     <Route path="*" component={NotFound} />
   </Route>
