@@ -52,7 +52,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _dbContext = dbContext;
             _mapper = mapper;
             _commonSvc = new CommonService(dbContext, mapper);
-            _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
+            _liquidateStatusId = _dbContext.UnitStatuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
             _editTracer = new EditTracer();            
