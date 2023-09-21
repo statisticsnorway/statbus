@@ -469,10 +469,10 @@ namespace nscreg.Data.DbInitializers
                         LEFT JOIN "Activities" act ON asu."Activity_Id" = act."Id"
                         LEFT JOIN "ActivityCategories" acg ON act."ActivityCategoryId" = acg."Id"
                         LEFT JOIN "LegalForms" lfm ON stu."LegalFormId" = lfm."Id"
-                        LEFT JOIN "UnitsSize" uns ON stu."SizeId" = uns."Id"
+                        LEFT JOIN "UnitSizes" uns ON stu."SizeId" = uns."Id"
                         LEFT JOIN "PersonStatisticalUnits" psu ON stu."RegId" = psu."Unit_Id" AND psu."PersonTypeId" = 3 --manager
                         LEFT JOIN "Persons" psn ON psu."Person_Id" = psn."Id"
-                        LEFT JOIN "Statuses" sts ON stu."UnitStatusId" = sts."Id"
+                        LEFT JOIN "UnitStatuses" sts ON stu."UnitStatusId" = sts."Id"
                     WHERE
                         LOWER(stu."Discriminator") = 'enterpriseunit'
                 """;
@@ -530,10 +530,10 @@ namespace nscreg.Data.DbInitializers
                     LEFT JOIN "Activities" act ON asu."Activity_Id" = act."Id"
                     LEFT JOIN "ActivityCategories" acg ON act."ActivityCategoryId" = acg."Id"
                     LEFT JOIN "LegalForms" lfm ON stu."LegalFormId" = lfm."Id"
-                    LEFT JOIN "UnitsSize" uns ON stu."SizeId" = uns."Id"
+                    LEFT JOIN "UnitSizes" uns ON stu."SizeId" = uns."Id"
                     LEFT JOIN "PersonStatisticalUnits" psu ON stu."RegId" = psu."Unit_Id" AND psu."PersonTypeId" = 3 --manager
                     LEFT JOIN "Persons" psn ON psu."Person_Id" = psn."Id"
-                    LEFT JOIN "Statuses" sts ON stu."UnitStatusId" = sts."Id"
+                    LEFT JOIN "UnitStatuses" sts ON stu."UnitStatusId" = sts."Id"
                 WHERE
                     LOWER(stu."Discriminator") = 'localunit';
                 """;
