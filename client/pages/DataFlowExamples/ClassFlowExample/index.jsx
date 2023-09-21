@@ -5,9 +5,9 @@ class ClassFlowExample extends Component {
     super()
     this.state = {
       legalUnitId: 3,
-      legalUnitName: '',
-      localUnitId: '',
-      localUnitName: '',
+      legalUnitName: 'LegalUnitName',
+      localUnitId: '5',
+      localUnitName: 'LocalUnitName',
       showLegalUnit: false,
       showLocalUnit: false,
     }
@@ -15,8 +15,6 @@ class ClassFlowExample extends Component {
 
   setLegalUnit = () => {
     this.setState({
-      legalUnitId: this.state.legalUnitId,
-      legalUnitName: 'LegalUnitName',
       showLegalUnit: true,
       showLocalUnit: false,
     })
@@ -24,8 +22,6 @@ class ClassFlowExample extends Component {
 
   setLocalUnit = () => {
     this.setState({
-      localUnitId: 5,
-      localUnitName: 'LocalUnitName',
       showLocalUnit: true,
       showLegalUnit: false,
     })
@@ -58,7 +54,7 @@ class ClassFlowExample extends Component {
               <br />
               Name:
               <br />
-              <input type="text" value={this.state.legalUnitName} />
+              <input type="text" value={this.state.legalUnitName} readOnly />
             </div>
           </div>
         ) : (
@@ -70,11 +66,11 @@ class ClassFlowExample extends Component {
             <div>
               ID:
               <br />
-              <input type="text" value={this.state.localUnitId} />
+              <input type="text" value={this.state.localUnitId} readOnly />
               <br />
               Name:
               <br />
-              <input type="text" value={this.state.localUnitName} />
+              <input type="text" value={this.state.localUnitName} readOnly />
               <br />
               Legal unit ID:
               <br />
