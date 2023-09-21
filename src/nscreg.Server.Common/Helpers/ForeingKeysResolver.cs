@@ -87,9 +87,9 @@ namespace nscreg.Server.Common.Helpers
                 },
                 [nameof(StatisticalUnit.SizeId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = dbContext.UnitsSize
+                    foreignKeyField.Before = dbContext.UnitSizes
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = dbContext.UnitsSize
+                    foreignKeyField.After = dbContext.UnitSizes
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.DataSourceClassificationId)] = foreignKeyField =>
@@ -115,9 +115,9 @@ namespace nscreg.Server.Common.Helpers
                 },
                 [nameof(StatisticalUnit.UnitStatusId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = dbContext.Statuses
+                    foreignKeyField.Before = dbContext.UnitStatuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = dbContext.Statuses
+                    foreignKeyField.After = dbContext.UnitStatuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.ParentOrgLink)] = foreignKeyField =>

@@ -58,7 +58,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticService = new ElasticService(dbContext, mapper);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext, _mapper);
-            _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
+            _liquidateStatusId = _dbContext.UnitStatuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _editArrayStatisticalUnits = new List<ElasticStatUnit>();
             _addArrayStatisticalUnits = new List<ElasticStatUnit>();
             _shouldAnalyze = shouldAnalyze;

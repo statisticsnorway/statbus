@@ -289,7 +289,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private UnitSize GetFilledSize(UnitSize size)
         {
-            return _ctx.UnitsSize.AsNoTracking().FirstOrDefault(s =>
+            return _ctx.UnitSizes.AsNoTracking().FirstOrDefault(s =>
                 !s.IsDeleted && (s.Name == size.Name || s.NameLanguage1 == size.Name || s.NameLanguage2 == size.Name))
             ?? throw new Exception($"Size with {size.Name} name wasn't found");
         }
@@ -299,18 +299,18 @@ namespace nscreg.Server.Common.Services.DataSources
             UnitStatus us = null;
             if (!string.IsNullOrEmpty(unitStatus.Name) && !string.IsNullOrEmpty(unitStatus.Code))
             {
-                us = _ctx.Statuses.AsNoTracking().FirstOrDefault(dsc =>
+                us = _ctx.UnitStatuses.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == unitStatus.Name || dsc.NameLanguage1 == unitStatus.Name || dsc.NameLanguage2 == unitStatus.Name) &&
                     dsc.Code == unitStatus.Code);
             }
             else if (!string.IsNullOrEmpty(unitStatus.Name))
             {
-                us = _ctx.Statuses.AsNoTracking().FirstOrDefault(dsc =>
+                us = _ctx.UnitStatuses.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && (dsc.Name == unitStatus.Name || dsc.NameLanguage1 == unitStatus.Name || dsc.NameLanguage2 == unitStatus.Name));
             }
             else if (!string.IsNullOrEmpty(unitStatus.Code))
             {
-                us = _ctx.Statuses.AsNoTracking().FirstOrDefault(dsc =>
+                us = _ctx.UnitStatuses.AsNoTracking().FirstOrDefault(dsc =>
                     !dsc.IsDeleted && dsc.Code == unitStatus.Code);
             }
 

@@ -32,7 +32,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _permissions = permissions;
             _userId = userId;
             _commonSvc = new CommonService(context, mapper);
-            _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
+            _liquidateStatusId = _dbContext.UnitStatuses.FirstOrDefault(x => x.Code == "7")?.Id;
             _mapper = mapper;
         }
 

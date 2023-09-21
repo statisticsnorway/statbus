@@ -191,8 +191,8 @@ namespace nscreg.Services
             await context.PersonTypes.AsNoTracking().LoadAsync();
             await context.RegistrationReasons.AsNoTracking().LoadAsync();
             await context.Regions.AsNoTracking().LoadAsync();
-            await context.UnitsSize.AsNoTracking().LoadAsync();
-            await context.Statuses.AsNoTracking().LoadAsync();
+            await context.UnitSizes.AsNoTracking().LoadAsync();
+            await context.UnitStatuses.AsNoTracking().LoadAsync();
             await context.ReorgTypes.AsNoTracking().LoadAsync();
             await context.SectorCodes.AsNoTracking().LoadAsync();
             await context.DataSourceClassifications.AsNoTracking().LoadAsync();

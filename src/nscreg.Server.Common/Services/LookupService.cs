@@ -62,7 +62,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.PersonTypes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.Statuses.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm  { Id = x.Id, Name = x.Name });
+                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm  { Id = x.Id, Name = x.Name });
                     break;
                 case LookupEnum.ForeignParticipationLookup:
                     query = _dbContext.ForeignParticipations.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm { Id = x.Id, Name = x.Name });
@@ -163,10 +163,10 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.EnterpriseGroupTypes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.Statuses.Where(x => !x.IsDeleted);
+                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitSizeLookup:
-                    query = _dbContext.UnitsSize.Where(x => !x.IsDeleted);
+                    query = _dbContext.UnitSizes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.ForeignParticipationLookup:
                     query = _dbContext.ForeignParticipations.Where(x => !x.IsDeleted);
@@ -269,10 +269,10 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.EnterpriseGroupTypes.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.Statuses.Where(lookupSearchCriteia);
+                    query = _dbContext.UnitStatuses.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitSizeLookup:
-                    query = _dbContext.UnitsSize.Where(lookupSearchCriteia);
+                    query = _dbContext.UnitSizes.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.ForeignParticipationLookup:
                     query = _dbContext.ForeignParticipations.Where(lookupSearchCriteia);
