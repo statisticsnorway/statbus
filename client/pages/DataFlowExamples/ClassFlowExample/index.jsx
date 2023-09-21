@@ -4,7 +4,7 @@ class ClassFlowExample extends Component {
   constructor() {
     super()
     this.state = {
-      legalUnitId: '',
+      legalUnitId: 3,
       legalUnitName: '',
       localUnitId: '',
       localUnitName: '',
@@ -15,7 +15,7 @@ class ClassFlowExample extends Component {
 
   setLegalUnit = () => {
     this.setState({
-      legalUnitId: 3,
+      legalUnitId: this.state.legalUnitId,
       legalUnitName: 'LegalUnitName',
       showLegalUnit: true,
       showLocalUnit: false,
@@ -28,6 +28,12 @@ class ClassFlowExample extends Component {
       localUnitName: 'LocalUnitName',
       showLocalUnit: true,
       showLegalUnit: false,
+    })
+  }
+
+  setLegalUnitId = (event) => {
+    this.setState({
+      legalUnitId: event.target.value,
     })
   }
 
@@ -48,11 +54,11 @@ class ClassFlowExample extends Component {
             <div>
               ID:
               <br />
-              <input type="text" readOnly value={this.state.legalUnitId} />
+              <input type="text" value={this.state.legalUnitId} onChange={this.setLegalUnitId} />
               <br />
               Name:
               <br />
-              <input type="text" readOnly value={this.state.legalUnitName} />
+              <input type="text" value={this.state.legalUnitName} />
             </div>
           </div>
         ) : (
@@ -64,15 +70,15 @@ class ClassFlowExample extends Component {
             <div>
               ID:
               <br />
-              <input type="text" readOnly value={this.state.localUnitId} />
+              <input type="text" value={this.state.localUnitId} />
               <br />
               Name:
               <br />
-              <input type="text" readOnly value={this.state.localUnitName} />
+              <input type="text" value={this.state.localUnitName} />
               <br />
               Legal unit ID:
               <br />
-              <input type="text" readOnly value={this.state.legalUnitId} />
+              <input type="text" value={this.state.legalUnitId} onChange={this.setLegalUnitId} />
             </div>
           </div>
         ) : (
