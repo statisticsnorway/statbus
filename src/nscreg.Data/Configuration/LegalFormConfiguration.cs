@@ -18,7 +18,6 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Name).IsRequired();
             builder.Property(x => x.IsDeleted).HasDefaultValue(false);
-            builder.HasOne(x=> x.Parent).WithMany(x=> x.LegalForms).HasForeignKey(x=> x.ParentId);
         }
     }
 }

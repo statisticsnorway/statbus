@@ -22,7 +22,7 @@ namespace nscreg.Data
             context.Database.EnsureDeleted();
             context.Database.Migrate();
         }
-        
+
         /// <summary>
         /// Drop and re-create statunit search view
         /// </summary>
@@ -78,13 +78,7 @@ namespace nscreg.Data
 
             if (!context.LegalForms.Any())
             {
-                context.LegalForms.Add(new LegalForm {Name = "Хозяйственные товарищества и общества"});
-                context.SaveChanges();
-                var lf = context.LegalForms
-                    .Where(x => x.Name == "Хозяйственные товарищества и общества")
-                    .Select(x => x.Id)
-                    .SingleOrDefault();
-                context.LegalForms.AddRange(new LegalForm {Name = "Акционерное общество", ParentId = lf});
+                context.LegalForms.Add(new LegalForm {Name = "Business partnerships and societies"});
                 context.SaveChanges();
             }
 
