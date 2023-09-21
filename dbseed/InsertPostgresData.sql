@@ -1,50 +1,50 @@
 BEGIN;
 
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('1', 'ADOS', '(ADOS)', NULL);                                                                                                            
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('2', 'ANNA', 'Other body corporate', NULL);                                                                                              
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('3', 'ANS', 'General partnership', NULL);                                                                                                
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('4', 'AS', 'Limited company', NULL);                                                                                                     
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('5', 'ASA', 'Public limited company', NULL);                                                                                             
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('6', 'BA', 'Company with limited liability', NULL);                                                                                      
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('7', 'BBL', 'House building cooperative', NULL);                                                                                         
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('8', 'BEDR', '(BEDR)', NULL);                                                                                                            
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('9', 'BO', 'Other estates', NULL);                                                                                                       
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('10', 'BRL', 'Housing cooperative', NULL);                                                                                               
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('11', 'DA', 'General partnership with share', NULL);                                                                                     
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('12', 'ENK', 'Sole proprietorship', NULL);                                                                                               
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('13', 'EOFG', 'European Economic Enterprise G', NULL);                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('14', 'ESEK', 'Condominium flat owner', NULL);                                                                                           
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('15', 'FKF', 'County municipal business ente', NULL);                                                                                    
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('16', 'FLI', 'Association/club/organisation', NULL);                                                                                     
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('17', 'FYLK', 'County', NULL);                                                                                                           
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('18', 'GFS', 'Mutual insurance company', NULL);                                                                                          
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('19', 'IKJP', 'Other non-body corporate', NULL);                                                                                         
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('20', 'IKS', 'Inter-municipal company', NULL);                                                                                           
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('21', 'KBO', 'Bankrupt estate', NULL);                                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('22', 'KF', 'Municipal business enterprise', NULL);                                                                                      
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('23', 'KIRK', 'Church of Norway', NULL);                                                                                                 
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('24', 'KOMM', 'Municipality', NULL);                                                                                                     
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('25', 'KS', 'Limited partnership', NULL);                                                                                                
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('26', 'KTRF', 'Joint office', NULL);                                                                                                     
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('27', 'NUF', 'Norwegian division of foreign ', NULL);                                                                                    
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('28', 'OPMV', 'Specially sectioned unit', NULL);                                                                                         
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('29', 'ORGL', 'Organisation section', NULL);                                                                                             
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('30', 'PERS', 'Individuals who are registered', NULL);                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('31', 'PK', 'Pension Fund', NULL);                                                                                                       
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('32', 'PRE', 'Jointly owned shipping company', NULL);                                                                                    
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('33', 'REV', '(REV)', NULL);                                                                                                             
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('34', 'S├åR', 'Other business enterprise in a', NULL);                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('35', 'SA', 'Co-operation', NULL);                                                                                                       
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('36', 'SAM', 'Joint ownership according to t', NULL);                                                                                    
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('37', 'SE', 'European Company', NULL);                                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('38', 'SF', 'Public corporation', NULL);                                                                                                 
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('39', 'SPA', 'Savings bank', NULL);                                                                                                      
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('40', 'STAT', 'State', NULL);                                                                                                            
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('41', 'STI', 'Foundation', NULL);                                                                                                        
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('42', 'TVAM', 'Compulsory registration in the', NULL);                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('43', 'UDEF', 'Undefined', NULL);                                                                                                        
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('44', 'UTLA', 'Foreign entity', NULL);                                                                                                   
-INSERT INTO "LegalForms" ("Id", "Code", "Name", "ParentId") VALUES ('45', 'VPFO', 'Unit trusts', NULL);                                                                                                      
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('1', 'ADOS', '(ADOS)');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('2', 'ANNA', 'Other body corporate');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('3', 'ANS', 'General partnership');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('4', 'AS', 'Limited company');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('5', 'ASA', 'Public limited company');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('6', 'BA', 'Company with limited liability');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('7', 'BBL', 'House building cooperative');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('8', 'BEDR', '(BEDR)');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('9', 'BO', 'Other estates');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('10', 'BRL', 'Housing cooperative');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('11', 'DA', 'General partnership with share');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('12', 'ENK', 'Sole proprietorship');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('13', 'EOFG', 'European Economic Enterprise G');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('14', 'ESEK', 'Condominium flat owner');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('15', 'FKF', 'County municipal business ente');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('16', 'FLI', 'Association/club/organisation');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('17', 'FYLK', 'County');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('18', 'GFS', 'Mutual insurance company');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('19', 'IKJP', 'Other non-body corporate');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('20', 'IKS', 'Inter-municipal company');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('21', 'KBO', 'Bankrupt estate');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('22', 'KF', 'Municipal business enterprise');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('23', 'KIRK', 'Church of Norway');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('24', 'KOMM', 'Municipality');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('25', 'KS', 'Limited partnership');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('26', 'KTRF', 'Joint office');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('27', 'NUF', 'Norwegian division of foreign ');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('28', 'OPMV', 'Specially sectioned unit');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('29', 'ORGL', 'Organisation section');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('30', 'PERS', 'Individuals who are registered');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('31', 'PK', 'Pension Fund');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('32', 'PRE', 'Jointly owned shipping company');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('33', 'REV', '(REV)');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('34', 'S├åR', 'Other business enterprise in a');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('35', 'SA', 'Co-operation');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('36', 'SAM', 'Joint ownership according to t');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('37', 'SE', 'European Company');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('38', 'SF', 'Public corporation');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('39', 'SPA', 'Savings bank');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('40', 'STAT', 'State');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('41', 'STI', 'Foundation');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('42', 'TVAM', 'Compulsory registration in the');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('43', 'UDEF', 'Undefined');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('44', 'UTLA', 'Foreign entity');
+INSERT INTO "LegalForms" ("Id", "Code", "Name") VALUES ('45', 'VPFO', 'Unit trusts');
 
 SELECT setval(pg_get_serial_sequence('"LegalForms"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "LegalForms"), 1), false);
 
@@ -106,22 +106,22 @@ INSERT INTO "DataSourceClassifications" ("Id", "Code", "Name") VALUES ('2', '2',
 
 SELECT setval(pg_get_serial_sequence('"DataSourceClassifications"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "DataSourceClassifications"), 1), false);
 
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('1', '1', 'Active');                                                                                   
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('2', '2', 'Dormant');                                                                                  
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('3', '3', 'Newly created, not yet active');                                                            
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('4', '4', 'Inactive');                                                                                 
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('5', '5', 'Historical');                                                                               
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('6', '6', 'In liquidation phase');                                                                     
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('7', '7', 'Liquidated');                                                                               
-INSERT INTO "Statuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('8', '9', 'Unknown status');                                                                           
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('1', '1', 'Active');                                                                                   
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('2', '2', 'Dormant');                                                                                  
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('3', '3', 'Newly created, not yet active');                                                            
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('4', '4', 'Inactive');                                                                                 
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('5', '5', 'Historical');                                                                               
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('6', '6', 'In liquidation phase');                                                                     
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('7', '7', 'Liquidated');                                                                               
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('8', '9', 'Unknown status');                                                                           
 
-SELECT setval(pg_get_serial_sequence('"Statuses"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "Statuses"), 1), false);
+SELECT setval(pg_get_serial_sequence('"UnitStatuses"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "UnitStatuses"), 1), false);
 
-INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('1', 'Small', NULL, NULL, '1');                                                                                                                                            
-INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('2', 'Medium', NULL, NULL, '2');                                                                                                                                           
-INSERT INTO "UnitsSize" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('3', 'Large', NULL, NULL, '3');                                                                                                                                            
+INSERT INTO "UnitSizes" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('1', 'Small', NULL, NULL, '1');                                                                                                                                            
+INSERT INTO "UnitSizes" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('2', 'Medium', NULL, NULL, '2');                                                                                                                                           
+INSERT INTO "UnitSizes" ("Id", "Name", "NameLanguage1", "NameLanguage2", "Code") VALUES ('3', 'Large', NULL, NULL, '3');                                                                                                                                            
 
-SELECT setval(pg_get_serial_sequence('"UnitsSize"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "UnitsSize"), 1), false);
+SELECT setval(pg_get_serial_sequence('"UnitSizes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "UnitSizes"), 1), false);
 
 INSERT INTO "RegistrationReasons" ("Id", "Code", "Name") VALUES ('1', '1', 'Whatever');                                                                                 
 
@@ -2337,9 +2337,9 @@ INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", 
 
 SELECT setval(pg_get_serial_sequence('"Regions"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "Regions"), 1), false);
 
-INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES ('1', 'Multinational foreign controll');                              
-INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES ('2', 'Multinational domestically con');                              
-INSERT INTO "EnterpriseGroupTypes" ("Id", "Name") VALUES ('3', 'All-residents');                                               
+INSERT INTO "EnterpriseGroupTypes" ("Id", "Name", "Code") VALUES ('1', 'Multinational foreign controlled', '3');                              
+INSERT INTO "EnterpriseGroupTypes" ("Id", "Name", "Code") VALUES ('2', 'Multinational domestically controlled', '2');                              
+INSERT INTO "EnterpriseGroupTypes" ("Id", "Name", "Code") VALUES ('3', 'All-residents', '1');                                               
 
 SELECT setval(pg_get_serial_sequence('"EnterpriseGroupTypes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupTypes"), 1), false);
 

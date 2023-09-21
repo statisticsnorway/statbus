@@ -8,8 +8,8 @@ Tables with Seed data, requires for Statbus to be operational.
 *  `ReorgTypes`
 *  `ForeignParticipations`
 *  `DataSourceClassifications`
-*  `Statuses`
-*  `UnitsSize Name, NameLanguage1, NameLanguage2, Code)`
+*  `UnitStatus`
+*  `UnitSize`
 *  `RegistrationReasons`
 *  `PersonTypes Name)`
 *  `DictionaryVersions`
