@@ -35,6 +35,7 @@ import ClassFlowExample from 'pages/DataFlowExamples/ClassFlowExample'
 import RecomposeFlowExample from 'pages/DataFlowExamples/RecomposeFlowExample'
 import FromRecomposeToFunctionalFlowExample from 'pages/DataFlowExamples/FunctionalFlowExamples/FromRecomposeToFunctionalFlowExample'
 import FromClassToFunctionalFlowExample from 'pages/DataFlowExamples/FunctionalFlowExamples/FromClassToFunctionalFlowExample'
+import LiftUpStateParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateExample'
 
 export default (
   <Route path="/" component={Layout}>
@@ -97,6 +98,7 @@ export default (
       path="functionalflowexamples/fromclasstofunctionalflowexample"
       component={FromClassToFunctionalFlowExample}
     />
+    <Route path="sharedstateexamples/liftupstateexample" component={LiftUpStateParent} />
     <Route path="reportsTree" component={ReportsTree} />
     <Route path="*" component={NotFound} />
   </Route>
