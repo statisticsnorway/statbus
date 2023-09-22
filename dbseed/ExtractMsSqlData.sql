@@ -106,22 +106,34 @@ FROM [DictionaryVersions];
 
 SELECT 'SELECT setval(pg_get_serial_sequence(''"DictionaryVersions"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "DictionaryVersions"), 1), false);'
 
+WITH RecursiveCTE AS (
+    -- Base case: records with no parent
+    SELECT [Id], [ParentId], 0 AS Depth
+    FROM [ActivityCategories]
+    WHERE [ParentId] IS NULL OR [ParentId] = 0
+
+    UNION ALL
+
+    -- Recursive case: join with children
+    SELECT ac.[Id], ac.[ParentId], r.Depth + 1
+    FROM [ActivityCategories] ac
+    JOIN RecursiveCTE r ON ac.[ParentId] = r.[Id]
+)
 SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Section", "VersionId", "DicParentId", "ActivityCategoryLevel") VALUES (' +
-    ISNULL(''''+ CAST([Id] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([Code] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([Name] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    -- Workaround 0 instead of NULL for missing ParentID
+    ISNULL(''''+ CAST(ac.[Id] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST(ac.[Code] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST(ac.[Name] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     CASE
-      WHEN [ParentId] = 0 THEN 'NULL'
-      ELSE ISNULL(''''+ CAST([ParentId] AS NVARCHAR(MAX)) + '''', 'NULL')
+      WHEN ac.[ParentId] = 0 THEN 'NULL'
+      ELSE ISNULL(''''+ CAST(ac.[ParentId] AS NVARCHAR(MAX)) + '''', 'NULL')
     END + ', ' +
-    ISNULL(''''+ CAST([Section] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([VersionId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([DicParentId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([ActivityCategoryLevel] AS NVARCHAR(MAX)) + '''', 'NULL') + ');'
-FROM [ActivityCategories]
--- The parents in the MS SQL database were inserted after the children, so insert the parents first.
-ORDER BY [ParentId] ASC;
+    ISNULL(''''+ CAST(ac.[Section] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST(ac.[VersionId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST(ac.[DicParentId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST(ac.[ActivityCategoryLevel] AS NVARCHAR(MAX)) + '''', 'NULL') + ');'
+FROM [ActivityCategories] ac
+JOIN RecursiveCTE r ON ac.[Id] = r.[Id]
+ORDER BY r.Depth ASC, ac.[ParentId] ASC;
 SELECT 'SELECT setval(pg_get_serial_sequence(''"ActivityCategories"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "ActivityCategories"), 1), false);'
 
 SELECT 'INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES (' +
