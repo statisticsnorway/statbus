@@ -2485,19 +2485,20 @@ INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", 
 
 SELECT setval(pg_get_serial_sequence('"Regions"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "Regions"), 1), false);
 
-INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES ('1', '3', 'Multinational foreign controll');                                                          
-INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES ('2', '2', 'Multinational domestically con');                                                          
-INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES ('3', '1', 'All-residents');                                                                           
-
-SELECT setval(pg_get_serial_sequence('"EnterpriseGroupTypes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupTypes"), 1), false);
-
-INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('1', '5', 'Other');                                                                                   
-INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('2', '4', 'Highest level consolidation un');                                                          
-INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('3', '3', 'Global decision centre (managi');                                                          
-INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('4', '2', 'Global group head (controlling');                                                          
-INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('5', '1', 'Management/control unit');                                                                 
-
-SELECT setval(pg_get_serial_sequence('"EnterpriseGroupRoles"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupRoles"), 1), false);
+-- -- Ignore dotnet provided values
+-- INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES ('1', '3', 'Multinational foreign controll');                                                          
+-- INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES ('2', '2', 'Multinational domestically con');                                                          
+-- INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES ('3', '1', 'All-residents');                                                                           
+-- 
+-- SELECT setval(pg_get_serial_sequence('"EnterpriseGroupTypes"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupTypes"), 1), false);
+-- 
+-- INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('1', '5', 'Other');                                                                                   
+-- INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('2', '4', 'Highest level consolidation un');                                                          
+-- INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('3', '3', 'Global decision centre (managi');                                                          
+-- INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('4', '2', 'Global group head (controlling');                                                          
+-- INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES ('5', '1', 'Management/control unit');                                                                 
+-- 
+-- SELECT setval(pg_get_serial_sequence('"EnterpriseGroupRoles"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupRoles"), 1), false);
 
 END;
 
