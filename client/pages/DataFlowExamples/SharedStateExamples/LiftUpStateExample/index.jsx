@@ -1,18 +1,16 @@
 import React, { useState } from 'react'
 
-// Parent Component
 function LiftUpStateParent() {
-  const [sharedState, setSharedState] = useState('Initial state')
+  const [state, setState] = useState('Initial state')
 
   return (
     <div>
-      <LiftUpStateChildA state={sharedState} setState={setSharedState} />
-      <LiftUpStateChildB state={sharedState} setState={setSharedState} />
+      <LiftUpStateChildA state={state} setState={setState} />
+      <LiftUpStateChildB state={state} setState={setState} />
     </div>
   )
 }
 
-// Child Component A
 function LiftUpStateChildA({ state, setState }) {
   return (
     <div>
@@ -23,7 +21,6 @@ function LiftUpStateChildA({ state, setState }) {
   )
 }
 
-// Child Component B
 function LiftUpStateChildB({ state, setState }) {
   return (
     <div>
