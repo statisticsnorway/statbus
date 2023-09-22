@@ -110,12 +110,11 @@ SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Sec
     ISNULL(''''+ CAST([Id] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([ParentId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     -- Workaround 0 instead of NULL for missing ParentID
     CASE
       WHEN [ParentId] = 0 THEN 'NULL'
       ELSE ISNULL(''''+ CAST([ParentId] AS NVARCHAR(MAX)) + '''', 'NULL')
-    END + ', '
+    END + ', ' +
     ISNULL(''''+ CAST([Section] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([VersionId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([DicParentId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
