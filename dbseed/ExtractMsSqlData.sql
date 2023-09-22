@@ -70,7 +70,7 @@ SELECT 'INSERT INTO "DataSourceClassifications" ("Id", "Code", "Name") VALUES ('
 FROM [DataSourceClassifications];
 SELECT 'SELECT setval(pg_get_serial_sequence(''"DataSourceClassifications"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "DataSourceClassifications"), 1), false);'
 
-SELECT 'INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES (' +
+SELECT 'INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ');'
