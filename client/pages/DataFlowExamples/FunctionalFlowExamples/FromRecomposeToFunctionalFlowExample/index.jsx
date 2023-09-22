@@ -20,7 +20,7 @@ const FromRecomposeToFunctionalFlowExample = () => {
 
   return (
     <div>
-      <h1>Hooks flow example</h1>
+      <h1>From recompose to functional flow example</h1>
       <h3>Stat unit types</h3>
       <div>
         <button onClick={setLegalUnit}>Legal unit</button>
