@@ -14,6 +14,9 @@ namespace nscreg.Data.Entities
         public int VersionId { get; set; }
         public int? ActivityCategoryLevel { get; set; }
 
+        public virtual ActivityCategory Parent { get; set; }
+        public virtual IEnumerable<ActivityCategory> Children { get; set; } = new HashSet<ActivityCategory>();
+
         [JsonIgnore]
         public virtual ICollection<ActivityCategoryUser> ActivityCategoryUsers { get; set; }
     }
