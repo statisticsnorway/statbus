@@ -17,8 +17,6 @@
 --   Regions(AdminstrativeCenter, Code, IsDeleted, Name, ParentId, FullPath, RegionLevel)
 --   EnterpriseGroupTypes(IsDeleted, Name)
 --   EnterpriseGroupRoles(Name, IsDeleted, Code)
-
--- Automatically created by dotnet startup code
 --   Countries(Code, IsDeleted, IsoCode, Name)
 
 SET NOCOUNT ON;
@@ -43,14 +41,13 @@ FROM [SectorCodes]
 ORDER BY [Id];
 SELECT 'SELECT setval(pg_get_serial_sequence(''"SectorCodes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "SectorCodes"), 1), false);'
 
--- Countries are automatically created by dotnet during startup.
--- SELECT 'INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES (' +
---     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
---     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
---     ISNULL(''''+ CAST([IsoCode] AS NVARCHAR) + '''', 'NULL') + ', ' +
---     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ');'
--- FROM [Countries];
--- SELECT 'SELECT setval(pg_get_serial_sequence(''"Countries"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Countries"), 1), false);'
+SELECT 'INSERT INTO "Countries" ("Id", "Code", "IsoCode", "Name") VALUES (' +
+    ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST([IsoCode] AS NVARCHAR) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ');'
+FROM [Countries];
+SELECT 'SELECT setval(pg_get_serial_sequence(''"Countries"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Countries"), 1), false);'
 
 SELECT 'INSERT INTO "ReorgTypes" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
@@ -120,7 +117,8 @@ SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Sec
     ISNULL(''''+ CAST([DicParentId] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([ActivityCategoryLevel] AS NVARCHAR) + '''', 'NULL') + ');'
 FROM [ActivityCategories]
-ORDER BY [Id];
+-- The parents in the MS SQL database were inserted after the children, so insert the parents first.
+ORDER BY [Id] NULLS FIRST;
 SELECT 'SELECT setval(pg_get_serial_sequence(''"ActivityCategories"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "ActivityCategories"), 1), false);'
 
 SELECT 'INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES (' +
