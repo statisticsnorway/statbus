@@ -15,6 +15,8 @@ namespace nscreg.Data.Configuration
             builder.Property(v => v.Code).IsRequired().HasMaxLength(10);
             builder.Property(v => v.Section).HasMaxLength(10).IsRequired();
             builder.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+            builder.HasOne(v => v.Parent).WithMany(v => v.Children).HasForeignKey(v => v.ParentId);
         }
     }
 }

@@ -3,7 +3,7 @@
 -- sqlcmd --headers -1 -s"" --trim-spaces --server localhost --database-name SBR_NOR --user-name sa --password 12qw!@QW --input-file ExtractMsSqlData.sql --output-file InsertPostgresData.sql
 
 -- Tables with Seed data, require for Statbus to be operational.
---   LegalForms(Code, IsDeleted, Name, ParentId)
+--   LegalForms(Code, IsDeleted, Name)
 --   SectorCodes(Code, IsDeleted, Name, ParentId)
 --   ReorgTypes(Code, IsDeleted, Name)
 --   ForeignParticipations(Code, IsDeleted, Name)
