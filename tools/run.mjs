@@ -3,7 +3,6 @@ import { spawn } from 'child_process';
 import cpy from 'cpy';
 import copyDir from 'copy-dir';
 import del from 'del';
-import { writeFileSync } from 'fs';
 import mkdirp from 'mkdirp';
 import path from 'path';
 import webpack from 'webpack';
@@ -13,7 +12,7 @@ import { default as webpackConfig } from './webpack.config.mjs';
 import { fileURLToPath } from 'url';
 import webpackDevMiddlewarePackage from 'webpack-dev-middleware';
 import webpackHotMiddleware from 'webpack-hot-middleware';
-import fs from 'fs';
+import fs from 'fs/promises';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -140,12 +139,13 @@ tasks.set(
       let count = environments.length;
 
       try {
-        // Use fs.promises to read JSON files
-        const rootCfg = JSON.parse(await fs.readFile('../appsettings.Shared.json', 'utf8'));
+        const rootCfgPath = path.resolve(__dirname, '../appsettings.Shared.json');
+        const rootCfg = JSON.parse(await fs.readFile(rootCfgPath, 'utf8'));
         let localCfg;
 
+        const localCfgPath = path.join(__dirname, '..', 'src', 'nscreg.Server', 'appsettings.json');
         try {
-          localCfg = JSON.parse(await fs.readFile('../src/nscreg.Server/appsettings.json', 'utf8'));
+          localCfg = JSON.parse(await fs.readFile(localCfgPath, 'utf8'));
         } catch (err) {
           localCfg = {};
         }
