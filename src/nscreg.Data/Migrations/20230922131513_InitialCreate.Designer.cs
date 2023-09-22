@@ -12,7 +12,7 @@ using nscreg.Data;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20230921130120_InitialCreate")]
+    [Migration("20230922131513_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -380,15 +380,19 @@ namespace nscreg.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("IsoCode")
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NameLanguage1")
@@ -398,6 +402,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("Countries");
                 });

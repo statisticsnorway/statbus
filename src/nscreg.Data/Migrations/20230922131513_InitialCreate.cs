@@ -91,11 +91,11 @@ namespace nscreg.Data.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     IsoCode = table.Column<string>(type: "text", nullable: true),
-                    Name = table.Column<string>(type: "text", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     NameLanguage1 = table.Column<string>(type: "text", nullable: true),
                     NameLanguage2 = table.Column<string>(type: "text", nullable: true),
-                    Code = table.Column<string>(type: "text", nullable: true)
+                    Code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1587,6 +1587,12 @@ namespace nscreg.Data.Migrations
                 name: "UserNameIndex",
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Countries_Code",
+                table: "Countries",
+                column: "Code",
                 unique: true);
 
             migrationBuilder.CreateIndex(
