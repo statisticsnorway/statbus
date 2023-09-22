@@ -2,47 +2,37 @@ import React, { useContext, useState } from 'react'
 
 const SharedStateContext = React.createContext()
 
-function ParentComponent() {
+function StateContextParent() {
   const [sharedState, setSharedState] = useState('Initial state')
 
   return (
     <SharedStateContext.Provider value={{ sharedState, setSharedState }}>
-      <ChildComponentA />
-      <ChildComponentB />
+      <StateContextChildA />
+      <StateContextChildB />
     </SharedStateContext.Provider>
   )
 }
 
-function ChildComponentA() {
+function StateContextChildA() {
   const { sharedState, setSharedState } = useContext(SharedStateContext)
 
   return (
     <div>
       <p>State from Context: {sharedState}</p>
-      <button onClick={() => setSharedState('Updated by A')}>Update</button>
+      <button onClick={() => setSharedState('Updated by Component child A')}>Update</button>
     </div>
   )
 }
 
-function ChildComponentB() {
+function StateContextChildB() {
   const { sharedState, setSharedState } = useContext(SharedStateContext)
 
-  // Similar code to ChildComponentA...
+  return (
+    <div>
+      <p>State from Context: {sharedState}</p>
+      <button onClick={() => setSharedState('Updated by Component child B')}>Update</button>
+    </div>
+  )
 }
 
-function useSharedState() {
-  const [state, setState] = useState('Initial state')
-  // ... other shared logic
-
-  return [state, setState]
-}
-
-function ComponentA() {
-  const [state, setState] = useSharedState()
-  // ... use state as needed
-}
-
-function ComponentB() {
-  const [state, setState] = useSharedState()
-  // ... use state as needed
-}
+export default StateContextParent
