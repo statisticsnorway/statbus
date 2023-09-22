@@ -1,6 +1,5 @@
 -- Run with
--- sqlcmd -h-1 -s"," -W -S YourServer -d YourDatabase -U YourUsername -P YourPassword -i ExtractData.sql -o OutputFile.sql
--- sqlcmd --headers -1 -s"" --trim-spaces --server localhost --database-name SBR_NOR --user-name sa --password 12qw!@QW --input-file ExtractMsSqlData.sql --output-file InsertPostgresData.sql
+-- sqlcmd --headers -1 -s"" --trim-spaces --variable-type-width 0 --server localhost --database-name SBR_NOR --user-name sa --password 12qw!@QW --input-file ExtractMsSqlData.sql --output-file InsertPostgresData.sql
 
 -- Tables with Seed data, require for Statbus to be operational.
 --   LegalForms(Code, IsDeleted, Name)
@@ -112,6 +111,11 @@ SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Sec
     ISNULL(''''+ CAST([Code] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([ParentId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
+    -- Workaround 0 instead of NULL for missing ParentID
+    CASE
+      WHEN [ParentId] = 0 THEN 'NULL'
+      ELSE ISNULL(''''+ CAST([ParentId] AS NVARCHAR(MAX)) + '''', 'NULL')
+    END + ', '
     ISNULL(''''+ CAST([Section] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([VersionId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([DicParentId] AS NVARCHAR(MAX)) + '''', 'NULL') + ', ' +
