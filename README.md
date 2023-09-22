@@ -29,17 +29,36 @@ Requirements
 * Node.js 16
 * Docker
 
+
+### Services
+
 To run a local development build, the required services must be run with
 
 ```sh
-docker compose -f docker-compose.support-services.yml up
+docker compose -f docker-compose.support-services-postgres.yml up
 ```
+
+### Backend and migrations
 
 Then the backend can be started with an IDE or with the following command
 
 ```sh
 dotnet run --environment Development --project src\nscreg.Server
 ```
+
+### Seed data (if first run)
+If this is the first run of the docker services, the Server will run
+a migration that creates all the tables in the project.
+Then one must import the seed data required for Statbus to operate:
+
+```sh
+./devops/psql-development.sh < dbseed/InsertPostgresData.sql 2>&1
+```
+Notice the `2>&1` that ensures error messages are returned, in case
+of problems.
+
+
+### Frontend
 
 And the frontend is started with
 
@@ -53,7 +72,9 @@ backend from src/nscreg.Server/wwwwroot
 To load new frontend code the page must be reloaded, as hot reload is not possible
 with this configuration.
 
-Then Visit <http://localhost/> u:admin p:123qwe
+### Browser
+
+Then Visit <http://localhost:5000/> u:admin p:123qwe
 
 ## Running a production build
 
