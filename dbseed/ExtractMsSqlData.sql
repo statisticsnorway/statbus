@@ -134,17 +134,17 @@ SELECT 'INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "Par
 FROM [Regions];
 SELECT 'SELECT setval(pg_get_serial_sequence(''"Regions"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "Regions"), 1), false);'
 
-SELECT 'INSERT INTO "EnterpriseGroupTypes" ("Id", "Name", "Code") VALUES (' +
+SELECT 'INSERT INTO "EnterpriseGroupTypes" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
     ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ');'
 FROM [EnterpriseGroupTypes];
 SELECT 'SELECT setval(pg_get_serial_sequence(''"EnterpriseGroupTypes"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupTypes"), 1), false);'
 
-SELECT 'INSERT INTO "EnterpriseGroupRoles" ("Id", "Name", "Code") VALUES (' +
+SELECT 'INSERT INTO "EnterpriseGroupRoles" ("Id", "Code", "Name") VALUES (' +
     ISNULL(''''+ CAST([Id] AS NVARCHAR) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ', ' +
-    ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ');'
+    ISNULL(''''+ CAST([Code] AS NVARCHAR) + '''', 'NULL') + ', ' +
+    ISNULL(''''+ CAST([Name] AS NVARCHAR) + '''', 'NULL') + ');'
 FROM [EnterpriseGroupRoles];
 SELECT 'SELECT setval(pg_get_serial_sequence(''"EnterpriseGroupRoles"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "EnterpriseGroupRoles"), 1), false);'
 
