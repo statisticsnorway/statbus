@@ -118,7 +118,7 @@ SELECT 'INSERT INTO "ActivityCategories" ("Id", "Code", "Name", "ParentId", "Sec
     ISNULL(''''+ CAST([ActivityCategoryLevel] AS NVARCHAR) + '''', 'NULL') + ');'
 FROM [ActivityCategories]
 -- The parents in the MS SQL database were inserted after the children, so insert the parents first.
-ORDER BY [Id] NULLS FIRST;
+ORDER BY [ParentId] ASC;
 SELECT 'SELECT setval(pg_get_serial_sequence(''"ActivityCategories"'', ''Id''), COALESCE((SELECT MAX("Id")+1 FROM "ActivityCategories"), 1), false);'
 
 SELECT 'INSERT INTO "Regions" ("Id", "AdminstrativeCenter", "Code", "Name", "ParentId", "FullPath", "RegionLevel") VALUES (' +
