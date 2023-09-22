@@ -26,7 +26,7 @@ Requirements
 
 * Windows, Linux, macOS
 * .Net 7.x
-* Node.js 16
+* Node Version Manager https://github.com/nvm-sh/nvm
 * Docker
 
 
@@ -63,9 +63,14 @@ of problems.
 And the frontend is started with
 
 ```sh
+nvm install
+nvm use
 npm install
 npm run watch
 ```
+
+Notice that "nvm" is a tool to install the correct node version,
+with the corresponding npm version, and activate it.
 
 This will read the client files and continously update the files served by the dotnet
 backend from src/nscreg.Server/wwwwroot
