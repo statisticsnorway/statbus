@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const FromRecomposeToFunctionalFlowExample = () => {
+const FromClassToFunctionalFlowExample = () => {
   const [legalUnitId, setLegalUnitId] = useState(3)
   const [legalUnitName] = useState('LegalUnitName')
   const [localUnitId] = useState('5')
@@ -16,6 +16,10 @@ const FromRecomposeToFunctionalFlowExample = () => {
   const setLocalUnit = () => {
     setShowLocalUnit(true)
     setShowLegalUnit(false)
+  }
+
+  const handleLegalUnitIdChange = (event) => {
+    setLegalUnitId(event.target.value)
   }
 
   return (
@@ -34,11 +38,7 @@ const FromRecomposeToFunctionalFlowExample = () => {
           <div>
             ID:
             <br />
-            <input
-              type="text"
-              value={legalUnitId}
-              onChange={ev => setLegalUnitId(ev.target.value)}
-            />
+            <input type="text" value={legalUnitId} onChange={handleLegalUnitIdChange} />
             <br />
             Name:
             <br />
@@ -60,11 +60,7 @@ const FromRecomposeToFunctionalFlowExample = () => {
             <br />
             Legal unit ID:
             <br />
-            <input
-              type="text"
-              value={legalUnitId}
-              onChange={ev => setLegalUnitId(ev.target.value)}
-            />
+            <input type="text" value={legalUnitId} onChange={handleLegalUnitIdChange} />
           </div>
         </div>
       )}
@@ -72,4 +68,4 @@ const FromRecomposeToFunctionalFlowExample = () => {
   )
 }
 
-export default FromRecomposeToFunctionalFlowExample
+export default FromClassToFunctionalFlowExample

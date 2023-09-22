@@ -34,6 +34,7 @@ import DataSourcesRoutes from 'pages/DataSources/Routes'
 import ClassFlowExample from 'pages/DataFlowExamples/ClassFlowExample'
 import RecomposeFlowExample from 'pages/DataFlowExamples/RecomposeFlowExample'
 import FromRecomposeToFunctionalFlowExample from 'pages/DataFlowExamples/FunctionalFlowExamples/FromRecomposeToFunctionalFlowExample'
+import FromClassToFunctionalFlowExample from 'pages/DataFlowExamples/FunctionalFlowExamples/FromClassToFunctionalFlowExample'
 
 export default (
   <Route path="/" component={Layout}>
@@ -91,6 +92,10 @@ export default (
     <Route
       path="functionalflowexamples/fromrecomposetofunctionalflowexample"
       component={FromRecomposeToFunctionalFlowExample}
+    />
+    <Route
+      path="functionalflowexamples/fromclasstofunctionalflowexample"
+      component={FromClassToFunctionalFlowExample}
     />
     <Route path="reportsTree" component={ReportsTree} />
     <Route path="*" component={NotFound} />
