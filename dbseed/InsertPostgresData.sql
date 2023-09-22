@@ -254,14 +254,14 @@ INSERT INTO "DataSourceClassifications" ("Id", "Code", "Name") VALUES ('2', '2',
 
 SELECT setval(pg_get_serial_sequence('"DataSourceClassifications"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "DataSourceClassifications"), 1), false);
 
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('1', '1', 'Active');                                                                                  
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('2', '2', 'Dormant');                                                                                 
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('3', '3', 'Newly created, not yet active');                                                           
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('4', '4', 'Inactive');                                                                                
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('5', '5', 'Historical');                                                                              
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('6', '6', 'In liquidation phase');                                                                    
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('7', '7', 'Liquidated');                                                                              
-INSERT INTO "UnitStatuses" ("Id", "Code", "Name", "IsDeleted") VALUES ('8', '9', 'Unknown status');                                                                          
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('1', '1', 'Active');                                                                                  
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('2', '2', 'Dormant');                                                                                 
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('3', '3', 'Newly created, not yet active');                                                           
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('4', '4', 'Inactive');                                                                                
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('5', '5', 'Historical');                                                                              
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('6', '6', 'In liquidation phase');                                                                    
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('7', '7', 'Liquidated');                                                                              
+INSERT INTO "UnitStatuses" ("Id", "Code", "Name") VALUES ('8', '9', 'Unknown status');                                                                          
 
 SELECT setval(pg_get_serial_sequence('"UnitStatuses"', 'Id'), COALESCE((SELECT MAX("Id")+1 FROM "UnitStatuses"), 1), false);
 
