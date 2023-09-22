@@ -32,6 +32,11 @@ namespace nscreg.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ActivityCategories", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ActivityCategories_ActivityCategories_ParentId",
+                        column: x => x.ParentId,
+                        principalTable: "ActivityCategories",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -1511,6 +1516,11 @@ namespace nscreg.Data.Migrations
                 table: "ActivityCategories",
                 column: "Code",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ActivityCategories_ParentId",
+                table: "ActivityCategories",
+                column: "ParentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ActivityCategoryUsers_ActivityCategory_Id",

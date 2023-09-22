@@ -214,6 +214,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
+                    b.HasIndex("ParentId");
+
                     b.ToTable("ActivityCategories");
                 });
 
@@ -2901,6 +2903,15 @@ namespace nscreg.Data.Migrations
                     b.Navigation("UpdatedByUser");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategory", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId");
+
+                    b.Navigation("Parent");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryUser", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityCategory")
@@ -3324,7 +3335,7 @@ namespace nscreg.Data.Migrations
             modelBuilder.Entity("nscreg.Data.Entities.Region", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.Region", "Parent")
-                        .WithMany()
+                        .WithMany("Children")
                         .HasForeignKey("ParentId");
 
                     b.Navigation("Parent");
@@ -3496,6 +3507,8 @@ namespace nscreg.Data.Migrations
             modelBuilder.Entity("nscreg.Data.Entities.ActivityCategory", b =>
                 {
                     b.Navigation("ActivityCategoryUsers");
+
+                    b.Navigation("Children");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.AnalysisQueue", b =>
@@ -3558,6 +3571,8 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.Region", b =>
                 {
+                    b.Navigation("Children");
+
                     b.Navigation("UserRegions");
                 });
 
