@@ -33,8 +33,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .ThenInclude(a => a.Region)
                 .Include(v => v.PostalAddress)
                 .ThenInclude(a => a.Region)
-                .Include(v => v.PersonsUnits)
-                .ThenInclude(v => v.Unit)
+                .Include(v => v.PersonsUnits) // PersonsUnit.Unit is implicitly included by EF.
                 .Include(v => v.PersonsUnits)
                 .ThenInclude(v => v.EnterpriseGroup);
         }
@@ -42,11 +41,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         public static IQueryable<T> IncludeAdvancedFields<T>(this IQueryable<T> query) where T : class, IStatisticalUnit
         {
             return query.IncludeCommonFields()
+                .Include(v => v.PersonsUnits)
+                .ThenInclude(v => v.Person)
                 .Include(v => v.ActivitiesUnits)
                 .ThenInclude(v => v.Activity)
                 .ThenInclude(v => v.ActivityCategory)
-                .Include(v => v.PersonsUnits)
-                .ThenInclude(v => v.Person)
                 .Include(v => v.ForeignParticipationCountriesUnits);
         }
     }
@@ -596,9 +595,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 };
             }
             return address;
-                
+
         }
-            
+
 
         public IStatisticalUnitHistory MapUnitToHistoryUnit(IStatisticalUnit unit)
         {
