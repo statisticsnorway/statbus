@@ -45,9 +45,9 @@ namespace nscreg.Server.Common
 
             DataAccessCondition(CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
-                .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
+                .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTimeOffset.UtcNow))
                 .ForMember(x => x.EndPeriod, x => x.MapFrom(x => DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
+                .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTimeOffset.UtcNow))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
@@ -123,16 +123,16 @@ namespace nscreg.Server.Common
 
             CreateMap<ActivityM, Activity>()
                 .ForMember(x => x.Id, x => x.Ignore())
-                .ForMember(x => x.UpdatedDate, x => x.MapFrom(v => DateTime.Now))
+                .ForMember(x => x.UpdatedDate, x => x.MapFrom(v => DateTimeOffset.UtcNow))
                 .ForMember(x => x.ActivityCategory, x => x.Ignore());
 
             CreateMap<Activity, ActivityM>()
                 .ForMember(x => x.Id, x => x.Ignore())
-                .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTime.Now));
+                .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTimeOffset.UtcNow));
 
             CreateMap<PersonM, Person>()
                 .ForMember(x => x.Id, x => x.Ignore())
-                .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTime.Now));
+                .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTimeOffset.UtcNow));
 
             CreateMap<Person, PersonM>()
                 .ForMember(x => x.Id, x => x.Ignore());
@@ -327,7 +327,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ForeignCapitalShare, x => x.MapFrom(x => string.Empty))
                 .ForMember(x => x.ForeignCapitalCurrency, x => x.MapFrom(x => string.Empty))
                 .ForMember(x => x.HistoryLocalUnitIds, x => x.MapFrom(x => string.Empty))
-                .ForMember(x => x.EntRegIdDate, x => x.MapFrom(x => DateTime.Now))
+                .ForMember(x => x.EntRegIdDate, x => x.MapFrom(x => DateTimeOffset.UtcNow))
                 .ForMember(x => x.Market, x => x.MapFrom(x => false))
                 .ForMember(x => x.EnterpriseUnitRegId, x => x.MapFrom(x => (int?) null))
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
@@ -350,7 +350,7 @@ namespace nscreg.Server.Common
             CreateMap<LegalUnit, LocalUnit>()
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
-                .ForMember(x => x.LegalUnitIdDate, x => x.MapFrom(x => DateTime.Now))
+                .ForMember(x => x.LegalUnitIdDate, x => x.MapFrom(x => DateTimeOffset.UtcNow))
 
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -391,7 +391,7 @@ namespace nscreg.Server.Common
             CreateMap<EnterpriseUnit, EnterpriseGroup>()
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
-                .ForMember(x => x.StatusDate, x => x.MapFrom(y => y.StatusDate ?? DateTime.Now))
+                .ForMember(x => x.StatusDate, x => x.MapFrom(y => y.StatusDate ?? DateTimeOffset.UtcNow))
                 .ForMember(x => x.LiqDateStart, x => x.MapFrom(x => (DateTime?) null))
                 .ForMember(x => x.LiqDateEnd, x => x.MapFrom(x => (DateTime?) null))
                 .ForMember(x => x.HistoryEnterpriseUnitIds, x => x.MapFrom(x => string.Empty))
@@ -468,9 +468,9 @@ namespace nscreg.Server.Common
             where TDestination : StatisticalUnit
             => CreateMap<TSource, TDestination>()
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
-                .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
-                .ForMember(x => x.EndPeriod, x => x.MapFrom(x => DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
+                .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTimeOffset.UtcNow))
+                .ForMember(x => x.EndPeriod, x => x.MapFrom(x => DateTimeOffset.MaxValue))
+                .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTimeOffset.UtcNow))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())

@@ -21,10 +21,19 @@ namespace nscreg.Server.Common.Models.StatUnits
             IReadOnlyDictionary<string, bool> mandatoryFields,
             ActionsEnum ignoredActions )
         {
-            var properties = GetFilteredProperties(domainEntity.GetType())
-                .Select(x => PropertyMetadataFactory.Create(
-                    x.PropInfo, domainEntity, x.Writable,
-                    mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory) ? mandatory : (bool?) null));
+            var authorizedProperties = GetAuthorizedProperties(domainEntity.GetType()).ToList();
+            var properties = authorizedProperties.Select(x =>
+                {
+                    var hasMandatory = mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory);
+                    var property = PropertyMetadataFactory.Create(
+                        x.PropInfo,
+                        domainEntity,
+                        x.Writable,
+                        hasMandatory ? mandatory : null
+                    );
+                    return property;
+                }
+                ).ToList();
             return new StatUnitViewModel
             {
                 StatUnitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(domainEntity.GetType()),
@@ -32,7 +41,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                 Permissions = dataAccess.Permissions.Where(x=>properties.Any(d=>x.PropertyName.EndsWith($".{d.LocalizeKey}"))).ToList() //TODO: Filter By Type (Optimization)
             };
 
-            IEnumerable<(PropertyInfo PropInfo, bool Writable)> GetFilteredProperties(Type type)
+            IEnumerable<(PropertyInfo PropInfo, bool Writable)> GetAuthorizedProperties(Type type)
                 => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                     .Where(x =>
                         dataAccess.HasWriteOrReadPermission(DataAccessAttributesHelper.GetName(type, x.Name))
