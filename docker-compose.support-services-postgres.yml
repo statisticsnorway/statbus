@@ -26,6 +26,19 @@ services:
       - ./postgres-initdb.d:/docker-entrypoint-initdb.d:r
     networks:
       - elastic
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@statbus.org
+      PGADMIN_DEFAULT_PASSWORD: boo8baequoopo5Eoneez
+      #PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/nscreg-sql-password
+      PGADMIN_DISABLE_POSTFIX: true
+    ports:
+      - 6480:80
+    depends_on:
+      - "postgres"
+
   elasticsearch:
     container_name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
@@ -41,11 +54,28 @@ services:
     networks:
       - elastic
 
+  seq:
+    image: datalust/seq
+    volumes:
+      - statbus-logging-data:/data
+    restart: always
+    environment:
+      - "ACCEPT_EULA=Y"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - 6342:80
+      - 6341:5341
+
 networks:
   elastic:
     driver: bridge
 
 secrets:
+  # The containers using this secret can read it from the file
+  # /run/secrets/nscreg-sql-password
   nscreg-sql-password:
     file: mssql_password.txt
 
@@ -60,5 +90,5 @@ volumes:
     #   docker compose down --volumes
     #external: true
   elasticsearch-data:
-  nscreg-mssql-data:
+  statbus-logging-data:
   keys:
