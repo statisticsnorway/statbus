@@ -57,7 +57,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (filter.IsEmpty())
             {
                 var baseQuery = _dbContext.StatUnitSearchView
-                    .Where(s => s.IsDeleted == isDeleted && s.LiqDate == null);
+                        .Where(s => s.IsDeleted == isDeleted && s.LiqDate == null)
+                        // How the most recent entries at the top.
+                    .OrderByDescending(s => s.StatId);
 
                 totalCount = baseQuery.Count();
                 units = (await baseQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToListAsync())
@@ -90,7 +92,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     permissions.GetReadablePropNames(), !isAdmin &&
                     !helper.IsRegionOrActivityContains(userId, x.RegionId != null ? new List<int> { (int)x.RegionId } : new List<int>(), unitsToMainActivities[x.RegId].Select(z => z.Id).ToList())));
 
-            return SearchVm.Create(result, totalCount);
+            var viewModel = SearchVm.Create(result, totalCount);
+            return viewModel;
         }
 
         private async Task<IDictionary<int?, RegionLookupVm>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)
