@@ -35,7 +35,7 @@ namespace nscreg.ModelGeneration
         public enum PropertyType
         {
             Boolean = 0,
-            DateTime,
+            DateTimeOffset,
             Float,
             Integer,
             MultiReference,

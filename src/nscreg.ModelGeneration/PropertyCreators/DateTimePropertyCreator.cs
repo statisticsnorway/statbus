@@ -11,16 +11,16 @@ namespace nscreg.ModelGeneration.PropertyCreators
     /// <summary>
     ///     Date Creator Class
     /// </summary>
-    public class DateTimePropertyCreator : PropertyCreatorBase
+    public class DateTimeOffsetPropertyCreator : PropertyCreatorBase
     {
-        public DateTimePropertyCreator(IValidationEndpointProvider validationEndpointProvider) : base(
+        public DateTimeOffsetPropertyCreator(IValidationEndpointProvider validationEndpointProvider) : base(
             validationEndpointProvider)
         {
         }
 
         public override bool CanCreate(PropertyInfo propInfo)
         {
-            return propInfo.PropertyType == typeof(DateTime) || propInfo.PropertyType == typeof(DateTime?);
+            return propInfo.PropertyType == typeof(DateTimeOffset) || propInfo.PropertyType == typeof(DateTimeOffset?);
         }
 
         /// <summary>
@@ -29,14 +29,15 @@ namespace nscreg.ModelGeneration.PropertyCreators
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
             bool mandatory = false)
         {
-            return new DateTimePropertyMetadata(
+            var propertyMetadata = new DateTimeOffsetPropertyMetadata(
                 propInfo.Name,
                 mandatory || !propInfo.PropertyType.IsNullable(),
-                GetAtomicValue<DateTime?>(propInfo, obj),
+                GetAtomicValue<DateTimeOffset?>(propInfo, obj),
                 GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable,
                 popupLocalizedKey: propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);
+            return propertyMetadata;
         }
     }
 }
