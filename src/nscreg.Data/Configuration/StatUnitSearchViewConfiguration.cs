@@ -9,7 +9,7 @@ namespace nscreg.Data.Configuration
     {
         public override void Configure(EntityTypeBuilder<StatUnitSearchView> builder)
         {
-            builder.HasKey(x => x.StatId);
+            builder.HasKey(x => x.RegId);
             builder.ToView("V_StatUnitSearch");
             builder.Property(x => x.Turnover).HasColumnType("decimal(18,2)");
         }

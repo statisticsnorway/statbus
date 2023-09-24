@@ -57,13 +57,15 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (filter.IsEmpty())
             {
                 var baseQuery = _dbContext.StatUnitSearchView
-                        .Where(s => s.IsDeleted == isDeleted && s.LiqDate == null)
-                        // How the most recent entries at the top.
+                    .Where(s => s.IsDeleted == isDeleted && s.LiqDate == null)
+                    // How the most recent entries at the top.
+                    // And get predictable ordering for the pagination below.
                     .OrderByDescending(s => s.StatId);
 
                 totalCount = baseQuery.Count();
-                units = (await baseQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToListAsync())
-                    .Select(_mapper.Map<StatUnitSearchView, ElasticStatUnit>).ToList();
+                var dbUnits = await baseQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
+                    .ToListAsync();
+                units = dbUnits.Select(_mapper.Map<StatUnitSearchView, ElasticStatUnit>).ToList();
             }
             else
             {
