@@ -37,10 +37,10 @@ services:
       - "6543:5432"
     restart: always
     secrets:
-      - nscreg-sql-password
+      - db-admin-password
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD_FILE: /run/secrets/nscreg-sql-password
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-admin-password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -62,9 +62,9 @@ services:
   #    - "1433:1433"
   #  restart: always
   #  secrets:
-  #    - nscreg-sql-password
+  #    - db-admin-password
   #  environment:
-  #    MSSQL_SA_PASSWORD_FILE: /run/secrets/nscreg-sql-password
+  #    MSSQL_SA_PASSWORD_FILE: /run/secrets/db-admin-password
   #    ACCEPT_EULA: Y
   #  healthcheck:
   #    test: '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P $$(cat $$MSSQL_SA_PASSWORD_FILE) -Q "Select 1"'
@@ -94,7 +94,7 @@ networks:
     driver: bridge
 
 secrets:
-  nscreg-sql-password:
+  db-admin-password:
     file: mssql_password.txt
 
 volumes:

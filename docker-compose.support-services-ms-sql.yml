@@ -16,9 +16,9 @@ services:
           cpus: "4"
           memory: 8g
     secrets:
-      - nscreg-sql-password
+      - db-admin-password
     environment:
-      MSSQL_SA_PASSWORD_FILE: /run/secrets/nscreg-sql-password
+      MSSQL_SA_PASSWORD_FILE: /run/secrets/db-admin-password
       ACCEPT_EULA: Y
       MSSQL_LCID: 1033
       MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
@@ -50,7 +50,7 @@ networks:
     driver: bridge
 
 secrets:
-  nscreg-sql-password:
+  db-admin-password:
     file: mssql_password.txt
 
 volumes:
