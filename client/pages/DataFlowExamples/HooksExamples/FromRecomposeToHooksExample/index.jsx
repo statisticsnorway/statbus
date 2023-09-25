@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const FromRecomposeToFunctionalFlowExample = () => {
+const FromRecomposeToHooksExample = () => {
   const [legalUnitId, setLegalUnitId] = useState(3)
   const [legalUnitName] = useState('LegalUnitName')
   const [localUnitId] = useState('5')
@@ -20,7 +20,7 @@ const FromRecomposeToFunctionalFlowExample = () => {
 
   return (
     <div>
-      <h1>From recompose to functional flow example</h1>
+      <h1>From recompose to hooks example</h1>
       <h3>Stat unit types</h3>
       <div>
         <button onClick={setLegalUnit}>Legal unit</button>
@@ -72,4 +72,4 @@ const FromRecomposeToFunctionalFlowExample = () => {
   )
 }
 
-export default FromRecomposeToFunctionalFlowExample
+export default FromRecomposeToHooksExample
