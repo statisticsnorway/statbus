@@ -197,52 +197,70 @@ namespace nscreg.Server.Common.Services
 
         public async Task CreateAsync(IFormFileCollection files, UploadQueueItemVm data, string userId)
         {
-            var today = DateTime.Now;
-            var pathDirectory = AssemblyDirectory;
-            var path = Path.Combine(
-                Path.GetFullPath(pathDirectory),
-                _uploadDir,
-                today.Year.ToString(),
-                today.Month.ToString(),
-                today.Day.ToString());
+            var uploadPath = GetUploadPath();
+            EnsureDirectoryExists(uploadPath);
+
             try
             {
-                Directory.CreateDirectory(path);
                 foreach (var file in files)
                 {
-                    var filePath = Path.Combine(path, Guid.NewGuid().ToString());
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(fileStream);
-                        _dbContext.DataSourceQueues.Add(new DataSourceQueue
-                        {
-                            UserId = userId,
-                            DataSourcePath = filePath,
-                            DataSourceFileName = file.FileName,
-                            DataSourceId = data.DataSourceId,
-                            Description = data.Description,
-                            StartImportDate = today,
-                            EndImportDate = null,
-                            Status = DataSourceQueueStatuses.InQueue,
-                        });
-                    }
+                    var filePath = SaveFileToDisk(file, uploadPath);
+                    AddToQueue(file, filePath, data, userId);
                 }
+
                 await _dbContext.SaveChangesAsync();
             }
-            catch (Exception e)
+            catch (IOException e)
             {
                 throw new BadRequestException(nameof(Resource.CantStoreFile), e);
             }
+            catch (Exception e)
+            {
+                throw new Exception("An unexpected error occurred.", e);
+            }
         }
 
-        public string AssemblyDirectory
+        private string GetUploadPath()
         {
-            get
+            var tempPath = Path.GetTempPath();
+            return Path.Combine(
+                tempPath,
+                _uploadDir,
+                Guid.NewGuid().ToString()
+                );
+        }
+
+        private void EnsureDirectoryExists(string path)
+        {
+            if (!Directory.Exists(path))
             {
-                var location = Assembly.GetExecutingAssembly().Location;
-                var path = Path.GetDirectoryName(location);
-                return path;
+                Directory.CreateDirectory(path);
             }
+        }
+
+        private string SaveFileToDisk(IFormFile file, string uploadPath)
+        {
+            var filePath = Path.Combine(uploadPath, Guid.NewGuid().ToString());
+
+            using var fileStream = new FileStream(filePath, FileMode.Create);
+            file.CopyTo(fileStream);
+
+            return filePath;
+        }
+
+        private void AddToQueue(IFormFile file, string filePath, UploadQueueItemVm data, string userId)
+        {
+            var today = DateTimeOffset.UtcNow;
+            _dbContext.DataSourceQueues.Add(new DataSourceQueue
+            {
+                UserId = userId,
+                DataSourcePath = filePath,
+                DataSourceFileName = file.FileName,
+                DataSourceId = data.DataSourceId,
+                Description = data.Description,
+                StartImportDate = today,
+                Status = DataSourceQueueStatuses.InQueue,
+            });
         }
 
         public async Task<Dictionary<string, string[]>> UpdateLog(int logId, string data, string userId)
