@@ -39,7 +39,7 @@ class Create extends React.Component {
       },
       userRegions: [],
       description: '',
-      activiyCategoryIds: [],
+      activityCategoryIds: [],
     },
     regionTree: undefined,
     rolesList: [],
@@ -70,7 +70,7 @@ class Create extends React.Component {
     this.setState(s => ({
       data: {
         ...s.data,
-        activiyCategoryIds: activities.filter(x => x !== 'all'),
+        activityCategoryIds: activities.filter(x => x !== 'all'),
         isAllActivitiesSelected: activities.some(x => x === 'all'),
       },
     }))
@@ -273,11 +273,11 @@ class Create extends React.Component {
           />
           {!fetchingRoles && data.assignedRole !== roles.admin && (
             <ActivityTree
-              name="activiyCategoryIds"
+              name="activityCategoryIds"
               label="ActivityCategoryLookup"
               dataTree={activityTree}
               loaded={!fetchingActivities}
-              checked={data.activiyCategoryIds}
+              checked={data.activityCategoryIds}
               callBack={this.setActivities}
               disabled={spinner}
               localize={localize}

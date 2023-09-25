@@ -56,7 +56,7 @@ class Edit extends React.Component {
   }
 
   setActivities = (activities) => {
-    this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
+    this.props.editForm({ name: 'activityCategoryIds', value: activities.filter(x => x !== 'all') })
     this.props.editForm({
       name: 'isAllActivitiesSelected',
       value: activities.some(x => x === 'all'),
@@ -211,10 +211,10 @@ class Edit extends React.Component {
         />
         {activityTree && user.assignedRole !== roles.admin && (
           <ActivityTree
-            name="activiyCategoryIds"
+            name="activityCategoryIds"
             label="ActivityCategoryLookup"
             dataTree={activityTree}
-            checked={user.activiyCategoryIds}
+            checked={user.activityCategoryIds}
             callBack={this.setActivities}
             disabled={spinner}
             localize={localize}
