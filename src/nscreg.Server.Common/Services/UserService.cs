@@ -144,6 +144,8 @@ namespace nscreg.Server.Common.Services
                 .Include(u => u.ActivitysCategoryUsers)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
+                // There are few rows after the join, so load all in a single query.
+                .AsSingleQuery()
                 .FirstOrDefault(u => u.Id == id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
