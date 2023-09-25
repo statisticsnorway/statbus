@@ -33,8 +33,8 @@ import UsersRoutes from 'pages/Users/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
 import ClassFlowExample from 'pages/DataFlowExamples/ClassFlowExample'
 import RecomposeFlowExample from 'pages/DataFlowExamples/RecomposeFlowExample'
-import FromRecomposeToFunctionalFlowExample from 'pages/DataFlowExamples/FunctionalFlowExamples/FromRecomposeToFunctionalFlowExample'
-import FromClassToFunctionalFlowExample from 'pages/DataFlowExamples/FunctionalFlowExamples/FromClassToFunctionalFlowExample'
+import FromRecomposeToHooksExample from 'pages/DataFlowExamples/HooksExamples/FromRecomposeToHooksExample'
+import FromClassToHooksExample from 'pages/DataFlowExamples/HooksExamples/FromClassToHooksExample'
 import LiftUpStateParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateExample'
 import StateContextParent from 'pages/DataFlowExamples/SharedStateExamples/StateContextExample'
 import LiftUpStateStatUnitParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateStatUnitExample'
@@ -93,13 +93,10 @@ export default (
     <Route path="classflowexample" component={ClassFlowExample} />
     <Route path="recomposeflowexample" component={RecomposeFlowExample} />
     <Route
-      path="functionalflowexamples/fromrecomposetofunctionalflowexample"
-      component={FromRecomposeToFunctionalFlowExample}
+      path="hooksexamples/fromrecomposetohooksexample"
+      component={FromRecomposeToHooksExample}
     />
-    <Route
-      path="functionalflowexamples/fromclasstofunctionalflowexample"
-      component={FromClassToFunctionalFlowExample}
-    />
+    <Route path="hooksexamples/fromclasstohooksexample" component={FromClassToHooksExample} />
     <Route path="sharedstateexamples/liftupstateexample" component={LiftUpStateParent} />
     <Route path="sharedstateexamples/statecontextexample" component={StateContextParent} />
     <Route

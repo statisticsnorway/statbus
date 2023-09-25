@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const FromClassToFunctionalFlowExample = () => {
+const FromClassToHooksExample = () => {
   const [legalUnitId, setLegalUnitId] = useState(3)
   const [legalUnitName] = useState('LegalUnitName')
   const [localUnitId] = useState('5')
@@ -24,7 +24,7 @@ const FromClassToFunctionalFlowExample = () => {
 
   return (
     <div>
-      <h1>From class to functional flow example</h1>
+      <h1>From class to hooks example</h1>
       <h3>Stat unit types</h3>
       <div>
         <button onClick={setLegalUnit}>Legal unit</button>
@@ -68,4 +68,4 @@ const FromClassToFunctionalFlowExample = () => {
   )
 }
 
-export default FromClassToFunctionalFlowExample
+export default FromClassToHooksExample
