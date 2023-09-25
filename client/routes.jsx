@@ -35,7 +35,7 @@ import ClassFlowExample from 'pages/DataFlowExamples/ClassFlowExample'
 import RecomposeFlowExample from 'pages/DataFlowExamples/RecomposeFlowExample'
 import FromRecomposeToHooksExample from 'pages/DataFlowExamples/HooksExamples/FromRecomposeToHooksExample'
 import FromClassToHooksExample from 'pages/DataFlowExamples/HooksExamples/FromClassToHooksExample'
-import LiftUpStateParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateExample'
+import LiftUpStateWithHooksParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateWithHooksExample'
 import StateContextParent from 'pages/DataFlowExamples/SharedStateExamples/StateContextExample'
 import LiftUpStateStatUnitParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateStatUnitExample'
 
@@ -97,7 +97,10 @@ export default (
       component={FromRecomposeToHooksExample}
     />
     <Route path="hooksexamples/fromclasstohooksexample" component={FromClassToHooksExample} />
-    <Route path="sharedstateexamples/liftupstateexample" component={LiftUpStateParent} />
+    <Route
+      path="sharedstateexamples/liftupstatewithhooksexample"
+      component={LiftUpStateWithHooksParent}
+    />
     <Route path="sharedstateexamples/statecontextexample" component={StateContextParent} />
     <Route
       path="sharedstateexamples/liftupstatestatunitexample"
