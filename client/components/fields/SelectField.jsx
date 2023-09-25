@@ -11,6 +11,7 @@ import { getNewName } from 'helpers/locale'
 
 import styles from './styles.pcss'
 import './SelectField.css'
+import regeneratorRuntime from 'regenerator-runtime'
 
 const notSelected = { value: undefined, text: 'NotSelected' }
 
@@ -33,6 +34,26 @@ const NameCodeOption = {
     </div>
   ),
 }
+
+// eslint-disable-next-line react/prop-types
+const createRemovableValueComponent = localize => ({ value, onRemove }) => (
+  <Label
+    content={value.value === notSelected.value ? localize(value.label) : value.label}
+    onRemove={() => onRemove(value)}
+    removeIcon="delete"
+    color="blue"
+    basic
+  />
+)
+
+// eslint-disable-next-line react/prop-types
+const createValueComponent = localize => ({ value: { value, label } }) => (
+  <div className="Select-value">
+    <span className="Select-value-label" role="option" aria-selected="true">
+      {value === notSelected.value ? localize(notSelected.text) : label}
+    </span>
+  </div>
+)
 
 const numOrStr = oneOfType([number, string])
 
@@ -247,12 +268,12 @@ const SelectField = ({
           }
         }
       }
+
+      const handleInputChangeDebounced = debounce(fetchData, waitTime)
+      handleInputChangeDebounced()
     },
     [lookup, pageSize, responseToOption, waitTime],
   )
-
-  const handleInputChangeDebounced = debounce(handleInputChange, waitTime)
-  // handleInputChangeDebounced();
 
   const hasErrors = (touched && hasValue(errors)) || (error && hasValue(errors))
   const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
