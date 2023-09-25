@@ -77,7 +77,7 @@ namespace nscreg.Server.Test
                             EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true, CanRead = true, CanWrite = true } },
                         },
                         AccessToSystemFunctions = new List<int> {1, 2, 3},
-                        ActiviyCategoryIds = new int[] {}
+                        ActivityCategoryIds = new int[] {}
                     };
 
                 var role = new RoleService(context).Create(submitData);
@@ -137,7 +137,7 @@ namespace nscreg.Server.Test
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
                     StandardDataAccess =  daa,
                     Description = "After Edit",
-                    ActiviyCategoryIds = new int[] { }
+                    ActivityCategoryIds = new int[] { }
                 };
 
                 new RoleService(context).Edit(role.Id, roleData);

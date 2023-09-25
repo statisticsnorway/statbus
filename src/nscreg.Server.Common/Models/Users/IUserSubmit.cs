@@ -8,7 +8,7 @@ namespace nscreg.Server.Common.Models.Users
     public interface IUserSubmit
     {
         IEnumerable<int> UserRegions { get; set; }
-        IEnumerable<int> ActiviyCategoryIds { get; set; }
+        IEnumerable<int> ActivityCategoryIds { get; set; }
         bool IsAllActivitiesSelected { get; set; }
     }
 }

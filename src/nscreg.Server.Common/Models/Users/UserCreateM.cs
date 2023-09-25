@@ -43,7 +43,7 @@ namespace nscreg.Server.Common.Models.Users
         public IEnumerable<int> UserRegions { get; set; }
 
         [Required]
-        public IEnumerable<int> ActiviyCategoryIds { get; set; }
+        public IEnumerable<int> ActivityCategoryIds { get; set; }
 
         public bool IsAllActivitiesSelected { get; set; }
     }
