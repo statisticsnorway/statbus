@@ -36,8 +36,7 @@ function StateContextWithHooksStatUnitParent() {
 }
 
 function LegalUnit() {
-  const { legalUnitId } = useContext(StateContext)
-  const { setLegalUnitId } = useContext(StateContext)
+  const { legalUnitId, setLegalUnitId } = useContext(StateContext)
   const [legalUnitName] = useState('LegalUnitName')
 
   return (
@@ -57,8 +56,7 @@ function LegalUnit() {
 }
 
 function LocalUnit() {
-  const { legalUnitId } = useContext(StateContext)
-  const { setLegalUnitId } = useContext(StateContext)
+  const { legalUnitId, setLegalUnitId } = useContext(StateContext)
   const [localUnitId] = useState('5')
   const [localUnitName] = useState('LocalUnitName')
   return (
