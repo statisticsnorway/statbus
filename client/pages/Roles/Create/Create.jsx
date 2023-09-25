@@ -27,7 +27,7 @@ class CreateForm extends React.Component {
         enterpriseGroup: [],
         enterpriseUnit: [],
       },
-      activiyCategoryIds: [],
+      activityCategoryIds: [],
     },
     activityTree: undefined,
     fetchingStandardDataAccess: true,
@@ -48,7 +48,7 @@ class CreateForm extends React.Component {
 
   setActivities = (activities) => {
     this.setState(s => ({
-      data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all') },
+      data: { ...s.data, activityCategoryIds: activities.filter(x => x !== 'all') },
     }))
   }
 
@@ -135,10 +135,10 @@ class CreateForm extends React.Component {
           )}
           {activityTree && (
             <ActivityTree
-              name="activiyCategoryIds"
+              name="activityCategoryIds"
               label="ActivityCategoryLookup"
               dataTree={activityTree}
-              checked={this.state.data.activiyCategoryIds}
+              checked={this.state.data.activityCategoryIds}
               callBack={this.setActivities}
               localize={localize}
             />

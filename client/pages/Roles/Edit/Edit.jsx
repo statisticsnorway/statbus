@@ -36,7 +36,7 @@ class Edit extends React.Component {
   }
 
   setActivities = (activities) => {
-    this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
+    this.props.editForm({ name: 'activityCategoryIds', value: activities.filter(x => x !== 'all') })
   }
 
   handleEdit = (e, { name, value }) => {
