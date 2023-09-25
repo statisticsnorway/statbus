@@ -2,13 +2,13 @@ import React, { useContext, useState } from 'react'
 
 const StateContext = React.createContext()
 
-function StateContextParent() {
+function StateContextWithHooksParent() {
   const [state, setState] = useState('Initial state')
 
   return (
     <StateContext.Provider value={{ state, setState }}>
       <ParentA />
-      <StateContextChildB />
+      <StateContextWithHooksChildB />
     </StateContext.Provider>
   )
 }
@@ -17,12 +17,12 @@ function ParentA() {
   return (
     <div>
       <p>Inside parent A</p>
-      <StateContextChildA />
+      <StateContextWithHooksChildA />
     </div>
   )
 }
 
-function StateContextChildA() {
+function StateContextWithHooksChildA() {
   const { state, setState } = useContext(StateContext)
 
   return (
@@ -33,7 +33,7 @@ function StateContextChildA() {
   )
 }
 
-function StateContextChildB() {
+function StateContextWithHooksChildB() {
   const { state, setState } = useContext(StateContext)
 
   return (
@@ -44,4 +44,4 @@ function StateContextChildB() {
   )
 }
 
-export default StateContextParent
+export default StateContextWithHooksParent
