@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useContext, useState } from 'react'
 
-function LiftUpStateWithHooksStatUnitParent() {
+const StateContext = React.createContext()
+
+function StateContextWithHooksStatUnitParent() {
   const [legalUnitId, setLegalUnitId] = useState(3)
   const [showLegalUnit, setShowLegalUnit] = useState(false)
   const [showLocalUnit, setShowLocalUnit] = useState(false)
@@ -17,7 +19,7 @@ function LiftUpStateWithHooksStatUnitParent() {
 
   return (
     <div>
-      <h1>Lift up state with hooks example</h1>
+      <h1>State context with hooks example</h1>
       <h3>Stat unit types</h3>
       <div>
         <button onClick={switchToLegalUnit}>Legal unit</button>
@@ -25,16 +27,19 @@ function LiftUpStateWithHooksStatUnitParent() {
       </div>
       <br />
 
-      <div>
-        {showLegalUnit && <LegalUnit legalUnitId={legalUnitId} setLegalUnitId={setLegalUnitId} />}
-        {showLocalUnit && <LocalUnit legalUnitId={legalUnitId} setLegalUnitId={setLegalUnitId} />}
-      </div>
+      <StateContext.Provider value={{ legalUnitId, setLegalUnitId }}>
+        {showLegalUnit && <LegalUnit />}
+        {showLocalUnit && <LocalUnit />}
+      </StateContext.Provider>
     </div>
   )
 }
 
-function LegalUnit({ legalUnitId, setLegalUnitId }) {
+function LegalUnit() {
+  const { legalUnitId } = useContext(StateContext)
+  const { setLegalUnitId } = useContext(StateContext)
   const [legalUnitName] = useState('LegalUnitName')
+
   return (
     <div>
       <strong>Legal unit</strong>
@@ -51,7 +56,9 @@ function LegalUnit({ legalUnitId, setLegalUnitId }) {
   )
 }
 
-function LocalUnit({ legalUnitId, setLegalUnitId }) {
+function LocalUnit() {
+  const { legalUnitId } = useContext(StateContext)
+  const { setLegalUnitId } = useContext(StateContext)
   const [localUnitId] = useState('5')
   const [localUnitName] = useState('LocalUnitName')
   return (
@@ -74,4 +81,4 @@ function LocalUnit({ legalUnitId, setLegalUnitId }) {
   )
 }
 
-export default LiftUpStateWithHooksStatUnitParent
+export default StateContextWithHooksStatUnitParent

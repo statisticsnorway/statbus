@@ -38,6 +38,7 @@ import FromClassToHooksExample from 'pages/DataFlowExamples/HooksExamples/FromCl
 import LiftUpStateWithHooksParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateWithHooksExample'
 import StateContextWithHooksParent from 'pages/DataFlowExamples/SharedStateExamples/StateContextWithHooksExample'
 import LiftUpStateWithHooksStatUnitParent from 'pages/DataFlowExamples/SharedStateExamples/LiftUpStateWithHooksStatUnitExample'
+import StateContextWithHooksStatUnitParent from 'pages/DataFlowExamples/SharedStateExamples/StateContextWithHooksStatUnitExample'
 
 export default (
   <Route path="/" component={Layout}>
@@ -104,6 +105,10 @@ export default (
     <Route
       path="sharedstateexamples/statecontextwithhooksexample"
       component={StateContextWithHooksParent}
+    />
+    <Route
+      path="sharedstateexamples/statecontextwithhooksstatunitexample"
+      component={StateContextWithHooksStatUnitParent}
     />
     <Route
       path="sharedstateexamples/liftupstatewithhooksstatunitexample"
