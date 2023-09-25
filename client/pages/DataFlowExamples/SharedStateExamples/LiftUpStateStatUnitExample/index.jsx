@@ -2,15 +2,16 @@ import React, { useState } from 'react'
 
 function LiftUpStateStatUnitParent() {
   const [legalUnitId, setLegalUnitId] = useState(3)
+  const [legalUnit, setLegalUnit] = useState({ id: 3, name: 'LegalUnitName' })
   const [showLegalUnit, setShowLegalUnit] = useState(false)
   const [showLocalUnit, setShowLocalUnit] = useState(false)
 
-  const setLegalUnit = () => {
+  const switchToLegalUnit = () => {
     setShowLegalUnit(true)
     setShowLocalUnit(false)
   }
 
-  const setLocalUnit = () => {
+  const switchToLocalUnit = () => {
     setShowLocalUnit(true)
     setShowLegalUnit(false)
   }
@@ -20,8 +21,8 @@ function LiftUpStateStatUnitParent() {
       <h1>Lift up state example</h1>
       <h3>Stat unit types</h3>
       <div>
-        <button onClick={setLegalUnit}>Legal unit</button>
-        <button onClick={setLocalUnit}>Local unit</button>
+        <button onClick={switchToLegalUnit}>Legal unit</button>
+        <button onClick={switchToLocalUnit}>Local unit</button>
       </div>
       <br />
 
@@ -35,7 +36,6 @@ function LiftUpStateStatUnitParent() {
 
 function LegalUnit({ legalUnitId, setLegalUnitId }) {
   const [legalUnitName] = useState('LegalUnitName')
-
   return (
     <div>
       <strong>Legal unit</strong>
