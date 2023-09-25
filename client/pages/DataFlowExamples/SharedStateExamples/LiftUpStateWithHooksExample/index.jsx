@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-function LiftUpStateParent() {
+function LiftUpStateWithHooksParent() {
   const [state, setState] = useState('Initial state')
 
   return (
@@ -31,4 +31,4 @@ function LiftUpStateChildB({ state, setState }) {
   )
 }
 
-export default LiftUpStateParent
+export default LiftUpStateWithHooksParent
