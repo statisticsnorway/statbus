@@ -71,6 +71,15 @@ namespace nscreg.Data
                             op.UseSqlite(new SqliteConnection("DataSource=:memory:"));
                             break;
                     }
+
+                    // Change from a warning about a potential N+1 load problem,
+                    // to an exception, that pinpoints the source code where the
+                    // problem happened.
+                    op.ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning));
+                    // Provide more information from EF upon errors,
+                    // to make it possible to identify where the problem lies.
+                    op.EnableDetailedErrors();
+                    op.EnableSensitiveDataLogging();
                 };
 
         public NSCRegDbContext CreateDbContext(string[] args)
