@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-function LiftUpStateStatUnitParent() {
+function LiftUpStateWithHooksStatUnitParent() {
   const [legalUnitId, setLegalUnitId] = useState(3)
   const [legalUnit, setLegalUnit] = useState({ id: 3, name: 'LegalUnitName' })
   const [showLegalUnit, setShowLegalUnit] = useState(false)
@@ -18,7 +18,7 @@ function LiftUpStateStatUnitParent() {
 
   return (
     <div>
-      <h1>Lift up state example</h1>
+      <h1>Lift up state with hooks example</h1>
       <h3>Stat unit types</h3>
       <div>
         <button onClick={switchToLegalUnit}>Legal unit</button>
@@ -75,4 +75,4 @@ function LocalUnit({ legalUnitId, setLegalUnitId }) {
   )
 }
 
-export default LiftUpStateStatUnitParent
+export default LiftUpStateWithHooksStatUnitParent
