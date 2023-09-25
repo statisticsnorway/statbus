@@ -68,8 +68,6 @@ namespace nscreg.Services
                     if(sqlBulkBuffer != null)
                     {
                         _logger.Debug("Flushing");
-
-
                         await sqlBulkBuffer.FlushAsync();
                         await logBuffer.FlushAsync();
                         await context.DisposeAsync();
