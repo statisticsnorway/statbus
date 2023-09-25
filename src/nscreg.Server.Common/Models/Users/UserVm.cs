@@ -29,7 +29,7 @@ namespace nscreg.Server.Common.Models.Users
             Status = user.Status,
             DataAccess = DataAccessModel.FromString(user.DataAccess),
             UserRegions = user.UserRegions.Select(x => x.RegionId.ToString()).ToList(),
-            ActiviyCategoryIds = user.ActivitysCategoryUsers.Select(x=>x.ActivityCategoryId.ToString()).ToList()
+            ActivityCategoryIds = user.ActivityCategoryUsers.Select(x=>x.ActivityCategoryId.ToString()).ToList()
         };
 
         public string Id { get; private set; }
@@ -42,7 +42,7 @@ namespace nscreg.Server.Common.Models.Users
         public DataAccessModel DataAccess { get; private set; }
         public UserStatuses Status { get; private set; }
         public ICollection<string> UserRegions { get; set; }
-        public ICollection<string> ActiviyCategoryIds { get; set; }
+        public ICollection<string> ActivityCategoryIds { get; set; }
 
     }
 }

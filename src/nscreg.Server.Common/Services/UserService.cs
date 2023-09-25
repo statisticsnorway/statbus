@@ -141,7 +141,7 @@ namespace nscreg.Server.Common.Services
         {
             var user = _context.Users
                 .Include(u => u.UserRoles)
-                .Include(u => u.ActivitysCategoryUsers)
+                .Include(u => u.ActivityCategoryUsers)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
                 // There are few rows after the join, so load all in a single query.
@@ -305,8 +305,8 @@ namespace nscreg.Server.Common.Services
             var activityCategories = await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).ToListAsync();
             var oldActivityCategoryUsersIds =
                 activityCategories.Select(x => x.ActivityCategoryId).Distinct().ToList();
-            
-            var checkForChange = oldActivityCategoryUsersIds.Intersect(data.ActiviyCategoryIds).Count() ==
+
+            var checkForChange = oldActivityCategoryUsersIds.Intersect(data.ActivityCategoryIds).Count() ==
                             oldActivityCategoryUsersIds.Count;
 
             if (oldActivityCategoryUsersIds.Count == 0 || !checkForChange)
@@ -327,7 +327,7 @@ namespace nscreg.Server.Common.Services
                 }
 
                 var allActivityCategories = await _context.ActivityCategories.ToListAsync();
-                var newHierarchy = new HashSet<int>(GetFullHierarchy(data.ActiviyCategoryIds.ToList(), allActivityCategories));
+                var newHierarchy = new HashSet<int>(GetFullHierarchy(data.ActivityCategoryIds.ToList(), allActivityCategories));
 
                 var itemIdsToDelete = activityCategories.Where(x => !newHierarchy.Contains(x.ActivityCategoryId)).ToList();
                 if (itemIdsToDelete.Any())
@@ -390,7 +390,7 @@ namespace nscreg.Server.Common.Services
         {
             var allusers = await _context.Users.ToListAsync();
             var userExist = allusers.Any(x => x.Login == login);
-            return userExist;            
+            return userExist;
         }
     }
 }

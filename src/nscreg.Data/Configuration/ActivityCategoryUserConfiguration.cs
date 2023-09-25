@@ -14,7 +14,7 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<ActivityCategoryUser> builder)
         {
             builder.HasKey(x => new {x.UserId, x.ActivityCategoryId});
-            builder.HasOne(x => x.User).WithMany(x => x.ActivitysCategoryUsers).HasForeignKey(x => x.UserId);
+            builder.HasOne(x => x.User).WithMany(x => x.ActivityCategoryUsers).HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.ActivityCategory).WithMany(x => x.ActivityCategoryUsers).HasForeignKey(x => x.ActivityCategoryId);
 
             builder.Property(p => p.UserId).HasColumnName("User_Id");

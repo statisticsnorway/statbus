@@ -89,6 +89,7 @@ namespace nscreg.Data
         public DbSet<LocalUnitHistory> LocalUnitHistory { get; set; }
         public DbSet<LegalUnitHistory> LegalUnitHistory { get; set; }
         public DbSet<EnterpriseUnitHistory> EnterpriseUnitHistory { get; set; }
+
         public DbSet<EnterpriseGroupHistory> EnterpriseGroupHistory { get; set; }
         public DbSet<ActivityStatisticalUnitHistory> ActivityStatisticalUnitHistory { get; set; }
         public DbSet<CountryStatisticalUnitHistory> CountryStatisticalUnitHistory { get; set; }

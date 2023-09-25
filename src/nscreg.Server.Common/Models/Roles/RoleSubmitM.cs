@@ -16,7 +16,7 @@ namespace nscreg.Server.Common.Models.Roles
         public IEnumerable<int> AccessToSystemFunctions { get; set; }
 
         public DataAccessModel StandardDataAccess { get; set; }
-        public IEnumerable<int> ActiviyCategoryIds { get; set; }
+        public IEnumerable<int> ActivityCategoryIds { get; set; }
         public string SqlWalletUser { get; set; }
     }
 
