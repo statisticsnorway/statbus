@@ -13,6 +13,7 @@ Statistical Business Registry (SBR)
 * ElasticSearch 6.5.3
 * React 16.8.4/Redux 3.7.2/React-Router 3.2.0, Semantic UI 0.86.0
 * Node 8.11.4
+* PostgreSQL (from docker)
 
 ## test servers / Credentials
 
@@ -38,13 +39,24 @@ To run a local development build, the required services must be run with
 docker compose -f docker-compose.support-services-postgres.yml up
 ```
 
-### Backend and migrations
+Later, to stop the services, press ctrl+d.
+
+To remove the database, and start fresh, run the command
+```sh
+docker compose -f docker-compose.support-services-postgres.yml down --volumes
+```
+
+
+### Migrations, Seed and Backend
 
 Then the backend can be started with an IDE or with the following command
 
 ```sh
 dotnet run --environment Development --project src\nscreg.Server
 ```
+
+When the backend runs on an empty database, it will run all migrations
+and create the required tables.
 
 ### Seed data (if first run)
 If this is the first run of the docker services, the Server will run
