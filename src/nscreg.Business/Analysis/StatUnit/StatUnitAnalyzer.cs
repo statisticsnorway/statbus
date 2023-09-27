@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using nscreg.Data.Constants;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -159,7 +160,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <param name="unit">Stat unit</param>
         /// <param name="units">Duplicate units</param>
         /// <returns>Dictionary of messages</returns>
-        public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<AnalysisDublicateResult> units)
+        public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<AnalysisDuplicateResult> units)
         {
             var manager = unit is StatisticalUnit statisticalUnit
                 ? new StatisticalUnitDuplicatesManager(statisticalUnit, _analysisRules, units) as IAnalysisManager
@@ -411,7 +412,14 @@ namespace nscreg.Business.Analysis.StatUnit
             return new AnalysisResult
             {
                 Name = unit.Name,
-                Type = unit.UnitType,
+                Type = unit switch
+                {
+                    LocalUnit _ => StatUnitTypes.LocalUnit,
+                    LegalUnit _ => StatUnitTypes.LegalUnit,
+                    EnterpriseUnit _ => StatUnitTypes.EnterpriseUnit,
+                    EnterpriseGroup _ => StatUnitTypes.EnterpriseGroup,
+                    _ => throw new ArgumentOutOfRangeException(nameof(unit))
+                },
                 Messages = messages,
                 SummaryMessages = summaryMessages
             };
@@ -435,7 +443,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <param name="unit">Stat unit</param>
         /// <returns>List of duplicates</returns>
-        private async Task<List<AnalysisDublicateResult>> GetDuplicateUnits(IStatisticalUnit unit)
+        private async Task<List<AnalysisDuplicateResult>> GetDuplicateUnits(IStatisticalUnit unit)
         {
             if (unit is EnterpriseGroup enterpriseGroup)
             {
@@ -443,7 +451,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup);
                 var enterpriseGroups = await _context.EnterpriseGroups
                     .Where(egPredicate)
-                    .Select(x => new AnalysisDublicateResult
+                    .Select(x => new AnalysisDuplicateResult
                 {
                     Name = x.Name,
                     StatId = x.StatId,
@@ -456,24 +464,67 @@ namespace nscreg.Business.Analysis.StatUnit
                 }).ToListAsync();
                 return enterpriseGroups;
             }
-            var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
-            var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
-            var units = await _context.StatisticalUnits
-                .Include(x => x.PersonsUnits)
-                .Where(suPredicate)
-                .Select(x => new AnalysisDublicateResult
-                {
-                    Name = x.Name,
-                    StatId = x.StatId,
-                    TaxRegId = x.TaxRegId,
-                    ExternalId = x.ExternalId,
-                    ShortName = x.ShortName,
-                    TelephoneNo = x.TelephoneNo,
-                    AddressId = x.AddressId,
-                    EmailAddress = x.EmailAddress
-                })
-                .ToListAsync();
-            return units;
+
+            if (unit is LocalUnit localUnit)
+            {
+                var egPredicateBuilder = new AnalysisPredicateBuilder<LocalUnit>();
+                var egPredicate = egPredicateBuilder.GetPredicate(localUnit);
+                var localUnits = await _context.LocalUnits
+                    .Where(egPredicate)
+                    .Select(x => new AnalysisDuplicateResult
+                    {
+                        Name = x.Name,
+                        StatId = x.StatId,
+                        TaxRegId = x.TaxRegId,
+                        ExternalId = x.ExternalId,
+                        ShortName = x.ShortName,
+                        TelephoneNo = x.TelephoneNo,
+                        AddressId = x.AddressId,
+                        EmailAddress = x.EmailAddress
+                    }).ToListAsync();
+                return localUnits;
+            }
+            if (unit is LegalUnit legalUnit)
+            {
+                var egPredicateBuilder = new AnalysisPredicateBuilder<LegalUnit>();
+                var egPredicate = egPredicateBuilder.GetPredicate(legalUnit);
+                var legalUnits = await _context.LegalUnits
+                    .Where(egPredicate)
+                    .Select(x => new AnalysisDuplicateResult
+                    {
+                        Name = x.Name,
+                        StatId = x.StatId,
+                        TaxRegId = x.TaxRegId,
+                        ExternalId = x.ExternalId,
+                        ShortName = x.ShortName,
+                        TelephoneNo = x.TelephoneNo,
+                        AddressId = x.AddressId,
+                        EmailAddress = x.EmailAddress
+                    }).ToListAsync();
+                return legalUnits;
+            }
+
+            if (unit is EnterpriseUnit enterpriseUnit)
+            {
+                var egPredicateBuilder = new AnalysisPredicateBuilder<EnterpriseUnit>();
+                var egPredicate = egPredicateBuilder.GetPredicate(enterpriseUnit);
+                var legalUnits = await _context.EnterpriseUnits
+                    .Where(egPredicate)
+                    .Select(x => new AnalysisDuplicateResult
+                    {
+                        Name = x.Name,
+                        StatId = x.StatId,
+                        TaxRegId = x.TaxRegId,
+                        ExternalId = x.ExternalId,
+                        ShortName = x.ShortName,
+                        TelephoneNo = x.TelephoneNo,
+                        AddressId = x.AddressId,
+                        EmailAddress = x.EmailAddress
+                    }).ToListAsync();
+                return legalUnits;
+            }
+
+            throw new Exception($"Missing implementation for {unit.GetType()}");
         }
 
         private bool CheckUnitStatus(IStatisticalUnit unit)
@@ -485,24 +536,24 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             if (unit is LocalUnit lUnit)
             {
-                var parentUnit = await _context.StatisticalUnits.FirstOrDefaultAsync(c => c.RegId == lUnit.LegalUnitId);
+                var parentUnit = await _context.LocalUnits.FirstOrDefaultAsync(c => c.RegId == lUnit.LegalUnitId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
 
             }
             if (unit is LegalUnit legUnit)
             {
-                var parentUnit = await _context.StatisticalUnits.FirstOrDefaultAsync(c => c.RegId == legUnit.EnterpriseUnitRegId);
+                var parentUnit = await _context.LegalUnits.FirstOrDefaultAsync(c => c.RegId == legUnit.EnterpriseUnitRegId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
             }
             if (unit is EnterpriseUnit enUnit)
             {
-                var parentUnit = await _context.StatisticalUnits.FirstOrDefaultAsync(c => c.RegId == enUnit.EntGroupId);
+                var parentUnit = await _context.EnterpriseUnits.FirstOrDefaultAsync(c => c.RegId == enUnit.EntGroupId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
             }
-            return false;
+            throw new Exception($"Missing implementation for {unit.GetType()}");
         }
     }
 }

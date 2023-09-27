@@ -14,8 +14,6 @@ namespace nscreg.Data.Entities
     /// </summary>
     public class EnterpriseGroup : IStatisticalUnit
     {
-        public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
-
         [DataAccessCommon]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
         public int RegId { get; set; }
@@ -300,5 +298,15 @@ namespace nscreg.Data.Entities
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public LegalForm LegalForm { get; set; }
+
+        [Reference(LookupEnum.ForeignParticipationLookup)]
+        [Display(Order = 800, GroupName = GroupNames.CapitalInfo)]
+        [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignParticipationTooltip))]
+        public int? ForeignParticipationId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ForeignParticipation ForeignParticipation { get; set; }
+
     }
 }

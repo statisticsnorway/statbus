@@ -8,6 +8,7 @@ using nscreg.Business.Analysis.Contracts;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using NLog;
+using nscreg.Data.Constants;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks
 {
@@ -83,7 +84,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks
         private IEnumerable<CustomAnalysisCheck> GetCustomChecks()
         {
             return _context.CustomAnalysisChecks
-                .Where(x => x.TargetUnitTypes.Contains(_statUnit.UnitType.ToString()))
+                .Where(x => x.TargetUnitTypes.Contains(_statUnit.GetStatUnitType().ToString()))
                 .ToList();
         }
     }

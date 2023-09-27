@@ -24,7 +24,7 @@ namespace nscreg.Business.DataSources
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
-            StatisticalUnit unit, NSCRegDbContext context, string userId, DataAccessPermissions permissions, bool personsGooQuality)
+            IStatisticalUnit unit, NSCRegDbContext context, string userId, DataAccessPermissions permissions, bool personsGooQuality)
         {
             foreach (var kv in nextProps)
             {
@@ -96,7 +96,7 @@ namespace nscreg.Business.DataSources
                         bool hasAccess = true;
                         switch (unit)
                         {
-                            case  LegalUnit _:
+                            case LegalUnit _:
                                 hasAccess = HasAccess<LegalUnit>(permissions, v => v.Activities);
                                 break;
                             case LocalUnit _:
@@ -342,7 +342,7 @@ namespace nscreg.Business.DataSources
             }
 
             personsDb.AddRange(newPersonStatUnits);
-            
+
 
         }
 

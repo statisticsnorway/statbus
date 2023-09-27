@@ -15,10 +15,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
     {
         private readonly StatisticalUnit _checkingStatisticalUnit;
         private readonly StatUnitAnalysisRules _analysisRules;
-        private readonly List<AnalysisDublicateResult> _potentialDuplicates;
+        private readonly List<AnalysisDuplicateResult> _potentialDuplicates;
 
         public StatisticalUnitDuplicatesManager(StatisticalUnit enterpriseGroup, StatUnitAnalysisRules analysisRules,
-            List<AnalysisDublicateResult> potentialDuplicates)
+            List<AnalysisDuplicateResult> potentialDuplicates)
         {
             _checkingStatisticalUnit = enterpriseGroup;
             _analysisRules = analysisRules;

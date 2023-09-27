@@ -84,7 +84,9 @@ namespace nscreg.Data
 
             if (!context.SectorCodes.Any()) SeedData.AddSectorCodes(context);
 
-            if (!context.StatisticalUnits.Any()) SeedData.AddStatUnits(context);
+            if (!context.LegalUnits.Any() &&
+                !context.LocalUnits.Any() &&
+                !context.EnterpriseUnits.Any()) SeedData.AddStatUnits(context);
 
             if (!context.DataSources.Any()) SeedData.AddDataSources(context);
 

@@ -15,7 +15,7 @@ namespace nscreg.Data
             var adminId = context.UserRoles.FirstOrDefault(x => x.RoleId == roleId)?.UserId;
             var sysAdminUser = context.Users.FirstOrDefault(u => u.Id == adminId);
 
-            context.StatisticalUnits.AddRange(new LocalUnit
+            context.LocalUnits.AddRange(new LocalUnit
             {
                 Name = "local unit 1",
                 UserId = sysAdminUser.Id,
@@ -77,7 +77,7 @@ namespace nscreg.Data
                 },
             };
 
-            context.StatisticalUnits.AddRange(le1, new LegalUnit
+            context.LegalUnits.AddRange(le1, new LegalUnit
             {
                 Name = "legal unit 2",
                 UserId = sysAdminUser.Id,

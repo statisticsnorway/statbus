@@ -20,17 +20,9 @@ namespace nscreg.Data.Configuration
         {
             builder.HasKey(x => x.RegId);
 
-            builder.HasDiscriminator<string>(DiscriminatorColumnName)
-            .HasValue<EnterpriseUnit>("EnterpriseUnit")
-            .HasValue<LocalUnit>("LocalUnit")
-            .HasValue<LegalUnit>("LegalUnit");
-
-            builder.Property(v => v.StatId)
-                .HasMaxLength(15);
-            builder
-                .HasIndex(x => x.StatId);
-            builder.Property(x => x.UserId)
-                .IsRequired();
+            builder.Property(v => v.StatId).HasMaxLength(15);
+            builder.HasIndex(x => x.StatId);
+            builder.Property(x => x.UserId).IsRequired();
 
             builder.Property(x => x.ChangeReason)
                 .IsRequired()
@@ -83,20 +75,14 @@ namespace nscreg.Data.Configuration
             builder.Property(x => x.EditComment)
                 .HasMaxLength(500);
 
-            builder.Property(DiscriminatorColumnName)
-                .HasMaxLength(20);
-
             builder.Property(x => x.Turnover).HasColumnType("decimal(18,2)");
 
             builder.HasIndex(x => x.Name);
 
             builder.HasIndex(x => x.StartPeriod);
 
-            builder.HasIndex(DiscriminatorColumnName);
-
             builder.HasIndex(nameof(StatisticalUnit.ShortName),
                 nameof(StatisticalUnit.RegId),
-                DiscriminatorColumnName,
                 nameof(StatisticalUnit.StatId),
                 nameof(StatisticalUnit.TaxRegId));
         }

@@ -41,12 +41,8 @@ namespace nscreg.Data
                     .HasForeignKey(ur => ur.RoleId)
                     .IsRequired();
             });
-            builder.Entity<LegalUnit>().HasBaseType<StatisticalUnit>();
-            builder.Entity<EnterpriseUnit>().HasBaseType<StatisticalUnit>();
-            builder.Entity<LocalUnit>().HasBaseType<StatisticalUnit>();
             builder.ApplyUtcDateTimeOffsetConverter();
         }
-        public DbSet<StatisticalUnit> StatisticalUnits { get; set; }
         public DbSet<LegalUnit> LegalUnits { get; set; }
         public DbSet<EnterpriseUnit> EnterpriseUnits { get; set; }
         public DbSet<LocalUnit> LocalUnits { get; set; }

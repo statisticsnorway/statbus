@@ -2,7 +2,7 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Business.Analysis.StatUnit
 {
-    public class AnalysisDublicateResult
+    public class AnalysisDuplicateResult
     {
         public string Name { get; set; }
             public string StatId { get; set; }

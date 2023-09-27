@@ -13,7 +13,7 @@ namespace nscreg.Server.Common.Helpers
         {
             return (await _dbContext.Set<T>().AddAsync(entity)).Entity;
         }
-        
+
         private async Task<LocalUnit> CreateLocalForLegalAsync(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit
@@ -25,7 +25,7 @@ namespace nscreg.Server.Common.Helpers
 
             _mapper.Map(legalUnit, localUnit);
             await _dbContext.LocalUnits.AddAsync(localUnit);
-         
+
             await CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit);
 
             return localUnit;
@@ -62,7 +62,7 @@ namespace nscreg.Server.Common.Helpers
             return enterpriseGroup;
         }
 
-        private async Task CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
+        private async Task CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, IStatisticalUnit unit)
         {
             await activities.ForEachAsync(async activiti =>
             {

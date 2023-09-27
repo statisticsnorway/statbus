@@ -35,7 +35,7 @@ namespace nscreg.Business.Analysis.Contracts
         /// <param name="unit"></param>
         /// <param name="units"></param>
         /// <returns></returns>
-        Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<AnalysisDublicateResult> units);
+        Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<AnalysisDuplicateResult> units);
 
         /// <summary>
         /// Analyzes stat unit for all checks

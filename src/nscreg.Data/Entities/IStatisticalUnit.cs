@@ -18,13 +18,18 @@ namespace nscreg.Data.Entities
         Address PostalAddress { get; set; }
         bool IsDeleted { get; set; }
         decimal? Turnover { get; set; }
-        StatUnitTypes UnitType { get; }
         DateTimeOffset StartPeriod { get; set; }
         DateTimeOffset EndPeriod { get; set; }
         string UserId { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
         int? DataSourceClassificationId { get; set; }
+        public DataSourceClassification DataSourceClassification { get; set; }
+        public UnitSize Size { get; set; }
+        public UnitStatus UnitStatus { get; set; }
+        public ReorgType ReorgType { get; set; }
+        public RegistrationReason RegistrationReason { get; set; }
+        public ForeignParticipation ForeignParticipation { get; set; }
         int? UnitStatusId { get; set; }
         int? Employees { get; set; }
         string TaxRegId { get; set; }
