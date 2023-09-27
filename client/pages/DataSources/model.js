@@ -125,6 +125,7 @@ export const createSchema = columns =>
     name: string()
       .required('NameIsRequired')
       .trim()
+      .matches(/^[^-]*$/, '- is not allowed')
       .default(defaults.name),
     description: string().default(defaults.description),
     allowedOperations: number()

@@ -18,8 +18,7 @@ const TextField = ({
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
   const hasErrors =
-    (touched !== false && errorKeys.length !== 0) ||
-    (error === true && errorKeys.length !== 0) || (restProps.name === 'name' && value.includes('-'))
+    (touched !== false && errorKeys.length !== 0) || (error === true && errorKeys.length !== 0)
 
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
 
@@ -45,21 +44,7 @@ const TextField = ({
         <Form.Input {...inputProps} />
       )}
 
-      {(() => {
-        if (restProps.name === 'name' && value.includes('-')) {
-          return (
-            <div title="Name" className="ui compact error message">
-              <div className="content">
-                <ul className="list">
-                  <li className="content">'-' is not allowed</li>
-                </ul>
-              </div>
-            </div>
-          )
-        } else if (hasErrors) {
-          return <Message title={label} list={errorKeys.map(localize)} compact error />
-        }
-      })()}
+      {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }
