@@ -86,7 +86,7 @@ namespace nscreg.Server.Common.Services
             var egIds = paginated.Where(x => x.AnalyzedUnitType == StatUnitTypes.EnterpriseGroup)
                 .Select(x => x.AnalyzedUnitId);
 
-            var names = (await _context.StatisticalUnits
+            var names = (await _context.History
                     .Where(su => suIds.Contains(su.RegId))
                     .ToDictionaryAsync(x => (x.RegId, x.UnitType), x => x.Name))
                 .Concat(await _context.EnterpriseGroups

@@ -181,13 +181,13 @@ namespace nscreg.Server.Test
             using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var list = new StatisticalUnit[]
+                var list = new History[]
                 {
                     new LegalUnit {StatId = "201701", Name = "Unit1"},
                     new LegalUnit {StatId = "201602", Name = "Unit2"},
                     new LocalUnit {StatId = "201702", Name = "Unit3"}
                 };
-                await context.StatisticalUnits.AddRangeAsync(list);
+                await context.History.AddRangeAsync(list);
                 var group = new EnterpriseGroup { StatId = "201703", Name = "Unit4" };
                 await context.EnterpriseGroups.AddAsync(group);
                 await context.SaveChangesAsync();
@@ -221,14 +221,14 @@ namespace nscreg.Server.Test
                 await context.SectorCodes.AddRangeAsync(sectorCodes);
                 await context.SaveChangesAsync();
 
-                var list = new StatisticalUnit[]
+                var list = new History[]
                 {
                     new LegalUnit {InstSectorCodeId = sectorCodes[0].Id, Name = "Unit1", UserId = userId},
                     new LegalUnit {InstSectorCodeId = sectorCodes[1].Id, Name = "Unit2", UserId = userId},
                     new EnterpriseUnit {InstSectorCodeId = sectorCodes[1].Id, Name = "Unit4", UserId = userId},
                     new LocalUnit {Name = "Unit3", UserId = userId}
                 };
-                await context.StatisticalUnits.AddRangeAsync(list);
+                await context.History.AddRangeAsync(list);
 
                 var group = new EnterpriseGroup { Name = "Unit5", UserId = userId };
                 await context.EnterpriseGroups.AddAsync(group);
@@ -266,14 +266,14 @@ namespace nscreg.Server.Test
                 await context.SectorCodes.AddAsync(sectorCode);
                 await context.SaveChangesAsync();
 
-                var list = new StatisticalUnit[]
+                var list = new History[]
                 {
                     new LegalUnit {LegalFormId = legalForm.Id, Name = "Unit1", UserId = userId},
                     new LegalUnit {Name = "Unit2", UserId = userId},
                     new EnterpriseUnit {InstSectorCodeId = sectorCode.Id, Name = "Unit4", UserId = userId},
                     new LocalUnit {Name = "Unit3", UserId = userId}
                 };
-                await context.StatisticalUnits.AddRangeAsync(list);
+                await context.History.AddRangeAsync(list);
 
                 var group = new EnterpriseGroup { Name = "Unit5", UserId = userId };
                 await context.EnterpriseGroups.AddAsync(group);
@@ -587,17 +587,17 @@ namespace nscreg.Server.Test
                     {
                         Name = unitName,
                         UserId = DbContextExtensions.UserId,
-                        ActivitiesUnits = new List<ActivityStatisticalUnit>
+                        ActivitiesUnits = new List<ActivityLegalUnit>
                         {
-                            new ActivityStatisticalUnit
+                            new ActivityLegalUnit
                             {
                                 Activity = activity1
                             },
-                            new ActivityStatisticalUnit
+                            new ActivityLegalUnit
                             {
                                 Activity = activity2
                             },
-                            new ActivityStatisticalUnit
+                            new ActivityLegalUnit
                             {
                                 Activity = activity3
                             }

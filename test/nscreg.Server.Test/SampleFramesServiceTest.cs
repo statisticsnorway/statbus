@@ -135,7 +135,7 @@ namespace nscreg.Server.Test
 
                 var existing = await context.SampleFrames.FirstOrDefaultAsync();
 
-                var units = await context.StatisticalUnits.ToListAsync();
+                var units = await context.History.ToListAsync();
                 var expected = new[]
                 {
                     new {RegId = units[0].RegId.ToString(), units[0].Name},
@@ -351,7 +351,7 @@ namespace nscreg.Server.Test
 
             var activity = await CreateActivityAsync(context);
 
-            context.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
+            context.ActivityLegalUnits.Add(new ActivityLegalUnit
             {
                 ActivityId = activity.Id,
                 UnitId = (await context.LegalUnits.FirstOrDefaultAsync(x => x.Name == legalUnit.Name)).RegId

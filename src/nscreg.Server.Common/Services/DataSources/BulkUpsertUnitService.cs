@@ -117,7 +117,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             try
             {
-                if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
+                if (enterpriseUnit.EnterpriseGroupId == null || enterpriseUnit.EnterpriseGroupId <= 0)
                 {
                     CreateGroupForEnterprise(enterpriseUnit);
                 }
@@ -339,10 +339,10 @@ namespace nscreg.Server.Common.Services.DataSources
                 var hUnitProperty = unitType.GetProperty(property.Name)?.GetValue(hUnit, null);
                 if (!Equals(unitProperty, hUnitProperty)) return false;
             }
-            if (!(unit is StatisticalUnit statUnit)) return true;
-            var historyStatUnit = (StatisticalUnit)hUnit;
-            return historyStatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId)
-                && historyStatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
+            if (!(unit is History statUnit)) return true;
+            var historyStatUnit = (History)hUnit;
+            return historyStatUnit.ActivitiesForLegalUnit.CompareWith(statUnit.ActivitiesForLegalUnit, v => v.ActivityId)
+                && historyStatUnit.PersonsForUnit.CompareWith(statUnit.PersonsForUnit, p => p.PersonId);
         }
 
         private void CreateEnterpriseForLegal(LegalUnit legalUnit)
@@ -378,15 +378,15 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities,
-            IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, StatisticalUnit unit)
+            IEnumerable<PersonForUnit> persons, IEnumerable<CountryForUnit> foreignPartCountries, History unit)
         {
-            activities.ForEach(a => unit.ActivitiesUnits.Add(new ActivityStatisticalUnit
+            activities.ForEach(a => unit.ActivitiesForLegalUnit.Add(new ActivityLegalUnit
             {
                 Activity = a
             }));
             persons.ForEach(x =>
             {
-                unit.PersonsUnits.Add(new PersonStatisticalUnit
+                unit.PersonsForUnit.Add(new PersonForUnit
                 {
                     PersonId = x.PersonId,
                     Person = x.Person,
@@ -399,7 +399,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
             foreignPartCountries.ForEach(x =>
             {
-                unit.ForeignParticipationCountriesUnits.Add(new CountryStatisticalUnit
+                unit.ForeignParticipationCountriesUnits.Add(new CountryForUnit
                 {
                     CountryId = x.CountryId
                 });

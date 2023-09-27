@@ -217,8 +217,8 @@ namespace nscreg.Data.Entities
         public DateTimeOffset EndPeriod { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; } =
-            new HashSet<ActivityStatisticalUnit>();
+        public virtual ICollection<ActivityLegalUnit> ActivitiesUnits { get; set; } =
+            new HashSet<ActivityLegalUnit>();
 
         [NotMapped]
         [Display(Order = 400, GroupName = GroupNames.Activities)]
@@ -231,8 +231,8 @@ namespace nscreg.Data.Entities
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
-            new HashSet<PersonStatisticalUnit>();
+        public virtual ICollection<PersonForUnit> PersonsUnits { get; set; } =
+            new HashSet<PersonForUnit>();
 
         [NotMapped]
         [Display(Order = 600, GroupName = GroupNames.Persons)]
@@ -301,8 +301,8 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.CountryLookup)]
         [Display(Order = 805, GroupName = GroupNames.CapitalInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ForeignParticipationCountriesTooltip))]
-        public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
-            new HashSet<CountryStatisticalUnit>();
+        public virtual ICollection<CountryForUnit> ForeignParticipationCountriesUnits { get; set; } =
+            new HashSet<CountryForUnit>();
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 200, GroupName = GroupNames.LinkInfo)]
@@ -354,10 +354,6 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.LinkInfo, Order = 202)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.LocalUnitsTooltip))]
         public virtual ICollection<LocalUnit> LocalUnits { get; set; } = new HashSet<LocalUnit>();
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        [UsedByServerSide]
-        public string HistoryLocalUnitIds { get; set; }
 
     }
 }

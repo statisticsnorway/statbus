@@ -54,7 +54,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <param name="isAdmin"></param>
         /// <param name="personsGoodQuality"></param>
         /// <returns></returns>
-        public async Task<(StatisticalUnit unit, bool isNew, string errors, StatisticalUnit historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin, DateTime startDate, bool personsGoodQuality = true)
+        public async Task<(History unit, bool isNew, string errors, History historyUnit)> PopulateAsync(IReadOnlyDictionary<string, object> raw, bool isAdmin, DateTime startDate, bool personsGoodQuality = true)
         {
             try
             {
@@ -71,7 +71,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     return (resultUnit, true,
                         $"StatUnit failed with error: {Resource.StatUnitIdIsNotFound} ({resultUnit.StatId})", null);
                 }
-                StatisticalUnit historyUnit = null;
+                History historyUnit = null;
 
                 if (_allowedOperation == DataSourceAllowedOperation.Alter ||
                                         _allowedOperation == DataSourceAllowedOperation.CreateAndAlter && !isNew)
@@ -95,7 +95,7 @@ namespace nscreg.Server.Common.Services.DataSources
             }
             catch (Exception ex)
             {
-                return (ex.Data["unit"] as StatisticalUnit, false, ex.Message, null);
+                return (ex.Data["unit"] as History, false, ex.Message, null);
             }
         }
 
@@ -104,7 +104,7 @@ namespace nscreg.Server.Common.Services.DataSources
         /// </summary>
         /// <param name="raw">Parsed data of a unit</param>
         /// <returns></returns>
-        private async Task<(StatisticalUnit unit, bool isNew)> GetStatUnitBase(IReadOnlyDictionary<string, object> raw)
+        private async Task<(History unit, bool isNew)> GetStatUnitBase(IReadOnlyDictionary<string, object> raw)
         {
             if (!_statIdSourceKey.HasValue() || !raw.TryGetValue(_statIdSourceKey, out var statId))
                 return (GetStatUnitSetHelper.CreateByType(_unitType), true);

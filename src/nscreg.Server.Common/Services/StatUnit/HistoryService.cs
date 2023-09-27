@@ -46,7 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var history = type == StatUnitTypes.EnterpriseGroup
                 ? await FetchUnitHistoryAsync<EnterpriseGroup, EnterpriseGroupHistory>(id)
-                : await FetchUnitHistoryAsync<StatisticalUnit, StatisticalUnitHistory>(id);
+                : await FetchUnitHistoryAsync<History, StatisticalUnitHistory>(id);
             var result = history.ToArray();
             return SearchVm.Create(result, result.Length);
         }
@@ -63,7 +63,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var history = type == StatUnitTypes.EnterpriseGroup
                 ? await FetchDetailedUnitHistoryAsync<EnterpriseGroup, EnterpriseGroupHistory>(id, userId, isHistory)
-                : await FetchDetailedUnitHistoryAsync<StatisticalUnit, StatisticalUnitHistory>(id, userId, isHistory);
+                : await FetchDetailedUnitHistoryAsync<History, StatisticalUnitHistory>(id, userId, isHistory);
             var result = history.ToArray();
             return SearchVm.Create(result, result.Length);
         }

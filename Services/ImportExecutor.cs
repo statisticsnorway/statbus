@@ -91,7 +91,7 @@ namespace nscreg.Services
 
                 /// Populate Unit
                 _logger.Trace("populating unit");
-                (StatisticalUnit populated, bool isNew, string populateError, StatisticalUnit historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _servicesSettings.PersonGoodQuality);
+                (History populated, bool isNew, string populateError, History historyUnit) = await populateService.PopulateAsync(parsedUnit, isAdmin, startedAt, _servicesSettings.PersonGoodQuality);
 
                 if (populateError.HasValue())
                 {

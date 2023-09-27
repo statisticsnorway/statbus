@@ -13,14 +13,14 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
     /// </summary>
     public class StatisticalUnitDuplicatesManager : IAnalysisManager
     {
-        private readonly StatisticalUnit _checkingStatisticalUnit;
+        private readonly History _checkingHistory;
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly List<AnalysisDuplicateResult> _potentialDuplicates;
 
-        public StatisticalUnitDuplicatesManager(StatisticalUnit enterpriseGroup, StatUnitAnalysisRules analysisRules,
+        public StatisticalUnitDuplicatesManager(History enterpriseGroup, StatUnitAnalysisRules analysisRules,
             List<AnalysisDuplicateResult> potentialDuplicates)
         {
-            _checkingStatisticalUnit = enterpriseGroup;
+            _checkingHistory = enterpriseGroup;
             _analysisRules = analysisRules;
             _potentialDuplicates = potentialDuplicates;
         }
@@ -38,8 +38,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 var unitMessages = new Dictionary<string, string[]>();
                 var sameFieldsCount = 0;
 
-                if (_analysisRules.Duplicates.CheckName && potentialDuplicate.Name == _checkingStatisticalUnit.Name &&
-                    _checkingStatisticalUnit.Name != null)
+                if (_analysisRules.Duplicates.CheckName && potentialDuplicate.Name == _checkingHistory.Name &&
+                    _checkingHistory.Name != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.Name)))
@@ -48,7 +48,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckStatId &&
-                    potentialDuplicate.StatId == _checkingStatisticalUnit.StatId && _checkingStatisticalUnit.StatId != null)
+                    potentialDuplicate.StatId == _checkingHistory.StatId && _checkingHistory.StatId != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.StatId)))
@@ -57,7 +57,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckTaxRegId &&
-                    potentialDuplicate.TaxRegId == _checkingStatisticalUnit.TaxRegId && _checkingStatisticalUnit.TaxRegId != null)
+                    potentialDuplicate.TaxRegId == _checkingHistory.TaxRegId && _checkingHistory.TaxRegId != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.TaxRegId)))
@@ -66,8 +66,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckExternalId &&
-                    potentialDuplicate.ExternalId == _checkingStatisticalUnit.ExternalId &&
-                    _checkingStatisticalUnit.ExternalId != null)
+                    potentialDuplicate.ExternalId == _checkingHistory.ExternalId &&
+                    _checkingHistory.ExternalId != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ExternalId)))
@@ -76,8 +76,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckShortName &&
-                    potentialDuplicate.ShortName == _checkingStatisticalUnit.ShortName &&
-                    _checkingStatisticalUnit.ShortName != null)
+                    potentialDuplicate.ShortName == _checkingHistory.ShortName &&
+                    _checkingHistory.ShortName != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ShortName)))
@@ -86,8 +86,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckTelephoneNo &&
-                    potentialDuplicate.TelephoneNo == _checkingStatisticalUnit.TelephoneNo &&
-                    _checkingStatisticalUnit.TelephoneNo != null)
+                    potentialDuplicate.TelephoneNo == _checkingHistory.TelephoneNo &&
+                    _checkingHistory.TelephoneNo != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.TelephoneNo)))
@@ -96,8 +96,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckAddressId &&
-                    potentialDuplicate.AddressId == _checkingStatisticalUnit.AddressId &&
-                    _checkingStatisticalUnit.AddressId != null)
+                    potentialDuplicate.AddressId == _checkingHistory.AddressId &&
+                    _checkingHistory.AddressId != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.AddressId)))
@@ -106,8 +106,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckEmailAddress &&
-                    potentialDuplicate.EmailAddress == _checkingStatisticalUnit.EmailAddress &&
-                    _checkingStatisticalUnit.EmailAddress != null)
+                    potentialDuplicate.EmailAddress == _checkingHistory.EmailAddress &&
+                    _checkingHistory.EmailAddress != null)
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.EmailAddress)))

@@ -159,10 +159,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
             return root;
 
-            async Task<StatisticalUnit> GetOrgLinkNode(int regId) => await
-                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted);
+            async Task<History> GetOrgLinkNode(int regId) => await
+                _context.History.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted);
 
-            async Task<IEnumerable<OrgLinksNode>> GetChildren(int regId) => await (await _context.StatisticalUnits
+            async Task<IEnumerable<OrgLinksNode>> GetChildren(int regId) => await (await _context.History
                     .Where(u => u.ParentOrgLink == regId && !u.IsDeleted).ToListAsync())
                 .SelectAsync(async x => OrgLinksNode.Create(x, await GetChildren(x.RegId)));
         }
@@ -175,7 +175,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns> </returns>
         public async Task<UnitLookupVm> GetById(int id, bool showDeleted = false)
         {
-            var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x =>
+            var unit = await _context.History.FirstOrDefaultAsync(x =>
                 x.RegId == id || x.IsDeleted != showDeleted);
             return new UnitLookupVm
             {
@@ -195,7 +195,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public async Task<UnitLookupVm> GetStatUnitById(int id)
         {
-            var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
+            var unit = await _context.History.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
             return new UnitLookupVm
             {
                 Id = unit.RegId,

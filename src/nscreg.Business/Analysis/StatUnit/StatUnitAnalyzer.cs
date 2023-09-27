@@ -81,15 +81,15 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 if (unit.ActivitiesUnits != null &&  !unit.ActivitiesUnits.Any())
                 {
-                    if(!await _context.ActivityStatisticalUnits.AnyAsync(c => c.UnitId == unit.RegId))
+                    if(!await _context.ActivityLegalUnits.AnyAsync(c => c.UnitId == unit.RegId))
                     {
-                        messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
+                        messages.Add(nameof(History.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
                     }
                 }
             }
 
             if (_analysisRules.Connections.CheckAddress && _isDataSourceUpload == false && unit.Address == null)
-                messages.Add(nameof(StatisticalUnit.Address), new[] { nameof(Resource.AnalysisRelatedAddress) });
+                messages.Add(nameof(History.Address), new[] { nameof(Resource.AnalysisRelatedAddress) });
 
             return messages;
         }
@@ -102,7 +102,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
-            IMandatoryFieldsAnalysisManager manager = unit is StatisticalUnit statisticalUnit
+            IMandatoryFieldsAnalysisManager manager = unit is History statisticalUnit
                 ? new StatisticalUnitMandatoryFieldsManager(statisticalUnit, _mandatoryFields, _context) as IMandatoryFieldsAnalysisManager
                 : new EnterpriseGroupMandatoryFieldsManager(unit as EnterpriseGroup, _mandatoryFields);
 
@@ -162,7 +162,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<AnalysisDuplicateResult> units)
         {
-            var manager = unit is StatisticalUnit statisticalUnit
+            var manager = unit is History statisticalUnit
                 ? new StatisticalUnitDuplicatesManager(statisticalUnit, _analysisRules, units) as IAnalysisManager
                 : new EnterpriseGroupDuplicatesManager(unit as EnterpriseGroup, _analysisRules, units);
 
@@ -224,7 +224,7 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 if (!unit.EnterpriseUnits.Any())
                 {
-                    if(!await _context.EnterpriseUnits.AnyAsync(c => c.EntGroupId == unit.RegId))
+                    if(!await _context.EnterpriseUnits.AnyAsync(c => c.EnterpriseGroupId == unit.RegId))
                     {
                         messages.Add(nameof(EnterpriseGroup.EnterpriseUnits), new[] { nameof(Resource.AnalysisEnterpriseRelatedLegalUnits) });
                     }
@@ -549,7 +549,7 @@ namespace nscreg.Business.Analysis.StatUnit
             }
             if (unit is EnterpriseUnit enUnit)
             {
-                var parentUnit = await _context.EnterpriseUnits.FirstOrDefaultAsync(c => c.RegId == enUnit.EntGroupId);
+                var parentUnit = await _context.EnterpriseUnits.FirstOrDefaultAsync(c => c.RegId == enUnit.EnterpriseGroupId);
                 return parentUnit != null && (parentUnit.UnitStatusId == 1 || parentUnit.UnitStatusId == 2 ||
                                               parentUnit.UnitStatusId == 9);
             }

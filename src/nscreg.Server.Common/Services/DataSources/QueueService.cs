@@ -17,12 +17,12 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private readonly NSCRegDbContext _ctx;
 
-        private readonly Dictionary<StatUnitTypes, IQueryable<StatisticalUnit>> _getStatUnitSet;
+        private readonly Dictionary<StatUnitTypes, IQueryable<History>> _getStatUnitSet;
 
         public QueueService(NSCRegDbContext ctx)
         {
             _ctx = ctx;
-            _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<StatisticalUnit>>
+            _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<History>>
             {
                 [StatUnitTypes.LocalUnit] = _ctx.LocalUnits
                     .Include(x => x.Address)
@@ -78,7 +78,7 @@ namespace nscreg.Server.Common.Services.DataSources
             DataSourceQueue queueItem,
             string rawUnit,
             DateTime? started,
-            StatisticalUnit unit,
+            History unit,
             DateTime? ended,
             DataUploadingLogStatuses status,
             string note,

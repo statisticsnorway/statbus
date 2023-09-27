@@ -134,7 +134,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
         {
-            var unit = _dbContext.StatisticalUnits.Find(id);
+            var unit = _dbContext.History.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new LegalUnitHistory();
             _mapper.Map(unit, hUnit);
@@ -158,7 +158,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
         {
-            var unit = _dbContext.StatisticalUnits.Find(id);
+            var unit = _dbContext.History.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new LocalUnitHistory();
             _mapper.Map(unit, hUnit);
@@ -182,7 +182,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">User ID</param>
         private IStatisticalUnit DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
         {
-            var unit = _dbContext.StatisticalUnits.Find(id);
+            var unit = _dbContext.History.Find(id);
             if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new EnterpriseUnitHistory();
             _mapper.Map(unit, hUnit);
@@ -335,15 +335,15 @@ namespace nscreg.Server.Common.Services.StatUnit
             unitForUpdate.ForeignParticipationCountriesUnits.Clear();
             foreach (var historyActUnit in historyUnit.ActivitiesUnits)
             {
-                unitForUpdate.ActivitiesUnits.Add(_mapper.Map(historyActUnit, new ActivityStatisticalUnit()));
+                unitForUpdate.ActivitiesUnits.Add(_mapper.Map(historyActUnit, new ActivityLegalUnit()));
             }
             foreach (var historyPersonUnit in historyUnit.PersonsUnits)
             {
-                unitForUpdate.PersonsUnits.Add(_mapper.Map(historyPersonUnit, new PersonStatisticalUnit()));
+                unitForUpdate.PersonsUnits.Add(_mapper.Map(historyPersonUnit, new PersonForUnit()));
             }
             foreach (var historyCountryUnit in historyUnit.ForeignParticipationCountriesUnits)
             {
-                unitForUpdate.ForeignParticipationCountriesUnits.Add(_mapper.Map(historyCountryUnit, new CountryStatisticalUnit()));
+                unitForUpdate.ForeignParticipationCountriesUnits.Add(_mapper.Map(historyCountryUnit, new CountryForUnit()));
             }
             switch (type)
             {
@@ -559,9 +559,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="historyUnits">History unit</param>
         /// <param name="userId">Id of user that rejectes data source queue</param>
         /// <param name="type">Type of statistical unit</param>
-        public async Task RangeUpdateUnitsTask(List<StatisticalUnit> units, List<StatisticalUnitHistory> historyUnits, StatUnitTypes type)
+        public async Task RangeUpdateUnitsTask(List<History> units, List<StatisticalUnitHistory> historyUnits, StatUnitTypes type)
         {
-            List<StatisticalUnit> unitsForUpdate = new List<StatisticalUnit>();
+            List<History> unitsForUpdate = new List<History>();
             switch (type)
             {
                 case StatUnitTypes.LegalUnit:
@@ -575,10 +575,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                     break;
             }
 
-            var activityStatUnitsForDelete = new List<ActivityStatisticalUnit>();
+            var activityStatUnitsForDelete = new List<ActivityLegalUnit>();
             var activitiesForDelete = new List<Activity>();
-            var personStatUnitsForDelete = new List<PersonStatisticalUnit>();
-            var countryStatUnitsForDelete = new List<CountryStatisticalUnit>();
+            var personStatUnitsForDelete = new List<PersonForUnit>();
+            var countryStatUnitsForDelete = new List<CountryForUnit>();
 
             unitsForUpdate
 #pragma warning disable IDE0037 // Use inferred member name
@@ -590,8 +590,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var regId = z.unit.RegId;
                 var historyUnitLast = z.historyUnitsCollection.Last(x => x.StatId == z.unit.StatId);
 
-                activityStatUnitsForDelete.AddRange(z.unit.ActivitiesUnits);
-                personStatUnitsForDelete.AddRange(z.unit.PersonsUnits);
+                activityStatUnitsForDelete.AddRange(z.unit.ActivitiesForLegalUnit);
+                personStatUnitsForDelete.AddRange(z.unit.PersonsForUnit);
                 countryStatUnitsForDelete.AddRange(z.unit.ForeignParticipationCountriesUnits);
 
                 var exceptIds = z.unit.Activities.Select(x => x.Id).Except(historyUnitLast.Activities.Select(x => x.ParentId));
@@ -602,12 +602,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 z.unit.EndPeriod = endPeriod;
                 z.unit.EditComment = "This unit was edited by data source upload service and then data upload changes rejected";
 
-                z.unit.ActivitiesUnits = historyUnitLast.ActivitiesUnits.Select(y => _mapper.Map(y, new ActivityStatisticalUnit())).ToList();
-                z.unit.PersonsUnits = historyUnitLast.PersonsUnits.Select(y => _mapper.Map(z, new PersonStatisticalUnit())).ToList();
-                z.unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(y => _mapper.Map(y, new CountryStatisticalUnit())).ToList();
+                z.unit.ActivitiesForLegalUnit = historyUnitLast.ActivitiesUnits.Select(y => _mapper.Map(y, new ActivityLegalUnit())).ToList();
+                z.unit.PersonsForUnit = historyUnitLast.PersonsUnits.Select(y => _mapper.Map(z, new PersonForUnit())).ToList();
+                z.unit.ForeignParticipationCountriesUnits = historyUnitLast.ForeignParticipationCountriesUnits.Select(y => _mapper.Map(y, new CountryForUnit())).ToList();
 
-                z.unit.ActivitiesUnits.ForEach(x => x.UnitId = z.unit.RegId);
-                z.unit.PersonsUnits.ForEach(x => x.UnitId = z.unit.RegId);
+                z.unit.ActivitiesForLegalUnit.ForEach(x => x.UnitId = z.unit.RegId);
+                z.unit.PersonsForUnit.ForEach(x => x.UnitId = z.unit.RegId);
                 z.unit.ForeignParticipationCountriesUnits.ForEach(x => x.UnitId = z.unit.RegId);
             });
             await _dbContext.BulkDeleteAsync(activitiesForDelete);
@@ -617,8 +617,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             await _dbContext.BulkDeleteAsync(personStatUnitsForDelete);
             await _dbContext.BulkDeleteAsync(countryStatUnitsForDelete);
 
-            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ActivitiesUnits).ToList());
-            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.PersonsUnits).ToList());
+            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ActivitiesForLegalUnit).ToList());
+            await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.PersonsForUnit).ToList());
             await _dbContext.BulkInsertAsync(unitsForUpdate.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
 
             switch (type)
@@ -687,7 +687,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 if (beforeUploadLegalUnitsList.Any())
                 {
-                    await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLegalUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.LegalUnit);
+                    await RangeUpdateUnitsTask(units.Cast<History>().ToList(), beforeUploadLegalUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.LegalUnit);
                     await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList.SelectMany(x => x.Activities).ToList());
                     await _dbContext.BulkDeleteAsync(beforeUploadLegalUnitsList);
                 }
@@ -764,7 +764,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (beforeUploadLocalUnitsList.Any())
             {
-                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadLocalUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.LocalUnit);
+                await RangeUpdateUnitsTask(units.Cast<History>().ToList(), beforeUploadLocalUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.LocalUnit);
                 await _dbContext.BulkDeleteAsync(beforeUploadLocalUnitsList);
             }
             else
@@ -821,7 +821,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (beforeUploadEnterpriseUnitsList.Any())
             {
-                await RangeUpdateUnitsTask(units.Cast<StatisticalUnit>().ToList(), beforeUploadEnterpriseUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.EnterpriseUnit);
+                await RangeUpdateUnitsTask(units.Cast<History>().ToList(), beforeUploadEnterpriseUnitsList.Cast<StatisticalUnitHistory>().ToList(), StatUnitTypes.EnterpriseUnit);
                 await _dbContext.BulkDeleteAsync(beforeUploadEnterpriseUnitsList);
             }
 

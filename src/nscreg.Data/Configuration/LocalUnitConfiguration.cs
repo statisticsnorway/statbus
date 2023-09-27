@@ -79,10 +79,10 @@ namespace nscreg.Data.Configuration
 
             builder.HasIndex(x => x.StartPeriod);
 
-            builder.HasIndex(nameof(StatisticalUnit.ShortName),
-                nameof(StatisticalUnit.RegId),
-                nameof(StatisticalUnit.StatId),
-                nameof(StatisticalUnit.TaxRegId));
+            builder.HasIndex(nameof(LocalUnit.ShortName),
+                nameof(LocalUnit.RegId),
+                nameof(LocalUnit.StatId),
+                nameof(LocalUnit.TaxRegId));
 
 
             builder.HasOne(x => x.LegalUnit)

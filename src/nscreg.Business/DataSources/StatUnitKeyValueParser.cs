@@ -17,10 +17,10 @@ namespace nscreg.Business.DataSources
 {
     public static class StatUnitKeyValueParser
     {
-        public static readonly string[] StatisticalUnitArrayPropertyNames = { nameof(StatisticalUnit.Activities), nameof(StatisticalUnit.Persons), nameof(StatisticalUnit.ForeignParticipationCountriesUnits) };
+        public static readonly string[] StatisticalUnitArrayPropertyNames = { nameof(History.Activities), nameof(History.Persons), nameof(History.ForeignParticipationCountriesUnits) };
 
         public static string GetStatIdMapping(IEnumerable<(string source, string target)> mapping)
-            => mapping.FirstOrDefault(vm => vm.target == nameof(StatisticalUnit.StatId)).target;
+            => mapping.FirstOrDefault(vm => vm.target == nameof(History.StatId)).target;
 
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, object> nextProps,
@@ -92,7 +92,7 @@ namespace nscreg.Business.DataSources
                 }
                 switch (propHead)
                 {
-                    case nameof(StatisticalUnit.Activities):
+                    case nameof(History.Activities):
                         bool hasAccess = true;
                         switch (unit)
                         {
@@ -108,22 +108,22 @@ namespace nscreg.Business.DataSources
                         }
                         if (!hasAccess)
                             throw new Exception("You have no rights to change activities");
-                        propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
-                        var unitActivities = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
+                        propInfo = unit.GetType().GetProperty(nameof(History.ActivitiesForLegalUnit));
+                        var unitActivities = unit.ActivitiesUnits ?? new List<ActivityLegalUnit>();
                         if (valueArr != null)
                             UpdateActivities(unitActivities, valueArr, mappingsArr, userId);
                         propValue = unitActivities.Where(x => x.Activity.ActivityCategory?.Code != null || x.Activity.ActivityCategory?.Name != null).ToList();
                         break;
-                    case nameof(StatisticalUnit.Persons):
-                        propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
-                        var persons = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
+                    case nameof(History.Persons):
+                        propInfo = unit.GetType().GetProperty(nameof(History.PersonsForUnit));
+                        var persons = unit.PersonsUnits ?? new List<PersonForUnit>();
                         unit.PersonsUnits?.ForEach(x => x.Person.Role = x.PersonTypeId);
                         if (valueArr != null)
                             UpdatePersons(persons, valueArr, mappingsArr, context, personsGooQuality);
                         propValue = persons;
                         break;
-                    case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
-                        var foreignParticipationCountries = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
+                    case nameof(History.ForeignParticipationCountriesUnits):
+                        var foreignParticipationCountries = unit.ForeignParticipationCountriesUnits ?? new List<CountryForUnit>();
                         if (valueArr != null)
                             foreach (var countryFromArray in valueArr)
                             {
@@ -136,7 +136,7 @@ namespace nscreg.Business.DataSources
                                         PropertyParser.ParseCountry(targetKey, countryValue.Value, prev);
                                     }
                                 }
-                                foreignParticipationCountries.Add(new CountryStatisticalUnit()
+                                foreignParticipationCountries.Add(new CountryForUnit()
                                 {
                                     CountryId = prev.Id,
                                     Country = prev
@@ -144,37 +144,37 @@ namespace nscreg.Business.DataSources
                             }
                         propValue = foreignParticipationCountries;
                         break;
-                    case nameof(StatisticalUnit.Address):
+                    case nameof(History.Address):
                         propValue = PropertyParser.ParseAddress(propTail, value, unit.Address);
                         break;
-                    case nameof(StatisticalUnit.ActualAddress):
+                    case nameof(History.ActualAddress):
                         propValue = PropertyParser.ParseAddress(propTail, value, unit.ActualAddress);
                         break;
-                    case nameof(StatisticalUnit.PostalAddress):
+                    case nameof(History.PostalAddress):
                         propValue = PropertyParser.ParseAddress(propTail, value, unit.PostalAddress);
                         break;
-                    case nameof(StatisticalUnit.LegalForm):
+                    case nameof(History.LegalForm):
                         propValue = PropertyParser.ParseLegalForm(propTail, value, unit.LegalForm);
                         break;
-                    case nameof(StatisticalUnit.InstSectorCode):
+                    case nameof(History.InstSectorCode):
                         propValue = PropertyParser.ParseSectorCode(propTail, value, unit.InstSectorCode);
                         break;
-                    case nameof(StatisticalUnit.DataSourceClassification):
+                    case nameof(History.DataSourceClassification):
                         propValue = PropertyParser.ParseDataSourceClassification(propTail, value, unit.DataSourceClassification);
                         break;
-                    case nameof(StatisticalUnit.Size):
+                    case nameof(History.Size):
                         propValue = PropertyParser.ParseSize(propTail, value, unit.Size);
                         break;
-                    case nameof(StatisticalUnit.UnitStatus):
+                    case nameof(History.UnitStatus):
                         propValue = PropertyParser.ParseUnitStatus(propTail, value, unit.UnitStatus);
                         break;
-                    case nameof(StatisticalUnit.ReorgType):
+                    case nameof(History.ReorgType):
                         propValue = PropertyParser.ParseReorgType(propTail, value, unit.ReorgType);
                         break;
-                    case nameof(StatisticalUnit.RegistrationReason):
+                    case nameof(History.RegistrationReason):
                         propValue = PropertyParser.ParseRegistrationReason(propTail, value, unit.RegistrationReason);
                         break;
-                    case nameof(StatisticalUnit.ForeignParticipation):
+                    case nameof(History.ForeignParticipation):
                         propValue = PropertyParser.ParseForeignParticipation(propTail, value, unit.ForeignParticipation);
                         break;
                     default:
@@ -191,7 +191,7 @@ namespace nscreg.Business.DataSources
                 propInfo.SetValue(unit, propValue);
             }
         }
-        private static void UpdateActivities(ICollection<ActivityStatisticalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr, string userId)
+        private static void UpdateActivities(ICollection<ActivityLegalUnit> dbActivities, List<KeyValuePair<string,Dictionary<string, string>>> importActivities, Dictionary<string, string[]> mappingsArr, string userId)
         {
             var defaultYear = DateTime.Now.Year - 1;
             var propPathActivityCategoryCode = string.Join(".", nameof(ActivityCategory), nameof(ActivityCategory.Code));
@@ -204,7 +204,7 @@ namespace nscreg.Business.DataSources
                 var dbGroup = dbActivitiesGroups.FirstOrDefault(x => x.Key == importActivitiesGroup.Key);
                 if (dbGroup == null)
                 {
-                   var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityStatisticalUnit
+                   var parsedActivities =  importActivitiesGroup.Select((x,i) => new ActivityLegalUnit
                    {
                        Activity = ParseActivityByTargetKeys(null, x.Value, mappingsArr, i == 0 ? ActivityTypes.Primary : ActivityTypes.Secondary, userId, defaultYear)
                    });
@@ -224,7 +224,7 @@ namespace nscreg.Business.DataSources
                         }
                         else
                         {
-                            dbRow = new ActivityStatisticalUnit
+                            dbRow = new ActivityLegalUnit
                             {
                                 Activity = ParseActivityByTargetKeys(null, x.importRow.Value, mappingsArr, ActivityTypes.Secondary, userId, defaultYear)
                             };
@@ -288,16 +288,16 @@ namespace nscreg.Business.DataSources
             return person;
         }
 
-        private static void UpdatePersons(ICollection<PersonStatisticalUnit> personsDb,
+        private static void UpdatePersons(ICollection<PersonForUnit> personsDb,
             List<KeyValuePair<string, Dictionary<string, string>>> importPersons,
             Dictionary<string, string[]> mappingsArr, NSCRegDbContext context, bool personsGoodQuality)
         {
-            var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonStatisticalUnit() { Person = newPerson, PersonTypeId = newPerson.Role }).ToList();
+            var newPersonStatUnits = importPersons.Select(person => ParsePersonByTargetKeys(person.Value, mappingsArr, context)).Select(newPerson => new PersonForUnit() { Person = newPerson, PersonTypeId = newPerson.Role }).ToList();
             if (personsGoodQuality)
             {
                 var personsWithPersonalId = newPersonStatUnits.Where(x => x.Person.PersonalId != null).ToList();
 
-                var personsForRemove = new List<PersonStatisticalUnit>();
+                var personsForRemove = new List<PersonForUnit>();
 
                 personsWithPersonalId.GroupJoin(personsDb, person => person.Person.PersonalId, dbPerson => dbPerson.Person.PersonalId, ((person, dbPersons) => (person: person, dbPersons: dbPersons))).ForEach(x =>
                 {
@@ -318,7 +318,7 @@ namespace nscreg.Business.DataSources
                 var personsWithBirthAndName = newPersonStatUnits.Where(x =>
                     x.Person.BirthDate != null && x.Person.GivenName != null && x.Person.Surname != null).ToList();
 
-                var personsForAdd = new List<PersonStatisticalUnit>();
+                var personsForAdd = new List<PersonForUnit>();
                 personsWithBirthAndName.GroupJoin(personsDb, item => (item.Person.BirthDate, item.Person.GivenName, item.Person.Surname), dbItem => (dbItem.Person.BirthDate, dbItem.Person.GivenName, dbItem.Person.Surname), (person, dbPersons) => (person: person, dbPersons: dbPersons)).ForEach(
                     x =>
                     {
@@ -358,7 +358,7 @@ namespace nscreg.Business.DataSources
             oldPerson.Sex = newPerson.Sex ?? oldPerson.Sex;
         }
 
-        private static void RemoveInNewPersonsAndClearDeleted(List<PersonStatisticalUnit> newPerson, List<PersonStatisticalUnit> deleteList)
+        private static void RemoveInNewPersonsAndClearDeleted(List<PersonForUnit> newPerson, List<PersonForUnit> deleteList)
         {
             foreach (var element in deleteList)
             {

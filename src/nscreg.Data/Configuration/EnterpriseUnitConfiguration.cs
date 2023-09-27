@@ -80,10 +80,10 @@ namespace nscreg.Data.Configuration
 
             builder.HasIndex(x => x.StartPeriod);
 
-            builder.HasIndex(nameof(StatisticalUnit.ShortName),
-                nameof(StatisticalUnit.RegId),
-                nameof(StatisticalUnit.StatId),
-                nameof(StatisticalUnit.TaxRegId));
+            builder.HasIndex(nameof(EnterpriseUnit.ShortName),
+                nameof(EnterpriseUnit.RegId),
+                nameof(EnterpriseUnit.StatId),
+                nameof(EnterpriseUnit.TaxRegId));
 
 
             //builder.ToTable("EnterpriseUnits");
@@ -109,7 +109,7 @@ namespace nscreg.Data.Configuration
 
             builder.HasOne(x => x.EnterpriseGroup)
                 .WithMany(x => x.EnterpriseUnits)
-                .HasForeignKey(x => x.EntGroupId)
+                .HasForeignKey(x => x.EnterpriseGroupId)
                 .IsRequired(false);
 
             builder.HasMany(x => x.LegalUnits)

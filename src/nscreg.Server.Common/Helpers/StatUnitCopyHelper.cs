@@ -62,11 +62,11 @@ namespace nscreg.Server.Common.Helpers
             return enterpriseGroup;
         }
 
-        private async Task CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, IStatisticalUnit unit)
+        private async Task CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonForUnit> persons, IEnumerable<CountryForUnit> foreignPartCountries, IStatisticalUnit unit)
         {
             await activities.ForEachAsync(async activiti =>
             {
-                await _dbContext.ActivityStatisticalUnits.AddAsync(new ActivityStatisticalUnit
+                await _dbContext.ActivityLegalUnits.AddAsync(new ActivityLegalUnit
                 {
                     ActivityId = activiti.Id,
                     Unit = unit
@@ -75,7 +75,7 @@ namespace nscreg.Server.Common.Helpers
 
             await persons.ForEachAsync(async person =>
             {
-                await _dbContext.PersonStatisticalUnits.AddAsync(new PersonStatisticalUnit
+                await _dbContext.PersonStatisticalUnits.AddAsync(new PersonForUnit
                 {
                     PersonId = person.PersonId,
                     Unit = unit,
@@ -86,7 +86,7 @@ namespace nscreg.Server.Common.Helpers
 
             await foreignPartCountries.ForEachAsync(async country =>
             {
-                await _dbContext.CountryStatisticalUnits.AddAsync(new CountryStatisticalUnit
+                await _dbContext.CountryStatisticalUnits.AddAsync(new CountryForUnit
                 {
                     Unit = unit,
                     CountryId = country.CountryId

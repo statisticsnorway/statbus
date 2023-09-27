@@ -11,10 +11,10 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     public class SaveManager
     {
-        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _createByType;
+        private readonly Dictionary<StatUnitTypes, Func<History, History, Task>> _createByType;
 
 
-        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>> _updateByType;
+        private readonly Dictionary<StatUnitTypes, Func<History, History, Task>> _updateByType;
         //private readonly BulkUpsertUnitService _bulkUpsertUnitService;
         //private readonly NSCRegDbContext _dbContext;
 
@@ -22,7 +22,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var bulkUpsertUnitService = new BulkUpsertUnitService(context, buffer, permissions, mapper, userId);
 
-            _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
+            _createByType = new Dictionary<StatUnitTypes, Func<History, History, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, _) =>
                     bulkUpsertUnitService.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit),
@@ -31,7 +31,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 [StatUnitTypes.EnterpriseUnit] = (unit, _) =>
                    bulkUpsertUnitService.CreateEnterpriseWithGroup(unit as EnterpriseUnit)
             };
-            _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, StatisticalUnit, Task>>
+            _updateByType = new Dictionary<StatUnitTypes, Func<History, History, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, hunit) =>
                     bulkUpsertUnitService.EditLegalUnit(unit as LegalUnit, hunit as LegalUnit ),
@@ -42,7 +42,7 @@ namespace nscreg.Server.Common.Services.DataSources
             };
         }
 
-        private async Task<(string, bool)> SaveStatUnitsUpload(StatisticalUnit parsedUnit, DataSource dataSource, bool isNeW, StatisticalUnit historyUnit)
+        private async Task<(string, bool)> SaveStatUnitsUpload(History parsedUnit, DataSource dataSource, bool isNeW, History historyUnit)
         {
             if (dataSource.Priority != DataSourcePriority.Trusted &&
                 (dataSource.Priority != DataSourcePriority.Ok || isNeW))
@@ -73,7 +73,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return ex.Message + (ex.InnerException != null ? Environment.NewLine + GetFullExceptionMessage(ex.InnerException) : "");
         }
 
-        public async Task<(string, bool)> SaveUnit(StatisticalUnit parsedUnit, DataSource dataSource, string userId, bool isNew, StatisticalUnit historyUnit)
+        public async Task<(string, bool)> SaveUnit(History parsedUnit, DataSource dataSource, string userId, bool isNew, History historyUnit)
         {
             return await SaveStatUnitsUpload(parsedUnit, dataSource, isNew, historyUnit);
         }

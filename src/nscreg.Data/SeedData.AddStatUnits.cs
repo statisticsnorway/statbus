@@ -47,9 +47,9 @@ namespace nscreg.Data
                     AddressPart1 = "legal address 1",
                     RegionId = 1
                 },
-                ActivitiesUnits = new List<ActivityStatisticalUnit>
+                ActivitiesUnits = new List<ActivityLegalUnit>
                 {
-                    new ActivityStatisticalUnit
+                    new ActivityLegalUnit
                     {
                         Activity = new Activity
                         {
@@ -61,7 +61,7 @@ namespace nscreg.Data
                             ActivityCategory = context.ActivityCategories.Single(v => v.Code == "11.07.9")
                         },
                     },
-                    new ActivityStatisticalUnit
+                    new ActivityLegalUnit
                     {
                         Activity =
                             new Activity

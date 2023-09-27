@@ -10,6 +10,6 @@ namespace nscreg.Data.Entities
     {
         public string IsoCode { get; set; }
         [JsonIgnore]
-        public virtual ICollection<CountryStatisticalUnit> CountriesUnits { get; set; }
+        public virtual ICollection<CountryForUnit> CountriesUnits { get; set; }
     }
 }

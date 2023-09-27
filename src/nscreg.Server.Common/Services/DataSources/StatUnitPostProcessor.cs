@@ -17,7 +17,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _ctx = ctx;
 
         }
-        public async Task<string> PostProcessStatUnitsUpload(StatisticalUnit unit)
+        public async Task<string> PostProcessStatUnitsUpload(History unit)
         {
             List<string> errors = new List<string>();
             void Try(Action action)
@@ -34,7 +34,7 @@ namespace nscreg.Server.Common.Services.DataSources
             try
             {
 
-                unit.ActivitiesUnits?
+                unit.ActivitiesForLegalUnit?
                     .Where(activityUnit => activityUnit.Activity.Id == 0)
                     .ForEach(au => Try(() =>
                         au.Activity = GetFilledActivity(au.Activity)
@@ -76,7 +76,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.LegalFormId = unit.LegalForm?.Id;
 
                 // TODO: It can attach Person with the same name as other person, if other fields are not filled
-                unit.PersonsUnits?
+                unit.PersonsForUnit?
                     .Where(personUnit => personUnit.PersonId == null)
                     .ForEach(per => Try(() =>
                         per.Person = GetFilledPerson(per.Person)
@@ -101,10 +101,10 @@ namespace nscreg.Server.Common.Services.DataSources
                         break;
 
                     case EnterpriseUnit enterpriseUnit:
-                        if (enterpriseUnit.EntGroupId != null && enterpriseUnit.EntGroupId != 0)
+                        if (enterpriseUnit.EnterpriseGroupId != null && enterpriseUnit.EnterpriseGroupId != 0)
                         {
-                            var enterpriseGroup = await GetEnterpriseGroupId(enterpriseUnit.EntGroupId.ToString());
-                            enterpriseUnit.EntGroupId = enterpriseGroup?.RegId;
+                            var enterpriseGroup = await GetEnterpriseGroupId(enterpriseUnit.EnterpriseGroupId.ToString());
+                            enterpriseUnit.EnterpriseGroupId = enterpriseGroup?.RegId;
                         }
                         break;
                 }
@@ -378,7 +378,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return rr;
         }
 
-        private async Task<StatisticalUnit> GetLegalUnitId(string legalUnitStatId)
+        private async Task<History> GetLegalUnitId(string legalUnitStatId)
         {
             return await _ctx.LegalUnits.FirstOrDefaultAsync(legU =>
                 !legU.IsDeleted
@@ -388,7 +388,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 ?? throw new Exception($"Legal unit by: `{legalUnitStatId}` not found");
         }
 
-        private async Task<StatisticalUnit> GetEnterpriseUnitRegId(string enterpriseUnitStatId)
+        private async Task<History> GetEnterpriseUnitRegId(string enterpriseUnitStatId)
         {
             return await _ctx.EnterpriseUnits.FirstOrDefaultAsync(en =>
                 !en.IsDeleted

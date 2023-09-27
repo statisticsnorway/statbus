@@ -8,20 +8,33 @@ namespace nscreg.Data.Configuration
     /// <summary>
     ///  Person configuration class stat. units
     /// </summary>
-    public class PersonStatisticalUnitConfiguration : EntityTypeConfigurationBase<PersonStatisticalUnit>
+    public class PersonStatisticalUnitConfiguration : EntityTypeConfigurationBase<PersonForUnit>
     {
-        public override void Configure(EntityTypeBuilder<PersonStatisticalUnit> builder)
+        public override void Configure(EntityTypeBuilder<PersonForUnit> builder)
         {
-            builder.HasKey(v => new { v.UnitId, v.PersonId});
+            builder.HasKey(v => new { v.LocalUnitId, v.PersonId});
+            builder.HasKey(v => new { v.LegalUnitId, v.PersonId});
+            builder.HasKey(v => new { v.EnterpriseUnitId, v.PersonId});
             builder.HasOne(v => v.Person).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.PersonId);
-            builder.HasOne(v => v.Unit).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.UnitId);
-          
-            builder.Property(p => p.PersonId).HasColumnName("Person_Id");
-            builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
-            builder.Property(p => p.EnterpriseGroupId).HasColumnName("GroupUnit_Id");
+            builder.HasOne(v => v.LocalUnit).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.LocalUnitId);
+            builder.HasOne(v => v.LegalUnit).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.LegalUnitId);
+            builder.HasOne(v => v.EnterpriseUnit).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.EnterpriseUnitId);
 
-            builder.HasIndex(x => new { x.PersonTypeId, x.UnitId, x.PersonId}).IsUnique();
-            builder.HasIndex(x => x.UnitId).IsUnique(false);
+            builder.Property(p => p.PersonId);
+            builder.Property(p => p.LocalUnitId);
+            builder.Property(p => p.LegalUnitId);
+            builder.Property(p => p.EnterpriseUnitId);
+            builder.Property(p => p.EnterpriseGroupId);
+
+            builder.HasIndex(x => new {
+                x.PersonTypeId,
+                x.LocalUnitId,
+                x.LegalUnitId,
+                x.EnterpriseUnitId,
+                x.PersonId}).IsUnique();
+            builder.HasIndex(x => x.LocalUnitId).IsUnique(false);
+            builder.HasIndex(x => x.LegalUnitId).IsUnique(false);
+            builder.HasIndex(x => x.EnterpriseUnitId).IsUnique(false);
         }
     }
 }

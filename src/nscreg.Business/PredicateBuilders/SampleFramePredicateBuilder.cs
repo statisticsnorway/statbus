@@ -30,7 +30,7 @@ namespace nscreg.Business.PredicateBuilders
             object fieldValue,
             OperationEnum operation)
         {
-            var isStatUnit = typeof(T) == typeof(StatisticalUnit);
+            var isStatUnit = typeof(T) == typeof(History);
             switch (field)
             {
                 case FieldEnum.UnitType:
@@ -84,17 +84,17 @@ namespace nscreg.Business.PredicateBuilders
         private static Expression<Func<T, bool>> GetActivityPredicate(object fieldValue)
         {
             var outerParameter = Expression.Parameter(typeof(T), "x");
-            var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
+            var property = Expression.Property(outerParameter, nameof(History.ActivitiesForLegalUnit));
 
-            var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
-            var left = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
+            var innerParameter = Expression.Parameter(typeof(ActivityLegalUnit), "y");
+            var left = Expression.Property(innerParameter, typeof(ActivityLegalUnit).GetProperty(nameof(ActivityLegalUnit.Activity)));
             left = Expression.Property(left, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
 
             var right = GetConstantValue(fieldValue, left);
             Expression innerExpression = Expression.Equal(left, right);
 
-            var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
-                Expression.Lambda<Func<ActivityStatisticalUnit, bool>>(innerExpression, innerParameter));
+            var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityLegalUnit) }, property,
+                Expression.Lambda<Func<ActivityLegalUnit, bool>>(innerExpression, innerParameter));
 
             var lambda = Expression.Lambda<Func<T, bool>>(call, outerParameter);
 
@@ -108,8 +108,8 @@ namespace nscreg.Business.PredicateBuilders
         /// <returns></returns>
         private static Expression<Func<T, bool>> GetRegionPredicate(object fieldValue)
         {
-            var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var property = Expression.Property(parameter, typeof(StatisticalUnit).GetProperty("Address"));
+            var parameter = Expression.Parameter(typeof(History), "x");
+            var property = Expression.Property(parameter, typeof(History).GetProperty("Address"));
             property = Expression.Property(property, typeof(Address).GetProperty("Region"));
             property = Expression.Property(property, typeof(Region).GetProperty("Code"));
             var constantValue = GetConstantValue(fieldValue, property);

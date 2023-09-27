@@ -10,7 +10,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
     {
         private static readonly Dictionary<Type, object> Registered = new Dictionary<Type, object>
         {
-            [typeof(StatisticalUnit)] = new StatUnitsPredicateBuilder(),
+            [typeof(History)] = new StatUnitsPredicateBuilder(),
             [typeof(EnterpriseGroup)] = new EnterpriseGroupsPredicateBuilder()
         };
 

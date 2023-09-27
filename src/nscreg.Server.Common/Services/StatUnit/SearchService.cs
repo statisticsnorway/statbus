@@ -114,7 +114,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private async Task<ILookup<int, CodeLookupVm>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
         {
-            var unitsActivities = await _dbContext.ActivityStatisticalUnits
+            var unitsActivities = await _dbContext.ActivityLegalUnits
                 .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
                 .Select(x =>
                 new {
@@ -174,7 +174,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     case StatUnitTypes.EnterpriseGroup:
                         list.AddRange(_commonSvc.ToUnitLookupVm(
                             await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
-                                .Where(v => v.EntGroupId == regId)
+                                .Where(v => v.EnterpriseGroupId == regId)
                                 .Select(CommonService.UnitMapping)
                                 .ToListAsync()
                         ));
@@ -266,7 +266,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             Expression<Func<IStatisticalUnit, bool>> filter =
                 unit => !unit.IsDeleted &&
                     (unit.Name != null && unit.Name.ToLower().Contains(loweredwc) || unit.StatId.StartsWith(loweredwc));
-            var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
+            var units = _dbContext.History.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(CommonService.UnitMapping);
             var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(CommonService.UnitMapping);
@@ -288,7 +288,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return !await _dbContext.EnterpriseGroups
                     .AnyAsync(x => x.StatId == statId && x.RegId != unitId);
             }
-            return !await _dbContext.StatisticalUnits
+            return !await _dbContext.History
                 .AnyAsync(x => x.StatId == statId && x.RegId != unitId && x.UnitType == unitType);
         }
     }

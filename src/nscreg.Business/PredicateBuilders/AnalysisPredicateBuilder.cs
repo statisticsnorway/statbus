@@ -68,7 +68,7 @@ namespace nscreg.Business.PredicateBuilders
 
             predicates.AddRange(unit is EnterpriseGroup
                 ? GetEnterpriseGroupPredicates(unit as EnterpriseGroup)
-                : GetStatisticalUnitPredicate(unit as StatisticalUnit));
+                : GetStatisticalUnitPredicate(unit as History));
 
             Expression<Func<T, bool>> result = null;
             for (var i = 0; i < predicates.Count - 2; i++)
@@ -109,19 +109,19 @@ namespace nscreg.Business.PredicateBuilders
             return predicates;
         }
 
-        private IEnumerable<Expression<Func<T, bool>>> GetStatisticalUnitPredicate(StatisticalUnit statisticalUnit)
+        private IEnumerable<Expression<Func<T, bool>>> GetStatisticalUnitPredicate(History history)
         {
             var predicates = new List<Expression<Func<T, bool>>>
             {
-                string.IsNullOrEmpty(statisticalUnit.ShortName)
+                string.IsNullOrEmpty(history.ShortName)
                     ? null
-                    : GetPredicate(FieldEnum.ShortName, statisticalUnit.ShortName, OperationEnum.Equal),
-                string.IsNullOrEmpty(statisticalUnit.TelephoneNo)
+                    : GetPredicate(FieldEnum.ShortName, history.ShortName, OperationEnum.Equal),
+                string.IsNullOrEmpty(history.TelephoneNo)
                     ? null
-                    : GetPredicate(FieldEnum.TelephoneNo, statisticalUnit.TelephoneNo, OperationEnum.Equal),
-                string.IsNullOrEmpty(statisticalUnit.EmailAddress)
+                    : GetPredicate(FieldEnum.TelephoneNo, history.TelephoneNo, OperationEnum.Equal),
+                string.IsNullOrEmpty(history.EmailAddress)
                     ? null
-                    : GetPredicate(FieldEnum.EmailAddress, statisticalUnit.EmailAddress, OperationEnum.Equal),
+                    : GetPredicate(FieldEnum.EmailAddress, history.EmailAddress, OperationEnum.Equal),
             };
             
 

@@ -38,6 +38,6 @@ namespace nscreg.Data.Entities
 
         public int? Role { get; set; }
         [JsonIgnore]
-        public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; }
+        public virtual ICollection<PersonForUnit> PersonsUnits { get; set; }
     }
 }

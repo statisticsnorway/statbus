@@ -324,7 +324,7 @@ namespace nscreg.Server.Common.Services
                 .Include(x => x.DataSource)
                 .FirstAsync(x => x.Id == queueId);
 
-            var deserializeMap = new Dictionary<StatUnitTypes, Func<string, StatisticalUnit>>()
+            var deserializeMap = new Dictionary<StatUnitTypes, Func<string, History>>()
             {
                 [StatUnitTypes.LegalUnit] = JsonConvert.DeserializeObject<LegalUnit>,
                 [StatUnitTypes.LocalUnit] = JsonConvert.DeserializeObject<LocalUnit>,
@@ -334,7 +334,7 @@ namespace nscreg.Server.Common.Services
             var activities = logEntries
                 .Select(x => x.SerializedUnit)
                 .Select(deserializeMap[queue.DataSource.StatUnitType])
-                .Select(x => x.ActivitiesUnits.First().Activity);
+                .Select(x => x.ActivitiesForLegalUnit.First().Activity);
 
            return activities;
         }
@@ -402,14 +402,14 @@ namespace nscreg.Server.Common.Services
         private List<StatUnitTypes> GetUnitTypes(string statId, StatUnitTypes statUnitType)
         {
             var statUnitTypes = new List<StatUnitTypes>();
-            var isContainDataSource = _dbContext.StatisticalUnits.AsNoTracking().First(x => x.StatId == statId && x.UnitType == statUnitType).DataSource != null;
+            var isContainDataSource = _dbContext.History.AsNoTracking().First(x => x.StatId == statId && x.UnitType == statUnitType).DataSource != null;
             if (!isContainDataSource)
             {
                 statUnitTypes.Add(statUnitType);
             }
             else
             {
-                statUnitTypes.AddRange(_dbContext.StatisticalUnits.AsNoTracking().Where(x=>x.StatId == statId && x.DataSource != null).Select(x=>x.UnitType).ToList());
+                statUnitTypes.AddRange(_dbContext.History.AsNoTracking().Where(x=>x.StatId == statId && x.DataSource != null).Select(x=>x.UnitType).ToList());
             }
 
             return statUnitTypes;

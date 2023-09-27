@@ -216,16 +216,12 @@ namespace nscreg.Data.Entities
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
-            new HashSet<PersonStatisticalUnit>();
+        public virtual ICollection<PersonForUnit> PersonsUnits { get; set; } =
+            new HashSet<PersonForUnit>();
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual RegistrationReason RegistrationReason { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        [UsedByServerSide]
-        public string HistoryEnterpriseUnitIds { get; set; }
 
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 500)]
@@ -289,11 +285,11 @@ namespace nscreg.Data.Entities
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
+        public ICollection<ActivityLegalUnit> ActivitiesUnits { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
+        public ICollection<CountryForUnit> ForeignParticipationCountriesUnits { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

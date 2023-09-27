@@ -345,10 +345,10 @@ namespace nscreg.Server.Common.Services.DataSources
                 var hUnitProperty = unitType.GetProperty(property.Name)?.GetValue(hUnit, null);
                 if (!Equals(unitProperty, hUnitProperty)) return false;
             }
-            if (!(unit is StatisticalUnit statUnit)) return true;
-            var historyStatUnit = (StatisticalUnit)hUnit;
-            return historyStatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId)
-                   && historyStatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
+            if (!(unit is History statUnit)) return true;
+            var historyStatUnit = (History)hUnit;
+            return historyStatUnit.ActivitiesForLegalUnit.CompareWith(statUnit.ActivitiesForLegalUnit, v => v.ActivityId)
+                   && historyStatUnit.PersonsForUnit.CompareWith(statUnit.PersonsForUnit, p => p.PersonId);
         }
     }
 }

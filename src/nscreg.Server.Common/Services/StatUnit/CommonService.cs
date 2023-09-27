@@ -90,7 +90,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             switch (type)
             {
                 case StatUnitTypes.LocalUnit:
-                    return await GetUnitById<StatisticalUnit>(id, showDeleted, query => query.IncludeAdvancedFields());
+                    return await GetUnitById<History>(id, showDeleted, query => query.IncludeAdvancedFields());
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(id, showDeleted, query => query.IncludeAdvancedFields().Include(x => x.LocalUnits).Include(y => y.LegalForm));
                 case StatUnitTypes.EnterpriseUnit:
@@ -289,7 +289,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             if (enterpriseUnit != null) hlegalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
                         });
 
-                    if (enterpriseUnit?.EntGroupId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
+                    if (enterpriseUnit?.EnterpriseGroupId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
                     {
                         void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
                         {
@@ -302,7 +302,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             if (historyEnterpriseUnits == null) return;
                             if (enterpriseUnit != null &&
                                 (historyEnterpriseUnits.Contains(enterpriseUnit.RegId) &&
-                                 enterpriseGroup.RegId != enterpriseUnit.EntGroupId))
+                                 enterpriseGroup.RegId != enterpriseUnit.EnterpriseGroupId))
                             {
                                 historyEnterpriseUnits.Remove(enterpriseUnit.RegId);
                             }
@@ -314,7 +314,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             enterpriseGroup.HistoryEnterpriseUnitIds = string.Join(",", historyEnterpriseUnits);
                         }
 
-                        TrackUnitHistoryFor<EnterpriseGroup>(enterpriseUnit?.EntGroupId, userId, changeReason, comment,
+                        TrackUnitHistoryFor<EnterpriseGroup>(enterpriseUnit?.EnterpriseGroupId, userId, changeReason, comment,
                             changeDateTime, PostAction);
                         TrackUnitHistoryFor<EnterpriseGroup>(unitsHistoryHolder.HistoryUnits.enterpriseGroupId, userId,
                             changeReason, comment, changeDateTime, PostAction);
@@ -341,22 +341,22 @@ namespace nscreg.Server.Common.Services.StatUnit
                             if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Count == 0)
                             {
                                 hEnterpriseUnit.EnterpriseGroup = null;
-                                hEnterpriseUnit.EntGroupId = null;
+                                hEnterpriseUnit.EnterpriseGroupId = null;
                                 return;
                             }
 
                             if (editedUnit is EnterpriseUnit editedEnterpriseUnit
                                 && !unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(editedEnterpriseUnit
                                     .RegId)
-                                && editedEnterpriseUnit.EntGroupId != null)
+                                && editedEnterpriseUnit.EnterpriseGroupId != null)
                             {
                                 hEnterpriseUnit.EnterpriseGroup = null;
-                                hEnterpriseUnit.EntGroupId = null;
+                                hEnterpriseUnit.EnterpriseGroupId = null;
                                 return;
                             }
 
                             hEnterpriseUnit.EnterpriseGroup = enterpriseGroup;
-                            if (enterpriseGroup != null) hEnterpriseUnit.EntGroupId = enterpriseGroup.RegId;
+                            if (enterpriseGroup != null) hEnterpriseUnit.EnterpriseGroupId = enterpriseGroup.RegId;
                         });
                     break;
                 }

@@ -38,9 +38,9 @@ namespace nscreg.Data.Entities
         int? LegalFormId { get; set; }
         string LiqReason { get; set; }
         SectorCode InstSectorCode { get; set; }
-        ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
-        ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
-        ICollection<PersonStatisticalUnit> PersonsUnits { get; set; }
+        ICollection<ActivityLegalUnit> ActivitiesUnits { get; set; }
+        ICollection<CountryForUnit> ForeignParticipationCountriesUnits { get; set; }
+        ICollection<PersonForUnit> PersonsUnits { get; set; }
         LegalForm LegalForm { get; set; }
     }
 }

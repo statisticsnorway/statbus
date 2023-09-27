@@ -40,7 +40,7 @@ namespace nscreg.Server.Common.Helpers
                     HistoryUnits = (
                             null,
                             null,
-                            enterpriseUnit?.EntGroupId,
+                            enterpriseUnit?.EnterpriseGroupId,
                             null,
                             enterpriseUnit?.LegalUnits.Select(x => x.RegId).ToList(),
                             null);

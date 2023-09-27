@@ -9,7 +9,7 @@ namespace nscreg.Server.Common.Models.OrgLinks
     /// </summary>
     public class OrgLinksNode
     {
-        private OrgLinksNode(StatisticalUnit unit, IEnumerable<OrgLinksNode> children)
+        private OrgLinksNode(History unit, IEnumerable<OrgLinksNode> children)
         {
             RegId = unit.RegId;
             Name = unit.Name;
@@ -23,7 +23,7 @@ namespace nscreg.Server.Common.Models.OrgLinks
         /// <param name="unit">unit</param>
         /// <param name="children">children</param>
         /// <returns></returns>
-        public static OrgLinksNode Create(StatisticalUnit unit, IEnumerable<OrgLinksNode> children)
+        public static OrgLinksNode Create(History unit, IEnumerable<OrgLinksNode> children)
         {
             return unit != null ? new OrgLinksNode(unit, children) : throw new NotFoundException(nameof(Resource.OrgLinksNotFound));
         }

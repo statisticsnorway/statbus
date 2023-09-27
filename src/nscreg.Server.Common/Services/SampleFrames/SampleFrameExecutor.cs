@@ -17,14 +17,14 @@ namespace nscreg.Server.Common.Services.SampleFrames
     {
         private readonly NSCRegDbContext _context;
         private readonly ExpressionTreeParser<EnterpriseGroup> _enterpriseGroupExprParser;
-        private readonly ExpressionTreeParser<StatisticalUnit> _statUnitExprParser;
+        private readonly ExpressionTreeParser<History> _statUnitExprParser;
         private readonly PropertyValuesProvider _propertyValuesProvider;
         private readonly CsvHelper _csvHelper;
 
         public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
-            _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context, configuration);
+            _statUnitExprParser = new ExpressionTreeParser<History>(context, configuration);
             _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context, configuration);
             _propertyValuesProvider = new PropertyValuesProvider(context);
             _csvHelper = new CsvHelper();
@@ -78,7 +78,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
             } while (bufferCount == batchSize);
         }
 
-        private (IQueryable<StatisticalUnit>, IQueryable<EnterpriseGroup>) GetRows(ExpressionGroup tree, List<FieldEnum> fields)
+        private (IQueryable<History>, IQueryable<EnterpriseGroup>) GetRows(ExpressionGroup tree, List<FieldEnum> fields)
         {
             var predicate = _statUnitExprParser.Parse(tree);
             var query = GetQueryForUnits(fields).Where(predicate);
@@ -93,13 +93,13 @@ namespace nscreg.Server.Common.Services.SampleFrames
             return (query.AsNoTracking(), queryEnt.AsNoTracking());
         }
 
-        private IQueryable<StatisticalUnit> GetQueryForUnits(IEnumerable<FieldEnum> fields)
+        private IQueryable<History> GetQueryForUnits(IEnumerable<FieldEnum> fields)
         {
-            var query = _context.StatisticalUnits.AsQueryable();
+            var query = _context.History.AsQueryable();
             var fieldLookup = fields.ToLookup(x => x);
 
             if (fieldLookup.Contains(FieldEnum.ActivityCodes) || fieldLookup.Contains(FieldEnum.MainActivity))
-                query = query.Include(x => x.ActivitiesUnits)
+                query = query.Include(x => x.ActivitiesForLegalUnit)
                     .ThenInclude(x => x.Activity)
                     .ThenInclude(x => x.ActivityCategory);
 
@@ -122,7 +122,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 query = query.Include(x => x.LegalForm);
 
             if (fieldLookup.Contains(FieldEnum.ContactPerson))
-                query = query.Include(x => x.PersonsUnits)
+                query = query.Include(x => x.PersonsForUnit)
                     .ThenInclude(x => x.Person);
 
             if (fieldLookup.Contains(FieldEnum.ForeignParticipationId))

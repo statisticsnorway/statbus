@@ -27,15 +27,7 @@ namespace nscreg.Data.Configuration
         /// </summary>
         private static void SetColumnNames(EntityTypeBuilder<Activity> builder)
         {
-            builder.Property(p => p.Id).HasColumnName("Id");
-            builder.Property(p => p.IdDate).HasColumnName("Id_Date");
-            builder.Property(p => p.ActivityCategoryId).HasColumnName("ActivityCategoryId");
-            builder.Property(p => p.ActivityYear).HasColumnName("Activity_Year");
-            builder.Property(p => p.ActivityType).HasColumnName("Activity_Type");
-            builder.Property(p => p.Employees).HasColumnName("Employees");
-            builder.Property(p => p.Turnover).HasColumnName("Turnover").HasColumnType("decimal(18,2)");
-            builder.Property(p => p.UpdatedBy).HasColumnName("Updated_By");
-            builder.Property(p => p.UpdatedDate).HasColumnName("Updated_Date");
+            builder.Property(p => p.Turnover).HasColumnType("decimal(18,2)");
         }
     }
 }

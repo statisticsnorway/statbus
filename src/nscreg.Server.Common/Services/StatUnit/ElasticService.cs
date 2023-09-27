@@ -65,7 +65,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                     throw new Exception(deleteResponse.DebugInformation);
 
-                var activityCategoryStaticalUnits = (await _dbContext.ActivityStatisticalUnits
+                var activityCategoryStaticalUnits = (await _dbContext.ActivityLegalUnits
                         .Select(a => new {a.UnitId, a.Activity.ActivityCategoryId}).ToListAsync())
                     .ToLookup(a => a.UnitId, a => a.ActivityCategoryId);
 

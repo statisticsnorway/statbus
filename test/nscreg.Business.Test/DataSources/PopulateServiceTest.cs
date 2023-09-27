@@ -60,9 +60,9 @@ namespace nscreg.Business.Test.DataSources
             {
                 Name = "LAST FRIDAY INVEST AS",
                 StatId = "920951287",
-                PersonsUnits = new List<PersonStatisticalUnit>()
+                PersonsUnits = new List<PersonForUnit>()
                     {
-                        new PersonStatisticalUnit()
+                        new PersonForUnit()
                         {
                             Person = new Person()
                             {
@@ -74,7 +74,7 @@ namespace nscreg.Business.Test.DataSources
                                 PhoneNumber = "12345"
                             }
                         },
-                        new PersonStatisticalUnit()
+                        new PersonForUnit()
                         {
                             Person = new Person()
                             {
@@ -122,9 +122,9 @@ namespace nscreg.Business.Test.DataSources
             {
                 Name = "LAST FRIDAY INVEST AS",
                 StatId = "920951287",
-                PersonsUnits = new List<PersonStatisticalUnit>()
+                PersonsUnits = new List<PersonForUnit>()
                 {
-                    new PersonStatisticalUnit()
+                    new PersonForUnit()
                     {
                         PersonTypeId = 1,
                         Person = new Person()
@@ -138,7 +138,7 @@ namespace nscreg.Business.Test.DataSources
                             PhoneNumber = "12345"
                         }
                     },
-                    new PersonStatisticalUnit()
+                    new PersonForUnit()
                     {
                         PersonTypeId = 1,
                         Person = new Person()
@@ -150,7 +150,7 @@ namespace nscreg.Business.Test.DataSources
                             BirthDate = dateTimeToday
                         }
                     },
-                    new PersonStatisticalUnit()
+                    new PersonForUnit()
                     {
                         PersonTypeId = 1,
                         Person = new Person()
@@ -164,7 +164,7 @@ namespace nscreg.Business.Test.DataSources
 
                 }
             };
-            DatabaseContext.StatisticalUnits.Add(dbunit);
+            DatabaseContext.History.Add(dbunit);
             await DatabaseContext.SaveChangesAsync();
             string userId = "8A071342-863E-4EFB-9B60-04050A6D2F4B";
             Initialize(DatabaseContext, userId);
@@ -184,7 +184,7 @@ namespace nscreg.Business.Test.DataSources
 
             var (popUnit, isNeW, errors, historyUnit) = await populateService.PopulateAsync(raw,true, DateTime.Now);
 
-            popUnit.PersonsUnits.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits).Excluding(x => x.Person.Id));
+            popUnit.PersonsForUnit.Should().BeEquivalentTo(resultUnit.PersonsUnits, op => op.Excluding(x => x.PersonId).Excluding(x => x.PersonId).Excluding(x => x.UnitId).Excluding(x => x.Unit).Excluding(x => x.Person.PersonsUnits).Excluding(x => x.Person.Id));
         }
 
         [Fact]
@@ -218,7 +218,7 @@ namespace nscreg.Business.Test.DataSources
                 {"Name", "LAST FRIDAY INVEST AS"}
             };
 
-            DatabaseContext.StatisticalUnits.Add(new LegalUnit()
+            DatabaseContext.History.Add(new LegalUnit()
             {
                 StatId = "920951287",
                 Name = "LAST FRIDAY INVEST AS"
@@ -268,9 +268,9 @@ namespace nscreg.Business.Test.DataSources
                 UserId = "8A071342-863E-4EFB-9B60-04050A6D2F4B",
                 StatId = "920951287",
                 Name = "LAST FRIDAY INVEST AS",
-                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                ActivitiesUnits = new List<ActivityLegalUnit>()
                 {
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -284,7 +284,7 @@ namespace nscreg.Business.Test.DataSources
                             }
                         }
                     },
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -308,7 +308,7 @@ namespace nscreg.Business.Test.DataSources
                 DataSourceAllowedOperation.CreateAndAlter, StatUnitTypes.LegalUnit,
                 DatabaseContext, userId, dataAccess, mapper);
             var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
-            popUnit.ActivitiesUnits.Should().BeEquivalentTo(unit.ActivitiesUnits,
+            popUnit.ActivitiesForLegalUnit.Should().BeEquivalentTo(unit.ActivitiesUnits,
                 op => op.Excluding(z => z.Activity.IdDate).Excluding(z => z.Activity.UpdatedDate));
             popUnit.Should().BeEquivalentTo(unit, op => op.Excluding(z => z.StartPeriod).Excluding(z => z.ActivitiesUnits).Excluding(x => x.RegIdDate).Excluding(x => x.Activities));
 
@@ -372,9 +372,9 @@ namespace nscreg.Business.Test.DataSources
             {
                 StatId = "9209512871",
                 Name = "TEST TEST",
-                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                ActivitiesUnits = new List<ActivityLegalUnit>()
                 {
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -384,7 +384,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityCategory = categories["67.111"]
                         }
                     },
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -394,7 +394,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityCategory = categories["62.020"]
                         }
                     },
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -406,16 +406,16 @@ namespace nscreg.Business.Test.DataSources
                     }
                 }
             };
-            DatabaseContext.StatisticalUnits.Add(dbUnit);
+            DatabaseContext.History.Add(dbUnit);
             await DatabaseContext.SaveChangesAsync();
             var resultUnit = new LegalUnit()
             {
                 RegId = 1,
                 StatId = "9209512871",
                 Name = "LAST FRIDAY INVEST AS",
-                ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                ActivitiesUnits = new List<ActivityLegalUnit>()
                 {
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -426,7 +426,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityCategoryId = categories["67.111"].Id,
                         }
                     },
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
 
                         Activity = new Activity()
@@ -438,7 +438,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityCategoryId = categories["62.020"].Id
                         }
                     },
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -449,7 +449,7 @@ namespace nscreg.Business.Test.DataSources
                             ActivityCategoryId = categories[ "68.209"].Id
                         }
                     },
-                    new ActivityStatisticalUnit()
+                    new ActivityLegalUnit()
                     {
                         Activity = new Activity()
                         {
@@ -470,7 +470,7 @@ namespace nscreg.Business.Test.DataSources
                 DataSourceAllowedOperation.CreateAndAlter,StatUnitTypes.LegalUnit,
                 DatabaseContext, userId, dataAccess, mapper);
             var (popUnit, isNew, errors, historyUnit) = await populateService.PopulateAsync(raw, true, DateTime.Now);
-            popUnit.ActivitiesUnits.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
+            popUnit.ActivitiesForLegalUnit.Should().BeEquivalentTo(resultUnit.ActivitiesUnits,
                 op => op.Excluding(x => x.Unit).Excluding(x => x.UnitId).Excluding(x => x.ActivityId)
                     .Excluding(x => x.Activity.ActivitiesUnits).Excluding(x => x.Activity.Id).Excluding(x => x.Activity.UpdatedBy)
                     .Excluding(x => x.Activity.ActivityCategoryId).Excluding(x => x.Activity.ActivityCategory.Id)

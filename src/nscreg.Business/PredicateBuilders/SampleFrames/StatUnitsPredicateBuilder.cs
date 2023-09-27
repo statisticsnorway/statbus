@@ -16,7 +16,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
     /// <summary>
     /// Sample frame predicate builder
     /// </summary>
-    public class StatUnitsPredicateBuilder : BasePredicateBuilder<StatisticalUnit>
+    public class StatUnitsPredicateBuilder : BasePredicateBuilder<History>
     {
         /// <inheritdoc />
         /// <summary>
@@ -26,7 +26,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <param name="fieldValue">Predicate field value</param>
         /// <param name="operation">Predicate operation</param>
         /// <returns>Predicate</returns>
-        public override Expression<Func<StatisticalUnit, bool>> GetPredicate(
+        public override Expression<Func<History, bool>> GetPredicate(
             FieldEnum field,
             object fieldValue,
             OperationEnum operation)
@@ -50,9 +50,9 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <param name="operation"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        private Expression<Func<StatisticalUnit, bool>> GetUnitTypePredicate(OperationEnum operation, object value)
+        private Expression<Func<History, bool>> GetUnitTypePredicate(OperationEnum operation, object value)
         {
-            var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
+            var parameter = Expression.Parameter(typeof(History), "x");
             var types = GetConstantValueArray<StatUnitTypes>(value, operation)
                 .Select(StatisticalUnitsTypeHelper.GetStatUnitMappingType);
             var expression = types
@@ -66,7 +66,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             if (operation == OperationEnum.NotEqual || operation == OperationEnum.NotInList)
                 expression = Expression.Not(expression);
 
-            return Expression.Lambda<Func<StatisticalUnit, bool>>(expression, parameter);
+            return Expression.Lambda<Func<History, bool>>(expression, parameter);
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <param name="fieldValue"></param>
         /// <param name="operation"></param>
         /// <returns></returns>
-        private Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue, OperationEnum operation)
+        private Expression<Func<History, bool>> GetActivityPredicate(object fieldValue, OperationEnum operation)
         {
             var subCategoriesIds = fieldValue;
             if (operation == OperationEnum.Equal || operation == OperationEnum.NotEqual || operation == OperationEnum.InList)
@@ -106,13 +106,13 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             }
 
 
-            var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
+            var outerParameter = Expression.Parameter(typeof(History), "x");
+            var property = Expression.Property(outerParameter, nameof(History.ActivitiesForLegalUnit));
 
-            var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
+            var innerParameter = Expression.Parameter(typeof(ActivityLegalUnit), "y");
             var categoryId = Expression
-                .Property(innerParameter, typeof(ActivityStatisticalUnit)
-                    .GetProperty(nameof(ActivityStatisticalUnit.Activity)));
+                .Property(innerParameter, typeof(ActivityLegalUnit)
+                    .GetProperty(nameof(ActivityLegalUnit.Activity)));
 
             categoryId = Expression
                     .Property(categoryId, typeof(Activity)
@@ -125,10 +125,10 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
 
             var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
-            var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
-                Expression.Lambda<Func<ActivityStatisticalUnit, bool>>(innerExpression, innerParameter));
+            var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityLegalUnit) }, property,
+                Expression.Lambda<Func<ActivityLegalUnit, bool>>(innerExpression, innerParameter));
 
-            return Expression.Lambda<Func<StatisticalUnit, bool>>(call, outerParameter);
+            return Expression.Lambda<Func<History, bool>>(call, outerParameter);
         }
 
         /// <summary>
@@ -137,7 +137,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <param name="fieldValue"></param>
         /// <param name="operation"></param>
         /// <returns></returns>
-        private Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
+        private Expression<Func<History, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
         {
             var regionIds = fieldValue;
 
@@ -169,7 +169,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             return GetMultipleRegionsPredicate(regionIds, operation);
         }
 
-        private Expression<Func<StatisticalUnit, bool>> GetMultipleRegionsPredicate(object fieldValue,
+        private Expression<Func<History, bool>> GetMultipleRegionsPredicate(object fieldValue,
             OperationEnum operation)
         {
             // creates predicate (x => _context.Address.Where(a => tmp.Contains(a.RegionId)).Distinct().Select(y => y.RegionId).Contains(x.Address.RegionId))
@@ -192,20 +192,20 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             Expression<Func<Address, int>> addressSelectLambda = y => y.RegionId;
             var addressSelectExpression = Expression.Call(typeof(Queryable), "Select", new[] {typeof(Address), typeof(int)}, addressDistinctExpression, addressSelectLambda);
 
-            var containsAddressParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
+            var containsAddressParameter = Expression.Parameter(typeof(History), "x");
             var containsAddressProperty = Expression.Property(containsAddressParameter, nameof(Address));
             var containsAddressRegionIdProperty = Expression.Property(containsAddressProperty, nameof(Address.RegionId));
             var containsAddressExpression = Expression.Call(typeof(Queryable), "Contains", new[] {typeof(int)},
                 addressSelectExpression, containsAddressRegionIdProperty);
-            Expression<Func<StatisticalUnit, bool>> expr;
+            Expression<Func<History, bool>> expr;
             if (operation == OperationEnum.NotEqual || operation == OperationEnum.NotInList)
             {
-                expr = Expression.Lambda<Func<StatisticalUnit, bool>>(Expression.Not(containsAddressExpression),
+                expr = Expression.Lambda<Func<History, bool>>(Expression.Not(containsAddressExpression),
                     containsAddressParameter);
             }
             else
             {
-                expr = Expression.Lambda<Func<StatisticalUnit, bool>>(containsAddressExpression,
+                expr = Expression.Lambda<Func<History, bool>>(containsAddressExpression,
                     containsAddressParameter);
             }           
             return expr;

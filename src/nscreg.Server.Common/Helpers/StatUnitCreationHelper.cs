@@ -164,7 +164,7 @@ namespace nscreg.Server.Common.Helpers
                 try
                 {
                     createdUnit = await CreateStatUnitAsync(enterpriseUnit);
-                    if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId <= 0)
+                    if (enterpriseUnit.EnterpriseGroupId == null || enterpriseUnit.EnterpriseGroupId <= 0)
                     {
                         
                         createdGroup = await CreateGroupForEnterpriseAsync(createdUnit);

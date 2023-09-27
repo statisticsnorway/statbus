@@ -47,7 +47,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public bool CheckStatUnitIdIsContains(IStatisticalUnit unit)
         {
-            return _context.StatisticalUnits.Any(x => x.StatId == unit.StatId);
+            return _context.History.Any(x => x.StatId == unit.StatId);
         }
 
         public async Task AnalyzeStatUnits(AnalysisQueue analysisQueue)
@@ -104,7 +104,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         private async Task AnalyzeStatUnitsAndCreateLogs(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer,
-            List<StatisticalUnit> unitsForAnalysis)
+            List<History> unitsForAnalysis)
         {
             var analysisLogs = new List<AnalysisLog>();
 

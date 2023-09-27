@@ -8,19 +8,20 @@ namespace nscreg.Data.Configuration
     /// <summary>
     /// Binding entity with Statistical Unit and Country configuration
     /// </summary>
-    public class CountryStatisticalUnitConfiguration : EntityTypeConfigurationBase<CountryStatisticalUnit>
+    public class CountryStatisticalUnitConfiguration : EntityTypeConfigurationBase<CountryForUnit>
     {
         /// <summary>
         /// Statistical unit country configuration method
         /// </summary>
-        public override void Configure(EntityTypeBuilder<CountryStatisticalUnit> builder)
+        public override void Configure(EntityTypeBuilder<CountryForUnit> builder)
         {
-            builder.HasKey(v => new { v.UnitId, v.CountryId });
+            builder.HasKey(v => new { v.LocalUnitId, v.CountryId });
+            builder.HasKey(v => new { v.LegalUnitId, v.CountryId });
+            builder.HasKey(v => new { v.EnterpriseUnitId, v.CountryId });
             builder.HasOne(v => v.Country).WithMany(v => v.CountriesUnits).HasForeignKey(v => v.CountryId);
-            builder.HasOne(v => v.Unit).WithMany(v => v.ForeignParticipationCountriesUnits).HasForeignKey(v => v.UnitId);
-
-            builder.Property(p => p.CountryId).HasColumnName("Country_Id");
-            builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
+            builder.HasOne(v => v.LocalUnit).WithMany(v => v.ForeignParticipationCountriesUnits).HasForeignKey(v => v.LocalUnitId);
+            builder.HasOne(v => v.LegalUnit).WithMany(v => v.ForeignParticipationCountriesUnits).HasForeignKey(v => v.LegalUnitId);
+            builder.HasOne(v => v.EnterpriseUnit).WithMany(v => v.ForeignParticipationCountriesUnits).HasForeignKey(v => v.EnterpriseUnitId);
         }
     }
 }

@@ -199,39 +199,39 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>( TModel data, string userId, Func<TUnit, Task> work)
             where TModel : StatUnitModelBase
-            where TUnit : StatisticalUnit, new()
+            where TUnit : History, new()
             => await CreateContext<TUnit, TModel>(data, userId, async unit =>
             {
                 if (CommonService.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
                 {
                     var activitiesList = data.Activities ?? new List<ActivityM>();
 
-                    unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
+                    unit.ActivitiesForLegalUnit.AddRange(activitiesList.Select(v =>
                         {
                             var activity = _mapper.Map<ActivityM, Activity>(v);
                             activity.Id = 0;
                             activity.ActivityCategoryId = v.ActivityCategoryId;
                             activity.UpdatedBy = userId;
-                            return new ActivityStatisticalUnit {Activity = activity};
+                            return new ActivityLegalUnit {Activity = activity};
                         }
                     ));
                 }
 
                 var personList = data.Persons ?? new List<PersonM>();
-                unit.PersonsUnits.AddRange(personList.Select(v =>
+                unit.PersonsForUnit.AddRange(personList.Select(v =>
                 {
                     if (v.Id.HasValue && v.Id > 0)
                     {
-                        return new PersonStatisticalUnit { PersonId = (int)v.Id, PersonTypeId = v.Role };
+                        return new PersonForUnit { PersonId = (int)v.Id, PersonTypeId = v.Role };
                     }
                     var newPerson = _mapper.Map<PersonM, Person>(v);
-                    return new PersonStatisticalUnit { Person = newPerson, PersonTypeId = v.Role };
+                    return new PersonForUnit { Person = newPerson, PersonTypeId = v.Role };
                 }));
 
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
                 foreach (var unitM in statUnits)
                 {
-                    unit.PersonsUnits.Add(new PersonStatisticalUnit
+                    unit.PersonsForUnit.Add(new PersonForUnit
                     {
                         EnterpriseGroupId = unitM.StatRegId == null ? unitM.GroupRegId : null,
                         PersonId = null,
@@ -241,7 +241,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
 
-                unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v => new CountryStatisticalUnit { CountryId = v }));
+                unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v => new CountryForUnit { CountryId = v }));
 
                 unit.SizeId = unit.SizeId == 0 ? null : unit.SizeId;
 

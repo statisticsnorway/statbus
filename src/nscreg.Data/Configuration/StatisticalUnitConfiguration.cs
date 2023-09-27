@@ -9,32 +9,20 @@ namespace nscreg.Data.Configuration
     /// <summary>
     ///  Stat units configuration class
     /// </summary>
-    public class StatisticalUnitConfiguration : EntityTypeConfigurationBase<StatisticalUnit>
+    public class StatisticalUnitConfiguration : EntityTypeConfigurationBase<History>
     {
         private const string DiscriminatorColumnName = "Discriminator";
 
         /// <summary>
         ///  Stat units configuration method
         /// </summary>
-        public override void Configure(EntityTypeBuilder<StatisticalUnit> builder)
+        public override void Configure(EntityTypeBuilder<History> builder)
         {
-            builder.HasKey(x => x.RegId);
-
-            builder.Property(v => v.StatId).HasMaxLength(15);
-            builder.HasIndex(x => x.StatId);
             builder.Property(x => x.UserId).IsRequired();
 
             builder.Property(x => x.ChangeReason)
                 .IsRequired()
                 .HasDefaultValue(ChangeReasons.Create);
-
-            builder.HasOne(x => x.InstSectorCode)
-                .WithMany()
-                .HasForeignKey(x => x.InstSectorCodeId);
-
-            builder.HasOne(x => x.LegalForm)
-                .WithMany()
-                .HasForeignKey(x => x.LegalFormId);
 
             builder.Property(x => x.Name)
                 .HasMaxLength(400);
@@ -66,9 +54,6 @@ namespace nscreg.Data.Configuration
             builder.Property(x => x.LiqReason)
                 .HasMaxLength(200);
 
-            builder.Property(x => x.ReorgTypeCode)
-                .HasMaxLength(50);
-
             builder.Property(x => x.UserId)
                 .HasMaxLength(100);
 
@@ -78,13 +63,6 @@ namespace nscreg.Data.Configuration
             builder.Property(x => x.Turnover).HasColumnType("decimal(18,2)");
 
             builder.HasIndex(x => x.Name);
-
-            builder.HasIndex(x => x.StartPeriod);
-
-            builder.HasIndex(nameof(StatisticalUnit.ShortName),
-                nameof(StatisticalUnit.RegId),
-                nameof(StatisticalUnit.StatId),
-                nameof(StatisticalUnit.TaxRegId));
         }
     }
 }

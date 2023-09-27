@@ -224,7 +224,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             string userId,
             Func<TUnit, Task> work)
             where TModel : StatUnitModelBase
-            where TUnit : StatisticalUnit, new()
+            where TUnit : History, new()
             => await EditContext<TUnit, TModel>(
                 data,
                 idSelector,
@@ -234,14 +234,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     //Merge activities
                     if (CommonService.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
                     {
-                        var activities = new List<ActivityStatisticalUnit>();
-                        var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+                        var activities = new List<ActivityLegalUnit>();
+                        var srcActivities = unit.ActivitiesForLegalUnit.ToDictionary(v => v.ActivityId);
                         var activitiesList = data.Activities ?? new List<ActivityM>();
 
                         foreach (var model in activitiesList)
                         {
                             if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value,
-                                    out ActivityStatisticalUnit activityAndUnit))
+                                    out ActivityLegalUnit activityAndUnit))
                             {
                                 var currentActivity = activityAndUnit.Activity;
                                 if (model.ActivityCategoryId == currentActivity.ActivityCategoryId &&
@@ -255,10 +255,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                             _mapper.Map(model, newActivity);
                             newActivity.UpdatedBy = userId;
                             newActivity.ActivityCategoryId = model.ActivityCategoryId;
-                            activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
+                            activities.Add(new ActivityLegalUnit() {Activity = newActivity});
                         }
-                        unit.ActivitiesUnits.Clear();
-                        unit.ActivitiesUnits.AddRange(activities);
+                        unit.ActivitiesForLegalUnit.Clear();
+                        unit.ActivitiesForLegalUnit.AddRange(activities);
                     }
 
                     var srcCountries = unit.ForeignParticipationCountriesUnits.ToDictionary(v => v.CountryId);
@@ -266,7 +266,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var countryBindingsToAdd = countriesList.Where(id => !srcCountries.ContainsKey(id)).ToList();
                     foreach (var id in countryBindingsToAdd)
                         unit.ForeignParticipationCountriesUnits.Add(
-                            new CountryStatisticalUnit {CountryId = id});
+                            new CountryForUnit {CountryId = id});
 
                     var countryBindingsToRemove = srcCountries
                         .Where(b => !countriesList.Contains(b.Key)).Select(x => x.Value).ToList();
@@ -274,15 +274,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                     foreach (var binding in countryBindingsToRemove)
                         unit.ForeignParticipationCountriesUnits.Remove(binding);
 
-                    var persons = new List<PersonStatisticalUnit>();
-                    var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
+                    var persons = new List<PersonForUnit>();
+                    var srcPersons = unit.PersonsForUnit.ToDictionary(v => v.PersonId);
                     var personsList = data.Persons ?? new List<PersonM>();
 
                     foreach (var model in personsList)
                     {
                         if (model.Id.HasValue && model.Id > 0)
                         {
-                            if (srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
+                            if (srcPersons.TryGetValue(model.Id.Value, out PersonForUnit personStatisticalUnit))
                             {
                                 var currentPerson = personStatisticalUnit.Person;
                                 if (model.Id == currentPerson.Id)
@@ -293,12 +293,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 }
                             } else
                             {
-                                persons.Add(new PersonStatisticalUnit { PersonId = (int)model.Id, PersonTypeId = model.Role });
+                                persons.Add(new PersonForUnit { PersonId = (int)model.Id, PersonTypeId = model.Role });
                                 continue;
                             }
                         }
                         var newPerson = _mapper.Map<PersonM, Person>(model);
-                        persons.Add(new PersonStatisticalUnit { Person = newPerson, PersonTypeId = model.Role });
+                        persons.Add(new PersonForUnit { Person = newPerson, PersonTypeId = model.Role });
                     }
 
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
@@ -307,7 +307,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         if (unitM.StatRegId.HasValue )
                         {
-                            var personStatisticalUnit = unit.PersonsUnits.First(x => x.UnitId == unitM.StatRegId.Value);
+                            var personStatisticalUnit = unit.PersonsForUnit.First(x => x.UnitId == unitM.StatRegId.Value);
                             var currentUnit = personStatisticalUnit.Unit;
                             if (unitM.StatRegId == currentUnit.RegId)
                             {
@@ -316,7 +316,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 continue;
                             }
                         }
-                        persons.Add(new PersonStatisticalUnit
+                        persons.Add(new PersonForUnit
                         {
                             UnitId = unit.RegId,
                             EnterpriseGroupId = null,
@@ -325,7 +325,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
 
-                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null).GroupBy(x => x.EnterpriseGroupId)
+                    var groupUnits = unit.PersonsForUnit.Where(su => su.EnterpriseGroupId != null).GroupBy(x => x.EnterpriseGroupId)
                         .ToDictionary(su => su.Key, su => su.First());
 
                     foreach (var unitM in statUnitsList)
@@ -341,7 +341,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 continue;
                             }
                         }
-                        persons.Add(new PersonStatisticalUnit
+                        persons.Add(new PersonForUnit
                         {
                             UnitId = unit.RegId,
                             EnterpriseGroupId = unitM.GroupRegId,
@@ -349,8 +349,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
 
-                    unit.PersonsUnits.Clear();
-                    unit.PersonsUnits.AddRange(persons);
+                    unit.PersonsForUnit.Clear();
+                    unit.PersonsForUnit.AddRange(persons);
 
                     if (data.LiqDate != null || !string.IsNullOrEmpty(data.LiqReason) || (_liquidateStatusId != null && data.UnitStatusId == _liquidateStatusId))
                     {
@@ -519,10 +519,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var hUnitProperty = unitType.GetProperty(property.Name).GetValue(hUnit, null);
                 if (!Equals(unitProperty, hUnitProperty)) return false;
             }
-            if (!(unit is StatisticalUnit statUnit)) return true;
-            var hstatUnit = (StatisticalUnit) hUnit;
-            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId)
-                   && hstatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
+            if (!(unit is History statUnit)) return true;
+            var hstatUnit = (History) hUnit;
+            return hstatUnit.ActivitiesForLegalUnit.CompareWith(statUnit.ActivitiesForLegalUnit, v => v.ActivityId)
+                   && hstatUnit.PersonsForUnit.CompareWith(statUnit.PersonsForUnit, p => p.PersonId);
         }
 
     }

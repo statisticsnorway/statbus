@@ -16,9 +16,6 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => new {x.UserId, x.ActivityCategoryId});
             builder.HasOne(x => x.User).WithMany(x => x.ActivityCategoryUsers).HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.ActivityCategory).WithMany(x => x.ActivityCategoryUsers).HasForeignKey(x => x.ActivityCategoryId);
-
-            builder.Property(p => p.UserId).HasColumnName("User_Id");
-            builder.Property(p => p.ActivityCategoryId).HasColumnName("ActivityCategory_Id");
         }
     }
 }

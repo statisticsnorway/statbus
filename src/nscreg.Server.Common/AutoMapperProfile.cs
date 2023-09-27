@@ -168,7 +168,7 @@ namespace nscreg.Server.Common
                 .ForMember(d => d.RegionIds, opt => opt.MapFrom(s => s.RegionId != null ? new List<int> { (int)s.RegionId } : new List<int>()));
 
             CreateMap<IStatisticalUnit, ElasticStatUnit>()
-                .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as StatisticalUnit).LiqDate))
+                .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as History).LiqDate))
                 .ForMember(d => d.RegionId, opt => opt.MapFrom(s => s.Address.RegionId))
                 .ForMember(d => d.SectorCodeId, opt => opt.MapFrom(s => s.InstSectorCodeId))
                 .ForMember(d => d.AddressPart1, opt => opt.MapFrom(s => s.Address.AddressPart1))
@@ -238,10 +238,10 @@ namespace nscreg.Server.Common
             MapStatisticalUnit<EnterpriseUnit>()
                 .ForMember(m => m.LegalUnits, m => m.Ignore());
 
-            CreateMap<StatisticalUnit, StatisticalUnitHistory>()
+            CreateMap<History, StatisticalUnitHistory>()
                 .ForMember(dst=>dst.RegId, opt=>opt.MapFrom(src=>src.RegId));
 
-            CreateMap<StatisticalUnitHistory, StatisticalUnit>()
+            CreateMap<StatisticalUnitHistory, History>()
                 .ForMember(dst => dst.RegId, opt => opt.MapFrom(src => src.RegId));
 
             CreateMap<EnterpriseGroup, EnterpriseGroup>()
@@ -295,18 +295,18 @@ namespace nscreg.Server.Common
 
             CreateMap<EnterpriseGroup, EnterpriseGroupHistory>().ReverseMap();
 
-            CreateMap<ActivityStatisticalUnit, ActivityStatisticalUnitHistory>()
+            CreateMap<ActivityLegalUnit, ActivityStatisticalUnitHistory>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
-            CreateMap<ActivityStatisticalUnitHistory, ActivityStatisticalUnit>()
+            CreateMap<ActivityStatisticalUnitHistory, ActivityLegalUnit>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore())
                 .ForMember(dst => dst.ActivityId, opt => opt.MapFrom(x => x.Activity.ParentId));
-            CreateMap<PersonStatisticalUnit, PersonStatisticalUnitHistory>()
+            CreateMap<PersonForUnit, PersonStatisticalUnitHistory>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
-            CreateMap<PersonStatisticalUnitHistory, PersonStatisticalUnit>()
+            CreateMap<PersonStatisticalUnitHistory, PersonForUnit>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
-            CreateMap<CountryStatisticalUnit, CountryStatisticalUnitHistory>()
+            CreateMap<CountryForUnit, CountryStatisticalUnitHistory>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
-            CreateMap<CountryStatisticalUnitHistory, CountryStatisticalUnit>()
+            CreateMap<CountryStatisticalUnitHistory, CountryForUnit>()
                 .ForMember(dst => dst.Unit, opt => opt.Ignore());
 
             CreateMap<ActivityHistory, Activity>()
@@ -370,7 +370,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
                 .ForMember(x => x.Commercial, x => x.MapFrom(x => false))
-                .ForMember(x => x.EntGroupId, x => x.MapFrom(x => (int?) null))
+                .ForMember(x => x.EnterpriseGroupId, x => x.MapFrom(x => (int?) null))
                 .ForMember(x => x.EntGroupIdDate, x => x.Ignore())
                 .ForMember(x => x.EntGroupRoleId, x => x.Ignore())
                 .ForMember(x => x.HistoryLegalUnitIds, x => x.MapFrom(x => string.Empty))
@@ -422,11 +422,11 @@ namespace nscreg.Server.Common
         /// Метод сопоставления стат. единицы
         /// </summary>
         /// <returns></returns>
-        private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit
+        private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : History
             => CreateMap<T, T>()
                 .ForMember(v => v.Activities, v => v.Ignore())
-                .ForMember(v => v.ActivitiesUnits, v =>
-                    v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit
+                .ForMember(v => v.ActivitiesForLegalUnit, v =>
+                    v.MapFrom(x => x.ActivitiesForLegalUnit.Select(z => new ActivityLegalUnit
                     {
                         ActivityId = z.ActivityId,
                         Activity = new Activity
@@ -444,15 +444,15 @@ namespace nscreg.Server.Common
                         },
                         UnitId = z.UnitId })))
                 .ForMember(v => v.Persons, v => v.Ignore())
-                .ForMember(v => v.PersonsUnits, v =>
-                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit
+                .ForMember(v => v.PersonsForUnit, v =>
+                    v.MapFrom(x => x.PersonsForUnit.Select(z => new PersonForUnit
                     {
                         PersonId = z.PersonId,
                         PersonTypeId = z.PersonTypeId,
                         UnitId = z.UnitId
                     })))
                 .ForMember(v => v.ForeignParticipationCountriesUnits, v =>
-                    v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit
+                    v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryForUnit
                     {
                         CountryId = z.CountryId,
                         UnitId = z.UnitId
@@ -465,7 +465,7 @@ namespace nscreg.Server.Common
         /// <returns></returns>
         private IMappingExpression<TSource, TDestination> CreateStatUnitFromModelMap<TSource, TDestination>()
             where TSource : StatUnitModelBase
-            where TDestination : StatisticalUnit
+            where TDestination : History
             => CreateMap<TSource, TDestination>()
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTimeOffset.UtcNow))
@@ -474,7 +474,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
-                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.ActivitiesForLegalUnit, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore());
@@ -483,7 +483,7 @@ namespace nscreg.Server.Common
         ///  Метод создания стат. единицы из обратного сопоставления
         /// </summary>
         private void CreateStatUnitFromModelReverseMap<TSource, TDestination>()
-            where TSource : StatisticalUnit
+            where TSource : History
             where TDestination : StatUnitModelBase
             => CreateMap<TSource, TDestination>()
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))

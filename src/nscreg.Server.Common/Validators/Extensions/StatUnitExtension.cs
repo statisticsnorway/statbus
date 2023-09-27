@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Validators.Extensions
         /// <param name = "statUnit"> </param>
         /// <param name = "model"> </param>
         /// <returns> </returns>
-        public static StatisticalUnit UpdateProperties(this StatisticalUnit statUnit, PersonStatUnitModel model)
+        public static History UpdateProperties(this History statUnit, PersonStatUnitModel model)
         {
             statUnit.Name = model.Name;
             statUnit.StatId = model.StatId;

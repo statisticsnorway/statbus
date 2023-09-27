@@ -9,7 +9,7 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     public static class GetStatUnitSetHelper
     {
-        public static IQueryable<StatisticalUnit> GetStatUnitSet(NSCRegDbContext context, StatUnitTypes type)
+        public static IQueryable<History> GetStatUnitSet(NSCRegDbContext context, StatUnitTypes type)
         {
             switch (type)
             {
@@ -38,7 +38,7 @@ namespace nscreg.Server.Common.Services.DataSources
             }
         }
 
-        private static IQueryable<T> IncludeGeneralProps<T>(this IQueryable<T> query) where T : StatisticalUnit =>
+        private static IQueryable<T> IncludeGeneralProps<T>(this IQueryable<T> query) where T : History =>
             query
                 .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
@@ -56,7 +56,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 .Include(x => x.ForeignParticipationCountriesUnits)
                     .ThenInclude(x => x.Country);
 
-        public static StatisticalUnit CreateByType(StatUnitTypes types)
+        public static History CreateByType(StatUnitTypes types)
         {
             switch (types)
             {

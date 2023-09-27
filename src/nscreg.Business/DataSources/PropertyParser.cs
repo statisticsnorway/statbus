@@ -341,7 +341,7 @@ namespace nscreg.Business.DataSources
             return result;
         }
 
-        public static bool SetPersonStatUnitOwnProperties(string path, PersonStatisticalUnit entity, string value)
+        public static bool SetPersonStatUnitOwnProperties(string path, PersonForUnit entity, string value)
         {
             switch (path)
             {

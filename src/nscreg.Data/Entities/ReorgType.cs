@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using nscreg.Data.Entities.History;
 
 namespace nscreg.Data.Entities
 {
@@ -8,6 +7,5 @@ namespace nscreg.Data.Entities
     /// </summary>
     public class ReorgType: CodeLookupBase
     {
-        public virtual List<EnterpriseGroupHistory> EnterpriseGroupHistories { get; set; }
     }
 }

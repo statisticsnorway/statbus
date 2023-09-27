@@ -21,7 +21,7 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private readonly DataAccessPermissions _permissions;
         private bool _isEnabledFlush = true;
-        private List<StatisticalUnit> Buffer { get; }
+        private List<History> Buffer { get; }
         private List<EnterpriseUnit> BufferToDelete { get; }
         private List<IStatisticalUnitHistory> HistoryBuffer { get; }
         private readonly NSCRegDbContext _context;
@@ -36,7 +36,7 @@ namespace nscreg.Server.Common.Services.DataSources
             _permissions = permissions;
             HistoryBuffer = new List<IStatisticalUnitHistory>();
             BufferToDelete = new List<EnterpriseUnit>();
-            Buffer = new List<StatisticalUnit>();
+            Buffer = new List<History>();
             _context = context;
             ElasticSearchService = elasticSearchService;
             _dataSourceQueue = queue;
@@ -54,7 +54,7 @@ namespace nscreg.Server.Common.Services.DataSources
             HistoryBuffer.Add(unitHistory);
 
         }
-        public async Task AddToBufferAsync(StatisticalUnit element)
+        public async Task AddToBufferAsync(History element)
         {
             Buffer.Add(element);
             if (Buffer.Count >= _maxBulkOperationsBufferedCount && _isEnabledFlush)
@@ -70,10 +70,10 @@ namespace nscreg.Server.Common.Services.DataSources
                 var bulkConfig = new BulkConfig { PreserveInsertOrder = true, SetOutputIdentity = true, BulkCopyTimeout = 0 };
 
                 var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
-                var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
+                var activityUnits = Buffer.SelectMany(x => x.ActivitiesForLegalUnit).ToList();
                 var activities = activityUnits.Select(z => z.Activity).Distinct(new IdComparer<Activity>()).ToList();
 
-                var personUnits = Buffer.SelectMany(x => x.PersonsUnits).ToList();
+                var personUnits = Buffer.SelectMany(x => x.PersonsForUnit).ToList();
                 var persons = personUnits.Select(z => z.Person).Distinct(new IdComparer<Person>()).ToList();
 
                 var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
@@ -96,7 +96,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 var groups = enterprises.Select(x => x.EnterpriseGroup).Where(z => z != null).ToList();
                 await _context.BulkInsertOrUpdateAsync(groups, bulkConfig);
 
-                enterprises.ForEach(x => x.EntGroupId = x.EnterpriseGroup?.RegId);
+                enterprises.ForEach(x => x.EnterpriseGroupId = x.EnterpriseGroup?.RegId);
                 await _context.BulkInsertOrUpdateAsync(enterprises, bulkConfig);
 
                 var legals = Buffer.OfType<LegalUnit>().ToList();
@@ -137,14 +137,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 await _context.BulkUpdateAsync(enterprises, bulkConfig);
 
-                Buffer.ForEach(buf => buf.ActivitiesUnits.ForEach(au =>
+                Buffer.ForEach(buf => buf.ActivitiesForLegalUnit.ForEach(au =>
                 {
                     au.ActivityId = au.Activity.Id;
                     au.UnitId = buf.RegId;
                 }));
                 Buffer.ForEach(x => x.ForeignParticipationCountriesUnits.ForEach(z => z.UnitId = x.RegId));
 
-                Buffer.ForEach(z => z.PersonsUnits.ForEach(x =>
+                Buffer.ForEach(z => z.PersonsForUnit.ForEach(x =>
                 {
                     x.UnitId = z.RegId;
                     x.PersonId = x.Person.Id;

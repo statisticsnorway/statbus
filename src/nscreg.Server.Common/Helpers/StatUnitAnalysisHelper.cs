@@ -21,12 +21,12 @@ namespace nscreg.Server.Common.Helpers
         /// </summary>
         /// <param name="analysisQueue">Analysis queue item</param>
         /// <returns>Statistical unit</returns>
-        public async Task<StatisticalUnit> GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
+        public async Task<History> GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
         {
-            return await _ctx.StatisticalUnits
+            return await _ctx.History
                 .AsNoTracking()
-                .Include(x => x.PersonsUnits)
-                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.PersonsForUnit)
+                .Include(x => x.ActivitiesForLegalUnit)
                 .Include(x => x.Address)
                 .FirstOrDefaultAsync(su => !su.IsDeleted &&
                                            (_ctx.StatisticalUnitHistory
@@ -44,13 +44,13 @@ namespace nscreg.Server.Common.Helpers
         /// </summary>
         /// <param name="analysisQueue">Analysis queue item</param>
         /// <returns>Statistical unit</returns>
-        public async Task<List<StatisticalUnit>> GetStatisticalUnitsForAnalysis(AnalysisQueue analysisQueue, int skipCount, int takeCount)
+        public async Task<List<History>> GetStatisticalUnitsForAnalysis(AnalysisQueue analysisQueue, int skipCount, int takeCount)
         {
-            var result = await _ctx.StatisticalUnits
+            var result = await _ctx.History
                 .AsNoTracking()
-                .Include(x => x.PersonsUnits)
+                .Include(x => x.PersonsForUnit)
                 .Include(x => x.Address)
-                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ActivitiesForLegalUnit)
                 .Where(su => !su.IsDeleted &&
                              (_ctx.StatisticalUnitHistory
                                   .Any(c => c.StatId == su.StatId

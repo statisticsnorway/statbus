@@ -8,12 +8,12 @@ namespace nscreg.Data.Configuration
     /// <summary>
     /// Class configuration activity stat. units
     /// </summary>
-    public class ActivityStatisticalUnitConfiguration : EntityTypeConfigurationBase<ActivityStatisticalUnit>
+    public class ActivityStatisticalUnitConfiguration : EntityTypeConfigurationBase<ActivityLegalUnit>
     {
         /// <summary>
         /// Operation configuration method stat. units
         /// </summary>
-        public override void Configure(EntityTypeBuilder<ActivityStatisticalUnit> builder)
+        public override void Configure(EntityTypeBuilder<ActivityLegalUnit> builder)
         {
             builder.HasKey(v => new {v.UnitId, v.ActivityId});
             builder.HasOne(v => v.Activity).WithMany(v => v.ActivitiesUnits).HasForeignKey(v => v.ActivityId);
@@ -21,9 +21,6 @@ namespace nscreg.Data.Configuration
 
             builder.HasIndex(x => x.UnitId).IsUnique(false);
             builder.HasIndex(x => x.ActivityId).IsUnique(false);
-            
-            builder.Property(p => p.ActivityId).HasColumnName("Activity_Id");
-            builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
         }
     }
 }

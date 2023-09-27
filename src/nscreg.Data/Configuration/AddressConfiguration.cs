@@ -21,13 +21,6 @@ namespace nscreg.Data.Configuration
         /// </summary>
         private static void SetColumnNames(EntityTypeBuilder<Address> builder)
         {
-            builder.Property(p => p.Id).HasColumnName("Address_id");
-            builder.Property(p => p.AddressPart1).HasColumnName("Address_part1");
-            builder.Property(p => p.AddressPart2).HasColumnName("Address_part2");
-            builder.Property(p => p.AddressPart3).HasColumnName("Address_part3");
-            builder.Property(p => p.RegionId).HasColumnName("Region_id");
-            builder.Property(p => p.Latitude).HasColumnName("Latitude");
-            builder.Property(p => p.Longitude).HasColumnName("Longitude");
             builder.HasIndex(x => new
             {
                 x.AddressPart1,

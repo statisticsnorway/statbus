@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task LogUnitUpload(DataSourceQueue queue,
             string rawUnit,
             DateTime? started,
-            StatisticalUnit unit,
+            History unit,
             DataUploadingLogStatuses status,
             string note,
             IReadOnlyDictionary<string, string[]> messages,

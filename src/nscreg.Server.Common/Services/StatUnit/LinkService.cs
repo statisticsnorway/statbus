@@ -124,7 +124,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case StatUnitTypes.EnterpriseGroup:
                     list.AddRange(_commonSvc.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
-                            .Where(v => v.EntGroupId == unit.Id && v.UnitStatusId == 7).Select(CommonService.UnitMapping)
+                            .Where(v => v.EnterpriseGroupId == unit.Id && v.UnitStatusId == 7).Select(CommonService.UnitMapping)
                             .ToListAsync()
                     ));
                     break;
@@ -315,7 +315,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
         {
-            LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
+            LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EnterpriseGroupId, v => v.EnterpriseGroup),
             LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit),
             LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit),
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));

@@ -20,7 +20,7 @@ namespace nscreg.Data.Configuration
 
             builder.HasMany(x => x.EnterpriseUnits)
                 .WithOne(x => x.EnterpriseGroup)
-                .HasForeignKey(x => x.EntGroupId)
+                .HasForeignKey(x => x.EnterpriseGroupId)
                 .IsRequired(false);
 
             builder.HasOne(c => c.EntGroupType)
