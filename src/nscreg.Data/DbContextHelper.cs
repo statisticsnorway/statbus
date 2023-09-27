@@ -80,6 +80,8 @@ namespace nscreg.Data
                     // to make it possible to identify where the problem lies.
                     op.EnableDetailedErrors();
                     op.EnableSensitiveDataLogging();
+                    // Improve naming of tables and columns for Postgres
+                    op.UseSnakeCaseNamingConvention();
                 };
 
         public NSCRegDbContext CreateDbContext(string[] args)
