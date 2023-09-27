@@ -75,6 +75,10 @@ const FormBody = ({
             onChange={updateValues}
             localize={localize}
           />
+          <div>
+            Please do not use hyphens (-) in the column values of the XML/CSV file, it is currently
+            not supported.
+          </div>
         </Column>
         <Column width={10}>
           <TextField {...createProps('name')} width={8} />
