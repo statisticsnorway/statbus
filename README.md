@@ -7,7 +7,7 @@ Statistical Business Registry (SBR)
 [![Linter](https://github.com/statisticsnorway/statbus/actions/workflows/linter-workflow.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/linter-workflow.yaml)
 
 
-## tools stack
+## Tools Stack
 
 * .Net 7.0 with Asp.Net 7.x and Entity Framework Core 7.x,
 * ElasticSearch 6.5.3
@@ -25,9 +25,21 @@ The project specifies a devcontainer that can be used when workling locally. Thi
 
 Requirements
 
-* Windows, Linux, macOS
+* Windows
+  * Git for Windows with *Git Bash* for running `sh` code blocks.
+  * Scoop https://scoop.sh/
+    For installing packages from the command line.
+  * NVM-Windows https://github.com/coreybutler/nvm-windows
+    Install with `scopp install nvm`
+* Linux (Ubuntu/Debian)
+  * Node Version Manager https://github.com/nvm-sh/nvm
+    Install with `apt install nvm`
+* macOS
+  * Homebrew https://brew.sh/
+    For installing packages from the command line.
+  * Node Version Manager https://github.com/nvm-sh/nvm
+    Install with `brew install nvm`
 * .Net 7.x
-* Node Version Manager https://github.com/nvm-sh/nvm
 * Docker
 
 
@@ -52,7 +64,7 @@ docker compose -f docker-compose.support-services-postgres.yml down --volumes
 Then the backend can be started with an IDE or with the following command
 
 ```sh
-dotnet run --environment Development --project src\nscreg.Server
+dotnet run --environment Development --project src/nscreg.Server
 ```
 
 When the backend runs on an empty database, it will run all migrations
@@ -74,6 +86,8 @@ of problems.
 
 And the frontend is started with
 
+Linux/Ubuntu and macOs:
+
 ```sh
 nvm install
 nvm use
@@ -81,8 +95,18 @@ npm install
 npm run watch
 ```
 
+Windows:
+
+When running Git Bash
+```sh
+nvm install $(cat .nvmrc | tr -d '[:space:]')
+nvm use $(cat .nvmrc | tr -d '[:space:]')
+npm install
+npm run watch
+```
+
 Notice that "nvm" is a tool to install the correct node version,
-with the corresponding npm version, and activate it.
+with the corresponding npm version, and activate it. Notice that Windows  
 
 This will read the client files and continously update the files served by the dotnet
 backend from src/nscreg.Server/wwwwroot
