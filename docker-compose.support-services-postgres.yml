@@ -27,19 +27,6 @@ services:
     networks:
       - default
 
-  pgadmin:
-    container_name: statbus-pgadmin
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@statbus.org
-      PGADMIN_DEFAULT_PASSWORD: boo8baequoopo5Eoneez
-      #PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/db-admin-password
-      PGADMIN_DISABLE_POSTFIX: true
-    ports:
-      - 6480:80
-    depends_on:
-      - "postgres"
-
   elasticsearch:
     container_name: statbus-elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
@@ -54,22 +41,6 @@ services:
       - discovery.type=single-node
     networks:
       - default
-
-  seq:
-    container_name: statbus-seq
-    image: datalust/seq
-    volumes:
-      - statbus-seq-data:/data
-    restart: always
-    environment:
-      - "ACCEPT_EULA=Y"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    ports:
-      - 6342:80
-      - 6341:5341
 
 networks:
   default:
