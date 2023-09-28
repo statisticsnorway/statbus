@@ -50,12 +50,9 @@ Git on windows will, depending on installation method, change from LF to CRLF,
 that breaks the running of scripts both from command line and when building
 with Docker (Compose).
 
-This configuration must be done *before* checking out the code from GitHub.
-
-To configure git on your system to Globally use LF run:
+Configure git on your system with:
 ```
-git config --global core.autocrlf false
-git config --global core.eol lf
+git config --global core.autocrlf true
 ```
 
 Ref. https://stackoverflow.com/a/13154031/1023558
