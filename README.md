@@ -60,6 +60,14 @@ git config --global core.eol lf
 
 Ref. https://stackoverflow.com/a/13154031/1023558
 
+If the project was checked out on Windows, with the incorrect line endings,
+then to fix the issue, use visual studio code to open the files
+* `dbseed\InsertPostgresData.sql`
+* `docker-postgres\init-user-db.sh`
+
+And change the line encoding in the lower right corner from "CRLF" to "LF"
+before following the instructions below.
+
 ### Services
 
 To run a local development build, the required services must be run with
@@ -68,7 +76,7 @@ To run a local development build, the required services must be run with
 docker compose -f docker-compose.support-services-postgres.yml up
 ```
 
-Later, to stop the services, press ctrl+d.
+Later, to stop the services, press ctrl+c.
 
 To remove the database, and start fresh, run the command
 ```sh
