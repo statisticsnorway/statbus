@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
-const TextField = ({
+export const TextField = ({
   value,
   label: labelKey,
   title: titleKey,
@@ -73,5 +73,3 @@ TextField.defaultProps = {
   highlighted: false,
   popuplocalizedKey: undefined,
 }
-
-export default TextField

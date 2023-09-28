@@ -21,7 +21,7 @@ const getSearchData = (name) => {
   }
 }
 
-const SearchField = ({
+export const SearchField = ({
   name,
   value: initialValue,
   errors: errorKeys,
@@ -100,5 +100,3 @@ SearchField.defaultProps = {
   disabled: false,
   popuplocalizedKey: null,
 }
-
-export default SearchField

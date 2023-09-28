@@ -54,7 +54,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-function LegalFormField(props) {
+export function LegalFormField(props) {
   const {
     name,
     value: initialValue,
@@ -313,5 +313,3 @@ LegalFormField.defaultProps = {
   touched: false,
   popuplocalizedKey: null,
 }
-
-export default LegalFormField

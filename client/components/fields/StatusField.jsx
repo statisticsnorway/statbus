@@ -54,7 +54,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-function StatusField(props) {
+export function StatusField(props) {
   const [initialValue, setInitialValue] = useState(props.multiselect ? [] : null)
   const [value, setValue] = useState(hasValue(props.value) ? props.value : props.multiselect ? [] : notSelected.value)
   const [optionsFetched, setOptionsFetched] = useState(false)
@@ -302,5 +302,3 @@ StatusField.defaultProps = {
   touched: false,
   popuplocalizedKey: null,
 }
-
-export default StatusField

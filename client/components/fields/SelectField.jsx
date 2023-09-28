@@ -55,7 +55,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-class SelectField extends React.Component {
+export class SelectField extends React.Component {
   static propTypes = {
     name: string.isRequired,
     value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
@@ -375,5 +375,3 @@ class SelectField extends React.Component {
     )
   }
 }
-
-export default SelectField

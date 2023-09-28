@@ -3,7 +3,7 @@ import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 import { getSeparator, isAllowedValue } from '../../helpers/validation'
 
-const TextField2 = ({
+export const TextField2 = ({
   value,
   field,
   operation,
@@ -74,5 +74,3 @@ TextField2.defaultProps = {
   highlighted: false,
   popuplocalizedKey: undefined,
 }
-
-export default TextField2

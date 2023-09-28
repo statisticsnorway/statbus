@@ -177,5 +177,3 @@ ActivitiesList.defaultProps = {
   errors: [],
   disabled: false,
 }
-
-export default ActivitiesList
