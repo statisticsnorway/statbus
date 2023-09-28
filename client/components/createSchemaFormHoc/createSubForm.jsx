@@ -4,7 +4,7 @@ import * as R from 'ramda'
 import { ensureArray, hasValue } from '../../helpers/validation'
 import { capitalizeFirstLetter } from '../../helpers/string'
 import { subForm as propTypes } from './propTypes'
-import styles from './styles.pcss'
+import styles from '/client/components/styles.scss'
 
 const unmappedEntries = (from = [], to = []) =>
   Object.entries(from).filter(([key]) => !R.has(key, to))
