@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 
@@ -16,6 +17,12 @@ namespace nscreg.Data
     {
         public NSCRegDbContext(DbContextOptions options) : base(options)
         {
+        }
+
+        // In your DbContext
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            configurationBuilder.Conventions.Remove(typeof(TableNameFromDbSetConvention));
         }
 
         /// <summary>

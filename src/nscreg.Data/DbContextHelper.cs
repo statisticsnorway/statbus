@@ -72,17 +72,22 @@ namespace nscreg.Data
                             break;
                     }
 
-                    // Change from a warning about a potential N+1 load problem,
-                    // to an exception, that pinpoints the source code where the
-                    // problem happened.
-                    op.ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning));
-                    // Provide more information from EF upon errors,
-                    // to make it possible to identify where the problem lies.
-                    op.EnableDetailedErrors();
-                    op.EnableSensitiveDataLogging();
-                    // Improve naming of tables and columns for Postgres
-                    op.UseSnakeCaseNamingConvention();
+                    CommonEfConfig(op);
                 };
+
+        private static void CommonEfConfig(DbContextOptionsBuilder op)
+        {
+            // Change from a warning about a potential N+1 load problem,
+            // to an exception, that pinpoints the source code where the
+            // problem happened.
+            op.ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning));
+            // Provide more information from EF upon errors,
+            // to make it possible to identify where the problem lies.
+            op.EnableDetailedErrors();
+            op.EnableSensitiveDataLogging();
+            // Improve naming of tables and columns for Postgres
+            op.UseSnakeCaseNamingConvention();
+        }
 
         public NSCRegDbContext CreateDbContext(string[] args)
         {
@@ -96,6 +101,7 @@ namespace nscreg.Data
         {
             var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
             var defaultCommandTimeOutInSeconds = (int) TimeSpan.FromHours(24).TotalSeconds;
+            CommonEfConfig(builder);
             switch (config.ParseProvider())
             {
                 case ConnectionProvider.SqlServer:
