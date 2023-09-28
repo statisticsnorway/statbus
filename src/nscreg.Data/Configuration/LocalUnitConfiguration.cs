@@ -89,7 +89,6 @@ namespace nscreg.Data.Configuration
                 .WithMany(x => x.LocalUnits)
                 .HasForeignKey(x => x.LegalUnitId)
                 .IsRequired(false);
-            //builder.ToTable("LocalUnits");
         }
     }
 }

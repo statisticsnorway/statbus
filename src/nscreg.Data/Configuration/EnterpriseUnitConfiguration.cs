@@ -85,9 +85,6 @@ namespace nscreg.Data.Configuration
                 nameof(EnterpriseUnit.StatId),
                 nameof(EnterpriseUnit.TaxRegId));
 
-
-            //builder.ToTable("EnterpriseUnits");
-
             builder.Property(x => x.TotalCapital)
                 .HasMaxLength(100);
 

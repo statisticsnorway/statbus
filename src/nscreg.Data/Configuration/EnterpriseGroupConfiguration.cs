@@ -14,8 +14,6 @@ namespace nscreg.Data.Configuration
     {
         public override void Configure(EntityTypeBuilder<EnterpriseGroup> builder)
         {
-            builder.ToTable("EnterpriseGroups");
-
             builder.HasKey(x => x.RegId);
 
             builder.HasMany(x => x.EnterpriseUnits)
