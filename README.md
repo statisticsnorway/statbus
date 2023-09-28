@@ -30,7 +30,7 @@ Requirements
   * Scoop https://scoop.sh/
     For installing packages from the command line.
   * NVM-Windows https://github.com/coreybutler/nvm-windows
-    Install with `scopp install nvm`
+    Install with `scoop install nvm`
 * Linux (Ubuntu/Debian)
   * Node Version Manager https://github.com/nvm-sh/nvm
     Install with `apt install nvm`
@@ -105,6 +105,8 @@ of problems.
 
 
 ### Frontend
+
+The project needs the Node version specified in the .nvmrc file.
 
 And the frontend is started with
 
