@@ -6,7 +6,7 @@ import * as R from 'ramda'
 import * as dateFns from '/client/helpers/dateHelper'
 import { hasValue } from '/client/helpers/validation'
 
-function DateTimeField({
+export function DateTimeField({
   id: ambiguousId,
   name: ambiguousName,
   value,
@@ -140,5 +140,3 @@ DateTimeField.defaultProps = {
   disabled: false,
   readOnly: false,
 }
-
-export default DateTimeField

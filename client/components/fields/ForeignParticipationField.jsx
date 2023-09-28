@@ -54,7 +54,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-function ForeignParticipationField({
+export function ForeignParticipationField({
   name,
   value: initialValue,
   onChange,
@@ -307,5 +307,3 @@ ForeignParticipationField.defaultProps = {
   touched: false,
   popuplocalizedKey: null,
 }
-
-export default ForeignParticipationField

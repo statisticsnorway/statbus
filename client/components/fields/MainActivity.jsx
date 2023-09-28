@@ -54,7 +54,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-function MainActivity(props) {
+export function MainActivity(props) {
   const {
     name,
     value: initialValue,
@@ -314,5 +314,3 @@ MainActivity.defaultProps = {
   touched: false,
   popuplocalizedKey: null,
 }
-
-export default MainActivity

@@ -54,7 +54,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-function InstitutionalSectorCodeField(props) {
+export function InstitutionalSectorCodeField(props) {
   const {
     name,
     value: initialValue,
@@ -316,5 +316,3 @@ InstitutionalSectorCodeField.defaultProps = {
   touched: false,
   popuplocalizedKey: null,
 }
-
-export default InstitutionalSectorCodeField

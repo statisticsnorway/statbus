@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, func, string, bool } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
-function CheckField({
+export function CheckField({
   id: ambiguousId,
   name: ambiguousName,
   value,
@@ -73,5 +73,3 @@ CheckField.defaultProps = {
   errors: [],
   popuplocalizedKey: undefined,
 }
-
-export default CheckField
