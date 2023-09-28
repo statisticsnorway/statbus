@@ -43,6 +43,23 @@ Requirements
 * Docker
 
 
+### Git Line Ending Handling
+
+This project uses the LF line ending.
+Git on windows will, depending on installation method, change from LF to CRLF,
+that breaks the running of scripts both from command line and when building
+with Docker (Compose).
+
+This configuration must be done *before* checking out the code from GitHub.
+
+To configure git on your system to Globally use LF run:
+```
+git config --global core.autocrlf false
+git config --global core.eol lf
+```
+
+Ref. https://stackoverflow.com/a/13154031/1023558
+
 ### Services
 
 To run a local development build, the required services must be run with
