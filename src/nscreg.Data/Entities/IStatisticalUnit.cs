@@ -10,6 +10,7 @@ namespace nscreg.Data.Entities
         int RegId { get; set; }
         string StatId { get; set; }
         string Name { get; set; }
+        string ShortName { get; set; }
         int? AddressId { get; set; }
         int? ActualAddressId { get; set; }
         int? PostalAddressId { get; set; }

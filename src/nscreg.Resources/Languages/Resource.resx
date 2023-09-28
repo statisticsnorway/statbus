@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -405,7 +405,7 @@
     <comment>ж</comment>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Name</value>
+    <value>Name, short name, statistical ID</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
