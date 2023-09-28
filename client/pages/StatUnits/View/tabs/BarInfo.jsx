@@ -2,9 +2,9 @@ import React from 'react'
 import { shape, func, number, oneOfType, string } from 'prop-types'
 import { Grid, Label } from 'semantic-ui-react'
 
-import { hasValue } from 'helpers/validation'
+import { hasValue } from '/client/helpers/validation'
 import { statUnitTypes } from '../../../../helpers/enums.js'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const BarInfo = ({ unit, localize }) => (
   <div>

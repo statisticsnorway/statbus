@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { AppContainer } from 'react-hot-loader'
-import { getLocale } from 'helpers/locale'
+import { getLocale } from '/client/helpers/locale'
 import { NotificationContainer } from 'react-notifications'
 import App from './App'
 import configureStore from './store/configureStore'

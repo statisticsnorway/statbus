@@ -71,7 +71,7 @@ namespace nscreg.Server.Controllers
         {
             if (_env.IsDevelopment() || _assets == null)
             {
-                var assetsFileName = Path.Combine(_env.WebRootPath, "./dist/assets.json");
+                var assetsFileName = Path.Combine(_env.WebRootPath, "./assets.json");
                 using (var stream = System.IO.File.OpenRead(assetsFileName))
                 using (var reader = new StreamReader(stream))
                 {

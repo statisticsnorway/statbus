@@ -4,12 +4,12 @@ import { Icon, Form, Button, Popup } from 'semantic-ui-react'
 import Select from 'react-select'
 import debounce from 'lodash/debounce'
 
-import { DateTimeField, RegionField } from 'components/fields'
-import { getDate } from 'helpers/dateHelper'
-import { statUnitTypes } from 'helpers/enums'
-import { internalRequest } from 'helpers/request'
-import { NameCodeOption, notSelected } from 'components/fields/RegionField'
-import styles from './styles.pcss'
+import { DateTimeField, RegionField } from '/client/components/fields'
+import { getDate } from '/client/helpers/dateHelper'
+import { statUnitTypes } from '/client/helpers/enums'
+import { internalRequest } from '/client/helpers/request'
+import { NameCodeOption, notSelected } from '/client/components/fields/RegionField'
+import styles from './styles.scss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
 

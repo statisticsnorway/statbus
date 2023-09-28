@@ -1,12 +1,12 @@
 import { connect } from 'react-redux'
 import { lifecycle } from 'recompose'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import getUid from 'helpers/getUid'
-import { getText } from 'helpers/locale'
-import { internalRequest } from 'helpers/request'
-import { hasValue } from 'helpers/validation'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import getUid from '/client/helpers/getUid'
+import { getText } from '/client/helpers/locale'
+import { internalRequest } from '/client/helpers/request'
+import { hasValue } from '/client/helpers/validation'
 import List from './List'
 
 const assert = props => props.error != null || props.list != null
@@ -74,10 +74,6 @@ const mapStateToProps = (state, props) => ({
   id: props.params.id,
 })
 
-const enhance = R.pipe(
-  withSpinnerUnless(assert),
-  lifecycle(hooks),
-  connect(mapStateToProps),
-)
+const enhance = R.pipe(withSpinnerUnless(assert), lifecycle(hooks), connect(mapStateToProps))
 
 export default enhance(List)

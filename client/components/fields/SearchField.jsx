@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { arrayOf, func, string, oneOfType, number, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
-import SearchInput from 'components/SearchInput'
-import sources from 'components/SearchInput/sources'
-import { internalRequest } from 'helpers/request'
+import SearchInput from '/client/components/SearchInput'
+import sources from '/client/components/SearchInput/sources'
+import { internalRequest } from '/client/helpers/request'
 
 const getSearchData = (name) => {
   switch (name) {
@@ -21,7 +21,7 @@ const getSearchData = (name) => {
   }
 }
 
-const SearchField = ({
+export const SearchField = ({
   name,
   value: initialValue,
   errors: errorKeys,
@@ -100,5 +100,3 @@ SearchField.defaultProps = {
   disabled: false,
   popuplocalizedKey: null,
 }
-
-export default SearchField

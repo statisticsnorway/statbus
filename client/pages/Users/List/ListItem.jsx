@@ -3,10 +3,10 @@ import { arrayOf, number, string, func, shape } from 'prop-types'
 import { Table } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
-import { checkSystemFunction as sF } from 'helpers/config'
-import { formatDateTime } from 'helpers/dateHelper'
-import { userStatuses } from 'helpers/enums'
-import RegionTree from 'components/RegionTree'
+import { checkSystemFunction as sF } from '/client/helpers/config'
+import { formatDateTime } from '/client/helpers/dateHelper'
+import { userStatuses } from '/client/helpers/enums'
+import RegionTree from '/client/components/RegionTree'
 import ColumnActions from './ColumnActions'
 
 const ListItem = ({
@@ -40,16 +40,14 @@ const ListItem = ({
       )}
     </Table.Cell>
     <Table.Cell>
-      {
-        <ColumnActions
-          id={id}
-          name={name}
-          status={status}
-          localize={localize}
-          setUserStatus={setUserStatus}
-          getFilter={getFilter}
-        />
-      }
+      <ColumnActions
+        id={id}
+        name={name}
+        status={status}
+        localize={localize}
+        setUserStatus={setUserStatus}
+        getFilter={getFilter}
+      />
     </Table.Cell>
   </Table.Row>
 )

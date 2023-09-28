@@ -6,7 +6,7 @@ import Header from '../Header'
 import Breadcrumbs, { routerPropTypes } from '../Breadcrumbs'
 import Notification from '../Notification'
 import Footer from '../Footer'
-import styles from '../styles.pcss'
+import styles from '../styles.scss'
 import Authentication from '../Authentication'
 
 const Layout = ({ children, routerProps, stateLocation }) => {

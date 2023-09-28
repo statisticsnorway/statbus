@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 
-import { statUnitFormFieldTypes } from 'helpers/enums'
-import handlerFor from 'helpers/handleSetFieldValue'
+import { statUnitFormFieldTypes } from '/client/helpers/enums'
+import handlerFor from '/client/helpers/handleSetFieldValue'
 import {
   CheckField,
   DateTimeField,
@@ -14,7 +14,7 @@ import {
   AddressField,
   SearchField,
   withDebounce,
-} from 'components/fields'
+} from '/client/components/fields'
 
 const DebouncedCheckField = withDebounce(CheckField)
 const DebouncedDateTimeField = withDebounce(DateTimeField)

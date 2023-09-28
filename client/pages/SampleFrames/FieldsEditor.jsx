@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import { Checkbox, Table, List, Label } from 'semantic-ui-react'
 
-import ListWithDnd from 'components/ListWithDnd'
-import { sampleFrameFields } from 'helpers/enums'
+import ListWithDnd from '/client/components/ListWithDnd'
+import { sampleFrameFields } from '/client/helpers/enums'
 
 const listStyle = { display: 'inline-block' }
 const floatRight = { float: 'right' }

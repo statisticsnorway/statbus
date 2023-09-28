@@ -1,10 +1,10 @@
 import { connect } from 'react-redux'
 import { shouldUpdate } from 'recompose'
 import { pipe } from 'ramda'
-import { internalRequest } from 'helpers/request'
+import { internalRequest } from '/client/helpers/request'
 
-import { setMomentLocale } from 'helpers/dateHelper'
-import config from 'helpers/config'
+import { setMomentLocale } from '/client/helpers/dateHelper'
+import config from '/client/helpers/config'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
 export function requestToChangeLocale(locale) {
@@ -57,10 +57,7 @@ const stateToProps = (state, props) => ({
   localize: getText(state.locale),
 })
 
-export const withLocalize = pipe(
-  shouldUpdate(ifLocaleChanged),
-  connect(stateToProps),
-)
+export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToProps))
 
 export const withLocalizeNaive = connect(stateToProps)
 

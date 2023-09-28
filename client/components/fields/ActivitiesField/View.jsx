@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
-import { activityTypes } from 'helpers/enums'
-import { getNewName } from 'helpers/locale'
+import { activityTypes } from '/client/helpers/enums'
+import { getNewName } from '/client/helpers/locale'
 
 function ActivityView(props) {
   const { value, onEdit, onDelete, readOnly, editMode, localize, index } = props

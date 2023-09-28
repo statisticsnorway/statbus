@@ -1,8 +1,8 @@
 import { createAction } from 'redux-act'
 import { pipe } from 'ramda'
 import { NotificationManager } from 'react-notifications'
-import { getLocalizeText } from 'helpers/locale'
-import dispatchRequest from 'helpers/request'
+import { getLocalizeText } from '/client/helpers/locale'
+import dispatchRequest from '/client/helpers/request'
 import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataStarted = createAction('fetch StatUnits status changed')
@@ -11,11 +11,7 @@ const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits/deleted',
     queryParams,
-    onSuccess: (dispatch, resp) =>
-      pipe(
-        fetchDataSucceeded,
-        dispatch,
-      )(resp),
+    onSuccess: (dispatch, resp) => pipe(fetchDataSucceeded, dispatch)(resp),
     onStart: dispatch => dispatch(fetchDataStarted()),
   })
 

@@ -1,7 +1,7 @@
 import { push } from 'react-router-redux'
 
-import dispatchRequest from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
 
 const submitRole = data =>
   dispatchRequest({

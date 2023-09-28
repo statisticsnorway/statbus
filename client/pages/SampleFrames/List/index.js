@@ -3,8 +3,8 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe, merge, equals } from 'ramda'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import { getText } from 'helpers/locale'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import { getText } from '/client/helpers/locale'
 import { list as actions } from '../actions'
 import List from './List'
 
@@ -41,18 +41,11 @@ const mapStateToProps = (state, props) => ({
 const { setQuery, ...restActions } = actions
 const mapDispatchToProps = (dispatch, props) => ({
   ...bindActionCreators(restActions, dispatch),
-  setQuery: pipe(
-    merge(props.location.query),
-    setQuery(props.location.pathname),
-    dispatch,
-  ),
+  setQuery: pipe(merge(props.location.query), setQuery(props.location.pathname), dispatch),
 })
 
 export default pipe(
   withSpinnerUnless(assertProps),
   lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
+  connect(mapStateToProps, mapDispatchToProps),
 )(List)

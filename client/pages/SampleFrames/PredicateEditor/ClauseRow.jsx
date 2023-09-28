@@ -2,15 +2,15 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Dropdown, Table, Input, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import { predicateFields } from 'helpers/config'
-import { pairsToOptions } from 'helpers/enumerable'
-import { predicateComparison, predicateOperations } from 'helpers/enums'
+import { predicateFields } from '/client/helpers/config'
+import { pairsToOptions } from '/client/helpers/enumerable'
+import { predicateComparison, predicateOperations } from '/client/helpers/enums'
 import { clause as clausePropTypes } from '../propTypes'
 import InsertButton from './InsertButton'
 import ValueInput from './ValueInput'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const getCellClassName = (isStart, isEnd, i) =>
   `${styles.group} ${styles[`group-${(i - 1) % 10}`]} ${styles['group-edge']} ` +

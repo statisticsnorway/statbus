@@ -1,6 +1,6 @@
 import React from 'react'
 import { Table, Checkbox } from 'semantic-ui-react'
-import systemFunctions from 'helpers/systemFunctions'
+import systemFunctions from '/client/helpers/systemFunctions'
 
 const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
   const onChangeCreator = propName => (e, { checked }) => {

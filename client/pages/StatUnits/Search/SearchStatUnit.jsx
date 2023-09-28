@@ -3,12 +3,12 @@ import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-type
 import { Confirm, Header, Loader, Table, Modal, Button } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
 
-import { statUnitTypes } from 'helpers/enums'
-import { getCorrectQuery, getSearchFormErrors } from 'helpers/validation'
-import Paginate from 'components/Paginate'
+import { statUnitTypes } from '/client/helpers/enums'
+import { getCorrectQuery, getSearchFormErrors } from '/client/helpers/validation'
+import Paginate from '/client/components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 import TableHeader from './TableHeader'
 
 class Search extends React.Component {

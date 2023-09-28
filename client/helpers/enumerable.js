@@ -1,4 +1,4 @@
-import R from 'ramda'
+import * as R from 'ramda'
 
 export const groupByToMap = (arr = [], keySelector = R.identity) => {
   const lookup = new Map()
@@ -32,6 +32,9 @@ export const distinctBy = (argArr, selector) =>
   })
 
 export const pairsToOptions = (pairs, transformValue = R.identity) =>
-  [...pairs.entries()].map(pair => ({ value: pair[0], text: transformValue(pair[1]) }))
+  [...pairs.entries()].map(pair => ({
+    value: pair[0],
+    text: transformValue(pair[1]),
+  }))
 
 export const oneOf = xs => x => xs.includes(x)

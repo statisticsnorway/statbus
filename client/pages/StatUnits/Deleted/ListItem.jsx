@@ -3,9 +3,9 @@ import { number, string, func, shape } from 'prop-types'
 import { Button, Item, Icon, Popup } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
-import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
-import { statUnitTypes, statUnitIcons } from 'helpers/enums'
-import { getNewName } from 'helpers/locale'
+import { canRead, checkSystemFunction as checkSF } from '/client/helpers/config'
+import { statUnitTypes, statUnitIcons } from '/client/helpers/enums'
+import { getNewName } from '/client/helpers/locale'
 
 const ListItem = ({ localize, statUnit, restore }) => {
   const address = statUnit.address ? getNewName(statUnit.address) : ''

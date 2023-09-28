@@ -4,10 +4,10 @@ import { Link } from 'react-router'
 import { Table, Icon, Segment, Pagination, Button } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
-import { checkSystemFunction as sF } from 'helpers/config'
+import { checkSystemFunction as sF } from '/client/helpers/config'
 import FilterList from './FilterList'
 import ListItem from './ListItem'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 class UsersList extends React.Component {
   static propTypes = {

@@ -3,10 +3,10 @@ import { bindActionCreators } from 'redux'
 import { pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
-import createSchemaFormHoc from 'components/createSchemaFormHoc'
-import withSpinnerUnless from 'components/withSpinnerUnless'
-import { getText } from 'helpers/locale'
-import { hasValue, hasValues } from 'helpers/validation'
+import createSchemaFormHoc from '/client/components/createSchemaFormHoc'
+import withSpinnerUnless from '/client/components/withSpinnerUnless'
+import { getText } from '/client/helpers/locale'
+import { hasValue, hasValues } from '/client/helpers/validation'
 import { edit as actions, clear } from './actions'
 import { createSchema } from './model'
 import FormBody from './FormBody'
@@ -54,8 +54,5 @@ export default pipe(
   createSchemaFormHoc(propsToSchema),
   withSpinnerUnless(assert),
   lifecycle(hooks),
-  connect(
-    stateToProps,
-    dispatchToProps,
-  ),
+  connect(stateToProps, dispatchToProps),
 )(FormBody)

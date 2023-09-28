@@ -4,8 +4,8 @@ import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import { is, replace } from 'ramda'
 
-import { defaultPageSize, getPagesRange, getPageSizesRange } from 'helpers/paginate'
-import styles from './styles.pcss'
+import { defaultPageSize, getPagesRange, getPageSizesRange } from '../../helpers/paginate'
+import styles from './styles.scss'
 
 class Paginate extends React.Component {
   static propTypes = {
@@ -68,12 +68,17 @@ class Paginate extends React.Component {
   }
 
   renderPageSizeLink(value) {
-    const { routing: { pathname, queryString }, updateFilter } = this.props
+    const {
+      routing: { pathname, queryString },
+      updateFilter,
+    } = this.props
     const current = this.getPageSize()
     const lastPageOfCurrentPageSize = Math.ceil(this.getTotalCount() / value || defaultPageSize)
     const nextQueryString = queryString.includes(`pageSize=${current}`)
       ? replace(`pageSize=${current}`, `pageSize=${value}`, queryString)
-      : queryString ? `${queryString}&pageSize=${value}` : `?pageSize=${value}`
+      : queryString
+        ? `${queryString}&pageSize=${value}`
+        : `?pageSize=${value}`
 
     const searchParams = new URLSearchParams(nextQueryString)
     const currentPage = searchParams.get('page')
@@ -112,7 +117,9 @@ class Paginate extends React.Component {
       ? replace(`page=${current}`, `page=${value}`, queryString)
       : queryString.includes('page=')
         ? queryString.replace(/page=\d*/, `page=${value}`)
-        : queryString ? `${queryString}&page=${value}` : `?page=${value}`
+        : queryString
+          ? `${queryString}&page=${value}`
+          : `?page=${value}`
 
     const isCurrent = value === current
     const link = () =>

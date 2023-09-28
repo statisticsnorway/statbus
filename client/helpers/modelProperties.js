@@ -1,5 +1,5 @@
-import { getMandatoryFields } from 'helpers/config'
-import { toPascalCase } from 'helpers/string'
+import { getMandatoryFields } from '/client/helpers/config'
+import { toPascalCase } from '/client/helpers/string'
 
 export const castEmptyOrNull = x => (x === '' ? null : x === null ? undefined : x)
 

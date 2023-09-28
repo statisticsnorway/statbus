@@ -1,4 +1,4 @@
-import { groupByToArray } from 'helpers/enumerable'
+import { groupByToArray } from '/client/helpers/enumerable'
 
 // is one of Activities, Addresses or Persons
 const isExtended = type => [7, 8, 9].includes(type)
@@ -42,7 +42,10 @@ const getSectionsArray = (arr) => {
 
 const toSection = ({ key, value }) => {
   const indexes = getSectionsArray(value.map(x => x.props))
-  const groups = groupByToArray(value.map(x => x.props), (_, i) => indexes[i]).map(toGroupProps)
+  const groups = groupByToArray(
+    value.map(x => x.props),
+    (_, i) => indexes[i],
+  ).map(toGroupProps)
 
   return {
     key,

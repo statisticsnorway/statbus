@@ -1,6 +1,6 @@
 import moment from 'moment'
 
-import { hasValue } from 'helpers/validation'
+import { hasValue } from '/client/helpers/validation'
 
 export const dateFormat = 'YYYY-MM-DD'
 export const dateTimeFormat = 'YYYY-MM-DD HH:mm'

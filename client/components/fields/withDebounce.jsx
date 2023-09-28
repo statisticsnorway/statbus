@@ -1,16 +1,14 @@
 import React from 'react'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import tryPersist from 'helpers/tryPersist'
+import tryPersist from './../../helpers/tryPersist'
 
-export default (Component, delay = 200) =>
+export const withDebounce = (Component, delay = 200) =>
   class DebounceFieldWrapper extends React.Component {
-    static propTypes = Component.propTypes
-
-    static defaultProps = Component.defaultProps
-
     static displayName = `Debounced(${Component.displayName || Component.name || 'Field'})`
+    static propTypes = Component.propTypes
+    static defaultProps = Component.defaultProps
 
     state = {
       pending: false,

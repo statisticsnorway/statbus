@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import Tree from 'antd/lib/tree'
-import { groupByToArray, mapToArray } from 'helpers/enumerable'
-import { statUnitTypes } from 'helpers/enums'
-import { toCamelCase } from 'helpers/string'
-import styles from './styles.pcss'
+import { groupByToArray, mapToArray } from '/client/helpers/enumerable'
+import { statUnitTypes } from '/client/helpers/enums'
+import { toCamelCase } from '/client/helpers/string'
+import styles from './styles.scss'
 
 const { TreeNode } = Tree
 

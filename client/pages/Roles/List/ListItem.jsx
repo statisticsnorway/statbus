@@ -3,8 +3,8 @@ import { func, string, number } from 'prop-types'
 import { Link } from 'react-router'
 import { Table, Label } from 'semantic-ui-react'
 
-import { checkSystemFunction as sF } from 'helpers/config'
-import styles from './styles.pcss'
+import { checkSystemFunction as sF } from '/client/helpers/config'
+import styles from './styles.scss'
 
 const ListItem = ({ id, name, description, activeUsers, status, localize }) => (
   <Table.Body>

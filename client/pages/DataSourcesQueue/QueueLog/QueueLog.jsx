@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Segment, Table, Header } from 'semantic-ui-react'
 
-import Paginate from 'components/Paginate'
+import Paginate from '/client/components/Paginate'
 import Item from './Item'
 
 const headerKeys = ['StatId', 'Name', 'Started', 'Ended', 'Status', 'Note']

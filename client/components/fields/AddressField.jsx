@@ -3,9 +3,9 @@ import { Form, Message, Button, Icon, Segment, Header, Popup } from 'semantic-ui
 import { arrayOf, func, shape, string, bool } from 'prop-types'
 import { equals } from 'ramda'
 
-import config from 'helpers/config'
-import { hasValue } from 'helpers/validation'
-import { SelectField } from 'components/fields'
+import config from '/client/helpers/config'
+import { hasValue } from '/client/helpers/validation'
+import { SelectField } from '/client/components/fields'
 
 const defaultAddressState = {
   id: 0,
@@ -24,7 +24,7 @@ const regLongitude = /^(\+|-)?(?:180(?:(?:\.0{1,6})?)|(?:[0-9]|[1-9][0-9]|1[0-7]
 const validateLatitude = latitude => latitude === null || regLatitude.exec(latitude)
 const validateLongitude = longitude => longitude === null || regLongitude.exec(longitude)
 
-function AddressField({
+export function AddressField({
   name,
   label,
   value,
@@ -309,5 +309,3 @@ AddressField.defaultProps = {
   required: false,
   popuplocalizedKey: undefined,
 }
-
-export default AddressField

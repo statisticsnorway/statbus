@@ -1,7 +1,7 @@
 import { createReducer } from 'redux-act'
 
-import { selectLocale } from 'helpers/actionCreators'
-import config from 'helpers/config'
+import { selectLocale } from '/client/helpers/actionCreators'
+import config from '/client/helpers/config'
 
 const handlers = {
   [selectLocale]: (state, data) => data,

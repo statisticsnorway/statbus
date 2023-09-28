@@ -3,7 +3,7 @@ import { func, oneOfType, number, string, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Segment, Loader, Header } from 'semantic-ui-react'
 
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const hasChildren = node => node.orgLinksNodes && node.orgLinksNodes.length > 0
 

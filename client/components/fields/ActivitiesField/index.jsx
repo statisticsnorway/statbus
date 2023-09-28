@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { shape, arrayOf, func, string, bool } from 'prop-types'
 import { Icon, Table, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import { getDate, formatDate } from 'helpers/dateHelper'
+import { getDate, formatDate } from '/client/helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
-function ActivitiesList(props) {
+export function ActivitiesList(props) {
   const { localize, locale, name, value, onChange, label, readOnly, errors, disabled } = props
 
   const [addRow, setAddRow] = useState(false)
@@ -177,5 +177,3 @@ ActivitiesList.defaultProps = {
   errors: [],
   disabled: false,
 }
-
-export default ActivitiesList

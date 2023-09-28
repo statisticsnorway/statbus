@@ -1,10 +1,10 @@
 import { createAction } from 'redux-act'
 import { push, goBack } from 'react-router-redux'
 import { NotificationManager } from 'react-notifications'
-import dispatchRequest from 'helpers/request'
-import { navigateBack } from 'helpers/actionCreators'
-import { statUnitTypes } from 'helpers/enums'
-import { getLocalizeText } from 'helpers/locale'
+import dispatchRequest from '/client/helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
+import { statUnitTypes } from '/client/helpers/enums'
+import { getLocalizeText } from '/client/helpers/locale'
 
 const clear = createAction('clear create statunit')
 const setMeta = createAction('fetch model succeeded')

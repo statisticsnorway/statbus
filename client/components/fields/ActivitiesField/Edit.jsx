@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
-import R from 'ramda'
-import config from 'helpers/config'
-import { activityTypes } from 'helpers/enums'
-import { DateTimeField, SelectField } from 'components/fields'
-import { getNewName } from 'helpers/locale'
+import * as R from 'ramda'
+import config from '/client/helpers/config'
+import { activityTypes } from '/client/helpers/enums'
+import { DateTimeField, SelectField } from '/client/components/fields'
+import { getNewName } from '../../../helpers/locale'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 const yearsOptions = [...Array(new Date().getFullYear() - 1899).keys()].map(x => ({

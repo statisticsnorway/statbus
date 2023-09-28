@@ -3,8 +3,8 @@ import PropTypes from 'prop-types'
 import Dropzone from 'react-dropzone'
 import { Message, Icon } from 'semantic-ui-react'
 
-import { fromCsv, fromXml } from 'helpers/parseDataSourceAttributes'
-import styles from './styles.pcss'
+import { fromCsv, fromXml } from '../../helpers/parseDataSourceAttributes'
+import styles from './styles.scss'
 
 function TemplateFileAttributesParser({ csvDelimiter, csvSkipCount, onChange, localize }) {
   const [file, setFile] = useState(undefined)

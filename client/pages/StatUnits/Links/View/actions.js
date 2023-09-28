@@ -1,6 +1,6 @@
 import { createAction } from 'redux-act'
 
-import { reduxRequest } from 'helpers/request'
+import { reduxRequest } from '/client/helpers/request'
 
 export const linkSearchStarted = createAction('linkSearchStarted')
 export const clear = createAction('clear filter')

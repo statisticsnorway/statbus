@@ -17,10 +17,10 @@ const babelConfig = { ...pkg.babel, babelrc: false, cacheDirectory: useHMR };
 
 const config = {
   context: Path.resolve(__dirname, '../client'),
-  entry: ['./styles.pcss', './index.js'],
+  entry: ['./styles.scss', './index.js'],
   output: {
-    path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
-    publicPath: '/dist/',
+    path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot'),
+    publicPath: '/',
     filename: isDebug ? '[name].js?[hash]' : '[name].[hash].js',
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
     sourcePrefix: '  ',
@@ -42,7 +42,7 @@ const config = {
   plugins: [
     new Webpack.optimize.OccurrenceOrderPlugin(),
     new AssetsWebpackPlugin({
-      path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
+      path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot'),
       filename: 'assets.json',
       prettyPrint: true,
     }),
@@ -62,7 +62,7 @@ const config = {
         },
       },
       {
-        test: /\.pcss/,
+        test: /\.scss/,
         use: [
           'style-loader',
           {
@@ -74,7 +74,7 @@ const config = {
               minimize: !isDebug,
             },
           },
-          'postcss-loader',
+          'sass-loader',
         ],
       },
       {
@@ -90,7 +90,7 @@ const config = {
       layout: Path.resolve(__dirname, './client/layout'),
       pages: Path.resolve(__dirname, './client/pages'),
     },
-    extensions: ['.js', '.jsx', '.pcss'],
+    extensions: ['.js', '.jsx', '.scss'],
   },
 }
 

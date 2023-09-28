@@ -20,9 +20,88 @@
     "start": "node tools/run.mjs start",
     "watch": "node tools/run.mjs watch"
   },
+  "targets": {
+    "default": {
+      "distDir": "./src/nscreg.Server/wwwroot/dist/",
+      "source": [
+        "./client/index.html"
+      ],
+      "publicUrl": "/dist"
+    }
+  },
+  "staticFiles": [
+    {
+      "staticPath": "./node_modules/semantic-ui-css/semantic.min.css",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./node_modules/semantic-ui-css/themes",
+      "distDir": "./src/nscreg.Server/wwwroot/themes"
+    },
+    {
+      "staticPath": "./node_modules/antd/lib/tree/style/index.css",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./node_modules/react-datepicker/dist/react-datepicker.min.css",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./node_modules/react-select/dist/react-select.min.css",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/apple-touch-icon.png",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/favicon.ico",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/browserconfig.xml",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/crossdomain.xml",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/humans.txt",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/logo-small.jpg",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/logo.png",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/robots.txt",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/tile-wide.png",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/tile.png",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/styles.css",
+      "distDir": "./src/nscreg.Server/wwwroot"
+    },
+    {
+      "staticPath": "./client/fonts",
+      "distDir": "./src/nscreg.Server/fonts"
+    }
+  ],
   "repository": {
     "type": "git",
-    "url": "http://ci2.timelysoft.org:8080/tfs/defaultcollection/_git/nscreg"
+    "url": "https://github.com/statisticsnorway/statbus"
   },
   "sideEffects": false,
   "dependencies": {
@@ -56,6 +135,7 @@
     "yup": "^0.28.5"
   },
   "devDependencies": {
+    "@parcel/transformer-sass": "^2.9.3",
     "@types/file-saver": "^2.0.5",
     "assets-webpack-plugin": "^3.9.7",
     "babel-cli": "^6.26.0",
@@ -101,7 +181,10 @@
     "lint-staged": "^6.1.1",
     "mkdirp": "^0.5.1",
     "npm-run-all": "^4.1.2",
-    "postcss": "^6.0.18",
+    "parcel": "^2.9.3",
+    "parcel-reporter-bundle-manifest": "^1.0.0",
+    "parcel-reporter-static-files-copy": "^1.5.2",
+    "postcss": "^8.2.1",
     "postcss-cssnext": "^3.1.0",
     "postcss-easy-import": "^3.0.0",
     "postcss-flexibility": "^2.0.0",
@@ -113,6 +196,8 @@
     "prop-types": "^15.6.2",
     "react-hot-loader": "^3.1.3",
     "redux-logger": "^3.0.6",
+    "sass": "^1.68.0",
+    "sass-loader": "^10.4.1",
     "semantic-ui-css": "^2.2.14",
     "style-loader": "^0.20.2",
     "stylelint": "^8.4.0",

@@ -2,9 +2,9 @@ import React from 'react'
 import { number, string, func, bool } from 'prop-types'
 import { Table, Button } from 'semantic-ui-react'
 import { Link } from 'react-router'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import { dataSourceOperations, dataSourcePriorities } from 'helpers/enums'
+import { dataSourceOperations, dataSourcePriorities } from '/client/helpers/enums'
 
 const ListItem = ({
   id,

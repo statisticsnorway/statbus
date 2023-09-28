@@ -1,6 +1,6 @@
-import R from 'ramda'
+import * as R from 'ramda'
 
-import getUid from 'helpers/getUid'
+import getUid from '/client/helpers/getUid'
 import { createClauseDefaults } from './model'
 
 const preconcat = R.flip(R.concat)
@@ -52,7 +52,9 @@ export const getSequentiallySelected = (flattenedClauses) => {
         ? isSequentTo(index)(sequence)
           ? R.append({ clause, path, meta, index })(sequence)
           : undefined
-        : sequence.length > 0 && isSequenceBreaking(path)(sequence) ? undefined : sequence
+        : sequence.length > 0 && isSequenceBreaking(path)(sequence)
+          ? undefined
+          : sequence
   return flattenedClauses.reduce(toSelectedSequential, []) || []
 }
 

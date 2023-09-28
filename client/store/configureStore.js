@@ -3,7 +3,7 @@ import { routerMiddleware } from 'react-router-redux'
 import { applyMiddleware, compose, createStore } from 'redux'
 import thunkMiddleware from 'redux-thunk'
 import { createLogger } from 'redux-logger'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import reduсers from './combinedReducers'
 

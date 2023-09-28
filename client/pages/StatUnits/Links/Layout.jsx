@@ -5,15 +5,20 @@ import { Link } from 'react-router'
 import { findLast, equals, pipe } from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 
-import { withLocalizeNaive } from 'helpers/locale'
-import { checkSystemFunction as sF } from 'helpers/config'
+import { withLocalizeNaive } from '/client/helpers/locale'
+import { checkSystemFunction as sF } from '/client/helpers/config'
 
 export const linksView = 'links'
 export const linksCreate = 'create'
 export const linksDelete = 'delete'
 
 const Layout = (props) => {
-  const { children, localize, routes, location: { search } } = props
+  const {
+    children,
+    localize,
+    routes,
+    location: { search },
+  } = props
   const route = findLast(v => v.path !== undefined, routes).path
   return (
     <div>

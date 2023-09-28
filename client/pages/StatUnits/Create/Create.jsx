@@ -2,9 +2,9 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Select } from 'semantic-ui-react'
 
-import { statUnitTypes } from 'helpers/enums'
+import { statUnitTypes } from '/client/helpers/enums'
 import ConnectedForm from './ConnectedForm'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const CreateStatUnitPage = ({ type, isSubmitting, changeType, localize }) => {
   const handleTypeChange = (_, { value }) => {

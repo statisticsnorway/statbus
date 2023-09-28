@@ -2,8 +2,8 @@ import React from 'react'
 import { func, string } from 'prop-types'
 import { Dropdown, Flag } from 'semantic-ui-react'
 
-import { getFlag, setLocale, requestToChangeLocale } from 'helpers/locale'
-import config from 'helpers/config'
+import { getFlag, setLocale, requestToChangeLocale } from '/client/helpers/locale'
+import config from '/client/helpers/config'
 
 const SelectLocale = ({ locale, selectLocale }) => {
   const trigger = <Flag name={getFlag(locale)} />

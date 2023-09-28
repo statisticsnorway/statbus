@@ -1,9 +1,9 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import { navigateBack } from 'helpers/actionCreators'
-import dispatchRequest from 'helpers/request'
+import { navigateBack } from '/client/helpers/actionCreators'
+import dispatchRequest from '/client/helpers/request'
 import * as fns from './predicateFns'
 
 const updateFilter = createAction('update sample frames search query')

@@ -3,8 +3,8 @@ import { shape, number, string, func, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
 import { Table, Button } from 'semantic-ui-react'
 
-import { formatDateTime } from 'helpers/dateHelper'
-import { dataSourceQueueLogStatuses as statuses } from 'helpers/enums'
+import { formatDateTime } from '/client/helpers/dateHelper'
+import { dataSourceQueueLogStatuses as statuses } from '/client/helpers/enums'
 
 const LogItem = ({ data, localize, deleteLog }) => (
   <Table.Row>

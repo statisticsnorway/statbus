@@ -3,16 +3,16 @@ import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 
-import createSchemaFormHoc from 'components/createSchemaFormHoc'
-import createStatUnitSchema from 'helpers/createStatUnitSchema'
+import createSchemaFormHoc from '/client/components/createSchemaFormHoc'
+import createStatUnitSchema from '/client/helpers/createStatUnitSchema'
 import {
   createFieldsMeta,
   createModel,
   createValues,
   updateProperties,
   updateValuesFrom,
-} from 'helpers/modelProperties'
-import { getText } from 'helpers/locale'
+} from '/client/helpers/modelProperties'
+import { getText } from '/client/helpers/locale'
 import { details as actions } from '../actions'
 
 const getSchema = props => props.schema
@@ -62,8 +62,5 @@ const mapDispatchToProps = (dispatch, props) =>
 
 export default pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
+  connect(mapStateToProps, mapDispatchToProps),
 )

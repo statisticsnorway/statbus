@@ -5,7 +5,7 @@ import Tree from 'antd/lib/tree'
 
 import { transform } from './ActivityTree'
 import { getNewName } from '../helpers/locale'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const { TreeNode } = Tree
 

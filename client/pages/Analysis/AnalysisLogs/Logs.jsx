@@ -2,7 +2,7 @@ import React from 'react'
 import { func, bool, number, arrayOf, shape } from 'prop-types'
 import { Segment, Table } from 'semantic-ui-react'
 
-import Paginate from 'components/Paginate'
+import Paginate from '/client/components/Paginate'
 import Item from './Item'
 
 const headerKeys = ['UnitName', 'UnitType', 'ProcessedAt', 'ResolvedAt', 'SummaryMessages']
@@ -16,12 +16,16 @@ const Logs = ({ items, localize, totalCount, fetching }) => (
         <Table selectable size="small" className="wrap-content">
           <Table.Header>
             <Table.Row>
-              {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}
+              {headerKeys.map(key => (
+                <Table.HeaderCell key={key} content={localize(key)} />
+              ))}
               <Table.HeaderCell />
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {items.map(item => <Item key={item.id} data={item} localize={localize} />)}
+            {items.map(item => (
+              <Item key={item.id} data={item} localize={localize} />
+            ))}
           </Table.Body>
         </Table>
       </Paginate>

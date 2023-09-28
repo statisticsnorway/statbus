@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import R from 'ramda'
+import * as R from 'ramda'
 
 import {
   RangeField,
@@ -13,10 +13,10 @@ import {
   LegalFormField,
   InstitutionalSectorCodeField,
   TextField2,
-} from 'components/fields'
-import { statUnitTypes } from 'helpers/enums'
-import { oneOf } from 'helpers/enumerable'
-import { hasValue } from 'helpers/validation'
+} from '/client/components/fields'
+import { statUnitTypes } from '/client/helpers/enums'
+import { oneOf } from '/client/helpers/enumerable'
+import { hasValue } from '/client/helpers/validation'
 
 const separator = ','
 const delimiter = '—'

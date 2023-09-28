@@ -1,9 +1,9 @@
 import { number, object, string, array, bool, mixed } from 'yup'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import config, { getMandatoryFields } from 'helpers/config'
-import { getDate } from 'helpers/dateHelper'
-import { toPascalCase } from 'helpers/string'
+import config, { getMandatoryFields } from '/client/helpers/config'
+import { getDate } from '/client/helpers/dateHelper'
+import { toPascalCase } from '/client/helpers/string'
 
 const { validationSettings } = config
 
@@ -241,10 +241,7 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
       : rule,
   ]
 
-  const updateRule = R.pipe(
-    setRequired,
-    setAsyncTest,
-  )
+  const updateRule = R.pipe(setRequired, setAsyncTest)
 
   return Object.entries({
     ...base,
@@ -260,7 +257,4 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
   }, {})
 }
 
-export default R.pipe(
-  configureSchema,
-  object,
-)
+export default R.pipe(configureSchema, object)

@@ -3,8 +3,8 @@ import { Link } from 'react-router'
 import { shape, number, string, func, bool } from 'prop-types'
 import { Table, Button } from 'semantic-ui-react'
 
-import { dataSourceQueueStatuses } from 'helpers/enums'
-import { formatDateTime } from 'helpers/dateHelper'
+import { dataSourceQueueStatuses } from '/client/helpers/enums'
+import { formatDateTime } from '/client/helpers/dateHelper'
 
 const DataSourceQueueItem = ({ data, localize, deleteQueue, isLoading }) => (
   <Table.Row>

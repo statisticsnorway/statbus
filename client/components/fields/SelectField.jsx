@@ -3,14 +3,12 @@ import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-type
 import { Message, Select as SemanticUiSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
-
-import { hasValue, createPropType } from 'helpers/validation'
-import { internalRequest } from 'helpers/request'
-import { getNewName } from 'helpers/locale'
-
-import styles from './styles.pcss'
-import './SelectField.css'
+import * as R from 'ramda'
+import { hasValue, createPropType } from '../../helpers/validation'
+import { internalRequest } from '../../helpers/request'
+import { getNewName } from '../../helpers/locale'
+import styles from './styles.scss'
+import './SelectField.scss'
 
 const notSelected = { value: undefined, text: 'NotSelected' }
 
@@ -57,7 +55,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-class SelectField extends React.Component {
+export class SelectField extends React.Component {
   static propTypes = {
     name: string.isRequired,
     value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
@@ -377,5 +375,3 @@ class SelectField extends React.Component {
     )
   }
 }
-
-export default SelectField

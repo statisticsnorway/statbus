@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import { authentication as actions } from 'helpers/actionCreators'
+import { authentication as actions } from '/client/helpers/actionCreators'
 
 const defaultState = { open: false }
 

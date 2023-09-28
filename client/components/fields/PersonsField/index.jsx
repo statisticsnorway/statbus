@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { shape, arrayOf, func, string, bool, number, target, value } from 'prop-types'
 import { Icon, Table, Message } from 'semantic-ui-react'
-import R from 'ramda'
+import * as R from 'ramda'
 
-import { internalRequest } from 'helpers/request'
-import { hasValue } from 'helpers/validation'
+import { internalRequest } from '/client/helpers/request'
+import { hasValue } from '/client/helpers/validation'
 import PersonView from './View'
 import PersonEdit from './Edit'
-import { getNewName } from 'helpers/locale'
+import { getNewName } from '/client/helpers/locale'
 
-function PersonsList({
+export function PersonsList({
   localize,
   locale,
   name,
@@ -217,4 +217,3 @@ PersonsList.defaultProps = {
   regId: null,
 }
 
-export default PersonsList

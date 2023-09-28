@@ -40,17 +40,12 @@ tasks.set('clean', () =>
       del(
         [
           './build/*',
-          './src/nscreg.Server/wwwroot/dist/*',
+          './src/nscreg.Server/wwwroot/*',
           '!./build/.git',
-          './src/nscreg.Server/wwwroot/semantic.min.css',
-          './src/nscreg.Server/wwwroot/themes',
-          './src/nscreg.Server/wwwroot/antd-tree.css',
-          './src/nscreg.Server/wwwroot/react-datepicker.min.css',
-          './src/nscreg.Server/wwwroot/react-select.min.css',
         ],
         { dot: true },
       ))
-    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/dist')))
+    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/fonts')))
 
 
 // Copy vendor bundles (styles, scripts, fonts, etc.)
@@ -58,39 +53,93 @@ const copyTasks = [
   {
     src: './node_modules/semantic-ui-css/semantic.min.css',
     dest: './src/nscreg.Server/wwwroot',
-    message: "Copying semantic.min.css...",
     rename: undefined,
   },
   {
     src: './node_modules/semantic-ui-css/themes',
     dest: './src/nscreg.Server/wwwroot/themes',
-    message: "Copying themes...",
     isSync: true,
   },
   {
     src: './node_modules/antd/lib/tree/style/index.css',
     dest: './src/nscreg.Server/wwwroot',
-    message: "Copying antd-tree.css...",
     rename: 'antd-tree.css',
   },
   {
     src: './node_modules/react-datepicker/dist/react-datepicker.min.css',
     dest: './src/nscreg.Server/wwwroot',
-    message: "Copying react-datepicker.min.css...",
     rename: undefined,
   },
   {
     src: './node_modules/react-select/dist/react-select.min.css',
     dest: './src/nscreg.Server/wwwroot',
-    message: "Copying react-select.min.css...",
     rename: undefined,
+  },
+  {
+    src: './client/apple-touch-icon.png',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/favicon.ico',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/browserconfig.xml',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/crossdomain.xml',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/humans.txt',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/logo-small.jpg',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/logo.png',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/robots.txt',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/tile-wide.png',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/tile.png',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/styles.css',
+    dest: './src/nscreg.Server/wwwroot',
+    rename: undefined,
+  },
+  {
+    src: './client/fonts',
+    dest: './src/nscreg.Server/wwwroot/fonts',
+    isSync: true,
   },
 ];
 
 tasks.set('copy', async () => {
   try {
     for (const task of copyTasks) {
-      console.log(task.message);
       if (task.isSync) {
         try {
           copyDir.sync(task.src, task.dest);
@@ -102,7 +151,7 @@ tasks.set('copy', async () => {
         try {
           var cpyOptions = { flat: true };
           if ( task.rename )
-           cpyOptions["rename"] = task.rename;
+            cpyOptions["rename"] = task.rename;
           var destination = await cpy(task.src, task.dest, cpyOptions)
           console.log(`Copied ${task.src} to ${destination} successfully`);
         } catch (error) {

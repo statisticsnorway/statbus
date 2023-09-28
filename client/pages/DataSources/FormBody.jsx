@@ -2,19 +2,19 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Grid, Form } from 'semantic-ui-react'
 
-import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
+import { formBody as bodyPropTypes } from '/client/components/createSchemaFormHoc/propTypes'
 import {
   SelectField as PlainSelectField,
   TextField as PlainTextField,
   withDebounce,
-} from 'components/fields'
-import { getMandatoryFields as getMandatoryFieldsForStatUnitUpload } from 'helpers/config'
-import handlerFor from 'helpers/handleSetFieldValue'
-import { toCamelCase } from 'helpers/string'
+} from '/client/components/fields'
+import { getMandatoryFields as getMandatoryFieldsForStatUnitUpload } from '../../helpers/config'
+import handlerFor from '../../helpers/handleSetFieldValue'
+import { toCamelCase } from '../../helpers/string'
 import MappingEditor from './MappingEditor'
 import TemplateFileAttributesParser from './TemplateFileAttributesParser'
 import { meta, getMandatoryFieldsForActivityUpload, getFieldsForActivityUpload } from './model'
-import styles from './styles.pcss'
+import styles from './styles.scss'
 
 const getTypeName = value =>
   toCamelCase(meta.get('statUnitType').options.find(op => op.value === value).text)
