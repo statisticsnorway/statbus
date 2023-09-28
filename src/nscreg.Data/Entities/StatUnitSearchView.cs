@@ -8,6 +8,7 @@ namespace nscreg.Data.Entities
     {
         public int RegId { get; set; }
         public string Name { get; set; }
+        public string ShortName { get; set; }
         public string StatId { get; set; }
         public string TaxRegId { get; set; }
         public string ExternalId { get; set; }

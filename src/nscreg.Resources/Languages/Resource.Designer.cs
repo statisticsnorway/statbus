@@ -70,7 +70,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to SBR.
+        ///   Looks up a localized string similar to Statbus.
         /// </summary>
         public static string AboutText {
             get {
@@ -142,7 +142,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Activities.
         /// </summary>
         public static string ActivitiesTooltip {
             get {
@@ -174,6 +174,15 @@ namespace nscreg.Resources.Languages {
         public static string ActivityCategory {
             get {
                 return ResourceManager.GetString("ActivityCategory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Choose activity by entering code or -name.
+        /// </summary>
+        public static string ActivityCategoryIdTooltip {
+            get {
+                return ResourceManager.GetString("ActivityCategoryIdTooltip", resourceCulture);
             }
         }
         
@@ -223,6 +232,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Year of validity for activity.
+        /// </summary>
+        public static string ActivityYear {
+            get {
+                return ResourceManager.GetString("ActivityYear", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enter starting year for this activity.
+        /// </summary>
+        public static string ActivityYearTooltip {
+            get {
+                return ResourceManager.GetString("ActivityYearTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Actual address.
         /// </summary>
         public static string ActualAddress {
@@ -232,7 +259,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Id of actual address.
+        ///   Looks up a localized string similar to Actual address.
         /// </summary>
         public static string ActualAddressId {
             get {
@@ -259,7 +286,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Actual main activity.
+        ///   Looks up a localized string similar to .
         /// </summary>
         public static string ActualMainActivity2 {
             get {
@@ -268,7 +295,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Date of Main Activity.
+        ///   Looks up a localized string similar to Date of registration of main activity.
         /// </summary>
         public static string ActualMainActivityDate {
             get {
@@ -277,7 +304,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Address.
+        ///   Looks up a localized string similar to Address (as registered).
         /// </summary>
         public static string Address {
             get {
@@ -340,7 +367,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Street and house number.
+        ///   Looks up a localized string similar to CO/.
         /// </summary>
         public static string AddressPart1 {
             get {
@@ -351,6 +378,15 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Looks up a localized string similar to .
         /// </summary>
+        public static string AddressPart1Tooltip {
+            get {
+                return ResourceManager.GetString("AddressPart1Tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to street and house number.
+        /// </summary>
         public static string AddressPart2 {
             get {
                 return ResourceManager.GetString("AddressPart2", resourceCulture);
@@ -358,11 +394,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to postal Index.
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string AddressPart2Tooltip {
+            get {
+                return ResourceManager.GetString("AddressPart2Tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to zip code and city.
         /// </summary>
         public static string AddressPart3 {
             get {
                 return ResourceManager.GetString("AddressPart3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string AddressPart3Tooltip {
+            get {
+                return ResourceManager.GetString("AddressPart3Tooltip", resourceCulture);
             }
         }
         
@@ -565,11 +619,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There are no enterprises in this enterprise group.
+        /// </summary>
+        public static string AnalysisEnterpriseGroupRelatedEnterprises {
+            get {
+                return ResourceManager.GetString("AnalysisEnterpriseGroupRelatedEnterprises", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There are no enterprises in this enterprise group.
+        /// </summary>
+        public static string AnalysisEnterpriseGroupRelatedEnterpriseUnits {
+            get {
+                return ResourceManager.GetString("AnalysisEnterpriseGroupRelatedEnterpriseUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Enterprise has no related Legal Units.
         /// </summary>
         public static string AnalysisEnterpriseRelatedLegalUnits {
             get {
                 return ResourceManager.GetString("AnalysisEnterpriseRelatedLegalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to legal unit has no local units.
+        /// </summary>
+        public static string AnalysisLegalUnitRelatedLocalUnits {
+            get {
+                return ResourceManager.GetString("AnalysisLegalUnitRelatedLocalUnits", resourceCulture);
             }
         }
         
@@ -610,7 +691,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Address is mandatory.
         /// </summary>
         public static string AnalysisMandatoryAddress {
             get {
@@ -646,7 +727,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Email address is mandatory.
         /// </summary>
         public static string AnalysisMandatoryEmailAddress {
             get {
@@ -727,7 +808,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Stat unit doesn&apos;t have number of people.
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have number of people employed.
         /// </summary>
         public static string AnalysisMandatoryNumOfPeopleEmp {
             get {
@@ -808,7 +889,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Stat unit doesn&apos;t have size.
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have size information.
         /// </summary>
         public static string AnalysisMandatorySize {
             get {
@@ -916,7 +997,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to At leat one of these fields should be filled uin.
         /// </summary>
         public static string AnalysisOneOfTheseFieldsShouldBeFilled {
             get {
@@ -1042,7 +1123,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Analyze register.
+        ///   Looks up a localized string similar to Quality analyze of register.
         /// </summary>
         public static string AnalyzeRegister {
             get {
@@ -1663,7 +1744,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Create statistical unit.
+        ///   Looks up a localized string similar to add statistical unit.
         /// </summary>
         public static string CreateStatUnit {
             get {
@@ -1690,7 +1771,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to CSV skip rows.
+        ///   Looks up a localized string similar to Number of rows skipped in CSV file.
         /// </summary>
         public static string CsvSkipCount {
             get {
@@ -1726,7 +1807,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Custom analysis checks.
+        ///   Looks up a localized string similar to Custom quality analyzis check.
         /// </summary>
         public static string CustomAnalysisChecks {
             get {
@@ -1861,7 +1942,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Data source name already exists.
+        ///   Looks up a localized string similar to This name of data source already exists.
         /// </summary>
         public static string DataSourceNameExists {
             get {
@@ -1870,7 +1951,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Data source name is required.
+        ///   Looks up a localized string similar to Name of data source is required.
         /// </summary>
         public static string DataSourceNameIsRequired {
             get {
@@ -2095,7 +2176,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Delete sample frame.
+        ///   Looks up a localized string similar to delete population frame.
         /// </summary>
         public static string DeleteSampleFrameMessage {
             get {
@@ -2203,7 +2284,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Download sample frame.
+        ///   Looks up a localized string similar to download population frame.
         /// </summary>
         public static string DownloadSampleFrame {
             get {
@@ -2248,7 +2329,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Duplicate fields rules warnings.
+        ///   Looks up a localized string similar to Warning: Some fields are duplicated.
         /// </summary>
         public static string DuplicateFieldsRulesWarnings {
             get {
@@ -2338,7 +2419,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ElasticSearch Is Disable.
+        ///   Looks up a localized string similar to ElasticSearch Is Disabled.
         /// </summary>
         public static string ElasticSearchIsDisable {
             get {
@@ -2437,7 +2518,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;Number of employees from&apos; is larger than &apos;number of employees to&apos;.
+        ///   Looks up a localized string similar to The number of &quot;employees from&quot; is greater than the &quot;number of employees to&quot;.
         /// </summary>
         public static string EmployeesNumberFromErrorLarge {
             get {
@@ -2446,7 +2527,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;Number of employees from&apos; shouldn&apos;t be negative.
+        ///   Looks up a localized string similar to &quot;Number of employees from&quot; cannot be a negative number.
         /// </summary>
         public static string EmployeesNumberFromErrorNegative {
             get {
@@ -2464,7 +2545,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;Number of employees to&apos; shouldn&apos;t be negative.
+        ///   Looks up a localized string similar to &quot;Number of employees to&quot; cannot be a negative number.
         /// </summary>
         public static string EmployeesNumberToErrorNegative {
             get {
@@ -2536,7 +2617,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Ensure errors are fixed.
+        ///   Looks up a localized string similar to Make sure all errors are fixed.
         /// </summary>
         public static string EnsureErrorsIsFixed {
             get {
@@ -2736,6 +2817,15 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Looks up a localized string similar to .
         /// </summary>
+        public static string EntGroupTypeId {
+            get {
+                return ResourceManager.GetString("EntGroupTypeId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
         public static string EntGroupTypeIdTooltip {
             get {
                 return ResourceManager.GetString("EntGroupTypeIdTooltip", resourceCulture);
@@ -2788,7 +2878,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error Export Stat unit report.
+        ///   Looks up a localized string similar to Error when exporting report on statistical units.
         /// </summary>
         public static string ErrorExportStatUnitReport {
             get {
@@ -2995,7 +3085,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Foreign capital share (in thous. som).
+        ///   Looks up a localized string similar to Foreign capital share.
         /// </summary>
         public static string ForeignCapitalShare {
             get {
@@ -3112,7 +3202,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to SASD.
+        ///   Looks up a localized string similar to .
         /// </summary>
         public static string FreeEconZoneTooltip {
             get {
@@ -3238,7 +3328,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Value can&apos;t be less than 0.
+        ///   Looks up a localized string similar to Value cannot be a negative number.
         /// </summary>
         public static string IncorrectIntegerValue {
             get {
@@ -3418,6 +3508,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string Language1 {
+            get {
+                return ResourceManager.GetString("Language1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string Language2 {
+            get {
+                return ResourceManager.GetString("Language2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to English.
         /// </summary>
         public static string LanguageEnglish {
@@ -3436,6 +3544,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string LanguageMain {
+            get {
+                return ResourceManager.GetString("LanguageMain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Russian.
         /// </summary>
         public static string LanguageRussian {
@@ -3450,6 +3567,15 @@ namespace nscreg.Resources.Languages {
         public static string LastActivityByTurnover {
             get {
                 return ResourceManager.GetString("LastActivityByTurnover", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string LastChangeDate {
+            get {
+                return ResourceManager.GetString("LastChangeDate", resourceCulture);
             }
         }
         
@@ -3661,7 +3787,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Links.
+        ///   Looks up a localized string similar to business chart.
         /// </summary>
         public static string Links {
             get {
@@ -3796,7 +3922,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You can&apos;t liquidate Enterprise unit.
+        ///   Looks up a localized string similar to Enterprise units cannot be liquidated.
         /// </summary>
         public static string LiquidateEntrUnit {
             get {
@@ -3895,7 +4021,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to No contact person for this group.
+        ///   Looks up a localized string similar to This unit has no contact person.
         /// </summary>
         public static string LogicalChecksNoContactPerson {
             get {
@@ -4093,7 +4219,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Does this unit operate in a market?.
         /// </summary>
         public static string MarketTooltip {
             get {
@@ -4120,7 +4246,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Municipal capital share (in thous. som).
+        ///   Looks up a localized string similar to Municipal capital share.
         /// </summary>
         public static string MunCapitalShare {
             get {
@@ -4354,7 +4480,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Statistical Business Register.
+        ///   Looks up a localized string similar to Statbus.
         /// </summary>
         public static string NSCRegistry {
             get {
@@ -4498,7 +4624,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Orphan units rules warnings.
+        ///   Looks up a localized string similar to There are &quot;orphan&quot; units.
         /// </summary>
         public static string OrphanUnitsRulesWarnings {
             get {
@@ -4831,7 +4957,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Preview sample frame.
+        ///   Looks up a localized string similar to preview population frame.
         /// </summary>
         public static string PreviewSampleFrame {
             get {
@@ -4858,7 +4984,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Priority.
+        ///   Looks up a localized string similar to Expected quality of source.
         /// </summary>
         public static string Priority {
             get {
@@ -4867,7 +4993,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Private capital share (in thous. som).
+        ///   Looks up a localized string similar to Private capital share.
         /// </summary>
         public static string PrivCapitalShare {
             get {
@@ -5695,7 +5821,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Analysis.
+        ///   Looks up a localized string similar to Quality analysis.
         /// </summary>
         public static string route_analysisqueue {
             get {
@@ -5839,7 +5965,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Preview sample frame.
+        ///   Looks up a localized string similar to Preview population frame.
         /// </summary>
         public static string route_preview {
             get {
@@ -5902,7 +6028,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Sample frames.
+        ///   Looks up a localized string similar to Population frames.
         /// </summary>
         public static string route_sampleframes {
             get {
@@ -5974,7 +6100,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Queue to generate sample frame.
+        ///   Looks up a localized string similar to Queue to generate population frame.
         /// </summary>
         public static string SampleFrameGenerationEnqueue {
             get {
@@ -5983,7 +6109,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error generating sample frame.
+        ///   Looks up a localized string similar to Error generating population frame.
         /// </summary>
         public static string SampleFrameGenerationError {
             get {
@@ -5992,7 +6118,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Sample frame not found.
+        ///   Looks up a localized string similar to Population frame not found.
         /// </summary>
         public static string SampleFrameNotFound {
             get {
@@ -6001,7 +6127,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Sample frames.
+        ///   Looks up a localized string similar to Population frames.
         /// </summary>
         public static string SampleFrames {
             get {
@@ -6010,7 +6136,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Create sample frames .
+        ///   Looks up a localized string similar to Create population frames.
         /// </summary>
         public static string SampleFramesCreate {
             get {
@@ -6019,7 +6145,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to View sample frames.
+        ///   Looks up a localized string similar to View population frames.
         /// </summary>
         public static string SampleFramesView {
             get {
@@ -6028,7 +6154,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search by sample frame name.
+        ///   Looks up a localized string similar to Search by name of population frame.
         /// </summary>
         public static string SampleFramesWildcard {
             get {
@@ -6073,7 +6199,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Deleted statistical units search.
+        ///   Looks up a localized string similar to search for deleted units.
         /// </summary>
         public static string SearchDeletedStatisticalUnits {
             get {
@@ -6109,7 +6235,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Name.
+        ///   Looks up a localized string similar to Name, short name, statistical ID.
         /// </summary>
         public static string SearchWildcard {
             get {
@@ -6451,7 +6577,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to State capital share (in thous. som).
+        ///   Looks up a localized string similar to State capital share.
         /// </summary>
         public static string StateCapitalShare {
             get {
@@ -6568,11 +6694,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string StatUnitActivityDateTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitActivityDateTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Number of employees.
         /// </summary>
         public static string StatUnitActivityEmployeesNumber {
             get {
                 return ResourceManager.GetString("StatUnitActivityEmployeesNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string StatUnitActivityEmployeesNumberTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitActivityEmployeesNumberTooltip", resourceCulture);
             }
         }
         
@@ -6622,6 +6766,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string StatUnitActivityTypeTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitActivityTypeTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Year.
         /// </summary>
         public static string StatUnitActivityYear {
@@ -6631,7 +6784,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Create unit.
+        ///   Looks up a localized string similar to add unit.
         /// </summary>
         public static string StatUnitCreate {
             get {
@@ -6658,7 +6811,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Statistical Unit Delete.
+        ///   Looks up a localized string similar to delete unit.
         /// </summary>
         public static string StatUnitDelete {
             get {
@@ -6726,6 +6879,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitFormPersonName {
             get {
                 return ResourceManager.GetString("StatUnitFormPersonName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string StatUnitFormPersonNameTooltip {
+            get {
+                return ResourceManager.GetString("StatUnitFormPersonNameTooltip", resourceCulture);
             }
         }
         
@@ -6892,6 +7054,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string SurnameTooltip {
+            get {
+                return ResourceManager.GetString("SurnameTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Suspended.
         /// </summary>
         public static string Suspended {
@@ -7009,7 +7180,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Total capital (in thous. som).
+        ///   Looks up a localized string similar to Total capital.
         /// </summary>
         public static string TotalCapital {
             get {
@@ -7252,7 +7423,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Undelete Statistic unit.
+        ///   Looks up a localized string similar to undelete unit.
         /// </summary>
         public static string UndeleteStatUnitMessage {
             get {
@@ -7441,7 +7612,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Uploaded file is problem.
+        ///   Looks up a localized string similar to There is a problem with the uploaded file.
         /// </summary>
         public static string UploadedFileProblem {
             get {
