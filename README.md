@@ -73,9 +73,9 @@ To run a local development build, the required services must be run with
 docker compose -f docker-compose.support-services-postgres.yml up
 ```
 
-Later, to stop the services, press ctrl+c.
+To stop the services *(without deleting the database)*, press Ctrl + C.
 
-To remove the database, and start fresh, run the command
+*To delete the database*, and start fresh, run the command
 ```sh
 docker compose -f docker-compose.support-services-postgres.yml down --volumes
 ```
