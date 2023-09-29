@@ -16,8 +16,8 @@ namespace nscreg.Business.DataSources
         {
             try
             {
-                if (type != typeof(DateTime)) return Convert.ChangeType(raw, type, CultureInfo.InvariantCulture);
-                DateTime.TryParse(raw, out var date);
+                if (type != typeof(DateTimeOffset)) return Convert.ChangeType(raw, type, CultureInfo.InvariantCulture);
+                DateTimeOffset.TryParse(raw, out var date);
                 return date;
             }
             catch (Exception ex)
