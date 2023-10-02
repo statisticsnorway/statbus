@@ -13,23 +13,42 @@ if ! test -f $WORKSPACE/supabase/docker/.env; then
   cp -f $WORKSPACE/.supabase-docker-local-development-env $WORKSPACE/supabase/docker/.env
 fi
 
-cd $WORKSPACE/supabase/docker
-
 action=$1
 case "$action" in
     'start-foreground' )
+        cd $WORKSPACE/supabase/docker
         docker compose up
       ;;
     'start-background' )
+        cd $WORKSPACE/supabase/docker
         docker compose up --detach
       ;;
     'logs' )
+        cd $WORKSPACE/supabase/docker
         docker compose logs --follow
       ;;
+    'ps' )
+        cd $WORKSPACE/supabase/docker
+        docker compose ps
+      ;;
+    'create-db-structure' )
+        cd $WORKSPACE
+        ./devops/psql-development.sh < dbseed/create-db-structure.sql 2>&1
+      ;;
+    'seed-db' )
+        cd $WORKSPACE
+        ./devops/psql-development.sh < dbseed/seed-db.sql 2>&1
+      ;;
+    'delete-db-structure' )
+        cd $WORKSPACE
+        ./devops/psql-development.sh < dbseed/delete-db-structure.sql 2>&1
+      ;;
     'stop-background' )
+        cd $WORKSPACE/supabase/docker
         docker compose down
       ;;
     'delete-db' )
+        cd $WORKSPACE/supabase/docker
         rm -rf $WORKSPACE/supabase/docker/volumes/db/data/*
       ;;
      'upgrade' )
@@ -37,7 +56,8 @@ case "$action" in
         git submodule update --remote --merge
       ;;
      * )
-      echo "Unknown action '$action', select one of start-foreground start-background stop-background logs delete-db upgrade"
+      echo "Unknown action '$action', select one of"
+      awk '/^ +''(.+)'' \)$/{print $1}' $WORKSPACE/devops/manage-supabase.sh
       exit 1
       ;;
 esac

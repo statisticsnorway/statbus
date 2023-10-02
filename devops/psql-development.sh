@@ -8,7 +8,7 @@ fi
 
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
-source $WORKSPACE/.env-supabase.sh
+source $WORKSPACE/.env-psql-development.sh
 
 if $(which psql > /dev/null); then
   psql
