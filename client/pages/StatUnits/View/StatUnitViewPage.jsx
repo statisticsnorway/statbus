@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { number, shape, string, func, oneOfType, bool } from 'prop-types'
 import * as R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
@@ -10,66 +10,105 @@ import { statUnitChangeReasons } from '/client/helpers/enums'
 import { Main, History, Activity, OrgLinks, Links, ContactInfo, BarInfo } from './tabs'
 import tabs from './tabs/tabEnum'
 
-function StatUnitViewPage({
-  id,
-  type,
-  unit,
-  history,
-  historyDetails,
-  actions: {
-    fetchStatUnit,
-    navigateBack,
-    fetchHistory,
-    fetchHistoryDetails,
-    getUnitLinks,
-    getOrgLinks,
-    fetchSector,
-    fetchLegalForm,
-    fetchUnitStatus,
-    clear,
-  },
-  localize,
-}) {
-  const [activeTab, setActiveTab] = useState(tabs.main.name)
-  const [tabList, setTabList] = useState(Object.values(tabs))
-
-  useEffect(() => {
-    fetchStatUnit(type, id)
-  }, [id, type, fetchStatUnit])
-
-  useEffect(() => {
-    clear()
-  }, [clear])
-
-  const handleTabClick = (_, { name }) => {
-    setActiveTab(name)
+class StatUnitViewPage extends React.Component {
+  static propTypes = {
+    id: oneOfType([number, string]).isRequired,
+    type: oneOfType([number, string]).isRequired,
+    unit: shape({
+      regId: number,
+      type: number.isRequired,
+      name: string.isRequired,
+      isDeleted: bool.isRequired,
+      changeReason: number.isRequired,
+      parentId: number,
+      address: shape({
+        addressLine1: string,
+        addressLine2: string,
+      }),
+    }),
+    history: shape({}),
+    historyDetails: shape({}),
+    actions: shape({
+      fetchStatUnit: func.isRequired,
+      fetchHistory: func.isRequired,
+      fetchHistoryDetails: func.isRequired,
+      fetchSector: func.isRequired,
+      fetchLegalForm: func.isRequired,
+      fetchUnitStatus: func.isRequired,
+      getUnitLinks: func.isRequired,
+      getOrgLinks: func.isRequired,
+      navigateBack: func.isRequired,
+      clear: func.isRequired,
+    }).isRequired,
+    localize: func.isRequired,
   }
 
-  const renderTabMenuItem = ({ name, icon, label }) => (
+  static defaultProps = {
+    unit: undefined,
+    history: undefined,
+    historyDetails: undefined,
+  }
+
+  state = { activeTab: tabs.main.name, tabList: Object.values(tabs) }
+
+  componentDidMount() {
+    const {
+      id,
+      type,
+      actions: { fetchStatUnit },
+    } = this.props
+    fetchStatUnit(type, id)
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.state, nextState) ||
+      !R.equals(this.props, nextProps)
+    )
+  }
+
+  componentWillUnmount() {
+    this.props.actions.clear()
+  }
+
+  handleTabClick = (_, { name }) => {
+    this.setState({ activeTab: name })
+  }
+
+  renderTabMenuItem = ({ name, icon, label }) => (
     <Menu.Item
       key={name}
       name={name}
-      content={localize(label)}
+      content={this.props.localize(label)}
       icon={icon}
-      active={activeTab === name}
-      onClick={handleTabClick}
+      active={this.state.activeTab === name}
+      onClick={this.handleTabClick}
     />
   )
 
-  const renderView = () => {
+  renderView() {
+    const {
+      unit,
+      history,
+      localize,
+      historyDetails,
+      actions: { navigateBack, fetchHistory, fetchHistoryDetails, getUnitLinks, getOrgLinks },
+    } = this.props
+    const { activeTab } = this.state
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === activeTab)
     const hideLinksAndOrgLinksTabs =
       unit.isDeleted && statUnitChangeReasons.get(unit.changeReason) === 'Delete'
 
     if (unit !== undefined && unit.isDeleted) {
-      const indexofLinks = tabList.findIndex(elem => elem.name === 'links')
+      const indexofLinks = this.state.tabList.findIndex(elem => elem.name === 'links')
       if (indexofLinks > 0) {
-        tabList.splice(indexofLinks, 1)
+        this.state.tabList.splice(indexofLinks, 1)
       }
-      const indexofOrgLinks = tabList.findIndex(elem => elem.name === 'orgLinks')
+      const indexofOrgLinks = this.state.tabList.findIndex(elem => elem.name === 'orgLinks')
       if (indexofOrgLinks > 0) {
-        tabList.splice(indexofOrgLinks, 1)
+        this.state.tabList.splice(indexofOrgLinks, 1)
       }
     }
 
@@ -175,7 +214,7 @@ function StatUnitViewPage({
       <div>
         {activeTab !== 'print' && <BarInfo unit={unit} localize={localize} />}
         <Menu attached="top" tabular>
-          {tabList.map(renderTabMenuItem)}
+          {this.state.tabList.map(this.renderTabMenuItem)}
         </Menu>
         <Segment attached="bottom">
           {isActive(tabs.print) ? (
@@ -212,49 +251,13 @@ function StatUnitViewPage({
     )
   }
 
-  if (unit === undefined) return <Loader active />
-  if (this.props.errorMessage !== undefined && this.props.errorMessage.message !== '') {
-    return <div>{this.props.localize(this.props.errorMessage.message)}</div>
+  render() {
+    if (this.props.unit === undefined) return <Loader active />
+    if (this.props.errorMessage !== undefined && this.props.errorMessage.message !== '') {
+      return <div>{this.props.localize(this.props.errorMessage.message)}</div>
+    }
+    return this.renderView()
   }
-  return renderView()
-}
-
-StatUnitViewPage.propTypes = {
-  id: oneOfType([number, string]).isRequired,
-  type: oneOfType([number, string]).isRequired,
-  unit: shape({
-    regId: number,
-    type: number.isRequired,
-    name: string.isRequired,
-    isDeleted: bool.isRequired,
-    changeReason: number.isRequired,
-    parentId: number,
-    address: shape({
-      addressLine1: string,
-      addressLine2: string,
-    }),
-  }),
-  history: shape({}),
-  historyDetails: shape({}),
-  actions: shape({
-    fetchStatUnit: func.isRequired,
-    fetchHistory: func.isRequired,
-    fetchHistoryDetails: func.isRequired,
-    fetchSector: func.isRequired,
-    fetchLegalForm: func.isRequired,
-    fetchUnitStatus: func.isRequired,
-    getUnitLinks: func.isRequired,
-    getOrgLinks: func.isRequired,
-    navigateBack: func.isRequired,
-    clear: func.isRequired,
-  }).isRequired,
-  localize: func.isRequired,
-}
-
-StatUnitViewPage.defaultProps = {
-  unit: undefined,
-  history: undefined,
-  historyDetails: undefined,
 }
 
 export default StatUnitViewPage

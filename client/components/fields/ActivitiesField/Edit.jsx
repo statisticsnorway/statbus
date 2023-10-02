@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import PropTypes from 'prop-types'
+import React from 'react'
+import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import * as R from 'ramda'
 import config from '/client/helpers/config'
@@ -8,10 +8,12 @@ import { DateTimeField, SelectField } from '/client/components/fields'
 import { getNewName } from '../../../helpers/locale'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
-const yearsOptions = [...Array(new Date().getFullYear() - 1899).keys()].map(x => ({
-  value: x + 1900,
-  text: (x + 1900).toString(),
-}))
+// eslint-disable-next-line max-len
+const yearsOptions = R.pipe(
+  R.range(1900),
+  R.reverse,
+  R.map(x => ({ value: x, text: x })),
+)(new Date().getFullYear())
 
 const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
@@ -26,258 +28,269 @@ const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
 )
 
 ActivityCode.propTypes = {
-  'data-name': PropTypes.string.isRequired,
-  'data-code': PropTypes.string.isRequired,
+  'data-name': string.isRequired,
+  'data-code': string.isRequired,
 }
 
-function ActivityEdit(props) {
-  const { onSave, onCancel, localize, locale, disabled, index, value: initialValue } = props
+class ActivityEdit extends React.Component {
+  static propTypes = {
+    value: shape({
+      id: number,
+      activityYear: oneOfType([string, number]),
+      activityType: oneOfType([string, number]),
+      employees: oneOfType([string, number]),
+      turnover: oneOfType([string, number]),
+      activityCategoryId: oneOfType([string, number]),
+    }).isRequired,
+    onSave: func.isRequired,
+    onCancel: func.isRequired,
+    localize: func.isRequired,
+    locale: string.isRequired,
+    disabled: bool,
+    index: number,
+  }
 
-  const activityMandatoryFields = config.mandatoryFields.Activity
-  const [value, setValue] = useState(initialValue)
-  const [touched, setTouched] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  static defaultProps = {
+    disabled: false,
+    value: null,
+  }
 
-  useEffect(() => {
-    if (props.locale !== locale) {
-      setValue({
-        ...value,
-        value: value.id,
-        label: getNewName(value),
+  state = {
+    value: this.props.value,
+    touched: false,
+    index: this.props.index,
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const { locale } = this.props
+    const { value } = this.state
+    if (nextProps.locale !== locale) {
+      this.setState({
+        value: {
+          ...value,
+          value: value.id,
+          label: getNewName(value),
+        },
       })
     }
-  }, [props.locale, locale, value])
-
-  const employeesIsNaN = isNaN(parseInt(value.employees, 10))
-  const notSelected = { value: 0, text: localize('NotSelected') }
-
-  const onFieldChange = (e, { name, value }) => {
-    setValue(prevValue => ({
-      ...prevValue,
-      [name]: value,
-    }))
-    setTouched(true)
   }
 
-  const onCodeChange = (e, { value }) => {
-    setValue(prevValue => ({
-      ...prevValue,
-      activityCategoryId: {
-        id: undefined,
-        code: value,
-        name: '',
+  onFieldChange = (e, { name, value }) => {
+    this.setState(s => ({
+      value: { ...s.value, [name]: value },
+      touched: true,
+    }))
+  }
+
+  onCodeChange = (e, { value }) => {
+    this.setState(s => ({
+      value: {
+        ...s.value,
+        activityCategoryId: {
+          id: undefined,
+          code: value,
+          name: '',
+        },
       },
+      isLoading: true,
     }))
-    setIsLoading(true)
-    searchData(value)
+    this.searchData(value)
   }
 
-  const saveHandler = () => {
-    onSave(value, index)
+  saveHandler = () => {
+    this.props.onSave(this.state.value, this.state.index)
   }
 
-  const cancelHandler = () => {
-    onCancel(value.id)
+  cancelHandler = () => {
+    this.props.onCancel(this.state.value.id)
   }
 
-  const activitySelectedHandler = (e, { value: activityCategoryId }, activityCategory) => {
-    setValue(prevValue => ({
-      ...prevValue,
-      activityCategoryId,
-      activityCategory,
+  activitySelectedHandler = (e, { value: activityCategoryId }, activityCategory) => {
+    this.setState(s => ({
+      value: {
+        ...s.value,
+        activityCategoryId,
+        activityCategory,
+      },
+      touched: true,
     }))
-    setTouched(true)
   }
 
-  return (
-    <Table.Row>
-      <Table.Cell colSpan={8}>
-        <Form as="div">
-          <Form.Group widths="equal">
-            <div
-              className="field"
-              data-tooltip={localize('ActivityCategoryIdTooltip')}
-              data-position="top left"
-            >
-              <SelectField
-                name="activityCategoryId"
-                label="StatUnitActivityRevX"
-                lookup={13}
-                onChange={activitySelectedHandler}
-                value={value.activityCategoryId}
-                localize={localize}
-                locale={locale}
-                required={activityMandatoryFields.ActivityCategoryId}
-              />
-            </div>
-          </Form.Group>
-          <Form.Group widths="equal">
-            <div
-              className="field"
-              data-tooltip={localize('StatUnitActivityTypeTooltip')}
-              data-position="top left"
-            >
-              <Form.Select
-                label={localize('StatUnitActivityType')}
-                placeholder={localize('StatUnitActivityType')}
-                options={activities.map(a => ({
-                  value: a.key,
-                  text: localize(a.value),
-                }))}
-                value={value.activityType}
-                error={!value.activityType}
-                name="activityType"
-                onChange={onFieldChange}
-                disabled={disabled}
-                required={activityMandatoryFields.ActivityType}
-              />
-            </div>
-            <div
-              className="field"
-              data-tooltip={localize('ActivityYearTooltip')}
-              data-position="top left"
-            >
-              <Form.Select
-                label={localize('ActivityYear')}
-                placeholder={localize('ActivityYear')}
-                options={[notSelected, ...yearsOptions]}
-                value={value.activityYear}
-                name="activityYear"
-                onChange={onFieldChange}
-                disabled={disabled}
-                required={activityMandatoryFields.ActivityYear}
-                search
-              />
-            </div>
-          </Form.Group>
-          <Form.Group widths="equal">
-            <div
-              className="field"
-              data-tooltip={localize('StatUnitActivityEmployeesNumberTooltip')}
-              data-position="top left"
-            >
-              <Popup
-                trigger={
-                  <Form.Input
-                    label={localize('StatUnitActivityEmployeesNumber')}
-                    placeholder={localize('StatUnitActivityEmployeesNumber')}
-                    type="number"
-                    name="employees"
-                    value={value.employees}
-                    onChange={onFieldChange}
-                    min={0}
-                    required={activityMandatoryFields.Employees}
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                }
-                content={`6 ${localize('MaxLength')}`}
-                open={value.employees != null && value.employees.length > 6}
-              />
-            </div>
-            <div
-              data-tooltip={localize('InThousandsKGS')}
-              data-position="top left"
-              className="field"
-            >
-              <Popup
-                trigger={
-                  <Form.Input
-                    label={localize('Turnover')}
-                    placeholder={localize('Turnover')}
-                    name="turnover"
-                    type="number"
-                    value={value.turnover}
-                    onChange={onFieldChange}
-                    min={0}
-                    disabled={disabled}
-                    required={activityMandatoryFields.Turnover}
-                    autoComplete="off"
-                  />
-                }
-                content={`10 ${localize('MaxLength')}`}
-                open={value.turnover != null && value.turnover.length > 10}
-              />
-            </div>
-          </Form.Group>
-          <Form.Group widths="equal">
-            <div
-              className="field"
-              data-tooltip={localize('StatUnitActivityDateTooltip')}
-              data-position="top left"
-            >
-              <DateTimeField
-                value={value.idDate}
-                onChange={onFieldChange}
-                name="idDate"
-                label="StatUnitActivityDate"
-                disabled={disabled}
-                localize={localize}
-                required={activityMandatoryFields.IdDate}
-              />
-            </div>
-            <div className="field right aligned">
-              <label htmlFor="saveBtn">&nbsp;</label>
-              <Button.Group>
-                <div data-tooltip={localize('ButtonSave')} data-position="top center">
-                  <Button
-                    id="saveBtn"
-                    icon="check"
-                    color="green"
-                    onClick={saveHandler}
-                    disabled={
-                      disabled ||
-                      (activityMandatoryFields.Employees &&
-                        value.employees != null && value.employees.length > 6) ||
-                      (value.turnover != null && value.turnover.length > 10) ||
-                      (activityMandatoryFields.ActivityCategoryId && !value.activityCategoryId) ||
-                      (activityMandatoryFields.ActivityType && !value.activityType) ||
-                      (activityMandatoryFields.ActivityYear && !value.activityYear) ||
-                      (activityMandatoryFields.Employees && !value.employees && employeesIsNaN) ||
-                      (activityMandatoryFields.Turnover && !value.turnover) ||
-                      (activityMandatoryFields.IdDate && !value.idDate) ||
-                      !touched
-                    }
-                  />
-                </div>
-                <div data-tooltip={localize('ButtonCancel')} data-position="top center">
-                  <Button
-                    type="button"
-                    icon="cancel"
-                    color="red"
-                    onClick={cancelHandler}
-                    disabled={disabled}
-                  />
-                </div>
-              </Button.Group>
-            </div>
-          </Form.Group>
-        </Form>
-      </Table.Cell>
-    </Table.Row>
-  )
-}
-
-ActivityEdit.propTypes = {
-  onSave: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired,
-  localize: PropTypes.func.isRequired,
-  locale: PropTypes.string.isRequired,
-  disabled: PropTypes.bool,
-  index: PropTypes.number,
-  value: PropTypes.shape({
-    id: PropTypes.number,
-    activityYear: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    activityType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    employees: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    turnover: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    activityCategoryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  }).isRequired,
-}
-
-ActivityEdit.defaultProps = {
-  disabled: false,
-  value: null,
+  render() {
+    const { localize, disabled, locale } = this.props
+    const { value, touched } = this.state
+    // eslint-disable-next-line no-restricted-globals
+    const employeesIsNaN = isNaN(parseInt(value.employees, 10))
+    const notSelected = { value: 0, text: localize('NotSelected') }
+    const activityMandatoryFields = config.mandatoryFields.Activity
+    return (
+      <Table.Row>
+        <Table.Cell colSpan={8}>
+          <Form as="div">
+            <Form.Group widths="equal">
+              <div
+                className="field"
+                data-tooltip={localize('ActivityCategoryIdTooltip')}
+                data-position="top left"
+              >
+                <SelectField
+                  name="activityCategoryId"
+                  label="StatUnitActivityRevX"
+                  lookup={13}
+                  onChange={this.activitySelectedHandler}
+                  value={value.activityCategoryId}
+                  localize={localize}
+                  locale={locale}
+                  required={activityMandatoryFields.ActivityCategoryId}
+                />
+              </div>
+            </Form.Group>
+            <Form.Group widths="equal">
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitActivityTypeTooltip')}
+                data-position="top left"
+              >
+                <Form.Select
+                  label={localize('StatUnitActivityType')}
+                  placeholder={localize('StatUnitActivityType')}
+                  options={activities.map(a => ({
+                    value: a.key,
+                    text: localize(a.value),
+                  }))}
+                  value={value.activityType}
+                  error={!value.activityType}
+                  name="activityType"
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                  required={activityMandatoryFields.ActivityType}
+                />
+              </div>
+              <div
+                className="field"
+                data-tooltip={localize('ActivityYearTooltip')}
+                data-position="top left"
+              >
+                <Form.Select
+                  label={localize('ActivityYear')}
+                  placeholder={localize('ActivityYear')}
+                  options={[notSelected, ...yearsOptions]}
+                  value={value.activityYear}
+                  name="activityYear"
+                  onChange={this.onFieldChange}
+                  disabled={disabled}
+                  required={activityMandatoryFields.ActivityYear}
+                  search
+                />
+              </div>
+            </Form.Group>
+            <Form.Group widths="equal">
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitActivityEmployeesNumberTooltip')}
+                data-position="top left"
+              >
+                <Popup
+                  trigger={
+                    <Form.Input
+                      label={localize('StatUnitActivityEmployeesNumber')}
+                      placeholder={localize('StatUnitActivityEmployeesNumber')}
+                      type="number"
+                      name="employees"
+                      value={value.employees}
+                      onChange={this.onFieldChange}
+                      min={0}
+                      required={activityMandatoryFields.Employees}
+                      disabled={disabled}
+                      autoComplete="off"
+                    />
+                  }
+                  content={`6 ${localize('MaxLength')}`}
+                  open={value.employees != null && value.employees.length > 6}
+                />
+              </div>
+              <div
+                data-tooltip={localize('InThousandsKGS')}
+                data-position="top left"
+                className="field"
+              >
+                <Popup
+                  trigger={
+                    <Form.Input
+                      label={localize('Turnover')}
+                      placeholder={localize('Turnover')}
+                      name="turnover"
+                      type="number"
+                      value={value.turnover}
+                      onChange={this.onFieldChange}
+                      min={0}
+                      disabled={disabled}
+                      required={activityMandatoryFields.Turnover}
+                      autoComplete="off"
+                    />
+                  }
+                  content={`10 ${localize('MaxLength')}`}
+                  open={value.turnover != null && value.turnover.length > 10}
+                />
+              </div>
+            </Form.Group>
+            <Form.Group widths="equal">
+              <div
+                className="field"
+                data-tooltip={localize('StatUnitActivityDateTooltip')}
+                data-position="top left"
+              >
+                <DateTimeField
+                  value={value.idDate}
+                  onChange={this.onFieldChange}
+                  name="idDate"
+                  label="StatUnitActivityDate"
+                  disabled={disabled}
+                  localize={localize}
+                  required={activityMandatoryFields.IdDate}
+                />
+              </div>
+              <div className="field right aligned">
+                <label htmlFor="saveBtn">&nbsp;</label>
+                <Button.Group>
+                  <div data-tooltip={localize('ButtonSave')} data-position="top center">
+                    <Button
+                      id="saveBtn"
+                      icon="check"
+                      color="green"
+                      onClick={this.saveHandler}
+                      disabled={
+                        disabled ||
+                        (activityMandatoryFields.Employees &&
+                          value.employees != null && value.employees.length > 6) ||
+                        (value.turnover != null && value.turnover.length > 10) ||
+                        (activityMandatoryFields.ActivityCategoryId && !value.activityCategoryId) ||
+                        (activityMandatoryFields.ActivityType && !value.activityType) ||
+                        (activityMandatoryFields.ActivityYear && !value.activityYear) ||
+                        (activityMandatoryFields.Employees && !value.employees && employeesIsNaN) ||
+                        (activityMandatoryFields.Turnover && !value.turnover) ||
+                        (activityMandatoryFields.IdDate && !value.idDate) ||
+                        !touched
+                      }
+                    />
+                  </div>
+                  <div data-tooltip={localize('ButtonCancel')} data-position="top center">
+                    <Button
+                      type="button"
+                      icon="cancel"
+                      color="red"
+                      onClick={this.cancelHandler}
+                      disabled={disabled}
+                    />
+                  </div>
+                </Button.Group>
+              </div>
+            </Form.Group>
+          </Form>
+        </Table.Cell>
+      </Table.Row>
+    )
+  }
 }
 
 export default ActivityEdit
