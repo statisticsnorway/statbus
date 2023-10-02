@@ -349,3 +349,11 @@ x64                     # 'arm64' wil not work yet
 
 > New Beta feature for macOS 13, Rosetta for Linux, has been added
 for faster emulation of Intel-based images on Apple Silicon.
+
+
+# Supabase
+
+This project use Supabase services.
+This was set up as a git submodule.
+
+Management of supabase is done with `./devops/manage-supabase.sh`.

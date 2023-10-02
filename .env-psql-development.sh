@@ -1,0 +1,6 @@
+export PGHOST=localhost
+export PGPORT=$(awk -F '=' '/POSTGRES_PORT/{print $2}' supabase/docker/.env)
+export PGUSER=postgres
+export PGDATABASE=$(awk -F '=' '/POSTGRES_DB/{print $2}' supabase/docker/.env)
+export PGPASSWORD=$(awk -F '=' '/POSTGRES_PASSWORD/{print $2}' supabase/docker/.env)
+export STATBUS_DB_PASSWORD=$(cat ./db-statbus-password.txt)
