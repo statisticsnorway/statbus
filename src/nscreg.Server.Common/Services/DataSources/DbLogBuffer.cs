@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -60,16 +59,15 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.SaveChangesAsync();
             if (Buffer.Count >= MaxCount)
             {
-                await FlushAsync();
+                Flush();
             }
         }
         /// <summary>
         /// Flushes buffer to database
         /// </summary>
         /// <returns></returns>
-        public async Task FlushAsync()
+        public void Flush()
         {
-            await _context.BulkInsertAsync(Buffer);
             Buffer.Clear();
         }
 
