@@ -57,7 +57,7 @@ case "$action" in
       ;;
      * )
       echo "Unknown action '$action', select one of"
-      awk '/^ +''(.+)'' \)$/{print $1}' $WORKSPACE/devops/manage-supabase.sh
+      awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-supabase.sh
       exit 1
       ;;
 esac
