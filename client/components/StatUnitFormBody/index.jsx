@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 import { map, pipe } from 'ramda'
@@ -9,32 +9,20 @@ import FieldGroup from './FieldGroup'
 import Field from './Field'
 import getSectioned from './getSectioned'
 
-const FormBody = ({
-  values,
-  touched,
-  getFieldErrors,
-  isSubmitting,
-  setFieldValue,
-  handleChange,
-  handleBlur,
-  fieldsMeta,
-  localize,
-  locale,
-  regId,
-}) => {
-  const renderGroup = group => (
+class FormBody extends Component {
+  renderGroup = group => (
     <FieldGroup key={group.key} isExtended={group.isExtended}>
       {group.fieldsMeta.map(Field)}
     </FieldGroup>
   )
 
-  const renderSection = section => (
-    <FormSection key={section.key} id={section.key} title={localize(section.key)}>
-      {section.groups.map(renderGroup)}
+  renderSection = section => (
+    <FormSection key={section.key} id={section.key} title={this.props.localize(section.key)}>
+      {section.groups.map(this.renderGroup)}
     </FormSection>
   )
 
-  const toFieldMeta = ([key, value]) => {
+  toFieldMeta = ([key, value]) => {
     const {
       selector,
       isRequired,
@@ -43,7 +31,7 @@ const FormBody = ({
       writable,
       popupLocalizedKey,
       ...restProps
-    } = fieldsMeta[key]
+    } = this.props.fieldsMeta[key]
 
     const props = {
       ...restProps,
@@ -51,26 +39,33 @@ const FormBody = ({
       fieldType: selector,
       name: key,
       value,
-      setFieldValue,
-      onChange: handleChange,
-      onBlur: handleBlur,
+      setFieldValue: this.props.setFieldValue,
+      onChange: this.props.handleChange,
+      onBlur: this.props.handleBlur,
       label: localizeKey,
-      touched: !!touched[key],
-      errors: getFieldErrors(key),
-      disabled: isSubmitting || !writable,
+      touched: !!this.props.touched[key],
+      errors: this.props.getFieldErrors(key),
+      disabled: this.props.isSubmitting || !writable,
       required: isRequired,
-      localize,
-      locale,
+      localize: this.props.localize,
+      locale: this.props.locale,
       popuplocalizedKey: popupLocalizedKey,
-      regId,
+      regId: this.props.regId,
     }
 
     return { section: groupName, props }
   }
 
-  const sections = pipe(Object.entries, map(toFieldMeta), getSectioned, map(renderSection))(values)
+  render() {
+    const sections = pipe(
+      Object.entries,
+      map(this.toFieldMeta),
+      getSectioned,
+      map(this.renderSection),
+    )(this.props.values)
 
-  return <Segment.Group>{sections}</Segment.Group>
+    return <Segment.Group>{sections}</Segment.Group>
+  }
 }
 
 const { bool, shape, string, number, objectOf } = PropTypes

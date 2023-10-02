@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { func, string, arrayOf, shape, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Loader } from 'semantic-ui-react'
@@ -33,7 +33,7 @@ const onLoadData = loadNode => (node) => {
   })
 }
 
-function ActivityTree({
+const ActivityTree = ({
   dataTree,
   localize,
   name,
@@ -43,9 +43,11 @@ function ActivityTree({
   loadNode,
   loaded,
   disabled,
-}) {
-  const [treeData] = useState(buildTree(dataTree.filter(x => x.parentId === 0).map(transform), dataTree.map(transform)))
-
+}) => {
+  const tree = buildTree(
+    dataTree.filter(x => x.parentId === 0).map(transform),
+    dataTree.map(transform),
+  )
   return (
     <div>
       <label htmlFor={name}>{localize(label)}</label>
@@ -59,7 +61,7 @@ function ActivityTree({
           loadData={onLoadData(loadNode)}
         >
           <TreeNode title={localize('AllActivities')} key="all">
-            {treeData}
+            {tree}
           </TreeNode>
         </Tree>
       ) : (
