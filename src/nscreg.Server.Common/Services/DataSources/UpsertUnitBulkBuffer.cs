@@ -77,10 +77,15 @@ namespace nscreg.Server.Common.Services.DataSources
                 var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
 
                 await _context.Activities.AddRangeAsync(activities.Where(x => x.Id == 0));
+                await _context.SaveChangesAsync();
                 await _context.Activities.AddRangeAsync(activities.Where(x => x.Id != 0));
+                await _context.SaveChangesAsync();
                 await _context.Persons.AddRangeAsync(persons.Where(x => x.Id == 0));
+                await _context.SaveChangesAsync();
                 await _context.Persons.AddRangeAsync(persons.Where(x => x.Id != 0));
+                await _context.SaveChangesAsync();
                 _context.Address.UpdateRange(addresses);
+                await _context.SaveChangesAsync();
 
                 Buffer.ForEach(unit =>
                 {
@@ -93,18 +98,23 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var groups = enterprises.Select(x => x.EnterpriseGroup).Where(z => z != null).ToList();
                 _context.EnterpriseGroups.UpdateRange(groups);
+                await _context.SaveChangesAsync();
 
                 enterprises.ForEach(x => x.EntGroupId = x.EnterpriseGroup?.RegId);
                 _context.EnterpriseUnits.UpdateRange(enterprises);
+                await _context.SaveChangesAsync();
 
                 var legals = Buffer.OfType<LegalUnit>().ToList();
                 legals.ForEach(x => x.EnterpriseUnitRegId = x.EnterpriseUnit?.RegId);
 
                 _context.LegalUnits.UpdateRange(legals);
+                await _context.SaveChangesAsync();
 
                 var locals = Buffer.OfType<LocalUnit>().ToList();
-                locals.ForEach(x => x.LegalUnitId = x.LegalUnit?.RegId);
+                locals.ForEach(x => x.LegalUnitId = x.LegalUnit?.RegId);           
+
                 _context.LocalUnits.UpdateRange(locals);
+                await _context.SaveChangesAsync();
 
                 var legalStatIds = new List<string>();
 
@@ -124,6 +134,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 });
 
                 _context.LegalUnits.UpdateRange(legals);
+                await _context.SaveChangesAsync();
 
                 var legalsOfEnterprises = await _context.LegalUnits.Where(leu => legalStatIds.Contains(leu.StatId))
                     .Select(x => new { x.StatId, x.RegId }).ToListAsync();
@@ -134,6 +145,7 @@ namespace nscreg.Server.Common.Services.DataSources
                     );
 
                 _context.EnterpriseUnits.UpdateRange(enterprises);
+                await _context.SaveChangesAsync();
 
                 Buffer.ForEach(buf => buf.ActivitiesUnits.ForEach(au =>
                 {
@@ -150,11 +162,16 @@ namespace nscreg.Server.Common.Services.DataSources
                 }));
 
                 _context.ActivityStatisticalUnits.UpdateRange(activityUnits);
+                await _context.SaveChangesAsync();
                 _context.PersonStatisticalUnits.UpdateRange(personUnits);
+                await _context.SaveChangesAsync();
                 _context.PersonStatisticalUnits.UpdateRange(personUnits);
+                await _context.SaveChangesAsync();
                 _context.CountryStatisticalUnits.UpdateRange(foreignCountry);
+                await _context.SaveChangesAsync();
 
                 _context.EnterpriseUnits.RemoveRange(BufferToDelete);
+                await _context.SaveChangesAsync();
 
                 if (HistoryBuffer.Any())
                 {
@@ -163,8 +180,11 @@ namespace nscreg.Server.Common.Services.DataSources
                     var enterpriseUnitHistory = HistoryBuffer.OfType<EnterpriseUnitHistory>().ToList();
 
                     await _context.LocalUnitHistory.AddRangeAsync(localUnitHistory);
+                    await _context.SaveChangesAsync();
                     await _context.LegalUnitHistory.AddRangeAsync(legalUnitHistory);
+                    await _context.SaveChangesAsync();
                     await _context.EnterpriseUnitHistory.AddRangeAsync(enterpriseUnitHistory);
+                    await _context.SaveChangesAsync();
 
                     var concatHistories = localUnitHistory.Cast<StatisticalUnitHistory>()
                         .Concat(legalUnitHistory)
@@ -174,9 +194,6 @@ namespace nscreg.Server.Common.Services.DataSources
 
                     var activitiesHistory = statUnitHistories.SelectMany(x => x.Activities.Distinct(new IdComparer<ActivityHistory>()))
                             .ToList();
-
-                    //How to solve this one??
-                    //await _context.BulkInsertAsync(activitiesHistory, historyBulkConfig);
 
                     statUnitHistories.GroupJoin(concatHistories, concatHistory => concatHistory.StatId, statUnitHistory => statUnitHistory.StatId, (stathistory, statCollection) => (stathistory: stathistory, statCollection: statCollection)).ForEach(x =>
                     {
@@ -203,8 +220,11 @@ namespace nscreg.Server.Common.Services.DataSources
                     });
 
                     await _context.ActivityStatisticalUnitHistory.AddRangeAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
+                    await _context.SaveChangesAsync();
                     await _context.PersonStatisticalUnitHistory.AddRangeAsync(statUnitHistories.SelectMany(x => x.PersonsUnits).ToList());
+                    await _context.SaveChangesAsync();
                     await _context.CountryStatisticalUnitHistory.AddRangeAsync(statUnitHistories.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList());
+                    await _context.SaveChangesAsync();
                 }
 
                 if (Buffer.Any())
