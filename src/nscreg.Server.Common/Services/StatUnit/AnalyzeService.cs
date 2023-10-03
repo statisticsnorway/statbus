@@ -123,7 +123,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
             }
 
-            await _context.BulkInsertAsync(analysisLogs);
+            await _context.AnalysisLogs.AddRangeAsync(analysisLogs);
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
@@ -163,7 +164,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 });
             }
 
-            await _context.BulkInsertAsync(analysisLogs);
+            await _context.AnalysisLogs.AddRangeAsync(analysisLogs);
+            await _context.SaveChangesAsync();
         }
 
         private async Task AddAnalysisLogs(int analysisQueueId, IStatisticalUnit unitForAnalysis, IStatUnitAnalyzer analyzer)
