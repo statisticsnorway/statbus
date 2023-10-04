@@ -53,14 +53,14 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             if (!analysisQueue.ServerStartPeriod.HasValue)
             {
-                analysisQueue.ServerStartPeriod = DateTime.Now;
+                analysisQueue.ServerStartPeriod = DateTimeOffset.Now;
                 await _context.SaveChangesAsync();
             }
             var analyzer = new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings);
             await BulkAnalyzeStatisticalUnits(analysisQueue, analyzer);
             await BulkAnalyzeEnterpriseGroups(analysisQueue, analyzer);
 
-            analysisQueue.ServerEndPeriod = DateTime.Now;
+            analysisQueue.ServerEndPeriod = DateTimeOffset.Now;
             await _context.SaveChangesAsync();
         }
 
