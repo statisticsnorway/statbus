@@ -8,12 +8,7 @@ const TableHeader = ({ localize, showLegalFormColumn }) => (
       <Table.HeaderCell>{localize('StatId')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('Name')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('Region')}</Table.HeaderCell>
-      <Table.HeaderCell>{localize('AddressPart1')}</Table.HeaderCell>
-      <Table.HeaderCell>{localize('AddressPart2')}</Table.HeaderCell>
-      {showLegalFormColumn && <Table.HeaderCell>{localize('LegalForm')}</Table.HeaderCell>}
-      <Table.HeaderCell>{localize('ContactPerson')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('PrimaryActivity')}</Table.HeaderCell>
-      <Table.HeaderCell>{localize('TaxRegId')}</Table.HeaderCell>
       <Table.HeaderCell />
     </Table.Row>
   </Table.Header>
