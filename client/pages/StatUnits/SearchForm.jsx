@@ -35,6 +35,11 @@ function SearchForm({
   }, [initialFormData])
 
   useEffect(() => {
+    // Set Enterprise unit as default on form load
+    handleChange('type', 3)
+  }, [])
+
+  useEffect(() => {
     if (
       (formData.turnoverTo || formData.turnoverFrom) &&
       (formData.employeesNumberTo || formData.employeesNumberFrom)
