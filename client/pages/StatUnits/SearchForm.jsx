@@ -71,7 +71,7 @@ function SearchForm({
     text: localize(kv[1]),
   }))
 
-  const type = typeOptions[Number(formData.type) || 3].value
+  const type = typeOptions[Number(formData.type) || 0].value
 
   const includeLiquidated =
     formData.includeLiquidated && formData.includeLiquidated.toString().toLowerCase() === 'true'
