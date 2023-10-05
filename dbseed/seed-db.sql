@@ -2485,5 +2485,22 @@ INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id",
 
 SELECT setval(pg_get_serial_sequence('"region"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "region"), 1), false);
 
+
+INSERT INTO "enterprise_group_role" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (1, 'Management/control unit', false, NULL, NULL, '1');
+INSERT INTO "enterprise_group_role" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (2, 'Global group head (controlling unit)', false, NULL, NULL, '2');
+INSERT INTO "enterprise_group_role" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (3, 'Global decision centre (managing unit)', false, NULL, NULL, '3');
+INSERT INTO "enterprise_group_role" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (4, 'Highest level consolidation unit', false, NULL, NULL, '4');
+INSERT INTO "enterprise_group_role" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (5, 'Other', false, NULL, NULL, '5');
+
+SELECT setval(pg_get_serial_sequence('"enterprise_group_role"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "enterprise_group_role"), 1), false);
+
+
+INSERT INTO "enterprise_group_type" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (1, 'All-residents', false, 'Все резиденты', 'Бардык резидент', '1');
+INSERT INTO "enterprise_group_type" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (2, 'Multinational domestically controlled ', false, 'Многонациональный внутренний контроль', 'Көп улуттуу өлкө башкарылат', '2');
+INSERT INTO "enterprise_group_type" ("id", "name", "is_deleted", "name_language1", "name_language2", "code") VALUES (3, 'Multinational foreign controlled', false, 'Многонациональный иностранный контроль', 'Көп улуттуу чет элдик көзөмөлдө', '3');
+
+SELECT setval(pg_get_serial_sequence('"enterprise_group_type"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "enterprise_group_type"), 1), false);
+
+
 END;
 
