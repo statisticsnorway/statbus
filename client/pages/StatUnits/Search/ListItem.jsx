@@ -1,9 +1,9 @@
 import React from 'react'
 import { number, string, func, shape, bool } from 'prop-types'
-import { Table } from 'semantic-ui-react'
+import { Table, Icon } from 'semantic-ui-react'
 
 import { canRead, checkSystemFunction as checkSF } from '/client/helpers/config'
-import { statUnitTypes } from '/client/helpers/enums'
+import { statUnitTypes, statUnitIcons } from '/client/helpers/enums'
 import { getNewName } from '/client/helpers/locale'
 import styles from './styles.scss'
 
@@ -17,7 +17,13 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
   return (
     <Table.Body className={styles['table-body']}>
       <Table.Row style={{ cursor: 'pointer' }} onClick={viewStatUnit}>
-        <Table.Cell>
+        <Table.Cell style={{ verticalAlign: 'middle' }}>
+          <img
+            style={{ width: '25px', marginBottom: '-7px', marginRight: '7px' }}
+            src={`fonts/${statUnitTypes.get(statUnit.type)}.png`}
+            title={localize(title)}
+            alt={statUnitTypes.get(statUnit.type)}
+          />
           {checkSF('StatUnitView') ? (
             `${statUnit.statId} - ${localize(title)}`
           ) : (
