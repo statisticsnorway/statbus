@@ -27,11 +27,21 @@ SET default_table_access_method = heap;
 ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
 
 
---SET search_path TO "$user", auth, public, extensions;
+CREATE TYPE public.statbus_role_type AS ENUM('administrator', 'employee', 'external_user');
 
-CREATE TABLE public."user" (
+CREATE TABLE public."statbus_role" (
+    id SERIAL PRIMARY KEY NOT NULL,
+    role_type public.statbus_role_type NOT NULL,
+    name character varying(256) NOT NULL UNIQUE,
+    description text
+);
+-- There can only ever by one administrator role.
+CREATE UNIQUE INDEX statbus_role_role_type ON public."statbus_role"(role_type) WHERE role_type = 'administrator';
+
+CREATE TABLE public."statbus_user" (
   id SERIAL PRIMARY KEY,
-  uuid uuid NOT NULL REFERENCES auth.users ON DELETE CASCADE,
+  uuid uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
   UNIQUE (uuid)
 );
 
@@ -43,7 +53,7 @@ LANGUAGE PLPGSQL
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO public."user" (uuid) VALUES (new.id);
+  INSERT INTO public."statbus_user" (uuid) VALUES (new.id);
   RETURN new;
 END;
 $$;
@@ -53,26 +63,104 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.create_new_statbus_user();
 
---SET search_path TO "$user", public, extensions;
 
-CREATE TABLE public."role" (
-    id SERIAL PRIMARY KEY NOT NULL,
-    name character varying(256),
-    description text
-);
+INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('administrator', 'Administrator', 'Can do everything in the Web interface');
+INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('employee', 'Employee', 'Can see everything and edit according to assigned region and/or activity');
+INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('external_user', 'ExternalUser', 'Can see everything');
 
 
-CREATE TABLE public."user_roles" (
-    id SERIAL PRIMARY KEY NOT NULL,
-    user_id INTEGER NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,
-    role_id INTEGER NOT NULL REFERENCES public.role(id) ON DELETE CASCADE,
-    UNIQUE(user_id, role_id)
-);
+CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+  SELECT EXISTS (
+    SELECT users.id
+    FROM statbus_user
+    WHERE ((statbus_user.uuid = $1)
+      AND ($2 = statbus_user.role_type)))
+$$;
 
 
-INSERT INTO public."role"(name, description) VALUES ('Administrator', 'Can do everything in the Web interface');
-INSERT INTO public."role"(name, description) VALUES ('Employee', 'Can see everything and edit according to assigned region and/or activity');
-INSERT INTO public."role"(name, description) VALUES ('ExternalUser', 'Can see everything');
+CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.statbus_role_type[])
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+  SELECT EXISTS (
+    SELECT statbus_user.id
+    FROM statbus_user
+    WHERE (statbus_user.uuid = $1)
+      AND ($2 = ANY (statbus_user.role_type))
+  )
+$$;
+
+
+CREATE OR REPLACE FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer)
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+    SELECT EXISTS(
+        SELECT public.statbus_user.id
+        FROM public.statbus_user AS u
+        INNER JOIN public.activity_category_role AS acr ON acr.role_id = u.role_id
+        WHERE u.uuid = $1
+          AND acr.activity_category_id  = $2
+   )
+$$;
+
+
+CREATE OR REPLACE FUNCTION auth.has_region_access (user_uuid UUID, region_id integer)
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+    SELECT EXISTS(
+        SELECT public.statbus_user.id
+        FROM public.statbus_user AS u
+        INNER JOIN public.region_role ON region_role.role_id = u.role_id
+        WHERE u.uuid = $1
+          AND acr.region_id  = $2
+   )
+$$;
+
+
+-- Example statbus_role checking
+--CREATE POLICY "public view access" ON public_records AS PERMISSIVE FOR SELECT TO public USING (true);
+--CREATE POLICY "premium view access" ON premium_records AS PERMISSIVE FOR SELECT TO authenticated USING (
+--  has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type)
+--);
+--CREATE POLICY "premium and admin view access" ON premium_records AS PERMISSIVE FOR SELECT TO authenticated USING (
+--  has_one_of_statbus_roles(auth.uid(), array['administrator', 'employee']::public.statbus_role_type[])
+--);
+
+
+-- Piggyback on auth.users for scalability
+-- Ref. https://github.com/supabase-community/supabase-custom-claims
+-- and https://github.com/supabase-community/supabase-custom-claims/blob/main/install.sql
+
+
+-- Use a separate user table, and add a custom permission
+-- Ref. https://medium.com/@jimmyruann/row-level-security-custom-permission-base-authorization-with-supabase-91389e6fc48c
+
+-- Use the built in postgres role system to have different roles
+-- Ref. https://github.com/orgs/supabase/discussions/11948
+-- Create a new role
+-- CREATE ROLE new_role_1;
+-- -- Allow the login logic to assign this new role
+-- GRANT new_role_1 TO authenticator;
+-- -- Mark the new role as having the same rights as
+-- -- any authenticted person.
+-- GRANT authenticated TO new_role_1
+-- -- Change the user to use the new role
+-- UPDATE auth.users SET role = 'new_role_1' WHERE id = <some-user-uuid>;
+
+
 
 -- TODO: Formulate RLS for the roles.
 --CREATE POLICY "Public users are viewable by everyone." ON "user" FOR SELECT USING ( true );
@@ -133,12 +221,14 @@ ALTER TABLE public.activity_category ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Name: activity_category_user; Type: TABLE; Schema: public; Owner: statbus_development
+-- Name: activity_category_role; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
-CREATE TABLE public.activity_category_user (
-    user_id integer NOT NULL,
-    activity_category_id integer NOT NULL
+CREATE TABLE public.activity_category_role (
+    id SERIAL PRIMARY KEY NOT NULL,
+    role_id integer NOT NULL,
+    activity_category_id integer NOT NULL,
+    UNIQUE(role_id, activity_category_id)
 );
 
 
@@ -1344,12 +1434,14 @@ ALTER TABLE public.unit_status ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENT
 
 
 --
--- Name: user_region; Type: TABLE; Schema: public; Owner: statbus_development
+-- Name: region_role; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
-CREATE TABLE public.user_region (
-    user_id integer NOT NULL,
-    region_id integer NOT NULL
+CREATE TABLE public.region_role (
+    id SERIAL PRIMARY KEY NOT NULL,
+    role_id integer NOT NULL,
+    region_id integer NOT NULL,
+    UNIQUE(role_id, region_id)
 );
 
 
@@ -1372,10 +1464,10 @@ COPY public.activity_category (id, section, parent_id, dic_parent_id, version_id
 
 
 --
--- Data for Name: activity_category_user; Type: TABLE DATA; Schema: public; Owner: statbus_development
+-- Data for Name: activity_category_role; Type: TABLE DATA; Schema: public; Owner: statbus_development
 --
 
-COPY public.activity_category_user (user_id, activity_category_id) FROM stdin;
+COPY public.activity_category_role (role_id, activity_category_id) FROM stdin;
 \.
 
 
@@ -1644,10 +1736,10 @@ COPY public.unit_status (id, name, is_deleted, name_language1, name_language2, c
 
 
 --
--- Data for Name: user_region; Type: TABLE DATA; Schema: public; Owner: statbus_development
+-- Data for Name: region_role; Type: TABLE DATA; Schema: public; Owner: statbus_development
 --
 
-COPY public.user_region (user_id, region_id) FROM stdin;
+COPY public.region_role (role_id, region_id) FROM stdin;
 \.
 
 
@@ -1889,14 +1981,6 @@ ALTER TABLE ONLY public.activity
 
 ALTER TABLE ONLY public.activity_category
     ADD CONSTRAINT pk_activity_category PRIMARY KEY (id);
-
-
---
--- Name: activity_category_user pk_activity_category_user; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity_category_user
-    ADD CONSTRAINT pk_activity_category_user PRIMARY KEY (user_id, activity_category_id);
 
 
 --
@@ -2164,14 +2248,6 @@ ALTER TABLE ONLY public.unit_status
 
 
 --
--- Name: user_region pk_user_region; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.user_region
-    ADD CONSTRAINT pk_user_region PRIMARY KEY (user_id, region_id);
-
-
---
 -- Name: ix_activity_activity_category_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2193,10 +2269,11 @@ CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING bt
 
 
 --
--- Name: ix_activity_category_user_activity_category_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_activity_category_role_activity_category_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_activity_category_user_activity_category_id ON public.activity_category_user USING btree (activity_category_id);
+CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
+CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
 
 
 --
@@ -2943,10 +3020,10 @@ CREATE UNIQUE INDEX ix_unit_status_code ON public.unit_status USING btree (code)
 
 
 --
--- Name: ix_user_region_region_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_region_role; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_user_region_region_id ON public.user_region USING btree (region_id);
+CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
 
 
 --
@@ -2966,19 +3043,19 @@ ALTER TABLE ONLY public.activity_category
 
 
 --
--- Name: activity_category_user fk_activity_category_user_activity_category_activity_category_; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: activity_category_role fk_activity_category_role_activity_category_activity_category_; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
-ALTER TABLE ONLY public.activity_category_user
-    ADD CONSTRAINT fk_activity_category_user_activity_category_activity_category_ FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.activity_category_role
+    ADD CONSTRAINT fk_activity_category_role_activity_category_activity_category_ FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
 
 
 --
--- Name: activity_category_user fk_activity_category_user_user_user_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: activity_category_role fk_activity_category_role_user_user_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
-ALTER TABLE ONLY public.activity_category_user
-    ADD CONSTRAINT fk_activity_category_user_user_user_id FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.activity_category_role
+    ADD CONSTRAINT fk_activity_category_role_role_role_id FOREIGN KEY (role_id) REFERENCES public."statbus_role"(id) ON DELETE CASCADE;
 
 
 --
@@ -3026,7 +3103,7 @@ ALTER TABLE ONLY public.activity_legal_unit
 --
 
 ALTER TABLE ONLY public.activity
-    ADD CONSTRAINT fk_activity_user_updated_by_user_id_user_id FOREIGN KEY (updated_by_user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_activity_user_updated_by_user_id_user_id FOREIGN KEY (updated_by_user_id) REFERENCES public."statbus_user"(id) ON DELETE CASCADE;
 
 
 --
@@ -3050,7 +3127,7 @@ ALTER TABLE ONLY public.analysis_log
 --
 
 ALTER TABLE ONLY public.analysis_queue
-    ADD CONSTRAINT fk_analysis_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_analysis_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public."statbus_user"(id) ON DELETE CASCADE;
 
 
 --
@@ -3106,7 +3183,7 @@ ALTER TABLE ONLY public.data_source_queue
 --
 
 ALTER TABLE ONLY public.data_source_queue
-    ADD CONSTRAINT fk_data_source_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public."user"(id);
+    ADD CONSTRAINT fk_data_source_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public."statbus_user"(id);
 
 
 --
@@ -3114,7 +3191,7 @@ ALTER TABLE ONLY public.data_source_queue
 --
 
 ALTER TABLE ONLY public.data_source
-    ADD CONSTRAINT fk_data_source_user_user_id FOREIGN KEY (user_id) REFERENCES public."user"(id);
+    ADD CONSTRAINT fk_data_source_user_user_id FOREIGN KEY (user_id) REFERENCES public."statbus_user"(id);
 
 
 --
@@ -3586,7 +3663,7 @@ ALTER TABLE ONLY public.region
 --
 
 ALTER TABLE ONLY public.sample_frame
-    ADD CONSTRAINT fk_sample_frame_user_user_id FOREIGN KEY (user_id) REFERENCES public."user"(id);
+    ADD CONSTRAINT fk_sample_frame_user_user_id FOREIGN KEY (user_id) REFERENCES public."statbus_user"(id);
 
 
 --
@@ -3598,19 +3675,19 @@ ALTER TABLE ONLY public.sector_code
 
 
 --
--- Name: user_region fk_user_region_region_region_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: region_role fk_region_role; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
-ALTER TABLE ONLY public.user_region
-    ADD CONSTRAINT fk_user_region_region_region_id FOREIGN KEY (region_id) REFERENCES public.region(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.region_role
+    ADD CONSTRAINT fk_region_role_region_id FOREIGN KEY (region_id) REFERENCES public.region(id) ON DELETE CASCADE;
 
 
 --
--- Name: user_region fk_user_region_user_user_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: region_role fk_region_role; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
-ALTER TABLE ONLY public.user_region
-    ADD CONSTRAINT fk_user_region_user_user_id FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.region_role
+    ADD CONSTRAINT fk_region_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
 
 
 --
@@ -3619,12 +3696,11 @@ ALTER TABLE ONLY public.user_region
 
 
 
-ALTER TABLE public."user" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public."role" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public."user_roles" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."statbus_user" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."statbus_role" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_category ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity_category_user ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_category_role ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_legal_unit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.address ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.analysis_log ENABLE ROW LEVEL SECURITY;
@@ -3658,46 +3734,102 @@ ALTER TABLE public.sample_frame ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sector_code ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.unit_size ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.unit_status ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_region ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.region_role ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY activity_anon_read ON public.activity FOR SELECT TO anon USING (true);
-CREATE POLICY activity_category_anon_read ON public.activity_category FOR SELECT TO anon USING (true);
-CREATE POLICY activity_category_user_anon_read ON public.activity_category_user FOR SELECT TO anon USING (true);
-CREATE POLICY activity_legal_unit_anon_read ON public.activity_legal_unit FOR SELECT TO anon USING (true);
-CREATE POLICY address_anon_read ON public.address FOR SELECT TO anon USING (true);
-CREATE POLICY analysis_log_anon_read ON public.analysis_log FOR SELECT TO anon USING (true);
-CREATE POLICY analysis_queue_anon_read ON public.analysis_queue FOR SELECT TO anon USING (true);
-CREATE POLICY country_anon_read ON public.country FOR SELECT TO anon USING (true);
-CREATE POLICY country_for_unit_anon_read ON public.country_for_unit FOR SELECT TO anon USING (true);
-CREATE POLICY custom_analysis_check_anon_read ON public.custom_analysis_check FOR SELECT TO anon USING (true);
-CREATE POLICY data_source_anon_read ON public.data_source FOR SELECT TO anon USING (true);
-CREATE POLICY data_source_classification_anon_read ON public.data_source_classification FOR SELECT TO anon USING (true);
-CREATE POLICY data_source_queue_anon_read ON public.data_source_queue FOR SELECT TO anon USING (true);
-CREATE POLICY data_uploading_log_anon_read ON public.data_uploading_log FOR SELECT TO anon USING (true);
-CREATE POLICY dictionary_version_anon_read ON public.dictionary_version FOR SELECT TO anon USING (true);
-CREATE POLICY enterprise_group_anon_read ON public.enterprise_group FOR SELECT TO anon USING (true);
-CREATE POLICY enterprise_group_role_anon_read ON public.enterprise_group_role FOR SELECT TO anon USING (true);
-CREATE POLICY enterprise_group_type_anon_read ON public.enterprise_group_type FOR SELECT TO anon USING (true);
-CREATE POLICY enterprise_unit_anon_read ON public.enterprise_unit FOR SELECT TO anon USING (true);
-CREATE POLICY foreign_participation_anon_read ON public.foreign_participation FOR SELECT TO anon USING (true);
-CREATE POLICY history_anon_read ON public.history FOR SELECT TO anon USING (true);
-CREATE POLICY legal_form_anon_read ON public.legal_form FOR SELECT TO anon USING (true);
-CREATE POLICY legal_unit_anon_read ON public.legal_unit FOR SELECT TO anon USING (true);
-CREATE POLICY local_unit_anon_read ON public.local_unit FOR SELECT TO anon USING (true);
-CREATE POLICY person_anon_read ON public.person FOR SELECT TO anon USING (true);
-CREATE POLICY person_for_unit_anon_read ON public.person_for_unit FOR SELECT TO anon USING (true);
-CREATE POLICY person_type_anon_read ON public.person_type FOR SELECT TO anon USING (true);
-CREATE POLICY postal_index_anon_read ON public.postal_index FOR SELECT TO anon USING (true);
-CREATE POLICY region_anon_read ON public.region FOR SELECT TO anon USING (true);
-CREATE POLICY registration_reason_anon_read ON public.registration_reason FOR SELECT TO anon USING (true);
-CREATE POLICY reorg_type_anon_read ON public.reorg_type FOR SELECT TO anon USING (true);
-CREATE POLICY report_tree_anon_read ON public.report_tree FOR SELECT TO anon USING (true);
-CREATE POLICY sample_frame_anon_read ON public.sample_frame FOR SELECT TO anon USING (true);
-CREATE POLICY sector_code_anon_read ON public.sector_code FOR SELECT TO anon USING (true);
-CREATE POLICY unit_size_anon_read ON public.unit_size FOR SELECT TO anon USING (true);
-CREATE POLICY unit_status_anon_read ON public.unit_status FOR SELECT TO anon USING (true);
-CREATE POLICY user_region_anon_read ON public.user_region FOR SELECT TO anon USING (true);
+-- All authenticated users can read everything, regardless of role.
+CREATE POLICY statbus_user_authenticated_read ON public.statbus_user FOR SELECT TO authenticated USING (true);
+CREATE POLICY statbus_role_authenticated_read ON public.statbus_role FOR SELECT TO authenticated USING (true);
+CREATE POLICY activity_authenticated_read ON public.activity FOR SELECT TO authenticated USING (true);
+CREATE POLICY activity_category_authenticated_read ON public.activity_category FOR SELECT TO authenticated USING (true);
+CREATE POLICY activity_category_role_authenticated_read ON public.activity_category_role FOR SELECT TO authenticated USING (true);
+CREATE POLICY activity_legal_unit_authenticated_read ON public.activity_legal_unit FOR SELECT TO authenticated USING (true);
+CREATE POLICY address_authenticated_read ON public.address FOR SELECT TO authenticated USING (true);
+CREATE POLICY analysis_log_authenticated_read ON public.analysis_log FOR SELECT TO authenticated USING (true);
+CREATE POLICY analysis_queue_authenticated_read ON public.analysis_queue FOR SELECT TO authenticated USING (true);
+CREATE POLICY country_authenticated_read ON public.country FOR SELECT TO authenticated USING (true);
+CREATE POLICY country_for_unit_authenticated_read ON public.country_for_unit FOR SELECT TO authenticated USING (true);
+CREATE POLICY custom_analysis_check_authenticated_read ON public.custom_analysis_check FOR SELECT TO authenticated USING (true);
+CREATE POLICY data_source_authenticated_read ON public.data_source FOR SELECT TO authenticated USING (true);
+CREATE POLICY data_source_classification_authenticated_read ON public.data_source_classification FOR SELECT TO authenticated USING (true);
+CREATE POLICY data_source_queue_authenticated_read ON public.data_source_queue FOR SELECT TO authenticated USING (true);
+CREATE POLICY data_uploading_log_authenticated_read ON public.data_uploading_log FOR SELECT TO authenticated USING (true);
+CREATE POLICY dictionary_version_authenticated_read ON public.dictionary_version FOR SELECT TO authenticated USING (true);
+CREATE POLICY enterprise_group_authenticated_read ON public.enterprise_group FOR SELECT TO authenticated USING (true);
+CREATE POLICY enterprise_group_role_authenticated_read ON public.enterprise_group_role FOR SELECT TO authenticated USING (true);
+CREATE POLICY enterprise_group_type_authenticated_read ON public.enterprise_group_type FOR SELECT TO authenticated USING (true);
+CREATE POLICY enterprise_unit_authenticated_read ON public.enterprise_unit FOR SELECT TO authenticated USING (true);
+CREATE POLICY foreign_participation_authenticated_read ON public.foreign_participation FOR SELECT TO authenticated USING (true);
+CREATE POLICY history_authenticated_read ON public.history FOR SELECT TO authenticated USING (true);
+CREATE POLICY legal_form_authenticated_read ON public.legal_form FOR SELECT TO authenticated USING (true);
+CREATE POLICY legal_unit_authenticated_read ON public.legal_unit FOR SELECT TO authenticated USING (true);
+CREATE POLICY local_unit_authenticated_read ON public.local_unit FOR SELECT TO authenticated USING (true);
+CREATE POLICY person_authenticated_read ON public.person FOR SELECT TO authenticated USING (true);
+CREATE POLICY person_for_unit_authenticated_read ON public.person_for_unit FOR SELECT TO authenticated USING (true);
+CREATE POLICY person_type_authenticated_read ON public.person_type FOR SELECT TO authenticated USING (true);
+CREATE POLICY postal_index_authenticated_read ON public.postal_index FOR SELECT TO authenticated USING (true);
+CREATE POLICY region_authenticated_read ON public.region FOR SELECT TO authenticated USING (true);
+CREATE POLICY registration_reason_authenticated_read ON public.registration_reason FOR SELECT TO authenticated USING (true);
+CREATE POLICY reorg_type_authenticated_read ON public.reorg_type FOR SELECT TO authenticated USING (true);
+CREATE POLICY report_tree_authenticated_read ON public.report_tree FOR SELECT TO authenticated USING (true);
+CREATE POLICY sample_frame_authenticated_read ON public.sample_frame FOR SELECT TO authenticated USING (true);
+CREATE POLICY sector_code_authenticated_read ON public.sector_code FOR SELECT TO authenticated USING (true);
+CREATE POLICY unit_size_authenticated_read ON public.unit_size FOR SELECT TO authenticated USING (true);
+CREATE POLICY unit_status_authenticated_read ON public.unit_status FOR SELECT TO authenticated USING (true);
+CREATE POLICY region_role ON public.region_role FOR SELECT TO authenticated USING (true);
 
+
+-- Administrators can do anything to any table.
+CREATE POLICY statbus_user_administrator_manage ON public.statbus_user FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY statbus_role_administrator_manage ON public.statbus_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY activity_administrator_manage ON public.activity FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY activity_category_administrator_manage ON public.activity_category FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY activity_category_role_administrator_manage ON public.activity_category_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY activity_legal_unit_administrator_manage ON public.activity_legal_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY address_administrator_manage ON public.address FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY analysis_log_administrator_manage ON public.analysis_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY analysis_queue_administrator_manage ON public.analysis_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY country_administrator_manage ON public.country FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY country_for_unit_administrator_manage ON public.country_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY custom_analysis_check_administrator_manage ON public.custom_analysis_check FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY data_source_administrator_manage ON public.data_source FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY data_source_classification_administrator_manage ON public.data_source_classification FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY data_source_queue_administrator_manage ON public.data_source_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY data_uploading_log_administrator_manage ON public.data_uploading_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY dictionary_version_administrator_manage ON public.dictionary_version FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY enterprise_group_administrator_manage ON public.enterprise_group FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY enterprise_group_role_administrator_manage ON public.enterprise_group_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY enterprise_group_type_administrator_manage ON public.enterprise_group_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY enterprise_unit_administrator_manage ON public.enterprise_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY foreign_participation_administrator_manage ON public.foreign_participation FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY history_administrator_manage ON public.history FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY legal_form_administrator_manage ON public.legal_form FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY legal_unit_administrator_manage ON public.legal_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY local_unit_administrator_manage ON public.local_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY person_administrator_manage ON public.person FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY person_for_unit_administrator_manage ON public.person_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY person_type_administrator_manage ON public.person_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY postal_index_administrator_manage ON public.postal_index FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY region_administrator_manage ON public.region FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY registration_reason_administrator_manage ON public.registration_reason FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY reorg_type_administrator_manage ON public.reorg_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY report_tree_administrator_manage ON public.report_tree FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY sample_frame_administrator_manage ON public.sample_frame FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY sector_code_administrator_manage ON public.sector_code FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY unit_size_administrator_manage ON public.unit_size FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY unit_status_administrator_manage ON public.unit_status FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY region_role_administrator_manage ON public.region_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+
+
+-- The employees can only update the tables designated by their assigned region or activity_category
+CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
+USING (auth.has_statbus_role(auth.uid(), 'employee'::public.statbus_role_type)
+       AND auth.has_activity_category_access(auth.uid(), activity_category_id)
+      )
+WITH CHECK (auth.has_statbus_role(auth.uid(), 'employee'::public.statbus_role_type)
+       AND auth.has_activity_category_access(auth.uid(), activity_category_id)
+      );
+
+--CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['administrator', 'employee']::public.statbus_role_type[]));
 
 END;
