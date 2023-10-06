@@ -1,59 +1,60 @@
 BEGIN;
 
-DROP TABLE public.history CASCADE;
+DROP TABLE public.history;
 
-DROP TABLE public.activity_category_role CASCADE;
-DROP TABLE public.activity_category CASCADE;
-DROP TABLE public.activity_legal_unit CASCADE;
-DROP TABLE public.activity CASCADE;
+DROP TABLE public.activity_legal_unit;
+DROP TABLE public.activity;
+DROP TABLE public.activity_category_role;
+DROP TABLE public.activity_category;
 
-DROP TABLE public.enterprise_group_role CASCADE;
-DROP TABLE public.enterprise_group CASCADE;
-DROP TABLE public.enterprise_unit CASCADE;
-DROP TABLE public.enterprise_group_type CASCADE;
+DROP TABLE public.country_for_unit;
+DROP TABLE public.person_for_unit;
 
-DROP TABLE public.address CASCADE;
-DROP TABLE public.analysis_log CASCADE;
-DROP TABLE public.analysis_queue CASCADE;
+DROP TABLE public.local_unit;
+DROP TABLE public.legal_unit;
 
-DROP TABLE public.country_for_unit CASCADE;
-DROP TABLE public.country CASCADE;
+DROP TABLE public.enterprise_unit;
+DROP TABLE public.enterprise_group_role;
+DROP TABLE public.enterprise_group;
+DROP TABLE public.enterprise_group_type;
 
-DROP TABLE public.custom_analysis_check CASCADE;
+DROP TABLE public.address;
+DROP TABLE public.analysis_log;
+DROP TABLE public.analysis_queue;
 
-DROP TABLE public.data_source_classification CASCADE;
-DROP TABLE public.data_source_queue CASCADE;
-DROP TABLE public.data_source CASCADE;
+DROP TABLE public.custom_analysis_check;
 
-DROP TABLE public.data_uploading_log CASCADE;
-DROP TABLE public.dictionary_version CASCADE;
+DROP TABLE public.data_uploading_log;
+DROP TABLE public.data_source_classification;
+DROP TABLE public.data_source_queue;
+DROP TABLE public.data_source;
 
-DROP TABLE public.foreign_participation CASCADE;
+DROP TABLE public.dictionary_version;
 
-DROP TABLE public.legal_form CASCADE;
-DROP TABLE public.legal_unit CASCADE;
-DROP TABLE public.local_unit CASCADE;
+DROP TABLE public.foreign_participation;
 
-DROP TABLE public.person_for_unit CASCADE;
-DROP TABLE public.person_type CASCADE;
-DROP TABLE public.person CASCADE;
+DROP TABLE public.person_type;
+DROP TABLE public.person;
 
-DROP TABLE public.postal_index CASCADE;
-DROP TABLE public.registration_reason CASCADE;
-DROP TABLE public.reorg_type CASCADE;
-DROP TABLE public.report_tree CASCADE;
-DROP TABLE public.sample_frame CASCADE;
-DROP TABLE public.sector_code CASCADE;
-DROP TABLE public.unit_size CASCADE;
-DROP TABLE public.unit_status CASCADE;
+DROP TABLE public.legal_form;
+DROP TABLE public.country;
 
-DROP TABLE public.region_role CASCADE;
-DROP TABLE public.region CASCADE;
+DROP TABLE public.postal_index;
+DROP TABLE public.registration_reason;
+DROP TABLE public.reorg_type;
+DROP TABLE public.report_tree;
+DROP TABLE public.sample_frame;
+DROP TABLE public.sector_code;
+DROP TABLE public.unit_size;
+DROP TABLE public.unit_status;
+
+DROP TABLE public.region_role;
+DROP TABLE public.region;
 
 DROP TRIGGER on_auth_user_created ON auth.users;
 
-DROP TABLE public."statbus_user" CASCADE;
-DROP TABLE public."statbus_role" CASCADE;
+DROP TABLE public."statbus_user";
+DROP TABLE public."statbus_role";
 
 DROP FUNCTION public.create_new_statbus_user();
 DROP FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type);
