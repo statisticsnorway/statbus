@@ -126,7 +126,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var query = GetUnitsList<T>(showDeleted);
             if (work != null) query = work(query);
-            var unitById = await query.SingleOrDefaultAsync(v => v.RegId == id);
+            var unitById = await query.AsSplitQuery().SingleOrDefaultAsync(v => v.RegId == id);
             return unitById;
         }
 
