@@ -1106,13 +1106,13 @@ CREATE TABLE public.person (
 --
 
 CREATE TABLE public.person_for_unit (
+    id SERIAL PRIMARY KEY NOT NULL,
     enterprise_unit_id integer NOT NULL,
     person_id integer NOT NULL,
     local_unit_id integer NOT NULL,
     legal_unit_id integer NOT NULL,
     enterprise_group_id integer,
-    person_type_id integer,
-    history_id integer
+    person_type_id integer
 );
 
 
@@ -1651,7 +1651,7 @@ COPY public.person (id, id_date, given_name, personal_id, surname, middle_name, 
 -- Data for Name: person_for_unit; Type: TABLE DATA; Schema: public; Owner: statbus_development
 --
 
-COPY public.person_for_unit (enterprise_unit_id, person_id, local_unit_id, legal_unit_id, enterprise_group_id, person_type_id, history_id) FROM stdin;
+COPY public.person_for_unit (enterprise_unit_id, person_id, local_unit_id, legal_unit_id, enterprise_group_id, person_type_id) FROM stdin;
 \.
 
 
@@ -2157,14 +2157,6 @@ ALTER TABLE ONLY public.local_unit
 
 ALTER TABLE ONLY public.person
     ADD CONSTRAINT pk_person PRIMARY KEY (id);
-
-
---
--- Name: person_for_unit pk_person_for_unit; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT pk_person_for_unit PRIMARY KEY (enterprise_unit_id, person_id);
 
 
 --
@@ -2915,13 +2907,6 @@ CREATE INDEX ix_person_for_unit_enterprise_unit_id ON public.person_for_unit USI
 
 
 --
--- Name: ix_person_for_unit_history_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_person_for_unit_history_id ON public.person_for_unit USING btree (history_id);
-
-
---
 -- Name: ix_person_for_unit_legal_unit_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -3608,14 +3593,6 @@ ALTER TABLE ONLY public.person_for_unit
 
 ALTER TABLE ONLY public.person_for_unit
     ADD CONSTRAINT fk_person_for_unit_enterprise_unit_enterprise_unit_id FOREIGN KEY (enterprise_unit_id) REFERENCES public.enterprise_unit(reg_id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_history_history_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_history_history_id FOREIGN KEY (history_id) REFERENCES public.history(id);
 
 
 --
