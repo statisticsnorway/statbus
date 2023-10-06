@@ -62,6 +62,7 @@ namespace nscreg.Server.Common.Helpers
                                  && al.AnalyzedUnitId == su.RegId)
                 ).Skip(skipCount)
                 .Take(takeCount)
+                .AsSplitQuery()
                 .ToListAsync();
             return result;
         }
