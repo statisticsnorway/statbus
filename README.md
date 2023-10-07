@@ -350,10 +350,46 @@ x64                     # 'arm64' wil not work yet
 > New Beta feature for macOS 13, Rosetta for Linux, has been added
 for faster emulation of Intel-based images on Apple Silicon.
 
+# Statbus Remastered
 
-# Supabase
+**Simple to use, simply useful**
 
-This project use Supabase services.
+All complete rewrite that focuses on the main goals of the project.
+* Make it easy to get started with statbus in a local installation.
+  Have a wizard/guide to help set up required configuration.
+
+* Make it easy and fast to enter data and get feedback.
+  Either by simple web creation, or by fast batch processing.
+
+* Make it easy to create custom reports with a simple graph,
+  support excel/csv export for custom graphing/processing.
+  The report system can used for a specific year, month and day,
+  to see development over time.
+
+* Simple and secure advanced database integration for custom setups.
+
+* Adaptation of the original data models with the newest insights from SSB,
+  as well as a host of database cleanups accumulated over the years.
+
+## Technology Stack
+
+* Supabase with
+  * PostgreSQL (Database)
+    * With Row Level Security
+  * PostgREST (Automatic API from Database)
+  * GoTrue (JWT authentication integrated with PostgREST)
+* Sveltekit
+* Fomantic UI https://fomantic-ui.com, a fork of Semantic UI.
+* Node v18
+
+## Supabase
+
+This project use Supabase services as a docker compose setup.
 This was set up as a git submodule.
 
 Management of supabase is done with `./devops/manage-supabase.sh`.
+
+## Sveltekit
+
+Start development with `npm run dev -- --open`.
+
