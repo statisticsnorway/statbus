@@ -1,14 +1,16 @@
 import React from 'react'
 import { number, shape, string, func, oneOfType, bool } from 'prop-types'
 import * as R from 'ramda'
-import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
+import { Button, Icon, Menu, Segment, Loader, Popup } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import Printable from '/client/components/Printable/Printable'
-import { checkSystemFunction as sF } from '/client/helpers/config'
+import { checkSystemFunction as sF, checkSystemFunction as checkSF } from '/client/helpers/config'
 import { statUnitChangeReasons } from '/client/helpers/enums'
 import { Main, History, Activity, OrgLinks, Links, ContactInfo, BarInfo } from './tabs'
 import tabs from './tabs/tabEnum'
+
+import { deleteStatUnit } from '../Search/actions.js'
 
 class StatUnitViewPage extends React.Component {
   static propTypes = {
@@ -94,6 +96,7 @@ class StatUnitViewPage extends React.Component {
       localize,
       historyDetails,
       actions: { navigateBack, fetchHistory, fetchHistoryDetails, getUnitLinks, getOrgLinks },
+      statUnit,
     } = this.props
     const { activeTab } = this.state
     const idTuple = { id: unit.regId, type: unit.type }
@@ -236,6 +239,32 @@ class StatUnitViewPage extends React.Component {
           ) : (
             tabContent
           )}
+
+          <Popup
+            content={localize('YouDontHaveEnoughtRightsRegionOrActivity')}
+            disabled={!unit.readonly}
+            trigger={
+              <div style={{ float: 'right', marginTop: '20px' }}>
+                {checkSF('StatUnitEdit') && (
+                  <Button
+                    as={Link}
+                    to={`/statunits/edit/${unit.type}/${unit.regId}`}
+                    icon="edit"
+                    primary
+                    disabled={unit.readonly}
+                  />
+                )}
+                {checkSF('StatUnitDelete') && (
+                  <Button
+                    onClick={() => deleteStatUnit(statUnit)}
+                    icon="trash"
+                    negative
+                    disabled={unit.readonly}
+                  />
+                )}
+              </div>
+            }
+          />
         </Segment>
 
         <Button

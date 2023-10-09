@@ -1,13 +1,13 @@
 import React from 'react'
 import { number, string, func, shape, bool } from 'prop-types'
-import { Table, Icon } from 'semantic-ui-react'
+import { Table } from 'semantic-ui-react'
 
 import { canRead, checkSystemFunction as checkSF } from '/client/helpers/config'
-import { statUnitTypes, statUnitIcons } from '/client/helpers/enums'
+import { statUnitTypes } from '/client/helpers/enums'
 import { getNewName } from '/client/helpers/locale'
 import styles from './styles.scss'
 
-const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormColumn }) => {
+const ListItem = ({ statUnit, localize }) => {
   const title = statUnitTypes.get(statUnit.type)
 
   const viewStatUnit = () => {
@@ -47,7 +47,6 @@ ListItem.propTypes = {
     type: number.isRequired,
     name: string.isRequired,
   }).isRequired,
-  deleteStatUnit: func.isRequired,
   localize: func.isRequired,
   lookups: shape({}).isRequired,
   showLegalFormColumn: bool.isRequired,

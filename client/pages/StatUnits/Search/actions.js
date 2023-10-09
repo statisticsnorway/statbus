@@ -34,7 +34,7 @@ const fetchData = queryParams =>
     onStart: dispatch => dispatch(fetchDataStateChanged(true)),
   })
 
-const deleteStatUnit = (type, id, queryParams, index, onFail) =>
+export const deleteStatUnit = (type, id, queryParams, index, onFail) =>
   dispatchRequest({
     url: `/api/statunits/${type}/${id}`,
     method: 'delete',
