@@ -32,18 +32,6 @@ const Main = ({ unit, localize, activeTab }) => {
                 {unit && unit.unitStatusId}
               </Label>
             </Grid.Column>
-            <Grid.Column width={5} floated="right">
-              <div className={styles.container}>
-                <label className={styles.boldText}>{localize('TelephoneNo')}</label>
-                <Label
-                  className={styles[`${unit && unit.telephoneNo ? 'labelStyle' : 'emptyLabel'}`]}
-                  basic
-                  size="large"
-                >
-                  {unit && unit.telephoneNo}
-                </Label>
-              </div>
-            </Grid.Column>
           </Grid.Row>
           <Grid.Row>
             <Grid.Column width={3} verticalAlign="middle">
@@ -214,7 +202,6 @@ const Main = ({ unit, localize, activeTab }) => {
 Main.propTypes = {
   unit: shape({
     unitStatusId: oneOfType([string, number]),
-    telephoneNo: oneOfType([string, number]),
     employeesYear: oneOfType([string, number]),
     employees: oneOfType([string, number]),
     turnover: oneOfType([string, number]),
