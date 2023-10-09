@@ -2,7 +2,7 @@ BEGIN;
 
 DROP TABLE public.history;
 
-DROP TABLE public.activity_legal_unit;
+DROP TABLE public.activity_for_unit;
 DROP TABLE public.activity;
 DROP TABLE public.activity_category_role;
 DROP TABLE public.activity_category;
