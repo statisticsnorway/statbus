@@ -55,6 +55,12 @@ case "$action" in
         cd $WORKSPACE
         git submodule update --remote --merge
       ;;
+     'generate-types' )
+        cd $WORKSPACE/ui
+        echo "Fix the command below to work for the local statbus installation"
+        exit 1
+        supabase gen types typescript --project-id statbus > database.types.ts
+      ;;
      * )
       echo "Unknown action '$action', select one of"
       awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-supabase.sh
