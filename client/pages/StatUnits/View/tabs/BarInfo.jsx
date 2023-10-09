@@ -1,17 +1,22 @@
 import React from 'react'
 import { shape, func, number, oneOfType, string } from 'prop-types'
 import { Grid, Label } from 'semantic-ui-react'
-
-import { hasValue } from '/client/helpers/validation'
 import { statUnitTypes } from '../../../../helpers/enums.js'
 import styles from './styles.scss'
 
 const BarInfo = ({ unit, localize }) => (
   <div>
-    <h2>{unit.name}</h2>
-
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <img
+        style={{ width: '25px', marginBottom: '-25px', marginRight: '7px' }}
+        src={`fonts/${statUnitTypes.get(unit.unitType)}.png`}
+        title={localize(statUnitTypes.get(unit.unitType))}
+        alt={statUnitTypes.get(unit.unitType)}
+      />
+      <h2>{unit.name}</h2>
+    </div>
     {unit.shortName && unit.shortName.trim() != '' ? (
-      <h3 style={{ marginTop: '-5px' }}>({unit.shortName})</h3>
+      <h3 style={{ marginTop: '-1px' }}>({unit.shortName})</h3>
     ) : (
       ''
     )}
