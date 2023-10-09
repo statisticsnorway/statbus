@@ -9,5 +9,9 @@
     "test": false,
     "client": false
   },
-  "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yaml"]
+  "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yaml"],
+  "svelte.plugin.svelte.defaultScriptLanguage": "ts",
+  "[svelte]": {
+    "editor.defaultFormatter": "svelte.svelte-vscode"
+  }
 }
