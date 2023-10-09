@@ -9,6 +9,13 @@ import styles from './styles.scss'
 const BarInfo = ({ unit, localize }) => (
   <div>
     <h2>{unit.name}</h2>
+
+    {unit.shortName && unit.shortName.trim() != '' ? (
+      <h3 style={{ marginTop: '-5px' }}>({unit.shortName})</h3>
+    ) : (
+      ''
+    )}
+
     {unit.name === unit.shortName && `(${unit.shortName})`}
     {statUnitTypes.has(unit.unitType) && (
       <h3 className={styles.unitType}>{localize(statUnitTypes.get(unit.unitType))}</h3>
