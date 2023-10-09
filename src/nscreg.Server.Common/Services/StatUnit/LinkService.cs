@@ -201,7 +201,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .Where(x => listIds.Contains(x.RegId))
                     .Include(x => x.LegalUnits)
                     .ThenInclude(x => x.LocalUnits)
-                    .Include(x => x.EnterpriseGroup);
+                    .Include(x => x.EnterpriseGroup).AsSplitQuery();
 
                 list.AddRange(entUnit.Where(x => x.EnterpriseGroup.IsDeleted == false)
                     .Select(x => x.EnterpriseGroup));
