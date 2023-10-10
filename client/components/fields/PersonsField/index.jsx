@@ -106,7 +106,6 @@ class PersonsList extends React.Component {
     this.props.value.some(v =>
       v.id === value.id ||
         (v.givenName === value.givenName &&
-          v.personalId === value.personalId &&
           v.surname === value.surname &&
           v.middleName === value.middleName &&
           v.birthDate === value.birthDate &&
@@ -183,7 +182,6 @@ class PersonsList extends React.Component {
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell content={localize('PersonalId')} width={2} textAlign="center" />
               <Table.HeaderCell content={localize('PersonName')} width={3} textAlign="center" />
               <Table.HeaderCell content={localize('Sex')} width={1} textAlign="center" />
               <Table.HeaderCell content={localize('CountryId')} width={2} textAlign="center" />
