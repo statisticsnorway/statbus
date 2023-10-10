@@ -406,7 +406,8 @@ class ContactInfo extends React.Component {
             <Grid.Row>
               <Grid.Column width={16}>
                 <label className={styles.boldText}>{localize('PersonsRelatedToTheUnit')}</label>
-                <PersonsList name="persons" value={data.persons} localize={localize} readOnly />
+                {/* The rendering of this component does not work currently
+                <PersonsList name="persons" value={data.persons} localize={localize} readOnly /> */}
               </Grid.Column>
             </Grid.Row>
           </Grid>
