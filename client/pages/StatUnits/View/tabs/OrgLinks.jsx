@@ -4,6 +4,7 @@ import Tree from 'antd/lib/tree'
 import { Segment, Loader, Header } from 'semantic-ui-react'
 
 import styles from './styles.scss'
+import regeneratorRuntime from 'regenerator-runtime'
 
 const hasChildren = node => node.orgLinksNodes && node.orgLinksNodes.length > 0
 
@@ -21,14 +22,15 @@ function OrgLinks({ id, fetchData, activeTab, localize, isDeletedUnit }) {
     fetchOrgLinks()
   }, [id, fetchData, isDeletedUnit])
 
-  const renderChildren = nodes => nodes.map((node) => {
-    const anyChild = hasChildren(node)
-    return (
-      <Tree.TreeNode uid={node.regId} key={node.regId} title={node.name} isLeaf={!anyChild}>
-        {anyChild && renderChildren(node.orgLinksNodes)}
-      </Tree.TreeNode>
-    )
-  })
+  const renderChildren = nodes =>
+    nodes.map((node) => {
+      const anyChild = hasChildren(node)
+      return (
+        <Tree.TreeNode uid={node.regId} key={node.regId} title={node.name} isLeaf={!anyChild}>
+          {anyChild && renderChildren(node.orgLinksNodes)}
+        </Tree.TreeNode>
+      )
+    })
 
   const highLight = node => node.props.uid === id
 
