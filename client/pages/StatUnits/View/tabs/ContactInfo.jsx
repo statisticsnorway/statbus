@@ -46,6 +46,32 @@ class ContactInfo extends React.Component {
         <Segment>
           <Grid divided columns={2}>
             <Grid.Row>
+              <Grid.Column width={5}>
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('TelephoneNo')}</label>
+                  <Label
+                    className={styles[`${data.telephoneNo ? 'labelStyle' : 'emptyLabel'}`]}
+                    basic
+                    size="large"
+                  >
+                    {data.telephoneNo}
+                  </Label>
+                </div>
+              </Grid.Column>
+              <Grid.Column width={5}>
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('EmailAddress')}</label>
+                  <Label
+                    className={styles[`${data.emailAddress ? 'labelStyle' : 'emptyLabel'}`]}
+                    basic
+                    size="large"
+                  >
+                    {data.emailAddress}
+                  </Label>
+                </div>
+              </Grid.Column>
+            </Grid.Row>
+            <Grid.Row>
               <Grid.Column width={8}>
                 <Header as="h5" content={localize('VisitingAddress')} dividing />
                 <Grid doubling padded>
@@ -138,32 +164,6 @@ class ContactInfo extends React.Component {
             </Grid.Row>
           </Grid>
           <Grid>
-            <Grid.Row>
-              <Grid.Column width={5}>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('TelephoneNo')}</label>
-                  <Label
-                    className={styles[`${data.telephoneNo ? 'labelStyle' : 'emptyLabel'}`]}
-                    basic
-                    size="large"
-                  >
-                    {data.telephoneNo}
-                  </Label>
-                </div>
-              </Grid.Column>
-              <Grid.Column width={5}>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('EmailAddress')}</label>
-                  <Label
-                    className={styles[`${data.emailAddress ? 'labelStyle' : 'emptyLabel'}`]}
-                    basic
-                    size="large"
-                  >
-                    {data.emailAddress}
-                  </Label>
-                </div>
-              </Grid.Column>
-            </Grid.Row>
             <Grid.Row columns={regions.length > 4 ? regions.length : 4}>
               {regions.map((x, i) => (
                 <Grid.Column key={i}>
