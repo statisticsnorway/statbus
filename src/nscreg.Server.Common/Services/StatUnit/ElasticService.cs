@@ -198,7 +198,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 foreach (var nameFilter in nameFilterParts)
                     mustQueries.Add(m => m.Prefix(p => p.Field(f => f.Name).Value(nameFilter))
                                       || m.Prefix(p => p.Field(f => f.ShortName).Value(nameFilter))
-                                      || m.Term(p => p.Field(f => f.StatId).Value(nameFilter)));
+                                      || m.Term(p => p.Field(f => f.StatId).Value(nameFilter))
+                                      || m.Term(p => p.Field(f => f.RegId).Value(nameFilter))
+                                      || m.Term(p => p.Field(f => f.TaxRegId).Value(nameFilter)));
             }
 
             if (filter.Type.Any())
