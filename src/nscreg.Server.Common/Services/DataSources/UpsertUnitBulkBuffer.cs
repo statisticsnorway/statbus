@@ -165,8 +165,6 @@ namespace nscreg.Server.Common.Services.DataSources
                 await _context.SaveChangesAsync();
                 _context.PersonStatisticalUnits.UpdateRange(personUnits);
                 await _context.SaveChangesAsync();
-                _context.PersonStatisticalUnits.UpdateRange(personUnits);
-                await _context.SaveChangesAsync();
                 _context.CountryStatisticalUnits.UpdateRange(foreignCountry);
                 await _context.SaveChangesAsync();
 
