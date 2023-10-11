@@ -45,7 +45,8 @@ tasks.set('clean', () =>
         ],
         { dot: true },
       ))
-    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/fonts')))
+    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/fonts'))
+	.then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/icons')))
 
 
 // Copy vendor bundles (styles, scripts, fonts, etc.)
@@ -135,6 +136,11 @@ const copyTasks = [
     dest: './src/nscreg.Server/wwwroot/fonts',
     isSync: true,
   },
+  {
+    src: "./client/icons",
+    dest: "./src/nscreg.Server/wwwroot/icons",
+    isSync: true,
+  }
 ];
 
 tasks.set('copy', async () => {

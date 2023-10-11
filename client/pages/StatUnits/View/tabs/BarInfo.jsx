@@ -9,7 +9,7 @@ const BarInfo = ({ unit, localize }) => (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <img
         style={{ width: '25px', marginBottom: '-25px', marginRight: '7px' }}
-        src={`fonts/${statUnitTypes.get(unit.unitType)}.png`}
+        src={`icons/${statUnitTypes.get(unit.unitType)}.png`}
         title={localize(statUnitTypes.get(unit.unitType))}
         alt={statUnitTypes.get(unit.unitType)}
       />
