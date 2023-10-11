@@ -4,6 +4,9 @@ import Tree from 'antd/lib/tree'
 import { Segment, Loader, Header } from 'semantic-ui-react'
 
 import styles from './styles.scss'
+
+/** IMPORTANT: Do not remove this import. It has to be added,
+ ** otherwise we get a reference error in React when clicking on the Organization Links tab* */
 import regeneratorRuntime from 'regenerator-runtime'
 
 const hasChildren = node => node.orgLinksNodes && node.orgLinksNodes.length > 0
