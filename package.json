@@ -96,7 +96,11 @@
     },
     {
       "staticPath": "./client/fonts",
-      "distDir": "./src/nscreg.Server/fonts"
+      "distDir": "./src/nscreg.Server/wwwroot/fonts"
+    },
+	{
+      "staticPath": "./client/icons",
+      "distDir": "./src/nscreg.Server/wwwroot/icons"
     }
   ],
   "repository": {

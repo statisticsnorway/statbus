@@ -20,7 +20,7 @@ const ListItem = ({ statUnit, localize }) => {
         <Table.Cell style={{ verticalAlign: 'middle' }}>
           <img
             style={{ width: '25px', marginBottom: '-7px', marginRight: '7px' }}
-            src={`fonts/${statUnitTypes.get(statUnit.type)}.png`}
+            src={`icons/${statUnitTypes.get(statUnit.type)}.png`}
             title={localize(title)}
             alt={statUnitTypes.get(statUnit.type)}
           />

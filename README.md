@@ -137,6 +137,49 @@ backend from src/nscreg.Server/wwwwroot
 To load new frontend code the page must be reloaded, as hot reload is not possible
 with this configuration.
 
+### How to add new assets to the project
+
+To add new assets to the project you need to edit the copy job defined in the run.mjs file under the tools folder and package.json.
+
+Say for example that you want to add a new icons folder to the project, then you need to update run.mjs with the following:
+
+```
+tasks.set('clean', () =>
+  Promise.resolve()
+    .then(() =>
+      del(
+        [
+          './build/*',
+          './src/nscreg.Server/wwwroot/*',
+          '!./build/.git',
+        ],
+        { dot: true },
+      ))
+    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/fonts'))
+	.then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/icons')))
+```
+
+And:
+
+```
+{
+   src: "./client/icons",
+   dest: "./src/nscreg.Server/wwwroot/icons",
+   isSync: true,
+}
+```
+
+Finally, you need to update package.json with the following:
+
+```
+{
+   "staticPath": "./client/icons",
+   "distDir": "./src/nscreg.Server/wwwroot/icons"
+}
+```
+
+That's it. Now run ```npm run build``` to compile and copy the files accordingly.
+
 ### Browser
 
 Then Visit <http://localhost:5000/> u:admin p:123qwe
