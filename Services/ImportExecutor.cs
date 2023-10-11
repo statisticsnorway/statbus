@@ -69,7 +69,7 @@ namespace nscreg.Services
                     {
                         _logger.Debug("Flushing");
                         await sqlBulkBuffer.FlushAsync();
-                        logBuffer.Flush();
+                        await logBuffer.FlushAsync();
                         await context.DisposeAsync();
                     }
 

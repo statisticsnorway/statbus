@@ -59,14 +59,14 @@ namespace nscreg.Server.Common.Services.DataSources
             await _context.SaveChangesAsync();
             if (Buffer.Count >= MaxCount)
             {
-                Flush();
+                await FlushAsync();
             }
         }
         /// <summary>
         /// Flushes buffer to database
         /// </summary>
         /// <returns></returns>
-        public void Flush()
+        public async Task FlushAsync()
         {
             Buffer.Clear();
         }

@@ -105,7 +105,7 @@ namespace nscreg.Services
                 anyWarnings = true;
                 exceptionMessage = ex;
             });
-            await CatchAndLogException(async() => _logBuffer.Flush(), ex =>
+            await CatchAndLogException(async () => await _logBuffer.FlushAsync(), ex =>
             {
                 anyWarnings = true;
                 exceptionMessage = ex;
