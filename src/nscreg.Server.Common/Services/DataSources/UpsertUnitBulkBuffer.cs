@@ -76,6 +76,8 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 var foreignCountry = Buffer.SelectMany(x => x.ForeignParticipationCountriesUnits).ToList();
 
+                // Note: We call SaveChangesAsync seperately after each change to the DB
+                // because of a key related issue in Entity Framework that requires us to do so               
                 await _context.Activities.AddRangeAsync(activities.Where(x => x.Id == 0));
                 await _context.SaveChangesAsync();
                 await _context.Activities.AddRangeAsync(activities.Where(x => x.Id != 0));
