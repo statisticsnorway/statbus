@@ -195,6 +195,9 @@ namespace nscreg.Server.Common.Services.DataSources
                     var activitiesHistory = statUnitHistories.SelectMany(x => x.Activities.Distinct(new IdComparer<ActivityHistory>()))
                             .ToList();
 
+                    // How do we add activities history in our ActivitiesHistory table?
+                    //await _context.ActivityHistory.AddRangeAsync(activitiesHistory);
+
                     statUnitHistories.GroupJoin(concatHistories, concatHistory => concatHistory.StatId, statUnitHistory => statUnitHistory.StatId, (stathistory, statCollection) => (stathistory: stathistory, statCollection: statCollection)).ForEach(x =>
                     {
                         var statColl = x.statCollection.FirstOrDefault();
@@ -218,7 +221,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         statColl.PersonsUnits.ForEach(y => y.UnitId = statColl.RegId);
                         statColl.ForeignParticipationCountriesUnits.ForEach(y => y.UnitId = statColl.RegId);
                     });
-
+                    
                     await _context.ActivityStatisticalUnitHistory.AddRangeAsync(statUnitHistories.SelectMany(x => x.ActivitiesUnits).ToList());
                     await _context.SaveChangesAsync();
                     await _context.PersonStatisticalUnitHistory.AddRangeAsync(statUnitHistories.SelectMany(x => x.PersonsUnits).ToList());
