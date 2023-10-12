@@ -194,7 +194,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (!string.IsNullOrWhiteSpace(filter.Name))
             {
-                var nameFilterParts = filter.Name.ToLower().Split(separators, StringSplitOptions.RemoveEmptyEntries);
+                var nameFilterParts = filter.Name.Replace("&", string.Empty).ToLower().Split(separators, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var nameFilter in nameFilterParts)
                     mustQueries.Add(m => m.Prefix(p => p.Field(f => f.Name).Value(nameFilter))
                                       || m.Prefix(p => p.Field(f => f.ShortName).Value(nameFilter))
