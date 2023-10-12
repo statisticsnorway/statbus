@@ -161,6 +161,102 @@ class ContactInfo extends React.Component {
                   </Grid.Row>
                 </Grid>
               </Grid.Column>
+              {(data.postalAddress &&
+                hasValue(data.postalAddress.region) &&
+                getNewName(data.postalAddress.region)) ||
+                (data.postalAddress && data.postalAddress.addressPart1) ||
+                (data.postalAddress && data.postalAddress.addressPart2) ||
+                (data.postalAddress && data.postalAddress.addressPart3 && (
+                  <Grid.Column width={8}>
+                    <Header as="h5" content={localize('PostalAddress')} dividing />
+                    <Grid doubling padded>
+                      <Grid.Row verticalAlign="middle">
+                        <Grid.Column width={6} className={styles.columnMargin}>
+                          <label className={styles.boldText}>{localize('Region')}</label>
+                        </Grid.Column>
+                        <Grid.Column width={10} className={styles.columnMargin}>
+                          <Label
+                            className={
+                              styles[
+                                `${
+                                  data.postalAddress && data.postalAddress.region
+                                    ? 'labelStyle'
+                                    : 'emptyLabel'
+                                }`
+                              ]
+                            }
+                            basic
+                            size="large"
+                          >
+                            {data.postalAddress &&
+                              hasValue(data.postalAddress.region) &&
+                              getNewName(data.postalAddress.region)}
+                          </Label>
+                        </Grid.Column>
+                        <Grid.Column width={6} className={styles.columnMargin}>
+                          <label className={styles.boldText}>{localize('AddressPart1')}</label>
+                        </Grid.Column>
+                        <Grid.Column width={10} className={styles.columnMargin}>
+                          <Label
+                            className={
+                              styles[
+                                `${
+                                  data.postalAddress && data.postalAddress.addressPart1
+                                    ? 'labelStyle'
+                                    : 'emptyLabel'
+                                }`
+                              ]
+                            }
+                            basic
+                            size="large"
+                          >
+                            {data.postalAddress && data.postalAddress.addressPart1}
+                          </Label>
+                        </Grid.Column>
+                        <Grid.Column width={6} className={styles.columnMargin}>
+                          <label className={styles.boldText}>{localize('AddressPart2')}</label>
+                        </Grid.Column>
+                        <Grid.Column width={10} className={styles.columnMargin}>
+                          <Label
+                            className={
+                              styles[
+                                `${
+                                  data.postalAddress && data.postalAddress.addressPart2
+                                    ? 'labelStyle'
+                                    : 'emptyLabel'
+                                }`
+                              ]
+                            }
+                            basic
+                            size="large"
+                          >
+                            {data.postalAddress && data.postalAddress.addressPart2}
+                          </Label>
+                        </Grid.Column>
+                        <Grid.Column width={6} className={styles.columnMargin}>
+                          <label className={styles.boldText}>{localize('AddressPart3')}</label>
+                        </Grid.Column>
+                        <Grid.Column width={10} className={styles.columnMargin}>
+                          <Label
+                            className={
+                              styles[
+                                `${
+                                  data.postalAddress && data.postalAddress.addressPart3
+                                    ? 'labelStyle'
+                                    : 'emptyLabel'
+                                }`
+                              ]
+                            }
+                            basic
+                            size="large"
+                          >
+                            {data.postalAddress && data.postalAddress.addressPart3}
+                          </Label>
+                        </Grid.Column>
+                      </Grid.Row>
+                    </Grid>
+                  </Grid.Column>
+                ))}
               <Grid.Column width={8}>
                 <Segment>
                   <Header as="h5" content={localize('GpsCoordinates')} dividing />
