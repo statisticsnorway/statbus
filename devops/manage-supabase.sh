@@ -57,9 +57,9 @@ case "$action" in
       ;;
      'generate-types' )
         cd $WORKSPACE/ui
-        echo "Fix the command below to work for the local statbus installation"
-        exit 1
-        supabase gen types typescript --project-id statbus > database.types.ts
+        source $WORKSPACE/.env-psql-development.sh
+        db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
+        ~/.nvm/nvm-exec npx supabase gen types typescript --db-url "$db_url" > database.types.ts
       ;;
      * )
       echo "Unknown action '$action', select one of"
