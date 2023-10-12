@@ -8,9 +8,9 @@ CREATE TABLE legal_unit(
   change_description varchar NOT NULL,
   valid_from date DEFAULT CURRENT_DATE NOT NULL,
   valid_to date DEFAULT 'infinity' ::date NOT NULL,
-  active boolean GENERATED ALWAYS AS (valid_to IS NULL) STORED,
+  active boolean GENERATED ALWAYS AS (valid_to = 'infinity'::date) STORED,
   updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-  CONSTRAINT valid_to_from_in_timely_order CHECK (valid_from <= valid_to OR valid_to IS NULL)
+  CONSTRAINT valid_to_from_in_timely_order CHECK (valid_from <= valid_to)
 );
 --
 COMMENT ON COLUMN legal_unit.updated_at IS 'Use the statement_timestamp() as default, to allow known time to progress within a transaction, required due to exclusion constraint.';
@@ -103,25 +103,139 @@ CREATE TRIGGER legal_unit_after_insert
 CREATE OR REPLACE FUNCTION legal_unit_after_update()
   RETURNS TRIGGER
   AS $$
+DECLARE
+  c RECORD;
+  adjusted_valid_from date;
+  adjusted_valid_to date;
 BEGIN
+  -- Loop through each conflicting row
+  RAISE DEBUG 'NEW row %', to_json(NEW.*);
+  FOR c IN
+  SELECT
+    id,
+    valid_from,
+    valid_to
+  FROM
+    legal_unit_history
+  WHERE
+    legal_unit_id = NEW.id
+    AND daterange(valid_from, valid_to, '[]') && daterange(NEW.valid_from, NEW.valid_to, '[]')
+  ORDER BY
+    valid_from LOOP
+      RAISE DEBUG 'Conflicting row %', to_json(c.*);
+      -- Scenario #1: n.valid_from < c.valid_to AND c.valid_to <= n.valid_to
+      -- c      ------------]
+      -- n           [-------------------------]
+      -- Resolution: c.valid_to = n.valid_from - '1 day'
+      -- c      ----]
+      -- n           [-------------------------]
+      --
+      IF NEW.valid_from <= c.valid_to AND c.valid_to <= NEW.valid_to THEN
+        RAISE DEBUG 'Scenario #1: NEW.valid_from <= c.valid_to AND c.valid_to <= NEW.valid_to';
+        adjusted_valid_to := NEW.valid_from - interval '1 day';
+        RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
+        IF adjusted_valid_to < c.valid_from THEN
+          RAISE DEBUG 'Deleting conflict with zero valid duration';
+          DELETE FROM legal_unit_history
+          WHERE id = c.id;
+        ELSE
+          RAISE DEBUG 'Adjusting conflicting row';
+          UPDATE
+            legal_unit_history
+          SET
+            valid_to = adjusted_valid_to
+          WHERE
+            id = c.id;
+        END IF;
+        -- Scenario #2: c.valid_from < n.valid_from AND n.valid_to <= c.valid_to
+        -- c      -----------------------------------------]
+        -- n           [-------------------------]
+        -- Resolution: c.valid_to = n.valid_from - '1 day', c_new.valid_from = n.valid_to + '1 day', c_new.valid_to = c.valid_to
+        -- c      ----]
+        -- n           [-------------------------]
+        -- c'                                    [---------
+        --
+      ELSIF c.valid_from <= NEW.valid_from
+          AND NEW.valid_to <= c.valid_to THEN
+          RAISE DEBUG 'Scenario #2: c.valid_from <= NEW.valid_from AND NEW.valid_to <= c.valid_to';
+        adjusted_valid_from := NEW.valid_to + interval '1 day';
+        adjusted_valid_to := NEW.valid_from - interval '1 day';
+        RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
+        RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
+        IF adjusted_valid_to < c.valid_from THEN
+          RAISE DEBUG 'Deleting conflict with zero valid duration';
+          DELETE FROM legal_unit_history
+          WHERE id = c.id;
+        ELSE
+          RAISE DEBUG 'Adjusting conflicting row';
+          UPDATE
+            legal_unit_history
+          SET
+            valid_to = adjusted_valid_to
+          WHERE
+            id = c.id;
+        END IF;
+        IF c.valid_to < adjusted_valid_from THEN
+          RAISE DEBUG 'Don''t create zero duration row';
+        ELSIF NEW.active THEN
+          RAISE DEBUG 'Inserting new tail';
+          INSERT INTO legal_unit_history(legal_unit_id, valid_from, valid_to)
+            VALUES (NEW.id, adjusted_valid_from, c.valid_to);
+        ELSE
+          RAISE DEBUG 'No tail for a liquidated company';
+        END IF;
+        -- Scenario #3: n.valid_from < c.valid_from AND c.valid_to <= n.valid_to
+        -- c             [-------------]
+        -- n           [-------------------------]
+        -- Resolution: delete c
+        -- n           [-------------------------]
+        --
+      ELSIF NEW.valid_from <= c.valid_from
+          AND c.valid_to <= NEW.valid_to THEN
+          RAISE DEBUG 'Scenario #3: NEW.valid_from <= c.valid_from AND c.valid_to <= NEW.valid_to';
+        RAISE DEBUG 'Deleting conflict contained by NEW';
+        DELETE FROM legal_unit_history
+        WHERE id = c.id;
+        -- Scenario #4: n.valid_from < c.valid_from AND n.valid_to <= c.valid_to
+        -- c                   [----------------------------]
+        -- n           [-------------------------]
+        -- Resolution: c.valid_from = n.valid_to + '1 day'
+        -- c                                     [----------]
+        -- n           [-------------------------]
+        --
+      ELSIF NEW.valid_from <= c.valid_from
+          AND NEW.valid_to <= c.valid_to THEN
+          RAISE DEBUG 'Scenario #4: NEW.valid_from <= c.valid_from AND NEW.valid_to <= c.valid_to';
+        adjusted_valid_from := NEW.valid_to + interval '1 day';
+        RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
+        IF c.valid_to < adjusted_valid_from THEN
+          RAISE DEBUG 'Deleting conflict with zero valid duration';
+          DELETE FROM legal_unit_history
+          WHERE id = c.id;
+        ELSIF NOT NEW.active THEN
+          RAISE DEBUG 'Deleting conflict after liquidation';
+          DELETE FROM legal_unit_history
+          WHERE id = c.id;
+        ELSE
+          RAISE DEBUG 'Adjusting conflicting row';
+          UPDATE
+            legal_unit_history
+          SET
+            valid_from = adjusted_valid_from
+          WHERE
+            id = c.id;
+        END IF;
+      ELSE
+        RAISE EXCEPTION 'Unhandled conflicting case';
+      END IF;
+    END LOOP;
+  --
   -- Insert a new entry or update an existing one for today in legal_unit_history
+  RAISE DEBUG 'legal_unit_history(legal_unit_id=%, name=%, employees=%, valid_from=%, valid_to=%, change_description=%)', NEW.id, NEW.name, NEW.employees, NEW.valid_from, NEW.valid_to, NEW.change_description;
   INSERT INTO legal_unit_history(legal_unit_id, name, employees, valid_from, valid_to, change_description)
-    VALUES(NEW.id, NEW.name, NEW.employees, NEW.valid_from, NEW.valid_to, NEW.change_description)
-  ON CONFLICT(legal_unit_id, valid_from)
-    DO UPDATE SET
-      valid_to = EXCLUDED.valid_to, name = EXCLUDED.name, employees = EXCLUDED.employees, change_description = EXCLUDED.change_description;
-  -- If the new entry's valid_from date is different from the old one, then update the valid_to of the previous one
-  IF NEW.valid_from <> OLD.valid_from THEN
-    UPDATE
-      legal_unit_history
-    SET
-      valid_to = NEW.valid_from - '1 day'::interval
-    WHERE
-      legal_unit_id = OLD.id
-      AND valid_to IS NULL;
-  END IF;
+    VALUES (NEW.id, NEW.name, NEW.employees, NEW.valid_from, NEW.valid_to, NEW.change_description);
   -- End the known_to for the previous audit.
-  WITH previous_audit AS(
+  WITH previous_audit AS (
     SELECT
       id
     FROM
@@ -142,7 +256,7 @@ WHERE
   --
   -- Log to legal_unit_audit
   INSERT INTO legal_unit_audit(legal_unit_id, record, known_from, known_to, op)
-    VALUES(NEW.id, to_jsonb(NEW), NEW.updated_at, 'infinity'::timestamptz, 'UPDATE');
+    VALUES (NEW.id, to_jsonb(NEW), NEW.updated_at, 'infinity'::timestamptz, 'UPDATE');
   RETURN NULL;
 END;
 $$
@@ -179,9 +293,11 @@ CREATE TRIGGER legal_unit_before_delete
   EXECUTE FUNCTION legal_unit_before_delete();
 --
 --
+SET client_min_messages = debug;
 \x
 SELECT
   '########## Basic insert, update, delete' AS doc;
+SAVEPOINT using_default;
 --
 SELECT
   'Status from start of the year, regardless of when we knew.' AS doc;
@@ -190,8 +306,9 @@ SELECT
 FROM
   legal_unit_history
 WHERE
---valid_from <= '2023-01-01' AND '2023-01-01' <= valid_to;
-'2023-01-01' BETWEEN valid_from AND valid_to;
+  -- We don't use the x BETWEEN y AND Z because PostgREST doesn't easily support it.
+  valid_from <= '2023-01-01'
+  AND '2023-01-01' <= valid_to;
 --
 --
 SELECT
@@ -265,7 +382,7 @@ SELECT
 UPDATE
   legal_unit
 SET
-  valid_to = CURRENT_DATE,
+  valid_to = valid_from,
   change_description = 'Mark the company as liquidated'
 WHERE
   id = 1;
@@ -298,10 +415,14 @@ SELECT
 FROM
   legal_unit_audit;
 
+ROLLBACK TO SAVEPOINT using_default;
+
 --
 --
 SELECT
   '########## Adjusted time insert, update, delete' AS doc;
+
+SAVEPOINT using_adjusted;
 
 --
 --
@@ -396,10 +517,10 @@ SET
   valid_to = '2022-12-31',
   change_description = 'Mark the company as liquidated'
 WHERE
-  id = 1;
+  name = 'Trader Joes';
 
 DELETE FROM legal_unit
-WHERE id = 1;
+WHERE name = 'Trader Joes';
 
 --
 SELECT
@@ -437,13 +558,19 @@ SELECT
 FROM
   legal_unit_history
 WHERE
---valid_from <= '2023-01-01' AND '2023-01-01' <= valid_to;
-'2023-01-01' BETWEEN valid_from AND valid_to;
+  -- We don't use the x BETWEEN y AND Z because PostgREST doesn't easily support it.
+  valid_from <= '2022-12-31'
+  AND '2022-12-31' <= valid_to;
+
+--
+ROLLBACK TO SAVEPOINT using_adjusted;
 
 --
 --
 SELECT
   '########## Rewrite past insert, update, delete' AS doc;
+
+SAVEPOINT rewrite_history;
 
 --
 --
@@ -509,7 +636,6 @@ SET
   change_description = 'Survey result',
   employees = 146,
   valid_from = '2022-08-01',
-  valid_to = '2022-11-01',
   updated_at = now() - '3 months'::interval
 WHERE
   name = 'Coop';
@@ -529,7 +655,9 @@ SELECT
 SELECT
   *
 FROM
-  legal_unit_history;
+  legal_unit_history
+ORDER BY
+  valid_from;
 
 SELECT
   'Show a legal unit audit after update' AS doc;
@@ -550,10 +678,22 @@ SET
   valid_to = '2023-01-01',
   change_description = 'Mark the company as liquidated'
 WHERE
-  id = 1;
+  name = 'Coop';
 
+--
+SELECT
+  'Show a legal unit history after mark for delete' AS doc;
+
+SELECT
+  *
+FROM
+  legal_unit_history
+ORDER BY
+  valid_from;
+
+--
 DELETE FROM legal_unit
-WHERE id = 1;
+WHERE name = 'Coop';
 
 --
 SELECT
@@ -570,7 +710,9 @@ SELECT
 SELECT
   *
 FROM
-  legal_unit_history;
+  legal_unit_history
+ORDER BY
+  valid_from;
 
 SELECT
   'Show a legal unit audit after delete' AS doc;
@@ -591,12 +733,20 @@ SELECT
 FROM
   legal_unit_history
 WHERE
---valid_from <= '2023-01-01' AND '2023-01-01' <= valid_to;
-'2023-01-01' BETWEEN valid_from AND valid_to;
+  -- We don't use the x BETWEEN y AND Z because PostgREST doesn't easily support it.
+  valid_from <= '2022-12-31'
+  AND '2022-12-31' <= valid_to
+ORDER BY
+  valid_from;
+
+--
+ROLLBACK TO SAVEPOINT rewrite_history;
 
 --
 --
 \x
+SET client_min_messages = INFO;
+
 --
 --
 DROP TABLE legal_unit_history;
