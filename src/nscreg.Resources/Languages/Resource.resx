@@ -405,7 +405,7 @@
     <comment>ж</comment>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Name, short name, statistical id, registration id, tax registration id</value>
+    <value>Name, short name, stat id, reg id, tax reg id</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
