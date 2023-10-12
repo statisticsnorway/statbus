@@ -27,7 +27,7 @@ SET default_table_access_method = heap;
 ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
 
 
-CREATE TYPE public.statbus_role_type AS ENUM('administrator', 'employee', 'external_user');
+CREATE TYPE public.statbus_role_type AS ENUM('super_user', 'restricted_user', 'external_user');
 
 CREATE TABLE public."statbus_role" (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE public."statbus_role" (
     description text
 );
 -- There can only ever by one administrator role.
-CREATE UNIQUE INDEX statbus_role_role_type ON public."statbus_role"(role_type) WHERE role_type = 'administrator';
+CREATE UNIQUE INDEX statbus_role_role_type ON public."statbus_role"(role_type) WHERE role_type = 'super_user';
 
 CREATE TABLE public."statbus_user" (
   id SERIAL PRIMARY KEY,
@@ -64,9 +64,9 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE PROCEDURE public.create_new_statbus_user();
 
 
-INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('administrator', 'Administrator', 'Can do everything in the Web interface');
-INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('employee', 'Employee', 'Can see everything and edit according to assigned region and/or activity');
-INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('external_user', 'ExternalUser', 'Can see everything');
+INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('super_user', 'Super User', 'Can do everything in the Web interface and manage role rights.');
+INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
+INSERT INTO public."statbus_role"(role_type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
 
 
 CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
@@ -133,10 +133,10 @@ $$;
 -- Example statbus_role checking
 --CREATE POLICY "public view access" ON public_records AS PERMISSIVE FOR SELECT TO public USING (true);
 --CREATE POLICY "premium view access" ON premium_records AS PERMISSIVE FOR SELECT TO authenticated USING (
---  has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type)
+--  has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type)
 --);
 --CREATE POLICY "premium and admin view access" ON premium_records AS PERMISSIVE FOR SELECT TO authenticated USING (
---  has_one_of_statbus_roles(auth.uid(), array['administrator', 'employee']::public.statbus_role_type[])
+--  has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[])
 --);
 
 
@@ -705,12 +705,12 @@ CREATE TABLE public.enterprise_unit (
     enterprise_group_id integer,
     ent_group_id_date timestamp with time zone,
     commercial boolean NOT NULL,
-    "TotalCapital" character varying(100),
-    "MunCapitalShare" character varying(100),
-    "StateCapitalShare" character varying(100),
-    "PrivCapitalShare" character varying(100),
-    "ForeignCapitalShare" character varying(100),
-    "ForeignCapitalCurrency" character varying(100),
+    total_capital character varying(100),
+    mun_capital_share character varying(100),
+    state_capital_share character varying(100),
+    priv_capital_share character varying(100),
+    foreign_capital_share character varying(100),
+    foreign_capital_currency character varying(100),
     ent_group_role_id integer
 );
 
@@ -899,12 +899,12 @@ CREATE TABLE public.legal_unit (
     enterprise_unit_id integer,
     ent_reg_ident_date timestamp with time zone,
     market boolean,
-    "TotalCapital" character varying(100),
-    "MunCapitalShare" character varying(100),
-    "StateCapitalShare" character varying(100),
-    "PrivCapitalShare" character varying(100),
-    "ForeignCapitalShare" character varying(100),
-    "ForeignCapitalCurrency" character varying(100)
+    total_capital character varying(100),
+    mun_capital_share character varying(100),
+    state_capital_share character varying(100),
+    priv_capital_share character varying(100),
+    foreign_capital_share character varying(100),
+    foreign_capital_currency character varying(100)
 );
 
 
@@ -3321,56 +3321,56 @@ CREATE POLICY region_role ON public.region_role FOR SELECT TO authenticated USIN
 
 
 -- Administrators can do anything to any table.
-CREATE POLICY statbus_user_administrator_manage ON public.statbus_user FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY statbus_role_administrator_manage ON public.statbus_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY activity_administrator_manage ON public.activity FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY activity_category_administrator_manage ON public.activity_category FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY activity_category_role_administrator_manage ON public.activity_category_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY activity_for_unit_administrator_manage ON public.activity_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY address_administrator_manage ON public.address FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY analysis_log_administrator_manage ON public.analysis_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY analysis_queue_administrator_manage ON public.analysis_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY country_administrator_manage ON public.country FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY country_for_unit_administrator_manage ON public.country_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY custom_analysis_check_administrator_manage ON public.custom_analysis_check FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY data_source_administrator_manage ON public.data_source FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY data_source_classification_administrator_manage ON public.data_source_classification FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY data_source_queue_administrator_manage ON public.data_source_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY data_uploading_log_administrator_manage ON public.data_uploading_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY dictionary_version_administrator_manage ON public.dictionary_version FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY enterprise_group_administrator_manage ON public.enterprise_group FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY enterprise_group_role_administrator_manage ON public.enterprise_group_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY enterprise_group_type_administrator_manage ON public.enterprise_group_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY enterprise_unit_administrator_manage ON public.enterprise_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY foreign_participation_administrator_manage ON public.foreign_participation FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY history_administrator_manage ON public.history FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY legal_form_administrator_manage ON public.legal_form FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY legal_unit_administrator_manage ON public.legal_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY local_unit_administrator_manage ON public.local_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY person_administrator_manage ON public.person FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY person_for_unit_administrator_manage ON public.person_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY person_type_administrator_manage ON public.person_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY postal_index_administrator_manage ON public.postal_index FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY region_administrator_manage ON public.region FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY registration_reason_administrator_manage ON public.registration_reason FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY reorg_type_administrator_manage ON public.reorg_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY report_tree_administrator_manage ON public.report_tree FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY sample_frame_administrator_manage ON public.sample_frame FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY sector_code_administrator_manage ON public.sector_code FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY unit_size_administrator_manage ON public.unit_size FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY unit_status_administrator_manage ON public.unit_status FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
-CREATE POLICY region_role_administrator_manage ON public.region_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'administrator'::public.statbus_role_type));
+CREATE POLICY statbus_user_administrator_manage ON public.statbus_user FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY statbus_role_administrator_manage ON public.statbus_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY activity_administrator_manage ON public.activity FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY activity_category_administrator_manage ON public.activity_category FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY activity_category_role_administrator_manage ON public.activity_category_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY activity_for_unit_administrator_manage ON public.activity_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY address_administrator_manage ON public.address FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY analysis_log_administrator_manage ON public.analysis_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY analysis_queue_administrator_manage ON public.analysis_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY country_administrator_manage ON public.country FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY country_for_unit_administrator_manage ON public.country_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY custom_analysis_check_administrator_manage ON public.custom_analysis_check FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY data_source_administrator_manage ON public.data_source FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY data_source_classification_administrator_manage ON public.data_source_classification FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY data_source_queue_administrator_manage ON public.data_source_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY data_uploading_log_administrator_manage ON public.data_uploading_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY dictionary_version_administrator_manage ON public.dictionary_version FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY enterprise_group_administrator_manage ON public.enterprise_group FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY enterprise_group_role_administrator_manage ON public.enterprise_group_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY enterprise_group_type_administrator_manage ON public.enterprise_group_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY enterprise_unit_administrator_manage ON public.enterprise_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY foreign_participation_administrator_manage ON public.foreign_participation FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY history_administrator_manage ON public.history FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY legal_form_administrator_manage ON public.legal_form FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY legal_unit_administrator_manage ON public.legal_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY local_unit_administrator_manage ON public.local_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY person_administrator_manage ON public.person FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY person_for_unit_administrator_manage ON public.person_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY person_type_administrator_manage ON public.person_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY postal_index_administrator_manage ON public.postal_index FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY region_administrator_manage ON public.region FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY registration_reason_administrator_manage ON public.registration_reason FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY reorg_type_administrator_manage ON public.reorg_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY report_tree_administrator_manage ON public.report_tree FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY sample_frame_administrator_manage ON public.sample_frame FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY sector_code_administrator_manage ON public.sector_code FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY unit_size_administrator_manage ON public.unit_size FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY unit_status_administrator_manage ON public.unit_status FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE POLICY region_role_administrator_manage ON public.region_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
 
 
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
-USING (auth.has_statbus_role(auth.uid(), 'employee'::public.statbus_role_type)
+USING (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_role_type)
        AND auth.has_activity_category_access(auth.uid(), activity_category_id)
       )
-WITH CHECK (auth.has_statbus_role(auth.uid(), 'employee'::public.statbus_role_type)
+WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_role_type)
        AND auth.has_activity_category_access(auth.uid(), activity_category_id)
       );
 
---CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['administrator', 'employee']::public.statbus_role_type[]));
+--CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[]));
 
 END;
