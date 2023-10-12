@@ -98,7 +98,7 @@
       "staticPath": "./client/fonts",
       "distDir": "./src/nscreg.Server/wwwroot/fonts"
     },
-	{
+    {
       "staticPath": "./client/icons",
       "distDir": "./src/nscreg.Server/wwwroot/icons"
     }
@@ -109,6 +109,8 @@
   },
   "sideEffects": false,
   "dependencies": {
+    "@fortawesome/free-solid-svg-icons": "^6.4.2",
+    "@fortawesome/react-fontawesome": "^0.2.0",
     "antd": "^3.11.0",
     "babel-polyfill": "^6.26.0",
     "fast-xml-parser": "^3.2.0",
