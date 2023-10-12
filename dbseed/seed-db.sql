@@ -33,7 +33,7 @@ INSERT INTO "legal_form" ("id", "code", "name") VALUES ('30', 'PERS', 'Individua
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('31', 'PK', 'Pension Fund');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('32', 'PRE', 'Jointly owned shipping company');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('33', 'REV', '(REV)');
-INSERT INTO "legal_form" ("id", "code", "name") VALUES ('34', 'S├åR', 'Other business enterprise in accordance with special legislation');
+INSERT INTO "legal_form" ("id", "code", "name") VALUES ('34', 'SÆR', 'Other business enterprise in accordance with special legislation');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('35', 'SA', 'Co-operation');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('36', 'SAM', 'Joint ownership according to the law of property');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('37', 'SE', 'European Company');
