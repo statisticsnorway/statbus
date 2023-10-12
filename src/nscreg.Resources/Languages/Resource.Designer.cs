@@ -6235,7 +6235,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Name, short name, statistical id, registration id, tax registration id.
+        ///   Looks up a localized string similar to Name, short name, stat id, reg id, tax reg id.
         /// </summary>
         public static string SearchWildcard {
             get {
