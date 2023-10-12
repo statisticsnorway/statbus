@@ -6,9 +6,15 @@ import { PersonsList } from '/client/components/fields'
 import { hasValue } from '/client/helpers/validation'
 import { getNewName } from '/client/helpers/locale'
 import styles from './styles.scss'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { faCircleChevronRight, faCircleChevronDown } from '@fortawesome/free-solid-svg-icons'
+
 
 class ContactInfo extends React.Component {
   constructor(props) {
+    library.add(faCircleChevronRight)
+    library.add(faCircleChevronDown)
     super(props)
     this.state = {
       postalAddressIsChecked: false,
@@ -222,13 +228,15 @@ class ContactInfo extends React.Component {
                 </Segment>
               </Grid.Column>
               <Grid.Column width={8}>
-                <Header
-                  as="h5"
-                  content={localize('PostalAddress')}
-                  dividing
-                  onClick={this.toggleCollapse}
-                  style={{ color: '#4183c4', cursor: 'pointer' }}
-                />
+                <div style={{ display: 'flex', cursor: 'pointer' }} onClick={this.toggleCollapse}>
+                  <Header as="h5" content={localize('PostalAddress')} dividing />
+                  {!postalAddressIsChecked && (
+                    <FontAwesomeIcon icon="circle-chevron-right" style={{ marginLeft: '5px' }} />
+                  )}
+                  {postalAddressIsChecked && (
+                    <FontAwesomeIcon icon="circle-chevron-down" style={{ marginLeft: '5px' }} />
+                  )}
+                </div>
                 {postalAddressIsChecked && (
                   <Grid doubling padded>
                     <Grid.Row verticalAlign="middle">
