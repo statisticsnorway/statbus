@@ -412,23 +412,9 @@ BEGIN
   IF OLD.active THEN
     RAISE EXCEPTION 'Cannot delete a record while active. Requires valid_to to have a date';
   END IF;
-  RETURN OLD;
-END;
-$$
-LANGUAGE plpgsql;
---
-CREATE TRIGGER legal_unit_before_delete
-  BEFORE DELETE ON legal_unit
-  FOR EACH ROW
-  EXECUTE FUNCTION legal_unit_before_delete();
---
---
--- AFTER DELETE Trigger
-CREATE OR REPLACE FUNCTION legal_unit_after_delete()
-  RETURNS TRIGGER
-  AS $$
-BEGIN
+
   -- End the known_to for the previous audit.
+  -- While there still is a foreign key available to lookup.
   WITH previous_audit AS (
     SELECT
       id
@@ -447,6 +433,22 @@ BEGIN
   WHERE
     legal_unit_audit.id = previous_audit.id;
 
+  RETURN OLD;
+END;
+$$
+LANGUAGE plpgsql;
+--
+CREATE TRIGGER legal_unit_before_delete
+  BEFORE DELETE ON legal_unit
+  FOR EACH ROW
+  EXECUTE FUNCTION legal_unit_before_delete();
+--
+--
+-- AFTER DELETE Trigger
+CREATE OR REPLACE FUNCTION legal_unit_after_delete()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
   -- Log to legal_unit_audit
   INSERT INTO legal_unit_audit(legal_unit_id, record, known_from, known_to, op)
   -- There is no foreign key, after a delete
@@ -483,7 +485,7 @@ WHERE
 SELECT
   'Insert a legal unit' AS doc;
 INSERT INTO legal_unit(name, stats, change_description)
-  VALUES ('Anne', '{"employees": 1}', 'UI Change');
+  VALUES ('Anne', '{"verified": true, "employees": 1}', 'UI Change');
 --
 SELECT
   'Show a legal unit after insert' AS doc;
@@ -600,7 +602,7 @@ SELECT
   'Insert a legal unit' AS doc;
 
 INSERT INTO legal_unit(name, stats, change_description, valid_from)
-  VALUES ('Joe', '{"employees": 2}', 'BRREG Import', '2022-06-01');
+  VALUES ('Joe', '{"verified": false, "employees": 2}', 'BRREG Import', '2022-06-01');
 
 --
 SELECT
@@ -635,6 +637,7 @@ UPDATE
   legal_unit
 SET
   name = 'Trader Joes',
+  stats = jsonb_set(stats, '{verified}', 'true'::jsonb),
   change_description = 'BRREG Batch Upload',
   valid_from = '2022-09-01'
 WHERE
