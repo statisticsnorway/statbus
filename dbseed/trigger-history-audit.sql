@@ -1,10 +1,13 @@
 BEGIN;
 --
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 --
+--
+
 CREATE TABLE legal_unit(
   id serial PRIMARY KEY,
   name text,
-  employees integer,
+  stats JSONB NOT NULL,
   change_description varchar NOT NULL,
   valid_from date DEFAULT CURRENT_DATE NOT NULL,
   valid_to date DEFAULT 'infinity' ::date NOT NULL,
@@ -14,7 +17,7 @@ CREATE TABLE legal_unit(
 );
 --
 COMMENT ON COLUMN legal_unit.updated_at IS 'Use the statement_timestamp() as default, to allow known time to progress within a transaction, required due to exclusion constraint.';
-COMMENT ON COLUMN legal_unit.valid_to IS 'Use the ''infinity'' as default, to prevent the exclusion constraint from failing when it is NULL';
+COMMENT ON COLUMN legal_unit.valid_to IS 'Use the ''infinity'' as default, to prevent the exclusion constraint from failing when it is NULL. This will be translated to max target system supported value in reports.';
 -- Prevent primary key changes
 CREATE OR REPLACE FUNCTION prevent_legal_unit_id_update()
   RETURNS TRIGGER
@@ -34,23 +37,65 @@ CREATE TRIGGER trigger_prevent_legal_unit_id_update
   EXECUTE FUNCTION prevent_legal_unit_id_update();
 --
 --
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE TYPE stat_type AS ENUM(
+  'int',
+  'float',
+  'string',
+  'bool'
+);
+--
+CREATE TYPE stat_frequency AS ENUM(
+  'daily',
+  'weekly',
+  'biweekly',
+  'monthly',
+  'bimonthly',
+  'quarterly',
+  'semesterly',
+  'yearly'
+);
+--
+CREATE TABLE stat_definition(
+  id serial PRIMARY KEY,
+  code varchar NOT NULL UNIQUE,
+  type stat_type NOT NULL,
+  frequency stat_frequency NOT NULL,
+  name varchar NOT NULL,
+  description text,
+  priority integer UNIQUE,
+  archived boolean NOT NULL DEFAULT false
+);
+--
+COMMENT ON COLUMN stat_definition.priority IS 'UI ordering of the entry fields';
+COMMENT ON COLUMN stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
+--
+INSERT INTO stat_definition(code, type, frequency, name, description, priority) VALUES
+  ('employees','int','monthly','Number of people employed','The number of people receiving an official salary with government reporting.',2),
+  ('verified','bool','yearly','Verified','That an employee as had phone contact with and found in the tax registry.',1),
+  ('turnover','int','yearly','Turnover','The amount (EUR)',3);
+--
+--
 CREATE TABLE legal_unit_history(
   id serial PRIMARY KEY,
   legal_unit_id integer REFERENCES legal_unit(id) ON DELETE SET NULL,
   name text,
-  employees integer,
+  stats JSONB NOT NULL,
   valid_from date NOT NULL,
   valid_to date NOT NULL,
   change_description varchar,
   CONSTRAINT valid_to_from_in_timely_order CHECK (valid_from <= valid_to),
-  CONSTRAINT no_valid_time_overlap
+  CONSTRAINT history_no_valid_time_overlap
   EXCLUDE USING gist(legal_unit_id WITH =, daterange(valid_from, valid_to, '[]'
-) WITH &&), CONSTRAINT one_entry_per_day_per_unit UNIQUE (legal_unit_id, valid_from)
+) WITH &&), CONSTRAINT history_one_entry_per_day_per_unit UNIQUE (legal_unit_id, valid_from)
 );
+COMMENT ON TABLE legal_unit_history IS 'A historical record of data, kept even in the case of delete.';
 CREATE INDEX legal_unit_history_legal_unit_id_idx ON legal_unit_history(legal_unit_id)
 WHERE
   legal_unit_id IS NOT NULL;
+--
+--
+CREATE UNIQUE INDEX legal_unit_history_legal_unit_id_valid_to_infinity_key ON legal_unit_history(legal_unit_id, valid_to) WHERE valid_to = 'infinity'::date;
+
 --
 CREATE INDEX legal_unit_history_valid_idx ON legal_unit_history(valid_from, valid_to);
 --
@@ -64,6 +109,7 @@ CREATE TYPE audit_operation AS ENUM(
 CREATE TABLE legal_unit_audit(
   id serial PRIMARY KEY,
   op audit_operation NOT NULL,
+  op_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
   legal_unit_id integer REFERENCES legal_unit(id) ON DELETE SET NULL ON UPDATE CASCADE,
   record jsonb NOT NULL,
   known_from timestamp with time zone NOT NULL,
@@ -74,18 +120,108 @@ CREATE TABLE legal_unit_audit(
 ) WITH &&)
 );
 --
+COMMENT ON TABLE legal_unit_audit IS 'A record of all changes, kept even in the case of delete.';
+--
+CREATE UNIQUE INDEX legal_unit_audit_legal_unit_id_known_to_infinity_key ON legal_unit_audit(legal_unit_id, known_to) WHERE known_to = 'infinity'::timestamptz;
+--
+--
+-- Trigger function
+CREATE OR REPLACE FUNCTION legal_unit_audit_op_at_consistency()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
+  -- If it's an INSERT operation, set the value of op_at
+  IF TG_OP = 'INSERT' THEN
+    NEW.op_at := statement_timestamp();
+    RETURN NEW;
+  END IF;
+
+  -- If it's an UPDATE operation, check if the op_at is being changed
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.op_at <> OLD.op_at THEN
+      RAISE EXCEPTION 'Cannot change op_at';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- Default return for other operations
+  RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Before trigger for INSERT or UPDATE
+CREATE TRIGGER legal_unit_audit_op_at_consistency
+  BEFORE INSERT OR UPDATE ON legal_unit_audit
+  FOR EACH ROW
+  EXECUTE FUNCTION legal_unit_audit_op_at_consistency();
+--
+--
+CREATE OR REPLACE FUNCTION check_legal_unit_stats_validity()
+RETURNS TRIGGER AS $$
+DECLARE
+    valid_codes TEXT[];
+    stat_keys TEXT[];
+    invalid_keys TEXT[];
+BEGIN
+    -- Fetch valid codes from stat_definition where they are not archived
+    SELECT ARRAY_AGG(code) INTO valid_codes
+    FROM stat_definition
+    WHERE archived IS FALSE;
+
+    -- Extract all the keys from the measurement JSONB column
+    SELECT ARRAY_AGG(jsonb_object_keys) INTO stat_keys
+    FROM jsonb_object_keys(NEW.stats);
+
+    -- Identify any invalid keys
+    invalid_keys := ARRAY(
+        SELECT unnest(stat_keys)
+        EXCEPT
+        SELECT unnest(valid_codes)
+    );
+
+    -- If there are any invalid keys, raise an exception with those keys listed
+    IF array_length(invalid_keys, 1) > 0 THEN
+        RAISE EXCEPTION 'Invalid keys found in measurement: %', array_to_string(invalid_keys, ', ');
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create the trigger
+CREATE TRIGGER check_legal_unit_stats_validity
+BEFORE INSERT OR UPDATE OF stats ON legal_unit
+FOR EACH ROW EXECUTE FUNCTION check_legal_unit_stats_validity();
+--
+--
+CREATE OR REPLACE FUNCTION ensure_legal_unit_updated_at_increments()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- If the updated_at timestamp hasn't changed, set it to the current timestamp
+  IF OLD.updated_at = NEW.updated_at THEN
+    NEW.updated_at := statement_timestamp();
+  END IF;
+  RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+--
+CREATE TRIGGER ensure_legal_unit_updated_at_increments
+BEFORE UPDATE ON legal_unit
+FOR EACH ROW
+EXECUTE FUNCTION ensure_legal_unit_updated_at_increments();
+
+--
 --
 -- AFTER INSERT Trigger
 CREATE OR REPLACE FUNCTION legal_unit_after_insert()
   RETURNS TRIGGER
   AS $$
 BEGIN
-  -- Log or update legal_unit_history
-  INSERT INTO legal_unit_history(legal_unit_id, name, employees, valid_from, valid_to, change_description)
-    VALUES(NEW.id, NEW.name, NEW.employees, NEW.valid_from, NEW.valid_to, NEW.change_description)
-  ON CONFLICT(legal_unit_id, valid_from)
-    DO UPDATE SET
-      valid_to = EXCLUDED.valid_to, name = EXCLUDED.name, employees = EXCLUDED.employees, change_description = EXCLUDED.change_description;
+  -- Log to legal_unit_history
+  INSERT INTO legal_unit_history(legal_unit_id, name, stats, valid_from, valid_to, change_description)
+    VALUES(NEW.id, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description);
   -- Log to legal_unit_audit
   INSERT INTO legal_unit_audit(legal_unit_id, record, known_from, known_to, op)
     VALUES(NEW.id, to_jsonb(NEW), NEW.updated_at, 'infinity'::timestamptz, 'INSERT');
@@ -179,8 +315,8 @@ BEGIN
           RAISE DEBUG 'Don''t create zero duration row';
         ELSIF NEW.active THEN
           RAISE DEBUG 'Inserting new tail';
-          INSERT INTO legal_unit_history(legal_unit_id, valid_from, valid_to)
-            VALUES (NEW.id, adjusted_valid_from, c.valid_to);
+          INSERT INTO legal_unit_history(legal_unit_id, name, stats, valid_from, valid_to, change_description)
+            VALUES (NEW.id, adjusted_valid_from, c.name, c.stats, c.valid_from, c.valid_to, c.change_description);
         ELSE
           RAISE DEBUG 'No tail for a liquidated company';
         END IF;
@@ -231,9 +367,9 @@ BEGIN
     END LOOP;
   --
   -- Insert a new entry or update an existing one for today in legal_unit_history
-  RAISE DEBUG 'legal_unit_history(legal_unit_id=%, name=%, employees=%, valid_from=%, valid_to=%, change_description=%)', NEW.id, NEW.name, NEW.employees, NEW.valid_from, NEW.valid_to, NEW.change_description;
-  INSERT INTO legal_unit_history(legal_unit_id, name, employees, valid_from, valid_to, change_description)
-    VALUES (NEW.id, NEW.name, NEW.employees, NEW.valid_from, NEW.valid_to, NEW.change_description);
+  RAISE DEBUG 'legal_unit_history(legal_unit_id=%, name=%, stats=%, valid_from=%, valid_to=%, change_description=%)', NEW.id, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description;
+  INSERT INTO legal_unit_history(legal_unit_id, name, stats, valid_from, valid_to, change_description)
+    VALUES (NEW.id, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description);
   -- End the known_to for the previous audit.
   WITH previous_audit AS (
     SELECT
@@ -268,16 +404,49 @@ CREATE TRIGGER legal_unit_after_update
   EXECUTE FUNCTION legal_unit_after_update();
 --
 --
--- AFTER DELETE Trigger
 CREATE OR REPLACE FUNCTION legal_unit_before_delete()
-  RETURNS TRIGGER
-  AS $$
+  RETURNS TRIGGER AS $$
 BEGIN
   -- Only allow delete if the valid_to was previously set to a sensible value
   -- thereby capturing the intent to delete.
-  IF OLD.valid_to = 'infinity'::date THEN
-    RAISE EXCEPTION 'Cannot delete a record with valid_to set to infinity';
+  IF OLD.active THEN
+    RAISE EXCEPTION 'Cannot delete a record while active. Requires valid_to to have a date';
   END IF;
+  RETURN OLD;
+END;
+$$
+LANGUAGE plpgsql;
+--
+CREATE TRIGGER legal_unit_before_delete
+  BEFORE DELETE ON legal_unit
+  FOR EACH ROW
+  EXECUTE FUNCTION legal_unit_before_delete();
+--
+--
+-- AFTER DELETE Trigger
+CREATE OR REPLACE FUNCTION legal_unit_after_delete()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
+  -- End the known_to for the previous audit.
+  WITH previous_audit AS (
+    SELECT
+      id
+    FROM
+      legal_unit_audit
+    WHERE
+      legal_unit_id = OLD.id
+      AND known_to = 'infinity'::timestamptz
+    LIMIT 1)
+  UPDATE
+    legal_unit_audit
+  SET
+    known_to = OLD.updated_at
+  FROM
+    previous_audit
+  WHERE
+    legal_unit_audit.id = previous_audit.id;
+
   -- Log to legal_unit_audit
   INSERT INTO legal_unit_audit(legal_unit_id, record, known_from, known_to, op)
   -- There is no foreign key, after a delete
@@ -287,10 +456,10 @@ END;
 $$
 LANGUAGE plpgsql;
 --
-CREATE TRIGGER legal_unit_before_delete
+CREATE TRIGGER legal_unit_after_delete
   AFTER DELETE ON legal_unit
   FOR EACH ROW
-  EXECUTE FUNCTION legal_unit_before_delete();
+  EXECUTE FUNCTION legal_unit_after_delete();
 --
 --
 SET client_min_messages = debug;
@@ -313,8 +482,8 @@ WHERE
 --
 SELECT
   'Insert a legal unit' AS doc;
-INSERT INTO legal_unit(name, employees, change_description)
-  VALUES ('Anne', 1, 'UI Change');
+INSERT INTO legal_unit(name, stats, change_description)
+  VALUES ('Anne', '{"employees": 1}', 'UI Change');
 --
 SELECT
   'Show a legal unit after insert' AS doc;
@@ -341,8 +510,7 @@ UPDATE
   legal_unit
 SET
   name = 'Eriks',
-  change_description = 'Manual editing',
-  updated_at = statement_timestamp()
+  change_description = 'Manual editing'
 WHERE
   id = 1;
 --
@@ -352,12 +520,14 @@ SELECT
   *
 FROM
   legal_unit;
+--
 SELECT
   'Show a legal unit history after update' AS doc;
 SELECT
   *
 FROM
   legal_unit_history;
+--
 SELECT
   'Show a legal unit audit after update' AS doc;
 SELECT
@@ -429,8 +599,8 @@ SAVEPOINT using_adjusted;
 SELECT
   'Insert a legal unit' AS doc;
 
-INSERT INTO legal_unit(name, employees, change_description, valid_from)
-  VALUES ('Joe', 2, 'BRREG Import', '2022-06-01');
+INSERT INTO legal_unit(name, stats, change_description, valid_from)
+  VALUES ('Joe', '{"employees": 2}', 'BRREG Import', '2022-06-01');
 
 --
 SELECT
@@ -466,8 +636,7 @@ UPDATE
 SET
   name = 'Trader Joes',
   change_description = 'BRREG Batch Upload',
-  valid_from = '2022-09-01',
-  updated_at = statement_timestamp()
+  valid_from = '2022-09-01'
 WHERE
   name = 'Joe';
 
@@ -475,9 +644,8 @@ UPDATE
   legal_unit
 SET
   change_description = 'Tax report',
-  employees = 8,
-  valid_from = '2022-10-01',
-  updated_at = statement_timestamp()
+  stats = jsonb_set(stats, '{employees}', '8'::jsonb),
+  valid_from = '2022-10-01'
 WHERE
   name = 'Trader Joes';
 
@@ -577,8 +745,8 @@ SAVEPOINT rewrite_history;
 SELECT
   'Insert a legal unit' AS doc;
 
-INSERT INTO legal_unit(name, employees, change_description, valid_from, updated_at)
-  VALUES ('Coop', 99, 'BRREG Import', '2022-03-01', now() - '1 year'::interval);
+INSERT INTO legal_unit(name, stats, change_description, valid_from, updated_at)
+  VALUES ('Coop', '{"employees": 99}', 'BRREG Import', '2022-03-01', now() - '1 year'::interval);
 
 --
 SELECT
@@ -623,7 +791,7 @@ UPDATE
   legal_unit
 SET
   change_description = 'Tax report',
-  employees = 198,
+  stats = jsonb_set(stats, '{employees}', '198'::jsonb),
   valid_from = '2022-10-01',
   updated_at = now() - '6 months'::interval
 WHERE
@@ -634,7 +802,7 @@ UPDATE
   legal_unit
 SET
   change_description = 'Survey result',
-  employees = 146,
+  stats = jsonb_set(stats, '{employees}', '146'::jsonb),
   valid_from = '2022-08-01',
   updated_at = now() - '3 months'::interval
 WHERE
@@ -755,7 +923,11 @@ DROP TABLE legal_unit_audit;
 
 DROP TABLE legal_unit;
 
+DROP TABLE stat_definition;
+
 DROP TYPE audit_operation;
+DROP TYPE stat_type;
+DROP TYPE stat_frequency;
 
 DROP EXTENSION btree_gist;
 
