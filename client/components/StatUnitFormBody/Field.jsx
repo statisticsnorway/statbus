@@ -9,8 +9,8 @@ import {
   NumberField,
   TextField,
   SelectField,
-  ActivitiesField,
-  PersonsField,
+  ActivitiesList,
+  PersonsList,
   AddressField,
   SearchField,
   withDebounce,
@@ -39,11 +39,11 @@ const Field = ({ fieldType, setFieldValue, validationUrl, ...restProps }) => {
     case 'Reference':
       return <SelectField {...props} />
     case 'Activities':
-      return <ActivitiesField {...props} />
+      return <ActivitiesList {...props} />
     case 'Addresses':
       return <AddressField {...props} />
     case 'Persons':
-      return <PersonsField {...props} />
+      return <PersonsList {...props} />
     case 'SearchComponent':
       return <SearchField {...props} />
     default:

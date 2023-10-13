@@ -10,8 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { faCircleChevronRight, faCircleChevronDown } from '@fortawesome/free-solid-svg-icons'
 
-
-class ContactInfo extends React.Component {
+export class ContactInfo extends React.Component {
   constructor(props) {
     library.add(faCircleChevronRight)
     library.add(faCircleChevronDown)
@@ -344,8 +343,7 @@ class ContactInfo extends React.Component {
             <Grid.Row>
               <Grid.Column width={16}>
                 <label className={styles.boldText}>{localize('PersonsRelatedToTheUnit')}</label>
-                {/* The rendering of this component does not work currently
-                <PersonsList name="persons" value={data.persons} localize={localize} readOnly /> */}
+                <PersonsList name="persons" value={data.persons} localize={localize} readOnly />
               </Grid.Column>
             </Grid.Row>
           </Grid>

@@ -9,7 +9,7 @@ import PersonView from './View'
 import PersonEdit from './Edit'
 import { getNewName } from '/client/helpers/locale'
 
-class PersonsList extends React.Component {
+export class PersonsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     locale: string.isRequired,
