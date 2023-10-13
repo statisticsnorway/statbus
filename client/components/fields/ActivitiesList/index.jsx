@@ -7,7 +7,7 @@ import { getDate, formatDate } from '/client/helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
-class ActivitiesList extends React.Component {
+export class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     locale: string.isRequired,

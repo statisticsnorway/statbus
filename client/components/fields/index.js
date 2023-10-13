@@ -1,5 +1,5 @@
-export { ActivitiesList } from './ActivitiesField'
-export { PersonsList } from './PersonsField'
+export { ActivitiesList } from 'components/fields/ActivitiesList/index'
+export { PersonsList } from 'components/fields/PersonsList/index'
 export { AddressField } from './AddressField'
 export { CheckField } from './CheckField'
 export { DateTimeField } from './DateTimeField'
