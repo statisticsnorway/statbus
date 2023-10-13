@@ -163,13 +163,14 @@ DECLARE
     valid_codes TEXT[];
     stat_keys TEXT[];
     invalid_keys TEXT[];
+    missing_keys TEXT[];
 BEGIN
     -- Fetch valid codes from stat_definition where they are not archived
     SELECT ARRAY_AGG(code) INTO valid_codes
     FROM stat_definition
     WHERE archived IS FALSE;
 
-    -- Extract all the keys from the measurement JSONB column
+    -- Extract all the keys from the stats JSONB column
     SELECT ARRAY_AGG(jsonb_object_keys) INTO stat_keys
     FROM jsonb_object_keys(NEW.stats);
 
@@ -180,9 +181,18 @@ BEGIN
         SELECT unnest(valid_codes)
     );
 
-    -- If there are any invalid keys, raise an exception with those keys listed
-    IF array_length(invalid_keys, 1) > 0 THEN
-        RAISE EXCEPTION 'Invalid keys found in measurement: %', array_to_string(invalid_keys, ', ');
+    -- Identify any missing keys
+    missing_keys := ARRAY(
+        SELECT unnest(valid_codes)
+        EXCEPT
+        SELECT unnest(stat_keys)
+    );
+
+    -- If there are any invalid or missing keys, raise an exception with those keys listed
+    IF array_length(invalid_keys, 1) > 0 OR array_length(missing_keys, 1) > 0 THEN
+        RAISE EXCEPTION 'stats has invalid keys: %, and missing keys: %',
+            to_json(invalid_keys),
+            to_json(missing_keys);
     END IF;
 
     RETURN NEW;
@@ -485,7 +495,7 @@ WHERE
 SELECT
   'Insert a legal unit' AS doc;
 INSERT INTO legal_unit(name, stats, change_description)
-  VALUES ('Anne', '{"verified": true, "employees": 1}', 'UI Change');
+  VALUES ('Anne', '{"verified": true, "employees": 1, "turnover": null}', 'UI Change');
 --
 SELECT
   'Show a legal unit after insert' AS doc;
@@ -512,6 +522,7 @@ UPDATE
   legal_unit
 SET
   name = 'Eriks',
+  stats = jsonb_set(stats, '{employees}', '2'::jsonb),
   change_description = 'Manual editing'
 WHERE
   id = 1;
@@ -602,7 +613,7 @@ SELECT
   'Insert a legal unit' AS doc;
 
 INSERT INTO legal_unit(name, stats, change_description, valid_from)
-  VALUES ('Joe', '{"verified": false, "employees": 2}', 'BRREG Import', '2022-06-01');
+  VALUES ('Joe', '{"verified": false, "employees": 2, "turnover": null}', 'BRREG Import', '2022-06-01');
 
 --
 SELECT
@@ -749,7 +760,7 @@ SELECT
   'Insert a legal unit' AS doc;
 
 INSERT INTO legal_unit(name, stats, change_description, valid_from, updated_at)
-  VALUES ('Coop', '{"employees": 99}', 'BRREG Import', '2022-03-01', now() - '1 year'::interval);
+  VALUES ('Coop', '{"employees": 99, "turnover": null, "verified": null}', 'BRREG Import', '2022-03-01', now() - '1 year'::interval);
 
 --
 SELECT
