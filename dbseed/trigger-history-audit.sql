@@ -4,8 +4,16 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;
 --
 --
 
+CREATE TABLE activity_category (
+  id serial PRIMARY KEY,
+  code varchar NOT NULL UNIQUE,
+  name text,
+  description text
+);
+
 CREATE TABLE legal_unit(
   id serial PRIMARY KEY,
+  unit_ident varchar UNIQUE NOT NULL,
   name text,
   stats JSONB NOT NULL,
   change_description varchar NOT NULL,
@@ -18,6 +26,55 @@ CREATE TABLE legal_unit(
 --
 COMMENT ON COLUMN legal_unit.updated_at IS 'Use the statement_timestamp() as default, to allow known time to progress within a transaction, required due to exclusion constraint.';
 COMMENT ON COLUMN legal_unit.valid_to IS 'Use the ''infinity'' as default, to prevent the exclusion constraint from failing when it is NULL. This will be translated to max target system supported value in reports.';
+--
+--
+CREATE TABLE activity(
+  id serial PRIMARY KEY,
+  legal_unit_id integer REFERENCES legal_unit(id) ON DELETE CASCADE,
+  activity_category_id integer REFERENCES activity_category(id) ON DELETE RESTRICT,
+  UNIQUE(legal_unit_id, activity_category_id)
+);
+
+CREATE VIEW view_legal_unit_activity AS
+  SELECT lu.unit_ident, lu.name AS legal_unit_name, ac.code, ac.name AS activity_name
+  FROM legal_unit AS lu
+  JOIN activity AS lua ON lua.legal_unit_id = lu.id
+  JOIN activity_category AS ac ON lua.activity_category_id = ac.id;
+--
+-- Create a function to handle the bulk upserts
+CREATE OR REPLACE FUNCTION upsert_legal_unit_activity()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Delete activities that are not in the upload
+    DELETE FROM activity
+    WHERE (legal_unit_id, activity_category_id) NOT IN (
+        SELECT lu.id, ac.id
+        FROM legal_unit lu
+        JOIN activity_category ac ON ac.code = NEW.code
+        WHERE lu.unit_ident = NEW.unit_ident
+    );
+
+    -- Insert or update activities based on the upload
+    INSERT INTO activity (legal_unit_id, activity_category_id)
+    SELECT lu.id, ac.id
+    FROM legal_unit lu
+    JOIN activity_category ac ON ac.code = NEW.code
+    WHERE lu.unit_ident = NEW.unit_ident
+    ON CONFLICT (legal_unit_id, activity_category_id) DO NOTHING;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create the "INSTEAD OF INSERT" trigger on the view
+CREATE TRIGGER upsert_legal_unit_activity
+INSTEAD OF INSERT ON view_legal_unit_activity
+FOR EACH ROW
+EXECUTE FUNCTION upsert_legal_unit_activity();
+
+
+
+--
 -- Prevent primary key changes
 CREATE OR REPLACE FUNCTION prevent_legal_unit_id_update()
   RETURNS TRIGGER
@@ -78,6 +135,7 @@ INSERT INTO stat_definition(code, type, frequency, name, description, priority) 
 CREATE TABLE legal_unit_history(
   id serial PRIMARY KEY,
   legal_unit_id integer REFERENCES legal_unit(id) ON DELETE SET NULL,
+  unit_ident varchar NOT NULL,
   name text,
   stats JSONB NOT NULL,
   valid_from date NOT NULL,
@@ -107,7 +165,7 @@ DECLARE
     stat_code RECORD;
 BEGIN
     -- Start building the dynamic query
-    dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, name, change_description, valid_from, valid_to';
+    dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, change_description, valid_from, valid_to';
 
     -- For each code in stat_definition, add it as a column
     FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
@@ -273,8 +331,8 @@ CREATE OR REPLACE FUNCTION legal_unit_after_insert()
   AS $$
 BEGIN
   -- Log to legal_unit_history
-  INSERT INTO legal_unit_history(legal_unit_id, name, stats, valid_from, valid_to, change_description)
-    VALUES(NEW.id, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description);
+  INSERT INTO legal_unit_history(legal_unit_id, unit_ident, name, stats, valid_from, valid_to, change_description)
+    VALUES(NEW.id, NEW.unit_ident, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description);
   -- Log to legal_unit_audit
   INSERT INTO legal_unit_audit(legal_unit_id, record, known_from, known_to, op)
     VALUES(NEW.id, to_jsonb(NEW), NEW.updated_at, 'infinity'::timestamptz, 'INSERT');
@@ -421,8 +479,8 @@ BEGIN
   --
   -- Insert a new entry or update an existing one for today in legal_unit_history
   RAISE DEBUG 'legal_unit_history(legal_unit_id=%, name=%, stats=%, valid_from=%, valid_to=%, change_description=%)', NEW.id, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description;
-  INSERT INTO legal_unit_history(legal_unit_id, name, stats, valid_from, valid_to, change_description)
-    VALUES (NEW.id, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description);
+  INSERT INTO legal_unit_history(legal_unit_id, unit_ident, name, stats, valid_from, valid_to, change_description)
+    VALUES (NEW.id, NEW.unit_ident, NEW.name, NEW.stats, NEW.valid_from, NEW.valid_to, NEW.change_description);
   -- End the known_to for the previous audit.
   WITH previous_audit AS (
     SELECT
@@ -537,8 +595,8 @@ WHERE
 --
 SELECT
   'Insert a legal unit' AS doc;
-INSERT INTO legal_unit(name, stats, change_description)
-  VALUES ('Anne', '{"verified": true, "employees": 1, "turnover": null}', 'UI Change');
+INSERT INTO legal_unit(unit_ident, name, stats, change_description)
+  VALUES ('23nd','Anne', '{"verified": true, "employees": 1, "turnover": null}', 'UI Change');
 --
 SELECT
   'Show a legal unit after insert' AS doc;
@@ -663,8 +721,8 @@ SAVEPOINT using_adjusted;
 SELECT
   'Insert a legal unit' AS doc;
 
-INSERT INTO legal_unit(name, stats, change_description, valid_from)
-  VALUES ('Joe', '{"verified": false, "employees": 2, "turnover": null}', 'BRREG Import', '2022-06-01');
+INSERT INTO legal_unit(unit_ident, name, stats, change_description, valid_from)
+  VALUES ('87fm','Joe', '{"verified": false, "employees": 2, "turnover": null}', 'BRREG Import', '2022-06-01');
 
 --
 SELECT
@@ -810,8 +868,8 @@ SAVEPOINT rewrite_history;
 SELECT
   'Insert a legal unit' AS doc;
 
-INSERT INTO legal_unit(name, stats, change_description, valid_from, updated_at)
-  VALUES ('Coop', '{"employees": 99, "turnover": null, "verified": null}', 'BRREG Import', '2022-03-01', now() - '1 year'::interval);
+INSERT INTO legal_unit(unit_ident, name, stats, change_description, valid_from, updated_at)
+  VALUES ('754n3','Coop', '{"employees": 99, "turnover": null, "verified": null}', 'BRREG Import', '2022-03-01', now() - '1 year'::interval);
 
 --
 SELECT
@@ -983,6 +1041,11 @@ SET client_min_messages = INFO;
 --
 --
 DROP VIEW legal_unit_history_with_stats;
+DROP VIEW view_legal_unit_activity;
+
+DROP TABLE activity;
+DROP TABLE activity_category;
+
 DROP TABLE legal_unit_history;
 
 DROP TABLE legal_unit_audit;
