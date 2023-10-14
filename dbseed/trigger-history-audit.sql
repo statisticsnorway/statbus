@@ -11,6 +11,8 @@ CREATE TABLE activity_category (
   description text
 );
 
+INSERT INTO activity_category(code) VALUES ('A'),('B'),('C');
+
 CREATE TABLE legal_unit(
   id serial PRIMARY KEY,
   unit_ident varchar UNIQUE NOT NULL,
@@ -32,11 +34,12 @@ CREATE TABLE activity(
   id serial PRIMARY KEY,
   legal_unit_id integer REFERENCES legal_unit(id) ON DELETE CASCADE,
   activity_category_id integer REFERENCES activity_category(id) ON DELETE RESTRICT,
+  updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   UNIQUE(legal_unit_id, activity_category_id)
 );
 
 CREATE VIEW view_legal_unit_activity AS
-  SELECT lu.unit_ident, lu.name AS legal_unit_name, ac.code, ac.name AS activity_name
+  SELECT lu.unit_ident, lu.name AS legal_unit_name, ac.code AS activity_code, ac.name AS activity_name
   FROM legal_unit AS lu
   JOIN activity AS lua ON lua.legal_unit_id = lu.id
   JOIN activity_category AS ac ON lua.activity_category_id = ac.id;
@@ -45,22 +48,14 @@ CREATE VIEW view_legal_unit_activity AS
 CREATE OR REPLACE FUNCTION upsert_legal_unit_activity()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Delete activities that are not in the upload
-    DELETE FROM activity
-    WHERE (legal_unit_id, activity_category_id) NOT IN (
-        SELECT lu.id, ac.id
-        FROM legal_unit lu
-        JOIN activity_category ac ON ac.code = NEW.code
-        WHERE lu.unit_ident = NEW.unit_ident
-    );
-
     -- Insert or update activities based on the upload
-    INSERT INTO activity (legal_unit_id, activity_category_id)
-    SELECT lu.id, ac.id
+    INSERT INTO activity (legal_unit_id, activity_category_id, updated_at)
+    SELECT lu.id, ac.id, statement_timestamp()
     FROM legal_unit lu
-    JOIN activity_category ac ON ac.code = NEW.code
+    JOIN activity_category ac ON ac.code = NEW.activity_code
     WHERE lu.unit_ident = NEW.unit_ident
-    ON CONFLICT (legal_unit_id, activity_category_id) DO NOTHING;
+    ON CONFLICT (legal_unit_id, activity_category_id)
+    DO UPDATE SET updated_at = statement_timestamp();
 
     RETURN NULL;
 END;
@@ -72,7 +67,27 @@ INSTEAD OF INSERT ON view_legal_unit_activity
 FOR EACH ROW
 EXECUTE FUNCTION upsert_legal_unit_activity();
 
+CREATE OR REPLACE FUNCTION delete_stale_legal_unit_activity()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- All the `legal_unit_id` with a recent update must be complete.
+    WITH changed_legal_unit AS (
+      SELECT DISTINCT legal_unit_id
+      FROM activity
+      WHERE updated_at = statement_timestamp()
+    )
+    -- Delete activities that have a stale updated_at
+    DELETE FROM activity
+    WHERE legal_unit_id IN (SELECT legal_unit_id FROM changed_legal_unit)
+    AND updated_at < statement_timestamp();
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
+CREATE TRIGGER delete_stale_legal_unit_activity
+AFTER INSERT ON view_legal_unit_activity
+FOR EACH STATEMENT
+EXECUTE FUNCTION delete_stale_legal_unit_activity();
 
 --
 -- Prevent primary key changes
@@ -1029,7 +1044,34 @@ WHERE
   AND '2022-12-31' <= valid_to
 ORDER BY
   valid_from;
+--
+--
+SELECT
+  '########## Rewrite past insert, update, delete' AS doc;
 
+SAVEPOINT rewrite_history;
+
+--
+--
+SELECT
+  'Insert a legal unit' AS doc;
+
+INSERT INTO legal_unit(unit_ident, name, stats, change_description, valid_from)
+  VALUES ('754n3','Coffe', '{"employees": 1, "turnover": null, "verified": null}', 'BRREG Import', '2023-01-01');
+
+INSERT INTO view_legal_unit_activity(unit_ident, activity_code) VALUES
+  ('754n3','A'), ('754n3','B'), ('754n3','C');
+
+SELECT 'Show activity after upsert through view' AS doc;
+SELECT * FROM activity;
+
+INSERT INTO view_legal_unit_activity(unit_ident, activity_code) VALUES
+  ('754n3','A'), ('754n3','B');
+
+SELECT 'Show activity after upsert with delete through view' AS doc;
+SELECT * FROM activity;
+
+--
 --
 ROLLBACK TO SAVEPOINT rewrite_history;
 
