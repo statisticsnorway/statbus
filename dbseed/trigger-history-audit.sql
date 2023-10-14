@@ -100,6 +100,49 @@ CREATE UNIQUE INDEX legal_unit_history_legal_unit_id_valid_to_infinity_key ON le
 CREATE INDEX legal_unit_history_valid_idx ON legal_unit_history(valid_from, valid_to);
 --
 --
+CREATE OR REPLACE FUNCTION generate_legal_unit_history_with_stats_view()
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE
+    dyn_query TEXT;
+    stat_code RECORD;
+BEGIN
+    -- Start building the dynamic query
+    dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, name, change_description, valid_from, valid_to';
+
+    -- For each code in stat_definition, add it as a column
+    FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
+    LOOP
+        dyn_query := dyn_query || ', stats ->> ''' || stat_code.code || ''' AS "' || stat_code.code || '"';
+    END LOOP;
+
+    dyn_query := dyn_query || ' FROM legal_unit_history';
+
+    -- Execute the dynamic query
+    EXECUTE dyn_query;
+    -- Reload PostgREST to expose the new view
+    NOTIFY pgrst, 'reload config';
+END;
+$$;
+--
+CREATE OR REPLACE FUNCTION generate_legal_unit_history_with_stats_view_trigger()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    -- Call the view generation function
+    PERFORM generate_legal_unit_history_with_stats_view();
+
+    -- As this is an AFTER trigger, we don't need to return any specific row.
+    RETURN NULL;
+END;
+$$;
+--
+CREATE TRIGGER regenerate_stats_view_trigger
+AFTER INSERT OR UPDATE OR DELETE ON stat_definition
+FOR EACH ROW
+EXECUTE FUNCTION generate_legal_unit_history_with_stats_view_trigger();
+--
+SELECT generate_legal_unit_history_with_stats_view();
+--
+--
 CREATE TYPE audit_operation AS ENUM(
   'INSERT',
   'UPDATE',
@@ -591,6 +634,14 @@ FROM
   legal_unit_history;
 
 SELECT
+  'Show a legal unit history with stats after delete' AS doc;
+
+SELECT
+  *
+FROM
+  legal_unit_history_with_stats;
+
+SELECT
   'Show a legal unit audit after delete' AS doc;
 
 SELECT
@@ -931,6 +982,7 @@ SET client_min_messages = INFO;
 
 --
 --
+DROP VIEW legal_unit_history_with_stats;
 DROP TABLE legal_unit_history;
 
 DROP TABLE legal_unit_audit;
