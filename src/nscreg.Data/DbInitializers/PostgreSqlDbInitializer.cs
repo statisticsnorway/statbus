@@ -22,6 +22,7 @@ namespace nscreg.Data.DbInitializers
                 SELECT
                     "RegId",
                     "Name",
+                    "ShortName",
                     "TaxRegId",
                     "StatId",
                     "ExternalId",
@@ -59,6 +60,7 @@ namespace nscreg.Data.DbInitializers
                 SELECT
                     "RegId",
                     "Name",
+                    "ShortName",
                     "TaxRegId",
                     "StatId",
                     "ExternalId",
