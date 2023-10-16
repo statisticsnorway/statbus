@@ -1,7 +1,8 @@
 import { createAction } from 'redux-act'
 import { NotificationManager } from 'react-notifications'
 import { getLocalizeText } from '/client/helpers/locale'
-import dispatchRequest from '/client/helpers/request'
+import dispatchRequest, { internalRequest } from '/client/helpers/request'
+
 import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
@@ -20,6 +21,10 @@ export const setSearchCondition = createAction('set search condition')
 
 export const clearError = createAction('clear error')
 
+const redirectToIndex = () => {
+  window.location.href = '/'
+}
+
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
@@ -34,19 +39,19 @@ const fetchData = queryParams =>
     onStart: dispatch => dispatch(fetchDataStateChanged(true)),
   })
 
-export const deleteStatUnit = (type, id, queryParams, index, onFail) =>
-  dispatchRequest({
+export const deleteStatUnit = (type, id) =>
+  internalRequest({
     url: `/api/statunits/${type}/${id}`,
     method: 'delete',
-    onSuccess: (dispatch) => {
-      dispatch(fetchData(queryParams))
+    onSuccess: () => {
       NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
+      redirectToIndex()
     },
-    onFail: (_, error) => {
-      onFail(error.message)
+    onFail: () => {
       NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
     },
   })
+
 const fetchLookup = id =>
   dispatchRequest({
     url: `/api/lookup/${id}`,
