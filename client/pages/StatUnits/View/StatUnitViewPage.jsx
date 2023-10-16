@@ -6,7 +6,7 @@ import { Link } from 'react-router'
 
 import Printable from '/client/components/Printable/Printable'
 import { checkSystemFunction as sF, checkSystemFunction as checkSF } from '/client/helpers/config'
-import { statUnitChangeReasons } from '/client/helpers/enums'
+import { statUnitChangeReasons, statUnitTypes } from '/client/helpers/enums'
 import { Main, History, Activity, OrgLinks, Links, ContactInfo, BarInfo } from './tabs'
 import tabs from './tabs/tabEnum'
 
@@ -88,6 +88,10 @@ class StatUnitViewPage extends React.Component {
       onClick={this.handleTabClick}
     />
   )
+
+  handleDeleteStatUnit = (statUnitType, statUnitRegId) => {
+    deleteStatUnit(statUnitType, statUnitRegId)
+  }
 
   renderView() {
     const {
@@ -256,7 +260,9 @@ class StatUnitViewPage extends React.Component {
                 )}
                 {checkSF('StatUnitDelete') && (
                   <Button
-                    onClick={() => deleteStatUnit(statUnit)}
+                    onClick={() =>
+                      this.handleDeleteStatUnit(statUnitTypes.get(unit.type), unit.regId)
+                    }
                     icon="trash"
                     negative
                     disabled={unit.readonly}
