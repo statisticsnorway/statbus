@@ -68,6 +68,8 @@ namespace nscreg.Server.Common.Services.DataSources
         /// <returns></returns>
         public async Task FlushAsync()
         {
+            await _context.DataUploadingLogs.AddRangeAsync(Buffer);
+            await _context.SaveChangesAsync();
             Buffer.Clear();
         }
 
