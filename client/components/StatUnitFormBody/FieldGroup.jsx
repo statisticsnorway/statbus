@@ -1,18 +1,13 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { Form } from 'semantic-ui-react'
 
-export class FieldGroup extends Component {
-  render() {
-    const { isExtended, children } = this.props
-    return (
-      <Form.Group widths="equal">
-        {children}
-        {!isExtended && children.length % 2 !== 0 && <div className="field" />}
-      </Form.Group>
-    )
-  }
-}
+const FieldGroup = ({ isExtended, children }) => (
+  <Form.Group widths="equal">
+    {children}
+    {!isExtended && children.length % 2 !== 0 && <div className="field" />}
+  </Form.Group>
+)
 
 const { bool, node } = PropTypes
 FieldGroup.propTypes = {
