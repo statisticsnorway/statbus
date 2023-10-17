@@ -89,10 +89,6 @@ class StatUnitViewPage extends React.Component {
     />
   )
 
-  handleDeleteStatUnit = (statUnitType, statUnitRegId) => {
-    deleteStatUnit(statUnitType, statUnitRegId)
-  }
-
   renderView() {
     const {
       unit,
@@ -260,9 +256,7 @@ class StatUnitViewPage extends React.Component {
                 )}
                 {checkSF('StatUnitDelete') && (
                   <Button
-                    onClick={() =>
-                      this.handleDeleteStatUnit(statUnitTypes.get(unit.type), unit.regId)
-                    }
+                    onClick={() => deleteStatUnit(statUnitTypes.get(unit.type), unit.regId)}
                     icon="trash"
                     negative
                     disabled={unit.readonly}
