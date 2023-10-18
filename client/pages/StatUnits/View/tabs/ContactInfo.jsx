@@ -176,54 +176,147 @@ export class ContactInfo extends React.Component {
                         {data.actualAddress && data.actualAddress.addressPart3}
                       </Label>
                     </Grid.Column>
+                    <Grid.Column width={16}>
+                      <Segment>
+                        <Header as="h5" content={localize('GpsCoordinates')} dividing />
+                        <Grid doubling>
+                          <Grid.Row verticalAlign="middle">
+                            <Grid.Column width={6} className={styles.columnMargin}>
+                              <label className={styles.boldText}>{localize('Latitude')}</label>
+                            </Grid.Column>
+                            <Grid.Column width={10} className={styles.columnMargin}>
+                              <Label
+                                className={
+                                  styles[
+                                    `${
+                                      data.address && data.address.latitude
+                                        ? 'labelStyle'
+                                        : 'emptyLabel'
+                                    }`
+                                  ]
+                                }
+                                basic
+                                size="large"
+                              >
+                                {data.address &&
+                                  hasValue(data.address.latitude) &&
+                                  data.address.latitude}
+                              </Label>
+                            </Grid.Column>
+                            <Grid.Column width={6} className={styles.columnMargin}>
+                              <label className={styles.boldText}>{localize('Longitude')}</label>
+                            </Grid.Column>
+                            <Grid.Column width={10} className={styles.columnMargin}>
+                              <Label
+                                className={
+                                  styles[
+                                    `${
+                                      data.address && data.address.longitude
+                                        ? 'labelStyle'
+                                        : 'emptyLabel'
+                                    }`
+                                  ]
+                                }
+                                basic
+                                size="large"
+                              >
+                                {data.address &&
+                                  hasValue(data.address.longitude) &&
+                                  data.address.longitude}
+                              </Label>
+                            </Grid.Column>
+                          </Grid.Row>
+                        </Grid>
+                      </Segment>
+                    </Grid.Column>
                   </Grid.Row>
                 </Grid>
               </Grid.Column>
               <Grid.Column width={8}>
                 <Segment>
-                  <Header as="h5" content={localize('GpsCoordinates')} dividing />
-                  <Grid doubling>
-                    <Grid.Row verticalAlign="middle">
-                      <Grid.Column width={6} className={styles.columnMargin}>
-                        <label className={styles.boldText}>{localize('Latitude')}</label>
-                      </Grid.Column>
-                      <Grid.Column width={10} className={styles.columnMargin}>
-                        <Label
-                          className={
-                            styles[
-                              `${
-                                data.address && data.address.latitude ? 'labelStyle' : 'emptyLabel'
-                              }`
-                            ]
-                          }
-                          basic
-                          size="large"
-                        >
-                          {data.address && hasValue(data.address.latitude) && data.address.latitude}
-                        </Label>
-                      </Grid.Column>
-                      <Grid.Column width={6} className={styles.columnMargin}>
-                        <label className={styles.boldText}>{localize('Longitude')}</label>
-                      </Grid.Column>
-                      <Grid.Column width={10} className={styles.columnMargin}>
-                        <Label
-                          className={
-                            styles[
-                              `${
-                                data.address && data.address.longitude ? 'labelStyle' : 'emptyLabel'
-                              }`
-                            ]
-                          }
-                          basic
-                          size="large"
-                        >
-                          {data.address &&
-                            hasValue(data.address.longitude) &&
-                            data.address.longitude}
-                        </Label>
-                      </Grid.Column>
-                    </Grid.Row>
-                  </Grid>
+                <Header as="h5" content={localize('AsRegistered')} dividing />
+                <Grid doubling padded>
+                  <Grid.Row verticalAlign="middle">
+                    <Grid.Column width={6} className={styles.columnMargin}>
+                      <label className={styles.boldText}>{localize('Region')}</label>
+                    </Grid.Column>
+                    <Grid.Column width={10} className={styles.columnMargin}>
+                      <Label
+                        className={
+                          styles[
+                            `${data.address && data.address.region ? 'labelStyle' : 'emptyLabel'}`
+                          ]
+                        }
+                        basic
+                        size="large"
+                      >
+                        {data.address &&
+                          hasValue(data.address.region) &&
+                          getNewName(data.address.region)}
+                      </Label>
+                    </Grid.Column>
+                    <Grid.Column width={6} className={styles.columnMargin}>
+                      <label className={styles.boldText}>{localize('AddressPart1')}</label>
+                    </Grid.Column>
+                    <Grid.Column width={10} className={styles.columnMargin}>
+                      <Label
+                        className={
+                          styles[
+                            `${
+                              data.address && data.address.addressPart1
+                                ? 'labelStyle'
+                                : 'emptyLabel'
+                            }`
+                          ]
+                        }
+                        basic
+                        size="large"
+                      >
+                        {data.address && data.address.addressPart1}
+                      </Label>
+                    </Grid.Column>
+                    <Grid.Column width={6} className={styles.columnMargin}>
+                      <label className={styles.boldText}>{localize('AddressPart2')}</label>
+                    </Grid.Column>
+                    <Grid.Column width={10} className={styles.columnMargin}>
+                      <Label
+                        className={
+                          styles[
+                            `${
+                              data.address && data.address.addressPart2
+                                ? 'labelStyle'
+                                : 'emptyLabel'
+                            }`
+                          ]
+                        }
+                        basic
+                        size="large"
+                      >
+                        {data.address && data.address.addressPart2}
+                      </Label>
+                    </Grid.Column>
+                    <Grid.Column width={6} className={styles.columnMargin}>
+                      <label className={styles.boldText}>{localize('AddressPart3')}</label>
+                    </Grid.Column>
+                    <Grid.Column width={10} className={styles.columnMargin}>
+                      <Label
+                        className={
+                          styles[
+                            `${
+                              data.address && data.address.addressPart3
+                                ? 'labelStyle'
+                                : 'emptyLabel'
+                            }`
+                          ]
+                        }
+                        basic
+                        size="large"
+                      >
+                        {data.address && data.address.addressPart3}
+                      </Label>
+                    </Grid.Column>                    
+                  </Grid.Row>
+                </Grid>
                 </Segment>
               </Grid.Column>
               <Grid.Column width={8}>
