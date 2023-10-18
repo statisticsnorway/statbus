@@ -68,6 +68,7 @@ namespace nscreg.Data
         public DbSet<UserRegion> UserRegions { get; set; }
         public DbSet<AnalysisLog> AnalysisLogs { get; set; }
         public DbSet<SampleFrame> SampleFrames { get; set; }
+        public DbSet<ActivityHistory> ActivitiesHistory { get; set; }
         public DbSet<ReorgType> ReorgTypes { get; set; }
         public DbSet<ForeignParticipation> ForeignParticipations { get; set; }
         public DbSet<DataSourceClassification> DataSourceClassifications { get; set; }

@@ -191,10 +191,10 @@ namespace nscreg.Server.Common.Services.DataSources
                     var statUnitHistories = HistoryBuffer.OfType<StatisticalUnitHistory>().ToList();
 
                     var activitiesHistory = statUnitHistories.SelectMany(x => x.Activities.Distinct(new IdComparer<ActivityHistory>()))
-                            .ToList();
+                            .ToList();                
 
-                    // How do we add activities history in our ActivitiesHistory table?
-                    //await _context.ActivityHistory.AddRangeAsync(activitiesHistory);
+                    await _context.ActivitiesHistory.AddRangeAsync(activitiesHistory);
+                    await _context.SaveChangesAsync();
 
                     statUnitHistories.GroupJoin(concatHistories, concatHistory => concatHistory.StatId, statUnitHistory => statUnitHistory.StatId, (stathistory, statCollection) => (stathistory: stathistory, statCollection: statCollection)).ForEach(x =>
                     {
