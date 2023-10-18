@@ -6,7 +6,6 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "precommit": "lint-staged",
     "eslint": "eslint client test/client.test tools",
     "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
     "stylelint": "stylelint \"./client/**/*.pcss\"",
