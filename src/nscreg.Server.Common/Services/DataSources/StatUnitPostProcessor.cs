@@ -40,9 +40,6 @@ namespace nscreg.Server.Common.Services.DataSources
                         au.Activity = GetFilledActivity(au.Activity)
                     ));
 
-                if (unit.Address?.Id == 0)
-                    Try(() => unit.Address = GetFilledAddress(unit.Address));
-
                 if (unit.PostalAddress?.Id == 0)
                     Try(() => unit.PostalAddress = GetFilledAddress(unit.PostalAddress));
 

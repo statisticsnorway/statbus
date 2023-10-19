@@ -304,15 +304,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Address (as registered).
-        /// </summary>
-        public static string Address {
-            get {
-                return ResourceManager.GetString("Address", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Address details.
         /// </summary>
         public static string AddressDetails {
@@ -336,15 +327,6 @@ namespace nscreg.Resources.Languages {
         public static string AddressExcistsInDataBaseForError {
             get {
                 return ResourceManager.GetString("AddressExcistsInDataBaseForError", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Address id for visit (as registered).
-        /// </summary>
-        public static string AddressId {
-            get {
-                return ResourceManager.GetString("AddressId", resourceCulture);
             }
         }
         

@@ -10,8 +10,8 @@ namespace nscreg.Business.Analysis.StatUnit
             public string ExternalId { get; set; }
             public string ShortName { get; set; }
             public string TelephoneNo { get; set; }
-            public Address Address { get; set; }
-            public int? AddressId { get; set; }
+            public Address ActualAddress { get; set; }
+            public int? ActualAddressId { get; set; }
             public string EmailAddress { get; set; }
     }
 }

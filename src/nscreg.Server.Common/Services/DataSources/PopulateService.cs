@@ -84,7 +84,7 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 if (!isAdmin)
                 {
-                    var listRegionsIds = new List<int?> { resultUnit.Address?.RegionId, resultUnit.ActualAddress?.RegionId, resultUnit.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
+                    var listRegionsIds = new List<int?> { resultUnit.ActualAddress?.RegionId, resultUnit.PostalAddress?.RegionId }.Where(x => x != null).Select(x => (int)x).ToList();
                     _permissionsHelper.CheckRegionOrActivityContains(_userId, listRegionsIds, resultUnit.Activities.Select(x => x.ActivityCategoryId).ToList(), isUploadService:true);
                 }
 

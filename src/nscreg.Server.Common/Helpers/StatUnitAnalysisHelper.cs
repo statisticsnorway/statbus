@@ -27,7 +27,6 @@ namespace nscreg.Server.Common.Helpers
                 .AsNoTracking()
                 .Include(x => x.PersonsUnits)
                 .Include(x => x.ActivitiesUnits)
-                .Include(x => x.Address)
                 .FirstOrDefaultAsync(su => !su.IsDeleted &&
                                            (_ctx.StatisticalUnitHistory
                                                 .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod &&
@@ -49,7 +48,6 @@ namespace nscreg.Server.Common.Helpers
             var result = await _ctx.StatisticalUnits
                 .AsNoTracking()
                 .Include(x => x.PersonsUnits)
-                .Include(x => x.Address)
                 .Include(x => x.ActivitiesUnits)
                 .Where(su => !su.IsDeleted &&
                              (_ctx.StatisticalUnitHistory
@@ -75,7 +73,7 @@ namespace nscreg.Server.Common.Helpers
         {
             var result =  await _ctx.EnterpriseGroups.AsNoTracking()
                 .Include(x => x.PersonsUnits)
-                .Include(x => x.Address)
+                .Include(x => x.ActualAddress)
                 .Where(su => !su.IsDeleted &&
                     (_ctx.EnterpriseGroupHistory
                          .Any(c => c.StatId == su.StatId && c.EndPeriod >= analysisQueue.UserStartPeriod && c.EndPeriod <= analysisQueue.UserEndPeriod) ||

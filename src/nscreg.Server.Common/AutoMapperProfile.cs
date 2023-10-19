@@ -48,7 +48,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTimeOffset.UtcNow))
                 .ForMember(x => x.EndPeriod, x => x.MapFrom(x => DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTimeOffset.UtcNow))
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore()));
@@ -60,7 +59,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore());
 
             DataAccessCondition(CreateMap<LegalUnitEditM, LegalUnit>()
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
@@ -77,7 +75,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.MapFrom(src => src.ForeignParticipationCountriesUnits.Select(x => x.Id)));
 
             DataAccessCondition(CreateMap<LocalUnitEditM, LocalUnit>()
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
@@ -92,7 +89,6 @@ namespace nscreg.Server.Common
                 .ForMember(x=>x.ForeignParticipationCountriesUnits, opt=>opt.MapFrom(src=>src.ForeignParticipationCountriesUnits.Select(x=>x.Id)));
 
             DataAccessCondition(CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
@@ -109,7 +105,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.MapFrom(src => src.ForeignParticipationCountriesUnits.Select(x => x.Id)));
 
             DataAccessCondition(CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore()));
@@ -158,8 +153,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(
                     new StatUnitSearchView())
                 {
-                    AddressPart1 = x.ActualAddressPart1 == null ?  x.AddressPart1 : x.AddressPart1 != x.ActualAddressPart1 ? x.ActualAddressPart1 : x.AddressPart1,
-                    AddressPart2 = x.ActualAddressPart2 == null ? x.AddressPart2 : x.AddressPart2 != x.ActualAddressPart2 ? x.ActualAddressPart2 : x.AddressPart2
+                    ActualAddressPart1 = x.ActualAddressPart1 == null ?  x.ActualAddressPart1 : x.ActualAddressPart1 != x.ActualAddressPart1 ? x.ActualAddressPart1 : x.ActualAddressPart1,
+                    ActualAddressPart2 = x.ActualAddressPart2 == null ? x.ActualAddressPart2 : x.ActualAddressPart2 != x.ActualAddressPart2 ? x.ActualAddressPart2 : x.ActualAddressPart2
                 }))
                 .ForMember(x => x.Persons, opt => opt.Ignore())
                 .ForMember(x => x.Activities, opt => opt.Ignore());
@@ -169,11 +164,7 @@ namespace nscreg.Server.Common
 
             CreateMap<IStatisticalUnit, ElasticStatUnit>()
                 .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as StatisticalUnit).LiqDate))
-                .ForMember(d => d.RegionId, opt => opt.MapFrom(s => s.Address.RegionId))
                 .ForMember(d => d.SectorCodeId, opt => opt.MapFrom(s => s.InstSectorCodeId))
-                .ForMember(d => d.AddressPart1, opt => opt.MapFrom(s => s.Address.AddressPart1))
-                .ForMember(d => d.AddressPart2, opt => opt.MapFrom(s => s.Address.AddressPart2))
-                .ForMember(d => d.AddressPart3, opt => opt.MapFrom(s => s.Address.AddressPart3))
                 .ForMember(d => d.ActualAddressPart1, opt => opt.MapFrom(s => s.ActualAddress.AddressPart1))
                 .ForMember(d => d.ActualAddressPart2, opt => opt.MapFrom(s => s.ActualAddress.AddressPart2))
                 .ForMember(d => d.ActualAddressPart3, opt => opt.MapFrom(s => s.ActualAddress.AddressPart3))
@@ -184,7 +175,7 @@ namespace nscreg.Server.Common
                 )
                 .ForMember(d => d.RegionIds,
                     opt => opt.MapFrom(s =>
-                        new List<int?> { s.Address.RegionId, s.PostalAddress.RegionId, s.ActualAddress.RegionId }
+                        new List<int?> { s.PostalAddress.RegionId, s.ActualAddress.RegionId }
                             .Where(x => x != null).Select(x => (int)x).ToList()
                     )
                 );
@@ -330,12 +321,10 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.EntRegIdDate, x => x.MapFrom(x => DateTimeOffset.UtcNow))
                 .ForMember(x => x.Market, x => x.MapFrom(x => false))
                 .ForMember(x => x.EnterpriseUnitRegId, x => x.MapFrom(x => (int?) null))
-                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
 
                 .ForMember(x => x.EnterpriseUnit, x => x.Ignore())
                 .ForMember(x => x.RegId, x => x.Ignore())
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
@@ -348,12 +337,10 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
             CreateMap<LegalUnit, LocalUnit>()
-                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
                 .ForMember(x => x.LegalUnitIdDate, x => x.MapFrom(x => DateTimeOffset.UtcNow))
 
                 .ForMember(x => x.RegId, x => x.Ignore())
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
 
@@ -367,7 +354,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
             CreateMap<LegalUnit, EnterpriseUnit>()
-                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
                 .ForMember(x => x.Commercial, x => x.MapFrom(x => false))
                 .ForMember(x => x.EntGroupId, x => x.MapFrom(x => (int?) null))
@@ -379,7 +365,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
@@ -389,7 +374,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
             CreateMap<EnterpriseUnit, EnterpriseGroup>()
-                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.MapFrom(x => ChangeReasons.Create))
                 .ForMember(x => x.StatusDate, x => x.MapFrom(y => y.StatusDate ?? DateTimeOffset.UtcNow))
                 .ForMember(x => x.LiqDateStart, x => x.MapFrom(x => (DateTime?) null))
@@ -397,7 +381,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.HistoryEnterpriseUnitIds, x => x.MapFrom(x => string.Empty))
                 .ForMember(x => x.EntGroupType, x => x.Ignore())
                 .ForMember(x => x.RegId, x => x.Ignore())
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore());
 
@@ -456,8 +439,7 @@ namespace nscreg.Server.Common
                     {
                         CountryId = z.CountryId,
                         UnitId = z.UnitId
-                    })))
-                .ForPath(v => v.Address.Region, v => v.Ignore());
+                    })));
 
         /// <summary>
         /// Метод создания стат. единицы из модели сопоставления
@@ -471,7 +453,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTimeOffset.UtcNow))
                 .ForMember(x => x.EndPeriod, x => x.MapFrom(x => DateTimeOffset.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTimeOffset.UtcNow))
-                .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())

@@ -40,8 +40,6 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private static IQueryable<T> IncludeGeneralProps<T>(this IQueryable<T> query) where T : StatisticalUnit =>
             query
-                .Include(x => x.Address)
-                    .ThenInclude(x => x.Region)
                 .Include(x => x.ActualAddress)
                     .ThenInclude(x => x.Region)
                 .Include(x => x.PostalAddress)

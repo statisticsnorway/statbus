@@ -18,7 +18,6 @@ namespace nscreg.Server.Common.Helpers
         {
             var localUnit = new LocalUnit
             {
-                Address = legalUnit.Address,
                 ActualAddress = legalUnit.ActualAddress,
                 LegalUnit = legalUnit
             };
@@ -35,7 +34,6 @@ namespace nscreg.Server.Common.Helpers
         {
             var enterpriseUnit = new EnterpriseUnit
             {
-                Address = legalUnit.Address,
                 ActualAddress = legalUnit.ActualAddress,
             };
             _mapper.Map(legalUnit, enterpriseUnit);
@@ -51,7 +49,6 @@ namespace nscreg.Server.Common.Helpers
         {
             var enterpriseGroup = new EnterpriseGroup
             {
-                Address = enterpriseUnit.Address,
                 ActualAddress = enterpriseUnit.ActualAddress,
             };
 

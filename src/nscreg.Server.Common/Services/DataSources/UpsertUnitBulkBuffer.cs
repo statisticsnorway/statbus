@@ -65,7 +65,7 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             using (var transaction = _context.Database.BeginTransaction())
             {
-                var addresses = Buffer.SelectMany(x => new[] { x.Address, x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
+                var addresses = Buffer.SelectMany(x => new[] { x.ActualAddress, x.PostalAddress }).Where(x => x != null).Distinct(new IdComparer<Address>()).ToList();
                 var activityUnits = Buffer.SelectMany(x => x.ActivitiesUnits).ToList();
                 var activities = activityUnits.Select(z => z.Activity).Distinct(new IdComparer<Activity>()).ToList();
 
@@ -89,7 +89,6 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 Buffer.ForEach(unit =>
                 {
-                    unit.AddressId = unit.Address?.Id;
                     unit.ActualAddressId = unit.ActualAddress?.Id;
                     unit.PostalAddressId = unit.PostalAddress?.Id;
                     unit.EndPeriod = DateTime.MaxValue;

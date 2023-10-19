@@ -81,14 +81,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
                 }
 
-                var addressIds = legal.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
-                var addresses = await _dbContext.Address.Where(x => legal.Address != null &&
-                    addressIds.Contains(x.Id) && x.RegionId == legal.Address.RegionId &&
-                    x.AddressPart1 == legal.Address.AddressPart1 &&
-                    x.AddressPart2 == legal.Address.AddressPart2 &&
-                    x.AddressPart3 == legal.Address.AddressPart3 &&
-                    x.Latitude == legal.Address.Latitude &&
-                    x.Longitude == legal.Address.Longitude).ToListAsync();
+                var addressIds = legal.LocalUnits.Where(x => x.ActualAddressId != null).Select(x => x.ActualAddressId).ToList();
+                var addresses = await _dbContext.Address.Where(x => legal.ActualAddress != null &&
+                    addressIds.Contains(x.Id) && x.RegionId == legal.ActualAddress.RegionId &&
+                    x.AddressPart1 == legal.ActualAddress.AddressPart1 &&
+                    x.AddressPart2 == legal.ActualAddress.AddressPart2 &&
+                    x.AddressPart3 == legal.ActualAddress.AddressPart3 &&
+                    x.Latitude == legal.ActualAddress.Latitude &&
+                    x.Longitude == legal.ActualAddress.Longitude).ToListAsync();
 
                 if (!addresses.Any())
                 {
@@ -349,7 +349,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var enterpriseUnit = new EnterpriseUnit();
             _mapper.Map(legalUnit, enterpriseUnit);
-            enterpriseUnit.Address = legalUnit.Address;
             enterpriseUnit.ActualAddress = legalUnit.ActualAddress;
             enterpriseUnit.PostalAddress = legalUnit.PostalAddress;
             enterpriseUnit.StartPeriod = legalUnit.StartPeriod;
@@ -361,7 +360,6 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var localUnit = new LocalUnit();
             _mapper.Map(legalUnit, localUnit);
-            localUnit.Address = legalUnit.Address;
             localUnit.ActualAddress = legalUnit.ActualAddress;
             localUnit.PostalAddress = legalUnit.PostalAddress;
             localUnit.LegalUnit = legalUnit;

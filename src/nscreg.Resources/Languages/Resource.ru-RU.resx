@@ -523,9 +523,6 @@
   <data name="ShortName" xml:space="preserve">
     <value>Краткое наименование</value>
   </data>
-  <data name="Address" xml:space="preserve">
-    <value>Адрес</value>
-  </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>Телефонный номер</value>
   </data>
@@ -704,9 +701,6 @@
   </data>
   <data name="EnterpriseUnitRegId" xml:space="preserve">
     <value>Предприятия</value>
-  </data>
-  <data name="AddressId" xml:space="preserve">
-    <value>ID адреса для визита (согласно источникам)</value>
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>Электронный адрес</value>

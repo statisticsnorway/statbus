@@ -67,7 +67,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 address.Region.Parent = await _regionService.GetRegionParents(address.Region.ParentId.Value);
             }
 
-            await FillRegionParents(item.Address);
             await FillRegionParents(item.ActualAddress);
             await FillRegionParents(item.PostalAddress);
 

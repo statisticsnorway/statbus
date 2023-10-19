@@ -95,16 +95,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                             new[] { nameof(Resource.AnalysisDuplicationTelephoneNo) });
                 }
 
-                if (_analysisRules.Duplicates.CheckAddressId &&
-                    potentialDuplicate.AddressId == _checkingStatisticalUnit.AddressId &&
-                    _checkingStatisticalUnit.AddressId != null)
-                {
-                    sameFieldsCount++;
-                    if (!messages.ContainsKey(nameof(potentialDuplicate.AddressId)))
-                        unitMessages.Add(nameof(potentialDuplicate.Address),
-                            new[] { nameof(Resource.AnalysisDuplicationAddress) });
-                }
-
                 if (_analysisRules.Duplicates.CheckEmailAddress &&
                     potentialDuplicate.EmailAddress == _checkingStatisticalUnit.EmailAddress &&
                     _checkingStatisticalUnit.EmailAddress != null)

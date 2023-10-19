@@ -47,8 +47,6 @@ namespace nscreg.Data.Entities.History
 
         public int? ParentId { get; set; }
 
-        public int? AddressId { get; set; }
-
         public int? ActualAddressId { get; set; }
 
         public int? PostalAddressId { get; set; }

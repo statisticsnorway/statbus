@@ -87,9 +87,6 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
             }
 
-            if (_analysisRules.Connections.CheckAddress && _isDataSourceUpload == false && unit.Address == null)
-                messages.Add(nameof(StatisticalUnit.Address), new[] { nameof(Resource.AnalysisRelatedAddress) });
-
             return messages;
         }
 
@@ -451,7 +448,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     ExternalId = x.ExternalId,
                     ShortName = x.ShortName,
                     TelephoneNo = x.TelephoneNo,
-                    AddressId = x.AddressId,
+                    ActualAddressId = x.ActualAddressId,
                     EmailAddress = x.EmailAddress
                 }).ToListAsync();
                 return enterpriseGroups;
@@ -469,7 +466,6 @@ namespace nscreg.Business.Analysis.StatUnit
                     ExternalId = x.ExternalId,
                     ShortName = x.ShortName,
                     TelephoneNo = x.TelephoneNo,
-                    AddressId = x.AddressId,
                     EmailAddress = x.EmailAddress
                 })
                 .ToListAsync();

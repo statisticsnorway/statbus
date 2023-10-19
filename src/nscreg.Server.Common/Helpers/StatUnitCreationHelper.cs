@@ -100,15 +100,15 @@ namespace nscreg.Server.Common.Helpers
                         }
                     }
 
-                    var addressIds = legalUnit.LocalUnits.Where(x => x.AddressId != null).Select(x => x.AddressId).ToList();
+                    var addressIds = legalUnit.LocalUnits.Where(x => x.ActualAddressId != null).Select(x => x.ActualAddressId).ToList();
                     var addresses = await _dbContext.Address.Where(x => addressIds.Contains(x.Id)).ToListAsync();
                     var sameAddresses = addresses.Where(x =>
-                        x.RegionId == legalUnit.Address.RegionId &&
-                        x.AddressPart1 == legalUnit.Address.AddressPart1 &&
-                        x.AddressPart2 == legalUnit.Address.AddressPart2 &&
-                        x.AddressPart3 == legalUnit.Address.AddressPart3 &&
-                        x.Latitude == legalUnit.Address.Latitude &&
-                        x.Longitude == legalUnit.Address.Longitude).ToList();
+                        x.RegionId == legalUnit.ActualAddress.RegionId &&
+                        x.AddressPart1 == legalUnit.ActualAddress.AddressPart1 &&
+                        x.AddressPart2 == legalUnit.ActualAddress.AddressPart2 &&
+                        x.AddressPart3 == legalUnit.ActualAddress.AddressPart3 &&
+                        x.Latitude == legalUnit.ActualAddress.Latitude &&
+                        x.Longitude == legalUnit.ActualAddress.Longitude).ToList();
                     
                     if (!sameAddresses.Any())
                     {

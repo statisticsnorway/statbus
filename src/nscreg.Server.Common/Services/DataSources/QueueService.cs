@@ -25,8 +25,6 @@ namespace nscreg.Server.Common.Services.DataSources
             _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<StatisticalUnit>>
             {
                 [StatUnitTypes.LocalUnit] = _ctx.LocalUnits
-                    .Include(x => x.Address)
-                    .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x=>x.Person)
                     .Include(x=>x.ActivitiesUnits)
@@ -35,8 +33,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x=>x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.LegalUnit] = _ctx.LegalUnits
-                    .Include(x => x.Address)
-                    .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
                     .Include(x => x.ActivitiesUnits)
@@ -45,8 +41,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits
-                    .Include(x => x.Address)
-                    .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
                     .Include(x => x.ActivitiesUnits)

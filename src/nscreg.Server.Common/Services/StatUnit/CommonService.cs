@@ -27,9 +27,7 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         public static IQueryable<T> IncludeCommonFields<T>(this IQueryable<T> query) where T : class, IStatisticalUnit
         {
-            return query.Include(v => v.Address)
-                .ThenInclude(a => a.Region)
-                .Include(v => v.ActualAddress)
+            return query.Include(v => v.ActualAddress)
                 .ThenInclude(a => a.Region)
                 .Include(v => v.PostalAddress)
                 .ThenInclude(a => a.Region)
@@ -498,20 +496,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="data">data</param>
         public async Task AddAddresses<TUnit>(IStatisticalUnit unit, IStatUnitM data) where TUnit : IStatisticalUnit
         {
-            if (data.Address != null && !data.Address.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.Address))
-                unit.Address = await GetAddress(data.Address);
-            else unit.Address = null;
             if (data.ActualAddress != null && !data.ActualAddress.IsEmpty() &&
                 HasAccess<TUnit>(data.DataAccess, v => v.ActualAddress))
-                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
-                    ? unit.Address
-                    : await GetAddress(data.ActualAddress);
+                unit.ActualAddress = await GetAddress(data.ActualAddress);
             else unit.ActualAddress = null;
             if (data.PostalAddress != null && !data.PostalAddress.IsEmpty() &&
                 HasAccess<TUnit>(data.DataAccess, v => v.PostalAddress))
-                unit.PostalAddress = data.PostalAddress.Equals(data.Address)
-                    ? unit.Address
-                    : await GetAddress(data.PostalAddress);
+                unit.PostalAddress = await GetAddress(data.PostalAddress);
             else unit.PostalAddress = null;
         }
 
@@ -533,11 +524,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (actualAddress == null) actualAddress = new AddressM();
             if(postalAddress == null) postalAddress = new AddressM();
             return _dbContext.Set<T>()
-                .Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
                 .Include(pa => pa.PostalAddress)
                 .Where(u => u.Name == name)
-                .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress) && !postalAddress.Equals(unit.PostalAddress));
+                .All(unit => !actualAddress.Equals(unit.ActualAddress) && !postalAddress.Equals(unit.PostalAddress));
         }
 
         public T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()

@@ -144,9 +144,6 @@ namespace nscreg.Business.DataSources
                             }
                         propValue = foreignParticipationCountries;
                         break;
-                    case nameof(StatisticalUnit.Address):
-                        propValue = PropertyParser.ParseAddress(propTail, value, unit.Address);
-                        break;
                     case nameof(StatisticalUnit.ActualAddress):
                         propValue = PropertyParser.ParseAddress(propTail, value, unit.ActualAddress);
                         break;

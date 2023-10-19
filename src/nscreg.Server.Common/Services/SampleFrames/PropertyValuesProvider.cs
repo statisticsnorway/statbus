@@ -22,7 +22,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
                 [FieldEnum.ActivityCodes] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ActivitiesUnits.Select(y => y.Activity?.ActivityCategory.Code))),
-                [FieldEnum.Region] = CreateReferenceValueExtractor(x => x.Address?.Region.FullPath),
                 [FieldEnum.MainActivity] = CreateReferenceValueExtractor(x =>
                 {
                     var activityCategory = x.ActivitiesUnits.Select(y => y.Activity)
@@ -34,7 +33,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 [FieldEnum.ContactPerson] = CreateReferenceValueExtractor(x =>string.Join(", ", x.PersonsUnits.Select(z => $"{z.Person.GivenName} {z.Person.Surname} {z.Person.MiddleName}"))),
                 [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm?.Code} {x.LegalForm?.Name}"),
                 [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode?.Code} {x.InstSectorCode?.Name}"),
-                [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address?.Region.FullPath}, {x.Address?.AddressPart1}, {x.Address?.AddressPart2}, {x.Address?.AddressPart3}"),
                 [FieldEnum.ActualAddress] = CreateReferenceValueExtractor(x => $"{x.ActualAddress?.Region.FullPath}, {x.ActualAddress?.AddressPart1}, {x.ActualAddress?.AddressPart2}, {x.ActualAddress?.AddressPart3}"),
                 [FieldEnum.PostalAddress] = CreateReferenceValueExtractor(x => $"{x.PostalAddress?.Region.FullPath}, {x.PostalAddress?.AddressPart1}, {x.PostalAddress?.AddressPart2}, {x.PostalAddress?.AddressPart3}"),
 
