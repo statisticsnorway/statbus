@@ -12,10 +12,8 @@ namespace nscreg.Data.Entities.History
         int RegId { get; set; }
         string StatId { get; set; }
         string Name { get; set; }
-        int? AddressId { get; set; }
         int? ActualAddressId { get; set; }
         int? PostalAddressId { get; set; }
-        Address Address { get; set; }
         Address ActualAddress { get; set; }
         Address PostalAddress { get; set; }
         bool IsDeleted { get; set; }

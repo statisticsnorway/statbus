@@ -79,9 +79,6 @@ namespace nscreg.Data.Entities
         public bool IsDeleted { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? AddressId { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ActualAddressId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -198,10 +195,6 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
-
-        [Display(GroupName = GroupNames.ContactInfo, Order = 310)]
-        [PopupLocalizedKey(nameof(Resources.Languages.Resource.AddressTooltip))]
-        public virtual Address Address { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 320)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.ActualAddressTooltip))]

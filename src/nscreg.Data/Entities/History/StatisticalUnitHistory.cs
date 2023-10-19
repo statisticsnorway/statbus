@@ -45,10 +45,6 @@ namespace nscreg.Data.Entities.History
 
         public string DataSource { get; set; }
 
-        public int? AddressId { get; set; }
-
-        public virtual Address Address { get; set; }
-
         public string WebAddress { get; set; }
 
         public string TelephoneNo { get; set; }

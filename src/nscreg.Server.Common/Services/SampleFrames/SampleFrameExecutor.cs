@@ -103,8 +103,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
                     .ThenInclude(x => x.Activity)
                     .ThenInclude(x => x.ActivityCategory);
 
-            if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.Address))
-                query = query.Include(x => x.Address)
+            if (fieldLookup.Contains(FieldEnum.Region))
+                query = query.Include(x => x.ActualAddress)
                     .ThenInclude(x => x.Region);
 
             if (fieldLookup.Contains(FieldEnum.ActualAddress))
@@ -146,8 +146,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
             var query = _context.EnterpriseGroups.AsQueryable();
             var fieldLookup = fields.ToLookup(x => x);
 
-            if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.Address))
-                query = query.Include(x => x.Address)
+            if (fieldLookup.Contains(FieldEnum.Region))
+                query = query.Include(x => x.ActualAddress)
                     .ThenInclude(x => x.Region);
 
             if (fieldLookup.Contains(FieldEnum.ActualAddress))

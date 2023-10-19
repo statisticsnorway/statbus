@@ -88,8 +88,8 @@ namespace nscreg.Server.Test
                         unit = new LocalUnit
                         {
                             Name = unitName,
-                            Address = address,
-                            AddressId = address.Id,
+                            ActualAddress = address,
+                            ActualAddressId = address.Id,
                             UserId = userId
                         };
                         await context.LocalUnits.AddAsync((LocalUnit)unit);
@@ -98,8 +98,8 @@ namespace nscreg.Server.Test
                         unit = new LegalUnit
                         {
                             Name = unitName,
-                            Address = address,
-                            AddressId = address.Id,
+                            ActualAddress = address,
+                            ActualAddressId = address.Id,
                             UserId = userId
                         };
                         await context.LegalUnits.AddAsync((LegalUnit)unit);
@@ -108,8 +108,8 @@ namespace nscreg.Server.Test
                         unit = new EnterpriseUnit
                         {
                             Name = unitName,
-                            Address = address,
-                            AddressId = address.Id,
+                            ActualAddress = address,
+                            ActualAddressId = address.Id,
                             UserId = userId
                         };
                         await context.EnterpriseUnits.AddAsync((EnterpriseUnit)unit);
@@ -118,8 +118,8 @@ namespace nscreg.Server.Test
                         unit = new EnterpriseGroup
                         {
                             Name = unitName,
-                            Address = address,
-                            AddressId = address.Id,
+                            ActualAddress = address,
+                            ActualAddressId = address.Id,
                             UserId = userId
                         };
                         await context.EnterpriseGroups.AddAsync((EnterpriseGroup)unit);
@@ -349,7 +349,7 @@ namespace nscreg.Server.Test
                     var lst = context.LegalUnits.ToArray();
                     Assert.IsType<LegalUnit>(context.LegalUnits.Single(x =>
                         x.Name == unitName &&
-                        x.Address.AddressPart1 == address.AddressPart1 &&
+                        x.ActualAddress.AddressPart1 == address.AddressPart1 &&
                         !x.IsDeleted)
                     );
                 }
@@ -380,7 +380,7 @@ namespace nscreg.Server.Test
                     var unit = context.LocalUnits.Local
                         .FirstOrDefault(x =>
                             x.Name == unitName &&
-                            x.Address.AddressPart1 == address.AddressPart1 &&
+                            x.ActualAddress.AddressPart1 == address.AddressPart1 &&
                             !x.IsDeleted
                         );
 
@@ -421,7 +421,7 @@ namespace nscreg.Server.Test
 
                     Assert.IsType<EnterpriseUnit>(
                         context.EnterpriseUnits.Single(x => x.Name == unitName &&
-                                                            x.Address.AddressPart1 == address.AddressPart1 &&
+                                                            x.ActualAddress.AddressPart1 == address.AddressPart1 &&
                                                             !x.IsDeleted));
 
                 }
@@ -455,7 +455,7 @@ namespace nscreg.Server.Test
                     Assert.IsType<EnterpriseGroup>(
                         context.EnterpriseGroups.Single(x =>
                         x.Name == unitName &&
-                        x.Address.AddressPart1 == address.AddressPart1 &&
+                        x.ActualAddress.AddressPart1 == address.AddressPart1 &&
                         !x.IsDeleted));
 
                 }

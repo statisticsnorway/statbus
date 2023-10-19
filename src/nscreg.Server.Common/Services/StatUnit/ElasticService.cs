@@ -222,11 +222,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     mustQueries.Add(m => m
                         .Bool(b => b
-                            .Should(s =>
-                                            s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
-                                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
-                                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter))
-                                            || s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
+                            .Should(s =>                                        
+                                             s.Prefix(t => t.Field(f => f.ActualAddressPart1).Value(addressFilter))
                                             || s.Prefix(t => t.Field(f => f.ActualAddressPart2).Value(addressFilter))
                                             || s.Prefix(t => t.Field(f => f.ActualAddressPart3).Value(addressFilter)))
                         )

@@ -307,7 +307,7 @@ namespace nscreg.Server.Test
                 Employees = 20,
                 TurnoverYear = 2010,
                 Turnover = 200,
-                Address = await CreateAddressAsync(context, "41701")
+                ActualAddress = await CreateAddressAsync(context, "41701")
             });
 
             await CreateLegalUnitAsync(context, new LegalUnit
@@ -318,7 +318,7 @@ namespace nscreg.Server.Test
                 Employees = 21,
                 TurnoverYear = 2011,
                 Turnover = 22,
-                Address = await CreateAddressAsync(context, "41701")
+                ActualAddress = await CreateAddressAsync(context, "41701")
             });
 
             await CreateLegalUnitAsync(context, new LegalUnit
@@ -329,7 +329,7 @@ namespace nscreg.Server.Test
                 Employees = 22,
                 TurnoverYear = 2012,
                 Turnover = 220,
-                Address = await CreateAddressAsync(context, "41702")
+                ActualAddress = await CreateAddressAsync(context, "41702")
             });
 
             await CreateLegalUnitAsync(context, new LegalUnit
@@ -340,7 +340,7 @@ namespace nscreg.Server.Test
                 Employees = 22,
                 TurnoverYear = 2012,
                 Turnover = 230,
-                Address = await CreateAddressAsync(context, "41702")
+                ActualAddress = await CreateAddressAsync(context, "41702")
             });
         }
 

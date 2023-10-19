@@ -82,13 +82,6 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string DataSource { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? AddressId { get; set; }
-
-        [Display(Order = 310, GroupName = GroupNames.ContactInfo)]
-        [PopupLocalizedKey(nameof(Resources.Languages.Resource.AddressTooltip))]
-        public virtual Address Address { get; set; }
-
         [Display(Order = 302, GroupName = GroupNames.ContactInfo)]
         [PopupLocalizedKey(nameof(Resources.Languages.Resource.WebAddressTooltip))]
         public string WebAddress { get; set; }

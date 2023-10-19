@@ -96,12 +96,12 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckAddressId &&
-                    potentialDuplicate.AddressId == _checkingEnterpriseGroup.AddressId &&
-                    _checkingEnterpriseGroup.AddressId != null)
+                    potentialDuplicate.ActualAddressId == _checkingEnterpriseGroup.ActualAddressId &&
+                    _checkingEnterpriseGroup.ActualAddressId != null)
                 {
                     sameFieldsCount++;
-                    if (!messages.ContainsKey(nameof(potentialDuplicate.AddressId)))
-                        unitMessages.Add(nameof(potentialDuplicate.Address),
+                    if (!messages.ContainsKey(nameof(potentialDuplicate.ActualAddressId)))
+                        unitMessages.Add(nameof(potentialDuplicate.ActualAddress),
                             new[] { nameof(Resource.AnalysisDuplicationAddress) });
                 }
 

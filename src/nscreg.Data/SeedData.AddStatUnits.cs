@@ -22,7 +22,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address { AddressPart1 = "local address 1", RegionId = 1 },
+                ActualAddress = new Address { AddressPart1 = "local address 1", RegionId = 1 },
             }, new LocalUnit
             {
                 Name = "local unit 2",
@@ -31,7 +31,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address { AddressPart1 = "local address 2", RegionId = 1 },
+                ActualAddress = new Address { AddressPart1 = "local address 2", RegionId = 1 },
             });
 
             var le1 = new LegalUnit
@@ -42,7 +42,7 @@ namespace nscreg.Data
                 StatId = "OKPO2LEGALU",
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "legal address 1",
                     RegionId = 1
@@ -85,7 +85,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "legal address 2",
                     RegionId = 1
@@ -110,7 +110,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
@@ -126,7 +126,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
@@ -139,7 +139,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
@@ -151,7 +151,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
@@ -163,7 +163,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address = new Address
+                ActualAddress = new Address
                 {
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
@@ -178,7 +178,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address =
+                ActualAddress =
                     new Address { AddressPart1 = "ent. group address 1", RegionId = 1 },
             };
 
@@ -190,7 +190,7 @@ namespace nscreg.Data
                 RegIdDate = DateTimeOffset.Now,
                 StartPeriod = DateTimeOffset.Now,
                 EndPeriod = DateTimeOffset.MaxValue,
-                Address =
+                ActualAddress =
                     new Address { AddressPart1 = "ent. group address 2", RegionId = 1 }
             };
 

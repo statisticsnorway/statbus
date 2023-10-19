@@ -60,10 +60,7 @@ namespace nscreg.Business.PredicateBuilders
                     : GetPredicate(FieldEnum.ExternalId, unit.ExternalId, OperationEnum.Equal),
                 string.IsNullOrEmpty(unit.Name)
                     ? null
-                    : GetPredicate(FieldEnum.Name, unit.Name, OperationEnum.Equal),
-                unit.AddressId == null
-                    ? null
-                    : GetPredicate(FieldEnum.AddressId, unit.AddressId, OperationEnum.Equal)
+                    : GetPredicate(FieldEnum.Name, unit.Name, OperationEnum.Equal)                
             };
 
             predicates.AddRange(unit is EnterpriseGroup

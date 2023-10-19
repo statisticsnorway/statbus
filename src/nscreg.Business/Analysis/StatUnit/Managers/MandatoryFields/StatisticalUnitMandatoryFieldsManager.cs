@@ -44,10 +44,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             {
                 messages.Add(nameof(_statisticalUnit.ActualAddress), new[] { nameof(Resource.AnalysisMandatoryActualAddress) });
             }
-            if (_mandatoryFields.StatUnit.Address && _statisticalUnit.Address == null)
-            {
-                messages.Add(nameof(_statisticalUnit.Address), new[] { nameof(Resource.AnalysisMandatoryAddress) });
-            }
             if (_mandatoryFields.StatUnit.Classified && (_statisticalUnit.Classified == null || _statisticalUnit.Classified == false))
             {
                 messages.Add(nameof(_statisticalUnit.Classified), new[] { nameof(Resource.AnalysisMandatoryClassified) });

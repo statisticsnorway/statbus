@@ -535,9 +535,6 @@
   <data name="ShortName" xml:space="preserve">
     <value>Short name</value>
   </data>
-  <data name="Address" xml:space="preserve">
-    <value>Address (as registered)</value>
-  </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>Telephone</value>
   </data>
@@ -719,9 +716,6 @@
   </data>
   <data name="EnterpriseUnitRegId" xml:space="preserve">
     <value>registration id of enterprise</value>
-  </data>
-  <data name="AddressId" xml:space="preserve">
-    <value>Address id for visit (as registered)</value>
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>Email address</value>

@@ -29,7 +29,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         {
             Inaccuracies = new List<string>();
             Record = record;
-            CommonChecks();
             _statUnitCheckByTypeDictionary[Record.UnitType]();
             return new InconsistentRecord(Record.RegId, Record.UnitType, Record.Name, Inaccuracies);
         }
@@ -60,14 +59,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         {
             var group = (EnterpriseGroup) Record;
             if (group.ContactPerson == null) Inaccuracies.Add(nameof(Resource.LogicalChecksNoContactPerson));
-        }
-
-        private void CommonChecks()
-        {
-            if (Record.Address == null)
-                Inaccuracies.Add(nameof(Resource.LogicalChecksNoAddress));
-            if (Record.Address != null && (Record.Address.AddressPart1 == null || Record.Address.AddressPart2 == null))
-                Inaccuracies.Add(nameof(Resource.LogicalChecksAddressTooFewInfo));
         }
     }
 }

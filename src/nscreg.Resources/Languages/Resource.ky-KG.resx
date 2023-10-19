@@ -496,9 +496,6 @@
   <data name="ShortName" xml:space="preserve">
     <value>Кыскача аталышы</value>
   </data>
-  <data name="Address" xml:space="preserve">
-    <value>Дареги</value>
-  </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>Телефондун номуру</value>
   </data>
@@ -1924,9 +1921,6 @@
   </data>
   <data name="EnterpriseUnitRegId" xml:space="preserve">
     <value>Ишканалар</value>
-  </data>
-  <data name="AddressId" xml:space="preserve">
-    <value>Визит үчүн Id  дарек (булактарга ылайык)</value>
   </data>
   <data name="ActualAddressId" xml:space="preserve">
     <value>Визит үчүн Id  дарек</value>

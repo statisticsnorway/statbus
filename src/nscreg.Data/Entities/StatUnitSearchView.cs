@@ -25,10 +25,6 @@ namespace nscreg.Data.Entities
         public bool IsDeleted { get; set; }
         public string LiqReason { get; set; }
         public DateTimeOffset? LiqDate { get; set; }
-        public int? AddressId { get; set; }
-        public string AddressPart1 { get; set; }
-        public string AddressPart2 { get; set; }
-        public string AddressPart3 { get; set; }
         public int? ActualAddressId { get; set; }
         public string ActualAddressPart1 { get; set; }
         public string ActualAddressPart2 { get; set; }
