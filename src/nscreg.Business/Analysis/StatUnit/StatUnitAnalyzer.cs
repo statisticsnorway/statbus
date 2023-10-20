@@ -87,6 +87,9 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
             }
 
+            if (_analysisRules.Connections.CheckAddress && _isDataSourceUpload == false && unit.ActualAddress == null)
+                messages.Add(nameof(StatisticalUnit.ActualAddress), new[] { nameof(Resource.AnalysisRelatedAddress) });
+
             return messages;
         }
 
