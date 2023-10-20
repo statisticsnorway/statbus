@@ -34,10 +34,6 @@ namespace nscreg.Data.DbInitializers
                     IsDeleted,
                     LiqReason,
                     LiqDate,
-                    addr.Address_id AS AddressId,
-                    addr.Address_part1 AS AddressPart1,
-                    addr.Address_part2 AS AddressPart2,
-                    addr.Address_part3 AS AddressPart3,
                     act_addr.Address_id AS ActualAddressId,
                     act_addr.Address_part1 AS ActualAddressPart1,
                     act_addr.Address_part2 AS ActualAddressPart2,
@@ -48,9 +44,7 @@ namespace nscreg.Data.DbInitializers
                         WHEN Discriminator = 'EnterpriseUnit' THEN 3
                     END
                     AS UnitType
-                FROM	StatisticalUnits
-                    LEFT JOIN Address as addr 
-                        ON AddressId = addr.Address_id
+                FROM	StatisticalUnits      
                     LEFT JOIN Address as act_addr
                         ON ActualAddressId = act_addr.Address_id
 
@@ -74,18 +68,12 @@ namespace nscreg.Data.DbInitializers
                     IsDeleted,
                     LiqReason,
                     LiqDateEnd,
-                    addr.Address_id AS AddressId,
-                    addr.Address_part1 AS AddressPart1,
-                    addr.Address_part2 AS AddressPart2,
-                    addr.Address_part3 AS AddressPart3,
                     act_addr.Address_id AS ActualAddressId,
                     act_addr.Address_part1 AS ActualAddressPart1,
                     act_addr.Address_part2 AS ActualAddressPart2,
                     act_addr.Address_part3 AS ActualAddressPart3,
                     4 AS UnitType
                 FROM	EnterpriseGroups
-                    LEFT JOIN Address as addr
-                        ON AddressId = addr.Address_id
                     LEFT JOIN Address as act_addr
                         ON ActualAddressId = act_addr.Address_id;
             ";
