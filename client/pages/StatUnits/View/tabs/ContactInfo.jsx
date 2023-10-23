@@ -24,7 +24,6 @@ export class ContactInfo extends React.Component {
     data: shape({
       emailAddress: string,
       telephoneNo: oneOfType([string, number]),
-      address: shape({}).isRequired,
       actualAddress: shape({}),
       persons: arrayOf(shape({})),
     }).isRequired,
@@ -41,7 +40,7 @@ export class ContactInfo extends React.Component {
     const { postalAddressIsChecked } = this.state
 
     let regions = []
-    let region = data.address ? data.address.region : null
+    let region = data.actualAddress ? data.actualAddress.region : null
     while (region) {
       regions.push(getNewName({
         name: region.name,
