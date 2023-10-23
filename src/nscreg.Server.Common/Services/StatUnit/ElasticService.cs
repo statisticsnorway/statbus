@@ -317,8 +317,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 int regionId = filter.RegionId.Value;
                 mustQueries.Add(m =>
-                    m.Term(p => p.Field(f => f.ActualAddressRegionId).Value(regionId))
-                     || m.Term(p => p.Field(f => f.ActualAddressRegionId).Value(regionId)));
+                    m.Term(p => p.Field(f => f.RegionIds).Value(regionId)));
             }
 
             Func<SearchDescriptor<ElasticStatUnit>, ISearchRequest> searchFunc;
