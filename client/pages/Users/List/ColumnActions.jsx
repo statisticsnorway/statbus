@@ -36,7 +36,7 @@ const ColumnActions = ({ localize, setUserStatus, getFilter, id, status, name })
           onCancel={handleCancel}
           onConfirm={handleConfirm}
           content={`${localize(msgKey)} '${name}'?`}
-          header={`${localize('AreYouSure')}?`}
+          header={`${localize('AreYouSure')}`}
           confirmButton={localize('Ok')}
           cancelButton={localize('ButtonCancel')}
         />

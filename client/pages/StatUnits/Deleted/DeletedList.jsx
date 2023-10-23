@@ -81,7 +81,7 @@ function DeletedList({
   const renderConfirm = () => (
     <Confirm
       open={displayConfirm}
-      header={`${localize('AreYouSure')}?`}
+      header={`${localize('AreYouSure')}`}
       content={`${localize('UndeleteStatUnitMessage')} "${selectedUnit.name}"?`}
       onConfirm={handleConfirm}
       onCancel={handleCancel}

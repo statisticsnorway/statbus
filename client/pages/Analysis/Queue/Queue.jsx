@@ -51,7 +51,7 @@ const Queue = ({
     return (
       <Confirm
         open={showConfirm}
-        header={`${localize('AreYouSure')}?`}
+        header={`${localize('AreYouSure')}`}
         content={`${localize('RejectAnalyzeSourceMessage')}`}
         onConfirm={handleConfirm}
         onCancel={handleCancel}

@@ -48,7 +48,7 @@ function RolesList({ localize, toggleRole, fetchRoles, totalCount, query, roles:
     return (
       <Confirm
         open={showConfirm}
-        header={`${localize('AreYouSure')}?`}
+        header={`${localize('AreYouSure')}`}
         content={`${localize(msgKey)} "${confirmName}"?`}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
