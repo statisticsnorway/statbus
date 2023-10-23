@@ -76,7 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var finalIds = units.Where(x => x.UnitType != StatUnitTypes.EnterpriseGroup)
                 .Select(x => x.RegId).ToList();
-            var finalRegionIds = units.Select(x => x.ActualAddressRegionId ?? x.ActualAddressRegionId).ToList();
+            var finalRegionIds = units.Select(x => x.ActualAddressRegionId).ToList();
 
             var unitsToPersonNames = await GetUnitsToPersonNamesByUnitIds(finalIds);
 
