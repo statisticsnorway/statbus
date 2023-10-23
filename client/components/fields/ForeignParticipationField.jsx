@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
 import { Message, Select as SemanticUiSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
@@ -54,111 +54,74 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-export function ForeignParticipationField({
-  name,
-  value: initialValue,
-  onChange,
-  onBlur,
-  errors: errorKeys,
-  label: labelKey,
-  title: titleKey,
-  placeholder: placeholderKey,
-  multiselect,
-  required,
-  touched,
-  disabled,
-  inline,
-  width,
-  createOptionComponent,
-  localize,
-  locale,
-  popuplocalizedKey,
-  pageSize,
-  waitTime,
-  lookup,
-  responseToOption,
-  options: initialOptions,
-}) {
-  const [value, setValue] = useState(hasValue(initialValue) ? initialValue : multiselect ? [] : notSelected.value)
-  const [options, setOptions] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [page, setPage] = useState(0)
-  const [wildcard, setWildcard] = useState('')
+export class ForeignParticipationField extends React.Component {
+  static propTypes = {
+    name: string.isRequired,
+    value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
+    onChange: func.isRequired,
+    onBlur: func,
+    errors: arrayOf(string),
+    label: string,
+    title: string,
+    placeholder: string,
+    multiselect: bool,
+    required: bool,
+    touched: bool,
+    disabled: bool,
+    inline: bool,
+    width: numOrStr,
+    createOptionComponent: func,
+    localize: func.isRequired,
+    locale: string.isRequired,
+    popuplocalizedKey: string,
+    pageSize: number,
+    waitTime: number,
+    lookup: number,
+    responseToOption: func,
+    options: arrayOf(shape({
+      value: numOrStr.isRequired,
+      text: numOrStr.isRequired,
+    })),
+  }
 
-  const loadOptions = useCallback(() => {
-    if (!isLoading) {
-      const queryParams = { page, pageSize, wildcard }
+  static defaultProps = {
+    value: null,
+    onBlur: R.identity,
+    label: null,
+    title: null,
+    placeholder: null,
+    multiselect: false,
+    required: false,
+    errors: [],
+    disabled: false,
+    inline: false,
+    width: null,
+    createOptionComponent: NameCodeOption.render,
+    pageSize: 10,
+    waitTime: 250,
+    lookup: null,
+    responseToOption: NameCodeOption.transform,
+    options: null,
+    touched: false,
+    popuplocalizedKey: null,
+  }
 
-      internalRequest({
-        url: `/api/lookup/paginated/${lookup}`,
-        queryParams,
-        method: 'get',
-        onSuccess: (data) => {
-          let newOptions = [...data]
+  state = {
+    initialValue: this.props.multiselect ? [] : null,
+    value: hasValue(this.props.value)
+      ? this.props.value
+      : this.props.multiselect
+        ? []
+        : notSelected.value,
+    optionsFetched: false,
+    options: [],
+    isLoading: false,
+    page: 0,
+    wildcard: '',
+  }
 
-          if (responseToOption) newOptions = newOptions.map(responseToOption)
-
-          setOptions(prevOptions => prevOptions.concat(newOptions))
-          setPage(prevPage => prevPage + 1)
-          setIsLoading(false)
-        },
-      })
-    }
-  }, [isLoading, lookup, page, pageSize, responseToOption, wildcard])
-
-  const handleLoadOptions = debounce(loadOptions, waitTime)
-
-  const handleAsyncSelect = useCallback(
-    (data) => {
-      const raw = data !== null ? data : { value: notSelected.value }
-      const newValue = multiselect ? raw.map(x => x.value) : raw.value
-
-      if (!R.equals(value, newValue)) {
-        setValue(newValue)
-        onChange(undefined, { ...this.props, value: newValue }, data)
-      }
-    },
-    [multiselect, onChange, value],
-  )
-
-  const handlePlainSelect = useCallback(
-    (event, { value: newValue, ...data }) => {
-      if (!R.equals(value, newValue)) {
-        setValue(newValue)
-        onChange(event, { ...data, value: newValue })
-      }
-    },
-    [onChange, value],
-  )
-
-  const handleInputChange = useCallback(
-    (newValue) => {
-      if (newValue && lookup !== null) {
-        setIsLoading(true)
-
-        const queryParams = { page: 0, pageSize, wildcard: newValue }
-
-        internalRequest({
-          url: `/api/lookup/paginated/${lookup}`,
-          queryParams,
-          method: 'get',
-          onSuccess: (data) => {
-            let newOptions = [...data]
-
-            if (responseToOption) newOptions = newOptions.map(responseToOption)
-
-            setOptions(newOptions)
-            setPage(0)
-            setIsLoading(false)
-          },
-        })
-      }
-    },
-    [lookup, pageSize, responseToOption],
-  )
-
-  useEffect(() => {
-    if (hasValue(initialOptions)) return
+  componentDidMount() {
+    if (hasValue(this.props.options)) return
     const { value: ids, lookup, multiselect, responseToOption } = this.props
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
@@ -166,8 +129,10 @@ export function ForeignParticipationField({
       method: 'get',
       onSuccess: (value) => {
         if (hasValue(value)) {
-          setValue(multiselect ? value.map(responseToOption) : responseToOption(value[0]))
-          multiselect ? value.map(responseToOption) : responseToOption(value[0])
+          this.setState({
+            value: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
+            initialValue: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
+          })
         }
       },
     })
@@ -178,132 +143,201 @@ export function ForeignParticipationField({
     })
       .then(resp => resp.json())
       .then((result) => {
-        const newOptions =
+        const options =
           Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
-        setOptions(newOptions)
-        setIsLoading(false)
-        setPage(prevPage => prevPage + 1)
+        this.setState({ options, isLoading: false, page: this.state.page + 1 })
       })
-  }, [hasValue, initialValue, initialOptions, multiselect, props, responseToOption])
+  }
 
-  useEffect(() => {
+  componentWillReceiveProps(nextProps) {
+    const { locale, multiselect, responseToOption, isEdit } = this.props
     const { value, initialValue } = this.state
-    const { locale, multiselect, responseToOption } = this.props
     const ids =
-      props.isEdit && R.is(Array, value)
+      isEdit && R.is(Array, nextProps.value)
         ? R.is(Array, initialValue) && initialValue.map(x => x.id)
         : initialValue && initialValue.id
-
-    if (props.isEdit && R.equals(ids, value)) {
-      setValue(initialValue)
+    if (isEdit && R.equals(ids, nextProps.value)) {
+      this.setState({ value: initialValue })
     }
-
-    if (!R.equals(props.value && value)) {
-      setValue(props.value)
+    if (!R.equals(nextProps.value && value)) {
+      this.setState({ value: nextProps.value })
     }
-
-    if (props.value === 0 || props.value.length === 0 || props.value[0] === 0) {
-      setValue('')
+    if (nextProps.value === 0 || nextProps.value.length === 0 || nextProps.value[0] === 0) {
+      this.setState({ value: '' })
     }
-
-    if (props.locale !== locale) {
-      setValue(multiselect ? value.map(responseToOption) : responseToOption(value))
-      setOptions(prevOptions => prevOptions.map(responseToOption))
+    if (nextProps.locale !== locale) {
+      this.setState({
+        value: multiselect ? value.map(responseToOption) : responseToOption(value),
+        options: this.state.options.map(responseToOption),
+      })
     }
-  }, [props])
+  }
 
-  useEffect(() => {
-    handleLoadOptions.cancel()
-  }, [])
+  componentWillUnmount() {
+    this.handleLoadOptions.cancel()
+  }
 
-  return (
-    <div
-      className={`field${!hasOptions && required ? ' required' : ''}`}
-      style={{ opacity: `${disabled ? 0.25 : 1}` }}
-      data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
-      data-position="top left"
-    >
-      {label !== undefined && <label htmlFor={name}>{label}</label>}
-      <SemanticUiSelect
-        onChange={handlePlainSelect}
-        error={hasErrors}
-        multiple={multiselect}
-        options={
-          multiselect || !required
-            ? options
-            : [
-                {
-                  value: notSelected.value,
-                  text: localize(notSelected.text),
-                },
-                ...options,
-              ]
-        }
-        required={required}
-        title={title}
-        inline={inline}
-        width={width}
-        value={value}
-        onBlur={onBlur}
-        name={name}
-        placeholder={placeholder}
-        disabled={disabled}
-        openOnFocus
-      />
-      {hasErrors && (
-        <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
-      )}
-    </div>
-  )
+  loadOptions = () => {
+    const { lookup, pageSize, multiselect, required, responseToOption } = this.props
+    const { wildcard, page, isLoading } = this.state
+
+    if (!isLoading) {
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page, pageSize, wildcard },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
+
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options: this.state.options.concat(options),
+            page: this.state.page + 1,
+          })
+        },
+      })
+    }
+  }
+
+  handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
+
+  handleAsyncSelect = (data) => {
+    const { multiselect, onChange, responseToOption } = this.props
+    const raw = data !== null ? data : { value: notSelected.value }
+    const value = multiselect ? raw.map(x => x.value) : raw.value
+    if (!R.equals(this.state.value, value)) {
+      this.setState(
+        {
+          value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
+        },
+        () => onChange(undefined, { ...this.props, value }, data),
+      )
+    }
+  }
+
+  handlePlainSelect = (event, { value, ...data }) => {
+    const nextData = { ...data, ...this.props, value }
+    if (!R.equals(this.state.value, value)) {
+      this.setState({ value }, () => this.props.onChange(event, nextData))
+    }
+  }
+
+  handleInputChange = (newValue) => {
+    const { lookup, pageSize, responseToOption } = this.props
+
+    if (newValue && lookup !== null) {
+      this.setState({ isLoading: true })
+
+      internalRequest({
+        url: `/api/lookup/paginated/${lookup}`,
+        queryParams: { page: 0, pageSize, wildcard: newValue },
+        method: 'get',
+        onSuccess: (data) => {
+          let options = [...data]
+
+          if (responseToOption) options = options.map(responseToOption)
+          this.setState({
+            options,
+            page: 0,
+            isLoading: false,
+          })
+        },
+      })
+    }
+  }
+
+  render() {
+    const {
+      name,
+      label: labelKey,
+      touched,
+      errors: errorKeys,
+      options,
+      multiselect,
+      title: titleKey,
+      placeholder: placeholderKey,
+      createOptionComponent,
+      required,
+      disabled,
+      inline,
+      width,
+      onBlur,
+      localize,
+      popuplocalizedKey,
+    } = this.props
+    const hasErrors = touched && hasValue(errorKeys)
+    const label = labelKey !== (undefined || null) ? localize(labelKey) : undefined
+    const title = titleKey ? localize(titleKey) : label
+    const placeholder = placeholderKey ? localize(placeholderKey) : label
+    const hasOptions = hasValue(options)
+    const [Select, ownProps] = hasOptions
+      ? [
+        SemanticUiSelect,
+        {
+          onChange: this.handlePlainSelect,
+          error: hasErrors,
+          multiple: multiselect,
+          options:
+              multiselect || !required
+                ? options
+                : [
+                  {
+                    value: notSelected.value,
+                    text: localize(notSelected.text),
+                  },
+                  ...options,
+                ],
+          required,
+          title,
+          inline,
+          width,
+        },
+      ]
+      : [
+        ReactSelect,
+        {
+          onChange: this.handleAsyncSelect,
+          loadOptions: this.loadOptions,
+          valueComponent: multiselect
+            ? createRemovableValueComponent(localize)
+            : createValueComponent(localize),
+          optionRenderer: createOptionComponent,
+          inputProps: { type: 'react-select', name },
+          className: hasErrors ? 'react-select--error' : '',
+          multi: multiselect,
+          backspaceRemoves: true,
+          searchable: true,
+          pagination: true,
+          isLoading: this.state.isLoading,
+          onMenuScrollToBottom: this.loadOptions,
+          onInputChange: this.handleInputChange,
+        },
+      ]
+    const className = `field${!hasOptions && required ? ' required' : ''}`
+    return (
+      <div
+        className={className}
+        style={{ opacity: `${disabled ? 0.25 : 1}` }}
+        data-tooltip={popuplocalizedKey ? localize(popuplocalizedKey) : null}
+        data-position="top left"
+      >
+        {label !== undefined && <label htmlFor={name}>{label}</label>}
+        <Select
+          {...ownProps}
+          value={this.state.value}
+          options={this.state.options}
+          onBlur={onBlur}
+          name={name}
+          placeholder={placeholder}
+          disabled={disabled}
+          openOnFocus
+        />
+        {hasErrors && (
+          <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
+        )}
+      </div>
+    )
+  }
 }
 
-ForeignParticipationField.propTypes = {
-  name: string.isRequired,
-  value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
-  onChange: func.isRequired,
-  onBlur: func,
-  errors: arrayOf(string),
-  label: string,
-  title: string,
-  placeholder: string,
-  multiselect: bool,
-  required: bool,
-  touched: bool,
-  disabled: bool,
-  inline: bool,
-  width: numOrStr,
-  createOptionComponent: func,
-  localize: func.isRequired,
-  locale: string.isRequired,
-  popuplocalizedKey: string,
-  pageSize: number,
-  waitTime: number,
-  lookup: number,
-  responseToOption: func,
-  options: arrayOf(shape({
-    value: numOrStr.isRequired,
-    text: numOrStr.isRequired,
-  })),
-}
-
-ForeignParticipationField.defaultProps = {
-  value: null,
-  onBlur: R.identity,
-  label: null,
-  title: null,
-  placeholder: null,
-  multiselect: false,
-  required: false,
-  errors: [],
-  disabled: false,
-  inline: false,
-  width: null,
-  createOptionComponent: NameCodeOption.render,
-  pageSize: 10,
-  waitTime: 250,
-  lookup: null,
-  responseToOption: NameCodeOption.transform,
-  options: null,
-  touched: false,
-  popuplocalizedKey: null,
-}
+export default ForeignParticipationField
