@@ -12,7 +12,6 @@ namespace nscreg.Data.Entities
         public string StatId { get; set; }
         public string TaxRegId { get; set; }
         public string ExternalId { get; set; }
-        public int? RegionId { get; set; }
         public int? ActualAddressRegionId { get; set; }
         public decimal? Turnover { get; set; }
         public int? SectorCodeId { get; set; }

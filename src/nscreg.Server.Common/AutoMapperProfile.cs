@@ -160,11 +160,11 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, opt => opt.Ignore());
 
             CreateMap<StatUnitSearchView, ElasticStatUnit>()
-                .ForMember(d => d.RegionIds, opt => opt.MapFrom(s => s.RegionId != null ? new List<int> { (int)s.RegionId } : new List<int>()));
+                .ForMember(d => d.RegionIds, opt => opt.MapFrom(s => s.ActualAddressRegionId != null ? new List<int> { (int)s.ActualAddressRegionId } : new List<int>()));
 
             CreateMap<IStatisticalUnit, ElasticStatUnit>()
                 .ForMember(d => d.LiqDate, opt => opt.MapFrom(s => (s is EnterpriseGroup) ? (s as EnterpriseGroup).LiqDateEnd : (s as StatisticalUnit).LiqDate))
-                .ForMember(d => d.RegionId, opt => opt.MapFrom(s => s.ActualAddress.RegionId))
+                .ForMember(d => d.ActualAddressRegionId, opt => opt.MapFrom(s => s.ActualAddress.RegionId))
                 .ForMember(d => d.SectorCodeId, opt => opt.MapFrom(s => s.InstSectorCodeId))
                 .ForMember(d => d.ActualAddressPart1, opt => opt.MapFrom(s => s.ActualAddress.AddressPart1))
                 .ForMember(d => d.ActualAddressPart2, opt => opt.MapFrom(s => s.ActualAddress.AddressPart2))

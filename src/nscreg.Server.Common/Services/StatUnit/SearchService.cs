@@ -76,7 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var finalIds = units.Where(x => x.UnitType != StatUnitTypes.EnterpriseGroup)
                 .Select(x => x.RegId).ToList();
-            var finalRegionIds = units.Select(x => x.ActualAddressRegionId ?? x.RegionId).ToList();
+            var finalRegionIds = units.Select(x => x.ActualAddressRegionId ?? x.ActualAddressRegionId).ToList();
 
             var unitsToPersonNames = await GetUnitsToPersonNamesByUnitIds(finalIds);
 
@@ -89,10 +89,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
                     unitsToMainActivities[x.RegId],
-                    regions.GetValueOrDefault(x.ActualAddressRegionId ?? x.RegionId), _mapper))
+                    regions.GetValueOrDefault(x.ActualAddressRegionId ?? x.ActualAddressRegionId), _mapper))
                 .Select(x => SearchItemVm.Create(x, x.UnitType,
                     permissions.GetReadablePropNames(), !isAdmin &&
-                    !helper.IsRegionOrActivityContains(userId, x.RegionId != null ? new List<int> { (int)x.RegionId } : new List<int>(), unitsToMainActivities[x.RegId].Select(z => z.Id).ToList())));
+                    !helper.IsRegionOrActivityContains(userId, x.ActualAddressRegionId != null ? new List<int> { (int)x.ActualAddressRegionId } : new List<int>(), unitsToMainActivities[x.RegId].Select(z => z.Id).ToList())));
 
             var viewModel = SearchVm.Create(result, totalCount);
             return viewModel;
