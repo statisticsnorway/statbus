@@ -110,7 +110,7 @@ class Search extends React.Component {
     return (
       <Confirm
         open={this.state.showConfirm}
-        header={`${this.props.localize('AreYouSure')}?`}
+        header={`${this.props.localize('AreYouSure')}`}
         content={`${this.props.localize('DoYouWantToDeleteUnit')} "${
           this.state.selectedUnit.name
         }"?`}

@@ -63,7 +63,7 @@ function Queue({
     return (
       <Confirm
         open={showConfirm}
-        header={`${localize('AreYouSure')}?`}
+        header={`${localize('AreYouSure')}`}
         content={`${localize('RejectDataSourceMessage')} "${
           selectedQueue.dataSourceTemplateName
         }"?`}

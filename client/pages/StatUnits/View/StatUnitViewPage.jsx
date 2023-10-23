@@ -1,7 +1,7 @@
 import React from 'react'
 import { number, shape, string, func, oneOfType, bool } from 'prop-types'
 import * as R from 'ramda'
-import { Button, Icon, Menu, Segment, Loader, Popup } from 'semantic-ui-react'
+import { Button, Icon, Menu, Segment, Loader, Popup, Confirm } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import Printable from '/client/components/Printable/Printable'
@@ -51,7 +51,7 @@ class StatUnitViewPage extends React.Component {
     historyDetails: undefined,
   }
 
-  state = { activeTab: tabs.main.name, tabList: Object.values(tabs) }
+  state = { activeTab: tabs.main.name, tabList: Object.values(tabs), showConfirm: false }
 
   componentDidMount() {
     const {
@@ -89,6 +89,19 @@ class StatUnitViewPage extends React.Component {
     />
   )
 
+  handleCancel = () => {
+    this.setState({ showConfirm: false })
+  }
+
+  handleConfirm = () => {    
+    this.setState({ showConfirm: true })
+  }
+
+  onConfirm = (unitType, unitRegId) => {
+    deleteStatUnit(unitType, unitRegId)
+    this.setState({ showConfirm: false })
+  }
+
   renderView() {
     const {
       unit,
@@ -113,7 +126,7 @@ class StatUnitViewPage extends React.Component {
       if (indexofOrgLinks > 0) {
         this.state.tabList.splice(indexofOrgLinks, 1)
       }
-    }
+    }     
 
     const tabContent = (
       <div>
@@ -215,6 +228,17 @@ class StatUnitViewPage extends React.Component {
 
     return (
       <div>
+      <Confirm
+        open={this.state.showConfirm}
+        header={`${this.props.localize('AreYouSure')}`}
+        content={`${this.props.localize('DoYouWantToDeleteUnit')} "${
+          unit.name
+        }"?`}
+        onConfirm={() => this.onConfirm(statUnitTypes.get(unit.type), unit.regId)}
+        onCancel={this.handleCancel}
+        confirmButton={this.props.localize('Ok')}
+        cancelButton={this.props.localize('ButtonCancel')}
+      />
         {activeTab !== 'print' && <BarInfo unit={unit} localize={localize} />}
         <Menu attached="top" tabular>
           {this.state.tabList.map(this.renderTabMenuItem)}
@@ -256,7 +280,7 @@ class StatUnitViewPage extends React.Component {
                 )}
                 {checkSF('StatUnitDelete') && (
                   <Button
-                    onClick={() => deleteStatUnit(statUnitTypes.get(unit.type), unit.regId)}
+                    onClick={() => this.handleConfirm()}
                     icon="trash"
                     negative
                     disabled={unit.readonly}

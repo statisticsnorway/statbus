@@ -78,7 +78,7 @@ class List extends React.Component {
       <Confirm
         onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
-        header={`${localize('AreYouSure')}?`}
+        header={`${localize('AreYouSure')}`}
         content={`${localize('DeleteDataSourceMessage')} "${name}"?`}
         open
       />

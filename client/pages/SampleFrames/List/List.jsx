@@ -51,7 +51,7 @@ class List extends React.Component {
       <Confirm
         onConfirm={this.confirmDelete}
         onCancel={this.cancelDelete}
-        header={`${localize('AreYouSure')}?`}
+        header={`${localize('AreYouSure')}`}
         content={`${localize('DeleteSampleFrameMessage')} "${name}"?`}
         open
       />
