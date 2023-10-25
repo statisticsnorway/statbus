@@ -193,12 +193,12 @@ namespace nscreg.Server.Test
                 context.Initialize();
                 var list = new StatisticalUnit[]
                 {
-                    new LegalUnit {StatId = "201701", Name = "Unit1"},
-                    new LegalUnit {StatId = "201602", Name = "Unit2"},
-                    new LocalUnit {StatId = "201702", Name = "Unit3"}
+                    new LegalUnit {UserId = "42",StatId = "201701", Name = "Unit1"},
+                    new LegalUnit {UserId = "42", StatId = "201602", Name = "Unit2"},
+                    new LocalUnit {UserId = "42",StatId = "201702", Name = "Unit3"}
                 };
                 await context.StatisticalUnits.AddRangeAsync(list);
-                var group = new EnterpriseGroup { StatId = "201703", Name = "Unit4" };
+                var group = new EnterpriseGroup { UserId = "42", StatId = "201703", Name = "Unit4" };
                 await context.EnterpriseGroups.AddAsync(group);
                 await context.SaveChangesAsync();
                 await new ElasticService(context, _mapper).Synchronize(true);
@@ -538,8 +538,6 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditActivities()
         {
-
-
             const string unitName = "Legal with activities";
             var activity1 = new Activity
             {
@@ -547,7 +545,8 @@ namespace nscreg.Server.Test
                 Employees = 666,
                 Turnover = 1000000,
                 ActivityCategory = new ActivityCategory { Code = "01.12.0", Name = "����������� ����", Section = "A" },
-                ActivityType = ActivityTypes.Primary
+                ActivityType = ActivityTypes.Primary,
+                UpdatedBy = "Test"
             };
 
             var activity2 = new Activity
@@ -561,7 +560,8 @@ namespace nscreg.Server.Test
                     Name = "����������� ������, ����, �����- � ������������",
                     Section = "A"
                 },
-                ActivityType = ActivityTypes.Secondary
+                ActivityType = ActivityTypes.Secondary,
+                UpdatedBy = "Test"
             };
 
             var activity3 = new Activity
@@ -575,7 +575,8 @@ namespace nscreg.Server.Test
                     Name = "����������� �������� ������ � �� �����",
                     Section = "A"
                 },
-                ActivityType = ActivityTypes.Ancilliary
+                ActivityType = ActivityTypes.Ancilliary,
+                UpdatedBy = "Test"
             };
 
 
@@ -1084,8 +1085,8 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task GetOrgLinksWithParent()
         {
-            var expectedRoot = new LegalUnit { Name = "le0" };
-            var childNode = new LocalUnit { Name = "lo1" };
+            var expectedRoot = new LegalUnit { UserId = "42", Name = "le0" };
+            var childNode = new LocalUnit { UserId = "42", Name = "lo1" };
             OrgLinksNode actualRoot;
             using (var ctx = CreateDbContext())
             {
@@ -1109,15 +1110,15 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task GetOrgLinksWithChildNodes()
         {
-            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
+            var expectedRoot = new LegalUnit { UserId = "42", Name = "42", ParentOrgLink = null };
             OrgLinksNode actualRoot;
             using (var ctx = CreateDbContext())
             {
                 ctx.LegalUnits.Add(expectedRoot);
                 await ctx.SaveChangesAsync();
                 ctx.LocalUnits.AddRange(
-                    new LocalUnit { Name = "17", ParentOrgLink = expectedRoot.RegId },
-                    new LocalUnit { Name = "3.14", ParentOrgLink = expectedRoot.RegId });
+                    new LocalUnit { UserId = "42", Name = "17", ParentOrgLink = expectedRoot.RegId },
+                    new LocalUnit { UserId = "42", Name = "3.14", ParentOrgLink = expectedRoot.RegId });
                 await ctx.SaveChangesAsync();
 
                 actualRoot = await new ViewService(ctx, null, null, null, _mandatoryFields, null, _mapper)
@@ -1140,7 +1141,7 @@ namespace nscreg.Server.Test
         [Fact]
         private async Task GetOrgLinksWithNoChildNodes()
         {
-            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
+            var expectedRoot = new LegalUnit { UserId = "42", Name = "42", ParentOrgLink = null };
             OrgLinksNode actualRoot;
             using (var ctx = CreateDbContext())
             {
