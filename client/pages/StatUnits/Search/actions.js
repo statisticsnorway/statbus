@@ -39,18 +39,26 @@ const fetchData = queryParams =>
     onStart: dispatch => dispatch(fetchDataStateChanged(true)),
   })
 
-export const deleteStatUnit = (type, id) =>
-  internalRequest({
-    url: `/api/statunits/${type}/${id}`,
-    method: 'delete',
-    onSuccess: () => {
-      NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
-      redirectToIndex()
-    },
-    onFail: () => {
+  export const deleteStatUnit = (type, id) => {
+    return fetch(`/api/statunits/${type}/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+      })
+    .then(response => {
+      if (response.status >= 200 && response.status < 300) {
+        NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
+        redirectToIndex()
+      } else if (response.status === (400 || 404 || 500)) {
+        NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
+        throw new Error('Error deleting stat unit');
+      }
+    })
+    .catch(error => {
       NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
-    },
-  })
+      throw new Error(error);
+    });
+  };
 
 const fetchLookup = id =>
   dispatchRequest({
@@ -60,6 +68,7 @@ const fetchLookup = id =>
       dispatch(fetchLookupSucceeded({ id, lookup }))
     },
   })
+  
 
 export default {
   updateFilter,
