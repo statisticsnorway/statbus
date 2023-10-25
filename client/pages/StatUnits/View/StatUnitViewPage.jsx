@@ -1,7 +1,7 @@
 import React from 'react'
 import { number, shape, string, func, oneOfType, bool } from 'prop-types'
 import * as R from 'ramda'
-import { Button, Icon, Menu, Segment, Loader, Popup, Confirm } from 'semantic-ui-react'
+import { Button, Icon, Menu, Segment, Loader, Popup, Confirm, Modal } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import Printable from '/client/components/Printable/Printable'
@@ -51,7 +51,7 @@ class StatUnitViewPage extends React.Component {
     historyDetails: undefined,
   }
 
-  state = { activeTab: tabs.main.name, tabList: Object.values(tabs), showConfirm: false }
+  state = { activeTab: tabs.main.name, tabList: Object.values(tabs), showConfirm: false, deleteFailed: false }
 
   componentDidMount() {
     const {
@@ -99,7 +99,17 @@ class StatUnitViewPage extends React.Component {
 
   onConfirm = (unitType, unitRegId) => {
     deleteStatUnit(unitType, unitRegId)
+    .then(() => {
+        // Success!
+      })
+      .catch(error => {
+        this.setState({ deleteFailed: true })
+      })
     this.setState({ showConfirm: false })
+  }
+
+  clearError = () => {
+    this.setState({ deleteFailed: false })
   }
 
   renderView() {
@@ -239,6 +249,23 @@ class StatUnitViewPage extends React.Component {
         confirmButton={this.props.localize('Ok')}
         cancelButton={this.props.localize('ButtonCancel')}
       />
+
+      <Modal
+        className="errorModal"
+        size="small"
+        open={this.state.deleteFailed}
+        onClose={this.clearError}>          
+        <Modal.Header>{this.props.localize('Error')}</Modal.Header>
+        <Modal.Content>
+          {this.state.deleteFailed
+            ? this.props.localize(this.state.deleteFailed)
+            : this.props.localize(this.props.error)}
+        </Modal.Content>
+        <Modal.Actions>
+          <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
+        </Modal.Actions>
+      </Modal>
+
         {activeTab !== 'print' && <BarInfo unit={unit} localize={localize} />}
         <Menu attached="top" tabular>
           {this.state.tabList.map(this.renderTabMenuItem)}
