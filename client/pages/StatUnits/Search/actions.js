@@ -48,7 +48,9 @@ const fetchData = queryParams =>
     .then(response => {
       if (response.status >= 200 && response.status < 300) {
         redirectToIndex()
-      } else if (response.status === (400 || 404 || 500)) {
+      } else if (response.status === 400 || response.status === 404 || response.status === 500) {
+        // Here we are throwing a general error message text instead of a specific message text related to the error,
+        // this is because the back-end does not return a specific message text related to the error
         throw new Error(getLocalizeText('StatUnitDeleteError'));
       }
     })
