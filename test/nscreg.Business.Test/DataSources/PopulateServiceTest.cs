@@ -58,6 +58,7 @@ namespace nscreg.Business.Test.DataSources
 
             var dbunit = new LegalUnit
             {
+                UserId = "42",
                 Name = "LAST FRIDAY INVEST AS",
                 StatId = "920951287",
                 PersonsUnits = new List<PersonStatisticalUnit>()
@@ -120,6 +121,7 @@ namespace nscreg.Business.Test.DataSources
             };
             var resultUnit = new LegalUnit
             {
+                UserId = "42",
                 Name = "LAST FRIDAY INVEST AS",
                 StatId = "920951287",
                 PersonsUnits = new List<PersonStatisticalUnit>()
@@ -220,6 +222,7 @@ namespace nscreg.Business.Test.DataSources
 
             DatabaseContext.StatisticalUnits.Add(new LegalUnit()
             {
+                UserId = "42",
                 StatId = "920951287",
                 Name = "LAST FRIDAY INVEST AS"
             });
@@ -354,14 +357,20 @@ namespace nscreg.Business.Test.DataSources
             Dictionary<string, ActivityCategory> categories = new Dictionary<string, ActivityCategory>();
             categories.Add("67.111", new ActivityCategory()
             {
+                Name = "Test",
+                Section = "SectionTest",
                 Code = "67.111"
             });
             categories.Add("62.020", new ActivityCategory()
             {
+                Name = "Test",
+                Section = "SectionTest",
                 Code = "62.020"
             });
             categories.Add("68.209", new ActivityCategory()
             {
+                Name = "Test",
+                Section = "SectionTest",
                 Code = "68.209"
             });
 
@@ -370,6 +379,7 @@ namespace nscreg.Business.Test.DataSources
 
             var dbUnit = new LegalUnit()
             {
+                UserId = "42",
                 StatId = "9209512871",
                 Name = "TEST TEST",
                 ActivitiesUnits = new List<ActivityStatisticalUnit>()
@@ -381,7 +391,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2020,
                             Employees = 1,
-                            ActivityCategory = categories["67.111"]
+                            ActivityCategory = categories["67.111"],
+                            UpdatedBy = "Test"
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -391,7 +402,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2019,
                             Employees = 2,
-                            ActivityCategory = categories["62.020"]
+                            ActivityCategory = categories["62.020"],
+                            UpdatedBy = "Test"
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -401,7 +413,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Secondary,
                             ActivityYear = DateTime.Now.Year - 2,
                             Employees = 1000,
-                            ActivityCategory = categories["68.209"]
+                            ActivityCategory = categories["68.209"],
+                            UpdatedBy = "Test"
                         }
                     }
                 }
@@ -410,6 +423,7 @@ namespace nscreg.Business.Test.DataSources
             await DatabaseContext.SaveChangesAsync();
             var resultUnit = new LegalUnit()
             {
+                UserId = "42",
                 RegId = 1,
                 StatId = "9209512871",
                 Name = "LAST FRIDAY INVEST AS",
@@ -424,6 +438,7 @@ namespace nscreg.Business.Test.DataSources
                             Employees = 10,
                             ActivityCategory = categories["67.111"],
                             ActivityCategoryId = categories["67.111"].Id,
+                            UpdatedBy = "Test"
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -435,7 +450,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityYear = 2019,
                             Employees = 1000,
                             ActivityCategory = categories["62.020"],
-                            ActivityCategoryId = categories["62.020"].Id
+                            ActivityCategoryId = categories["62.020"].Id,
+                            UpdatedBy = "Test"
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -446,7 +462,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityYear = 2019,
                             Employees = 1000,
                             ActivityCategory = categories[ "68.209"],
-                            ActivityCategoryId = categories[ "68.209"].Id
+                            ActivityCategoryId = categories[ "68.209"].Id,
+                            UpdatedBy = "Test"
                         }
                     },
                     new ActivityStatisticalUnit()
@@ -456,7 +473,8 @@ namespace nscreg.Business.Test.DataSources
                             ActivityType = ActivityTypes.Primary,
                             ActivityYear = 2021,
                             ActivityCategory = categories[ "68.209"],
-                            ActivityCategoryId = categories[ "68.209"].Id
+                            ActivityCategoryId = categories[ "68.209"].Id,
+                            UpdatedBy = "Test"
                         }
                     }
                 }

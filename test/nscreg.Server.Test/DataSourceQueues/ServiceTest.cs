@@ -1,7 +1,6 @@
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataSourcesQueue;
-using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 //using static nscreg.Server.Test.Helpers.ServiceFactories;
@@ -23,8 +22,8 @@ namespace nscreg.Server.Test.DataSourceQueues
                 ctx.Users.Add(user);
 
                 ctx.DataSourceQueues.AddRange(
-                    new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user},
-                    new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user});
+                    new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user, DataSourcePath = "TestPath" },
+                    new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user, DataSourcePath = "TestPath" });
                 await ctx.SaveChangesAsync();
 
                 //var result = await CreateEmptyConfiguredDataSourceQueueService(ctx)
@@ -52,13 +51,17 @@ namespace nscreg.Server.Test.DataSourceQueues
                     {
                         Status = DataSourceQueueStatuses.DataLoadCompletedPartially,
                         DataSource = dataSource,
-                        User = user
+                        User = user,
+                        DataSourceFileName = "TestFileName",
+                        DataSourcePath = "TestPath"
                     },
                     new DataSourceQueue
                     {
                         Status = DataSourceQueueStatuses.InQueue,
                         DataSource = dataSource,
-                        User = user
+                        User = user,
+                        DataSourceFileName = "TestFileName",
+                        DataSourcePath = "TestPath"
                     });
                 await ctx.SaveChangesAsync();
 

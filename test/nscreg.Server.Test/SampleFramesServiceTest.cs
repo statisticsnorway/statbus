@@ -301,6 +301,7 @@ namespace nscreg.Server.Test
         {
             await CreateLegalUnitAsync(context, new LegalUnit
             {
+                UserId = "42",
                 Name = Guid.NewGuid().ToString(),
                 FreeEconZone = true,
                 EmployeesYear = 2016,
@@ -312,6 +313,7 @@ namespace nscreg.Server.Test
 
             await CreateLegalUnitAsync(context, new LegalUnit
             {
+                UserId = "42",
                 Name = Guid.NewGuid().ToString(),
                 FreeEconZone = true,
                 EmployeesYear = 2011,
@@ -323,6 +325,7 @@ namespace nscreg.Server.Test
 
             await CreateLegalUnitAsync(context, new LegalUnit
             {
+                UserId = "42",
                 Name = Guid.NewGuid().ToString(),
                 FreeEconZone = true,
                 EmployeesYear = 2012,
@@ -334,6 +337,7 @@ namespace nscreg.Server.Test
 
             await CreateLegalUnitAsync(context, new LegalUnit
             {
+                UserId = "42",
                 Name = Guid.NewGuid().ToString(),
                 FreeEconZone = true,
                 EmployeesYear = 2012,
@@ -391,7 +395,8 @@ namespace nscreg.Server.Test
                     Name = "Activity Category",
                     Section = "A"
                 },
-                ActivityType = ActivityTypes.Secondary
+                ActivityType = ActivityTypes.Secondary,
+                UpdatedBy = "Test"
             });
             await context.SaveChangesAsync();
 

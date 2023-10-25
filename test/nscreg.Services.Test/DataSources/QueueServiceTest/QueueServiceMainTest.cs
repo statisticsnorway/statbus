@@ -17,7 +17,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [Fact]
         private async Task CheckIfUnitExistsOnExistingUnit()
         {
-            var unit = new LegalUnit {StatId = "1"};
+            var unit = new LegalUnit {UserId = "42", StatId = "1"};
             bool exists;
             using (var ctx = CreateDbContext())
             {
@@ -32,7 +32,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [Fact]
         private async Task CheckIfUnitExistsOnAbsentUnit()
         {
-            var unit = new LocalUnit {StatId = "2"};
+            var unit = new LocalUnit {UserId = "42", StatId = "2"};
             bool exists;
             using (var ctx = CreateDbContext())
             {
@@ -56,7 +56,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             DataUploadingLog actual;
             using (var ctx = CreateDbContext())
             {
-                var queueItem = new DataSourceQueue();
+                var queueItem = new DataSourceQueue() { DataSourceFileName = "TestFileName", DataSourcePath = "TestPath" };
                 ctx.DataSourceQueues.Add(queueItem);
                 await ctx.SaveChangesAsync();
                 await new QueueService(ctx).LogUnitUpload(
@@ -83,7 +83,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [InlineData(DataSourceQueueStatuses.DataLoadCompletedPartially)]
         private async Task FinishQueueItemTest(DataSourceQueueStatuses expectedStatus)
         {
-            var actual = new DataSourceQueue();
+            var actual = new DataSourceQueue() { DataSourceFileName = "TestFileName", DataSourcePath = "TestPath" };
 
             using (var ctx = CreateDbContext())
             {
@@ -122,9 +122,11 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             {
                 ctx.DataSourceQueues.Add(new DataSourceQueue
                 {
-                    DataSource = new DataSource(),
+                    DataSource = new DataSource() { Name = "TestName" },
                     StartImportDate = DateTime.Now.AddHours(-1),
                     Status = DataSourceQueueStatuses.Loading,
+                    DataSourceFileName = "TestFileName",
+                    DataSourcePath = "TestPath"
                 });
                 await ctx.SaveChangesAsync();
 
