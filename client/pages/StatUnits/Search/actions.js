@@ -47,16 +47,13 @@ const fetchData = queryParams =>
       })
     .then(response => {
       if (response.status >= 200 && response.status < 300) {
-        NotificationManager.success(getLocalizeText('StatUnitDeleteSuccessfully'))
         redirectToIndex()
       } else if (response.status === (400 || 404 || 500)) {
-        NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
-        throw new Error('Error deleting stat unit');
+        throw new Error(getLocalizeText('StatUnitDeleteError'));
       }
     })
-    .catch(error => {
-      NotificationManager.error(getLocalizeText('StatUnitDeleteError'))
-      throw new Error(error);
+    .catch(() => {
+      throw new Error(getLocalizeText('StatUnitDeleteError'));
     });
   };
 

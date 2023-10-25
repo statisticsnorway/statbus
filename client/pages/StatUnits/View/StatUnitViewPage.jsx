@@ -257,9 +257,7 @@ class StatUnitViewPage extends React.Component {
         onClose={this.clearError}>          
         <Modal.Header>{this.props.localize('Error')}</Modal.Header>
         <Modal.Content>
-          {this.state.deleteFailed
-            ? this.props.localize(this.state.deleteFailed)
-            : this.props.localize(this.props.error)}
+          { this.props.localize('StatUnitDeleteError') }
         </Modal.Content>
         <Modal.Actions>
           <Button primary onClick={this.clearError} content={this.props.localize('Ok')} />
