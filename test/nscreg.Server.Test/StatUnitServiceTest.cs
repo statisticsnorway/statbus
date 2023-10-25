@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
@@ -56,9 +57,18 @@ namespace nscreg.Server.Test
             _analysisRules.Orphan.CheckEnterpriseGroupRelatedEnterprises = false;
             _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
             _validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
-            _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields, _validationSettings, _mapper);
 
-            StartupConfiguration.ConfigureAutoMapper(null);
+            var mapperConfig = new MapperConfiguration(mc =>
+            {
+                mc.AddProfile(new AutoMapperProfile());
+            });
+
+            _mapper = mapperConfig.CreateMapper();
+            _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields, _validationSettings, _mapper);
+            var services = new ServiceCollection();
+            services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+
+            StartupConfiguration.ConfigureAutoMapper(services);
         }
 
         #region SearchTests

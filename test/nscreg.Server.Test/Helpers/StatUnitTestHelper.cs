@@ -182,6 +182,7 @@ namespace nscreg.Server.Test
                     Section = "A"
                 },
                 ActivityType = ActivityTypes.Secondary,
+                UpdatedBy = "Test"
             });
             await context.SaveChangesAsync();
 
