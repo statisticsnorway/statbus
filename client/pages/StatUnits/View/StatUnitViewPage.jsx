@@ -51,7 +51,7 @@ class StatUnitViewPage extends React.Component {
     historyDetails: undefined,
   }
 
-  state = { activeTab: tabs.main.name, tabList: Object.values(tabs), showConfirm: false, deleteFailed: false }
+  state = { activeTab: tabs.main.name, tabList: Object.values(tabs), showConfirmDelete: false, deleteFailed: false }
 
   componentDidMount() {
     const {
@@ -89,15 +89,15 @@ class StatUnitViewPage extends React.Component {
     />
   )
 
-  handleCancel = () => {
-    this.setState({ showConfirm: false })
+  cancelDelete = () => {
+    this.setState({ showConfirmDelete: false })
   }
 
-  handleConfirm = () => {    
-    this.setState({ showConfirm: true })
+  confirmDelete = () => {    
+    this.setState({ showConfirmDelete: true })
   }
 
-  onConfirm = (unitType, unitRegId) => {
+  performDelete = (unitType, unitRegId) => {
     deleteStatUnit(unitType, unitRegId)
     .then(() => {
         // Success!
@@ -105,7 +105,7 @@ class StatUnitViewPage extends React.Component {
       .catch(error => {
         this.setState({ deleteFailed: true })
       })
-    this.setState({ showConfirm: false })
+    this.setState({ showConfirmDelete: false })
   }
 
   clearError = () => {
@@ -239,13 +239,13 @@ class StatUnitViewPage extends React.Component {
     return (
       <div>
       <Confirm
-        open={this.state.showConfirm}
+        open={this.state.showConfirmDelete}
         header={`${this.props.localize('AreYouSure')}`}
         content={`${this.props.localize('DoYouWantToDeleteUnit')} "${
           unit.name
         }"?`}
-        onConfirm={() => this.onConfirm(statUnitTypes.get(unit.type), unit.regId)}
-        onCancel={this.handleCancel}
+        onConfirm={() => this.performDelete(statUnitTypes.get(unit.type), unit.regId)}
+        onCancel={this.cancelDelete}
         confirmButton={this.props.localize('Ok')}
         cancelButton={this.props.localize('ButtonCancel')}
       />
@@ -305,7 +305,7 @@ class StatUnitViewPage extends React.Component {
                 )}
                 {checkSF('StatUnitDelete') && (
                   <Button
-                    onClick={() => this.handleConfirm()}
+                    onClick={() => this.confirmDelete()}
                     icon="trash"
                     negative
                     disabled={unit.readonly}
