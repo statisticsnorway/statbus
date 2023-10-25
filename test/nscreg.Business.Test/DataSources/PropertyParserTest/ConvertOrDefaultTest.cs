@@ -81,39 +81,28 @@ namespace nscreg.Business.Test.DataSources.PropertyParserTest
         }
 
         [Fact]
-        private void ShouldReturnValueForDateTime()
+        private void ShouldReturnValueForDateTimeOffset()
         {
             var expected = DateTimeOffset.Now.FlushSeconds();
             var raw = expected.ToString(CultureInfo.InvariantCulture);
 
-            var actual = PropertyParser.ConvertOrDefault(typeof(DateTime), raw);
+            var actual = PropertyParser.ConvertOrDefault(typeof(DateTimeOffset), raw);
 
             Assert.Equal(expected, actual);
         }
 
-        //[Fact]
-        //private void ShouldReturnValueForNullableDateTime()
-        //{
-        //    DateTime? expected = DateTime.Now.FlushSeconds();
-        //    var raw = expected.ToString();
-
-        //    var actual = (DateTime?) PropertyParser.ConvertOrDefault(typeof(DateTime), raw);
-
-        //    Assert.Equal(expected, actual);
-        //}
-
         [Fact]
-        private void ShouldReturnDefaultForDateTime()
+        private void ShouldReturnDefaultForDateTimeOffset()
         {
-            var actual = PropertyParser.ConvertOrDefault(typeof(DateTime), "not now");
+            var actual = PropertyParser.ConvertOrDefault(typeof(DateTimeOffset), "not now");
 
-            Assert.Equal(default(DateTime), actual);
+            Assert.Equal(default(DateTimeOffset), actual);
         }
 
         [Fact]
-        private void ShouldReturnNullForNullableDateTime()
+        private void ShouldReturnNullForNullableDateTimeOffset()
         {
-            var actual = PropertyParser.ConvertOrDefault(typeof(DateTime?), "not now");
+            var actual = PropertyParser.ConvertOrDefault(typeof(DateTimeOffset?), "not now");
 
             Assert.Null(actual);
         }

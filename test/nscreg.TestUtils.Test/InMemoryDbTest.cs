@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using Xunit;
@@ -15,7 +15,7 @@ namespace nscreg.TestUtils.Test
 
             using (var ctx = CreateDbContext())
             {
-                await ctx.Regions.AddAsync(new Region {Name = "123"});
+                await ctx.Regions.AddAsync(new Region {Name = "123", Code = "TestCode"});
                 await ctx.SaveChangesAsync();
                 countBefore = ctx.Regions.Count();
             }
