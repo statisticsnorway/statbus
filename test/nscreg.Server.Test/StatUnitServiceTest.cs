@@ -634,7 +634,7 @@ namespace nscreg.Server.Test
                                 Employees = 2,
                                 Turnover = 10,
                                 ActivityYear = 2016,
-                                IdDate = new DateTime(2017, 03, 28)
+                                IdDate = new DateTimeOffset(2017, 03, 28, 0, 0, 0, new TimeSpan())
                             },
                             new ActivityM //Not Changed
                             {
