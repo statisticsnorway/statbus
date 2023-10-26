@@ -59,8 +59,8 @@ namespace nscreg.Server.Common.Models.SampleFrames
         {
             item.Name = Name;
             item.Description = Description;
-            item.EditingDate = DateTime.Now;
-            item.CreationDate = item.CreationDate == DateTime.MinValue ? DateTime.Now : item.CreationDate;
+            item.EditingDate = DateTimeOffset.Now;
+            item.CreationDate = item.CreationDate == DateTimeOffset.MinValue ? DateTimeOffset.Now : item.CreationDate;
             item.Predicate = JsonConvert.SerializeObject(Predicate);
             item.Fields = JsonConvert.SerializeObject(Fields);
             item.Status = SampleFrameGenerationStatuses.Pending;
