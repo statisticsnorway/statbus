@@ -26,13 +26,15 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         {
             var expected = new DataSourceQueue
             {
+                DataSourceFileName = "TestFileName",
+                DataSourcePath = "TestPath",
                 DataSource = new DataSource
                 {
                     Name = "ds1",
                     Priority = DataSourcePriority.NotTrusted,
                     AllowedOperations = DataSourceAllowedOperation.Alter,
                 },
-                StartImportDate = DateTime.MinValue,
+                StartImportDate = DateTimeOffset.MinValue,
                 Status = DataSourceQueueStatuses.DataLoadCompleted,
             };
             DataSourceQueue actual;
@@ -52,13 +54,15 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         {
             var expected = new DataSourceQueue
             {
+                DataSourceFileName = "TestFileName",
+                DataSourcePath = "TestPath",
                 DataSource = new DataSource
                 {
                     Name = "ds1",
                     Priority = DataSourcePriority.NotTrusted,
                     AllowedOperations = DataSourceAllowedOperation.Alter,
                 },
-                StartImportDate = DateTime.MinValue,
+                StartImportDate = DateTimeOffset.MinValue,
                 Status = DataSourceQueueStatuses.InQueue,
             };
             DataSourceQueue actual;
@@ -81,13 +85,15 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         {
             var expected = new DataSourceQueue
             {
+                DataSourceFileName = "TestFileName",
+                DataSourcePath = "TestPath",
                 DataSource = new DataSource
                 {
                     Name = "ds1",
                     Priority = DataSourcePriority.NotTrusted,
                     AllowedOperations = DataSourceAllowedOperation.Alter,
                 },
-                StartImportDate = DateTime.MinValue,
+                StartImportDate = DateTimeOffset.MinValue,
                 Status = DataSourceQueueStatuses.InQueue,
             };
             DataSourceQueue actual;
