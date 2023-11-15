@@ -3412,128 +3412,48 @@ $$
    )
 $$;
 
+-- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
+CREATE SCHEMA IF NOT EXISTS admin;
 
-ALTER TABLE public.statbus_user ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.statbus_role ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity_category ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity_category_role ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity_for_unit ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.address ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.analysis_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.analysis_queue ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.country ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.country_for_unit ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.custom_analysis_check ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.data_source ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.data_source_classification ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.data_source_queue ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.data_uploading_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.dictionary_version ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.enterprise_group ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.enterprise_group_role ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.enterprise_group_type ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.enterprise ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.foreign_participation ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.legal_form ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.legal_unit ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.establishment ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.person ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.person_for_unit ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.person_type ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.postal_index ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.region ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.registration_reason ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reorg_type ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.report_tree ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sample_frame ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sector_code ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.unit_size ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.unit_status ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.region_role ENABLE ROW LEVEL SECURITY;
+CREATE OR REPLACE FUNCTION admin.apply_rls_and_policies(table_regclass regclass)
+RETURNS void AS $$
+DECLARE
+    schema_name_str text;
+    table_name_str text;
+BEGIN
+    SELECT n.nspname, c.relname INTO schema_name_str, table_name_str
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+    WHERE c.oid = table_regclass;
 
+    -- Enable Row Level Security
+    EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
 
--- All authenticated users can read everything, regardless of role.
-CREATE POLICY statbus_user_authenticated_read ON public.statbus_user FOR SELECT TO authenticated USING (true);
-CREATE POLICY statbus_role_authenticated_read ON public.statbus_role FOR SELECT TO authenticated USING (true);
-CREATE POLICY activity_authenticated_read ON public.activity FOR SELECT TO authenticated USING (true);
-CREATE POLICY activity_category_authenticated_read ON public.activity_category FOR SELECT TO authenticated USING (true);
-CREATE POLICY activity_category_role_authenticated_read ON public.activity_category_role FOR SELECT TO authenticated USING (true);
-CREATE POLICY activity_for_unit_authenticated_read ON public.activity_for_unit FOR SELECT TO authenticated USING (true);
-CREATE POLICY address_authenticated_read ON public.address FOR SELECT TO authenticated USING (true);
-CREATE POLICY analysis_log_authenticated_read ON public.analysis_log FOR SELECT TO authenticated USING (true);
-CREATE POLICY analysis_queue_authenticated_read ON public.analysis_queue FOR SELECT TO authenticated USING (true);
-CREATE POLICY country_authenticated_read ON public.country FOR SELECT TO authenticated USING (true);
-CREATE POLICY country_for_unit_authenticated_read ON public.country_for_unit FOR SELECT TO authenticated USING (true);
-CREATE POLICY custom_analysis_check_authenticated_read ON public.custom_analysis_check FOR SELECT TO authenticated USING (true);
-CREATE POLICY data_source_authenticated_read ON public.data_source FOR SELECT TO authenticated USING (true);
-CREATE POLICY data_source_classification_authenticated_read ON public.data_source_classification FOR SELECT TO authenticated USING (true);
-CREATE POLICY data_source_queue_authenticated_read ON public.data_source_queue FOR SELECT TO authenticated USING (true);
-CREATE POLICY data_uploading_log_authenticated_read ON public.data_uploading_log FOR SELECT TO authenticated USING (true);
-CREATE POLICY dictionary_version_authenticated_read ON public.dictionary_version FOR SELECT TO authenticated USING (true);
-CREATE POLICY enterprise_group_authenticated_read ON public.enterprise_group FOR SELECT TO authenticated USING (true);
-CREATE POLICY enterprise_group_role_authenticated_read ON public.enterprise_group_role FOR SELECT TO authenticated USING (true);
-CREATE POLICY enterprise_group_type_authenticated_read ON public.enterprise_group_type FOR SELECT TO authenticated USING (true);
-CREATE POLICY enterprise_authenticated_read ON public.enterprise FOR SELECT TO authenticated USING (true);
-CREATE POLICY foreign_participation_authenticated_read ON public.foreign_participation FOR SELECT TO authenticated USING (true);
-CREATE POLICY legal_form_authenticated_read ON public.legal_form FOR SELECT TO authenticated USING (true);
-CREATE POLICY legal_unit_authenticated_read ON public.legal_unit FOR SELECT TO authenticated USING (true);
-CREATE POLICY establishment_authenticated_read ON public.establishment FOR SELECT TO authenticated USING (true);
-CREATE POLICY person_authenticated_read ON public.person FOR SELECT TO authenticated USING (true);
-CREATE POLICY person_for_unit_authenticated_read ON public.person_for_unit FOR SELECT TO authenticated USING (true);
-CREATE POLICY person_type_authenticated_read ON public.person_type FOR SELECT TO authenticated USING (true);
-CREATE POLICY postal_index_authenticated_read ON public.postal_index FOR SELECT TO authenticated USING (true);
-CREATE POLICY region_authenticated_read ON public.region FOR SELECT TO authenticated USING (true);
-CREATE POLICY registration_reason_authenticated_read ON public.registration_reason FOR SELECT TO authenticated USING (true);
-CREATE POLICY reorg_type_authenticated_read ON public.reorg_type FOR SELECT TO authenticated USING (true);
-CREATE POLICY report_tree_authenticated_read ON public.report_tree FOR SELECT TO authenticated USING (true);
-CREATE POLICY sample_frame_authenticated_read ON public.sample_frame FOR SELECT TO authenticated USING (true);
-CREATE POLICY sector_code_authenticated_read ON public.sector_code FOR SELECT TO authenticated USING (true);
-CREATE POLICY unit_size_authenticated_read ON public.unit_size FOR SELECT TO authenticated USING (true);
-CREATE POLICY unit_status_authenticated_read ON public.unit_status FOR SELECT TO authenticated USING (true);
-CREATE POLICY region_role ON public.region_role FOR SELECT TO authenticated USING (true);
+    -- Policy for all authenticated users to read
+    EXECUTE format('CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)', table_name_str, schema_name_str, table_name_str);
 
+    -- Policy for super_user to manage
+    EXECUTE format('CREATE POLICY %s_administrator_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+END;
+$$ LANGUAGE plpgsql;
 
--- Administrators can do anything to any table.
-CREATE POLICY statbus_user_administrator_manage ON public.statbus_user FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY statbus_role_administrator_manage ON public.statbus_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY activity_administrator_manage ON public.activity FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY activity_category_administrator_manage ON public.activity_category FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY activity_category_role_administrator_manage ON public.activity_category_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY activity_for_unit_administrator_manage ON public.activity_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY address_administrator_manage ON public.address FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY analysis_log_administrator_manage ON public.analysis_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY analysis_queue_administrator_manage ON public.analysis_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY country_administrator_manage ON public.country FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY country_for_unit_administrator_manage ON public.country_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY custom_analysis_check_administrator_manage ON public.custom_analysis_check FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY data_source_administrator_manage ON public.data_source FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY data_source_classification_administrator_manage ON public.data_source_classification FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY data_source_queue_administrator_manage ON public.data_source_queue FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY data_uploading_log_administrator_manage ON public.data_uploading_log FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY dictionary_version_administrator_manage ON public.dictionary_version FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY enterprise_group_administrator_manage ON public.enterprise_group FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY enterprise_group_role_administrator_manage ON public.enterprise_group_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY enterprise_group_type_administrator_manage ON public.enterprise_group_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY enterprise_administrator_manage ON public.enterprise FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY foreign_participation_administrator_manage ON public.foreign_participation FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY legal_form_administrator_manage ON public.legal_form FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY legal_unit_administrator_manage ON public.legal_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY establishment_administrator_manage ON public.establishment FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY person_administrator_manage ON public.person FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY person_for_unit_administrator_manage ON public.person_for_unit FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY person_type_administrator_manage ON public.person_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY postal_index_administrator_manage ON public.postal_index FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY region_administrator_manage ON public.region FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY registration_reason_administrator_manage ON public.registration_reason FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY reorg_type_administrator_manage ON public.reorg_type FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY report_tree_administrator_manage ON public.report_tree FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY sample_frame_administrator_manage ON public.sample_frame FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY sector_code_administrator_manage ON public.sector_code FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY unit_size_administrator_manage ON public.unit_size FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY unit_status_administrator_manage ON public.unit_status FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
-CREATE POLICY region_role_administrator_manage ON public.region_role FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type));
+CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
+RETURNS void AS $$
+DECLARE
+    table_regclass regclass;
+BEGIN
+    FOR table_regclass IN 
+        SELECT c.oid::regclass
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+    LOOP
+        PERFORM admin.apply_rls_and_policies(table_regclass);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
+SELECT admin.enable_rls_on_public_tables();
 
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
