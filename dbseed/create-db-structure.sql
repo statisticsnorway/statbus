@@ -65,67 +65,7 @@ INSERT INTO public.statbus_role(role_type, name, description) VALUES ('super_use
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
 
-
-CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
-RETURNS BOOL
-LANGUAGE SQL
-SECURITY DEFINER
-AS
-$$
-  SELECT EXISTS (
-    SELECT users.id
-    FROM statbus_user
-    WHERE ((statbus_user.uuid = $1)
-      AND ($2 = statbus_user.role_type)))
-$$;
-
-
-CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.statbus_role_type[])
-RETURNS BOOL
-LANGUAGE SQL
-SECURITY DEFINER
-AS
-$$
-  SELECT EXISTS (
-    SELECT statbus_user.id
-    FROM statbus_user
-    WHERE (statbus_user.uuid = $1)
-      AND ($2 = ANY (statbus_user.role_type))
-  )
-$$;
-
-
-CREATE OR REPLACE FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer)
-RETURNS BOOL
-LANGUAGE SQL
-SECURITY DEFINER
-AS
-$$
-    SELECT EXISTS(
-        SELECT public.statbus_user.id
-        FROM public.statbus_user AS u
-        INNER JOIN public.activity_category_role AS acr ON acr.role_id = u.role_id
-        WHERE u.uuid = $1
-          AND acr.activity_category_id  = $2
-   )
-$$;
-
-
-CREATE OR REPLACE FUNCTION auth.has_region_access (user_uuid UUID, region_id integer)
-RETURNS BOOL
-LANGUAGE SQL
-SECURITY DEFINER
-AS
-$$
-    SELECT EXISTS(
-        SELECT public.statbus_user.id
-        FROM public.statbus_user AS u
-        INNER JOIN public.region_role ON region_role.role_id = u.role_id
-        WHERE u.uuid = $1
-          AND acr.region_id  = $2
-   )
-$$;
-
+-- Helper auth functions are found at the end, after relevant tables are defined.
 
 -- Example statbus_role checking
 --CREATE POLICY "public view access" ON public_records AS PERMISSIVE FOR SELECT TO public USING (true);
@@ -3407,6 +3347,70 @@ SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;
 TABLE sql_saga.foreign_keys;
+
+
+CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+  SELECT EXISTS (
+    SELECT su.id
+    FROM public.statbus_user AS su
+    JOIN public.statbus_role AS sr
+      ON su.role_id = sr.id
+    WHERE ((su.uuid = $1) AND (sr.role_type = $2))
+  );
+$$;
+
+-- Add security functions
+CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.statbus_role_type[])
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+  SELECT EXISTS (
+    SELECT su.id
+    FROM public.statbus_user AS su
+    JOIN public.statbus_role AS sr
+      ON su.role_id = sr.id
+    WHERE ((su.uuid = $1) AND (sr.role_type = ANY ($2)))
+  );
+$$;
+
+
+CREATE OR REPLACE FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer)
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+    SELECT EXISTS(
+        SELECT su.id
+        FROM public.statbus_user AS su
+        INNER JOIN public.activity_category_role AS acr ON acr.role_id = su.role_id
+        WHERE su.uuid = $1
+          AND acr.activity_category_id  = $2
+   )
+$$;
+
+
+CREATE OR REPLACE FUNCTION auth.has_region_access (user_uuid UUID, region_id integer)
+RETURNS BOOL
+LANGUAGE SQL
+SECURITY DEFINER
+AS
+$$
+    SELECT EXISTS(
+        SELECT su.id
+        FROM public.statbus_user AS su
+        INNER JOIN public.region_role AS rr ON rr.role_id = su.role_id
+        WHERE su.uuid = $1
+          AND rr.region_id  = $2
+   )
+$$;
 
 
 ALTER TABLE public.statbus_user ENABLE ROW LEVEL SECURITY;
