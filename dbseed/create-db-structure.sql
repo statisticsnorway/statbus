@@ -3402,8 +3402,7 @@ SELECT sql_saga.add_era('public.enterprise_group', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
 SELECT sql_saga.add_era('public.enterprise', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['id']);
--- TODO: Enable when sql_saga supports specification of schema.
---SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
+SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
 SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
 SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
