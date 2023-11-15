@@ -4,11 +4,11 @@
     "allowSyntheticDefaultImports": false,
     "baseUrl": ".",
     "paths": {
-      "components/*": ["./client/components/*"],
-      "helpers/*": ["./client/helpers/*"],
-      "layout/*": ["./client/layout/*"],
-      "pages/*": ["./client/pages/*"]
+      "components/*": ["./components/*"],
+      "helpers/*": ["./helpers/*"],
+      "layout/*": ["./layout/*"],
+      "pages/*": ["./pages/*"]
     }
   },
-  "exclude": ["build", "node_modules", "src/nscreg.Server", "temp", "tmp"]
+  "exclude": ["build", "node_modules", "temp", "tmp"]
 }
