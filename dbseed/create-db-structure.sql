@@ -32,8 +32,9 @@ CREATE TABLE public.statbus_role (
     name character varying(256) NOT NULL UNIQUE,
     description text
 );
--- There can only ever by one administrator role.
-CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(role_type) WHERE role_type = 'super_user';
+-- There can only ever be one role for super_user and external_user,
+-- while there can be many different restricted_user roles, depending on the actual restrictions.
+CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(role_type) WHERE role_type = 'super_user' OR role_type = 'external_user';
 
 CREATE TABLE public.statbus_user (
   id SERIAL PRIMARY KEY,
@@ -49,8 +50,12 @@ RETURNS TRIGGER
 LANGUAGE PLPGSQL
 SECURITY DEFINER SET search_path = public
 AS $$
+DECLARE
+  role_id INTEGER;
 BEGIN
-  INSERT INTO public.statbus_user (uuid) VALUES (new.id);
+  -- Start with a minimal set of rights upon auto creation by trigger.
+  SELECT id INTO role_id FROM public.statbus_role WHERE role_type = 'external_user';
+  INSERT INTO public.statbus_user (uuid, role_id) VALUES (new.id, role_id);
   RETURN new;
 END;
 $$;
@@ -3433,7 +3438,7 @@ BEGIN
     EXECUTE format('CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)', table_name_str, schema_name_str, table_name_str);
 
     -- Policy for super_user to manage
-    EXECUTE format('CREATE POLICY %s_administrator_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+    EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
 END;
 $$ LANGUAGE plpgsql;
 
