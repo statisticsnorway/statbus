@@ -6,7 +6,7 @@ export const load = async ({ parent }) => {
   if (!session) {
     throw redirect(303, '/')
   }
-  const { data: tableData } = await supabase.from('test').select('*')
+  const { data: tableData } = await supabase.from('activity_category').select('*')
 
   return {
     user: session.user,

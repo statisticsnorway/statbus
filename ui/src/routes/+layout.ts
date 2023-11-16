@@ -1,21 +1,26 @@
 // src/routes/+layout.ts
-import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public'
 import { createSupabaseLoadClient } from '@supabase/auth-helpers-sveltekit'
 import type { Database } from '../../database.types.ts'
 
 export const load = async ({ fetch, data, depends }) => {
-  depends('supabase:auth')
+  // Tell SvelteKit to re-run this load function if the authentication state changes
+  depends('supabase:auth');
+
+  // Use import.meta.env to access environment variables during build time
+  const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 
   const supabase = createSupabaseLoadClient<Database>({
-    supabaseUrl: PUBLIC_SUPABASE_URL,
-    supabaseKey: PUBLIC_SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseKey: supabaseAnonKey,
     event: { fetch },
-    serverSession: data.session,
-  })
+    // No need for serverSession in client-only auth
+    //serverSession: data.session,
+  });
 
   const {
     data: { session },
-  } = await supabase.auth.getSession()
+  } = await supabase.auth.getSession();
 
-  return { supabase, session }
-}
+  return { supabase, session };
+};

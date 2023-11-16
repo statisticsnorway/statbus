@@ -1,21 +1,31 @@
+<!-- // src/routes/+page.svelte -->
 <script lang="ts">
-  export let data
+  export let data;
 
-  let loadedData = []
+  // Accessing the Supabase URL environment variable
+  const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+
+  let activity_categories = [];
   async function loadData() {
-    const { data: result } = await data.supabase.from('test').select('*').limit(20)
-    loadedData = result
+    const { data: result } = await data.supabase.from('activity_category').select('*').limit(20);
+    activity_categories = result;
   }
 
   $: if (data.session) {
-    loadData()
+    loadData();
   }
 </script>
 
 {#if data.session}
-<p>client-side data fetching with RLS</p>
-<pre>{JSON.stringify(loadedData, null, 2)}</pre>
+  <p>Currently logged in.</p>
+  <p>client-side data fetching with RLS:</p>
+  <pre>{JSON.stringify(activity_categories, null, 2)}</pre>
+  <a href="/auth">Go to Auth Page</a> <!-- Link to the Auth Page -->
+{:else}
+  <p>Not logged in.</p>
+  <a href="/auth">Login</a> <!-- Link to the Auth Page -->
 {/if}
 
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
+<h1>Welcome to StatBus</h1>
+<p>The Backend is hosted at <a target="_blank" href="{supabaseUrl}">{supabaseUrl}</a></p>
+<p>Visit <a target="_blank" href="https://kit.svelte.dev">kit.svelte.dev</a> to read the frontend framework documentation</p>
