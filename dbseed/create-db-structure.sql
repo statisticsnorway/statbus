@@ -65,10 +65,15 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.create_new_statbus_user();
 
-
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('super_user', 'Super User', 'Can do everything in the Web interface and manage role rights.');
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
+
+-- Add a super user role for select users
+INSERT INTO public.statbus_user (uuid, role_id)
+SELECT id, (SELECT id FROM public.statbus_role WHERE role_type = 'super_user')
+FROM auth.users WHERE email like 'jorgen@veridit.no' or email like 'erik.soberg@ssb.no'
+ON CONFLICT DO NOTHING;
 
 -- Helper auth functions are found at the end, after relevant tables are defined.
 
