@@ -29,11 +29,18 @@
   }
 </script>
 
-<form on:submit="{handleSignUp}">
+<p>Go to the <a href="/">frontpage</a></p>
+{#if data.session}
+<button on:click="{handleSignOut}">Sign out</button>
+{:else}
+<form on:submit="{handleSignIn}">
   <input name="email" bind:value="{email}" />
   <input type="password" name="password" bind:value="{password}" />
-  <button>Sign up</button>
+  <button>Sign in</button>
 </form>
+{/if}
 
-<button on:click="{handleSignIn}">Sign in</button>
-<button on:click="{handleSignOut}">Sign out</button>
+
+<!-- <button on:click="{handleSignUp}">Sign up</button> -->
+<!-- <button on:click="{handleSignIn}">Sign in</button> -->
+
