@@ -18,9 +18,7 @@
 
 {#if data.session}
   <p>Currently logged in.</p>
-  <p>client-side data fetching with RLS:</p>
-  <pre>{JSON.stringify(activity_categories, null, 2)}</pre>
-  <a href="/auth">Go to Auth Page</a> <!-- Link to the Auth Page -->
+  <a href="/auth">Go to Auth Page to logout</a>
 {:else}
   <p>Not logged in.</p>
   <a href="/auth">Login</a> <!-- Link to the Auth Page -->
@@ -29,3 +27,14 @@
 <h1>Welcome to StatBus</h1>
 <p>The Backend is hosted at <a target="_blank" href="{supabaseUrl}">{supabaseUrl}</a></p>
 <p>Visit <a target="_blank" href="https://kit.svelte.dev">kit.svelte.dev</a> to read the frontend framework documentation</p>
+
+
+{#if data.session}
+  <p>Currently logged in.</p>
+  <p>client-side data fetching with RLS:</p>
+  <pre>{JSON.stringify(activity_categories, null, 2)}</pre>
+  <a href="/auth">Go to Auth Page</a> <!-- Link to the Auth Page -->
+{:else}
+  <p>Not logged in.</p>
+  <a href="/auth">Login</a> <!-- Link to the Auth Page -->
+{/if}
