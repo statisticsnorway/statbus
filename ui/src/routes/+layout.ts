@@ -2,6 +2,8 @@
 import { createSupabaseLoadClient } from '@supabase/auth-helpers-sveltekit'
 import type { Database } from '../../database.types.ts'
 
+export const prerender = true
+
 export const load = async ({ fetch, data, depends }) => {
   // Tell SvelteKit to re-run this load function if the authentication state changes
   depends('supabase:auth');
