@@ -1,6 +1,6 @@
 // src/routes/+layout.ts
 import { createSupabaseLoadClient } from '@supabase/auth-helpers-sveltekit'
-import type { Database } from '../../database.types.ts'
+import type { Database } from '../../database.types'
 
 export const prerender = true
 
