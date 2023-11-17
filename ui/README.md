@@ -2,6 +2,32 @@
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
 
+## Setting up tools
+
+Install a node manager, we recommend fnm (Fast Node Manager) https://github.com/Schniz/fnm
+On mac and linux with:
+```
+curl -fsSL https://fnm.vercel.app/install | bash
+```
+On Windows with scoop (scoop.it) and
+```
+scoop install fnm
+```
+
+Install the recommended node version with
+```
+cd ui
+fnm use
+```
+
+Install the pnpm package manager, that saves time and lots of disk
+space.
+
+```
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
 ## Creating a project
 
 If you're seeing this, you've probably already done this step. Congrats!
