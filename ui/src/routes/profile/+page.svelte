@@ -2,7 +2,7 @@
 <script lang="ts">
   export let data
 
-  const { user, tableData } = data
+  let { user, tableData } = data
   $: ({ user, tableData } = data)
 </script>
 
