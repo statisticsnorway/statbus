@@ -25,7 +25,13 @@
 
 </script>
 
-<Theme bind:theme={$themeStore} persist persistKey="__carbon-theme" />
-
+<Theme bind:theme={$themeStore} persist persistKey="__carbon-theme"
+  tokens={{
+    // Colors from legacy.statbus.oreg login button.
+    "interactive-01": "#2185d0",
+    "hover-primary": "#0d71bb",
+    //"active-primary": "#9f1853",
+  }}
+/>
 
 <slot />
