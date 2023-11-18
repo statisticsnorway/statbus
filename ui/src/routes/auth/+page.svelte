@@ -1,5 +1,7 @@
 <!-- // src/routes/auth/+page.svelte -->
 <script>
+  import { PasswordInput, TextInput, Button } from "carbon-components-svelte";
+
   export let data
   let { supabase } = data
   $: ({ supabase } = data)
@@ -7,23 +9,12 @@
   let email
   let password
 
-  const handleSignUp = async () => {
-    await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
-    })
-  }
-
   const handleSignIn = async () => {
     await supabase.auth.signInWithPassword({
       email,
       password,
     })
   }
-
   const handleSignOut = async () => {
     await supabase.auth.signOut()
   }
@@ -31,16 +22,21 @@
 
 <p>Go to the <a href="/">frontpage</a></p>
 {#if data.session}
-<button on:click="{handleSignOut}">Sign out</button>
+<Button on:click="{handleSignOut}">Sign out</Button>
 {:else}
-<form on:submit="{handleSignIn}">
-  <input name="email" bind:value="{email}" />
-  <input type="password" name="password" bind:value="{password}" />
-  <button>Sign in</button>
+<form on:submit|preventDefault="{handleSignIn}">
+  <TextInput
+    name="email"
+    labelText="Email"
+    placeholder="Enter email..."
+    bind:value="{email}"
+  />
+  <PasswordInput
+    name="password"
+    labelText="Password"
+    placeholder="Enter password..."
+    bind:value="{password}"
+  />
+  <Button type="submit">Sign in</Button>
 </form>
 {/if}
-
-
-<!-- <button on:click="{handleSignUp}">Sign up</button> -->
-<!-- <button on:click="{handleSignIn}">Sign in</button> -->
-
