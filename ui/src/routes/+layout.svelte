@@ -23,14 +23,9 @@
     return () => subscription.unsubscribe()
   });
 
-  let theme;
-  themeStore.subscribe(value => {
-    theme = value;
-    //document.documentElement.setAttribute("theme", theme);
-  });
 </script>
 
-<Theme bind:theme />
+<Theme bind:theme={$themeStore} persist persistKey="__carbon-theme" />
 
 
 <slot />
