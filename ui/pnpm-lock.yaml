@@ -31,6 +31,9 @@ devDependencies:
   '@typescript-eslint/parser':
     specifier: ^6.0.0
     version: 6.7.4(eslint@8.51.0)(typescript@5.2.2)
+  carbon-components-svelte:
+    specifier: ^0.82.0
+    version: 0.82.0
   eslint:
     specifier: ^8.28.0
     version: 8.51.0
@@ -889,6 +892,12 @@ packages:
     engines: {node: '>=6'}
     dev: true
 
+  /carbon-components-svelte@0.82.0:
+    resolution: {integrity: sha512-bGwWj1I7MAKX+ypnA3txREAf74ZgvyP+VEWAxmVgNnOduX6wmCn3HOLIbZo/Nh+qsxxypJAgIOl5XdGh77PB3w==}
+    dependencies:
+      flatpickr: 4.6.9
+    dev: true
+
   /chai@4.3.10:
     resolution: {integrity: sha512-0UXG04VuVbruMUYbJ6JctvH0YnC/4q3/AkT18q4NaITo91CUm0liMS9VqzT9vZhVQ/1eqPanMWjBM+Juhfb/9g==}
     engines: {node: '>=4'}
@@ -1343,6 +1352,10 @@ packages:
       flatted: 3.2.9
       keyv: 4.5.3
       rimraf: 3.0.2
+    dev: true
+
+  /flatpickr@4.6.9:
+    resolution: {integrity: sha512-F0azNNi8foVWKSF+8X+ZJzz8r9sE1G4hl06RyceIaLvyltKvDl6vqk9Lm/6AUUCi5HWaIjiUbk7UpeE/fOXOpw==}
     dev: true
 
   /flatted@3.2.9:

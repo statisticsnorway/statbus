@@ -17,8 +17,8 @@
 </script>
 
 {#if data.session}
-  <p>Currently logged in.</p>
-  <a href="/auth">Go to Auth Page to logout</a>
+  <p>Currently logged in.<a href="/auth">Go to Auth Page to logout</a></p>
+  <p>See your <a href="/profile">profile</a></p>
 {:else}
   <p>Not logged in.</p>
   <a href="/auth">Login</a> <!-- Link to the Auth Page -->
@@ -30,7 +30,6 @@
 
 
 {#if data.session}
-  <p>Currently logged in.</p>
   <p>client-side data fetching with RLS:</p>
   <pre>{JSON.stringify(activity_categories, null, 2)}</pre>
   <a href="/auth">Go to Auth Page</a> <!-- Link to the Auth Page -->
