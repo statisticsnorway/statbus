@@ -16,7 +16,8 @@
   }
 </script>
 
-<div class="container p-10 space-y-4">
+
+<div class="container mx-auto p-10 space-y-4">
   <h1>Welcome to StatBus</h1>
   <hr />
 {#if data.session}
