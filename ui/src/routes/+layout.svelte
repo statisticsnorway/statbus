@@ -1,10 +1,8 @@
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
   import "../app.pcss";
-  import "carbon-components-svelte/css/all.css";
   import { invalidate } from '$app/navigation'
   import { onMount } from 'svelte'
-  import { Theme } from "carbon-components-svelte";
   import { themeStore } from '../stores'; // import the store
 
   export let data
@@ -25,7 +23,5 @@
   });
 
 </script>
-
-<Theme bind:theme="{$themeStore}" persist persistkey="__carbon-theme" tokens="{{" colors from legacy.statbus.oreg login button. "interactive-01": "#2185d0", "hover-primary": "#0d71bb", "active-primary": "#9f1853", }}></Theme>
 
 <slot></slot>
