@@ -19,14 +19,15 @@
   }
 </script>
 
-<p>Go to the <a href="/">frontpage</a></p>
-{#if data.session}
-<button on:click="{handleSignOut}">Sign out</button>
-{:else}
-<form on:submit="{handleSignIn}">
-  <input name="email" bind:value="{email}" />
-  <input type="password" name="password" bind:value="{password}" />
-  <button>Sign in</button>
-</form>
-{/if}
-
+<div class="container p-10 space-y-4">
+  <p>Go to the <a href="/">frontpage</a></p>
+  {#if data.session}
+  <button on:click="{handleSignOut}">Sign out</button>
+  {:else}
+  <form on:submit="{handleSignIn}">
+    <input name="email" bind:value="{email}" />
+    <input type="password" name="password" bind:value="{password}" />
+    <button>Sign in</button>
+  </form>
+  {/if}
+</div>

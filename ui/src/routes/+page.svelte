@@ -16,6 +16,9 @@
   }
 </script>
 
+<div class="container p-10 space-y-4">
+  <h1>Welcome to StatBus</h1>
+  <hr />
 {#if data.session}
   <p>Currently logged in.<a href="/auth">Go to Auth Page to logout</a></p>
   <p>See your <a href="/profile">profile</a></p>
@@ -24,7 +27,6 @@
   <a href="/auth">Login</a> <!-- Link to the Auth Page -->
 {/if}
 
-<h1>Welcome to StatBus</h1>
 <p>The Backend is hosted at <a target="_blank" href="{supabaseUrl}">{supabaseUrl}</a></p>
 <p>Visit <a target="_blank" href="https://kit.svelte.dev">kit.svelte.dev</a> to read the frontend framework documentation</p>
 
@@ -37,3 +39,4 @@
   <p>Not logged in.</p>
   <a href="/auth">Login</a> <!-- Link to the Auth Page -->
 {/if}
+</div>
