@@ -14,4 +14,4 @@ if test -t 0; then
   args="-ti"
 fi
 
-docker exec $args $(docker ps  | awk '/statbus-postgres/{print $1}') psql -U statbus_development statbus_development $@
+docker exec $args $(docker ps  | awk '/statbus-pg-postgres/{print $1}') psql -U statbus_development statbus_development $@
