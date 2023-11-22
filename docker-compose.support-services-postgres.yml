@@ -5,7 +5,7 @@ services:
     build: ./docker-postgres
     # Speed up disk writes and enable logging to stderr
     command: postgres -c synchronous_commit=off -c log_statement='all' -c shared_buffers=1GB -c log_destination=stderr -c log_line_prefix='%t %d '
-    container_name: statbus-postgres
+    container_name: statbus-pg-postgres
     user: postgres
     ports:
       - "6543:5432"
@@ -28,7 +28,7 @@ services:
       - default
 
   pgadmin:
-    container_name: statbus-pgadmin
+    container_name: statbus-pg-pgadmin
     image: dpage/pgadmin4
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@statbus.org
@@ -41,7 +41,7 @@ services:
       - "postgres"
 
   elasticsearch:
-    container_name: statbus-elasticsearch
+    container_name: statbus-pg-elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
     ports:
       - 9200:9200
