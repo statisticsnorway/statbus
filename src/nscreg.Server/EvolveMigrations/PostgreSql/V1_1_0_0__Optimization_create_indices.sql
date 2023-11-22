@@ -6,4 +6,4 @@ CREATE INDEX "IX_StatisticalUnits_DuplicateSearchOptimization" ON "StatisticalUn
 	"StatId" ASC,
 	"TaxRegId" ASC
 )
-INCLUDE("Name","ExternalId","AddressId","TelephoneNo","EmailAddress");
+INCLUDE("Name","ExternalId","TelephoneNo","EmailAddress");
