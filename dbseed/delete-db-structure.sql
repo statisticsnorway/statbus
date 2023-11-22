@@ -6,6 +6,7 @@ DROP TABLE public.activity_for_unit;
 DROP TABLE public.activity;
 DROP TABLE public.activity_category_role;
 DROP TABLE public.activity_category;
+DROP TABLE public.activity_category_system;
 
 DROP TABLE public.country_for_unit;
 DROP TABLE public.person_for_unit;
@@ -35,8 +36,6 @@ DROP TABLE public.data_uploading_log;
 DROP TABLE public.data_source_classification;
 DROP TABLE public.data_source_queue;
 DROP TABLE public.data_source;
-
-DROP TABLE public.dictionary_version;
 
 DROP TABLE public.foreign_participation;
 
