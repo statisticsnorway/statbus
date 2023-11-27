@@ -71,4 +71,10 @@ DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
 DROP TYPE public.statbus_role_type;
 
+DROP FUNCTION admin.apply_rls_and_policies(regclass);
+DROP FUNCTION admin.enable_rls_on_public_tables();
+
+DROP EXTENSION ltree;
+DROP SCHEMA admin;
+
 END;
