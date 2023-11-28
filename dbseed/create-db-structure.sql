@@ -279,10 +279,11 @@ EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 
 -- Settings as configured by the system.
--- Only one settings row is applicable.
 CREATE TABLE public.settings (
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
-    UNIQUE(activity_category_standard_id)
+    only_one_setting BOOLEAN NOT NULL DEFAULT true,
+    CHECK(only_one_setting),
+    UNIQUE(only_one_setting)
 );
 
 
