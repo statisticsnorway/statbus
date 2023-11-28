@@ -151,8 +151,8 @@ CREATE TABLE public.activity_category (
     path public.ltree NOT NULL,
     parent_id integer REFERENCES public.activity_category(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
-    label varchar UNIQUE NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar UNIQUE NOT NULL GENERATED ALWAYS AS (
+    label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
+    code varchar NOT NULL GENERATED ALWAYS AS (
         CASE WHEN public.nlevel(path) > 1
         THEN replace(public.subltree(path,1,public.nlevel(path))::text,'.','')
         ELSE path::varchar
@@ -166,43 +166,36 @@ CREATE TABLE public.activity_category (
     UNIQUE(activity_category_standard_id, path)
 );
 
-CREATE VIEW public.activity_category_isic_v4 AS
-SELECT acs.code AS standard
-     , ac.path
-     , ac.label
-     , ac.code
-     , ac.name
-     , ac.description
-FROM public.activity_category AS ac
-JOIN public.activity_category_standard AS acs
-ON ac.activity_category_standard_id = acs.id
-WHERE acs.code = 'isic_v4'
-ORDER BY path;
-
 -- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
 CREATE SCHEMA admin;
 
-CREATE FUNCTION admin.upsert_activity_category_isic_v4()
+CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
+DECLARE
+    standardCode text;
+    standardId int;
 BEGIN
-    WITH standard AS (
-        SELECT id FROM public.activity_category_standard WHERE code = 'isic_v4'
-    ), parent AS (
+    -- Access the standard code passed as an argument
+    standardCode := TG_ARGV[0];
+    SELECT id INTO standardId FROM public.activity_category_standard WHERE code = standardCode;
+    IF standardId IS NULL THEN
+      RAISE EXCEPTION 'Unknown activity_category_standard.code %s', standardCode;
+    END IF;
+
+    WITH parent AS (
         SELECT activity_category.id
-          FROM standard
-          LEFT JOIN public.activity_category
-            ON activity_category_standard_id = standard.id
+          FROM public.activity_category
+         WHERE activity_category_standard_id = standardId
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
     INSERT INTO public.activity_category (activity_category_standard_id, path, parent_id, name, description, updated_at, custom)
-    SELECT standard.id
+    SELECT standardId
          , NEW.path
          , (SELECT id FROM parent)
          , NEW.name
          , NEW.description
          , statement_timestamp()
          , false
-    FROM standard
     ON CONFLICT (activity_category_standard_id, path)
     DO UPDATE SET parent_id = (SELECT id FROM parent)
                 , name = NEW.name
@@ -214,11 +207,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create the "INSTEAD OF INSERT" trigger on the view
-CREATE TRIGGER upsert_activity_category_isic_v4
-INSTEAD OF INSERT ON public.activity_category_isic_v4
-FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_activity_category_isic_v4();
+
 
 CREATE FUNCTION admin.delete_stale_activity_category()
 RETURNS TRIGGER AS $$
@@ -237,13 +226,78 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER delete_stale_activity_category
+CREATE VIEW public.activity_category_isic_v4 AS
+SELECT acs.code AS standard
+     , ac.path
+     , ac.label
+     , ac.code
+     , ac.name
+     , ac.description
+FROM public.activity_category AS ac
+JOIN public.activity_category_standard AS acs
+ON ac.activity_category_standard_id = acs.id
+WHERE acs.code = 'isic_v4'
+ORDER BY path;
+
+CREATE TRIGGER upsert_activity_category_isic_v4
+INSTEAD OF INSERT ON public.activity_category_isic_v4
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_activity_category('isic_v4');
+
+CREATE TRIGGER delete_stale_activity_category_isic_v4
 AFTER INSERT ON public.activity_category_isic_v4
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 \copy public.activity_category_isic_v4(path, name) FROM 'dbseed/activity-category-standards/ISIC_Rev_4_english_structure.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
 
+
+CREATE VIEW public.activity_category_nace_v2_1 AS
+SELECT acs.code AS standard
+     , ac.path
+     , ac.label
+     , ac.code
+     , ac.name
+     , ac.description
+FROM public.activity_category AS ac
+JOIN public.activity_category_standard AS acs
+ON ac.activity_category_standard_id = acs.id
+WHERE acs.code = 'nace_v2.1'
+ORDER BY path;
+
+CREATE TRIGGER upsert_activity_category_nace_v2_1
+INSTEAD OF INSERT ON public.activity_category_nace_v2_1
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_activity_category('nace_v2.1');
+
+CREATE TRIGGER delete_stale_activity_category_nace_v2_1
+AFTER INSERT ON public.activity_category_nace_v2_1
+FOR EACH STATEMENT
+EXECUTE FUNCTION admin.delete_stale_activity_category();
+
+\copy public.activity_category_nace_v2_1(path, name, description) FROM 'dbseed/activity-category-standards/NACE2.1_Structure_Label_Notes_EN.import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
+
+
+-- Settings as configured by the system.
+-- Only one settings row is applicable.
+CREATE TABLE public.settings (
+    activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
+    UNIQUE(activity_category_standard_id)
+);
+
+
+CREATE VIEW public.activity_category_available AS
+SELECT acs.code AS standard
+     , ac.path
+     , ac.label
+     , ac.code
+     , ac.name
+     , ac.description
+FROM public.activity_category AS ac
+JOIN public.activity_category_standard AS acs
+ON ac.activity_category_standard_id = acs.id
+WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
+ORDER BY path;
 
 
 --

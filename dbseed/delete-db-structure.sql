@@ -1,12 +1,20 @@
 BEGIN;
 
 DROP VIEW public.statistical_units;
+DROP VIEW public.activity_category_isic_v4;
+DROP VIEW IF EXISTS public.activity_category_nace_v2_1;
+DROP VIEW IF EXISTS public.activity_category_available;
+
+DROP FUNCTION IF EXISTS admin.upsert_activity_category();
+DROP FUNCTION IF EXISTS admin.delete_stale_activity_category();
+
+DROP TABLE IF EXISTS public.settings;
 
 DROP TABLE public.activity_for_unit;
 DROP TABLE public.activity;
 DROP TABLE public.activity_category_role;
 DROP TABLE public.activity_category;
-DROP TABLE public.activity_category_system;
+DROP TABLE public.activity_category_standard;
 
 DROP TABLE public.country_for_unit;
 DROP TABLE public.person_for_unit;
