@@ -986,8 +986,7 @@ CREATE TABLE public.establishment (
     data_source_classification_id integer,
     reorg_type_id integer,
     unit_status_id integer,
-    legal_unit_id integer,
-    legal_unit_id_date timestamp with time zone
+    enterprise_id integer
 );
 
 
@@ -1001,14 +1000,18 @@ CREATE TABLE public.activity_for_unit (
     activity_id integer NOT NULL,
     establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
     legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id or enterprise_group_id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+    -- enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
+    -- enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
+    CONSTRAINT "One and only one of establishment_id legal_unit_id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
         )
+    -- CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id or enterprise_group_id must be set"
+    -- CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+    --     OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+    --     OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
+    --     OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+    --     )
 );
 
 
@@ -1112,10 +1115,10 @@ CREATE TABLE public.person (
 
 CREATE TABLE public.person_for_unit (
     id SERIAL PRIMARY KEY NOT NULL,
-    enterprise_id integer NOT NULL,
     person_id integer NOT NULL,
     establishment_id integer NOT NULL,
     legal_unit_id integer NOT NULL,
+    enterprise_id integer NOT NULL,
     enterprise_group_id integer,
     person_type_id integer
 );
@@ -1495,13 +1498,17 @@ CREATE TABLE public.stat_for_unit (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE,
-    -- legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
+    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
     -- enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
     -- enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
     value_int INTEGER,
     value_float FLOAT,
     value_str VARCHAR,
     value_bool BOOLEAN
+    CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
+        )
     -- CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id must be set"
     -- CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
     --     OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
@@ -2129,13 +2136,6 @@ CREATE INDEX ix_activity_for_unit_activity_id ON public.activity_for_unit USING 
 
 
 --
--- Name: ix_activity_for_unit_enterprise_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_for_unit_enterprise_id ON public.activity_for_unit USING btree (enterprise_id);
-
-
---
 -- Name: ix_activity_for_unit_establishment_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2645,10 +2645,10 @@ CREATE INDEX ix_establishment_legal_form_id ON public.establishment USING btree 
 
 
 --
--- Name: ix_establishment_legal_unit_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_establishment_enterprise_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
+CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
 
 
 --
@@ -2878,14 +2878,6 @@ ALTER TABLE ONLY public.activity_category_role
 
 ALTER TABLE ONLY public.activity_for_unit
     ADD CONSTRAINT fk_activity_for_unit_activity_activity_id FOREIGN KEY (activity_id) REFERENCES public.activity(id) ON DELETE CASCADE;
-
-
---
--- Name: activity_for_unit fk_activity_for_unit_enterprise_enterprise_temp_id3; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity_for_unit
-    ADD CONSTRAINT fk_activity_for_unit_enterprise_enterprise_temp_id3 FOREIGN KEY (enterprise_id) REFERENCES public.enterprise(id);
 
 
 --
@@ -3293,7 +3285,7 @@ ALTER TABLE ONLY public.establishment
 --
 
 ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_legal_unit_legal_unit_id FOREIGN KEY (legal_unit_id) REFERENCES public.legal_unit(id);
+    ADD CONSTRAINT fk_establishment_legal_unit_legal_unit_id FOREIGN KEY (enterprise_id) REFERENCES public.enterprise(id);
 
 
 --
