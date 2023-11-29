@@ -1,12 +1,28 @@
 BEGIN;
 
+-- Drop era handling
+SELECT sql_saga.drop_foreign_key('public.enterprise', 'enterprise_enterprise_group_id_valid');
+SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_id_valid');
+SELECT sql_saga.drop_era('public.enterprise');
+
+SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
+SELECT sql_saga.drop_era('public.enterprise_group');
+
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
+SELECT sql_saga.drop_era('public.legal_unit');
+
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
+SELECT sql_saga.drop_era('public.establishment');
+
+
 DROP VIEW public.statistical_units;
 DROP VIEW public.activity_category_isic_v4;
-DROP VIEW IF EXISTS public.activity_category_nace_v2_1;
-DROP VIEW IF EXISTS public.activity_category_available;
+DROP VIEW public.activity_category_nace_v2_1;
+DROP VIEW public.activity_category_available;
 
-DROP FUNCTION IF EXISTS admin.upsert_activity_category();
-DROP FUNCTION IF EXISTS admin.delete_stale_activity_category();
+DROP FUNCTION admin.upsert_activity_category();
+DROP FUNCTION admin.delete_stale_activity_category();
+DROP FUNCTION admin.prevent_id_update_on_public_tables();
 
 DROP TABLE IF EXISTS public.settings;
 

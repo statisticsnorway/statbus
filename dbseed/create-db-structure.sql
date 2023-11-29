@@ -280,6 +280,7 @@ EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 -- Settings as configured by the system.
 CREATE TABLE public.settings (
+    id SERIAL PRIMARY KEY NOT NULL,
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
     only_one_setting BOOLEAN NOT NULL DEFAULT true,
     CHECK(only_one_setting),
@@ -1562,47 +1563,30 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
---
-CREATE TRIGGER trigger_prevent_statbus_role_id_update BEFORE UPDATE OF id ON public.statbus_role FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_statbus_user_id_update BEFORE UPDATE OF id ON public.statbus_user FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_activity_id_update BEFORE UPDATE OF id ON public.activity FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_activity_category_id_update BEFORE UPDATE OF id ON public.activity_category FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_activity_category_role_id_update BEFORE UPDATE OF id ON public.activity_category_role FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_address_id_update BEFORE UPDATE OF id ON public.address FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_analysis_queue_id_update BEFORE UPDATE OF id ON public.analysis_queue FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_country_id_update BEFORE UPDATE OF id ON public.country FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_custom_analysis_check_id_update BEFORE UPDATE OF id ON public.custom_analysis_check FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_data_source_id_update BEFORE UPDATE OF id ON public.data_source FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_data_source_classification_id_update BEFORE UPDATE OF id ON public.data_source_classification FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_data_source_queue_id_update BEFORE UPDATE OF id ON public.data_source_queue FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_data_uploading_log_id_update BEFORE UPDATE OF id ON public.data_uploading_log FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_enterprise_group_id_update BEFORE UPDATE OF id ON public.enterprise_group FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_enterprise_group_role_id_update BEFORE UPDATE OF id ON public.enterprise_group_role FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_enterprise_group_type_id_update BEFORE UPDATE OF id ON public.enterprise_group_type FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_enterprise_id_update BEFORE UPDATE OF id ON public.enterprise FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_foreign_participation_id_update BEFORE UPDATE OF id ON public.foreign_participation FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_legal_form_id_update BEFORE UPDATE OF id ON public.legal_form FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_legal_unit_id_update BEFORE UPDATE OF id ON public.legal_unit FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_establishment_id_update BEFORE UPDATE OF id ON public.establishment FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_activity_for_unit_id_update BEFORE UPDATE OF id ON public.activity_for_unit FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_analysis_log_id_update BEFORE UPDATE OF id ON public.analysis_log FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_country_for_unit_id_update BEFORE UPDATE OF id ON public.country_for_unit FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_person_id_update BEFORE UPDATE OF id ON public.person FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_person_for_unit_id_update BEFORE UPDATE OF id ON public.person_for_unit FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_person_type_id_update BEFORE UPDATE OF id ON public.person_type FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_postal_index_id_update BEFORE UPDATE OF id ON public.postal_index FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_region_id_update BEFORE UPDATE OF id ON public.region FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_registration_reason_id_update BEFORE UPDATE OF id ON public.registration_reason FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_reorg_type_id_update BEFORE UPDATE OF id ON public.reorg_type FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_report_tree_id_update BEFORE UPDATE OF id ON public.report_tree FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_sample_frame_id_update BEFORE UPDATE OF id ON public.sample_frame FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_sector_code_id_update BEFORE UPDATE OF id ON public.sector_code FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_unit_size_id_update BEFORE UPDATE OF id ON public.unit_size FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_unit_status_id_update BEFORE UPDATE OF id ON public.unit_status FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_region_role_id_update BEFORE UPDATE OF id ON public.region_role FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_stat_definition_id_update BEFORE UPDATE OF id ON public.stat_definition FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
-CREATE TRIGGER trigger_prevent_stat_for_unit_id_update BEFORE UPDATE OF id ON public.stat_for_unit FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();
 
+
+CREATE OR REPLACE FUNCTION admin.prevent_id_update_on_public_tables()
+RETURNS void AS $$
+DECLARE
+    table_regclass regclass;
+    schema_name_str text;
+    table_name_str text;
+BEGIN
+    FOR table_regclass, schema_name_str, table_name_str IN
+        SELECT c.oid::regclass, n.nspname, c.relname
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+    LOOP
+        RAISE NOTICE '%s.%s: Preventing id changes', schema_name_str, table_name_str;
+        EXECUTE format('CREATE TRIGGER trigger_prevent_'||table_name_str||'_id_update BEFORE UPDATE OF id ON '||schema_name_str||'.'||table_name_str||' FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();');
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+SET LOCAL client_min_messages TO NOTICE;
+SELECT admin.prevent_id_update_on_public_tables();
+SET LOCAL client_min_messages TO INFO;
 
 -- TODO: Create a view to see an establishment with statistics
 -- TODO: allow upsert on statistics view according to stat_definition
@@ -3448,21 +3432,6 @@ ALTER TABLE ONLY public.region_role
     ADD CONSTRAINT fk_region_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
 
 
--- Activate era handling
-SELECT sql_saga.add_era('public.enterprise_group', 'valid_from', 'valid_to');
-SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
-SELECT sql_saga.add_era('public.enterprise', 'valid_from', 'valid_to');
-SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['id']);
-SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
-SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
-SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
-TABLE sql_saga.era;
-TABLE sql_saga.unique_keys;
-TABLE sql_saga.foreign_keys;
-
-
 CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
 RETURNS BOOL
 LANGUAGE SQL
@@ -3537,23 +3506,24 @@ BEGIN
     JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
     WHERE c.oid = table_regclass;
 
-    -- Enable Row Level Security
+    RAISE NOTICE '%s.%s: Enabling Row Level Security', schema_name_str, table_name_str;
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
 
-    -- Policy for all authenticated users to read
+    RAISE NOTICE '%s.%s: Authenticated users can read', schema_name_str, table_name_str;
     EXECUTE format('CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)', table_name_str, schema_name_str, table_name_str);
 
-    -- Policy for super_user to manage
+    RAISE NOTICE '%s.%s: super_user(s) can manage', schema_name_str, table_name_str;
     EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
 END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
 RETURNS void AS $$
 DECLARE
     table_regclass regclass;
 BEGIN
-    FOR table_regclass IN 
+    FOR table_regclass IN
         SELECT c.oid::regclass
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
@@ -3564,7 +3534,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.enable_rls_on_public_tables();
+SET LOCAL client_min_messages TO INFO;
 
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
@@ -3576,6 +3549,22 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
       );
 
 --CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[]));
+
+
+-- Activate era handling
+SELECT sql_saga.add_era('public.enterprise_group', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
+SELECT sql_saga.add_era('public.enterprise', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['id']);
+SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
+SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
+SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
+TABLE sql_saga.era;
+TABLE sql_saga.unique_keys;
+TABLE sql_saga.foreign_keys;
+
 
 NOTIFY pgrst, 'reload config';
 
