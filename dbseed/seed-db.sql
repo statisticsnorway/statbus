@@ -84,12 +84,6 @@ INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('33', '900
 
 SELECT setval(pg_get_serial_sequence('"sector_code"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "sector_code"), 1), false);
 
-INSERT INTO "reorg_type" ("id", "code", "name") VALUES ('1', '1', 'Merger');
-INSERT INTO "reorg_type" ("id", "code", "name") VALUES ('2', '2', 'Aquisition');
-INSERT INTO "reorg_type" ("id", "code", "name") VALUES ('3', '3', 'Re-branding');
-
-SELECT setval(pg_get_serial_sequence('"reorg_type"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "reorg_type"), 1), false);
-
 INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('1', 'a', 'Exports or imports of goods');
 INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('2', 'b', 'Exports or imports of services');
 INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('3', 'c', 'Merchanting');
