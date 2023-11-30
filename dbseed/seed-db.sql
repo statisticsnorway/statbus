@@ -63,7 +63,7 @@ INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('12', '152
 INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('13', '2100', 'Private non-financial incorporated enterprises', '3');
 INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('14', '2300', 'Private non-financial unincorporated enterprises', '3');
 INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('15', '2500', 'Private non-profit institutions serving enterprises', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('16', '3100', 'Norges Bank', '4');
+INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('16', '3100', 'Central Bank', '4');
 INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('17', '3200', 'Banks', '4');
 INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('18', '3500', 'Mortgage companies', '4');
 INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('19', '3600', 'Finance companies', '4');
