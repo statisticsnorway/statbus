@@ -3,7 +3,7 @@ BEGIN;
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('1', 'ADOS', '(ADOS)');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('2', 'ANNA', 'Other body corporate');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('3', 'ANS', 'General partnership');
-INSERT INTO "legal_form" ("id", "code", "name") VALUES ('4', 'AS', 'Limited company');
+INSERT INTO "legal_form" ("id", "code", "name") VALUES ('4', 'LC', 'Limited company');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('5', 'ASA', 'Public limited company');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('6', 'BA', 'Company with limited liability');
 INSERT INTO "legal_form" ("id", "code", "name") VALUES ('7', 'BBL', 'House building cooperative');
