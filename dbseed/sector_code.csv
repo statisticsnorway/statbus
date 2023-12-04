@@ -1,0 +1,34 @@
+path,name
+domestic,Domestic sectors
+r_of_world,Rest of the world
+domestic.a_non_fin,Non-financial corporations
+domestic.b_fin,Financial corporations
+domestic.c_pub_sector,General government
+domestic.d_nonprofit,Non-profit institutions serving households
+domestic.e_household,Households
+r_of_world.f_foreign,Rest of the world
+domestic.a_non_fin.1110,"Public unincorporated enterprises, owned by central government"
+domestic.a_non_fin.1120,"Public incorporated enterprises, owned by central government"
+domestic.a_non_fin.1510,"Public unincorporated enterprises, owned by local government"
+domestic.a_non_fin.1520,"Public incorporated enterprises, owned by local government"
+domestic.a_non_fin.2100,Private non-financial incorporated enterprises
+domestic.a_non_fin.2300,Private non-financial unincorporated enterprises
+domestic.a_non_fin.2500,Private non-profit institutions serving enterprises
+domestic.b_fin.3100,Central Bank
+domestic.b_fin.3200,Banks
+domestic.b_fin.3500,Mortgage companies
+domestic.b_fin.3600,Finance companies
+domestic.b_fin.3900,State lending institutions etc.
+domestic.b_fin.4100,Financial holding companies
+domestic.b_fin.4300,Mutual funds
+domestic.b_fin.4500,Investment trusts and private equity funds
+domestic.b_fin.4900,"Other financial enterprises, except insurance companies and pension funds"
+domestic.b_fin.5500,Life insurance companies and pension funds
+domestic.b_fin.5700,Non-life insurance companies
+domestic.c_pub_sector.6100,Central government
+domestic.c_pub_sector.6500,Local government
+domestic.d_nonprofit.7000,Non-profit institutions serving households
+domestic.e_household.8200,Unincorporated enterprises within households
+domestic.e_household.8300,Housing cooperatives etc.
+domestic.e_household.8500,"Employees, recipients of property income, pensions and social contributions, students etc."
+r_of_world.f_foreign.9000,Rest of the world

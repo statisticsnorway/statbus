@@ -1,41 +1,5 @@
 BEGIN;
 
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('1', 'DOMESTIC', 'Domestic sectors', NULL);
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('2', 'R_OF_WORLD', 'Rest of the world', NULL);
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('3', 'A_NON_FIN', 'Non-financial corporations', '1');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('4', 'B_FIN', 'Financial corporations', '1');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('5', 'C_PUB_SECTOR', 'General government', '1');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('6', 'D_NONPROFIT', 'Non-profit institutions serving households', '1');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('7', 'E_HOUSEHOLD', 'Households', '1');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('8', 'F_FOREIGN', 'Rest of the world', '2');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('9', '1110', 'Public unincorporated enterprises, owned by central government', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('10', '1120', 'Public incorporated enterprises, owned by central government', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('11', '1510', 'Public unincorporated enterprises, owned by local government', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('12', '1520', 'Public incorporated enterprises, owned by local government', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('13', '2100', 'Private non-financial incorporated enterprises', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('14', '2300', 'Private non-financial unincorporated enterprises', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('15', '2500', 'Private non-profit institutions serving enterprises', '3');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('16', '3100', 'Central Bank', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('17', '3200', 'Banks', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('18', '3500', 'Mortgage companies', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('19', '3600', 'Finance companies', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('20', '3900', 'State lending institutions etc.', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('21', '4100', 'Financial holding companies', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('22', '4300', 'Mutual funds', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('23', '4500', 'Investment trusts and private equity funds', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('24', '4900', 'Other financial enterprises, except insurance companies and pension funds', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('25', '5500', 'Life insurance companies and pension funds', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('26', '5700', 'Non-life insurance companies', '4');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('27', '6100', 'Central government', '5');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('28', '6500', 'Local government', '5');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('29', '7000', 'Non-profit institutions serving households', '6');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('30', '8200', 'Unincorporated enterprises within households', '7');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('31', '8300', 'Housing cooperatives etc.', '7');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('32', '8500', 'Employees, recipients of property income, pensions and social contributions, students etc.', '7');
-INSERT INTO "sector_code" ("id", "code", "name", "parent_id") VALUES ('33', '9000', 'Rest of the world', '8');
-
-SELECT setval(pg_get_serial_sequence('"sector_code"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "sector_code"), 1), false);
-
 INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('1', 'a', 'Exports or imports of goods');
 INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('2', 'b', 'Exports or imports of services');
 INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('3', 'c', 'Merchanting');

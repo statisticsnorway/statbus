@@ -20,6 +20,14 @@ DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
 DROP VIEW public.activity_category_available;
 
+DROP VIEW public.country_view;
+DROP FUNCTION admin.upsert_country();
+DROP FUNCTION admin.delete_stale_country();
+
+DROP VIEW public.sector_code_view;
+DROP FUNCTION admin.upsert_sector_code();
+DROP FUNCTION admin.delete_stale_sector_code();
+
 DROP FUNCTION admin.upsert_activity_category();
 DROP FUNCTION admin.delete_stale_activity_category();
 DROP FUNCTION admin.prevent_id_update_on_public_tables();
