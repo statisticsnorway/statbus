@@ -30,6 +30,7 @@ SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
 SELECT admin.drop_table_views_for_batch_api('public.data_source_classification');
 SELECT admin.drop_table_views_for_batch_api('public.unit_status');
+SELECT admin.drop_table_views_for_batch_api('public.unit_size');
 
 DROP FUNCTION admin.generate_view(regclass,admin.view_type_enum);
 DROP FUNCTION admin.generate_code_upsert_function(regclass,admin.view_type_enum);

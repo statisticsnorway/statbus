@@ -1,11 +1,5 @@
 BEGIN;
 
-INSERT INTO "unit_size" ("id", "name", "name_language1", "name_language2", "code") VALUES ('1', 'Small', NULL, NULL, '1');
-INSERT INTO "unit_size" ("id", "name", "name_language1", "name_language2", "code") VALUES ('2', 'Medium', NULL, NULL, '2');
-INSERT INTO "unit_size" ("id", "name", "name_language1", "name_language2", "code") VALUES ('3', 'Large', NULL, NULL, '3');
-
-SELECT setval(pg_get_serial_sequence('"unit_size"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "unit_size"), 1), false);
-
 INSERT INTO "registration_reason" ("id", "code", "name") VALUES ('1', '1', 'Whatever');
 
 SELECT setval(pg_get_serial_sequence('"registration_reason"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "registration_reason"), 1), false);
