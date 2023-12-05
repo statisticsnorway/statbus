@@ -4,19 +4,6 @@ INSERT INTO "registration_reason" ("id", "code", "name") VALUES ('1', '1', 'What
 
 SELECT setval(pg_get_serial_sequence('"registration_reason"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "registration_reason"), 1), false);
 
-INSERT INTO "person_type" ("id", "name") VALUES ('1', 'DIRECTOR');
-INSERT INTO "person_type" ("id", "name") VALUES ('2', 'OWNER');
-INSERT INTO "person_type" ("id", "name") VALUES ('3', 'MANAGER');
-INSERT INTO "person_type" ("id", "name") VALUES ('4', 'PROPRIETOR');
-INSERT INTO "person_type" ("id", "name") VALUES ('5', 'ACCOUNTANT');
-INSERT INTO "person_type" ("id", "name") VALUES ('6', 'PRINCIPAL');
-INSERT INTO "person_type" ("id", "name") VALUES ('7', 'SUPERVISOR');
-INSERT INTO "person_type" ("id", "name") VALUES ('8', 'EMPLOYEE');
-INSERT INTO "person_type" ("id", "name") VALUES ('9', 'HEADTEACHER');
-INSERT INTO "person_type" ("id", "name") VALUES ('10', 'CONTACT PERSON/UNKNOWN');
-
-SELECT setval(pg_get_serial_sequence('"person_type"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "person_type"), 1), false);
-
 
 INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (1, 'Management/control unit', NULL, NULL, '1');
 INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (2, 'Global group head (controlling unit)', NULL, NULL, '2');
