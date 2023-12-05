@@ -813,11 +813,11 @@ CREATE TABLE public.enterprise (
 
 CREATE TABLE public.foreign_participation (
     id integer NOT NULL,
+    code text NOT NULL,
     name text NOT NULL,
-    archived boolean NOT NULL DEFAULT false,
-    name_language1 text,
-    name_language2 text,
-    code text NOT NULL
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 
 
@@ -3860,6 +3860,13 @@ SELECT admin.generate_table_views_for_batch_api('public.reorg_type', 'code');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.reorg_type_system(code, name, description) FROM 'dbseed/reorg_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+
+SET LOCAL client_min_messages TO NOTICE;
+SELECT admin.generate_table_views_for_batch_api('public.foreign_participation', 'code');
+SET LOCAL client_min_messages TO INFO;
+
+\copy public.foreign_participation_system(code, name) FROM 'dbseed/foreign_participation.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 -- Add security.

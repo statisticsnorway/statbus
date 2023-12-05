@@ -1,16 +1,5 @@
 BEGIN;
 
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('1', 'a', 'Exports or imports of goods');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('2', 'b', 'Exports or imports of services');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('3', 'c', 'Merchanting');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('4', 'd', 'Equity Investments abroad');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('5', 'e', 'Non -Equity (External borrowing or lending)');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('6', 'f', 'External Remittances');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('7', 'g', 'no foreign participation');
-INSERT INTO "foreign_participation" ("id", "code", "name") VALUES ('8', 'h', 'multiple kinds of foreign participation. See notes');
-
-SELECT setval(pg_get_serial_sequence('"foreign_participation"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "foreign_participation"), 1), false);
-
 INSERT INTO "data_source_classification" ("id", "code", "name") VALUES ('1', '1', 'State register centre');
 INSERT INTO "data_source_classification" ("id", "code", "name") VALUES ('2', '2', 'manually entered');
 

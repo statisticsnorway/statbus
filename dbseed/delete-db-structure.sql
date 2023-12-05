@@ -27,6 +27,7 @@ DROP FUNCTION admin.delete_stale_country();
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
+SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
 
 DROP FUNCTION admin.generate_view(regclass,admin.view_type_enum);
 DROP FUNCTION admin.generate_code_upsert_function(regclass,admin.view_type_enum);
