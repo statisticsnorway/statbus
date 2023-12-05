@@ -236,7 +236,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE VIEW public.activity_category_isic_v4 AS
+CREATE VIEW public.activity_category_isic_v4
+WITH (security_invoker=on) AS
 SELECT acs.code AS standard
      , ac.path
      , ac.label
@@ -262,7 +263,8 @@ EXECUTE FUNCTION admin.delete_stale_activity_category();
 \copy public.activity_category_isic_v4(path, name) FROM 'dbseed/activity-category-standards/ISIC_Rev_4_english_structure.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
 
 
-CREATE VIEW public.activity_category_nace_v2_1 AS
+CREATE VIEW public.activity_category_nace_v2_1
+WITH (security_invoker=on) AS
 SELECT acs.code AS standard
      , ac.path
      , ac.label
@@ -298,7 +300,8 @@ CREATE TABLE public.settings (
 );
 
 
-CREATE VIEW public.activity_category_available AS
+CREATE VIEW public.activity_category_available
+WITH (security_invoker=on) AS
 SELECT acs.code AS standard
      , ac.path
      , ac.label
@@ -1554,7 +1557,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create a view for country
-CREATE VIEW public.country_view AS
+CREATE VIEW public.country_view
+WITH (security_invoker=on) AS
 SELECT id, code_2, code_3, code_num, name, active, custom
 FROM public.country;
 
@@ -1578,7 +1582,7 @@ EXECUTE FUNCTION admin.delete_stale_country();
 CREATE TYPE admin.view_type_enum AS ENUM ('system', 'custom');
 
 
-CREATE OR REPLACE FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum)
 RETURNS regclass AS $generate_view$
 DECLARE
     view_sql text;
@@ -1607,7 +1611,7 @@ BEGIN
     END IF;
 
     -- Construct the SQL statement for the view
-    view_sql := format('CREATE OR REPLACE VIEW public.%I AS SELECT * FROM %I.%I WHERE custom = %s',
+    view_sql := format('CREATE VIEW public.%I WITH (security_invoker=on) AS SELECT * FROM %I.%I WHERE custom = %s',
                        view_name_str, schema_name_str, table_name_str, custom_condition);
 
     EXECUTE view_sql;
@@ -1622,7 +1626,7 @@ $generate_view$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_code_upsert_function$
 DECLARE
     function_schema text := 'admin';
@@ -1649,7 +1653,7 @@ BEGIN
     END IF;
 
     -- Construct the SQL statement for the upsert function
-    function_sql := format($$CREATE OR REPLACE FUNCTION %I.%I()
+    function_sql := format($$CREATE FUNCTION %I.%I()
                             RETURNS TRIGGER AS $body$
                             BEGIN
                                 INSERT INTO %s (code, name, active, custom, updated_at)
@@ -1675,7 +1679,7 @@ $generate_code_upsert_function$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_path_upsert_function$
 DECLARE
     function_schema text := 'admin';
@@ -1702,7 +1706,7 @@ BEGIN
     END IF;
 
     -- Construct the SQL statement for the upsert function
-    function_sql := format($$CREATE OR REPLACE FUNCTION %I.%I()
+    function_sql := format($$CREATE FUNCTION %I.%I()
                             RETURNS TRIGGER AS $body$
                             BEGIN
                                 WITH parent AS (
@@ -1734,7 +1738,7 @@ $generate_path_upsert_function$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_delete_function$
 DECLARE
     function_schema text := 'admin';
@@ -1761,7 +1765,7 @@ BEGIN
     END IF;
 
     -- Construct the SQL statement for the delete function
-    function_sql := format($$CREATE OR REPLACE FUNCTION %I.%I()
+    function_sql := format($$CREATE FUNCTION %I.%I()
                             RETURNS TRIGGER AS $body$
                             BEGIN
                                 DELETE FROM %s
@@ -1782,7 +1786,7 @@ $generate_delete_function$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure)
+CREATE FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure)
 RETURNS text[] AS $generate_triggers$
 DECLARE
     view_name_str text;
@@ -1836,7 +1840,7 @@ $generate_triggers$ LANGUAGE plpgsql;
 
 CREATE TYPE admin.table_type_enum AS ENUM ('code', 'path');
 
-CREATE OR REPLACE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum)
+CREATE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum)
 RETURNS void AS $$
 DECLARE
     view_name_system regclass;
@@ -3959,6 +3963,7 @@ $$
    )
 $$;
 
+
 CREATE OR REPLACE FUNCTION admin.apply_rls_and_policies(table_regclass regclass)
 RETURNS void AS $$
 DECLARE
@@ -3970,16 +3975,17 @@ BEGIN
     JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
     WHERE c.oid = table_regclass;
 
+
     RAISE NOTICE '%s.%s: Enabling Row Level Security', schema_name_str, table_name_str;
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
 
     RAISE NOTICE '%s.%s: Authenticated users can read', schema_name_str, table_name_str;
     EXECUTE format('CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)', table_name_str, schema_name_str, table_name_str);
-
     RAISE NOTICE '%s.%s: super_user(s) can manage', schema_name_str, table_name_str;
     EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
