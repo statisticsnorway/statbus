@@ -1,10 +1,5 @@
 BEGIN;
 
-INSERT INTO "data_source_classification" ("id", "code", "name") VALUES ('1', '1', 'State register centre');
-INSERT INTO "data_source_classification" ("id", "code", "name") VALUES ('2', '2', 'manually entered');
-
-SELECT setval(pg_get_serial_sequence('"data_source_classification"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "data_source_classification"), 1), false);
-
 INSERT INTO "unit_status" ("id", "code", "name") VALUES ('1', '1', 'Active');
 INSERT INTO "unit_status" ("id", "code", "name") VALUES ('2', '2', 'Dormant');
 INSERT INTO "unit_status" ("id", "code", "name") VALUES ('3', '3', 'Newly created, not yet active');

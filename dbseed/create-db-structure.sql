@@ -493,8 +493,9 @@ CREATE TABLE public.data_source_classification (
     id integer NOT NULL,
     code text NOT NULL,
     name text NOT NULL,
-    active boolean NOT NULL DEFAULT true,
-    custom boolean NOT NULL DEFAULT true
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 
 
@@ -3867,6 +3868,13 @@ SELECT admin.generate_table_views_for_batch_api('public.foreign_participation', 
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.foreign_participation_system(code, name) FROM 'dbseed/foreign_participation.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+
+SET LOCAL client_min_messages TO NOTICE;
+SELECT admin.generate_table_views_for_batch_api('public.data_source_classification', 'code');
+SET LOCAL client_min_messages TO INFO;
+
+\copy public.data_source_classification_system(code, name) FROM 'dbseed/data_source_classification.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 -- Add security.
