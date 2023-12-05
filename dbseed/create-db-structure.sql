@@ -1443,8 +1443,8 @@ CREATE TABLE public.sector_code (
     parent_id integer,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     code varchar NOT NULL GENERATED ALWAYS AS (
-        CASE WHEN public.nlevel(path) > 1
-        THEN replace(public.subltree(path,1,public.nlevel(path))::text,'.','')
+        CASE WHEN public.nlevel(path) > 2
+        THEN replace(public.subltree(path,2,public.nlevel(path))::text,'.','')
         ELSE path::varchar
         END
     ) STORED,
@@ -1573,49 +1573,348 @@ EXECUTE FUNCTION admin.delete_stale_country();
 \copy public.country_view(name, code_2, code_3, code_num) FROM 'dbseed/country/country_codes.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
+-- Helpers to generate views for bach API handling of all the system provided configuration
+-- that can also be overridden.
+CREATE TYPE admin.view_type_enum AS ENUM ('system', 'custom');
 
-CREATE FUNCTION admin.upsert_sector_code()
-RETURNS TRIGGER AS $$
+
+CREATE OR REPLACE FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum)
+RETURNS regclass AS $generate_view$
+DECLARE
+    view_sql text;
+    view_name_str text;
+    view_name regclass;
+    custom_condition text;
+    schema_name_str text;
+    table_name_str text;
 BEGIN
-    INSERT INTO public.sector_code (path, name, active, custom, updated_at)
-    VALUES (NEW.path, NEW.name, true, false, statement_timestamp())
-    ON CONFLICT (path)
-    DO UPDATE SET
-        name = EXCLUDED.name,
-        custom = false,
-        updated_at = statement_timestamp()
-    WHERE sector_code.id = EXCLUDED.id;
-    RETURN NULL;
+    -- Extract schema and table name
+    SELECT n.nspname, c.relname INTO schema_name_str, table_name_str
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = table_name;
+
+    -- Construct view name without duplicating the schema
+    view_name_str := table_name_str || '_' || view_type::text;
+
+    -- Determine custom condition based on view type
+    IF view_type = 'system' THEN
+        custom_condition := 'false';
+    ELSIF view_type = 'custom' THEN
+        custom_condition := 'true';
+    ELSE
+        RAISE EXCEPTION 'Invalid view type: %', view_type;
+    END IF;
+
+    -- Construct the SQL statement for the view
+    view_sql := format('CREATE OR REPLACE VIEW public.%I AS SELECT * FROM %I.%I WHERE custom = %s',
+                       view_name_str, schema_name_str, table_name_str, custom_condition);
+
+    EXECUTE view_sql;
+
+    view_name := format('public.%I', view_name_str)::regclass;
+    RAISE NOTICE 'Created view: %', view_name;
+
+    RETURN view_name;
+END;
+$generate_view$ LANGUAGE plpgsql;
+
+
+
+
+CREATE OR REPLACE FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum)
+RETURNS regprocedure AS $generate_code_upsert_function$
+DECLARE
+    function_schema text := 'admin';
+    function_name_str text;
+    function_name regprocedure;
+    function_sql text;
+    custom_value boolean;
+    table_name_str text;
+BEGIN
+    -- Extract table name without schema
+    SELECT relname INTO table_name_str
+    FROM pg_catalog.pg_class
+    WHERE oid = table_name;
+
+    function_name_str := 'upsert_' || table_name_str || '_' || view_type::text;
+
+    -- Determine custom value based on view type
+    IF view_type = 'system' THEN
+        custom_value := false;
+    ELSIF view_type = 'custom' THEN
+        custom_value := true;
+    ELSE
+        RAISE EXCEPTION 'Invalid view type: %', view_type;
+    END IF;
+
+    -- Construct the SQL statement for the upsert function
+    function_sql := format($$CREATE OR REPLACE FUNCTION %I.%I()
+                            RETURNS TRIGGER AS $body$
+                            BEGIN
+                                INSERT INTO %s (code, name, active, custom, updated_at)
+                                VALUES (NEW.code, NEW.name, %L, %L, statement_timestamp())
+                                ON CONFLICT (code) DO UPDATE SET
+                                    name = NEW.name,
+                                    custom = %L,
+                                    updated_at = statement_timestamp()
+                                WHERE %I.id = EXCLUDED.id;
+                                RETURN NULL;
+                            END;
+                            $body$ LANGUAGE plpgsql;$$,
+                            function_schema, function_name_str, table_name, not custom_value, custom_value, custom_value, table_name_str);
+
+    EXECUTE function_sql;
+
+    function_name := format('%I.%I()', function_schema, function_name_str)::regprocedure;
+    RAISE NOTICE 'Created code-based upsert function: %', function_name;
+
+    RETURN function_name;
+END;
+$generate_code_upsert_function$ LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum)
+RETURNS regprocedure AS $generate_path_upsert_function$
+DECLARE
+    function_schema text := 'admin';
+    function_name_str text;
+    function_name regprocedure;
+    function_sql text;
+    custom_value boolean;
+    table_name_str text;
+BEGIN
+    -- Extract table name without schema
+    SELECT relname INTO table_name_str
+    FROM pg_catalog.pg_class
+    WHERE oid = table_name;
+
+    function_name_str := 'upsert_' || table_name_str || '_' || view_type::text;
+
+    -- Determine custom value based on view type
+    IF view_type = 'system' THEN
+        custom_value := false;
+    ELSIF view_type = 'custom' THEN
+        custom_value := true;
+    ELSE
+        RAISE EXCEPTION 'Invalid view type: %', view_type;
+    END IF;
+
+    -- Construct the SQL statement for the upsert function
+    function_sql := format($$CREATE OR REPLACE FUNCTION %I.%I()
+                            RETURNS TRIGGER AS $body$
+                            BEGIN
+                                WITH parent AS (
+                                    SELECT id
+                                    FROM %s
+                                    WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
+                                )
+                                INSERT INTO %s (path, parent_id, name, active, custom, updated_at)
+                                VALUES (NEW.path, (SELECT id FROM parent), NEW.name, %L, %L, statement_timestamp())
+                                ON CONFLICT (path) DO UPDATE SET
+                                    parent_id = (SELECT id FROM parent),
+                                    name = EXCLUDED.name,
+                                    custom = %L,
+                                    updated_at = statement_timestamp()
+                                WHERE %I.id = EXCLUDED.id;
+                                RETURN NULL;
+                            END;
+                            $body$ LANGUAGE plpgsql;$$,
+                            function_schema, function_name_str, table_name, table_name, not custom_value, custom_value, custom_value, table_name_str);
+
+    EXECUTE function_sql;
+
+    function_name := format('%I.%I()', function_schema, function_name_str)::regprocedure;
+    RAISE NOTICE 'Created path-based upsert function: %', function_name;
+
+    RETURN function_name;
+END;
+$generate_path_upsert_function$ LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum)
+RETURNS regprocedure AS $generate_delete_function$
+DECLARE
+    function_schema text := 'admin';
+    function_name_str text;
+    function_name regprocedure;
+    function_sql text;
+    custom_value boolean;
+    table_name_str text;
+BEGIN
+    -- Extract table name without schema
+    SELECT relname INTO table_name_str
+    FROM pg_catalog.pg_class
+    WHERE oid = table_name;
+
+    function_name_str := 'delete_stale_' || table_name_str || '_' || view_type::text;
+
+    -- Determine custom value based on view type
+    IF view_type = 'system' THEN
+        custom_value := false;
+    ELSIF view_type = 'custom' THEN
+        custom_value := true;
+    ELSE
+        RAISE EXCEPTION 'Invalid view type: %', view_type;
+    END IF;
+
+    -- Construct the SQL statement for the delete function
+    function_sql := format($$CREATE OR REPLACE FUNCTION %I.%I()
+                            RETURNS TRIGGER AS $body$
+                            BEGIN
+                                DELETE FROM %s
+                                WHERE custom = %L AND updated_at < statement_timestamp();
+                                RETURN NULL;
+                            END;
+                            $body$ LANGUAGE plpgsql;$$,
+                            function_schema, function_name_str, table_name, custom_value);
+
+    EXECUTE function_sql;
+
+    function_name := format('%I.%I()', function_schema, function_name_str)::regprocedure;
+    RAISE NOTICE 'Created delete function: %', function_name;
+
+    RETURN function_name;
+END;
+$generate_delete_function$ LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure)
+RETURNS text[] AS $generate_triggers$
+DECLARE
+    view_name_str text;
+    upsert_trigger_sql text;
+    delete_trigger_sql text;
+    upsert_trigger_name_str text;
+    -- There is no type for trigger names, such as regclass/regproc
+    upsert_trigger_name text;
+    delete_trigger_name_str text;
+    -- There is no type for trigger names, such as regclass/regproc
+    delete_trigger_name text;
+BEGIN
+    -- Lookup view_name_str
+    SELECT relname INTO view_name_str
+    FROM pg_catalog.pg_class
+    WHERE oid = view_name;
+
+    upsert_trigger_name_str := 'upsert_' || view_name_str;
+    delete_trigger_name_str := 'delete_stale_' || view_name_str;
+
+    -- Construct the SQL statement for the upsert trigger
+    upsert_trigger_sql := format($$CREATE TRIGGER %I
+                                  INSTEAD OF INSERT ON %s
+                                  FOR EACH ROW
+                                  EXECUTE FUNCTION %s;$$,
+                                  upsert_trigger_name_str, view_name::text, upsert_function_name::text);
+
+    -- Construct the SQL statement for the delete trigger
+    delete_trigger_sql := format($$CREATE TRIGGER %I
+                                  AFTER INSERT ON %s
+                                  FOR EACH STATEMENT
+                                  EXECUTE FUNCTION %s;$$,
+                                  delete_trigger_name_str, view_name::text, delete_function_name::text);
+
+    -- Log and execute
+    EXECUTE upsert_trigger_sql;
+    EXECUTE delete_trigger_sql;
+
+    upsert_trigger_name := format('public.%I',upsert_trigger_name_str);
+    delete_trigger_name := format('public.%I',delete_trigger_name_str);
+
+    RAISE NOTICE 'Created upsert trigger: %', upsert_trigger_name;
+    RAISE NOTICE 'Created delete trigger: %', delete_trigger_name;
+
+    -- Return the regclass identifiers of the created triggers
+    RETURN ARRAY[upsert_trigger_name, delete_trigger_name];
+END;
+$generate_triggers$ LANGUAGE plpgsql;
+
+
+
+CREATE TYPE admin.table_type_enum AS ENUM ('code', 'path');
+
+CREATE OR REPLACE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum)
+RETURNS void AS $$
+DECLARE
+    view_name_system regclass;
+    view_name_custom regclass;
+    upsert_function_name_system regprocedure;
+    upsert_function_name_custom regprocedure;
+    delete_function_name_system regprocedure;
+    delete_function_name_custom regprocedure;
+    triggers_name_system text[];
+    triggers_name_custom text[];
+BEGIN
+    view_name_system := admin.generate_view(table_name, 'system');
+    view_name_custom := admin.generate_view(table_name, 'custom');
+
+    IF table_type = 'code' THEN
+        upsert_function_name_system := admin.generate_code_upsert_function(table_name,'system');
+        upsert_function_name_custom := admin.generate_code_upsert_function(table_name,'custom');
+    ELSIF table_type = 'path' THEN
+        upsert_function_name_system := admin.generate_path_upsert_function(table_name,'system');
+        upsert_function_name_custom := admin.generate_path_upsert_function(table_name,'custom');
+    ELSE
+        RAISE EXCEPTION 'Invalid table type: %', table_type;
+    END IF;
+
+    delete_function_name_system := admin.generate_delete_function(table_name, 'system');
+    delete_function_name_custom := admin.generate_delete_function(table_name, 'custom');
+
+    triggers_name_system := admin.generate_view_triggers(view_name_system, upsert_function_name_system, delete_function_name_system);
+    triggers_name_custom := admin.generate_view_triggers(view_name_custom, upsert_function_name_custom, delete_function_name_custom);
 END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE FUNCTION admin.delete_stale_sector_code()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION admin.drop_table_views_for_batch_api(table_name regclass)
+RETURNS void AS $$
+DECLARE
+    schema_name_str text;
+    table_name_str text;
+    view_name_system text;
+    view_name_custom text;
+    upsert_function_name_system text;
+    upsert_function_name_custom text;
+    delete_function_name_system text;
+    delete_function_name_custom text;
 BEGIN
-    DELETE FROM public.sector_code
-    WHERE custom = false AND updated_at < statement_timestamp();
-    RETURN NULL;
+    -- Extract schema and table name
+    SELECT n.nspname, c.relname INTO schema_name_str, table_name_str
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = table_name;
+
+    -- Construct view and function names
+    view_name_system := schema_name_str || '.' || table_name_str || '_system';
+    view_name_custom := schema_name_str || '.' || table_name_str || '_custom';
+    upsert_function_name_system := 'admin.upsert_' || table_name_str || '_system';
+    upsert_function_name_custom := 'admin.upsert_' || table_name_str || '_custom';
+    delete_function_name_system := 'admin.delete_stale_' || table_name_str || '_system';
+    delete_function_name_custom := 'admin.delete_stale_' || table_name_str || '_custom';
+
+    -- Drop views
+    EXECUTE 'DROP VIEW ' || view_name_system;
+    EXECUTE 'DROP VIEW ' || view_name_custom;
+
+    -- Drop functions
+    EXECUTE 'DROP FUNCTION ' || upsert_function_name_system || '()';
+    EXECUTE 'DROP FUNCTION ' || upsert_function_name_custom || '()';
+    EXECUTE 'DROP FUNCTION ' || delete_function_name_system || '()';
+    EXECUTE 'DROP FUNCTION ' || delete_function_name_custom || '()';
 END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE VIEW public.sector_code_view AS
-SELECT id, path, name, active, custom
-FROM public.sector_code;
-
-CREATE TRIGGER upsert_sector_code_view
-INSTEAD OF INSERT ON public.sector_code_view
-FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_sector_code();
-
-CREATE TRIGGER delete_stale_sector_code_view
-AFTER INSERT ON public.sector_code_view
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_sector_code();
+SET LOCAL client_min_messages TO NOTICE;
+SELECT admin.generate_table_views_for_batch_api('public.sector_code', 'path');
+SET LOCAL client_min_messages TO INFO;
 
 
-\copy public.sector_code_view(path, name) FROM 'dbseed/sector_code.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.sector_code_system(path, name) FROM 'dbseed/sector_code.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 --
 -- Name: region_role; Type: TABLE; Schema: public; Owner: statbus_development

@@ -24,9 +24,17 @@ DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
 
-DROP VIEW public.sector_code_view;
-DROP FUNCTION admin.upsert_sector_code();
-DROP FUNCTION admin.delete_stale_sector_code();
+SELECT admin.drop_table_views_for_batch_api('public.sector_code');
+
+DROP FUNCTION admin.generate_view(regclass,admin.view_type_enum);
+DROP FUNCTION admin.generate_code_upsert_function(regclass,admin.view_type_enum);
+DROP FUNCTION admin.generate_path_upsert_function(regclass,admin.view_type_enum);
+DROP FUNCTION admin.generate_delete_function(regclass,admin.view_type_enum);
+DROP FUNCTION admin.generate_view_triggers(regclass,regprocedure,regprocedure);
+DROP FUNCTION admin.generate_table_views_for_batch_api(regclass,admin.table_type_enum);
+DROP FUNCTION admin.drop_table_views_for_batch_api(regclass);
+DROP TYPE admin.view_type_enum;
+DROP TYPE admin.table_type_enum;
 
 DROP FUNCTION admin.upsert_activity_category();
 DROP FUNCTION admin.delete_stale_activity_category();
