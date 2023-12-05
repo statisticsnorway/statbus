@@ -844,8 +844,8 @@ CREATE TABLE public.legal_form (
     id integer NOT NULL,
     code text NOT NULL,
     name text NOT NULL,
-    active boolean NOT NULL DEFAULT true,
-    custom boolean NOT NULL DEFAULT true,
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 
