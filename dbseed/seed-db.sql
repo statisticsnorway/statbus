@@ -1,16 +1,5 @@
 BEGIN;
 
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('1', '1', 'Active');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('2', '2', 'Dormant');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('3', '3', 'Newly created, not yet active');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('4', '4', 'Inactive');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('5', '5', 'Historical');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('6', '6', 'In liquidation phase');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('7', '7', 'Liquidated');
-INSERT INTO "unit_status" ("id", "code", "name") VALUES ('8', '9', 'Unknown status');
-
-SELECT setval(pg_get_serial_sequence('"unit_status"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "unit_status"), 1), false);
-
 INSERT INTO "unit_size" ("id", "name", "name_language1", "name_language2", "code") VALUES ('1', 'Small', NULL, NULL, '1');
 INSERT INTO "unit_size" ("id", "name", "name_language1", "name_language2", "code") VALUES ('2', 'Medium', NULL, NULL, '2');
 INSERT INTO "unit_size" ("id", "name", "name_language1", "name_language2", "code") VALUES ('3', 'Large', NULL, NULL, '3');
