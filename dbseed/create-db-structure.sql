@@ -621,35 +621,23 @@ CREATE TABLE public.enterprise_group (
     id SERIAL PRIMARY KEY NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    reg_ident integer UNIQUE NOT NULL,
-    reg_ident_date timestamp with time zone NOT NULL default now(),
     stat_ident text,
     stat_ident_date timestamp with time zone,
-    name character varying(400),
-    short_name text,
-    registration_date timestamp with time zone NOT NULL,
-    tax_reg_ident text,
-    tax_reg_date timestamp with time zone,
     external_ident text,
     external_ident_type text,
     external_ident_date timestamp with time zone,
+    short_name varchar(16),
+    name varchar(256),
     data_source text,
-    archived boolean NOT NULL DEFAULT false,
     address_id integer,
-    actual_address_id integer,
-    postal_address_id integer,
-    ent_group_type_id integer,
-    num_of_people_emp integer,
+    enterprise_group_type_id integer,
     telephone_no text,
     email_address text,
     web_address text,
-    liq_date_start timestamp with time zone,
-    liq_date_end timestamp with time zone,
     contact_person text,
-    liq_reason text,
     status_date timestamp with time zone NOT NULL,
     notes text,
-    user_id integer NOT NULL,
+    edit_by_user_id integer NOT NULL,
     edit_comment text,
     unit_size_id integer,
     data_source_classification_id integer,
@@ -728,28 +716,21 @@ CREATE TABLE public.enterprise (
     id SERIAL PRIMARY KEY NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    reg_ident integer NOT NULL,
-    reg_ident_date timestamp with time zone NOT NULL,
     stat_ident character varying(15),
     stat_ident_date timestamp with time zone,
-    name character varying(400),
-    short_name character varying(200),
+    short_name character varying(16),
+    name character varying(256),
     parent_org_link integer,
-    tax_reg_ident character varying(50),
-    tax_reg_date timestamp with time zone,
-    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     external_ident character varying(50),
     external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
-    data_source character varying(200),
-    address_id integer,
+    visiting_address_id integer,
+    custom_visiting_address_id integer,
+    postal_address_id integer,
+    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
-    actual_address_id integer,
-    postal_address_id integer,
-    free_econ_zone boolean NOT NULL,
-    num_of_people_emp integer,
     notes text,
     status_date timestamp with time zone,
     sector_code_id integer,
@@ -757,8 +738,7 @@ CREATE TABLE public.enterprise (
     liq_reason character varying(200),
     reorg_date timestamp with time zone,
     reorg_references integer,
-    archived boolean NOT NULL DEFAULT false,
-    user_id character varying(100) NOT NULL,
+    edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
     unit_size_id integer,
     foreign_participation_id integer,
@@ -839,28 +819,26 @@ CREATE TABLE public.legal_unit (
     id SERIAL PRIMARY KEY NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    reg_ident integer NOT NULL,
-    reg_ident_date timestamp with time zone NOT NULL,
     stat_ident character varying(15),
     stat_ident_date timestamp with time zone,
-    name character varying(400),
-    short_name character varying(200),
-    parent_org_link integer,
     tax_reg_ident character varying(50),
     tax_reg_date timestamp with time zone,
-    registration_date timestamp with time zone,
     external_ident character varying(50),
     external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
+    short_name character varying(16),
+    name character varying(256),
+    parent_org_link integer,
+    registration_date date,
     data_source character varying(200),
-    address_id integer,
+    visiting_address_id integer,
+    custom_visiting_address_id integer,
+    postal_address_id integer,
+    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
-    actual_address_id integer,
-    postal_address_id integer,
     free_econ_zone boolean NOT NULL,
-    num_of_people_emp integer,
     notes text,
     status_date timestamp with time zone,
     sector_code_id integer,
@@ -870,8 +848,7 @@ CREATE TABLE public.legal_unit (
     reorg_date timestamp with time zone,
     reorg_references integer,
     reorg_type_id integer,
-    archived boolean NOT NULL DEFAULT false,
-    user_id character varying(100) NOT NULL,
+    edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
     unit_size_id integer,
     foreign_participation_id integer,
@@ -890,28 +867,26 @@ CREATE TABLE public.establishment (
     id SERIAL PRIMARY KEY NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    reg_ident integer NOT NULL,
-    reg_ident_date timestamp with time zone NOT NULL,
     stat_ident character varying(15),
     stat_ident_date timestamp with time zone,
-    name character varying(400),
-    short_name character varying(200),
-    parent_org_link integer,
     tax_reg_ident character varying(50),
     tax_reg_date timestamp with time zone,
-    registration_date timestamp with time zone,
     external_ident character varying(50),
     external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
+    registration_date date,
+    short_name character varying(16),
+    name character varying(256),
+    parent_org_link integer,
     data_source character varying(200),
-    address_id integer,
+    visiting_address_id integer,
+    custom_visiting_address_id integer,
+    postal_address_id integer,
+    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
-    actual_address_id integer,
-    postal_address_id integer,
     free_econ_zone boolean NOT NULL,
-    num_of_people_emp integer,
     notes text,
     sector_code_id integer,
     liq_date timestamp with time zone,
@@ -919,18 +894,12 @@ CREATE TABLE public.establishment (
     reorg_date timestamp with time zone,
     reorg_references integer,
     reorg_type_id integer,
-    archived boolean NOT NULL DEFAULT false,
-
-    user_id character varying(100) NOT NULL,
+    edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
-
     unit_size_id integer,
-    foreign_participation_id integer,
     data_source_classification_id integer,
-
     unit_status_id integer,
     unit_status_date timestamp with time zone,
-
     enterprise_id integer
 );
 
@@ -1799,23 +1768,10 @@ CREATE TABLE public.stat_for_unit (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE,
-    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    -- enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    -- enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
     value_int INTEGER,
     value_float FLOAT,
     value_str VARCHAR,
     value_bool BOOLEAN
-    CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
-    -- CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id must be set"
-    -- CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-    --     OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-    --     OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
-    --     OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
-    --     )
 );
 
 
@@ -1973,7 +1929,6 @@ CREATE VIEW public.statistical_units
     -- telephone_no character varying(50),
     -- email_address character varying(50),
     -- free_econ_zone boolean NOT NULL,
-    -- num_of_people_emp integer,
     -- liq_date timestamp with time zone,
     -- liq_reason character varying(200),
     -- user_id character varying(100) NOT NULL,
@@ -2556,10 +2511,10 @@ CREATE INDEX ix_enterprise_group_data_source_classification_id ON public.enterpr
 
 
 --
--- Name: ix_enterprise_group_ent_group_type_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_enterprise_group_enterprise_group_type_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_enterprise_group_ent_group_type_id ON public.enterprise_group USING btree (ent_group_type_id);
+CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
 
 
 --
@@ -3161,11 +3116,11 @@ ALTER TABLE ONLY public.enterprise_group
 
 
 --
--- Name: enterprise_group fk_enterprise_group_enterprise_group_type_ent_group_type_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: enterprise_group fk_enterprise_group_enterprise_group_type_enterprise_group_type_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_enterprise_group_type_ent_group_type_id FOREIGN KEY (ent_group_type_id) REFERENCES public.enterprise_group_type(id);
+    ADD CONSTRAINT fk_enterprise_group_enterprise_group_type_enterprise_group_type_id FOREIGN KEY (enterprise_group_type_id) REFERENCES public.enterprise_group_type(id);
 
 
 --
