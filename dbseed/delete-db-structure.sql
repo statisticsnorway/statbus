@@ -51,7 +51,6 @@ DROP FUNCTION admin.prevent_id_update_on_public_tables();
 
 DROP TABLE IF EXISTS public.settings;
 
-DROP TABLE public.activity_for_unit;
 DROP TABLE public.activity;
 DROP TABLE public.activity_category_role;
 DROP TABLE public.activity_category;
@@ -121,6 +120,8 @@ DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_catego
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
 DROP TYPE public.statbus_role_type;
+DROP TYPE public.activity_type;
+DROP TYPE public.person_sex;
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
