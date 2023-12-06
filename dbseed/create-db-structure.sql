@@ -735,7 +735,7 @@ CREATE TABLE public.enterprise (
     parent_org_link integer,
     tax_reg_ident character varying(50),
     tax_reg_date timestamp with time zone,
-    registration_date timestamp with time zone,
+    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     external_ident character varying(50),
     external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
