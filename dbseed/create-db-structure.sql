@@ -877,9 +877,7 @@ CREATE TABLE public.legal_unit (
     foreign_participation_id integer,
     data_source_classification_id integer,
     unit_status_id integer,
-    enterprise_id integer,
-    ent_reg_ident_date timestamp with time zone,
-    market boolean,
+    enterprise_id integer
 );
 
 
