@@ -755,7 +755,7 @@ CREATE TABLE public.enterprise (
     num_of_people_emp integer,
     notes text,
     status_date timestamp with time zone,
-    inst_sector_code_id integer,
+    sector_code_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
     suspension_start timestamp with time zone,
@@ -879,7 +879,7 @@ CREATE TABLE public.legal_unit (
     num_of_people_emp integer,
     notes text,
     status_date timestamp with time zone,
-    inst_sector_code_id integer,
+    sector_code_id integer,
     legal_form_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
@@ -944,7 +944,7 @@ CREATE TABLE public.establishment (
     num_of_people_emp integer,
     notes text,
     status_date timestamp with time zone,
-    inst_sector_code_id integer,
+    sector_code_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
     suspension_start timestamp with time zone,
@@ -2720,10 +2720,10 @@ CREATE INDEX ix_enterprise_foreign_participation_id ON public.enterprise USING b
 
 
 --
--- Name: ix_enterprise_inst_sector_code_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_enterprise_sector_code_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_enterprise_inst_sector_code_id ON public.enterprise USING btree (inst_sector_code_id);
+CREATE INDEX ix_enterprise_sector_code_id ON public.enterprise USING btree (sector_code_id);
 
 
 --
@@ -2832,10 +2832,10 @@ CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING b
 
 
 --
--- Name: ix_legal_unit_inst_sector_code_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_legal_unit_sector_code_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_legal_unit_inst_sector_code_id ON public.legal_unit USING btree (inst_sector_code_id);
+CREATE INDEX ix_legal_unit_sector_code_id ON public.legal_unit USING btree (sector_code_id);
 
 
 --
@@ -2930,10 +2930,10 @@ CREATE INDEX ix_establishment_foreign_participation_id ON public.establishment U
 
 
 --
--- Name: ix_establishment_inst_sector_code_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_establishment_sector_code_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_establishment_inst_sector_code_id ON public.establishment USING btree (inst_sector_code_id);
+CREATE INDEX ix_establishment_sector_code_id ON public.establishment USING btree (sector_code_id);
 
 
 --
@@ -3367,11 +3367,11 @@ ALTER TABLE ONLY public.enterprise
 
 
 --
--- Name: enterprise fk_enterprise_sector_code_inst_sector_code_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: enterprise fk_enterprise_sector_code_sector_code_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_sector_code_inst_sector_code_id FOREIGN KEY (inst_sector_code_id) REFERENCES public.sector_code(id);
+    ADD CONSTRAINT fk_enterprise_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
 
 
 --
@@ -3455,11 +3455,11 @@ ALTER TABLE ONLY public.legal_unit
 
 
 --
--- Name: legal_unit fk_legal_unit_sector_code_inst_sector_code_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: legal_unit fk_legal_unit_sector_code_sector_code_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_sector_code_inst_sector_code_id FOREIGN KEY (inst_sector_code_id) REFERENCES public.sector_code(id);
+    ADD CONSTRAINT fk_legal_unit_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
 
 
 --
@@ -3535,11 +3535,11 @@ ALTER TABLE ONLY public.establishment
 
 
 --
--- Name: establishment fk_establishment_sector_code_inst_sector_code_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
+-- Name: establishment fk_establishment_sector_code_sector_code_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_sector_code_inst_sector_code_id FOREIGN KEY (inst_sector_code_id) REFERENCES public.sector_code(id);
+    ADD CONSTRAINT fk_establishment_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
 
 
 --
