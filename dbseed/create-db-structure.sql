@@ -766,13 +766,6 @@ CREATE TABLE public.enterprise (
     unit_status_id integer,
     enterprise_group_id integer,
     ent_group_id_date timestamp with time zone,
-    commercial boolean NOT NULL,
-    total_capital character varying(100),
-    mun_capital_share character varying(100),
-    state_capital_share character varying(100),
-    priv_capital_share character varying(100),
-    foreign_capital_share character varying(100),
-    foreign_capital_currency character varying(100),
     ent_group_role_id integer
 );
 
@@ -887,12 +880,6 @@ CREATE TABLE public.legal_unit (
     enterprise_id integer,
     ent_reg_ident_date timestamp with time zone,
     market boolean,
-    total_capital character varying(100),
-    mun_capital_share character varying(100),
-    state_capital_share character varying(100),
-    priv_capital_share character varying(100),
-    foreign_capital_share character varying(100),
-    foreign_capital_currency character varying(100)
 );
 
 
