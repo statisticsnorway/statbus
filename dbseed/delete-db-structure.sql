@@ -24,6 +24,9 @@ DROP VIEW public.region_view;
 DROP FUNCTION admin.upsert_region();
 DROP FUNCTION admin.delete_stale_region();
 
+DROP VIEW public.region_7_levels_view;
+DROP FUNCTION admin.upsert_region_7_levels();
+
 DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
