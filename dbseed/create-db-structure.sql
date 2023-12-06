@@ -763,7 +763,7 @@ CREATE TABLE public.enterprise (
     reorg_type_id integer,
     unit_status_id integer,
     enterprise_group_id integer,
-    ent_group_id_date timestamp with time zone,
+    enterprise_group_date timestamp with time zone,
     ent_group_role_id integer
 );
 
