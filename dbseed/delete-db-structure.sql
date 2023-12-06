@@ -20,6 +20,10 @@ DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
 DROP VIEW public.activity_category_available;
 
+DROP VIEW public.region_view;
+DROP FUNCTION admin.upsert_region();
+DROP FUNCTION admin.delete_stale_region();
+
 DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
