@@ -913,7 +913,6 @@ CREATE TABLE public.establishment (
     free_econ_zone boolean NOT NULL,
     num_of_people_emp integer,
     notes text,
-    status_date timestamp with time zone,
     sector_code_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
@@ -928,7 +927,10 @@ CREATE TABLE public.establishment (
     unit_size_id integer,
     foreign_participation_id integer,
     data_source_classification_id integer,
+
     unit_status_id integer,
+    unit_status_date timestamp with time zone,
+
     enterprise_id integer
 );
 
