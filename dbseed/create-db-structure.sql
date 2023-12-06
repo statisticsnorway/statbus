@@ -119,14 +119,17 @@ ON CONFLICT DO NOTHING;
 -- Name: activity; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
+CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
+
 CREATE TABLE public.activity (
-    id integer NOT NULL,
-    id_date timestamp with time zone NOT NULL,
+    id SERIAL PRIMARY KEY NOT NULL,
+    valid_from date NOT NULL DEFAULT current_date,
+    valid_to date NOT NULL DEFAULT 'infinity',
     activity_category_id integer NOT NULL,
-    activity_year integer,
-    activity_type integer NOT NULL,
+    activity_type public.activity_type NOT NULL,
     updated_by_user_id integer NOT NULL,
-    updated_date timestamp with time zone NOT NULL
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
+    establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE,
 );
 
 
@@ -931,30 +934,6 @@ CREATE TABLE public.establishment (
     enterprise_id integer
 );
 
-
-
---
--- Name: activity_for_unit; Type: TABLE; Schema: public; Owner: statbus_development
---
-
-CREATE TABLE public.activity_for_unit (
-    id SERIAL PRIMARY KEY NOT NULL,
-    activity_id integer NOT NULL,
-    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
-    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    -- enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    -- enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
-    -- CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id or enterprise_group_id must be set"
-    -- CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-    --     OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-    --     OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
-    --     OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
-    --     )
-);
 
 
 CREATE TABLE public.tag_for_unit (
@@ -2427,24 +2406,17 @@ CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role 
 
 
 --
--- Name: ix_activity_for_unit_activity_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_activity_establishment_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_activity_for_unit_activity_id ON public.activity_for_unit USING btree (activity_id);
-
-
---
--- Name: ix_activity_for_unit_establishment_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_for_unit_establishment_id ON public.activity_for_unit USING btree (establishment_id);
+CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
 
 
 --
--- Name: ix_activity_for_unit_unit_id; Type: INDEX; Schema: public; Owner: statbus_development
+-- Name: ix_activity_unit_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_activity_for_unit_unit_id ON public.activity_for_unit USING btree (legal_unit_id);
+CREATE INDEX ix_activity_unit_id ON public.activity USING btree (legal_unit_id);
 
 
 --
@@ -3077,14 +3049,6 @@ ALTER TABLE ONLY public.activity_category_role
 
 ALTER TABLE ONLY public.activity_category_role
     ADD CONSTRAINT fk_activity_category_role_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
-
-
---
--- Name: activity_for_unit fk_activity_for_unit_activity_activity_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity_for_unit
-    ADD CONSTRAINT fk_activity_for_unit_activity_activity_id FOREIGN KEY (activity_id) REFERENCES public.activity(id) ON DELETE CASCADE;
 
 
 --
