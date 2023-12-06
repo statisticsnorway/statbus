@@ -98,7 +98,6 @@ DROP TABLE public.legal_form;
 DROP TABLE public.country;
 
 DROP TABLE public.postal_index;
-DROP TABLE public.registration_reason;
 DROP TABLE public.reorg_type;
 DROP TABLE public.report_tree;
 DROP TABLE public.sample_frame;

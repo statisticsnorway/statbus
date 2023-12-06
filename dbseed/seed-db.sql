@@ -1,10 +1,5 @@
 BEGIN;
 
-INSERT INTO "registration_reason" ("id", "code", "name") VALUES ('1', '1', 'Whatever');
-
-SELECT setval(pg_get_serial_sequence('"registration_reason"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "registration_reason"), 1), false);
-
-
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('1', NULL, '03', 'Oslo', NULL, 'Oslo', '1');
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('2', NULL, '11', 'Rogaland', NULL, 'Rogaland', '1');
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('3', NULL, '15', 'Møre og Romsdal', NULL, 'Møre og Romsdal', '1');
