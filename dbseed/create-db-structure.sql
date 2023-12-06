@@ -3006,13 +3006,6 @@ CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 
 
 --
--- Name: ix_reorg_type_code; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code);
-
-
---
 -- Name: ix_sample_frame_user_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
