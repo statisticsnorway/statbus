@@ -756,7 +756,6 @@ CREATE TABLE public.enterprise (
     notes text,
     status_date timestamp with time zone,
     inst_sector_code_id integer,
-    legal_form_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
     suspension_start timestamp with time zone,
@@ -946,7 +945,6 @@ CREATE TABLE public.establishment (
     notes text,
     status_date timestamp with time zone,
     inst_sector_code_id integer,
-    legal_form_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
     suspension_start timestamp with time zone,
@@ -2729,13 +2727,6 @@ CREATE INDEX ix_enterprise_inst_sector_code_id ON public.enterprise USING btree 
 
 
 --
--- Name: ix_enterprise_legal_form_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_enterprise_legal_form_id ON public.enterprise USING btree (legal_form_id);
-
-
---
 -- Name: ix_enterprise_name; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2943,13 +2934,6 @@ CREATE INDEX ix_establishment_foreign_participation_id ON public.establishment U
 --
 
 CREATE INDEX ix_establishment_inst_sector_code_id ON public.establishment USING btree (inst_sector_code_id);
-
-
---
--- Name: ix_establishment_legal_form_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_legal_form_id ON public.establishment USING btree (legal_form_id);
 
 
 --
@@ -3375,14 +3359,6 @@ ALTER TABLE ONLY public.enterprise
 
 
 --
--- Name: enterprise fk_enterprise_legal_form_legal_form_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_legal_form_legal_form_id FOREIGN KEY (legal_form_id) REFERENCES public.legal_form(id);
-
-
---
 -- Name: enterprise fk_enterprise_reorg_type_reorg_type_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -3540,14 +3516,6 @@ ALTER TABLE ONLY public.establishment
 
 ALTER TABLE ONLY public.establishment
     ADD CONSTRAINT fk_establishment_foreign_participation_foreign_participation_id FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-
-
---
--- Name: establishment fk_establishment_legal_form_legal_form_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_legal_form_legal_form_id FOREIGN KEY (legal_form_id) REFERENCES public.legal_form(id);
 
 
 --
