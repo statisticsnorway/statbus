@@ -14,13 +14,6 @@ INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_langu
 SELECT setval(pg_get_serial_sequence('"enterprise_group_role"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "enterprise_group_role"), 1), false);
 
 
-INSERT INTO "enterprise_group_type" ("id", "name", "name_language1", "name_language2", "code") VALUES (1, 'All-residents', 'Все резиденты', 'Бардык резидент', '1');
-INSERT INTO "enterprise_group_type" ("id", "name", "name_language1", "name_language2", "code") VALUES (2, 'Multinational domestically controlled ', 'Многонациональный внутренний контроль', 'Көп улуттуу өлкө башкарылат', '2');
-INSERT INTO "enterprise_group_type" ("id", "name", "name_language1", "name_language2", "code") VALUES (3, 'Multinational foreign controlled', 'Многонациональный иностранный контроль', 'Көп улуттуу чет элдик көзөмөлдө', '3');
-
-SELECT setval(pg_get_serial_sequence('"enterprise_group_type"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "enterprise_group_type"), 1), false);
-
-
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('1', NULL, '03', 'Oslo', NULL, 'Oslo', '1');
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('2', NULL, '11', 'Rogaland', NULL, 'Rogaland', '1');
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('3', NULL, '15', 'Møre og Romsdal', NULL, 'Møre og Romsdal', '1');
