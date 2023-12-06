@@ -5,15 +5,6 @@ INSERT INTO "registration_reason" ("id", "code", "name") VALUES ('1', '1', 'What
 SELECT setval(pg_get_serial_sequence('"registration_reason"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "registration_reason"), 1), false);
 
 
-INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (1, 'Management/control unit', NULL, NULL, '1');
-INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (2, 'Global group head (controlling unit)', NULL, NULL, '2');
-INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (3, 'Global decision centre (managing unit)', NULL, NULL, '3');
-INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (4, 'Highest level consolidation unit', NULL, NULL, '4');
-INSERT INTO "enterprise_group_role" ("id", "name", "name_language1", "name_language2", "code") VALUES (5, 'Other', NULL, NULL, '5');
-
-SELECT setval(pg_get_serial_sequence('"enterprise_group_role"', 'id'), COALESCE((SELECT MAX("id")+1 FROM "enterprise_group_role"), 1), false);
-
-
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('1', NULL, '03', 'Oslo', NULL, 'Oslo', '1');
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('2', NULL, '11', 'Rogaland', NULL, 'Rogaland', '1');
 INSERT INTO "region" ("id", "adminstrative_center", "code", "name", "parent_id", "full_path", "region_level") VALUES ('3', NULL, '15', 'Møre og Romsdal', NULL, 'Møre og Romsdal', '1');

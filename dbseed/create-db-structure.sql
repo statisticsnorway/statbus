@@ -680,11 +680,11 @@ CREATE TABLE public.enterprise_group (
 
 CREATE TABLE public.enterprise_group_role (
     id integer NOT NULL,
+    code text NOT NULL,
     name text NOT NULL,
-    archived boolean NOT NULL DEFAULT false,
-    name_language1 text,
-    name_language2 text,
-    code text NOT NULL
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 
 
@@ -3897,6 +3897,13 @@ SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_type', 
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.enterprise_group_type_system(code, name) FROM 'dbseed/enterprise_group_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+
+SET LOCAL client_min_messages TO NOTICE;
+SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_role', 'code');
+SET LOCAL client_min_messages TO INFO;
+
+\copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Add security.
 
