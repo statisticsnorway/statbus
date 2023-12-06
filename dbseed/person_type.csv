@@ -5,8 +5,8 @@ mgr,Manager
 prop,Proprietor
 acct,Accountant
 prin,Principal
-supv,Supervisor
+sup,Supervisor
 emp,Employee
-htchr,Headteacher
-cpers,Contact Person
+ht,Headteacher
+cp,Contact Person
 unkn,Unknown

@@ -1013,18 +1013,20 @@ CREATE TABLE public.country_for_unit (
 -- Name: person; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
+CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
+
 CREATE TABLE public.person (
     id integer NOT NULL,
-    id_date timestamp with time zone NOT NULL,
-    given_name character varying(150),
-    personal_id text,
-    surname character varying(150),
-    middle_name character varying(150),
-    birth_date timestamp with time zone,
-    sex smallint,
+    personal_ident text UNIQUE,
     country_id integer,
-    phone_number text,
-    phone_number1 text,
+    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
+    given_name character varying(150),
+    middle_name character varying(150),
+    family_name character varying(150),
+    birth_date date,
+    sex public.person_sex,
+    phone_number_1 text,
+    phone_number_2 text,
     address text
 );
 
@@ -1037,11 +1039,14 @@ CREATE TABLE public.person (
 CREATE TABLE public.person_for_unit (
     id SERIAL PRIMARY KEY NOT NULL,
     person_id integer NOT NULL,
-    establishment_id integer NOT NULL,
-    legal_unit_id integer NOT NULL,
-    enterprise_id integer NOT NULL,
-    enterprise_group_id integer,
-    person_type_id integer
+    person_type_id integer,
+    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
+    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
+    CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
+        )
+
 );
 
 
