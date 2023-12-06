@@ -645,11 +645,7 @@ CREATE TABLE public.enterprise_group (
     reorg_type_code text,
     reorg_references text,
     contact_person text,
-    start_period timestamp with time zone NOT NULL,
-    end_period timestamp with time zone NOT NULL,
     liq_reason text,
-    suspension_start text,
-    suspension_end text,
     status_date timestamp with time zone NOT NULL,
     notes text,
     user_id integer NOT NULL,
@@ -758,14 +754,10 @@ CREATE TABLE public.enterprise (
     sector_code_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
-    suspension_start timestamp with time zone,
-    suspension_end timestamp with time zone,
     reorg_type_code character varying(50),
     reorg_date timestamp with time zone,
     reorg_references integer,
     archived boolean NOT NULL DEFAULT false,
-    start_period timestamp with time zone NOT NULL,
-    end_period timestamp with time zone NOT NULL,
     user_id character varying(100) NOT NULL,
     change_reason integer DEFAULT 0 NOT NULL,
     edit_comment character varying(500),
@@ -883,14 +875,10 @@ CREATE TABLE public.legal_unit (
     legal_form_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
-    suspension_start timestamp with time zone,
-    suspension_end timestamp with time zone,
     reorg_type_code character varying(50),
     reorg_date timestamp with time zone,
     reorg_references integer,
     archived boolean NOT NULL DEFAULT false,
-    start_period timestamp with time zone NOT NULL,
-    end_period timestamp with time zone NOT NULL,
     user_id character varying(100) NOT NULL,
     change_reason integer DEFAULT 0 NOT NULL,
     edit_comment character varying(500),
@@ -947,14 +935,11 @@ CREATE TABLE public.establishment (
     sector_code_id integer,
     liq_date timestamp with time zone,
     liq_reason character varying(200),
-    suspension_start timestamp with time zone,
-    suspension_end timestamp with time zone,
     reorg_type_code character varying(50),
     reorg_date timestamp with time zone,
     reorg_references integer,
     archived boolean NOT NULL DEFAULT false,
-    start_period timestamp with time zone NOT NULL,
-    end_period timestamp with time zone NOT NULL,
+
     user_id character varying(100) NOT NULL,
     change_reason integer DEFAULT 0 NOT NULL,
     edit_comment character varying(500),
@@ -2664,13 +2649,6 @@ CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree 
 
 
 --
--- Name: ix_enterprise_group_start_period; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_enterprise_group_start_period ON public.enterprise_group USING btree (start_period);
-
-
---
 -- Name: ix_enterprise_group_unit_status_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2759,13 +2737,6 @@ CREATE INDEX ix_enterprise_short_name_reg_ident_stat_ident_tax_reg_ident ON publ
 --
 
 CREATE INDEX ix_enterprise_size_id ON public.enterprise USING btree (size_id);
-
-
---
--- Name: ix_enterprise_start_period; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_enterprise_start_period ON public.enterprise USING btree (start_period);
 
 
 --
@@ -2881,13 +2852,6 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (size_id);
 
 
 --
--- Name: ix_legal_unit_start_period; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_start_period ON public.legal_unit USING btree (start_period);
-
-
---
 -- Name: ix_legal_unit_stat_ident; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2976,13 +2940,6 @@ CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax_reg_ident ON p
 --
 
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (size_id);
-
-
---
--- Name: ix_establishment_start_period; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_start_period ON public.establishment USING btree (start_period);
 
 
 --
