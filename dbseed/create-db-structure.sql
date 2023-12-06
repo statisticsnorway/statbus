@@ -648,7 +648,7 @@ CREATE TABLE public.enterprise_group (
     notes text,
     user_id integer NOT NULL,
     edit_comment text,
-    size_id integer,
+    unit_size_id integer,
     data_source_classification_id integer,
     reorg_references text,
     reorg_date timestamp with time zone,
@@ -757,7 +757,7 @@ CREATE TABLE public.enterprise (
     archived boolean NOT NULL DEFAULT false,
     user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
-    size_id integer,
+    unit_size_id integer,
     foreign_participation_id integer,
     data_source_classification_id integer,
     reorg_type_id integer,
@@ -870,7 +870,7 @@ CREATE TABLE public.legal_unit (
     archived boolean NOT NULL DEFAULT false,
     user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
-    size_id integer,
+    unit_size_id integer,
     foreign_participation_id integer,
     data_source_classification_id integer,
     unit_status_id integer,
@@ -923,7 +923,8 @@ CREATE TABLE public.establishment (
 
     user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
-    size_id integer,
+
+    unit_size_id integer,
     foreign_participation_id integer,
     data_source_classification_id integer,
     unit_status_id integer,
@@ -1977,7 +1978,7 @@ CREATE VIEW public.statistical_units
     -- sector_code_ids integer[],
     -- region_ids integer[],
     -- activity_category_ids integer[],
-    -- size_id integer,
+    -- unit_size_id integer,
     -- short_name character varying(200),
     -- tax_reg_ident character varying(50),
     -- external_ident character varying(50),
@@ -2623,7 +2624,7 @@ CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_rol
 -- Name: ix_enterprise_group_size_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (size_id);
+CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
 
 
 --
@@ -2714,7 +2715,7 @@ CREATE INDEX ix_enterprise_short_name_reg_ident_stat_ident_tax_reg_ident ON publ
 -- Name: ix_enterprise_size_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_enterprise_size_id ON public.enterprise USING btree (size_id);
+CREATE INDEX ix_enterprise_size_id ON public.enterprise USING btree (unit_size_id);
 
 
 --
@@ -2826,7 +2827,7 @@ CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax_reg_ident ON publ
 -- Name: ix_legal_unit_size_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (size_id);
+CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
 
 
 --
@@ -2917,7 +2918,7 @@ CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax_reg_ident ON p
 -- Name: ix_establishment_size_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
-CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (size_id);
+CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 
 
 --
@@ -3226,7 +3227,7 @@ ALTER TABLE ONLY public.enterprise_group
 --
 
 ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_unit_size_size_id FOREIGN KEY (size_id) REFERENCES public.unit_size(id);
+    ADD CONSTRAINT fk_enterprise_group_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
 
 
 --
@@ -3314,7 +3315,7 @@ ALTER TABLE ONLY public.enterprise
 --
 
 ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_unit_size_size_id FOREIGN KEY (size_id) REFERENCES public.unit_size(id);
+    ADD CONSTRAINT fk_enterprise_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
 
 
 --
@@ -3402,7 +3403,7 @@ ALTER TABLE ONLY public.legal_unit
 --
 
 ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_unit_size_size_id FOREIGN KEY (size_id) REFERENCES public.unit_size(id);
+    ADD CONSTRAINT fk_legal_unit_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
 
 
 --
@@ -3482,7 +3483,7 @@ ALTER TABLE ONLY public.establishment
 --
 
 ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_unit_size_size_id FOREIGN KEY (size_id) REFERENCES public.unit_size(id);
+    ADD CONSTRAINT fk_establishment_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
 
 
 --
