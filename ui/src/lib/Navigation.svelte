@@ -1,18 +1,17 @@
 <!-- src/lib/Navigation.svelte -->
 <script lang="ts">
-  export let data
-  import { getDrawerStore } from "@skeletonlabs/skeleton";
-  import { page } from '$app/stores';
+	export let data;
+	import { getDrawerStore } from '@skeletonlabs/skeleton';
+	import { page } from '$app/stores';
 
-  const drawerStore = getDrawerStore();
+	const drawerStore = getDrawerStore();
 
-  function drawerClose(): void {
-    drawerStore.close();
-  }
+	function drawerClose(): void {
+		drawerStore.close();
+	}
 
-  // TODO: Use {$page.url.pathname === '/'} to show the currenctly active navigation page.
+	// TODO: Use {$page.url.pathname === '/'} to show the currenctly active navigation page.
 </script>
-
 
 <nav class="list-nav p-4">
 	<ul>
