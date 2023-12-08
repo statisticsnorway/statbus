@@ -17,7 +17,7 @@ export const load = async ({ fetch, data, depends }) => {
     supabaseKey: supabaseAnonKey,
     event: { fetch },
     // No need for serverSession in client-only auth
-    //serverSession: data.session,
+    serverSession: null,
   });
 
   const {
