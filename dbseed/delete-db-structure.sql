@@ -36,7 +36,6 @@ SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
 SELECT admin.drop_table_views_for_batch_api('public.data_source_classification');
-SELECT admin.drop_table_views_for_batch_api('public.unit_status');
 SELECT admin.drop_table_views_for_batch_api('public.unit_size');
 SELECT admin.drop_table_views_for_batch_api('public.person_type');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
@@ -109,7 +108,6 @@ DROP TABLE public.report_tree;
 DROP TABLE public.sample_frame;
 DROP TABLE public.sector_code;
 DROP TABLE public.unit_size;
-DROP TABLE public.unit_status;
 
 DROP TABLE public.region_role;
 DROP TABLE public.region;

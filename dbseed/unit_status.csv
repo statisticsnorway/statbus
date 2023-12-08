@@ -1,9 +1,0 @@
-code,name
-actv,Active
-drmnt,Dormant
-newna,"Newly created, not yet active"
-inact,Inactive
-hist,Historical
-liqph,In liquidation phase
-liqd,Liquidated
-unk,Unknown status
