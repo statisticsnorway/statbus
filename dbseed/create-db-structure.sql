@@ -2565,13 +2565,6 @@ CREATE INDEX ix_enterprise_name ON public.enterprise USING btree (name);
 
 
 --
--- Name: ix_enterprise_reorg_type_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_enterprise_reorg_type_id ON public.enterprise USING btree (reorg_type_id);
-
-
---
 -- Name: ix_enterprise_short_name_reg_ident_stat_ident_tax_reg_ident; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -3057,14 +3050,6 @@ ALTER TABLE ONLY public.enterprise
 
 ALTER TABLE ONLY public.enterprise
     ADD CONSTRAINT fk_enterprise_foreign_participation_foreign_participation FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-
-
---
--- Name: enterprise fk_enterprise_reorg_type_reorg_type_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
 
 
 --
