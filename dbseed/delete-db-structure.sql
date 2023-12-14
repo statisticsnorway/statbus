@@ -55,6 +55,8 @@ DROP FUNCTION admin.upsert_activity_category();
 DROP FUNCTION admin.delete_stale_activity_category();
 DROP FUNCTION admin.prevent_id_update_on_public_tables();
 
+DROP FUNCTION public.generate_mermaid_er_diagram();
+
 DROP TABLE IF EXISTS public.settings;
 
 DROP TABLE public.activity;

@@ -3291,6 +3291,50 @@ ALTER TABLE ONLY public.region_role
 ALTER TABLE ONLY public.region_role
     ADD CONSTRAINT fk_region_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
 
+
+CREATE OR REPLACE FUNCTION public.generate_mermaid_er_diagram()
+RETURNS text AS $$
+DECLARE
+    rec RECORD;
+    result text := 'erDiagram';
+BEGIN
+    -- First part of the query (tables and columns)
+    FOR rec IN
+        SELECT format(E'\t%s{\n%s\n}',
+            c.relname,
+            string_agg(format(E'\t\t~%s~ %s',
+                format_type(t.oid, a.atttypmod),
+                a.attname
+            ), E'\n')
+        )
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_attribute a ON c.oid = a.attrelid AND a.attnum > 0 AND NOT a.attisdropped
+        LEFT JOIN pg_type t ON a.atttypid = t.oid
+        WHERE c.relkind IN ('r', 'p')
+          AND NOT c.relispartition
+          AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+        GROUP BY c.relname
+    LOOP
+        result := result || E'\n' || rec.format;
+    END LOOP;
+
+    -- Second part of the query (foreign key constraints)
+    FOR rec IN
+        SELECT format('%s }|..|| %s : %s', c1.relname, c2.relname, c.conname)
+        FROM pg_constraint c
+        JOIN pg_class c1 ON c.conrelid = c1.oid AND c.contype = 'f'
+        JOIN pg_class c2 ON c.confrelid = c2.oid
+        WHERE NOT c1.relispartition AND NOT c2.relispartition
+    LOOP
+        result := result || E'\n' || rec.format;
+    END LOOP;
+
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+
 -- Load seed data after all constraints are in place
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.generate_table_views_for_batch_api('public.sector_code', 'path');
