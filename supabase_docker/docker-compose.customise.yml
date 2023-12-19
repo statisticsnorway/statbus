@@ -1,0 +1,48 @@
+version: "3.8"
+name: statbus
+# Expose wanted ports
+# Not that docker-compose.erase-ports.yml used the `!reset []` syntax
+# to remove the ports from docker-compose.yml and here we
+# can add new values
+services:
+  studio:
+    container_name: statbus-studio
+  kong:
+    container_name: statbus-kong
+    ports:
+      - 127.0.0.1:3080:8000/tcp
+  auth:
+    container_name: statbus-auth
+  rest:
+    container_name: statbus-rest
+  realtime:
+    # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
+    container_name: realtime-dev.statbus-realtime
+  storage:
+    container_name: statbus-storage
+  imgproxy:
+    container_name: statbus-imgproxy
+  meta:
+    container_name: statbus-meta
+  functions:
+    container_name: statbus-edge-functions
+  analytics:
+    container_name: statbus-analytics
+    ports: !reset []
+  db:
+    container_name: statbus-db
+    #image: ghcr.io/veridit/supabase_postgres:latest
+    image: veridit/supabase_postgres:latest
+    ports:
+      - 3432:5432
+  vector:
+    container_name: statbus-vector
+
+# Use a consistent network, for configuration of http forwarding
+networks:
+  statbus:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.64.0/24
