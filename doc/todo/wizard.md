@@ -54,9 +54,23 @@ curl -X POST 'https://api.dev.statbus.org/rest/v1/region' \
 --data-binary '@samples/norway-sample-regions.csv'
 
 # Verify new regions
+
 curl 'https://api.dev.statbus.org/rest/v1/region?select=path,name&order=path' \
 -H $apiKeyHeader -H $authKeyHeader
 
+# Reset wizard
+
+You've completed the onboarding wizard. Now let's reset the settings and regions tables.
+
+## Delete settings
+
+curl -X DELETE 'https://api.dev.statbus.org/rest/v1/settings?only_one_setting=eq.true \
+-H $apiKeyHeader -H $authKeyHeader
+
+## Delete regions
+
+curl -X DELETE 'https://api.dev.statbus.org/rest/v1/region?id=gt.0 \
+-H $apiKeyHeader -H $authKeyHeader
 
 # Generate ER diagram for display with https://mermaid.js.org/
 curl 'https://api.dev.statbus.org/rest/v1/rpc/generate_mermaid_er_diagram' \
