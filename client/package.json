@@ -189,7 +189,7 @@
     "parcel": "^2.9.3",
     "parcel-reporter-bundle-manifest": "^1.0.0",
     "parcel-reporter-static-files-copy": "^1.5.2",
-    "postcss": "^8.2.1",
+    "postcss": "^8.4.31",
     "postcss-cssnext": "^3.1.0",
     "postcss-easy-import": "^3.0.0",
     "postcss-flexibility": "^2.0.0",
