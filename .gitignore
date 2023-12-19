@@ -453,6 +453,9 @@ __pycache__/
 ### VisualStudio Patch ###
 build/
 
+# Temporary files
+/tmp/
+
 # Parcel Intermediate Files
 .parcel-cache/**
 parcel-trace-*.json

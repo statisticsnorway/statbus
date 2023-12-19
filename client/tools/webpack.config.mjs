@@ -16,10 +16,10 @@ const useHMR = !!global.HMR;
 const babelConfig = { ...pkg.babel, babelrc: false, cacheDirectory: useHMR };
 
 const config = {
-  context: Path.resolve(__dirname, '../client'),
+  context: Path.resolve(__dirname, '..'),
   entry: ['./styles.scss', './index.js'],
   output: {
-    path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot'),
+    path: Path.resolve(__dirname, '../../src/nscreg.Server/wwwroot'),
     publicPath: '/',
     filename: isDebug ? '[name].js?[hash]' : '[name].[hash].js',
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
@@ -42,7 +42,7 @@ const config = {
   plugins: [
     new Webpack.optimize.OccurrenceOrderPlugin(),
     new AssetsWebpackPlugin({
-      path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot'),
+      path: Path.resolve(__dirname, '../../src/nscreg.Server/wwwroot'),
       filename: 'assets.json',
       prettyPrint: true,
     }),
@@ -55,7 +55,7 @@ const config = {
     rules: [
       {
         test: /\.jsx?$/,
-        include: [Path.resolve(__dirname, '../client')],
+        include: [Path.resolve(__dirname, '..')],
         use: {
           loader: 'babel-loader',
           options: babelConfig,
@@ -85,10 +85,10 @@ const config = {
   },
   resolve: {
     alias: {
-      components: Path.resolve(__dirname, './client/components'),
-      helpers: Path.resolve(__dirname, './client/helpers'),
-      layout: Path.resolve(__dirname, './client/layout'),
-      pages: Path.resolve(__dirname, './client/pages'),
+      components: Path.resolve(__dirname, './components'),
+      helpers: Path.resolve(__dirname, './helpers'),
+      layout: Path.resolve(__dirname, './layout'),
+      pages: Path.resolve(__dirname, './pages'),
     },
     extensions: ['.js', '.jsx', '.scss'],
   },

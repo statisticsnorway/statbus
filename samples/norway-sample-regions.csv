@@ -1,0 +1,373 @@
+path,name
+03,Oslo
+11,Rogaland
+15,Møre og Romsdal
+18,Nordland
+30,Viken
+34,Innlandet
+38,Vestfold og Telemark
+42,Agder
+46,Vestland
+50,Trøndelag - Trööndelage
+54,Troms og Finnmark - Romsa ja Finnm�rku
+99,Uoppgitt
+21,Svalbard
+0,Utlandet
+03.01,Oslo
+11.01,Eigersund
+11.03,Stavanger
+11.06,Haugesund
+11.08,Sandnes
+11.11,Sokndal
+11.12,Lund
+11.14,Bjerkreim
+11.19,Hå
+11.20,Klepp
+11.21,Time
+11.22,Gjesdal
+11.24,Sola
+11.27,Randaberg
+11.30,Strand
+11.33,Hjelmeland
+11.34,Suldal
+11.35,Sauda
+11.44,Kvitsøy
+11.45,Bokn
+11.46,Tysvær
+11.49,Karmøy
+11.51,Utsira
+11.60,Vindafjord
+15.05,Kristiansund
+15.06,Molde
+15.07,Ålesund
+15.11,Vanylven
+15.14,Sande
+15.15,Herøy (Møre og Romsdal)
+15.16,Ulstein
+15.17,Hareid
+15.20,Ørsta
+15.25,Stranda
+15.28,Sykkylven
+15.31,Sula
+15.32,Giske
+15.35,Vestnes
+15.39,Rauma
+15.47,Aukra
+15.54,Averøy
+15.57,Gjemnes
+15.60,Tingvoll
+15.63,Sunndal
+15.66,Surnadal
+15.73,Smøla
+15.76,Aure
+15.77,Volda
+15.78,Fjord
+15.79,Hustadvika
+18.04,Bodø
+18.06,Narvik
+18.11,Bindal
+18.12,Sømna
+18.13,Brønnøy
+18.15,Vega
+18.16,Vevelstad
+18.18,Herøy (Nordland)
+18.20,Alstahaug
+18.22,Leirfjord
+18.24,Vefsn
+18.25,Grane
+18.26,Aarborte - Hattfjelldal
+18.27,Dønna
+18.28,Nesna
+18.32,Hemnes
+18.33,Rana
+18.34,Lurøy
+18.35,Træna
+18.36,Rødøy
+18.37,Meløy
+18.38,Gildeskål
+18.39,Beiarn
+18.40,Saltdal
+18.41,Fauske - Fuossko
+18.45,Sørfold
+18.48,Steigen
+18.51,Lødingen
+18.53,Evenes
+18.56,Røst
+18.57,Værøy
+18.59,Flakstad
+18.60,Vestvågøy
+18.65,Vågan
+18.66,Hadsel
+18.67,Bø
+18.68,Øksnes
+18.70,Sortland
+18.71,Andøy
+18.74,Moskenes
+18.75,Hamarøy - Hábmer
+30.01,Halden
+30.02,Moss
+30.03,Sarpsborg
+30.04,Fredrikstad
+30.05,Drammen
+30.06,Kongsberg
+30.07,Ringerike
+30.11,Hvaler
+30.12,Aremark
+30.13,Marker
+30.14,Indre Østfold
+30.15,Skiptvet
+30.16,Rakkestad
+30.17,Råde
+30.18,Våler (Viken)
+30.19,Vestby
+30.20,Nordre Follo
+30.21,Ås
+30.22,Frogn
+30.23,Nesodden
+30.24,Bærum
+30.25,Asker
+30.26,Aurskog-Høland
+30.27,Rælingen
+30.28,Enebakk
+30.29,Lørenskog
+30.30,Lillestrøm
+30.31,Nittedal
+30.32,Gjerdrum
+30.33,Ullensaker
+30.34,Nes
+30.35,Eidsvoll
+30.36,Nannestad
+30.37,Hurdal
+30.38,Hole
+30.39,Flå
+30.40,Nesbyen
+30.41,Gol
+30.42,Hemsedal
+30.43,Ål
+30.44,Hol
+30.45,Sigdal
+30.46,Krødsherad
+30.47,Modum
+30.48,Øvre Eiker
+30.49,Lier
+30.50,Flesberg
+30.51,Rollag
+30.52,Nore og Uvdal
+30.53,Jevnaker
+30.54,Lunner
+34.01,Kongsvinger
+34.03,Hamar
+34.05,Lillehammer
+34.07,Gjøvik
+34.11,Ringsaker
+34.12,Løten
+34.13,Stange
+34.14,Nord-Odal
+34.15,Sør-Odal
+34.16,Eidskog
+34.17,Grue
+34.18,Åsnes
+34.19,Våler (Innlandet)
+34.20,Elverum
+34.21,Trysil
+34.22,Åmot
+34.23,Stor-Elvdal
+34.24,Rendalen
+34.25,Engerdal
+34.26,Tolga
+34.27,Tynset
+34.28,Alvdal
+34.29,Folldal
+34.30,Os
+34.31,Dovre
+34.32,Lesja
+34.33,Skjåk
+34.34,Lom
+34.35,Vågå
+34.36,Nord-Fron
+34.37,Sel
+34.38,Sør-Fron
+34.39,Ringebu
+34.40,Øyer
+34.41,Gausdal
+34.42,Østre Toten
+34.43,Vestre Toten
+34.46,Gran
+34.47,Søndre Land
+34.48,Nordre Land
+34.49,Sør-Aurdal
+34.50,Etnedal
+34.51,Nord-Aurdal
+34.52,Vestre Slidre
+34.53,Øystre Slidre
+34.54,Vang
+38.01,Horten
+38.02,Holmestrand
+38.03,Tønsberg
+38.04,Sandefjord
+38.05,Larvik
+38.06,Porsgrunn
+38.07,Skien
+38.08,Notodden
+38.11,Færder
+38.12,Siljan
+38.13,Bamble
+38.14,Kragerø
+38.15,Drangedal
+38.16,Nome
+38.17,Midt-Telemark
+38.18,Tinn
+38.19,Hjartdal
+38.20,Seljord
+38.21,Kviteseid
+38.22,Nissedal
+38.23,Fyresdal
+38.24,Tokke
+38.25,Vinje
+42.01,Risør
+42.02,Grimstad
+42.03,Arendal
+42.04,Kristiansand
+42.05,Lindesnes
+42.06,Farsund
+42.07,Flekkefjord
+42.11,Gjerstad
+42.12,Vegårshei
+42.13,Tvedestrand
+42.14,Froland
+42.15,Lillesand
+42.16,Birkenes
+42.17,Åmli
+42.18,Iveland
+42.19,Evje og Hornnes
+42.20,Bygland
+42.21,Valle
+42.22,Bykle
+42.23,Vennesla
+42.24,Åseral
+42.25,Lyngdal
+42.26,Hægebostad
+42.27,Kvinesdal
+42.28,Sirdal
+46.01,Bergen
+46.02,Kinn
+46.11,Etne
+46.12,Sveio
+46.13,Bømlo
+46.14,Stord
+46.15,Fitjar
+46.16,Tysnes
+46.17,Kvinnherad
+46.18,Ullensvang
+46.19,Eidfjord
+46.20,Ulvik
+46.21,Voss
+46.22,Kvam
+46.23,Samnanger
+46.24,Bjørnafjorden
+46.25,Austevoll
+46.26,Øygarden
+46.27,Askøy
+46.28,Vaksdal
+46.29,Modalen
+46.30,Osterøy
+46.31,Alver
+46.32,Austrheim
+46.33,Fedje
+46.34,Masfjorden
+46.35,Gulen
+46.36,Solund
+46.37,Hyllestad
+46.38,Høyanger
+46.39,Vik
+46.40,Sogndal
+46.41,Aurland
+46.42,Lærdal
+46.43,Årdal
+46.44,Luster
+46.45,Askvoll
+46.46,Fjaler
+46.47,Sunnfjord
+46.48,Bremanger
+46.49,Stad
+46.50,Gloppen
+46.51,Stryn
+50.01,Trondheim
+50.06,Steinkjer
+50.07,Namsos
+50.14,Frøya
+50.20,Osen
+50.21,Oppdal
+50.22,Rennebu
+50.25,Røros
+50.26,Holtålen
+50.27,Midtre Gauldal
+50.28,Melhus
+50.29,Skaun
+50.31,Malvik
+50.32,Selbu
+50.33,Tydal
+50.34,Meråker
+50.35,Stjørdal
+50.36,Frosta
+50.37,Levanger
+50.38,Verdal
+50.41,Snåase - Snåsa
+50.42,Lierne
+50.43,Raarvihke - Røyrvik
+50.44,Namsskogan
+50.45,Grong
+50.46,Høylandet
+50.47,Overhalla
+50.49,Flatanger
+50.52,Leka
+50.53,Inderøy
+50.54,Indre Fosen
+50.55,Heim
+50.56,Hitra
+50.57,Ørland
+50.58,Åfjord
+50.59,Orkland
+50.60,Nærøysund
+50.61,Rindal
+54.01,Tromsø
+54.02,Harstad - Hárstták
+54.03,Alta
+54.04,Vardø
+54.05,Vadsø
+54.06,Hammerfest
+54.11,Kvæfjord
+54.12,Tjeldsund
+54.13,Ibestad
+54.14,Gratangen
+54.15,Loabák - Lavangen
+54.16,Bardu
+54.17,Salangen
+54.18,Målselv
+54.19,Sørreisa
+54.20,Dyrøy
+54.21,Senja
+54.22,Balsfjord
+54.23,Karlsøy
+54.24,Lyngen
+54.25,Storfjord - Omasvuotna - Omasvuono
+54.26,Gáivuotna - Kåfjord - Kaivuono
+54.27,Skjervøy
+54.28,Nordreisa - Ráisa - Raisi
+54.29,Kvænangen
+54.30,Guovdageaidnu - Kautokeino
+54.32,Loppa
+54.33,Hasvik
+54.34,Måsøy
+54.35,Nordkapp
+54.36,Porsanger - Porsá?gu - Porsanki
+54.37,Kárá?johka - Karasjok
+54.38,Lebesby
+54.39,Gamvik
+54.40,Berlevåg
+54.41,Deatnu - Tana
+54.42,Unjárga - Nesseby
+54.43,Båtsfjord
+54.44,Sør-Varanger
+99.99,Uoppgitt
+21.00,Svalbard

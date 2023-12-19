@@ -6,8 +6,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "eslint": "eslint client test/client.test tools",
-    "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
+    "eslint": "eslint client ../test/client.test tools",
+    "eslint-tfs": "eslint client ../test/client.test tools -f visualstudio",
     "stylelint": "stylelint \"./client/**/*.pcss\"",
     "lint": "npm-run-all -p eslint stylelint",
     "format": "prettier-eslint \"client/**/*.js*\" --write",
@@ -426,7 +426,7 @@
       "^.+\\.(css|pcss)$": "<rootDir>/tools/cssstub.js"
     },
     "testEnvironment": "node",
-    "testRegex": "/test/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",
+    "testRegex": "../test/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",
     "testPathIgnorePatterns": [
       "<rootDir>[/\\\\](build|docs|node_modules)[/\\\\]"
     ],

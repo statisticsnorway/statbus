@@ -40,100 +40,100 @@ tasks.set('clean', () =>
       del(
         [
           './build/*',
-          './src/nscreg.Server/wwwroot/*',
+          '../src/nscreg.Server/wwwroot/*',
           '!./build/.git',
         ],
         { dot: true },
       ))
-    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/fonts'))
-	.then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/icons')))
+    .then(() => mkdirp.sync('../src/nscreg.Server/wwwroot/fonts'))
+	.then(() => mkdirp.sync('../src/nscreg.Server/wwwroot/icons')))
 
 
 // Copy vendor bundles (styles, scripts, fonts, etc.)
 const copyTasks = [
   {
     src: './node_modules/semantic-ui-css/semantic.min.css',
-    dest: './src/nscreg.Server/wwwroot',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
     src: './node_modules/semantic-ui-css/themes',
-    dest: './src/nscreg.Server/wwwroot/themes',
+    dest: '../src/nscreg.Server/wwwroot/themes',
     isSync: true,
   },
   {
     src: './node_modules/antd/lib/tree/style/index.css',
-    dest: './src/nscreg.Server/wwwroot',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: 'antd-tree.css',
   },
   {
     src: './node_modules/react-datepicker/dist/react-datepicker.min.css',
-    dest: './src/nscreg.Server/wwwroot',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
     src: './node_modules/react-select/dist/react-select.min.css',
-    dest: './src/nscreg.Server/wwwroot',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/apple-touch-icon.png',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './apple-touch-icon.png',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/favicon.ico',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './favicon.ico',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/browserconfig.xml',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './browserconfig.xml',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/crossdomain.xml',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './crossdomain.xml',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/humans.txt',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './humans.txt',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/logo-small.jpg',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './logo-small.jpg',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/logo.png',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './logo.png',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/robots.txt',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './robots.txt',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/tile-wide.png',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './tile-wide.png',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/tile.png',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './tile.png',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/styles.css',
-    dest: './src/nscreg.Server/wwwroot',
+    src: './styles.css',
+    dest: '../src/nscreg.Server/wwwroot',
     rename: undefined,
   },
   {
-    src: './client/fonts',
-    dest: './src/nscreg.Server/wwwroot/fonts',
+    src: './fonts',
+    dest: '../src/nscreg.Server/wwwroot/fonts',
     isSync: true,
   },
   {
@@ -207,7 +207,7 @@ tasks.set(
 
         const source = { ...rootCfg, ...localCfg };
         environments.forEach((env) => {
-          const filename = path.resolve(process.cwd(), `../src/nscreg.Server/appsettings.${env}.json`);
+          const filename = path.resolve(process.cwd(), `.../src/nscreg.Server/appsettings.${env}.json`);
           try {
             fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' });
           } catch (err) {
@@ -237,7 +237,7 @@ tasks.set('build', () => {
   //     const config = global.DEBUG ? 'Debug' : 'Release'
   //     const args = [
   //       'publish',
-  //       path.resolve(__dirname, '../src/nscreg.Server'),
+  //       path.resolve(__dirname, '.../src/nscreg.Server'),
   //       '-o',
   //       path.resolve(__dirname, '../build'),
   //       '-f',
@@ -311,7 +311,7 @@ tasks.set('start', () => {
           // Launch ASP.NET Core server after the initial bundling is complete
           if (++count === 1) {
             const options = {
-              cwd: path.resolve(__dirname, '../src/nscreg.Server/'),
+              cwd: path.resolve(__dirname, '.../src/nscreg.Server/'),
               stdio: ['ignore', 'pipe', 'inherit'],
               env: { ...process.env, ASPNETCORE_ENVIRONMENT: 'Development' },
             }
