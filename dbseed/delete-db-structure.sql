@@ -8,9 +8,11 @@ SELECT sql_saga.drop_era('public.enterprise');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
 
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
 
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
 
@@ -30,6 +32,16 @@ DROP FUNCTION admin.upsert_region_7_levels();
 DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
+
+DROP VIEW public.legal_unit_current;
+DROP VIEW public.legal_unit_custom_view;
+DROP FUNCTION admin.upsert_legal_unit_custom_view();
+DROP FUNCTION admin.delete_stale_legal_unit_custom_view();
+
+--DROP VIEW public.establishment_current;
+DROP VIEW public.establishment_custom_view;
+DROP FUNCTION admin.upsert_establishment_custom_view();
+DROP FUNCTION admin.delete_stale_establishment_custom_view();
 
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');

@@ -815,9 +815,12 @@ CREATE TABLE public.legal_unit (
     unit_size_id integer,
     foreign_participation_id integer,
     data_source_classification_id integer,
-    enterprise_id integer
+    enterprise_id integer,
+    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
+CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(valid_to) WHERE valid_to = 'infinity';
+CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 
 
 --
@@ -849,19 +852,22 @@ CREATE TABLE public.establishment (
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
-    free_econ_zone boolean NOT NULL,
+    free_econ_zone boolean,
     notes text,
     sector_code_id integer,
     reorg_date timestamp with time zone,
     reorg_references integer,
     reorg_type_id integer,
     edit_by_user_id character varying(100) NOT NULL,
-    edit_comment character varying(500),
+    edit_comment character varying(500) NOT NULL,
     unit_size_id integer,
     data_source_classification_id integer,
-    enterprise_id integer
+    enterprise_id integer,
+    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
+CREATE INDEX establishment_valid_to_idx ON public.establishment(valid_to) WHERE valid_to = 'infinity';
+CREATE INDEX establishment_active_idx ON public.establishment(active);
 
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
@@ -3401,6 +3407,390 @@ SET LOCAL client_min_messages TO INFO;
 
 \copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
+
+-- View for current information about a legal unit, support update and delete.
+CREATE VIEW public.legal_unit_current
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.legal_unit
+WHERE valid_from >= statement_timestamp()
+  AND statement_timestamp() <= valid_to
+  AND active
+  ;
+
+--CREATE FUNCTION admin.upsert_legal_unit_current()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--    WITH parent AS (
+--        SELECT id
+--        FROM public.region
+--        WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
+--    )
+--    INSERT INTO public.region (path, parent_id, name, active, updated_at)
+--    VALUES (NEW.path, (SELECT id FROM parent), NEW.name, true, statement_timestamp())
+--    ON CONFLICT (path)
+--    DO UPDATE SET
+--        parent_id = (SELECT id FROM parent),
+--        name = EXCLUDED.name,
+--        updated_at = statement_timestamp()
+--    WHERE region.id = EXCLUDED.id;
+--    RETURN NULL;
+--END;
+--$$ LANGUAGE plpgsql;
+--
+---- Create function for deleting stale countries
+--CREATE FUNCTION admin.delete_stale_legal_unit_current()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--    DELETE FROM public.region
+--    WHERE updated_at < statement_timestamp() AND active = false;
+--    RETURN NULL;
+--END;
+--$$ LANGUAGE plpgsql;
+--
+---- Create triggers for the view
+--CREATE TRIGGER upsert_legal_unit_current
+--INSTEAD OF INSERT ON public.legal_unit_current
+--FOR EACH ROW
+--EXECUTE FUNCTION admin.upsert_legal_unit_current();
+--
+--CREATE TRIGGER delete_stale_legal_unit_current
+--AFTER INSERT ON public.legal_unit_current
+--FOR EACH STATEMENT
+--EXECUTE FUNCTION admin.delete_stale_legal_unit_current();
+
+
+-- View for insert of Norwegian Legal Unit (Hovedenhet)
+CREATE VIEW public.legal_unit_custom_view
+WITH (security_invoker=on) AS
+SELECT '' AS "organisasjonsnummer"
+     , '' AS "navn"
+     , '' AS "organisasjonsform.kode"
+     , '' AS "organisasjonsform.beskrivelse"
+     , '' AS "naeringskode1.kode"
+     , '' AS "naeringskode1.beskrivelse"
+     , '' AS "naeringskode2.kode"
+     , '' AS "naeringskode2.beskrivelse"
+     , '' AS "naeringskode3.kode"
+     , '' AS "naeringskode3.beskrivelse"
+     , '' AS "hjelpeenhetskode.kode"
+     , '' AS "hjelpeenhetskode.beskrivelse"
+     , '' AS "harRegistrertAntallAnsatte"
+     , '' AS "antallAnsatte"
+     , '' AS "hjemmeside"
+     , '' AS "postadresse.adresse"
+     , '' AS "postadresse.poststed"
+     , '' AS "postadresse.postnummer"
+     , '' AS "postadresse.kommune"
+     , '' AS "postadresse.kommunenummer"
+     , '' AS "postadresse.land"
+     , '' AS "postadresse.landkode"
+     , '' AS "forretningsadresse.adresse"
+     , '' AS "forretningsadresse.poststed"
+     , '' AS "forretningsadresse.postnummer"
+     , '' AS "forretningsadresse.kommune"
+     , '' AS "forretningsadresse.kommunenummer"
+     , '' AS "forretningsadresse.land"
+     , '' AS "forretningsadresse.landkode"
+     , '' AS "institusjonellSektorkode.kode"
+     , '' AS "institusjonellSektorkode.beskrivelse"
+     , '' AS "sisteInnsendteAarsregnskap"
+     , '' AS "registreringsdatoenhetsregisteret"
+     , '' AS "stiftelsesdato"
+     , '' AS "registrertIMvaRegisteret"
+     , '' AS "frivilligMvaRegistrertBeskrivelser"
+     , '' AS "registrertIFrivillighetsregisteret"
+     , '' AS "registrertIForetaksregisteret"
+     , '' AS "registrertIStiftelsesregisteret"
+     , '' AS "konkurs"
+     , '' AS "konkursdato"
+     , '' AS "underAvvikling"
+     , '' AS "underAvviklingDato"
+     , '' AS "underTvangsavviklingEllerTvangsopplosning"
+     , '' AS "tvangsopplostPgaManglendeDagligLederDato"
+     , '' AS "tvangsopplostPgaManglendeRevisorDato"
+     , '' AS "tvangsopplostPgaManglendeRegnskapDato"
+     , '' AS "tvangsopplostPgaMangelfulltStyreDato"
+     , '' AS "tvangsavvikletPgaManglendeSlettingDato"
+     , '' AS "overordnetEnhet"
+     , '' AS "maalform"
+     , '' AS "vedtektsdato"
+     , '' AS "vedtektsfestetFormaal"
+     , '' AS "aktivitet"
+     ;
+
+-- Create function for upsert operation on country
+CREATE FUNCTION admin.upsert_legal_unit_custom_view()
+RETURNS TRIGGER AS $$
+DECLARE
+  result RECORD;
+BEGIN
+    WITH su AS (
+        SELECT *
+        FROM statbus_user
+        LIMIT 1
+        --WHERE uuid = auth.uid()
+    ), upsert_data AS (
+        SELECT
+          NEW."organisasjonsnummer" AS tax_reg_ident
+        , statement_timestamp() AS tax_reg_date
+        , '2023-01-01'::date AS valid_from
+        , 'infinity'::date AS valid_to
+        , CASE NEW."stiftelsesdato"
+          WHEN NULL THEN NULL
+          WHEN '' THEN NULL
+          ELSE NEW."stiftelsesdato"::date
+          END AS birth_date
+        , NEW."navn" AS name
+        , true AS active
+        , statement_timestamp() AS seen_in_import_at
+        , 'Batch upload' AS edit_comment
+        , (SELECT id FROM su) AS edit_by_user_id
+    ),
+    update_outcome AS (
+        UPDATE public.legal_unit
+        SET tax_reg_date = upsert_data.tax_reg_date
+          , valid_from = upsert_data.valid_from
+          , valid_to = upsert_data.valid_to
+          , birth_date = upsert_data.birth_date
+          , name = upsert_data.name
+          , active = upsert_data.active
+          , seen_in_import_at = upsert_data.seen_in_import_at
+          , edit_comment = upsert_data.edit_comment
+          , edit_by_user_id = upsert_data.edit_by_user_id
+        FROM upsert_data
+        WHERE legal_unit.tax_reg_ident = upsert_data.tax_reg_ident
+          AND legal_unit.valid_to = 'infinity'::date
+        RETURNING 'update'::text AS action, legal_unit.id
+    ),
+    insert_outcome AS (
+        INSERT INTO public.legal_unit
+          ( tax_reg_ident
+          , tax_reg_date
+          , valid_from
+          , valid_to
+          , birth_date
+          , name
+          , active
+          , seen_in_import_at
+          , edit_comment
+          , edit_by_user_id
+          )
+        SELECT
+            upsert_data.tax_reg_ident
+          , upsert_data.tax_reg_date
+          , upsert_data.valid_from
+          , upsert_data.valid_to
+          , upsert_data.birth_date
+          , upsert_data.name
+          , upsert_data.active
+          , upsert_data.seen_in_import_at
+          , upsert_data.edit_comment
+          , upsert_data.edit_by_user_id
+        FROM upsert_data
+        WHERE NOT EXISTS (SELECT id FROM update_outcome LIMIT 1)
+        RETURNING 'insert'::text AS action, id
+    ), combined AS (
+      SELECT * FROM update_outcome UNION ALL SELECT * FROM insert_outcome
+    )
+    SELECT * INTO result FROM combined;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create function for deleting stale countries
+CREATE FUNCTION admin.delete_stale_legal_unit_custom_view()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH su AS (
+        SELECT *
+        FROM statbus_user
+        LIMIT 1
+        --WHERE uuid = auth.uid()
+    )
+    UPDATE public.legal_unit
+    SET valid_to = statement_timestamp()
+      , edit_comment = 'Absent from upload'
+      , edit_by_user_id = (SELECT id FROM su)
+      , active = false
+    WHERE seen_in_import_at < statement_timestamp();
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for the view
+CREATE TRIGGER upsert_legal_unit_custom_view
+INSTEAD OF INSERT ON public.legal_unit_custom_view
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_legal_unit_custom_view();
+
+CREATE TRIGGER delete_stale_legal_unit_custom_view
+AFTER INSERT ON public.legal_unit_custom_view
+FOR EACH STATEMENT
+EXECUTE FUNCTION admin.delete_stale_legal_unit_custom_view();
+
+
+-- time psql <<EOS
+-- \copy public.legal_unit_custom_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- EOS
+
+
+
+-- View for insert of Norwegian Legal Unit (Underenhet)
+CREATE VIEW public.establishment_custom_view
+WITH (security_invoker=on) AS
+SELECT '' AS "organisasjonsnummer"
+     , '' AS "navn"
+     , '' AS "organisasjonsform.kode"
+     , '' AS "organisasjonsform.beskrivelse"
+     , '' AS "naeringskode1.kode"
+     , '' AS "naeringskode1.beskrivelse"
+     , '' AS "naeringskode2.kode"
+     , '' AS "naeringskode2.beskrivelse"
+     , '' AS "naeringskode3.kode"
+     , '' AS "naeringskode3.beskrivelse"
+     , '' AS "hjelpeenhetskode.kode"
+     , '' AS "hjelpeenhetskode.beskrivelse"
+     , '' AS "harRegistrertAntallAnsatte"
+     , '' AS "antallAnsatte"
+     , '' AS "hjemmeside"
+     , '' AS "postadresse.adresse"
+     , '' AS "postadresse.poststed"
+     , '' AS "postadresse.postnummer"
+     , '' AS "postadresse.kommune"
+     , '' AS "postadresse.kommunenummer"
+     , '' AS "postadresse.land"
+     , '' AS "postadresse.landkode"
+     , '' AS "beliggenhetsadresse.adresse"
+     , '' AS "beliggenhetsadresse.poststed"
+     , '' AS "beliggenhetsadresse.postnummer"
+     , '' AS "beliggenhetsadresse.kommune"
+     , '' AS "beliggenhetsadresse.kommunenummer"
+     , '' AS "beliggenhetsadresse.land"
+     , '' AS "beliggenhetsadresse.landkode"
+     , '' AS "registreringsdatoIEnhetsregisteret"
+     , '' AS "frivilligMvaRegistrertBeskrivelser"
+     , '' AS "registrertIMvaregisteret"
+     , '' AS "oppstartsdato"
+     , '' AS "datoEierskifte"
+     , '' AS "overordnetEnhet"
+     , '' AS "nedleggelsesdato"
+     ;
+
+-- Create function for upsert operation on country
+CREATE FUNCTION admin.upsert_establishment_custom_view()
+RETURNS TRIGGER AS $$
+DECLARE
+  result RECORD;
+BEGIN
+    WITH su AS (
+        SELECT *
+        FROM statbus_user
+        LIMIT 1
+        --WHERE uuid = auth.uid()
+    ), upsert_data AS (
+        SELECT
+          NEW."organisasjonsnummer" AS tax_reg_ident
+        , statement_timestamp() AS tax_reg_date
+        , '2023-01-01'::date AS valid_from
+        , 'infinity'::date AS valid_to
+        , CASE NEW."oppstartsdato"
+          WHEN NULL THEN NULL
+          WHEN '' THEN NULL
+          ELSE NEW."oppstartsdato"::date
+          END AS birth_date
+        , NEW."navn" AS name
+        , true AS active
+        , statement_timestamp() AS seen_in_import_at
+        , 'Batch upload' AS edit_comment
+        , (SELECT id FROM su) AS edit_by_user_id
+    ),
+    update_outcome AS (
+        UPDATE public.establishment
+        SET tax_reg_date = upsert_data.tax_reg_date
+          , valid_from = upsert_data.valid_from
+          , valid_to = upsert_data.valid_to
+          , birth_date = upsert_data.birth_date
+          , name = upsert_data.name
+          , active = upsert_data.active
+          , seen_in_import_at = upsert_data.seen_in_import_at
+          , edit_comment = upsert_data.edit_comment
+          , edit_by_user_id = upsert_data.edit_by_user_id
+        FROM upsert_data
+        WHERE establishment.tax_reg_ident = upsert_data.tax_reg_ident
+          AND establishment.valid_to = 'infinity'::date
+        RETURNING 'update'::text AS action, establishment.id
+    ),
+    insert_outcome AS (
+        INSERT INTO public.establishment
+          ( tax_reg_ident
+          , tax_reg_date
+          , valid_from
+          , valid_to
+          , birth_date
+          , name
+          , active
+          , seen_in_import_at
+          , edit_comment
+          , edit_by_user_id
+          )
+        SELECT
+            upsert_data.tax_reg_ident
+          , upsert_data.tax_reg_date
+          , upsert_data.valid_from
+          , upsert_data.valid_to
+          , upsert_data.birth_date
+          , upsert_data.name
+          , upsert_data.active
+          , upsert_data.seen_in_import_at
+          , upsert_data.edit_comment
+          , upsert_data.edit_by_user_id
+        FROM upsert_data
+        WHERE NOT EXISTS (SELECT id FROM update_outcome LIMIT 1)
+        RETURNING 'insert'::text AS action, id
+    ), combined AS (
+      SELECT * FROM update_outcome UNION ALL SELECT * FROM insert_outcome
+    )
+    SELECT * INTO result FROM combined;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create function for deleting stale countries
+CREATE FUNCTION admin.delete_stale_establishment_custom_view()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH su AS (
+        SELECT *
+        FROM statbus_user
+        LIMIT 1
+        --WHERE uuid = auth.uid()
+    )
+    UPDATE public.establishment
+    SET valid_to = statement_timestamp()
+      , edit_comment = 'Absent from upload'
+      , edit_by_user_id = (SELECT id FROM su)
+      , active = false
+    WHERE seen_in_import_at < statement_timestamp();
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for the view
+CREATE TRIGGER upsert_establishment_custom_view
+INSTEAD OF INSERT ON public.establishment_custom_view
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_establishment_custom_view();
+
+CREATE TRIGGER delete_stale_establishment_custom_view
+AFTER INSERT ON public.establishment_custom_view
+FOR EACH STATEMENT
+EXECUTE FUNCTION admin.delete_stale_establishment_custom_view();
+
+-- time psql <<EOS
+-- \copy public.establishment_custom_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- EOS
+
 -- Add security.
 
 CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
@@ -3545,13 +3935,19 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
+
 SELECT sql_saga.add_era('public.enterprise', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['id']);
 SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
+
 SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_reg_ident']);
+
 SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
+
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;
 TABLE sql_saga.foreign_keys;
