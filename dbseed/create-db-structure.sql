@@ -3305,7 +3305,7 @@ BEGIN
     FOR rec IN
         SELECT format(E'\t%s{\n%s\n}',
             c.relname,
-            string_agg(format(E'\t\t~%s~ %s',
+            string_agg(format(E'\t\t%s %s',
                 format_type(t.oid, a.atttypmod),
                 a.attname
             ), E'\n')
