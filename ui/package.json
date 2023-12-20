@@ -13,7 +13,7 @@
 		"format": "prettier --plugin-search-dir . --write .",
 		"test:integration": "playwright test",
 		"test:unit": "vitest",
-		"deploy": "rsync -av --del build/ statbus_dev:public_html/"
+		"deploy": "rsync -av --del build/ statbus_dev@libu.statbus.org:public_html/"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",
