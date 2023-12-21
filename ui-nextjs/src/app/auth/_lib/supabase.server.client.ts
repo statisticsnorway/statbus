@@ -1,6 +1,6 @@
-import {cookies} from "next/dist/client/components/headers"
 import {createServerClient, type CookieOptions} from "@supabase/ssr";
 import {NextRequest, NextResponse} from "next/server";
+import {cookies} from "next/headers";
 
 export const createClient = () => {
   const cookie = cookies()

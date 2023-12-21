@@ -1,4 +1,5 @@
 import React from "react";
+import {login} from "@/app/auth/_lib/actions";
 
 export default function LoginPage() {
 
@@ -16,7 +17,7 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <form className="group space-y-6" method="POST" action="login/api" noValidate>
+        <form className="group space-y-6" action={login} noValidate>
           <div>
             <label htmlFor="email" className="block text-sm font-medium leading-6 text-gray-900">
               Email address

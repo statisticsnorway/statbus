@@ -1,4 +1,5 @@
-import {createClient} from "@/app/auth/lib/supabase.server.client";
+import {createClient} from "@/app/auth/_lib/supabase.server.client";
+import {logout} from "@/app/auth/_lib/actions";
 
 export default async function ProfilePage() {
   const client = createClient()
@@ -12,7 +13,7 @@ export default async function ProfilePage() {
             <h3 className="text-base font-semibold leading-7 text-gray-900">Profile Information</h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-500">This is what the system knows about you</p>
           </div>
-          <form method="POST" action="/auth/api/logout">
+          <form action={logout}>
             <button
               type="submit"
               className="text-white bg-gray-800 hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium rounded-md text-sm px-5 py-2.5 me-2">
@@ -41,12 +42,12 @@ export default async function ProfilePage() {
                 className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{session?.user.phone || "N/A"}</dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-              <dt className="text-sm font-medium leading-6 text-gray-900">Email confirmed</dt>
+              <dt className="text-sm font-medium leading-6 text-gray-900">Last sign in</dt>
               <dd
                 className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{session?.user.last_sign_in_at}</dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-              <dt className="text-sm font-medium leading-6 text-gray-900">Last sign in</dt>
+              <dt className="text-sm font-medium leading-6 text-gray-900">Email confirmed</dt>
               <dd
                 className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{session?.user.email_confirmed_at}</dd>
             </div>
