@@ -91,6 +91,12 @@ DROP TYPE public.stat_type;
 DROP TYPE public.stat_frequency;
 DROP FUNCTION public.check_stat_for_unit_values;
 
+DROP TABLE public.custom_view_def_mapping;
+DROP TABLE public.custom_view_def_source_column;
+DROP TABLE public.custom_view_def;
+DROP TABLE public.custom_view_def_target_column;
+DROP TABLE public.custom_view_def_target_table;
+
 DROP TABLE public.establishment;
 DROP TABLE public.legal_unit;
 

@@ -3301,6 +3301,193 @@ ALTER TABLE ONLY public.region_role
     ADD CONSTRAINT fk_region_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
 
 
+--
+CREATE TABLE public.custom_view_def_target_table(
+    id serial PRIMARY KEY,
+    schema_name text NOT NULL,
+    table_name text NOT NULL,
+    name text UNIQUE NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    UNIQUE (schema_name, table_name)
+);
+INSERT INTO public.custom_view_def_target_table (schema_name,table_name, name)
+VALUES
+    ('public','legal_unit', 'Legal Unit')
+   ,('public','establishment', 'Establishment')
+   ,('public','enterprise', 'Enterprise')
+   ,('public','enterprise_group', 'Enterprise Group')
+   ;
+
+CREATE TABLE public.custom_view_def_target_column(
+    id serial PRIMARY KEY,
+    target_table_id int REFERENCES public.custom_view_def_target_table(id),
+    column_name text NOT NULL,
+    uniquely_identifying boolean NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+WITH cols AS (
+  SELECT tt.id AS target_table_id
+       , column_name
+       , data_type
+       , is_nullable
+       , column_name like '%_ident' AS uniquely_identifying
+       , ROW_NUMBER() OVER (PARTITION BY tt.id ORDER BY ordinal_position) AS priority
+  FROM information_schema.columns AS c
+  JOIN public.custom_view_def_target_table AS tt
+    ON c.table_schema = tt.schema_name
+    AND c.table_name = tt.table_name
+  ORDER BY ordinal_position
+) INSERT INTO public.custom_view_def_target_column(target_table_id, column_name, uniquely_identifying)
+  SELECT target_table_id, column_name, uniquely_identifying
+  FROM cols
+  ;
+
+CREATE TABLE public.custom_view_def(
+    id serial PRIMARY KEY,
+    target_table_id int REFERENCES public.custom_view_def_target_table(id),
+    slug text UNIQUE NOT NULL,
+    name text NOT NULL,
+    note text,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+CREATE TABLE public.custom_view_def_source_column(
+    id serial PRIMARY KEY,
+    custom_view_def_id int REFERENCES public.custom_view_def(id),
+    column_name text NOT NULL,
+    priority int NOT NULL, -- The ordering of the columns in the CSV file.
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+CREATE TABLE public.custom_view_def_mapping(
+    custom_view_def_id int REFERENCES public.custom_view_def(id),
+    source_column_id int REFERENCES public.custom_view_def_source_column(id),
+    target_column_id int REFERENCES public.custom_view_def_target_column(id),
+    priority int,
+    CONSTRAINT unique_source_column_mapping UNIQUE (custom_view_def_id, source_column_id),
+    CONSTRAINT unique_target_column_mapping UNIQUE (custom_view_def_id, target_column_id),
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+
+WITH tt AS (
+    SELECT * FROM public.custom_view_def_target_table
+    WHERE schema_name = 'public'
+      AND table_name = 'legal_unit'
+), def AS (
+    INSERT INTO public.custom_view_def(target_table_id, slug, name, note)
+    SELECT id, 'brreg_hovedenhet', 'Import of BRREG Hovedenhet', 'Easy upload of the CSV file found at brreg.'
+    FROM tt
+    RETURNING *
+), source(priority, column_name) AS (
+VALUES (1, 'organisasjonsnummer')
+    , ( 2, 'navn')
+    , ( 3, 'organisasjonsform.kode')
+    , ( 4, 'organisasjonsform.beskrivelse')
+    , ( 5, 'naeringskode1.kode')
+    , ( 6, 'naeringskode1.beskrivelse')
+    , ( 7, 'naeringskode2.kode')
+    , ( 8, 'naeringskode2.beskrivelse')
+    , ( 9, 'naeringskode3.kode')
+    , (10, 'naeringskode3.beskrivelse')
+    , (11, 'hjelpeenhetskode.kode')
+    , (12, 'hjelpeenhetskode.beskrivelse')
+    , (13, 'harRegistrertAntallAnsatte')
+    , (14, 'antallAnsatte')
+    , (15, 'hjemmeside')
+    , (16, 'postadresse.adresse')
+    , (17, 'postadresse.poststed')
+    , (18, 'postadresse.postnummer')
+    , (19, 'postadresse.kommune')
+    , (20, 'postadresse.kommunenummer')
+    , (21, 'postadresse.land')
+    , (22, 'postadresse.landkode')
+    , (23, 'forretningsadresse.adresse')
+    , (24, 'forretningsadresse.poststed')
+    , (25, 'forretningsadresse.postnummer')
+    , (26, 'forretningsadresse.kommune')
+    , (27, 'forretningsadresse.kommunenummer')
+    , (28, 'forretningsadresse.land')
+    , (29, 'forretningsadresse.landkode')
+    , (30, 'institusjonellSektorkode.kode')
+    , (31, 'institusjonellSektorkode.beskrivelse')
+    , (32, 'sisteInnsendteAarsregnskap')
+    , (33, 'registreringsdatoenhetsregisteret')
+    , (34, 'stiftelsesdato')
+    , (35, 'registrertIMvaRegisteret')
+    , (36, 'frivilligMvaRegistrertBeskrivelser')
+    , (37, 'registrertIFrivillighetsregisteret')
+    , (38, 'registrertIForetaksregisteret')
+    , (39, 'registrertIStiftelsesregisteret')
+    , (40, 'konkurs')
+    , (41, 'konkursdato')
+    , (42, 'underAvvikling')
+    , (43, 'underAvviklingDato')
+    , (44, 'underTvangsavviklingEllerTvangsopplosning')
+    , (45, 'tvangsopplostPgaManglendeDagligLederDato')
+    , (46, 'tvangsopplostPgaManglendeRevisorDato')
+    , (47, 'tvangsopplostPgaManglendeRegnskapDato')
+    , (48, 'tvangsopplostPgaMangelfulltStyreDato')
+    , (49, 'tvangsavvikletPgaManglendeSlettingDato')
+    , (50, 'overordnetEnhet')
+    , (51, 'maalform')
+    , (52, 'vedtektsdato')
+    , (53, 'vedtektsfestetFormaal')
+    , (54, 'aktivitet')
+), inserted_source_column AS (
+    INSERT INTO public.custom_view_def_source_column (custom_view_def_id,column_name, priority)
+    SELECT def.id, source.column_name, source.priority
+    FROM def, source
+   RETURNING *
+), mapping AS (
+    SELECT def.id
+         , (SELECT id FROM inserted_source_column
+            WHERE column_name = 'organisasjonsnummer'
+            )
+         , (SELECT id
+            FROM public.custom_view_def_target_column
+            WHERE column_name = 'tax_reg_ident'
+              AND target_table_id = def.target_table_id
+            )
+    FROM def
+    UNION ALL
+    SELECT def.id
+         , (SELECT id FROM inserted_source_column
+            WHERE column_name = 'stiftelsesdato'
+            )
+         , (SELECT id
+            FROM public.custom_view_def_target_column
+            WHERE column_name = 'birth_date'
+              AND target_table_id = def.target_table_id
+            )
+    FROM def
+    UNION ALL
+    SELECT def.id
+         , (SELECT id FROM inserted_source_column
+            WHERE column_name = 'navn'
+            )
+         , (SELECT id
+            FROM public.custom_view_def_target_column
+            WHERE column_name = 'name'
+              AND target_table_id = def.target_table_id
+            )
+    FROM def
+)
+INSERT INTO public.custom_view_def_mapping
+    ( custom_view_def_id
+    , source_column_id
+    , target_column_id
+    )
+SELECT * FROM mapping;
+;
+
+
+--
+
+
 CREATE OR REPLACE FUNCTION public.generate_mermaid_er_diagram()
 RETURNS text AS $$
 DECLARE
