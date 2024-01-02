@@ -144,6 +144,11 @@ DROP FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.s
 DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer);
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
+DROP TYPE public.data_source_priority;
+DROP TYPE public.allowed_operations;
+DROP TYPE public.stat_unit_type;
+DROP TYPE public.data_source_upload_type;
+
 DROP TYPE public.statbus_role_type;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
