@@ -5,7 +5,7 @@ import {RadioGroup, RadioGroupItem} from "@/components/ui/radio-group"
 import {Button} from "@/components/ui/button";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage,} from "@/components/ui/form"
 import {useForm} from "react-hook-form";
-import {setCategoryStandard} from "@/app/getting-started/_lib/actions";
+import {setCategoryStandard} from "@/app/getting-started/activity-standard/actions";
 
 interface CategoryStandardFormProps {
   standards: { id: string, name: string }[]
@@ -36,10 +36,7 @@ export default function CategoryStandardForm({standards}: CategoryStandardFormPr
           <FormItem className="space-y-6">
             <FormLabel className="text-lg">Select category standard</FormLabel>
             <FormControl>
-              <RadioGroup
-                onValueChange={field.onChange}
-                className="flex flex-col space-y-1"
-              >
+              <RadioGroup onValueChange={field.onChange} className="flex flex-col space-y-1">
                 {
                   standards.map(({id, name}) => (
                     <FormItem className="flex items-center space-x-3 space-y-0" key={id}>

@@ -1,4 +1,4 @@
-import {createClient} from "@/app/auth/_lib/supabase.server.client";
+import {createClient} from "@/app/login/supabase.server.client";
 
 export default async function Home() {
   const client = createClient()

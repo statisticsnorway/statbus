@@ -1,6 +1,6 @@
 "use server"
 import React from "react";
-import {login} from "@/app/auth/_lib/actions";
+import {login} from "@/app/login/actions";
 
 export default async function LoginPage() {
 

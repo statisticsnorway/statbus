@@ -1,5 +1,5 @@
 'use server'
-import {createClient} from "@/app/auth/_lib/supabase.server.client";
+import {createClient} from "@/app/login/supabase.server.client";
 import {redirect} from "next/navigation";
 
 export async function login(formData: FormData) {
@@ -20,5 +20,5 @@ export async function login(formData: FormData) {
 export async function logout() {
   const supabaseClient = createClient()
   await supabaseClient.auth.signOut()
-  redirect("/auth/login")
+  redirect("/login")
 }

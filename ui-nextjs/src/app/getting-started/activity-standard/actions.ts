@@ -1,5 +1,5 @@
 "use server";
-import {createClient} from "@/app/auth/_lib/supabase.server.client";
+import {createClient} from "@/app/login/supabase.server.client";
 import {revalidatePath} from "next/cache";
 import {redirect} from "next/navigation";
 
@@ -12,10 +12,3 @@ export async function setCategoryStandard(formData: FormData) {
   redirect('/getting-started/upload-regions')
 }
 
-export async function uploadRegions(formData: FormData) {
-  "use server";
-  // const client = createClient()
-  // const id = formData.get('activity_category_standard_id')
-  // await client.from('settings').insert({activity_category_standard_id: id})
-  console.log(formData.get("regions"))
-}
