@@ -33,7 +33,7 @@ export default function CategoryStandardForm({standards}: CategoryStandardFormPr
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField control={form.control} name="activity_category_standard_id" render={({field}) => (
-          <FormItem className="space-y-3">
+          <FormItem className="space-y-6">
             <FormLabel className="text-lg">Select category standard</FormLabel>
             <FormControl>
               <RadioGroup
