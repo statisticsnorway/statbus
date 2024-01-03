@@ -1,32 +1,23 @@
 import {createClient} from "@/app/auth/_lib/supabase.server.client";
-import CategoryStandardForm from "@/app/getting-started/_lib/CategoryStandardForm";
+import React from "react";
+import Link from "next/link";
 
 export default async function Home() {
   const client = createClient()
-
-  const {data: settings} = await client.from('settings')
-    .select('id, activity_category_standard(id,name)')
 
   const {data: standards} = await client.from('activity_category_standard')
     .select('id, name')
 
   return (
-    <main className="flex flex-col items-center p-24">
-      {
-        !settings?.length && (
-          // @ts-ignore
-          <CategoryStandardForm settings={settings} standards={standards} />
-        )
-      }
+    <div className="text-center">
+      <h1 className="mb-6 font-medium text-lg">Welcome!</h1>
+      <p className="mb-6">
+        In this onboarding guide we will try to help you get going with Statbus.
+        We will assist you in selecting an activity standard and you will get
+        to upload your first region data set.
+      </p>
 
-      {
-        settings?.length ? (
-          <div>
-            <h2>Settings</h2>
-            <pre>{JSON.stringify(settings, null, 2)}</pre>
-          </div>
-        ) : null
-      }
-    </main>
+      <Link className="underline" href="/getting-started/activity-standard">Start</Link>
+    </div>
   )
 }

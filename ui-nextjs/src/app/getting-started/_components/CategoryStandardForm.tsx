@@ -31,10 +31,10 @@ export default function CategoryStandardForm({standards}: CategoryStandardFormPr
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField control={form.control} name="activity_category_standard_id" render={({field}) => (
           <FormItem className="space-y-3">
-            <FormLabel>Select category standard</FormLabel>
+            <FormLabel className="text-lg">Select category standard</FormLabel>
             <FormControl>
               <RadioGroup
                 onValueChange={field.onChange}
@@ -46,7 +46,7 @@ export default function CategoryStandardForm({standards}: CategoryStandardFormPr
                       <FormControl>
                         <RadioGroupItem value={id} id={id}/>
                       </FormControl>
-                      <FormLabel className="font-normal">
+                      <FormLabel className="text-md font-normal">
                         {name}
                       </FormLabel>
                     </FormItem>
