@@ -466,3 +466,6 @@ src/nscreg.Server/wwwroot/*
 uploads
 src/nscreg.Server.DataUploadSvc/appsettings.json
 key-*.xml
+
+# Environment variables for statbus dev
+.env-dev.statbus.org.sh
