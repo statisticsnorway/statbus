@@ -1086,8 +1086,9 @@ CREATE TABLE public.region (
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     name text NOT NULL,
-    active boolean NOT NULL DEFAULT true,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
+    CONSTRAINT "parent_id is required for child"
+      CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL)
 );
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 
@@ -1101,8 +1102,8 @@ BEGIN
         FROM public.region
         WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
-    INSERT INTO public.region (path, parent_id, name, active, updated_at)
-    VALUES (NEW.path, (SELECT id FROM parent), NEW.name, true, statement_timestamp())
+    INSERT INTO public.region (path, parent_id, name, updated_at)
+    VALUES (NEW.path, (SELECT id FROM parent), NEW.name, statement_timestamp())
     ON CONFLICT (path)
     DO UPDATE SET
         parent_id = (SELECT id FROM parent),
@@ -1118,7 +1119,7 @@ CREATE FUNCTION admin.delete_stale_region()
 RETURNS TRIGGER AS $$
 BEGIN
     DELETE FROM public.region
-    WHERE updated_at < statement_timestamp() AND active = false;
+    WHERE updated_at < statement_timestamp();
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
