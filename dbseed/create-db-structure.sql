@@ -824,7 +824,7 @@ CREATE TABLE public.legal_unit (
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
-CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(valid_to) WHERE valid_to = 'infinity';
+CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 
 
@@ -871,7 +871,7 @@ CREATE TABLE public.establishment (
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
-CREATE INDEX establishment_valid_to_idx ON public.establishment(valid_to) WHERE valid_to = 'infinity';
+CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
