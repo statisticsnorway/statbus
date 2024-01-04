@@ -81,6 +81,7 @@ files = [
 ]
 
 csv_data = CSV.build do |csv_builder|
+  csv_builder.row(["path","name"])
   files.each do |f|
     filename = f.url.split('/').last.split('?').first
 
