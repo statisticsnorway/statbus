@@ -18,6 +18,7 @@ export async function setCategoryStandard(formData: FormData) {
   }
 
   try {
+    // TODO: this should be an upsert request (separate view) but this is as of yet not implemented
     await client.from('settings').insert({activity_category_standard_id: activityCategoryStandardId})
     revalidatePath('/getting-started')
   } catch (error) {

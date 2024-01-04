@@ -7,6 +7,9 @@ export default async function Home() {
   const {data: standards} = await client.from('activity_category_standard')
     .select('id, name')
 
+  const {data: settings} = await client.from('settings')
+    .select('id, activity_category_standard(id,name)')
+
   // @ts-ignore
-  return <CategoryStandardForm standards={standards}/>
+  return <CategoryStandardForm standards={standards} settings={settings}/>
 }

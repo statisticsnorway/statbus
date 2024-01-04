@@ -9,6 +9,7 @@ import {setCategoryStandard} from "@/app/getting-started/activity-standard/actio
 
 interface CategoryStandardFormProps {
   standards: { id: string, name: string }[]
+  settings: { id: string, activity_category_standard: { id: string, name: string } }[]
 }
 
 const FormSchema = z.object({
@@ -17,7 +18,7 @@ const FormSchema = z.object({
   }),
 })
 
-export default function CategoryStandardForm({standards}: CategoryStandardFormProps) {
+export default function CategoryStandardForm({standards, settings}: CategoryStandardFormProps) {
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -36,7 +37,7 @@ export default function CategoryStandardForm({standards}: CategoryStandardFormPr
           <FormItem className="space-y-6">
             <FormLabel className="text-lg">Select category standard</FormLabel>
             <FormControl>
-              <RadioGroup onValueChange={field.onChange} className="flex flex-col space-y-1">
+              <RadioGroup onValueChange={field.onChange} defaultValue={settings?.[0]?.activity_category_standard?.id} className="flex flex-col space-y-1">
                 {
                   standards.map(({id, name}) => (
                     <FormItem className="flex items-center space-x-3 space-y-0" key={id}>
