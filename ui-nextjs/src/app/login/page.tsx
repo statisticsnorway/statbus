@@ -5,7 +5,7 @@ import {login} from "@/app/login/actions";
 export default async function LoginPage() {
 
   return (
-    <div className="px-6 py-24 lg:px-8">
+    <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <img
           className="mx-auto h-10 w-auto"
@@ -74,6 +74,6 @@ export default async function LoginPage() {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   )
 }

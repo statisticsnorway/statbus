@@ -6,9 +6,24 @@ import {redirect} from "next/navigation";
 export async function setCategoryStandard(formData: FormData) {
   "use server";
   const client = createClient()
-  const id = formData.get('activity_category_standard_id')
-  await client.from('settings').insert({activity_category_standard_id: id})
-  revalidatePath('/getting-started')
+
+  const activityCategoryStandardIdFormEntry = formData.get('activity_category_standard_id')
+  if (!activityCategoryStandardIdFormEntry) {
+    return {error: 'No activity category standard provided'}
+  }
+
+  const activityCategoryStandardId = parseInt(activityCategoryStandardIdFormEntry.toString(), 10);
+  if (isNaN(activityCategoryStandardId)) {
+    return {error: 'Invalid activity category standard provided'}
+  }
+
+  try {
+    await client.from('settings').insert({activity_category_standard_id: activityCategoryStandardId})
+    revalidatePath('/getting-started')
+  } catch (error) {
+    return {error: "Error setting category standard"}
+  }
+
   redirect('/getting-started/upload-regions')
 }
 
