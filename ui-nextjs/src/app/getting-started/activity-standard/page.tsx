@@ -1,4 +1,4 @@
-import {createClient} from "@/app/login/supabase.server.client";
+import {createClient} from "@/lib/supabase.server.client";
 import CategoryStandardForm from "@/app/getting-started/activity-standard/_components/CategoryStandardForm";
 
 export default async function Home() {

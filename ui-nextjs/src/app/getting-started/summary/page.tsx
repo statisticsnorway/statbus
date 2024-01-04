@@ -1,7 +1,7 @@
 import
   React from "react";
 import Link from "next/link";
-import {createClient} from "@/app/login/supabase.server.client";
+import {createClient} from "@/lib/supabase.server.client";
 
 export default async function OnboardingCompleted() {
 

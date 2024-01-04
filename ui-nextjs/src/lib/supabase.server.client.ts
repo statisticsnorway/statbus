@@ -1,3 +1,4 @@
+"use server";
 import {createServerClient, type CookieOptions} from "@supabase/ssr";
 import {NextRequest, NextResponse} from "next/server";
 import {cookies} from "next/headers";

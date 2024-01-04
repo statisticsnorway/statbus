@@ -1,4 +1,4 @@
-import {createClient} from "@/app/login/supabase.server.client";
+import {createClient} from "@/lib/supabase.server.client";
 import {logout} from "@/app/login/actions";
 
 export default async function ProfilePage() {
