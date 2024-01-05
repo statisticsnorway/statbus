@@ -12,7 +12,12 @@ export default async function Home() {
     const {data: settings} = await client.from('settings')
         .select('id, activity_category_standard(id,name)')
 
-    return <div className="space-y-12">
+    return <section className="space-y-8">
+        <h1 className="text-xl text-center">Select Activity Category Standard</h1>
+        <p>
+            Select the activity category standard that best fit you location. If you're not sure
+            which standard is the best fit, you can read more about the standards below.
+        </p>
         <CategoryStandardForm standards={standards} settings={settings}/>
         <Accordion type="single" collapsible>
             <AccordionItem value="Activity Category Standard">
@@ -49,5 +54,5 @@ export default async function Home() {
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
-    </div>
+    </section>
 }

@@ -5,6 +5,7 @@ import React from "react";
 import NavBar from "@/components/NavBar";
 import {cn} from "@/lib/utils";
 import {AdminCommand} from "@/components/AdminCommand";
+import {Toaster} from "@/components/ui/toaster";
 
 const inter = Inter({subsets: ['latin']})
 
@@ -20,6 +21,7 @@ export default function RootLayout({children}: { children: React.ReactNode }) {
         <NavBar/>
         {children}
         <AdminCommand />
+        <Toaster />
       </body>
     </html>
   )

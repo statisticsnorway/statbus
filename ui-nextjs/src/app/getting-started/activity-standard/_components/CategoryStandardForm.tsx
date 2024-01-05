@@ -36,10 +36,10 @@ export default function CategoryStandardForm({standards, settings}: CategoryStan
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 bg-green-100 p-6">
                 <FormField control={form.control} name="activity_category_standard_id" render={({field}) => (
-                    <FormItem className="space-y-6">
-                        <FormLabel className="text-lg">Select activity category standard</FormLabel>
+                    <FormItem className="space-y-3">
+                        <FormLabel>Select activity category standard</FormLabel>
                         <FormControl>
                             <RadioGroup
                                 onValueChange={field.onChange}
