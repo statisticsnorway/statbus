@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {resetSettings} from "@/app/_actions/resetSettings";
+import {resetRegions} from "@/app/_actions/resetRegions";
 import {useToast} from "@/components/ui/use-toast";
 import {X} from "lucide-react"
 
@@ -14,7 +15,6 @@ import {
     CommandList,
     CommandSeparator,
 } from "@/components/ui/command"
-import {resetRegions} from "@/app/_actions/resetRegions";
 
 export function AdminCommand() {
     const [open, setOpen] = React.useState(false)
@@ -34,19 +34,19 @@ export function AdminCommand() {
 
     const handleSettingsReset = async () => {
         setOpen(false)
-        await resetSettings()
+        const response = await resetSettings()
         toast({
-            title: "Settings Reset OK",
-            description: "All settings have been reset to their default values.",
+            title: response?.error ? "Settings Reset Failed" : "Settings Reset OK",
+            description: response?.error ?? "All settings have been reset to their default values.",
         })
     }
 
     const handleRegionsReset = async () => {
         setOpen(false)
-        await resetRegions()
+        const response = await resetRegions()
         toast({
-            title: "Regions Reset OK",
-            description: "All regions have been reset.",
+            title: response?.error ? "Regions Reset Failed" : "Regions Reset OK",
+            description: response?.error ?? "All regions have been reset.",
         })
     }
 
