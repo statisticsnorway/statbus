@@ -14,6 +14,7 @@ import {
     CommandList,
     CommandSeparator,
 } from "@/components/ui/command"
+import {resetRegions} from "@/app/_actions/resetRegions";
 
 export function AdminCommand() {
     const [open, setOpen] = React.useState(false)
@@ -35,8 +36,17 @@ export function AdminCommand() {
         setOpen(false)
         await resetSettings()
         toast({
-            title: "Reset OK",
+            title: "Settings Reset OK",
             description: "All settings have been reset to their default values.",
+        })
+    }
+
+    const handleRegionsReset = async () => {
+        setOpen(false)
+        await resetRegions()
+        toast({
+            title: "Regions Reset OK",
+            description: "All regions have been reset.",
         })
     }
 
@@ -49,6 +59,10 @@ export function AdminCommand() {
                     <CommandItem onSelect={handleSettingsReset}>
                         <X className="mr-2 h-4 w-4"/>
                         <span>Reset settings</span>
+                    </CommandItem>
+                    <CommandItem onSelect={handleRegionsReset}>
+                        <X className="mr-2 h-4 w-4"/>
+                        <span>Reset regions</span>
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator/>
