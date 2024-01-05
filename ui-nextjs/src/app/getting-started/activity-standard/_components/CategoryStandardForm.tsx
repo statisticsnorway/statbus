@@ -13,8 +13,9 @@ interface CategoryStandardFormProps {
 }
 
 const FormSchema = z.object({
-    activity_category_standard_id: z.number({
+    activity_category_standard_id: z.coerce.number({
         required_error: "You need to select an activity category standard",
+        invalid_type_error: "You need to select an activity category standard"
     }),
 })
 
@@ -22,11 +23,14 @@ export default function CategoryStandardForm({standards, settings}: CategoryStan
 
     const form = useForm<z.infer<typeof FormSchema>>({
         resolver: zodResolver(FormSchema),
+        defaultValues: {
+            activity_category_standard_id: settings?.[0]?.activity_category_standard?.id
+        }
     })
 
     async function onSubmit({activity_category_standard_id}: z.infer<typeof FormSchema>) {
         const formData = new FormData()
-        formData.append('activity_category_standard_id', activity_category_standard_id.toString())
+        formData.append('activity_category_standard_id', activity_category_standard_id.toString(10))
         await setCategoryStandard(formData)
     }
 
@@ -39,14 +43,14 @@ export default function CategoryStandardForm({standards, settings}: CategoryStan
                         <FormControl>
                             <RadioGroup
                                 onValueChange={field.onChange}
-                                defaultValue={settings?.[0]?.activity_category_standard?.id?.toString()}
+                                defaultValue={settings?.[0]?.activity_category_standard?.id?.toString(10)}
                                 className="flex flex-col space-y-1"
                             >
                                 {
                                     standards?.map(({id, name}) => (
                                         <FormItem className="flex items-center space-x-3 space-y-0" key={id}>
                                             <FormControl>
-                                                <RadioGroupItem value={id.toString()} id={id.toString()}/>
+                                                <RadioGroupItem value={id.toString(10)} id={id.toString(10)}/>
                                             </FormControl>
                                             <FormLabel className="text-md font-normal">
                                                 {name}
