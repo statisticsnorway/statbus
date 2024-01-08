@@ -138,12 +138,7 @@ CREATE TABLE public.activity_category (
     parent_id integer REFERENCES public.activity_category(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar NOT NULL GENERATED ALWAYS AS (
-        CASE WHEN public.nlevel(path) > 1
-        THEN replace(public.subltree(path,1,public.nlevel(path))::text,'.','')
-        ELSE path::varchar
-        END
-    ) STORED,
+    code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name character varying(256) NOT NULL,
     description text,
     active boolean NOT NULL,
@@ -577,7 +572,8 @@ CREATE TABLE public.tag (
     path public.ltree UNIQUE NOT NULL,
     parent_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
-    label varchar NOT NULL,
+    label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
+    code varchar GENERATED AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name character varying(256) NOT NULL,
     description text,
     custom bool NOT NULL,
@@ -1085,6 +1081,7 @@ CREATE TABLE public.region (
     parent_id integer REFERENCES public.region(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
+    code varchar GENERATED AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     CONSTRAINT "parent_id is required for child"
@@ -1296,12 +1293,7 @@ CREATE TABLE public.sector_code (
     path public.ltree UNIQUE NOT NULL,
     parent_id integer,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar NOT NULL GENERATED ALWAYS AS (
-        CASE WHEN public.nlevel(path) > 2
-        THEN replace(public.subltree(path,2,public.nlevel(path))::text,'.','')
-        ELSE path::varchar
-        END
-    ) STORED,
+    code varchar GENERATED AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
     active boolean NOT NULL,
     custom bool NOT NULL,
