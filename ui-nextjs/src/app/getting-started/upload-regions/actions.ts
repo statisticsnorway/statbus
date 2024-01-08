@@ -1,6 +1,6 @@
 "use server";
 import {createClient} from "@/lib/supabase.server.client";
-import {redirect} from "next/navigation";
+import {redirect, RedirectType} from "next/navigation";
 
 export async function uploadRegions(formData: FormData) {
   "use server";
@@ -18,5 +18,5 @@ export async function uploadRegions(formData: FormData) {
     body: file
   })
 
-  return response.ok ? redirect('/getting-started/summary') : { error: response.statusText }
+  return response.ok ? redirect('/getting-started/summary', RedirectType.push) : { error: response.statusText }
 }

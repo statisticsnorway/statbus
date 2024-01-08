@@ -1,7 +1,7 @@
 "use server";
 import {createClient} from "@/lib/supabase.server.client";
 import {revalidatePath} from "next/cache";
-import {redirect} from "next/navigation";
+import {redirect, RedirectType} from "next/navigation";
 
 export async function setCategoryStandard(formData: FormData) {
     "use server";
@@ -34,6 +34,6 @@ export async function setCategoryStandard(formData: FormData) {
         return {error: "Error setting category standard"}
     }
 
-    redirect('/getting-started/upload-regions')
+    redirect('/getting-started/upload-regions', RedirectType.push)
 }
 
