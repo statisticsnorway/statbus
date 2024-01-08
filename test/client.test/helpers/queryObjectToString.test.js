@@ -1,4 +1,4 @@
-import fn from 'client/helpers/queryObjectToString'
+import fn from 'old/client/helpers/queryObjectToString'
 
 describe('helpers/queryObjectToString', () => {
   [
