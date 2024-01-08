@@ -1,0 +1,9 @@
+version: '3.4'
+services:
+  client:
+    build:
+      context: ./ui-nextjs
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./ui-nextjs/.env.local
