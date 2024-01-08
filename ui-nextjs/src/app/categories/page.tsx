@@ -1,6 +1,6 @@
 import {createClient} from "@/lib/supabase.server.client";
 
-export default async function Home() {
+export default async function CategoriesPage() {
   const client = createClient()
   const {data: categories} = await client.from('activity_category')
     .select('id, label, name, parent_id, updated_at')

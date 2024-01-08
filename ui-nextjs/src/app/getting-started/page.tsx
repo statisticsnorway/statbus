@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 
-export default async function Home() {
+export default async function GettingStartedPage() {
   return (
     <div className="text-center space-y-6">
       <h1 className="font-medium text-lg">Welcome!</h1>

@@ -3,7 +3,7 @@ import {createClient} from "@/lib/supabase.server.client";
 import CategoryStandardForm from "@/app/getting-started/activity-standard/_components/CategoryStandardForm";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 
-export default async function Home() {
+export default async function ActivityStandardPage() {
     const client = createClient()
 
     const {data: standards} = await client.from('activity_category_standard')

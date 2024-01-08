@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import {createClient} from "@/lib/supabase.server.client";
 
-export default async function OnboardingCompleted() {
+export default async function OnboardingCompletedPage() {
 
     const client = createClient()
     const {data: settings} = await client.from('settings').select('id, activity_category_standard(id,name)')

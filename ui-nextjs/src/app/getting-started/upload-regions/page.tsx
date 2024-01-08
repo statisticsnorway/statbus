@@ -7,7 +7,7 @@ import Link from "next/link";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import React from "react";
 
-export default async function Home() {
+export default async function UploadRegionsPage() {
     const client = createClient()
     const {data: regions} = await client.from('region').select('id, name')
     return (
