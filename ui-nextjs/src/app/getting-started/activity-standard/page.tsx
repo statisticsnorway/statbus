@@ -15,7 +15,7 @@ export default async function ActivityStandardPage() {
     return <section className="space-y-8">
         <h1 className="text-xl text-center">Select Activity Category Standard</h1>
         <p>
-            Select the activity category standard that best fit you location. If you're not sure
+            Select the activity category standard that best fit you location. If you&apos;re not sure
             which standard is the best fit, you can read more about the standards below.
         </p>
         <CategoryStandardForm standards={standards} settings={settings}/>
@@ -36,8 +36,7 @@ export default async function ActivityStandardPage() {
                     used in the European Union to categorize economic activities. It provides a hierarchical structure
                     that classifies
                     businesses and economic activities into different sectors based on their primary activities. NACE is
-                    described in more detail on <a className="underline"
-                                                   href="https://ec.europa.eu/eurostat/web/nace">ec.europa.eu</a>.
+                    described in more detail on <a className="underline" href="https://ec.europa.eu/eurostat/web/nace">ec.europa.eu</a>.
                 </AccordionContent>
             </AccordionItem>
             <AccordionItem value="ISIC">
@@ -49,8 +48,7 @@ export default async function ActivityStandardPage() {
                     for classifying economic activities. Developed by the United Nations, ISIC is used to group economic
                     activities at
                     various levels, enabling consistent and comparable analysis of economic data and statistics across
-                    countries. ISIC is described in more detail on <a className="underline"
-                                                                      href="https://unstats.un.org/unsd/classifications/Econ/isic">unstats.un.org</a>.
+                    countries. ISIC is described in more detail on <a className="underline" href="https://unstats.un.org/unsd/classifications/Econ/isic">unstats.un.org</a>.
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
