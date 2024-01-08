@@ -9,7 +9,7 @@ export default async function CategoriesPage() {
     .order('updated_at', {ascending: false})
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+    <main className="flex min-h-screen flex-col items-center justify-between p-8 md:p-24">
       <ul role="list" className="divide-y divide-gray-100">
         {categories?.map((category) => (
           <li key={category.id} className="flex justify-between gap-x-6 py-5">

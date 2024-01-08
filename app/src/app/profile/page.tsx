@@ -6,7 +6,7 @@ export default async function ProfilePage() {
   const {data: {session}} = await client.auth.getSession()
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+    <main className="flex min-h-screen flex-col items-center justify-between p-8 md:p-24">
       <div className="mx-auto sm:w-full lg:max-w-5xl">
         <div className="flex items-center justify-between">
           <div>
