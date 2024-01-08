@@ -5,7 +5,24 @@ import {createMiddlewareClient} from "@/lib/supabase.server.client";
 export async function middleware(request: NextRequest) {
   const {client, response} = createMiddlewareClient(request)
   const {data: {session}} = await client.auth.getSession()
-  return !session ? NextResponse.redirect(`${request.nextUrl.origin}/login`) : response
+
+  if (!session) {
+    return NextResponse.redirect(`${request.nextUrl.origin}/login`)
+  }
+
+  if (request.nextUrl.pathname === '/') {
+    const { data: settings } = await client.from('settings').select('*')
+    if (!settings?.length){
+      return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/activity-standard`)
+    }
+
+    const { data: regions } = await client.from('region').select('*')
+    if (!regions?.length){
+      return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/upload-regions`)
+    }
+  }
+
+  return response
 }
 
 export const config = {
