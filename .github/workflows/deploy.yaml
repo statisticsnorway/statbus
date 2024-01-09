@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Trigger ssh deploy
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: executing remote ssh commands
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: libu.statbus.org
+        username: statbus_dev
+        key: ${{ secrets.SSH_KEY }}
+        script: ./devops/deploy-app-from-master.sh
