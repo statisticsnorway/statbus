@@ -13,8 +13,28 @@ if ! test -f $WORKSPACE/supabase_docker/.env; then
   cp -f $WORKSPACE/.supabase-docker-local-development-env $WORKSPACE/supabase_docker/.env
 fi
 
+
+if ! test -f $WORKSPACE/.env; then
+  cat > $WORKSPACE/.env <<EOS
+COMPOSE_FILE=docker-compose.app.yml
+COMPOSE_INSTANCE_NAME=statbus-dev
+PUBLIC_PORT=127.0.0.1:3000
+SUPABASE_ANON_KEY=...
+SUPABASE_URL=...
+EOS
+  echo "Edit .env and adjust the variables as required."
+fi
+
 action=$1
 case "$action" in
+    'start-app' )
+        cd $WORKSPACE
+        docker compose up --detach
+      ;;
+    'stop-app' )
+        cd $WORKSPACE
+        docker compose down
+      ;;
     'start-foreground' )
         cd $WORKSPACE/supabase_docker
         docker compose up

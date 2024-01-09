@@ -469,3 +469,5 @@ key-*.xml
 
 # Environment variables for statbus dev
 .env-dev.statbus.org.sh
+# Ignore local configuration for docker compose
+.env
