@@ -24,7 +24,7 @@ SET default_table_access_method = heap;
 --ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
 SET datestyle TO 'ISO, DMY';
 
-CREATE TYPE public.statbus_role_type AS ENUM('super_user', 'restricted_user', 'external_user');
+CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restricted_user', 'external_user');
 
 CREATE TABLE public.statbus_role (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -32,9 +32,9 @@ CREATE TABLE public.statbus_role (
     name character varying(256) NOT NULL UNIQUE,
     description text
 );
--- There can only ever be one role for super_user and external_user,
+-- There can only ever be one role for most role types.
 -- while there can be many different restricted_user roles, depending on the actual restrictions.
-CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(role_type) WHERE role_type = 'super_user' OR role_type = 'external_user';
+CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(role_type) WHERE role_type = 'super_user' OR role_type = 'regular_user' OR role_type = 'external_user';
 
 CREATE TABLE public.statbus_user (
   id SERIAL PRIMARY KEY,
@@ -65,7 +65,8 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.create_new_statbus_user();
 
-INSERT INTO public.statbus_role(role_type, name, description) VALUES ('super_user', 'Super User', 'Can do everything in the Web interface and manage role rights.');
+INSERT INTO public.statbus_role(role_type, name, description) VALUES ('super_user', 'Super User', 'Can manage all metadata and do everything in the Web interface and manage role rights.');
+INSERT INTO public.statbus_role(role_type, name, description) VALUES ('regular_user', 'Regular User', 'Can do everything in the Web interface.');
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
 
@@ -4459,13 +4460,17 @@ BEGIN
 
     -- The tables with custom and active are managed through views,
     -- where one _system view is used for system updates, and the
-    -- _custom view is used for managing custom rows.
-    -- For changes to these, one can directly modify them with the service
-    -- account that bypasses RLS through the Supabase UI.
-    IF NOT has_custom_and_active THEN
-        RAISE NOTICE '%s.%s: super_user(s) can manage', schema_name_str, table_name_str;
-        EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+    -- _custom view is used for managing custom rows by the super_user.
+    IF has_custom_and_active THEN
+        RAISE NOTICE '%s.%s: regular_user(s) can read', schema_name_str, table_name_str;
+        EXECUTE format('CREATE POLICY %s_regular_user_read ON %I.%I FOR SELECT TO authenticated USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+    ELSE
+        RAISE NOTICE '%s.%s: regular_user(s) can manage', schema_name_str, table_name_str;
+        EXECUTE format('CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
     END IF;
+
+    RAISE NOTICE '%s.%s: super_user(s) can manage', schema_name_str, table_name_str;
+    EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
 END;
 $$ LANGUAGE plpgsql;
 
