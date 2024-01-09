@@ -5,6 +5,16 @@ on:
   pull_request:
 
 jobs:
+  build-aspnet:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/dotnet-build-test
+        with:
+          project: ./src/nscreg.Server/nscreg.Server.csproj
+          configuration: Debug
+          test_filter: Category=Unit
+
   build-app:
     runs-on: ubuntu-20.04
     container:
