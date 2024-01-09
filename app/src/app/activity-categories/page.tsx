@@ -1,8 +1,8 @@
 import {createClient} from "@/lib/supabase.server.client";
 
-export default async function CategoriesPage() {
+export default async function ActivityCategoriesPage() {
   const client = createClient()
-  const {data: categories} = await client.from('activity_category')
+  const {data: activityCategories} = await client.from('activity_category')
     .select('id, label, name, parent_id, updated_at')
     .eq('active', true)
     .limit(25)
@@ -11,7 +11,7 @@ export default async function CategoriesPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-8 md:p-24">
       <ul role="list" className="divide-y divide-gray-100">
-        {categories?.map((category) => (
+        {activityCategories?.map((category) => (
           <li key={category.id} className="flex justify-between gap-x-6 py-5">
             <div className="flex min-w-0 gap-x-4">
               <div className="min-w-0 flex-auto">
