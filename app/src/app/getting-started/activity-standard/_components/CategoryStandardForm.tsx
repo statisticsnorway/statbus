@@ -8,8 +8,8 @@ import {useForm} from "react-hook-form";
 import {setCategoryStandard} from "@/app/getting-started/activity-standard/actions";
 
 interface CategoryStandardFormProps {
-    standards: { id: number, name: string }[] | null
-    settings: { id: number, activity_category_standard: { id: number, name: string } | null }[] | null
+    readonly standards: { id: number, name: string }[] | null
+    readonly settings: { id: number, activity_category_standard: { id: number, name: string } | null }[] | null
 }
 
 const FormSchema = z.object({

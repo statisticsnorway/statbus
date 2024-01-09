@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description: 'Simple To Use, Simple To Understand, Simply useful!',
 }
 
-export default function RootLayout({children}: { children: React.ReactNode }) {
+export default function RootLayout({children}: { readonly children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full bg-white">
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.className)}>

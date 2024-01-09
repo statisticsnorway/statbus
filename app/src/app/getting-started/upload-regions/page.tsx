@@ -22,11 +22,9 @@ export default async function UploadRegionsPage() {
 
             {
                 regions?.length ? (
-                    <>
-                        <p>There are <strong>{regions.length}</strong> regions already defined.&nbsp;
-                            <Link className="underline" href="/getting-started/summary">Continue -&gt;</Link>
-                        </p>
-                    </>
+                  <p>There are <strong>{regions.length}</strong> regions already defined.&nbsp;
+                    <Link className="underline" href="/getting-started/summary">Continue -&gt;</Link>
+                  </p>
                 ) : null
             }
 

@@ -1,5 +1,5 @@
 "use server";
-import {createServerClient, type CookieOptions} from "@supabase/ssr";
+import {type CookieOptions, createServerClient} from "@supabase/ssr";
 import {NextRequest, NextResponse} from "next/server";
 import {cookies} from "next/headers";
 import type {Database} from "@/lib/database.types";
@@ -26,7 +26,7 @@ export const createClient = () => {
   )
 }
 
-// TODO: find a better way to do this. This approach is inspired by supabase docs:
+// This approach is inspired by supabase docs:
 // https://supabase.com/docs/guides/auth/server-side/creating-a-client?environment=middleware
 // There should be a way to do this without having to create a new client for every request and also without having to
 // have two different clients for server components / routes and middlewares.

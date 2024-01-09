@@ -10,7 +10,7 @@ export default async function ActivityCategoriesPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-8 md:p-24">
-      <ul role="list" className="divide-y divide-gray-100">
+      <ul className="divide-y divide-gray-100">
         {activityCategories?.map((category) => (
           <li key={category.id} className="flex justify-between gap-x-6 py-5">
             <div className="flex min-w-0 gap-x-4">
