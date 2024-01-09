@@ -12,6 +12,10 @@ export async function login(formData: FormData) {
     password,
   })
 
+  if (error) {
+    console.error("Error logging in:", error)
+  }
+
   if (!error) {
     redirect("/")
   }
