@@ -10,7 +10,7 @@ services:
   kong:
     container_name: ${COMPOSE_INSTANCE_NAME}-kong
     ports:
-      - 127.0.0.1:3080:8000/tcp
+      - ${SUPABASE_BIND_ADDRESS}:8000/tcp
   auth:
     container_name: ${COMPOSE_INSTANCE_NAME}-auth
   rest:
@@ -34,7 +34,7 @@ services:
     image: ghcr.io/veridit/supabase_postgres:latest
     #image: veridit/supabase_postgres:latest
     ports:
-      - 3432:5432
+      - ${DB_BIND_ADDRESS}:5432
   vector:
     container_name: ${COMPOSE_INSTANCE_NAME}-vector
 
