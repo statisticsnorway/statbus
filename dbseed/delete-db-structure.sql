@@ -54,6 +54,12 @@ DROP FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def
 DROP VIEW admin.custom_view_def_expanded;
 DROP TYPE admin.custom_view_def_names;
 
+DROP TRIGGER delete_stale_legal_unit_region_activity_category_stats_view_trigger ON public.legal_unit_region_activity_category_stats_view;
+DROP TRIGGER upsert_legal_unit_region_activity_category_stats_view_trigger ON public.legal_unit_region_activity_category_stats_view;
+DROP FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_view();
+DROP FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view();
+DROP VIEW public.legal_unit_region_activity_category_stats_view;
+
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');

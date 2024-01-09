@@ -3993,6 +3993,7 @@ WHERE valid_from >= statement_timestamp()
   AND active
   ;
 
+
 --CREATE FUNCTION admin.upsert_legal_unit_current()
 --RETURNS TRIGGER AS $$
 --BEGIN
@@ -4034,6 +4035,141 @@ WHERE valid_from >= statement_timestamp()
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_current();
 
+
+CREATE VIEW public.legal_unit_region_activity_category_stats_view
+WITH (security_invoker=on) AS
+SELECT lu.tax_reg_ident
+     , lu.name
+     , '' AS employees
+     , '' AS region_code
+     , '' AS activity_category_code
+--     , ac.path AS "primary_activity_category_path"
+--     , ac.code AS "primary_activity_category_code"
+FROM public.legal_unit AS lu
+--   , public.activity AS a
+--   , public.activity_category AS ac
+WHERE lu.valid_from >= statement_timestamp() AND statement_timestamp() <= lu.valid_to
+  AND lu.active
+--  AND a.valid_from >= statement_timestamp() AND statement_timestamp() <= a.valid_to
+--  AND a.activity_type = 'primary'
+--  AND a.activity_category_id = ac.id
+;
+
+CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view()
+RETURNS TRIGGER AS $$
+DECLARE
+  result RECORD;
+BEGIN
+    WITH su AS (
+        SELECT *
+        FROM statbus_user
+        LIMIT 1
+        --WHERE uuid = auth.uid()
+    ), upsert_data AS (
+        SELECT
+          NEW.tax_reg_ident AS tax_reg_ident
+        , statement_timestamp() AS tax_reg_date
+        , current_date AS valid_from
+        , 'infinity'::date AS valid_to
+        , NEW.name AS name
+        , true AS active
+        , statement_timestamp() AS seen_in_import_at
+        , 'Batch upload' AS edit_comment
+        , (SELECT id FROM su) AS edit_by_user_id
+    ),
+    updated_curr AS (
+        UPDATE public.legal_unit
+        SET tax_reg_date = upsert_data.tax_reg_date
+          , valid_from = upsert_data.valid_from
+          , valid_to = upsert_data.valid_to
+          , name = upsert_data.name
+          , active = upsert_data.active
+          , seen_in_import_at = upsert_data.seen_in_import_at
+          , edit_comment = upsert_data.edit_comment
+          , edit_by_user_id = upsert_data.edit_by_user_id
+        FROM upsert_data
+        WHERE legal_unit.tax_reg_ident = upsert_data.tax_reg_ident
+          AND legal_unit.valid_from = upsert_data.valid_from
+          AND legal_unit.valid_to = upsert_data.valid_to
+        RETURNING 'update curr'::text AS action, legal_unit.id
+    ),
+    updated_prev AS (
+        UPDATE public.legal_unit
+        SET valid_to = upsert_data.valid_to - '1 day'::INTERVAL
+        FROM upsert_data
+        WHERE legal_unit.tax_reg_ident = upsert_data.tax_reg_ident
+          AND legal_unit.valid_from < upsert_data.valid_from
+          AND legal_unit.valid_to = 'infinity'::date
+        RETURNING 'update prev'::text AS action, legal_unit.id
+    ),
+    inserted_curr AS (
+        INSERT INTO public.legal_unit
+          ( tax_reg_ident
+          , tax_reg_date
+          , valid_from
+          , valid_to
+          , name
+          , active
+          , seen_in_import_at
+          , edit_comment
+          , edit_by_user_id
+          )
+        SELECT
+            upsert_data.tax_reg_ident
+          , upsert_data.tax_reg_date
+          , upsert_data.valid_from
+          , upsert_data.valid_to
+          , upsert_data.name
+          , upsert_data.active
+          , upsert_data.seen_in_import_at
+          , upsert_data.edit_comment
+          , upsert_data.edit_by_user_id
+        FROM upsert_data
+        WHERE NOT EXISTS (SELECT id FROM updated_curr LIMIT 1)
+        RETURNING 'insert'::text AS action, id
+    ), combined AS (
+      SELECT * FROM updated_curr UNION ALL
+      SELECT * FROM updated_prev UNION ALL
+      SELECT * FROM inserted_curr
+    )
+    SELECT * INTO result FROM combined;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_view()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH su AS (
+        SELECT *
+        FROM statbus_user
+        LIMIT 1
+        --WHERE uuid = auth.uid()
+    )
+    UPDATE public.legal_unit
+    SET valid_to = current_date
+      , edit_comment = 'Absent from upload'
+      , edit_by_user_id = (SELECT id FROM su)
+      , active = false
+    WHERE seen_in_import_at < statement_timestamp()
+      AND valid_to = 'infinity'::date
+      AND active
+    ;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER upsert_legal_unit_region_activity_category_stats_view_trigger
+INSTEAD OF INSERT ON public.legal_unit_region_activity_category_stats_view
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view();
+
+CREATE TRIGGER delete_stale_legal_unit_region_activity_category_stats_view_trigger
+AFTER INSERT ON public.legal_unit_region_activity_category_stats_view
+FOR EACH STATEMENT
+EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_view();
+
+-- \i samples/100BREGUnits.sql
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
 CREATE VIEW public.legal_unit_custom_view
