@@ -8,9 +8,11 @@ SELECT sql_saga.drop_era('public.enterprise');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
 
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
 
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
 
@@ -30,6 +32,27 @@ DROP FUNCTION admin.upsert_region_7_levels();
 DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
+
+DROP VIEW public.legal_unit_current;
+DROP VIEW public.legal_unit_custom_view;
+DROP FUNCTION admin.upsert_legal_unit_custom_view();
+DROP FUNCTION admin.delete_stale_legal_unit_custom_view();
+
+--DROP VIEW public.establishment_current;
+DROP VIEW public.establishment_custom_view;
+DROP FUNCTION admin.upsert_establishment_custom_view();
+DROP FUNCTION admin.delete_stale_establishment_custom_view();
+
+DELETE FROM public.custom_view_def;
+DROP TRIGGER custom_view_def_before_trigger ON public.custom_view_def;
+DROP TRIGGER custom_view_def_after_trigger ON public.custom_view_def;
+DROP FUNCTION admin.custom_view_def_before();
+DROP FUNCTION admin.custom_view_def_after();
+DROP FUNCTION admin.custom_view_def_generate(record public.custom_view_def);
+DROP FUNCTION admin.custom_view_def_destroy(record public.custom_view_def);
+DROP FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def);
+DROP VIEW admin.custom_view_def_expanded;
+DROP TYPE admin.custom_view_def_names;
 
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
@@ -79,6 +102,12 @@ DROP TYPE public.stat_type;
 DROP TYPE public.stat_frequency;
 DROP FUNCTION public.check_stat_for_unit_values;
 
+DROP TABLE public.custom_view_def_mapping;
+DROP TABLE public.custom_view_def_source_column;
+DROP TABLE public.custom_view_def;
+DROP TABLE public.custom_view_def_target_column;
+DROP TABLE public.custom_view_def_target_table;
+
 DROP TABLE public.establishment;
 DROP TABLE public.legal_unit;
 
@@ -126,6 +155,11 @@ DROP FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.s
 DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer);
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
+DROP TYPE public.data_source_priority;
+DROP TYPE public.allowed_operations;
+DROP TYPE public.stat_unit_type;
+DROP TYPE public.data_source_upload_type;
+
 DROP TYPE public.statbus_role_type;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
@@ -134,6 +168,6 @@ DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
 
 DROP EXTENSION ltree;
-DROP SCHEMA admin;
+DROP SCHEMA admin CASCADE;
 
 END;
