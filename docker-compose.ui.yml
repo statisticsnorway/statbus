@@ -1,0 +1,9 @@
+version: '3.4'
+services:
+  client:
+    build:
+      context: ./app
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./app/.env.local

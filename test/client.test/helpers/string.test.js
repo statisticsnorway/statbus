@@ -1,4 +1,4 @@
-import { toCamelCase, toPascalCase, createJsonReviver } from 'client/helpers/string'
+import { toCamelCase, toPascalCase, createJsonReviver } from 'old/client/helpers/string'
 
 describe('helpers/string: toCamelCase', () => {
   it('should transform string from pascal to camel case', () => {

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "allowSyntheticDefaultImports": false,
+    "baseUrl": "./",
+    "paths": {
+      "components/*": ["./components/*"],
+      "helpers/*": ["./helpers/*"],
+      "layout/*": ["./layout/*"],
+      "pages/*": ["./pages/*"]
+    }
+  },
+  "exclude": ["build", "node_modules", "temp", "tmp"]
+}

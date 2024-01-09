@@ -1,50 +1,19 @@
----
-#####################################
-#####################################
-## Continuous Integration workflow ##
-#####################################
-#####################################
 name: CI
 on:
   workflow_dispatch:
   push:
-    branches-ignore:
-      - develop
-      - main
-    paths:
-      - src/**
-      - client/**
-      - test/**
-      - .github/workflows/ci-workflow.yaml
-      - .github/actions/dotnet-build-test/**
   pull_request:
-    paths:
-      - src/**
-      - client/**
-      - test/**
-      - .github/workflows/ci-workflow.yaml
-      - .github/actions/dotnet-build-test/**
 
-env:
-  ACT: ""
 jobs:
-  build-aspnet:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/dotnet-build-test
-        with:
-          project: ./src/nscreg.Server/nscreg.Server.csproj
-          configuration: Debug
-          test_filter: Category=Unit
-
-  build-react:
+  build-app:
     runs-on: ubuntu-20.04
     container:
-      image: node:19-bullseye-slim
+      image: node:20.10-alpine
     steps:
       - uses: actions/checkout@v3
-      - run: npm ci --legacy-peer-deps
-      - run: npm run lint || true
-      - run: npm run build
-      - run: npm run test
+      - name: Build app
+        run: |
+          cd app
+          npm ci
+          npm run lint -- --quiet
+          npm run build -- --no-lint
