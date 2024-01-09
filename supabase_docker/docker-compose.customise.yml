@@ -31,8 +31,8 @@ services:
     ports: !reset []
   db:
     container_name: statbus-db
-    #image: ghcr.io/veridit/supabase_postgres:latest
-    image: veridit/supabase_postgres:latest
+    image: ghcr.io/veridit/supabase_postgres:latest
+    #image: veridit/supabase_postgres:latest
     ports:
       - 3432:5432
   vector:
