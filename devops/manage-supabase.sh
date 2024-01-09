@@ -9,26 +9,26 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 
-if ! test -f $WORKSPACE/supabase/docker/.env; then
-  cp -f $WORKSPACE/.supabase-docker-local-development-env $WORKSPACE/supabase/docker/.env
+if ! test -f $WORKSPACE/supabase_docker/.env; then
+  cp -f $WORKSPACE/.supabase-docker-local-development-env $WORKSPACE/supabase_docker/.env
 fi
 
 action=$1
 case "$action" in
     'start-foreground' )
-        cd $WORKSPACE/supabase/docker
+        cd $WORKSPACE/supabase_docker
         docker compose up
       ;;
     'start-background' )
-        cd $WORKSPACE/supabase/docker
+        cd $WORKSPACE/supabase_docker
         docker compose up --detach
       ;;
     'logs' )
-        cd $WORKSPACE/supabase/docker
+        cd $WORKSPACE/supabase_docker
         docker compose logs --follow
       ;;
     'ps' )
-        cd $WORKSPACE/supabase/docker
+        cd $WORKSPACE/supabase_docker
         docker compose ps
       ;;
     'create-db-structure' )
@@ -44,16 +44,19 @@ case "$action" in
         ./devops/psql-development.sh < dbseed/delete-db-structure.sql 2>&1
       ;;
     'stop-background' )
-        cd $WORKSPACE/supabase/docker
+        cd $WORKSPACE/supabase_docker
         docker compose down
       ;;
     'delete-db' )
-        cd $WORKSPACE/supabase/docker
-        rm -rf $WORKSPACE/supabase/docker/volumes/db/data/*
+        cd $WORKSPACE/supabase_docker
+        rm -rf $WORKSPACE/supabase_docker/volumes/db/data/*
       ;;
-     'upgrade' )
+     'upgrade_supabase' )
         cd $WORKSPACE
-        git submodule update --remote --merge
+        git reset supabase_docker
+        svn export --force https://github.com/supabase/supabase/branches/master/docker supabase_docker
+        git add supabase_docker
+        git commit -m 'Upgraded Supabase Docker'
       ;;
      'generate-types' )
         cd $WORKSPACE/ui
