@@ -16,7 +16,7 @@ import {
     CommandSeparator,
 } from "@/components/ui/command"
 
-export function AdminCommand() {
+export function CommandPalette() {
     const [open, setOpen] = React.useState(false)
     const {toast} = useToast()
 
