@@ -43,6 +43,17 @@ DROP VIEW public.establishment_custom_view;
 DROP FUNCTION admin.upsert_establishment_custom_view();
 DROP FUNCTION admin.delete_stale_establishment_custom_view();
 
+DELETE FROM public.custom_view_def;
+DROP TRIGGER custom_view_def_before_trigger ON public.custom_view_def;
+DROP TRIGGER custom_view_def_after_trigger ON public.custom_view_def;
+DROP FUNCTION admin.custom_view_def_before();
+DROP FUNCTION admin.custom_view_def_after();
+DROP FUNCTION admin.custom_view_def_generate(record public.custom_view_def);
+DROP FUNCTION admin.custom_view_def_destroy(record public.custom_view_def);
+DROP FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def);
+DROP VIEW admin.custom_view_def_expanded;
+DROP TYPE admin.custom_view_def_names;
+
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
@@ -157,6 +168,6 @@ DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
 
 DROP EXTENSION ltree;
-DROP SCHEMA admin;
+DROP SCHEMA admin CASCADE;
 
 END;
