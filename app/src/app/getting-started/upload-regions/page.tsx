@@ -12,10 +12,10 @@ export default async function UploadRegionsPage() {
     const {data: regions} = await client.from('region').select('id, name')
     return (
         <section className="space-y-8">
-            <h1 className="text-xl text-center">Upload regions</h1>
+            <h1 className="text-xl text-center">Upload Regions</h1>
             <p>Upload a CSV file containing the regions you want to use in your analysis.</p>
             <form action={uploadRegions} className="space-y-3 bg-green-100 p-6">
-                <Label className="block" htmlFor="regions-file">Select regions file</Label>
+                <Label className="block" htmlFor="regions-file">Select regions file:</Label>
                 <Input required id="regions-file" type="file" name="regions"/>
                 <Button type="submit">Next</Button>
             </form>
@@ -23,7 +23,7 @@ export default async function UploadRegionsPage() {
             {
                 regions?.length ? (
                   <p>There are <strong>{regions.length}</strong> regions already defined.&nbsp;
-                    <Link className="underline" href="/getting-started/summary">Continue -&gt;</Link>
+                    <Link className="underline" href="/getting-started/upload-legal-units">Continue -&gt;</Link>
                   </p>
                 ) : null
             }
@@ -32,8 +32,11 @@ export default async function UploadRegionsPage() {
                 <AccordionItem value="Activity Category Standard">
                     <AccordionTrigger>What is a Regions file?</AccordionTrigger>
                     <AccordionContent>
-                        A regions file is a CSV file containing the regions you want to use in your analysis. The file
-                        must conform to a specific format in order to be processed correctly.
+                        <p className="mb-3">
+                          A regions file is a CSV file containing the regions you want to use in your analysis. The file
+                          must conform to a specific format in order to be processed correctly.
+                        </p>
+                        <a href="/norway-sample-regions.csv" download="regions.example.csv" className="underline">Download example CSV file</a>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>

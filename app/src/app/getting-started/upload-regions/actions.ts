@@ -18,5 +18,5 @@ export async function uploadRegions(formData: FormData) {
     body: file
   })
 
-  return response.ok ? redirect('/getting-started/summary', RedirectType.push) : { error: response.statusText }
+  return response.ok ? redirect('/getting-started/upload-legal-units', RedirectType.push) : { error: response.statusText }
 }
