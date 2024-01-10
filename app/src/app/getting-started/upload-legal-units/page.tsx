@@ -10,7 +10,7 @@ import {InfoBox} from "@/components/InfoBox";
 
 export default async function UploadRegionsPage() {
   const client = createClient()
-  const {data: legalUnits} = await client.from('legal_unit').select('id, name')
+  const {count} = await client.from('legal_unit').select('*', {count: 'exact', head: true})
   return (
     <section className="space-y-8">
       <h1 className="text-xl text-center">Upload Legal Units</h1>
@@ -19,10 +19,10 @@ export default async function UploadRegionsPage() {
       </p>
 
       {
-        legalUnits?.length ? (
+        count && count > 0 ? (
           <InfoBox>
             <p>
-              There are already {legalUnits.length} legal units defined. You may skip this step.
+              There are already {count} legal units defined. You may skip this step.
             </p>
           </InfoBox>
         ) : null
@@ -33,7 +33,7 @@ export default async function UploadRegionsPage() {
         <Input required id="regions-file" type="file" name="regions"/>
         <div className="space-x-3">
           <Button type="submit">Upload</Button>
-          <Link href="/getting-started/summary" className={buttonVariants({ variant: 'outline' })}>Skip</Link>
+          <Link href="/getting-started/summary" className={buttonVariants({variant: 'outline'})}>Skip</Link>
         </div>
       </form>
 
@@ -42,10 +42,13 @@ export default async function UploadRegionsPage() {
           <AccordionTrigger>What is a Legal Unit?</AccordionTrigger>
           <AccordionContent>
             <p className="mb-3">
-              A <strong>Legal Unit</strong> refers to an entity or establishment that is considered an individual economic unit engaged in economic activities.
+              A <strong>Legal Unit</strong> refers to an entity or establishment that is considered an individual
+              economic unit engaged in economic activities.
 
-              Both NACE and ISIC are classification systems used to categorize economic activities and units for statistical and analytical purposes.
-              They provide a framework to classify different economic activities and units based on their primary activities.
+              Both NACE and ISIC are classification systems used to categorize economic activities and units for
+              statistical and analytical purposes.
+              They provide a framework to classify different economic activities and units based on their primary
+              activities.
             </p>
           </AccordionContent>
         </AccordionItem>
@@ -57,7 +60,8 @@ export default async function UploadRegionsPage() {
               must conform to a specific format in order to be processed correctly. Have a look at this example
               CSV file to get an idea of how the file should be structured:
             </p>
-            <a href="/100BREGUnits.csv" download="legalunits.example.csv" className="underline">Download example CSV file</a>
+            <a href="/100BREGUnits.csv" download="legalunits.example.csv" className="underline">Download example CSV
+              file</a>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

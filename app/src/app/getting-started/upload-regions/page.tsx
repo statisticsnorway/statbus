@@ -10,17 +10,17 @@ import {InfoBox} from "@/components/InfoBox";
 
 export default async function UploadRegionsPage() {
   const client = createClient()
-  const {data: regions} = await client.from('region').select('id, name')
+  const {count} = await client.from('region').select('*', {count: 'exact', head: true})
   return (
     <section className="space-y-8">
       <h1 className="text-xl text-center">Upload Regions</h1>
       <p>Upload a CSV file containing the regions you want to use in your analysis.</p>
 
       {
-        regions?.length ? (
+        count && count > 0 ? (
           <InfoBox>
             <p>
-              There are already {regions.length} regions defined. You may skip this step.
+              There are already {count} regions defined. You may skip this step.
             </p>
           </InfoBox>
         ) : null
