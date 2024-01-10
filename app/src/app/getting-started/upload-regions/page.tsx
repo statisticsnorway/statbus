@@ -1,11 +1,11 @@
+import React from "react";
+import Link from "next/link";
 import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import {Button, buttonVariants} from "@/components/ui/button";
 import {uploadRegions} from "@/app/getting-started/upload-regions/actions";
 import {createClient} from "@/lib/supabase.server.client";
-import Link from "next/link";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
-import React from "react";
 import {InfoBox} from "@/components/InfoBox";
 
 export default async function UploadRegionsPage() {

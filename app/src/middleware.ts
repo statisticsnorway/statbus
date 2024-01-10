@@ -20,6 +20,11 @@ export async function middleware(request: NextRequest) {
     if (!regions?.length){
       return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/upload-regions`)
     }
+
+    const { data: legalUnits } = await client.from('legal_unit').select('*')
+    if (!legalUnits?.length){
+      return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/upload-legal-units`)
+    }
   }
 
   return response

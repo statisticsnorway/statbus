@@ -76,7 +76,7 @@ export default async function OnboardingCompletedPage() {
             ) : (
               <>
                 You have not uploaded any legal units. You can do so&nbsp;
-                <Link className="underline" href={"/getting-started/upload-regions"}>here</Link>
+                <Link className="underline" href={"/getting-started/upload-legal-units"}>here</Link>
               </>
             )
           }
