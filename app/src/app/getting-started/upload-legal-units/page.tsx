@@ -1,11 +1,12 @@
 import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
-import {Button} from "@/components/ui/button";
+import {Button, buttonVariants} from "@/components/ui/button";
 import {createClient} from "@/lib/supabase.server.client";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {uploadLegalUnits} from "@/app/getting-started/upload-legal-units/actions";
 import React from "react";
 import Link from "next/link";
+import {InfoBox} from "@/components/InfoBox";
 
 export default async function UploadRegionsPage() {
   const client = createClient()
@@ -13,20 +14,28 @@ export default async function UploadRegionsPage() {
   return (
     <section className="space-y-8">
       <h1 className="text-xl text-center">Upload Legal Units</h1>
-      <p>Upload a CSV file containing legal units you want to use in your analysis.</p>
-      <form action={uploadLegalUnits} className="space-y-3 bg-green-100 p-6">
-        <Label className="block" htmlFor="regions-file">Select Legal Units file:</Label>
-        <Input required id="regions-file" type="file" name="regions"/>
-        <Button type="submit">Next</Button>
-      </form>
+      <p>
+        Upload a CSV file containing Legal Units you want to use in your analysis.
+      </p>
 
       {
         legalUnits?.length ? (
-          <p>There are <strong>{legalUnits.length}</strong> Legal Units already defined.&nbsp;
-            <Link className="underline" href="/getting-started/summary">Continue -&gt;</Link>
-          </p>
+          <InfoBox>
+            <p>
+              There are already {legalUnits.length} legal units defined. You may skip this step.
+            </p>
+          </InfoBox>
         ) : null
       }
+
+      <form action={uploadLegalUnits} className="space-y-6 bg-green-100 p-6">
+        <Label className="block" htmlFor="regions-file">Select Legal Units file:</Label>
+        <Input required id="regions-file" type="file" name="regions"/>
+        <div className="space-x-3">
+          <Button type="submit">Upload</Button>
+          <Link href="/getting-started/summary" className={buttonVariants({ variant: 'outline' })}>Skip</Link>
+        </div>
+      </form>
 
       <Accordion type="single" collapsible>
         <AccordionItem value="Legal Unit">
