@@ -877,13 +877,15 @@ CREATE TABLE public.activity (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    activity_category_id integer NOT NULL,
     activity_type public.activity_type NOT NULL,
+    activity_category_id integer NOT NULL,
     updated_by_user_id integer NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE
 );
-
+CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
+CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
+CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 
 
 CREATE TABLE public.tag_for_unit (
@@ -2331,13 +2333,6 @@ ALTER TABLE ONLY public.unit_size
 
 
 --
--- Name: ix_activity_activity_category_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
-
-
---
 -- Name: ix_activity_category_parent_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2350,20 +2345,6 @@ CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING bt
 
 CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
 CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
-
-
---
--- Name: ix_activity_establishment_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
-
-
---
--- Name: ix_activity_updated_by; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 
 
 --
