@@ -1,36 +1,10 @@
 "use server";
 import {type CookieOptions, createServerClient} from "@supabase/ssr";
 import {NextRequest, NextResponse} from "next/server";
-import {cookies} from "next/headers";
-import type {Database} from "@/lib/database.types";
-
-export const createClient = () => {
-  const cookie = cookies()
-
-  return createServerClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookie.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          cookie.set({name, value, ...options})
-        },
-        remove(name: string, options: CookieOptions) {
-          cookie.set({name, value: '', ...options})
-        },
-      },
-    }
-  )
-}
 
 // This approach is inspired by supabase docs:
 // https://supabase.com/docs/guides/auth/server-side/creating-a-client?environment=middleware
-// There should be a way to do this without having to create a new client for every request and also without having to
-// have two different clients for server components / routes and middlewares.
-export const createMiddlewareClient = (request: NextRequest) => {
+export const createClient = (request: NextRequest) => {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -56,6 +30,11 @@ export const createMiddlewareClient = (request: NextRequest) => {
               headers: request.headers,
             },
           })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({
@@ -67,6 +46,11 @@ export const createMiddlewareClient = (request: NextRequest) => {
             request: {
               headers: request.headers,
             },
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
           })
         },
       },

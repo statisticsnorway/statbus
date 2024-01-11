@@ -5,7 +5,7 @@ import {resetSettings} from "@/app/_actions/resetSettings";
 import {resetRegions} from "@/app/_actions/resetRegions";
 import {useToast} from "@/components/ui/use-toast";
 import {useRouter} from "next/navigation";
-import {Footprints, Home, Trash, User} from "lucide-react"
+import {Footprints, Home, Pilcrow, Trash, Upload, User} from "lucide-react"
 
 import {
   CommandDialog,
@@ -16,6 +16,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
+import {resetLegalUnits} from "@/app/_actions/resetLegalUnits";
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
@@ -52,6 +53,15 @@ export function CommandPalette() {
     })
   }
 
+  const handleLegalUnitsReset = async () => {
+    setOpen(false)
+    const response = await resetLegalUnits()
+    toast({
+      title: response?.error ? "Legal Units Reset Failed" : "Legal Units Reset OK",
+      description: response?.error ?? "All Legal Units have been reset.",
+    })
+  }
+
   const navigate = (path: string) => {
     setOpen(false)
     router.push(path)
@@ -65,11 +75,15 @@ export function CommandPalette() {
         <CommandGroup heading="Admin tools">
           <CommandItem onSelect={handleSettingsReset}>
             <Trash className="mr-2 h-4 w-4"/>
-            <span>Reset settings</span>
+            <span>Reset Settings</span>
           </CommandItem>
           <CommandItem onSelect={handleRegionsReset}>
             <Trash className="mr-2 h-4 w-4"/>
-            <span>Reset regions</span>
+            <span>Reset Regions</span>
+          </CommandItem>
+          <CommandItem onSelect={handleLegalUnitsReset}>
+            <Trash className="mr-2 h-4 w-4"/>
+            <span>Reset Legal Units</span>
           </CommandItem>
         </CommandGroup>
         <CommandSeparator/>
@@ -77,6 +91,18 @@ export function CommandPalette() {
           <CommandItem onSelect={() => navigate("/getting-started")}>
             <Footprints className="mr-2 h-4 w-4"/>
             <span>Getting started</span>
+          </CommandItem>
+          <CommandItem onSelect={() => navigate("/getting-started/activity-standard")}>
+            <Pilcrow className="mr-2 h-4 w-4"/>
+            <span>Select Activity Category Standard</span>
+          </CommandItem>
+          <CommandItem onSelect={() => navigate("/getting-started/upload-regions")}>
+            <Upload className="mr-2 h-4 w-4"/>
+            <span>Upload Regions</span>
+          </CommandItem>
+          <CommandItem onSelect={() => navigate("/getting-started/upload-legal-units")}>
+            <Upload className="mr-2 h-4 w-4"/>
+            <span>Upload Legal Units</span>
           </CommandItem>
           <CommandItem onSelect={() => navigate("/profile")}>
             <User className="mr-2 h-4 w-4"/>

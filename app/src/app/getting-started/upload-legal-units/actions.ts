@@ -2,13 +2,13 @@
 import {redirect, RedirectType} from "next/navigation";
 import {createClient} from "@/lib/supabase/server";
 
-export async function uploadRegions(formData: FormData) {
+export async function uploadLegalUnits(formData: FormData) {
   "use server";
   const client = createClient()
   const file = formData.get('regions') as File
   const session = await client.auth.getSession()
 
-  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/region_view`, {
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/legal_unit_region_activity_category_stats_view`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${session.data.session?.access_token}`,
@@ -18,5 +18,5 @@ export async function uploadRegions(formData: FormData) {
     body: file
   })
 
-  return response.ok ? redirect('/getting-started/upload-legal-units', RedirectType.push) : { error: response.statusText }
+  return response.ok ? redirect('/getting-started/summary', RedirectType.push) : { error: response.statusText }
 }

@@ -1,7 +1,7 @@
 "use server";
-import {createClient} from "@/lib/supabase.server.client";
 import {revalidatePath} from "next/cache";
 import {redirect, RedirectType} from "next/navigation";
+import {createClient} from "@/lib/supabase/server";
 
 export async function setCategoryStandard(formData: FormData) {
     "use server";
