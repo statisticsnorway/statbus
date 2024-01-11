@@ -880,7 +880,7 @@ CREATE TABLE public.activity (
     activity_type public.activity_type NOT NULL,
     activity_category_id integer NOT NULL,
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
-    updated_by_user_id integer NOT NULL,
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
     legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
@@ -2866,14 +2866,6 @@ ALTER TABLE ONLY public.activity_category_role
 
 ALTER TABLE ONLY public.activity_category_role
     ADD CONSTRAINT fk_activity_category_role_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
-
-
---
--- Name: activity fk_activity_user_updated_by_user_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity
-    ADD CONSTRAINT fk_activity_user_updated_by_user_id_user_id FOREIGN KEY (updated_by_user_id) REFERENCES public.statbus_user(id) ON DELETE CASCADE;
 
 
 --
