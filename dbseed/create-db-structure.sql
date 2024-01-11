@@ -882,11 +882,17 @@ CREATE TABLE public.activity (
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
     updated_by_user_id integer NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE
+    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
+    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
+        )
 );
 CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
-CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
 CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_standard_id);
+CREATE INDEX ix_activity_establishment_id_id ON public.activity USING btree (establishment_id);
+CREATE INDEX ix_activity_legal_unit_id_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 
 
