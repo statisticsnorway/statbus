@@ -38,32 +38,37 @@ export default function CategoryStandardForm({standards, settings}: CategoryStan
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 bg-green-100 p-6">
-        <FormField control={form.control} name="activity_category_standard_id" render={({field}) => (
-          <FormItem className="space-y-3">
-            <FormLabel>Select activity category standard</FormLabel>
-            <FormControl>
-              <RadioGroup
-                onValueChange={field.onChange}
-                defaultValue={settings?.[0]?.activity_category_standard?.id?.toString(10)}
-                className="flex flex-col space-y-1"
-              >
-                {
-                  standards?.map(({id, name}) => (
-                    <FormItem className="flex items-center space-x-3 space-y-0" key={id}>
-                      <FormControl>
-                        <RadioGroupItem value={id.toString(10)} id={id.toString(10)}/>
-                      </FormControl>
-                      <FormLabel className="text-md font-normal">
-                        {name}
-                      </FormLabel>
-                    </FormItem>
-                  ))
-                }
-              </RadioGroup>
-            </FormControl>
-            <FormMessage/>
-          </FormItem>
-        )}/>
+        <FormField
+          control={form.control}
+          name="activity_category_standard_id"
+          render={({field}) => (
+            <FormItem>
+              <fieldset className="space-y-3">
+                <legend>Select activity category standard</legend>
+                <FormControl>
+                  <RadioGroup
+                    ref={field.ref}
+                    name={field.name}
+                    onValueChange={field.onChange}
+                    defaultValue={field.value?.toString()}
+                    className="flex flex-col space-y-1"
+                  >
+                    {
+                      standards?.map(({id, name}) => (
+                        <FormItem className="flex items-center space-x-3 space-y-0" key={id}>
+                          <FormControl>
+                            <RadioGroupItem value={id.toString(10)}/>
+                          </FormControl>
+                          <FormLabel className="text-md font-normal">{name}</FormLabel>
+                        </FormItem>
+                      ))
+                    }
+                  </RadioGroup>
+                </FormControl>
+              </fieldset>
+              <FormMessage/>
+            </FormItem>
+          )}/>
         <div className="space-x-3">
           <Button type="submit">Confirm</Button>
           <Link href="/getting-started/upload-regions" className={buttonVariants({variant: 'outline'})}>Skip</Link>
