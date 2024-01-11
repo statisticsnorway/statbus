@@ -903,6 +903,7 @@ CREATE TABLE public.tag_for_unit (
     legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
     enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
     enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
