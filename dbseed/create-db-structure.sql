@@ -890,7 +890,7 @@ CREATE TABLE public.activity (
         )
 );
 CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
-CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_standard_id);
+CREATE INDEX ix_activity_activity_category_standard_id ON public.activity USING btree (activity_category_standard_id);
 CREATE INDEX ix_activity_establishment_id_id ON public.activity USING btree (establishment_id);
 CREATE INDEX ix_activity_legal_unit_id_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
