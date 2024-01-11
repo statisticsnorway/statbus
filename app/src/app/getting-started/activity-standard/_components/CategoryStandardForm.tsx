@@ -7,10 +7,11 @@ import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage,} from "@
 import {useForm} from "react-hook-form";
 import {setCategoryStandard} from "@/app/getting-started/activity-standard/actions";
 import Link from "next/link";
+import {Tables} from "@/lib/database.types";
 
 interface CategoryStandardFormProps {
-  readonly standards: { id: number, name: string }[] | null
-  readonly settings: { id: number, activity_category_standard: { id: number, name: string } | null }[] | null
+  readonly standards: Tables<'activity_category_standard'>[] | null
+  readonly settings: Tables<'settings'>[] | null
 }
 
 const FormSchema = z.object({
@@ -25,7 +26,7 @@ export default function CategoryStandardForm({standards, settings}: CategoryStan
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      activity_category_standard_id: settings?.[0]?.activity_category_standard?.id
+      activity_category_standard_id: settings?.[0]?.activity_category_standard_id
     }
   })
 

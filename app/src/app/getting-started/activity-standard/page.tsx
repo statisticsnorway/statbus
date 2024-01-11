@@ -7,10 +7,10 @@ export default async function ActivityStandardPage() {
     const client = createClient()
 
     const {data: standards} = await client.from('activity_category_standard')
-        .select('id, name')
+        .select()
 
     const {data: settings} = await client.from('settings')
-        .select('id, activity_category_standard(id,name)')
+        .select()
 
     return <section className="space-y-8">
         <h1 className="text-xl text-center">Select Activity Category Standard</h1>
