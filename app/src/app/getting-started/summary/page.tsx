@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
-import {createClient} from "@/lib/supabase.server.client";
 import {AlertCircle, Check} from "lucide-react";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function OnboardingCompletedPage() {
   const client = createClient()

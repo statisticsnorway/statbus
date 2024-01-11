@@ -1,6 +1,6 @@
 "use server";
-import {createClient} from "@/lib/supabase.server.client";
 import {redirect, RedirectType} from "next/navigation";
+import {createClient} from "@/lib/supabase/server";
 
 export async function uploadRegions(formData: FormData) {
   "use server";

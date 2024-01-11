@@ -1,4 +1,4 @@
-import {createClient} from "@/lib/supabase.server.client";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function ActivityCategoriesPage() {
   const client = createClient()

@@ -1,12 +1,12 @@
 import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import {Button, buttonVariants} from "@/components/ui/button";
-import {createClient} from "@/lib/supabase.server.client";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {uploadLegalUnits} from "@/app/getting-started/upload-legal-units/actions";
 import React from "react";
 import Link from "next/link";
 import {InfoBox} from "@/components/InfoBox";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function UploadRegionsPage() {
   const client = createClient()

@@ -1,7 +1,7 @@
 import React from "react";
-import {createClient} from "@/lib/supabase.server.client";
 import CategoryStandardForm from "@/app/getting-started/activity-standard/_components/CategoryStandardForm";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function ActivityStandardPage() {
     const client = createClient()

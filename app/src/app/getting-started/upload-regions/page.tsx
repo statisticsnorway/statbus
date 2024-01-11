@@ -4,9 +4,9 @@ import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import {Button, buttonVariants} from "@/components/ui/button";
 import {uploadRegions} from "@/app/getting-started/upload-regions/actions";
-import {createClient} from "@/lib/supabase.server.client";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {InfoBox} from "@/components/InfoBox";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function UploadRegionsPage() {
   const client = createClient()

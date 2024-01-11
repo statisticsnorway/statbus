@@ -1,6 +1,6 @@
-import {createClient} from "@/lib/supabase.server.client";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {InfoBox} from "@/components/InfoBox";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function Home() {
   const client = createClient();

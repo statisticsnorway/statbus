@@ -1,5 +1,5 @@
-import {createClient} from "@/lib/supabase.server.client";
 import {logout} from "@/app/login/actions";
+import {createClient} from "@/lib/supabase/server";
 
 export default async function ProfilePage() {
   const client = createClient()
