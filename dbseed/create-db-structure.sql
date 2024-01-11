@@ -879,12 +879,14 @@ CREATE TABLE public.activity (
     valid_to date NOT NULL DEFAULT 'infinity',
     activity_type public.activity_type NOT NULL,
     activity_category_id integer NOT NULL,
+    activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
     updated_by_user_id integer NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE
 );
 CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
 CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
+CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_standard_id);
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 
 
