@@ -4001,17 +4001,17 @@ SELECT lu.tax_reg_ident
      , lu.name
      , '' AS employees
      , '' AS region_code
-     , '' AS activity_category_code
+     , ac.code AS primary_activity_category_code
 --     , ac.path AS "primary_activity_category_path"
---     , ac.code AS "primary_activity_category_code"
 FROM public.legal_unit AS lu
---   , public.activity AS a
+   , public.activity AS a_p
+   , public.activity_category AS ac
 --   , public.activity_category AS ac
-WHERE lu.valid_from >= statement_timestamp() AND statement_timestamp() <= lu.valid_to
+WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
   AND lu.active
---  AND a.valid_from >= statement_timestamp() AND statement_timestamp() <= a.valid_to
---  AND a.activity_type = 'primary'
---  AND a.activity_category_id = ac.id
+  AND a_p.valid_from >= current_date AND current_date <= a_p.valid_to
+  AND a_p.activity_type = 'primary'
+  AND a_p.activity_category_id = ac.id
 ;
 
 CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view()
