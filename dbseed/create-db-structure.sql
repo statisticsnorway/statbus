@@ -878,7 +878,7 @@ CREATE TABLE public.activity (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     activity_type public.activity_type NOT NULL,
-    activity_category_id integer NOT NULL,
+    activity_category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
@@ -2841,14 +2841,6 @@ CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_
 
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code);
 
-
-
---
--- Name: activity fk_activity_activity_category_activity_category_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity
-    ADD CONSTRAINT fk_activity_activity_category_activity_category_id FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
 
 
 --
