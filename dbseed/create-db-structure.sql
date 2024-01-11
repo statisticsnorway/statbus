@@ -934,7 +934,7 @@ CREATE TABLE public.analysis_log (
     resolved_at timestamp with time zone,
     summary_messages text,
     error_values text,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id must be set"
+    CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
