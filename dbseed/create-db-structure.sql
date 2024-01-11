@@ -1751,10 +1751,11 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE public.region_role (
     id SERIAL PRIMARY KEY NOT NULL,
-    role_id integer NOT NULL,
-    region_id integer NOT NULL,
+    role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
+    region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
     UNIQUE(role_id, region_id)
 );
+CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
 
 
 CREATE TYPE public.stat_type AS ENUM(
@@ -2845,12 +2846,6 @@ CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code);
 
 
---
--- Name: ix_region_role; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
-
 
 --
 -- Name: activity fk_activity_activity_category_activity_category_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
@@ -3282,22 +3277,6 @@ ALTER TABLE ONLY public.sample_frame
 
 ALTER TABLE ONLY public.sector_code
     ADD CONSTRAINT fk_sector_code_sector_code_parent_id FOREIGN KEY (parent_id) REFERENCES public.sector_code(id);
-
-
---
--- Name: region_role fk_region_role; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.region_role
-    ADD CONSTRAINT fk_region_role_region_id FOREIGN KEY (region_id) REFERENCES public.region(id) ON DELETE CASCADE;
-
-
---
--- Name: region_role fk_region_role; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.region_role
-    ADD CONSTRAINT fk_region_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
 
 
 --
