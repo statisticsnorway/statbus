@@ -1009,8 +1009,8 @@ CREATE TABLE public.person (
 
 CREATE TABLE public.person_for_unit (
     id SERIAL PRIMARY KEY NOT NULL,
-    person_id integer NOT NULL,
-    person_type_id integer,
+    person_id integer NOT NULL REFERENCES public.person(id) ON DELETE CASCADE,
+    person_type_id integer REFERENCES public.person_type(id),
     establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
     legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
     CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
@@ -3154,38 +3154,6 @@ ALTER TABLE ONLY public.establishment
 
 ALTER TABLE ONLY public.person
     ADD CONSTRAINT fk_person_country_country_id FOREIGN KEY (country_id) REFERENCES public.country(id);
-
-
---
--- Name: person_for_unit fk_person_for_unit_legal_unit_legal_unit_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_legal_unit_legal_unit_id FOREIGN KEY (legal_unit_id) REFERENCES public.legal_unit(id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_establishment_establishment_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_establishment_establishment_id FOREIGN KEY (establishment_id) REFERENCES public.establishment(id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_person_person_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_person_person_id FOREIGN KEY (person_id) REFERENCES public.person(id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_person_type_person_type_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_person_type_person_type_id FOREIGN KEY (person_type_id) REFERENCES public.person_type(id);
 
 
 --
