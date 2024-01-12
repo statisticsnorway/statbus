@@ -1,22 +1,23 @@
-import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
+import {Table} from "@tanstack/table-core";
 
-interface TableToolbarProps {
+interface TableToolbarProps<TData> {
+  table: Table<TData>
   readonly onSearch: (search: string) => void
 }
 
-export default function TableToolbar({onSearch}: TableToolbarProps) {
+export default function TableToolbar<TData>({table, onSearch}: TableToolbarProps<TData>) {
   return (
-    <div className="w-full items-center space-y-3 bg-green-100 p-4">
-      <div className="flex justify-between">
-        <Label htmlFor="search-prompt">Find units by name or ID</Label>
+    <div className="flex items-center justify-between">
+      <div className="flex flex-1 items-center space-x-2">
+        <Input
+          type="text"
+          id="search-prompt"
+          placeholder="Find units by name"
+          className="h-8 w-[150px] lg:w-[250px]"
+          onChange={(e) => onSearch(e.target.value)}
+        />
       </div>
-      <Input
-        type="text"
-        id="search-prompt"
-        placeholder="Legal Unit"
-        onChange={(e) => onSearch(e.target.value)}
-      />
     </div>
   )
 }

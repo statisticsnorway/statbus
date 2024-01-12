@@ -34,7 +34,7 @@ export default function Search({legalUnits = [], count = 0}: SearchProps) {
 
   return (
     <section className="space-y-3">
-      <TableToolbar onSearch={q => setSearch(q)}/>
+      <TableToolbar table={table} onSearch={q => setSearch(q)}/>
 
       <div className="rounded-md border">
         <Table>
