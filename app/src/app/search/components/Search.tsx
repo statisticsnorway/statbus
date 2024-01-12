@@ -2,18 +2,28 @@
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {useEffect, useState} from "react";
 import TableToolbar from "@/app/search/components/TableToolbar";
+import {ColumnDef, getCoreRowModel} from "@tanstack/table-core";
+import {useReactTable} from "@tanstack/react-table";
+
+type LegalUnit = {
+  tax_reg_ident: string | null,
+  name: string | null
+}
 
 interface SearchProps {
-  readonly legalUnits: {
-    tax_reg_ident: string | null,
-    name: string | null
-  }[] | null,
-  readonly count: number | null
+  readonly legalUnits: LegalUnit[],
+  readonly count: number
 }
 
 export default function Search({legalUnits = [], count = 0}: SearchProps) {
   const [searchResult, setSearchResult] = useState({legalUnits, count})
   const [search, setSearch] = useState('')
+  const columns: ColumnDef<LegalUnit>[] = []
+  const table = useReactTable({
+    columns,
+    data: searchResult.legalUnits,
+    getCoreRowModel: getCoreRowModel<LegalUnit>()
+  })
 
   useEffect(() => {
     if (search === '') return setSearchResult(() => ({legalUnits, count}))
@@ -24,7 +34,7 @@ export default function Search({legalUnits = [], count = 0}: SearchProps) {
 
   return (
     <section className="space-y-3">
-      <TableToolbar onSearch={q => setSearch(q)}/>
+      <TableToolbar table={table} onSearch={q => setSearch(q)}/>
 
       <div className="rounded-md border">
         <Table>

@@ -16,7 +16,7 @@ export default async function Home() {
     return (
         <main className="flex flex-col p-8 md:p-24 space-y-6 max-w-7xl mx-auto">
             <h1 className="font-medium text-lg">Welcome to Statbus!</h1>
-            <Search legalUnits={legalUnits} count={count}/>
+            <Search legalUnits={legalUnits ?? []} count={count ?? 0}/>
         </main>
     )
 }
