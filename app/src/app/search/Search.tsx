@@ -15,6 +15,7 @@ export default function Search({legalUnits = [], count = 0}: SearchProps) {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
+    if (search === '') return setSearchResult(() => ({legalUnits, count}))
     fetch(`/search/api?q=${search}`)
       .then(response => response.json())
       .then((data) => setSearchResult(() => data))
@@ -47,7 +48,7 @@ export default function Search({legalUnits = [], count = 0}: SearchProps) {
         </TableHeader>
         <TableBody>
           {
-            searchResult?.legalUnits?.map((legalUnit) => (
+            (searchResult?.legalUnits)?.map((legalUnit) => (
               <TableRow key={legalUnit.tax_reg_ident}>
                 <TableCell className="font-medium">{legalUnit.tax_reg_ident}</TableCell>
                 <TableCell>{legalUnit.name}</TableCell>

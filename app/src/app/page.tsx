@@ -5,7 +5,8 @@ export default async function Home() {
     const client = createClient();
     const {data: legalUnits, count, error} = await client
         .from('legal_unit')
-        .select('*', {count: 'exact', head: true})
+        .select('*', {count: 'exact'})
+        .gt('id', 0)
         .limit(10);
 
     return (
