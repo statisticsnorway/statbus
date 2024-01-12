@@ -1,12 +1,14 @@
 "use client";
 import {Input} from "@/components/ui/input";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {Tables} from "@/lib/database.types";
 import {Label} from "@/components/ui/label";
 import {useEffect, useState} from "react";
 
 interface SearchProps {
-  readonly legalUnits: Tables<'legal_unit'>[] | null,
+  readonly legalUnits: {
+    tax_reg_ident: string | null,
+    name: string | null
+  }[] | null,
   readonly count: number | null
 }
 

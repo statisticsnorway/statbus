@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
     const {data: legalUnits, count, error} = await client
         .from('legal_unit')
-        .select('*', {count: 'exact'})
+        .select('tax_reg_ident, name', {count: 'exact'})
         .ilike('name', `*${searchTerm}*`)
         .limit(10)
 
