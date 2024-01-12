@@ -1,5 +1,5 @@
 import {createClient} from "@/lib/supabase/server";
-import Search from "@/app/search/Search";
+import Search from "@/app/search/components/Search";
 
 export default async function Home() {
     const client = createClient();
