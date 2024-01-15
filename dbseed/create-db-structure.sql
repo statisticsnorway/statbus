@@ -3779,8 +3779,8 @@ WHERE valid_from >= current_date AND current_date <= valid_to
 CREATE FUNCTION admin.upsert_legal_unit_current()
 RETURNS TRIGGER AS $upsert_legal_unit_current$
 DECLARE
-  c RECORD;
-  c_jsonb jsonb;
+  conflict RECORD;
+  conflict_data jsonb;
   new_data jsonb;
   new_base_data jsonb;
   adjusted_valid_from date;
@@ -3804,7 +3804,7 @@ BEGIN
   new_data := to_jsonb(NEW);
   -- Loop through each conflicting row
   RAISE DEBUG 'NEW row %', to_json(NEW.*);
-  FOR c IN
+  FOR conflict IN
   SELECT *
   FROM
     public.legal_unit
@@ -3820,122 +3820,122 @@ BEGIN
   ORDER BY
     valid_from
   LOOP
-      c_jsonb := to_jsonb(c);
-      RAISE DEBUG 'Conflicting row %', to_json(c.*);
-      -- Scenario #1: n.valid_from < c.valid_to AND c.valid_to <= n.valid_to
+      conflict_data := to_jsonb(conflict);
+      RAISE DEBUG 'Conflicting row %', conflict_data;
+      -- Scenario #1: new.valid_from < conflict.valid_to AND conflict.valid_to <= new.valid_to
       -- c      ------------]
       -- n           [-------------------------]
-      -- Resolution: c.valid_to = n.valid_from - '1 day'
+      -- Resolution: conflict.valid_to = new.valid_from - '1 day'
       -- c      ----]
       -- n           [-------------------------]
       --
-      IF NEW.valid_from <= c.valid_to AND c.valid_to <= NEW.valid_to THEN
-        RAISE DEBUG 'Scenario #1: NEW.valid_from <= c.valid_to AND c.valid_to <= NEW.valid_to';
+      IF NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to THEN
+        RAISE DEBUG 'Scenario #1: NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to';
         adjusted_valid_to := NEW.valid_from - interval '1 day';
         RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
-        IF adjusted_valid_to <= c.valid_from THEN
+        IF adjusted_valid_to <= conflict.valid_from THEN
           RAISE DEBUG 'Deleting conflict with zero valid duration public.legal_unit(id=%)', c.id;
           DELETE FROM public.legal_unit
-          WHERE id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+          WHERE id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         ELSE
-          RAISE DEBUG 'Adjusting conflicting row public.legal_unit(id=%)', c.id;
+          RAISE DEBUG 'Adjusting conflicting row public.legal_unit(id=%)', conflict.id;
           UPDATE
             public.legal_unit
           SET
             valid_to = adjusted_valid_to
           WHERE
-            id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+            id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         END IF;
-      -- Scenario #2: c.valid_from < n.valid_from AND n.valid_to <= c.valid_to
+      -- Scenario #2: conflict.valid_from < new.valid_from AND new.valid_to <= conflict.valid_to
       -- c      -----------------------------------------]
       -- n           [-------------------------]
-      -- Resolution: c.valid_to = n.valid_from - '1 day', c_new.valid_from = n.valid_to + '1 day', c_new.valid_to = c.valid_to
+      -- Resolution: conflict.valid_to = new.valid_from - '1 day', c_new.valid_from = new.valid_to + '1 day', c_new.valid_to = conflict.valid_to
       -- c      ----]
       -- n           [-------------------------]
       -- c'                                     [---------
       --
-      ELSIF c.valid_from <= NEW.valid_from AND NEW.valid_to <= c.valid_to THEN
-        RAISE DEBUG 'Scenario #2: c.valid_from <= NEW.valid_from AND NEW.valid_to <= c.valid_to';
+      ELSIF conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to THEN
+        RAISE DEBUG 'Scenario #2: conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to';
         adjusted_valid_from := NEW.valid_to + interval '1 day';
         adjusted_valid_to := NEW.valid_from - interval '1 day';
         RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
         RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
-        IF adjusted_valid_to <= c.valid_from THEN
-          RAISE DEBUG 'Deleting conflict with zero valid duration public.legal_unit(id=%)', c.id;
+        IF adjusted_valid_to <= conflict.valid_from THEN
+          RAISE DEBUG 'Deleting conflict with zero valid duration public.legal_unit(id=%)', conflict.id;
           DELETE FROM public.legal_unit
-          WHERE id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+          WHERE id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         ELSE
-          RAISE DEBUG 'Adjusting conflicting row public.legal_unit(id=%)', c.id;
+          RAISE DEBUG 'Adjusting conflicting row public.legal_unit(id=%)', conflict.id;
           UPDATE
             public.legal_unit
           SET
             valid_to = adjusted_valid_to
           WHERE
-            id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+            id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         END IF;
-        IF c.valid_to < adjusted_valid_from THEN
+        IF conflict.valid_to < adjusted_valid_from THEN
           RAISE DEBUG 'Don''t create zero duration row';
         ELSIF NEW.active THEN
           RAISE DEBUG 'Inserting new tail';
           INSERT INTO public.legal_unit(legal_unit_id, tax_reg_ident, name, valid_from, valid_to, edit_comment, edit_by_user_id)
-            VALUES (NEW.id, tax_reg_ident, adjusted_valid_from, c.name, c.valid_from, c.valid_to, c.edit_comment, c.edit_by_user_id);
+            VALUES (NEW.id, tax_reg_ident, adjusted_valid_from, c.name, conflict.valid_from, conflict.valid_to, c.edit_comment, c.edit_by_user_id);
         ELSE
           RAISE DEBUG 'No tail for a liquidated company';
         END IF;
-      -- Scenario #3: n.valid_from < c.valid_from AND c.valid_to <= n.valid_to
+      -- Scenario #3: new.valid_from < conflict.valid_from AND conflict.valid_to <= new.valid_to
       -- c             [-------------]
       -- n           [-------------------------]
       -- Resolution: delete c
       -- n           [-------------------------]
       --
-      ELSIF NEW.valid_from <= c.valid_from AND c.valid_to <= NEW.valid_to THEN
-        RAISE DEBUG 'Scenario #3: NEW.valid_from <= c.valid_from AND c.valid_to <= NEW.valid_to';
-        RAISE DEBUG 'Deleting conflict contained by NEW public.legal_unit_history(id=%)', c.id;
+      ELSIF NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to THEN
+        RAISE DEBUG 'Scenario #3: NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to';
+        RAISE DEBUG 'Deleting conflict contained by NEW public.legal_unit_history(id=%)', conflict.id;
         DELETE FROM public.legal_unit
-        WHERE id = c.id
-          AND valid_from = c.valid_from
-          AND valid_to = c.valid_to;
-      -- Scenario #4: n.valid_from < c.valid_from AND n.valid_to <= c.valid_to
+        WHERE id = conflict.id
+          AND valid_from = conflict.valid_from
+          AND valid_to = conflict.valid_to;
+      -- Scenario #4: new.valid_from < conflict.valid_from AND new.valid_to <= conflict.valid_to
       -- c                   [----------------------------]
       -- n           [-------------------------]
-      -- Resolution: c.valid_from = n.valid_to + '1 day'
+      -- Resolution: conflict.valid_from = new.valid_to + '1 day'
       -- c                                     [----------]
       -- n           [-------------------------]
       --
-      ELSIF NEW.valid_from <= c.valid_from AND NEW.valid_to <= c.valid_to THEN
-        RAISE DEBUG 'Scenario #4: NEW.valid_from <= c.valid_from AND NEW.valid_to <= c.valid_to';
+      ELSIF NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to THEN
+        RAISE DEBUG 'Scenario #4: NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to';
         adjusted_valid_from := NEW.valid_to + interval '1 day';
         RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
-        IF c.valid_to < adjusted_valid_from THEN
-          RAISE DEBUG 'Deleting conflict with zero valid duration public.legal_unit_history(id=%)', c.id;
+        IF conflict.valid_to < adjusted_valid_from THEN
+          RAISE DEBUG 'Deleting conflict with zero valid duration public.legal_unit_history(id=%)', conflict.id;
           DELETE FROM public.legal_unit
-          WHERE id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+          WHERE id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         ELSIF NOT NEW.active THEN
-          RAISE DEBUG 'Deleting conflict after liquidation public.legal_unit_history(id=%)', c.id;
+          RAISE DEBUG 'Deleting conflict after liquidation public.legal_unit_history(id=%)', conflict.id;
           DELETE FROM public.legal_unit
-          WHERE id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+          WHERE id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         ELSE
-          RAISE DEBUG 'Adjusting conflicting row public.legal_unit_history(id=%)', c.id;
+          RAISE DEBUG 'Adjusting conflicting row public.legal_unit_history(id=%)', conflict.id;
           UPDATE
             public.legal_unit
           SET
             valid_from = adjusted_valid_from
           WHERE
-            id = c.id
-            AND valid_from = c.valid_from
-            AND valid_to = c.valid_to;
+            id = conflict.id
+            AND valid_from = conflict.valid_from
+            AND valid_to = conflict.valid_to;
         END IF;
       ELSE
         RAISE EXCEPTION 'Unhandled conflicting case';
@@ -3950,8 +3950,8 @@ BEGIN
   new_base_data := new_data - generated_columns;
 
   -- If there was any existing row, then reuse that same id
-    IF c.id IS NOT NULL THEN
-        new_base_data := jsonb_set(new_base_data, '{id}', to_jsonb(c.id));
+    IF conflict.id IS NOT NULL THEN
+        new_base_data := jsonb_set(new_base_data, '{id}', to_jsonb(conflict.id));
     END IF;
 
   RAISE DEBUG 'NEW public.legal_unit(%)', to_json(new_base_data);
