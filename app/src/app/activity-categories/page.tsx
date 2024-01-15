@@ -2,27 +2,26 @@ import {createClient} from "@/lib/supabase/server";
 
 export default async function ActivityCategoriesPage() {
   const client = createClient()
-  const {data: activityCategories} = await client.from('activity_category')
-    .select('id, label, name, parent_id, updated_at')
-    .eq('active', true)
+  const {data: activityCategories, count} = await client.from('activity_category_available')
+    .select('*', { count: 'exact' })
     .limit(25)
-    .order('updated_at', {ascending: false})
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-8 md:p-24">
+    <main className="flex flex-col items-center justify-between space-y-8 md:p-24">
+      <h1 className="text-xl text-center">Showing top 25 out of total {count} categories</h1>
       <ul className="divide-y divide-gray-100">
         {activityCategories?.map((category) => (
-          <li key={category.id} className="flex justify-between gap-x-6 py-5">
+          <li key={category.code} className="flex justify-between gap-x-6 py-3">
             <div className="flex min-w-0 gap-x-4">
               <div className="min-w-0 flex-auto">
-                <p className="text-sm font-semibold leading-6 text-gray-900">{category.name}</p>
-                <p className="mt-1 truncate text-xs leading-5 text-gray-500">Parent: {category.parent_id}</p>
+                <p className="text-sm truncate font-semibold leading-6 text-gray-900">{category.name}</p>
+                <p className="text-sm truncate text-gray-900">{category.standard}</p>
               </div>
             </div>
             <div className="hidden shrink-0 sm:flex sm:flex-col sm:items-end">
               <p className="text-sm leading-6 text-gray-900">{category.label}</p>
               <p className="mt-1 text-xs leading-5 text-gray-500">
-                Last seen <time dateTime={category.updated_at}>{category.updated_at}</time>
+                {`${category.path}`}
               </p>
             </div>
           </li>
