@@ -1,5 +1,6 @@
 import {Input} from "@/components/ui/input";
 import {Table} from "@tanstack/table-core";
+import {TableFilter} from "@/app/search/components/TableFilter";
 
 interface TableToolbarProps<TData> {
   table: Table<TData>
@@ -9,14 +10,16 @@ interface TableToolbarProps<TData> {
 export default function TableToolbar<TData>({table, onSearch}: TableToolbarProps<TData>) {
   return (
     <div className="flex items-center justify-between">
-      <div className="flex flex-1 items-center space-x-2">
+      <div className="flex flex-1 items-center space-x-2 h-10">
         <Input
           type="text"
           id="search-prompt"
           placeholder="Find units by name"
-          className="h-8 w-[150px] lg:w-[250px]"
+          className="w-[150px] lg:w-[250px] h-full"
           onChange={(e) => onSearch(e.target.value)}
         />
+        <TableFilter title="Activity Category" />
+        <TableFilter title="Region" />
       </div>
     </div>
   )
