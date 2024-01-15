@@ -1,20 +1,46 @@
 BEGIN;
 
+-- Inspect with:
+--   SELECT table_name, column_names, key_name FROM sql_saga.unique_keys;
+--   SELECT table_name, column_names, key_name FROM sql_saga.foreign_keys;
+
 -- Drop era handling
-SELECT sql_saga.drop_foreign_key('public.enterprise', 'enterprise_enterprise_group_id_valid');
-SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_id_valid');
-SELECT sql_saga.drop_era('public.enterprise');
+SELECT sql_saga.drop_foreign_key('public.stat_for_unit', 'stat_for_unit_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_stat_definition_id_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_id_valid');
+SELECT sql_saga.drop_era('public.stat_for_unit');
 
-SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
-SELECT sql_saga.drop_era('public.enterprise_group');
+SELECT sql_saga.drop_foreign_key('public.activity', 'activity_establishment_id_valid');
+SELECT sql_saga.drop_foreign_key('public.activity', 'activity_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activity_category__legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activity_catego_establishment_i_valid');
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_id_valid');
+SELECT sql_saga.drop_era('public.activity');
 
+SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_enterprise_id_valid');
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
+SELECT sql_saga.drop_era('public.establishment');
+
+SELECT sql_saga.drop_foreign_key('public.legal_unit', 'legal_unit_enterprise_id_valid');
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_reg_ident_valid');
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
 
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
-SELECT sql_saga.drop_era('public.establishment');
+SELECT sql_saga.drop_foreign_key('public.enterprise', 'enterprise_enterprise_group_id_valid');
+SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_id_valid');
+SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_stat_ident_valid');
+SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_external_ident_external_ident_type_valid');
+SELECT sql_saga.drop_era('public.enterprise');
+
+SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_external_ident_external_ident_type_valid');
+SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_stat_ident_valid');
+SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
+SELECT sql_saga.drop_era('public.enterprise_group');
 
 
 DROP VIEW public.statistical_units;
@@ -33,7 +59,6 @@ DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
 
-DROP VIEW public.legal_unit_current;
 DROP VIEW public.legal_unit_custom_view;
 DROP FUNCTION admin.upsert_legal_unit_custom_view();
 DROP FUNCTION admin.delete_stale_legal_unit_custom_view();
@@ -54,11 +79,17 @@ DROP FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def
 DROP VIEW admin.custom_view_def_expanded;
 DROP TYPE admin.custom_view_def_names;
 
-DROP TRIGGER delete_stale_legal_unit_region_activity_category_stats_view_trigger ON public.legal_unit_region_activity_category_stats_view;
-DROP TRIGGER upsert_legal_unit_region_activity_category_stats_view_trigger ON public.legal_unit_region_activity_category_stats_view;
-DROP FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_view();
-DROP FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view();
-DROP VIEW public.legal_unit_region_activity_category_stats_view;
+DROP TRIGGER delete_stale_legal_unit_region_activity_category_stats_current_with_delete_trigger ON public.legal_unit_region_activity_category_stats_current_with_delete;
+DROP FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_current_with_delete();
+DROP VIEW public.legal_unit_region_activity_category_stats_current_with_delete;
+
+DROP TRIGGER upsert_legal_unit_region_activity_category_stats_current_trigger ON public.legal_unit_region_activity_category_stats_current;
+DROP FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current();
+DROP VIEW public.legal_unit_region_activity_category_stats_current;
+
+DROP TRIGGER upsert_legal_unit_current ON public.legal_unit_current;
+DROP FUNCTION admin.upsert_legal_unit_current();
+DROP VIEW public.legal_unit_current;
 
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
@@ -169,6 +200,11 @@ DROP TYPE public.data_source_upload_type;
 DROP TYPE public.statbus_role_type;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
+
+DROP FUNCTION admin.enterprise_group_id_exists(integer);
+DROP FUNCTION admin.enterprise_id_exists(integer);
+DROP FUNCTION admin.legal_unit_id_exists(integer);
+DROP FUNCTION admin.establishment_id_exists(integer);
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
