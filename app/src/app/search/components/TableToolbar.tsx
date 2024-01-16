@@ -1,62 +1,35 @@
+import {useReducer} from "react";
 import {Input} from "@/components/ui/input";
-import {Table} from "@tanstack/table-core";
 import {TableFilter} from "@/app/search/components/TableFilter";
-import {useState} from "react";
+import {
+  resetActivityCategories,
+  resetRegions,
+  searchFilterReducer,
+  toggleActivityCategory,
+  toggleRegion
+} from "@/app/search/reducer";
 
-interface TableToolbarProps<TData> {
-  table: Table<TData>
+interface TableToolbarProps {
   readonly onSearch: (search: string) => void
 }
 
-export default function TableToolbar<TData>({table, onSearch}: TableToolbarProps<TData>) {
-
-  const options = {
-    categories: [
-      {label: "Fishing", value: "A011"},
-      {label: "Growing of tobacco", value: "A0115"},
-      {label: "Extraction of natural gas", value: "B0520"},
-      {label: "Manufacture of watches and clocks", value: "C1052"},
-    ],
-    regions: [
-      {label: "Vestland", value: "norway-w"},
-      {label: "Rogaland", value: "norway-w2"},
-    ]
-  }
-
-  const [regions, setRegions] = useState<Set<string>>(new Set(["norway-w"]))
-  const [activityCategories, setActivityCategories] = useState<Set<string>>(new Set(["A0115", "B0520"]))
-
-  const resetRegions = () => {
-    setRegions(new Set())
-  }
-
-  const resetActivityCategories = () => {
-    setActivityCategories(new Set())
-  }
-
-  const toggleRegion = (option: { label: string, value: string }) => {
-    setRegions((regions) => {
-      const set = new Set(regions)
-      if (set.has(option.value)) {
-        set.delete(option.value)
-      } else {
-        set.add(option.value)
-      }
-      return set
-    })
-  }
-
-  const toggleActivityCategory = (option: { label: string, value: string }) => {
-    setActivityCategories((activityCategories) => {
-      const set = new Set(activityCategories)
-      if (set.has(option.value)) {
-        set.delete(option.value)
-      } else {
-        set.add(option.value)
-      }
-      return set
-    })
-  }
+export default function TableToolbar({onSearch}: TableToolbarProps) {
+  const [searchFilter, dispatch] = useReducer(
+    searchFilterReducer,
+    {
+      regions: [],
+      activityCategories: [],
+      activityCategoryOptions: [
+        {label: "Fishing", value: "A011"},
+        {label: "Growing of tobacco", value: "A0115"},
+        {label: "Extraction of natural gas", value: "B0520"},
+        {label: "Manufacture of watches and clocks", value: "C1052"},
+      ],
+      regionOptions: [
+        {label: "Vestland", value: "norway-w"},
+        {label: "Rogaland", value: "norway-w2"},
+      ]
+    });
 
   return (
     <div className="flex items-center justify-between">
@@ -70,17 +43,17 @@ export default function TableToolbar<TData>({table, onSearch}: TableToolbarProps
         />
         <TableFilter
           title="Activity Category"
-          options={options.categories}
-          selectedOptionValues={activityCategories}
-          onToggle={toggleActivityCategory}
-          onReset={resetActivityCategories}
+          options={searchFilter.activityCategoryOptions}
+          selectedOptionValues={searchFilter.activityCategories}
+          onToggle={toggleActivityCategory(dispatch)}
+          onReset={resetActivityCategories(dispatch)}
         />
         <TableFilter
           title="Region"
-          options={options.regions}
-          selectedOptionValues={regions}
-          onToggle={toggleRegion}
-          onReset={resetRegions}
+          options={searchFilter.regionOptions}
+          selectedOptionValues={searchFilter.regions}
+          onToggle={toggleRegion(dispatch)}
+          onReset={resetRegions(dispatch)}
         />
       </div>
     </div>

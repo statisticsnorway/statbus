@@ -22,7 +22,7 @@ interface ITableFilterOption {
 interface ITableFilterProps {
   title: string,
   options: ITableFilterOption[]
-  selectedOptionValues: Set<string>,
+  selectedOptionValues: string[],
   onToggle: (option: ITableFilterOption) => void,
   onReset: () => void,
 }
@@ -34,12 +34,12 @@ export function TableFilter({title, options, selectedOptionValues, onToggle, onR
         <Button variant="outline" size="sm" className="border-dashed h-full space-x-3">
           <PlusCircle className="mr-2 h-4 w-4"/>
           {title}
-          {selectedOptionValues?.size ? (
+          {selectedOptionValues?.length ? (
             <>
               <Separator orientation="vertical" className="h-1/2"/>
               {
                 options
-                  .filter((option) => selectedOptionValues.has(option.value))
+                  .filter((option) => selectedOptionValues.includes(option.value))
                   .map((option) => (
                     <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
                       {option.label}
@@ -59,14 +59,14 @@ export function TableFilter({title, options, selectedOptionValues, onToggle, onR
               {
                 options.map((option) => (
                   <CommandItem key={option.value} onSelect={() => onToggle(option)} className="space-x-2">
-                    {selectedOptionValues.has(option.value) ? <Check size={14}/> : null}
+                    {selectedOptionValues.includes(option.value) ? <Check size={14}/> : null}
                     <span>{option.label}</span>
                   </CommandItem>
                 ))
               }
             </CommandGroup>
             {
-              selectedOptionValues?.size ? (
+              selectedOptionValues?.length ? (
                 <>
                   <CommandSeparator/>
                   <CommandGroup heading="Reset">
