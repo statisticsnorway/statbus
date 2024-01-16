@@ -1,72 +1,31 @@
-import {Dispatch} from "react";
-
-type SearchFilterOption = {
-  readonly label: string
-  readonly value: string
-}
-
-type SearchFilter = {
-  regions: string[]
-  activityCategories: string[],
-  regionOptions: SearchFilterOption[],
-  activityCategoryOptions: SearchFilterOption[]
-};
-
-enum SearchFilterActionTypes {
-  ToggleRegion = "toggleRegion",
-  ToggleActivityCategory = "toggleActivityCategory",
-  ResetRegions = "resetRegions",
-  ResetActivityCategories = "resetActivityCategories",
-  SetActivityCategoryOptions = "setActivityCategoryOptions",
-  SetRegionOptions = "setRegionOptions"
-}
-
-type SearchFilterAction = { type: SearchFilterActionTypes; payload: any };
-
 export function searchFilterReducer(state: SearchFilter, {type, payload}: SearchFilterAction): SearchFilter {
+  const {selectedRegions, selectedActivityCategories} = state;
   switch (type) {
-    case SearchFilterActionTypes.SetActivityCategoryOptions:
-      return {...state, activityCategoryOptions: payload}
-    case SearchFilterActionTypes.SetRegionOptions:
-      return {...state, regionOptions: payload}
-    case SearchFilterActionTypes.ToggleRegion:
+    case "toggleRegion":
       return {
         ...state,
-        regions: state.regions.includes(payload)
-          ? state.regions.filter(id => id !== payload)
-          : [...state.regions, payload]
+        selectedRegions: selectedRegions.includes(payload)
+          ? selectedRegions.filter(id => id !== payload)
+          : [...selectedRegions, payload]
       }
-    case SearchFilterActionTypes.ToggleActivityCategory:
+    case "toggleActivityCategory":
       return {
         ...state,
-        activityCategories: state.activityCategories.includes(payload)
-          ? state.activityCategories.filter(id => id !== payload)
-          : [...state.activityCategories, payload]
+        selectedActivityCategories: selectedActivityCategories.includes(payload)
+          ? selectedActivityCategories.filter(id => id !== payload)
+          : [...selectedActivityCategories, payload]
       }
-    case SearchFilterActionTypes.ResetRegions:
-      return {...state, regions: []}
-    case SearchFilterActionTypes.ResetActivityCategories:
-      return {...state, activityCategories: []}
+    case "resetRegions":
+      return {
+        ...state,
+        selectedRegions: []
+      }
+    case "resetActivityCategories":
+      return {
+        ...state,
+        selectedActivityCategories: []
+      }
     default:
       return state
   }
-}
-
-export const resetRegions = (dispatch: Dispatch<SearchFilterAction>) => () => {
-  dispatch({type: SearchFilterActionTypes.ResetRegions, payload: ""})
-}
-
-export const resetActivityCategories = (dispatch: Dispatch<SearchFilterAction>) => () => {
-  dispatch({type: SearchFilterActionTypes.ToggleActivityCategory, payload: ""})
-}
-
-export const toggleRegion = (dispatch: Dispatch<SearchFilterAction>) => (option: { label: string, value: string }) => {
-  dispatch({type: SearchFilterActionTypes.ToggleRegion, payload: option.value})
-}
-
-export const toggleActivityCategory = (dispatch: Dispatch<SearchFilterAction>) => (option: {
-  label: string,
-  value: string
-}) => {
-  dispatch({type: SearchFilterActionTypes.ToggleActivityCategory, payload: option.value})
 }

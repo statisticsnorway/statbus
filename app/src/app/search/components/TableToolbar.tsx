@@ -1,36 +1,14 @@
-import {useReducer} from "react";
+import {Dispatch} from "react";
 import {Input} from "@/components/ui/input";
 import {TableFilter} from "@/app/search/components/TableFilter";
-import {
-  resetActivityCategories,
-  resetRegions,
-  searchFilterReducer,
-  toggleActivityCategory,
-  toggleRegion
-} from "@/app/search/reducer";
 
 interface TableToolbarProps {
-  readonly onSearch: (search: string) => void
+  readonly onSearch: (search: string) => void,
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterAction>
 }
 
-export default function TableToolbar({onSearch}: TableToolbarProps) {
-  const [searchFilter, dispatch] = useReducer(
-    searchFilterReducer,
-    {
-      regions: [],
-      activityCategories: [],
-      activityCategoryOptions: [
-        {label: "Fishing", value: "A011"},
-        {label: "Growing of tobacco", value: "A0115"},
-        {label: "Extraction of natural gas", value: "B0520"},
-        {label: "Manufacture of watches and clocks", value: "C1052"},
-      ],
-      regionOptions: [
-        {label: "Vestland", value: "norway-w"},
-        {label: "Rogaland", value: "norway-w2"},
-      ]
-    });
-
+export default function TableToolbar({filter, dispatch, onSearch}: TableToolbarProps) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex flex-1 items-center space-x-2 h-10">
@@ -43,17 +21,17 @@ export default function TableToolbar({onSearch}: TableToolbarProps) {
         />
         <TableFilter
           title="Activity Category"
-          options={searchFilter.activityCategoryOptions}
-          selectedOptionValues={searchFilter.activityCategories}
-          onToggle={toggleActivityCategory(dispatch)}
-          onReset={resetActivityCategories(dispatch)}
+          options={filter.activityCategoryOptions}
+          selectedValues={filter.selectedActivityCategories}
+          onToggle={({value}) => dispatch({type: "toggleActivityCategory", payload: value})}
+          onReset={() => dispatch({type: "resetActivityCategories", payload: ""})}
         />
         <TableFilter
           title="Region"
-          options={searchFilter.regionOptions}
-          selectedOptionValues={searchFilter.regions}
-          onToggle={toggleRegion(dispatch)}
-          onReset={resetRegions(dispatch)}
+          options={filter.regionOptions}
+          selectedValues={filter.selectedRegions}
+          onToggle={({value}) => dispatch({type: "toggleRegion", payload: value})}
+          onReset={() => dispatch({type: "resetRegions", payload: ""})}
         />
       </div>
     </div>
