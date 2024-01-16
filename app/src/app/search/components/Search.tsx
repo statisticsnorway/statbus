@@ -1,7 +1,9 @@
 "use client";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {useEffect, useState} from "react";
+import {useEffect, useReducer, useState} from "react";
 import TableToolbar from "@/app/search/components/TableToolbar";
+import {Tables} from "@/lib/database.types";
+import {searchFilterReducer} from "@/app/search/reducer";
 
 type LegalUnit = {
   tax_reg_ident: string | null,
@@ -10,23 +12,31 @@ type LegalUnit = {
 
 interface SearchProps {
   readonly legalUnits: LegalUnit[],
+  readonly regions: Tables<"region">[]
+  readonly activityCategories: Tables<"activity_category_available">[]
   readonly count: number
 }
 
-export default function Search({legalUnits = [], count = 0}: SearchProps) {
+export default function Search({legalUnits = [], regions = [], activityCategories, count = 0}: SearchProps) {
   const [searchResult, setSearchResult] = useState({legalUnits, count})
-  const [search, setSearch] = useState('')
+  const [searchPrompt, setSearchPrompt] = useState('')
+  const [searchFilter, searchFilterDispatch] = useReducer(searchFilterReducer, {
+    regions: [],
+    activityCategories: [],
+    activityCategoryOptions: activityCategories.map(({label, name}) => ({label: `${label} ${name}`, value: label ?? ""})),
+    regionOptions: regions.map(({id, name}) => ({label: `${id} ${name}`, value: id.toString(10)}))
+  })
 
   useEffect(() => {
-    if (search === '') return setSearchResult(() => ({legalUnits, count}))
-    fetch(`/search/api?q=${search}`)
+    if (searchPrompt === '') return setSearchResult(() => ({legalUnits, count}))
+    fetch(`/search/api?q=${searchPrompt}`)
       .then(response => response.json())
       .then((data) => setSearchResult(() => data))
-  }, [search])
+  }, [searchPrompt, count, legalUnits])
 
   return (
     <section className="space-y-3">
-      <TableToolbar onSearch={q => setSearch(q)}/>
+      <TableToolbar filter={searchFilter} dispatch={searchFilterDispatch} onSearch={q => setSearchPrompt(q)}/>
 
       <div className="rounded-md border">
         <Table>
