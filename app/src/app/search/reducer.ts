@@ -1,21 +1,34 @@
 import {Dispatch} from "react";
 
+type SearchFilterOption = {
+  readonly label: string
+  readonly value: string
+}
+
 type SearchFilter = {
   regions: string[]
-  activityCategories: string[]
+  activityCategories: string[],
+  regionOptions: SearchFilterOption[],
+  activityCategoryOptions: SearchFilterOption[]
 };
 
 enum SearchFilterActionTypes {
   ToggleRegion = "toggleRegion",
   ToggleActivityCategory = "toggleActivityCategory",
   ResetRegions = "resetRegions",
-  ResetActivityCategories = "resetActivityCategories"
+  ResetActivityCategories = "resetActivityCategories",
+  SetActivityCategoryOptions = "setActivityCategoryOptions",
+  SetRegionOptions = "setRegionOptions"
 }
 
-type SearchFilterAction = { type: SearchFilterActionTypes; payload: string };
+type SearchFilterAction = { type: SearchFilterActionTypes; payload: any };
 
 export function searchFilterReducer(state: SearchFilter, {type, payload}: SearchFilterAction): SearchFilter {
   switch (type) {
+    case SearchFilterActionTypes.SetActivityCategoryOptions:
+      return {...state, activityCategoryOptions: payload}
+    case SearchFilterActionTypes.SetRegionOptions:
+      return {...state, regionOptions: payload}
     case SearchFilterActionTypes.ToggleRegion:
       return {
         ...state,

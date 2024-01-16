@@ -14,21 +14,22 @@ interface TableToolbarProps {
 }
 
 export default function TableToolbar({onSearch}: TableToolbarProps) {
-
-  const options = {
-    categories: [
-      {label: "Fishing", value: "A011"},
-      {label: "Growing of tobacco", value: "A0115"},
-      {label: "Extraction of natural gas", value: "B0520"},
-      {label: "Manufacture of watches and clocks", value: "C1052"},
-    ],
-    regions: [
-      {label: "Vestland", value: "norway-w"},
-      {label: "Rogaland", value: "norway-w2"},
-    ]
-  }
-
-  const [searchFilter, dispatch] = useReducer(searchFilterReducer, {regions: [], activityCategories: []});
+  const [searchFilter, dispatch] = useReducer(
+    searchFilterReducer,
+    {
+      regions: [],
+      activityCategories: [],
+      activityCategoryOptions: [
+        {label: "Fishing", value: "A011"},
+        {label: "Growing of tobacco", value: "A0115"},
+        {label: "Extraction of natural gas", value: "B0520"},
+        {label: "Manufacture of watches and clocks", value: "C1052"},
+      ],
+      regionOptions: [
+        {label: "Vestland", value: "norway-w"},
+        {label: "Rogaland", value: "norway-w2"},
+      ]
+    });
 
   return (
     <div className="flex items-center justify-between">
@@ -42,14 +43,14 @@ export default function TableToolbar({onSearch}: TableToolbarProps) {
         />
         <TableFilter
           title="Activity Category"
-          options={options.categories}
+          options={searchFilter.activityCategoryOptions}
           selectedOptionValues={searchFilter.activityCategories}
           onToggle={toggleActivityCategory(dispatch)}
           onReset={resetActivityCategories(dispatch)}
         />
         <TableFilter
           title="Region"
-          options={options.regions}
+          options={searchFilter.regionOptions}
           selectedOptionValues={searchFilter.regions}
           onToggle={toggleRegion(dispatch)}
           onReset={resetRegions(dispatch)}
