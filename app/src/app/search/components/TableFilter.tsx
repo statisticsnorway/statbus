@@ -1,5 +1,5 @@
 import {Button} from "@/components/ui/button";
-import {PlusCircle} from "lucide-react";
+import {Check, PlusCircle} from "lucide-react";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 import {Command} from "cmdk";
 import {
@@ -14,34 +14,32 @@ import * as React from "react";
 import {Separator} from "@/components/ui/separator";
 import {Badge} from "@/components/ui/badge";
 
-interface TableFilterProps {
-  title: string,
-  options: { label: string, value: string }[]
-  selected?: Set<string>
+interface ITableFilterOption {
+  label: string,
+  value: string
 }
 
-export function TableFilter({title, options, selected}: TableFilterProps) {
+interface ITableFilterProps {
+  title: string,
+  options: ITableFilterOption[]
+  selectedOptionValues: Set<string>,
+  onToggle: (option: ITableFilterOption) => void,
+  onReset: () => void,
+}
 
-  const toggle = (option: { label: string, value: string }) => {
-    console.log(`Toggle option ${option.label}`)
-  }
-
-  const reset = () => {
-    console.log("Reset filter")
-  }
-
+export function TableFilter({title, options, selectedOptionValues, onToggle, onReset}: ITableFilterProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="border-dashed h-full space-x-3">
           <PlusCircle className="mr-2 h-4 w-4"/>
           {title}
-          {selected?.size && (
+          {selectedOptionValues?.size ? (
             <>
               <Separator orientation="vertical" className="h-1/2"/>
               {
                 options
-                  .filter((option) => selected.has(option.value))
+                  .filter((option) => selectedOptionValues.has(option.value))
                   .map((option) => (
                     <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
                       {option.label}
@@ -49,7 +47,7 @@ export function TableFilter({title, options, selected}: TableFilterProps) {
                   ))
               }
             </>
-          )}
+          ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
@@ -60,21 +58,22 @@ export function TableFilter({title, options, selected}: TableFilterProps) {
             <CommandGroup>
               {
                 options.map((option) => (
-                  <CommandItem key={option.value} onSelect={() => toggle(option)}>
-                    {option.label}
+                  <CommandItem key={option.value} onSelect={() => onToggle(option)} className="space-x-2">
+                    {selectedOptionValues.has(option.value) ? <Check size={14}/> : null}
+                    <span>{option.label}</span>
                   </CommandItem>
                 ))
               }
             </CommandGroup>
             {
-              selected?.size && (
+              selectedOptionValues?.size ? (
                 <>
                   <CommandSeparator/>
                   <CommandGroup heading="Reset">
-                    <CommandItem onSelect={reset}>Clear all</CommandItem>
+                    <CommandItem onSelect={onReset}>Clear all</CommandItem>
                   </CommandGroup>
                 </>
-              )
+              ) : null
             }
           </CommandList>
         </Command>
