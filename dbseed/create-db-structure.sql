@@ -284,8 +284,9 @@ CREATE TABLE public.settings (
 
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
-SELECT acs.code AS standard
+SELECT acs.code AS standard_code
      , ac.path
+     , ac.parent_id
      , ac.label
      , ac.code
      , ac.name
