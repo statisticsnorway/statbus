@@ -1,29 +1,29 @@
 export function searchFilterReducer(state: SearchFilter, {type, payload}: SearchFilterAction): SearchFilter {
-  const {regions, activityCategories} = state;
+  const {selectedRegions, selectedActivityCategories} = state;
   switch (type) {
     case "toggleRegion":
       return {
         ...state,
-        regions: regions.includes(payload)
-          ? regions.filter(id => id !== payload)
-          : [...regions, payload]
+        selectedRegions: selectedRegions.includes(payload)
+          ? selectedRegions.filter(id => id !== payload)
+          : [...selectedRegions, payload]
       }
     case "toggleActivityCategory":
       return {
         ...state,
-        activityCategories: activityCategories.includes(payload)
-          ? activityCategories.filter(id => id !== payload)
-          : [...activityCategories, payload]
+        selectedActivityCategories: selectedActivityCategories.includes(payload)
+          ? selectedActivityCategories.filter(id => id !== payload)
+          : [...selectedActivityCategories, payload]
       }
     case "resetRegions":
       return {
         ...state,
-        regions: []
+        selectedRegions: []
       }
     case "resetActivityCategories":
       return {
         ...state,
-        activityCategories: []
+        selectedActivityCategories: []
       }
     default:
       return state

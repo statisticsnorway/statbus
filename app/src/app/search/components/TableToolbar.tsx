@@ -22,14 +22,14 @@ export default function TableToolbar({filter, dispatch, onSearch}: TableToolbarP
         <TableFilter
           title="Activity Category"
           options={filter.activityCategoryOptions}
-          selectedOptionValues={filter.activityCategories}
+          selectedValues={filter.selectedActivityCategories}
           onToggle={({value}) => dispatch({type: "toggleActivityCategory", payload: value})}
           onReset={() => dispatch({type: "resetActivityCategories", payload: ""})}
         />
         <TableFilter
           title="Region"
           options={filter.regionOptions}
-          selectedOptionValues={filter.regions}
+          selectedValues={filter.selectedRegions}
           onToggle={({value}) => dispatch({type: "toggleRegion", payload: value})}
           onReset={() => dispatch({type: "resetRegions", payload: ""})}
         />

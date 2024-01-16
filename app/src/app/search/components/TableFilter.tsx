@@ -22,24 +22,24 @@ interface ITableFilterOption {
 interface ITableFilterProps {
   title: string,
   options: ITableFilterOption[]
-  selectedOptionValues: string[],
+  selectedValues: string[],
   onToggle: (option: ITableFilterOption) => void,
   onReset: () => void,
 }
 
-export function TableFilter({title, options, selectedOptionValues, onToggle, onReset}: ITableFilterProps) {
+export function TableFilter({title, options, selectedValues, onToggle, onReset}: ITableFilterProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="border-dashed h-full space-x-3">
           <PlusCircle className="mr-2 h-4 w-4"/>
           {title}
-          {selectedOptionValues?.length ? (
+          {selectedValues?.length ? (
             <>
               <Separator orientation="vertical" className="h-1/2"/>
               {
                 options
-                  .filter((option) => selectedOptionValues.includes(option.value))
+                  .filter((option) => selectedValues.includes(option.value))
                   .map((option) => (
                     <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
                       {option.label}
@@ -59,14 +59,14 @@ export function TableFilter({title, options, selectedOptionValues, onToggle, onR
               {
                 options.map((option) => (
                   <CommandItem key={option.value} onSelect={() => onToggle(option)} className="space-x-2">
-                    {selectedOptionValues.includes(option.value) ? <Check size={14}/> : null}
+                    {selectedValues.includes(option.value) ? <Check size={14}/> : null}
                     <span>{option.label}</span>
                   </CommandItem>
                 ))
               }
             </CommandGroup>
             {
-              selectedOptionValues?.length ? (
+              selectedValues?.length ? (
                 <>
                   <CommandSeparator/>
                   <CommandGroup heading="Reset">

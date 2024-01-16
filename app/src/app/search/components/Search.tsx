@@ -21,8 +21,8 @@ export default function Search({legalUnits = [], regions = [], activityCategorie
   const [searchResult, setSearchResult] = useState({legalUnits, count})
   const [searchPrompt, setSearchPrompt] = useState('')
   const [searchFilter, searchFilterDispatch] = useReducer(searchFilterReducer, {
-    regions: [],
-    activityCategories: [],
+    selectedRegions: [],
+    selectedActivityCategories: [],
     activityCategoryOptions: activityCategories.map(({label, name}) => ({label: `${label} ${name}`, value: label ?? ""})),
     regionOptions: regions.map(({id, name}) => ({label: `${id} ${name}`, value: id.toString(10)}))
   })

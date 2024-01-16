@@ -4,8 +4,8 @@ type SearchFilterOption = {
 }
 
 type SearchFilter = {
-  regions: string[]
-  activityCategories: string[],
+  selectedRegions: string[]
+  selectedActivityCategories: string[],
   regionOptions: SearchFilterOption[],
   activityCategoryOptions: SearchFilterOption[]
 };
