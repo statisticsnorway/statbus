@@ -1,14 +1,9 @@
 "use client";
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {useEffect, useReducer, useState} from "react";
 import TableToolbar from "@/app/search/components/TableToolbar";
 import {Tables} from "@/lib/database.types";
 import {searchFilterReducer} from "@/app/search/reducer";
-
-type LegalUnit = {
-  tax_reg_ident: string | null,
-  name: string | null
-}
+import SearchResultTable from "@/app/search/components/SearchResultTable";
 
 interface SearchProps {
   readonly legalUnits: LegalUnit[],
@@ -37,32 +32,8 @@ export default function Search({legalUnits = [], regions = [], activityCategorie
   return (
     <section className="space-y-3">
       <TableToolbar filter={searchFilter} dispatch={searchFilterDispatch} onSearch={q => setSearchPrompt(q)}/>
-
       <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Employees</TableHead>
-              <TableHead className="text-right">Region</TableHead>
-              <TableHead className="text-right">Activity Category Code</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {
-              (searchResult?.legalUnits)?.map((legalUnit) => (
-                <TableRow key={legalUnit.tax_reg_ident}>
-                  <TableCell className="font-medium">{legalUnit.tax_reg_ident}</TableCell>
-                  <TableCell>{legalUnit.name}</TableCell>
-                  <TableCell>N/A</TableCell>
-                  <TableCell className="text-right">N/A</TableCell>
-                  <TableCell className="text-right">N/A</TableCell>
-                </TableRow>
-              ))
-            }
-          </TableBody>
-        </Table>
+        <SearchResultTable searchResult={searchResult} />
       </div>
       <div className="px-4">
         <small className="text-xs text-gray-500">
