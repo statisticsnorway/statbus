@@ -19,7 +19,7 @@ export default function Search({legalUnits = [], regions = [], activityCategorie
     selectedRegions: [],
     selectedActivityCategories: [],
     activityCategoryOptions: activityCategories.map(({label, name}) => ({label: `${label} ${name}`, value: label ?? ""})),
-    regionOptions: regions.map(({id, name}) => ({label: `${id} ${name}`, value: id.toString(10)}))
+    regionOptions: regions.map(({code, name}) => ({label: `${code} ${name}`, value: code ?? ""}))
   })
 
   useEffect(() => {
