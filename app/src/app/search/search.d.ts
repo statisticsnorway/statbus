@@ -23,3 +23,8 @@ type SearchFilterActionTypes =
   | "resetActivityCategories";
 
 type SearchFilterAction = { type: SearchFilterActionTypes; payload: any };
+
+type SearchResult = {
+  legalUnits: LegalUnit[]
+  count: number
+}
