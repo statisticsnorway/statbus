@@ -30,7 +30,7 @@ export default function TableToolbar(
         id="search-prompt"
         placeholder="Name"
         className="w-[150px] h-full"
-        onChange={(e) => onSearch(e.target.value)}
+        onChange={(e) => onSearch(e.target.value.trim())}
       />
       <TableFilter
         title="Activity Category"

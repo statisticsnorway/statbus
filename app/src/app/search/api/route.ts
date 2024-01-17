@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const activityCategoryCodes = searchParams.get('activity_category_codes')?.split(',') ?? []
   const regionCodes = searchParams.get('region_codes')?.split(',') ?? []
 
-  console.info({searchTerm, activityCategoryCodes, regionCodes})
+  console.info("legal units search filter:", {searchTerm, activityCategoryCodes, regionCodes})
 
   const {data: legalUnits, count, error} = await client
     .from('legal_unit')
