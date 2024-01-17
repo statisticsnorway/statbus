@@ -1,3 +1,8 @@
+type LegalUnit = {
+  tax_reg_ident: string | null,
+  name: string | null
+}
+
 type SearchFilterOption = {
   readonly label: string
   readonly value: string
