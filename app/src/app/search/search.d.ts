@@ -18,6 +18,7 @@ type SearchFilter = {
 type SearchFilterActionTypes =
   "toggleRegion"
   | "toggleActivityCategory"
+  | "reset"
   | "resetRegions"
   | "resetActivityCategories";
 
