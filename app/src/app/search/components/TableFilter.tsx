@@ -13,6 +13,7 @@ import {
 import * as React from "react";
 import {Separator} from "@/components/ui/separator";
 import {Badge} from "@/components/ui/badge";
+import {cn} from "@/lib/utils";
 
 interface ITableFilterOption {
   label: string,
@@ -31,7 +32,7 @@ export function TableFilter({title, options, selectedValues, onToggle, onReset}:
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="border-dashed h-full space-x-3">
+        <Button variant="outline" size="sm" className="border-dashed h-full space-x-2">
           <PlusCircle className="mr-2 h-4 w-4"/>
           {title}
           {selectedValues?.length ? (
@@ -42,7 +43,7 @@ export function TableFilter({title, options, selectedValues, onToggle, onReset}:
                   .filter((option) => selectedValues.includes(option.value))
                   .map((option) => (
                     <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
-                      {option.label}
+                      {option.value}
                     </Badge>
                   ))
               }
