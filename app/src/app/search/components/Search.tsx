@@ -23,11 +23,28 @@ export default function Search({legalUnits = [], regions = [], activityCategorie
   })
 
   useEffect(() => {
-    if (searchPrompt === '') return setSearchResult(() => ({legalUnits, count}))
-    fetch(`/search/api?q=${searchPrompt}`)
+    if (!searchPrompt && !searchFilter.selectedActivityCategories.length && !searchFilter.selectedRegions.length) {
+      return setSearchResult(() => ({legalUnits, count}))
+    }
+
+    const searchParams = new URLSearchParams()
+
+    if (searchPrompt) {
+      searchParams.set('q', searchPrompt)
+    }
+
+    if (searchFilter.selectedRegions.length) {
+      searchParams.set('region_codes', searchFilter.selectedRegions.join(','))
+    }
+
+    if (searchFilter.selectedActivityCategories.length) {
+      searchParams.set('activity_category_codes', searchFilter.selectedActivityCategories.join(','))
+    }
+
+    fetch(`/search/api?${searchParams}`)
       .then(response => response.json())
       .then((data) => setSearchResult(() => data))
-  }, [searchPrompt, count, legalUnits])
+  }, [searchPrompt, searchFilter.selectedActivityCategories, searchFilter.selectedRegions, legalUnits, count])
 
   return (
     <section className="space-y-3">
