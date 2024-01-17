@@ -10,7 +10,7 @@ interface TableProps {
 export default function SearchResultTable({searchResult: {legalUnits}}: TableProps) {
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="bg-gray-50">
         <TableRow>
           <TableHead className="w-[100px]">ID</TableHead>
           <TableHead>Name</TableHead>
@@ -23,11 +23,11 @@ export default function SearchResultTable({searchResult: {legalUnits}}: TablePro
         {
           (legalUnits)?.map((legalUnit) => (
             <TableRow key={legalUnit.tax_reg_ident}>
-              <TableCell className="font-medium">{legalUnit.tax_reg_ident}</TableCell>
-              <TableCell>{legalUnit.name}</TableCell>
-              <TableCell>N/A</TableCell>
-              <TableCell className="text-right">N/A</TableCell>
-              <TableCell className="text-right">N/A</TableCell>
+              <TableCell className="font-medium p-3 px-4">{legalUnit.tax_reg_ident}</TableCell>
+              <TableCell className="p-3">{legalUnit.name}</TableCell>
+              <TableCell className="p-3">N/A</TableCell>
+              <TableCell className="text-right p-3">N/A</TableCell>
+              <TableCell className="text-right p-3 px-4">N/A</TableCell>
             </TableRow>
           ))
         }

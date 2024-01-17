@@ -28,7 +28,7 @@ export default function TableToolbar(
       <Input
         type="text"
         id="search-prompt"
-        placeholder="Find units by name"
+        placeholder="Name"
         className="w-[150px] h-full"
         onChange={(e) => onSearch(e.target.value)}
       />
