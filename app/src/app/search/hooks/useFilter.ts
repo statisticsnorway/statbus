@@ -1,4 +1,7 @@
-export function searchFilterReducer(state: SearchFilter, {type, payload}: SearchFilterAction): SearchFilter {
+import {Tables} from "@/lib/database.types";
+import {useReducer} from "react";
+
+function searchFilterReducer(state: SearchFilter, {type, payload}: SearchFilterAction): SearchFilter {
   const {selectedRegions, selectedActivityCategories} = state;
   switch (type) {
     case "toggleRegion":
@@ -35,4 +38,15 @@ export function searchFilterReducer(state: SearchFilter, {type, payload}: Search
     default:
       return state
   }
+}
+
+export const useFilter = (activityCategories: Tables<"activity_category_available">[], regions: Tables<"region">[]) => {
+  return useReducer(searchFilterReducer, {
+    selectedRegions: [],
+    selectedActivityCategories: [],
+    activityCategoryOptions: activityCategories.map(({label, name}) =>
+      ({label: `${label} ${name}`, value: label ?? ""})),
+    regionOptions: regions.map(({code, name}) =>
+      ({label: `${code} ${name}`, value: code ?? ""}))
+  })
 }

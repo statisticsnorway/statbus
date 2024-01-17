@@ -1,7 +1,8 @@
-import useSWR, {SWRResponse} from "swr";
-import {fetcher} from "@/app/search/hooks/fetcher";
+import useSWR, {Fetcher, SWRResponse} from "swr";
 
-export default function useSearch(prompt: string, searchFilter: SearchFilter, fallbackData: SearchResult): SWRResponse<SearchResult> {
+const fetcher : Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
+
+export default function useSearch(prompt: string, searchFilter: SearchFilter, fallbackData: SearchResult) {
 
   const searchParams = new URLSearchParams()
 
@@ -17,9 +18,9 @@ export default function useSearch(prompt: string, searchFilter: SearchFilter, fa
     searchParams.set('activity_category_codes', searchFilter.selectedActivityCategories.join(','))
   }
 
-  return useSWR(`/search/api?${searchParams}`, fetcher, {
+  return useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
     keepPreviousData: true,
-    fallbackData,
-    revalidateOnFocus: false
+    revalidateOnFocus: false,
+    fallbackData
   })
 }
