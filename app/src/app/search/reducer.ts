@@ -15,6 +15,13 @@ export function searchFilterReducer(state: SearchFilter, {type, payload}: Search
           ? selectedActivityCategories.filter(id => id !== payload)
           : [...selectedActivityCategories, payload]
       }
+    case "reset": {
+      return {
+        ...state,
+        selectedRegions: [],
+        selectedActivityCategories: []
+      }
+    }
     case "resetRegions":
       return {
         ...state,
