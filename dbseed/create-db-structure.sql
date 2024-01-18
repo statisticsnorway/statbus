@@ -3777,6 +3777,57 @@ WHERE valid_from >= current_date AND current_date <= valid_to
   ;
 
 
+-- TODO: Move to sql_saga
+CREATE TYPE admin.existing_upsert_case AS ENUM
+    -- n is NEW
+    -- e is existing
+    -- e_t is new tail to existing
+    -- Used to merge to avoid multiple rows
+    ( 'adjacent_earlier'
+    -- [--e--]
+    --        [--n--]
+    -- IF equivalent THEN delete(e) AND n.valid_from = e.valid.from
+    -- [---------n--]
+    , 'adjacent_later'
+    --        [--e--]
+    -- [--n--]
+    -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
+    -- [--n---------]
+    -- Used to adjust the valid_from/valid_to to carve out room for new data.
+    , 'valid_from_earlier_valid_to_earlier_or_eq'
+    --    [---e---]
+    --         [----n----]
+    -- IFF equivalent THEN delete(e) AND n.valid_from = e.valid_from
+    --    [---------n----]
+    -- ELSE e.valid_to = n.valid_from - '1 day'
+    --    [-e-]
+    --         [----n----]
+    , 'valid_from_earlier_valid_to_later'
+    -- [---------e--------]
+    --        [--n--]
+    -- IFF equivalent THEN delete(e) AND n.valid_from = e.valid_from AND n.valid_to = e.valid_to
+    -- [---------n--------]
+    -- ELSE IF NOT n.active THEN e.valid_to = n.valid_from - '1 day'
+    -- [--e--]
+    --        [--n--]
+    -- ELSE e.valid_to = n.valid_from - '1 day', e_t.valid_from = n.valid_to + '1 day', e_t.valid_to = e.valid_to
+    -- [--e--]       [-e_t-]
+    --        [--n--]
+    , 'valid_from_later_or_eq_valid_to_earlier_or_eq'
+    --          [-e-]
+    --       [----n----]
+    -- THEN delete(e)
+    --       [----n----]
+    , 'valid_from_later_or_eq_valid_to_later'
+    --        [----e----]
+    --    [----n----]
+    -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
+    --    [----n--------]
+    -- ELSE e.valid_from = n.valid_to + '1 day'
+    --               [-e-]
+    --    [----n----]
+    );
+-- CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
 CREATE FUNCTION admin.upsert_legal_unit_current()
 RETURNS TRIGGER AS $upsert_legal_unit_current$
 DECLARE
@@ -3798,16 +3849,17 @@ DECLARE
   -- this system?
   ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
   existing_id integer;
-  conflict RECORD;
-  conflict_data jsonb;
+  existing RECORD;
+  existing_data jsonb;
   new_data jsonb;
   new_base_data jsonb;
   adjusted_valid_from date;
   adjusted_valid_to date;
-  same_base_data jsonb;
-  same_base_clause text;
+  equivalent_data jsonb;
+  equivalent_clause text;
   identifying_clause text;
-  conflict_query text;
+  existing_query text;
+  delete_existing_sql text;
   identifying_query text;
   generated_columns text[];
   generated_columns_sql CONSTANT text :=
@@ -3834,16 +3886,16 @@ BEGIN
   EXECUTE generated_columns_sql INTO generated_columns USING (schema_name||'.'||table_name)::regclass;
 
   new_base_data := new_data - generated_columns;
-  -- The same_base data is the data that makes up the same_base, and
+  -- The equivalent data is the data that makes up the equivalent, and
   -- is the basis for considering it equal to another row, and thus
   -- no historic versioning is required.
   -- Ephemeral columns are used for internal delete tracking, and are non temporal,
   -- and the temporal columns themselves are not part of the value.
-  same_base_data := new_base_data - ephemeral_columns - temporal_columns;
+  equivalent_data := new_base_data - ephemeral_columns - temporal_columns;
 
   SELECT string_agg(' '||quote_ident(key)||' IS NOT DISTINCT FROM $1.'||quote_ident(key)||' ', ' AND ')
-  INTO same_base_clause
-  FROM jsonb_each_text(same_base_data);
+  INTO equivalent_clause
+  FROM jsonb_each_text(equivalent_data);
 
   SELECT
     string_agg(
@@ -3866,7 +3918,7 @@ BEGIN
       , table_name
       , identifying_clause
     );
-  RAISE DEBUG 'identifying_query %', identifying_query;
+  --RAISE DEBUG 'identifying_query %', identifying_query;
 
   EXECUTE identifying_query INTO existing_id USING NEW;
   RAISE DEBUG 'existing_id %', existing_id;
@@ -3874,63 +3926,66 @@ BEGIN
       NEW.id = existing_id;
   END IF;
 
-  conflict_query := format($$
+  existing_query := format($$
       SELECT *
-           , (%3$s) AS same_base
+           , (%3$s) AS equivalent
+           , CASE
+             WHEN valid_to = ($1.valid_from - '1 day'::INTERVAL) THEN 'adjacent_earlier'
+             WHEN valid_from = ($1.valid_to + '1 day'::INTERVAL) THEN 'adjacent_later'
+             WHEN valid_from <  $1.valid_from AND valid_to <= $1.valid_to THEN 'valid_from_earlier_valid_to_earlier_or_eq'
+             WHEN valid_from <  $1.valid_from AND valid_to >  $1.valid_to THEN 'valid_from_earlier_valid_to_later'
+             WHEN valid_from >= $1.valid_from AND valid_to <= $1.valid_to THEN 'valid_from_later_or_eq_valid_to_earlier_or_eq'
+             WHEN valid_from >= $1.valid_from AND valid_to >  $1.valid_to THEN 'valid_from_later_or_eq_valid_to_later'
+             END::admin.existing_upsert_case AS upsert_case
       FROM %1$I.%2$I
-      WHERE daterange(valid_from, valid_to, '[]') && daterange($1.valid_from, $1.valid_to, '[]')
+      WHERE daterange(valid_from, valid_to, '[]') && daterange(($1.valid_from - '1 day'::INTERVAL)::DATE, ($1.valid_to + '1 day'::INTERVAL)::DATE, '[]')
         AND id = $2
       ORDER BY valid_from$$
       , schema_name
       , table_name
-      , same_base_clause
+      , equivalent_clause
     );
-  RAISE DEBUG 'conflict_query %', conflict_query;
+  --RAISE DEBUG 'existing_query %', existing_query;
 
-  FOR conflict IN EXECUTE conflict_query USING NEW, existing_id
+  FOR existing IN EXECUTE existing_query USING NEW, existing_id
   LOOP
-      conflict_data := to_jsonb(conflict);
-      RAISE DEBUG 'Conflicting row %', conflict_data;
-      -- If the only change is an adjustment of valid_from and valid_to, then merge the time
-      -- from the existing valid row into the new row, so the new row covers the combined
-      -- time period, and then continue with conflict detection.
-      IF conflict.same_base THEN
-        RAISE DEBUG 'Replacing same_base row %.%(id=%)', schema_name, table_name, conflict.id;
-        SELECT least(NEW.valid_from, conflict.valid_from) INTO adjusted_valid_from;
-        SELECT greatest(NEW.valid_to, conflict.valid_to) INTO adjusted_valid_to;
-        -- Adjust the values used in the next round of the loop
-        NEW.valid_from := adjusted_valid_from;
-        NEW.valid_to := adjusted_valid_to;
-        --RAISE DEBUG 'Replacement row %.%(%)', schema_name, table_name, NEW;
-        --RAISE DEBUG 'Replaced row %.%(%)', schema_name, table_name, conflict;
-        EXECUTE format($$
-          DELETE FROM %1$I.%2$I
-           WHERE id = $1
-             AND valid_from = $2
-             AND valid_to = $3;
-         $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
-      ELSE
-        -- Scenario #1: new.valid_from < conflict.valid_to AND conflict.valid_to <= new.valid_to
-        -- c      ------------]
-        -- n           [-------------------------]
-        -- Resolution: conflict.valid_to = new.valid_from - '1 day'
-        -- c      ----]
-        -- n           [-------------------------]
-        --
-        IF NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to THEN
-          RAISE DEBUG 'Scenario #1: NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to';
+      existing_data := to_jsonb(existing);
+      RAISE DEBUG 'Existing row %', existing_data;
+
+      delete_existing_sql := format($$
+       DELETE FROM %1$I.%2$I
+        WHERE id = $1
+          AND valid_from = $2
+          AND valid_to = $3;
+      $$, schema_name, table_name);
+
+      CASE existing.upsert_case
+      WHEN 'adjacent_earlier' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: adjacent_earlier AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_from := existing.valid_from;
+        END IF;
+      WHEN 'adjacent_later' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: adjacent_later AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_to := existing.valid_to;
+        END IF;
+      WHEN 'valid_from_earlier_valid_to_earlier_or_eq' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_earlier_or_eq AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_from := existing.valid_from;
+        ELSE
+          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_earlier_or_eq AND different';
           adjusted_valid_to := NEW.valid_from - interval '1 day';
           RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
-          IF adjusted_valid_to <= conflict.valid_from THEN
-            RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
-            EXECUTE format($$
-              DELETE FROM %1$I.%2$I
-               WHERE id = $1
-                 AND valid_from = $2
-                 AND valid_to = $3;
-             $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          IF adjusted_valid_to <= existing.valid_from THEN
+            RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
-            RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
+            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
                 UPDATE %1$I.%2$I
                 SET valid_to = $1
@@ -3938,32 +3993,26 @@ BEGIN
                   id = $2
                   AND valid_from = $3
                   AND valid_to = $4
-              $$, schema_name, table_name) USING adjusted_valid_to, conflict.id, conflict.valid_from, conflict.valid_to;
+              $$, schema_name, table_name) USING adjusted_valid_to, existing.id, existing.valid_from, existing.valid_to;
           END IF;
-        -- Scenario #2: conflict.valid_from < new.valid_from AND new.valid_to <= conflict.valid_to
-        -- c      -----------------------------------------]
-        -- n           [-------------------------]
-        -- Resolution: conflict.valid_to = new.valid_from - '1 day', c_new.valid_from = new.valid_to + '1 day', c_new.valid_to = conflict.valid_to
-        -- c      ----]
-        -- n           [-------------------------]
-        -- c'                                     [---------
-        --
-        ELSIF conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to THEN
-          RAISE DEBUG 'Scenario #2: conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to';
+        END IF;
+      WHEN 'valid_from_earlier_valid_to_later' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_later AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_from := existing.valid_from;
+          NEW.valid_to := existing.valid_to;
+        ELSE
+          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_later AND different';
           adjusted_valid_from := NEW.valid_to + interval '1 day';
           adjusted_valid_to := NEW.valid_from - interval '1 day';
           RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
           RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
-          IF adjusted_valid_to <= conflict.valid_from THEN
-            RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
-            EXECUTE format($$
-              DELETE FROM %1$I.%2$I
-               WHERE id = $1
-                 AND valid_from = $2
-                 AND valid_to = $3;
-             $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          IF adjusted_valid_to <= existing.valid_from THEN
+            RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
-            RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
+            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
                 UPDATE %1$I.%2$I
                 SET valid_to = $1
@@ -3971,14 +4020,14 @@ BEGIN
                   id = $2
                   AND valid_from = $3
                   AND valid_to = $4
-              $$, schema_name, table_name) USING adjusted_valid_to, conflict.id, conflict.valid_from, conflict.valid_to;
+              $$, schema_name, table_name) USING adjusted_valid_to, existing.id, existing.valid_from, existing.valid_to;
           END IF;
-          IF conflict.valid_to < adjusted_valid_from THEN
+          IF existing.valid_to < adjusted_valid_from THEN
             RAISE DEBUG 'Don''t create zero duration row';
           ELSIF NEW.active THEN
-            conflict.valid_from := adjusted_valid_from;
-            conflict_data := to_jsonb(conflict);
-            new_base_data := conflict_data - generated_columns;
+            existing.valid_from := adjusted_valid_from;
+            existing_data := to_jsonb(existing);
+            new_base_data := existing_data - generated_columns;
             RAISE DEBUG 'Inserting new tail %', new_base_data;
             EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
               (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
@@ -3986,50 +4035,28 @@ BEGIN
           ELSE
             RAISE DEBUG 'No tail for a liquidated company';
           END IF;
-        -- Scenario #3: new.valid_from < conflict.valid_from AND conflict.valid_to <= new.valid_to
-        -- c             [-------------]
-        -- n           [-------------------------]
-        -- Resolution: delete c
-        -- n           [-------------------------]
-        --
-        ELSIF NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to THEN
-          RAISE DEBUG 'Scenario #3: NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to';
-          RAISE DEBUG 'Deleting conflict contained by NEW %.%(id=%)', schema_name, table_name, conflict.id;
-            EXECUTE format($$
-              DELETE FROM %1$I.%2$I
-               WHERE id = $1
-                 AND valid_from = $2
-                 AND valid_to = $3;
-             $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
-        -- Scenario #4: new.valid_from < conflict.valid_from AND new.valid_to <= conflict.valid_to
-        -- c                   [----------------------------]
-        -- n           [-------------------------]
-        -- Resolution: conflict.valid_from = new.valid_to + '1 day'
-        -- c                                     [----------]
-        -- n           [-------------------------]
-        --
-        ELSIF NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to THEN
-          RAISE DEBUG 'Scenario #4: NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to';
+        END IF;
+      WHEN 'valid_from_later_or_eq_valid_to_earlier_or_eq' THEN
+          RAISE DEBUG 'Upsert Case: valid_from_later_or_eq_valid_to_earlier_or_eq';
+          RAISE DEBUG 'Deleting existing contained by NEW %.%(id=%)', schema_name, table_name, existing.id;
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+      WHEN 'valid_from_later_or_eq_valid_to_later' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: valid_from_later_or_eq_valid_to_later AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_to := existing.valid_to;
+        ELSE
+          RAISE DEBUG 'Upsert Case: valid_from_later_or_eq_valid_to_later AND different';
           adjusted_valid_from := NEW.valid_to + interval '1 day';
           RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
-          IF conflict.valid_to < adjusted_valid_from THEN
-              RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
-              EXECUTE format($$
-                  DELETE FROM %1$I.%2$I
-                   WHERE id = $1
-                     AND valid_from = $2
-                     AND valid_to = $3;
-              $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          IF existing.valid_to < adjusted_valid_from THEN
+              RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
+              EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSIF NOT NEW.active THEN
-              RAISE DEBUG 'Deleting conflict after liquidation %.%(id=%)', schema_name, table_name, conflict.id;
-              EXECUTE format($$
-                  DELETE FROM %1$I.%2$I
-                   WHERE id = $1
-                     AND valid_from = $2
-                     AND valid_to = $3;
-              $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+              RAISE DEBUG 'Deleting existing after liquidation %.%(id=%)', schema_name, table_name, existing.id;
+              EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
-            RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
+            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
                 UPDATE %1$I.%2$I
                 SET valid_from = $1
@@ -4037,12 +4064,12 @@ BEGIN
                   id = $2
                   AND valid_from = $3
                   AND valid_to = $4
-              $$, schema_name, table_name) USING adjusted_valid_from, conflict.id, conflict.valid_from, conflict.valid_to;
+              $$, schema_name, table_name) USING adjusted_valid_from, existing.id, existing.valid_from, existing.valid_to;
           END IF;
-        ELSE
-          RAISE EXCEPTION 'Unhandled conflicting case %', conflict_data;
         END IF;
-      END IF;
+      ELSE
+        RAISE EXCEPTION 'Unknown existing_upsert_case: %', existing.upsert_case;
+      END CASE;
     END LOOP;
   --
   -- Insert a new entry
