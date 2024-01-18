@@ -89,6 +89,7 @@ DROP VIEW public.legal_unit_region_activity_category_stats_current;
 
 DROP TRIGGER upsert_legal_unit_current ON public.legal_unit_current;
 DROP FUNCTION admin.upsert_legal_unit_current();
+DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 DROP VIEW public.legal_unit_current;
 
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
@@ -200,6 +201,7 @@ DROP TYPE public.data_source_upload_type;
 DROP TYPE public.statbus_role_type;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
+DROP TYPE admin.existing_upsert_case;
 
 DROP FUNCTION admin.enterprise_group_id_exists(integer);
 DROP FUNCTION admin.enterprise_id_exists(integer);

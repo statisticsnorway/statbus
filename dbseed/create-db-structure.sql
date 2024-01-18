@@ -3777,7 +3777,7 @@ WHERE valid_from >= current_date AND current_date <= valid_to
   ;
 
 
--- TODO: Move to sql_saga
+-- TODO Later: Move to sql_saga
 CREATE TYPE admin.existing_upsert_case AS ENUM
     -- n is NEW
     -- e is existing
@@ -3827,27 +3827,18 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     --               [-e-]
     --    [----n----]
     );
--- CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
-CREATE FUNCTION admin.upsert_legal_unit_current()
-RETURNS TRIGGER AS $upsert_legal_unit_current$
+-- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
+
+CREATE FUNCTION admin.upsert_generic_valid_time_table
+    ( schema_name text
+    , table_name text
+    , unique_columns jsonb
+    , temporal_columns text[]
+    , ephemeral_columns text[]
+    , NEW RECORD
+    )
+RETURNS VOID AS $upsert_generic_valid_time_table$
 DECLARE
-  schema_name text := 'public';
-  table_name text := 'legal_unit';
-  unique_columns jsonb :=
-    jsonb_build_array(
-            'id',
-            'stat_ident',
-            'tax_reg_ident',
-            jsonb_build_array('external_ident', 'external_ident_type')
-        );
-  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  -- The tax_reg_date is just set to the current date, unless provided,
-  -- and as such is not useful to track changes, as there would be new row
-  -- with a new valid_from when the tax_reg_ident is first set.
-  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
-  -- is it when registered with the tax authority, or when registered in
-  -- this system?
-  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
   existing_id integer;
   existing RECORD;
   existing_data jsonb;
@@ -4084,9 +4075,45 @@ BEGIN
   EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
     (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
     (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
+  RETURN;
+END;
+$upsert_generic_valid_time_table$ LANGUAGE plpgsql;
+
+
+CREATE FUNCTION admin.upsert_legal_unit_current()
+RETURNS TRIGGER AS $upsert_legal_unit_current$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'legal_unit';
+  unique_columns jsonb :=
+    jsonb_build_array(
+            'id',
+            'stat_ident',
+            'tax_reg_ident',
+            jsonb_build_array('external_ident', 'external_ident_type')
+        );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  -- The tax_reg_date is just set to the current date, unless provided,
+  -- and as such is not useful to track changes, as there would be new row
+  -- with a new valid_from when the tax_reg_ident is first set.
+  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
+  -- is it when registered with the tax authority, or when registered in
+  -- this system?
+  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
+BEGIN
+  PERFORM admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    );
   RETURN NULL;
 END;
 $upsert_legal_unit_current$ LANGUAGE plpgsql;
+
+
 
 CREATE TRIGGER upsert_legal_unit_current
 INSTEAD OF INSERT ON public.legal_unit_current
