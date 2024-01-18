@@ -3789,14 +3789,26 @@ DECLARE
             'tax_reg_ident',
             jsonb_build_array('external_ident', 'external_ident_type')
         );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  -- The tax_reg_date is just set to the current date, unless provided,
+  -- and as such is not useful to track changes, as there would be new row
+  -- with a new valid_from when the tax_reg_ident is first set.
+  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
+  -- is it when registered with the tax authority, or when registered in
+  -- this system?
+  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
+  existing_id integer;
   conflict RECORD;
   conflict_data jsonb;
   new_data jsonb;
   new_base_data jsonb;
   adjusted_valid_from date;
   adjusted_valid_to date;
-  conflict_clause text;
+  same_base_data jsonb;
+  same_base_clause text;
+  identifying_clause text;
   conflict_query text;
+  identifying_query text;
   generated_columns text[];
   generated_columns_sql CONSTANT text :=
       'SELECT array_agg(a.attname) '
@@ -3821,6 +3833,18 @@ BEGIN
   -- and get a constraint error.
   EXECUTE generated_columns_sql INTO generated_columns USING (schema_name||'.'||table_name)::regclass;
 
+  new_base_data := new_data - generated_columns;
+  -- The same_base data is the data that makes up the same_base, and
+  -- is the basis for considering it equal to another row, and thus
+  -- no historic versioning is required.
+  -- Ephemeral columns are used for internal delete tracking, and are non temporal,
+  -- and the temporal columns themselves are not part of the value.
+  same_base_data := new_base_data - ephemeral_columns - temporal_columns;
+
+  SELECT string_agg(' '||quote_ident(key)||' IS NOT DISTINCT FROM $1.'||quote_ident(key)||' ', ' AND ')
+  INTO same_base_clause
+  FROM jsonb_each_text(same_base_data);
+
   SELECT
     string_agg(
         CASE jsonb_typeof(unique_column)
@@ -3830,162 +3854,206 @@ BEGIN
         ELSE NULL
         END,
         ' OR '
-    ) INTO conflict_clause
+    ) INTO identifying_clause
   FROM (SELECT jsonb_array_elements(unique_columns) AS unique_column) AS subquery;
 
-  conflict_query := format(
-      'SELECT * FROM %1$I.%2$I WHERE daterange(valid_from, valid_to, ''[]'') && daterange($1.valid_from, $1.valid_to, ''[]'') AND (%3$s) ORDER BY valid_from',
-      schema_name,
-      table_name,
-      conflict_clause
+  identifying_query := format($$
+      SELECT id
+      FROM %1$I.%2$I
+      WHERE %3$s
+      LIMIT 1;$$
+      , schema_name
+      , table_name
+      , identifying_clause
+    );
+  RAISE DEBUG 'identifying_query %', identifying_query;
+
+  EXECUTE identifying_query INTO existing_id USING NEW;
+  RAISE DEBUG 'existing_id %', existing_id;
+  IF NEW.id IS NULL THEN
+      NEW.id = existing_id;
+  END IF;
+
+  conflict_query := format($$
+      SELECT *
+           , (%3$s) AS same_base
+      FROM %1$I.%2$I
+      WHERE daterange(valid_from, valid_to, '[]') && daterange($1.valid_from, $1.valid_to, '[]')
+        AND id = $2
+      ORDER BY valid_from$$
+      , schema_name
+      , table_name
+      , same_base_clause
     );
   RAISE DEBUG 'conflict_query %', conflict_query;
 
-  FOR conflict IN EXECUTE conflict_query USING NEW
+  FOR conflict IN EXECUTE conflict_query USING NEW, existing_id
   LOOP
       conflict_data := to_jsonb(conflict);
       RAISE DEBUG 'Conflicting row %', conflict_data;
-      -- Scenario #1: new.valid_from < conflict.valid_to AND conflict.valid_to <= new.valid_to
-      -- c      ------------]
-      -- n           [-------------------------]
-      -- Resolution: conflict.valid_to = new.valid_from - '1 day'
-      -- c      ----]
-      -- n           [-------------------------]
-      --
-      IF NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to THEN
-        RAISE DEBUG 'Scenario #1: NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to';
-        adjusted_valid_to := NEW.valid_from - interval '1 day';
-        RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
-        IF adjusted_valid_to <= conflict.valid_from THEN
-          RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
-          EXECUTE format($$
-            DELETE FROM %1$I.%2$I
-             WHERE id = $1
-               AND valid_from = $2
-               AND valid_to = $3;
-           $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
-        ELSE
-          RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
-          EXECUTE format($$
-              UPDATE %1$I.%2$I
-              SET valid_to = $1
-              WHERE
-                id = $2
-                AND valid_from = $3
-                AND valid_to = $4
-            $$, schema_name, table_name) USING adjusted_valid_to, conflict.id, conflict.valid_from, conflict.valid_to;
-        END IF;
-      -- Scenario #2: conflict.valid_from < new.valid_from AND new.valid_to <= conflict.valid_to
-      -- c      -----------------------------------------]
-      -- n           [-------------------------]
-      -- Resolution: conflict.valid_to = new.valid_from - '1 day', c_new.valid_from = new.valid_to + '1 day', c_new.valid_to = conflict.valid_to
-      -- c      ----]
-      -- n           [-------------------------]
-      -- c'                                     [---------
-      --
-      ELSIF conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to THEN
-        RAISE DEBUG 'Scenario #2: conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to';
-        adjusted_valid_from := NEW.valid_to + interval '1 day';
-        adjusted_valid_to := NEW.valid_from - interval '1 day';
-        RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
-        RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
-        IF adjusted_valid_to <= conflict.valid_from THEN
-          RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
-          EXECUTE format($$
-            DELETE FROM %1$I.%2$I
-             WHERE id = $1
-               AND valid_from = $2
-               AND valid_to = $3;
-           $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
-        ELSE
-          RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
-          EXECUTE format($$
-              UPDATE %1$I.%2$I
-              SET valid_to = $1
-              WHERE
-                id = $2
-                AND valid_from = $3
-                AND valid_to = $4
-            $$, schema_name, table_name) USING adjusted_valid_to, conflict.id, conflict.valid_from, conflict.valid_to;
-        END IF;
-        IF conflict.valid_to < adjusted_valid_from THEN
-          RAISE DEBUG 'Don''t create zero duration row';
-        ELSIF NEW.active THEN
-          new_base_data := conflict_data - generated_columns;
-          new_base_data := jsonb_set(new_base_data, '{adjusted_valid_from}', adjusted_valid_from);
-          RAISE DEBUG 'Inserting new tail %', new_base_data;
-          EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
-            (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
-            (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
-        ELSE
-          RAISE DEBUG 'No tail for a liquidated company';
-        END IF;
-      -- Scenario #3: new.valid_from < conflict.valid_from AND conflict.valid_to <= new.valid_to
-      -- c             [-------------]
-      -- n           [-------------------------]
-      -- Resolution: delete c
-      -- n           [-------------------------]
-      --
-      ELSIF NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to THEN
-        RAISE DEBUG 'Scenario #3: NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to';
-        RAISE DEBUG 'Deleting conflict contained by NEW %.%(id=%)', schema_name, table_name, conflict.id;
-          EXECUTE format($$
-            DELETE FROM %1$I.%2$I
-             WHERE id = $1
-               AND valid_from = $2
-               AND valid_to = $3;
-           $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
-      -- Scenario #4: new.valid_from < conflict.valid_from AND new.valid_to <= conflict.valid_to
-      -- c                   [----------------------------]
-      -- n           [-------------------------]
-      -- Resolution: conflict.valid_from = new.valid_to + '1 day'
-      -- c                                     [----------]
-      -- n           [-------------------------]
-      --
-      ELSIF NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to THEN
-        RAISE DEBUG 'Scenario #4: NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to';
-        adjusted_valid_from := NEW.valid_to + interval '1 day';
-        RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
-        IF conflict.valid_to < adjusted_valid_from THEN
+      -- If the only change is an adjustment of valid_from and valid_to, then merge the time
+      -- from the existing valid row into the new row, so the new row covers the combined
+      -- time period, and then continue with conflict detection.
+      IF conflict.same_base THEN
+        RAISE DEBUG 'Replacing same_base row %.%(id=%)', schema_name, table_name, conflict.id;
+        SELECT least(NEW.valid_from, conflict.valid_from) INTO adjusted_valid_from;
+        SELECT greatest(NEW.valid_to, conflict.valid_to) INTO adjusted_valid_to;
+        -- Adjust the values used in the next round of the loop
+        NEW.valid_from := adjusted_valid_from;
+        NEW.valid_to := adjusted_valid_to;
+        --RAISE DEBUG 'Replacement row %.%(%)', schema_name, table_name, NEW;
+        --RAISE DEBUG 'Replaced row %.%(%)', schema_name, table_name, conflict;
+        EXECUTE format($$
+          DELETE FROM %1$I.%2$I
+           WHERE id = $1
+             AND valid_from = $2
+             AND valid_to = $3;
+         $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+      ELSE
+        -- Scenario #1: new.valid_from < conflict.valid_to AND conflict.valid_to <= new.valid_to
+        -- c      ------------]
+        -- n           [-------------------------]
+        -- Resolution: conflict.valid_to = new.valid_from - '1 day'
+        -- c      ----]
+        -- n           [-------------------------]
+        --
+        IF NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to THEN
+          RAISE DEBUG 'Scenario #1: NEW.valid_from <= conflict.valid_to AND conflict.valid_to <= NEW.valid_to';
+          adjusted_valid_to := NEW.valid_from - interval '1 day';
+          RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
+          IF adjusted_valid_to <= conflict.valid_from THEN
             RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
             EXECUTE format($$
-                DELETE FROM %1$I.%2$I
-                 WHERE id = $1
-                   AND valid_from = $2
-                   AND valid_to = $3;
-            $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
-        ELSIF NOT NEW.active THEN
-            RAISE DEBUG 'Deleting conflict after liquidation %.%(id=%)', schema_name, table_name, conflict.id;
+              DELETE FROM %1$I.%2$I
+               WHERE id = $1
+                 AND valid_from = $2
+                 AND valid_to = $3;
+             $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          ELSE
+            RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
             EXECUTE format($$
-                DELETE FROM %1$I.%2$I
-                 WHERE id = $1
-                   AND valid_from = $2
-                   AND valid_to = $3;
-            $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+                UPDATE %1$I.%2$I
+                SET valid_to = $1
+                WHERE
+                  id = $2
+                  AND valid_from = $3
+                  AND valid_to = $4
+              $$, schema_name, table_name) USING adjusted_valid_to, conflict.id, conflict.valid_from, conflict.valid_to;
+          END IF;
+        -- Scenario #2: conflict.valid_from < new.valid_from AND new.valid_to <= conflict.valid_to
+        -- c      -----------------------------------------]
+        -- n           [-------------------------]
+        -- Resolution: conflict.valid_to = new.valid_from - '1 day', c_new.valid_from = new.valid_to + '1 day', c_new.valid_to = conflict.valid_to
+        -- c      ----]
+        -- n           [-------------------------]
+        -- c'                                     [---------
+        --
+        ELSIF conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to THEN
+          RAISE DEBUG 'Scenario #2: conflict.valid_from <= NEW.valid_from AND NEW.valid_to <= conflict.valid_to';
+          adjusted_valid_from := NEW.valid_to + interval '1 day';
+          adjusted_valid_to := NEW.valid_from - interval '1 day';
+          RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
+          RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
+          IF adjusted_valid_to <= conflict.valid_from THEN
+            RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
+            EXECUTE format($$
+              DELETE FROM %1$I.%2$I
+               WHERE id = $1
+                 AND valid_from = $2
+                 AND valid_to = $3;
+             $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          ELSE
+            RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
+            EXECUTE format($$
+                UPDATE %1$I.%2$I
+                SET valid_to = $1
+                WHERE
+                  id = $2
+                  AND valid_from = $3
+                  AND valid_to = $4
+              $$, schema_name, table_name) USING adjusted_valid_to, conflict.id, conflict.valid_from, conflict.valid_to;
+          END IF;
+          IF conflict.valid_to < adjusted_valid_from THEN
+            RAISE DEBUG 'Don''t create zero duration row';
+          ELSIF NEW.active THEN
+            conflict.valid_from := adjusted_valid_from;
+            conflict_data := to_jsonb(conflict);
+            new_base_data := conflict_data - generated_columns;
+            RAISE DEBUG 'Inserting new tail %', new_base_data;
+            EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
+              (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
+              (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
+          ELSE
+            RAISE DEBUG 'No tail for a liquidated company';
+          END IF;
+        -- Scenario #3: new.valid_from < conflict.valid_from AND conflict.valid_to <= new.valid_to
+        -- c             [-------------]
+        -- n           [-------------------------]
+        -- Resolution: delete c
+        -- n           [-------------------------]
+        --
+        ELSIF NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to THEN
+          RAISE DEBUG 'Scenario #3: NEW.valid_from <= conflict.valid_from AND conflict.valid_to <= NEW.valid_to';
+          RAISE DEBUG 'Deleting conflict contained by NEW %.%(id=%)', schema_name, table_name, conflict.id;
+            EXECUTE format($$
+              DELETE FROM %1$I.%2$I
+               WHERE id = $1
+                 AND valid_from = $2
+                 AND valid_to = $3;
+             $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+        -- Scenario #4: new.valid_from < conflict.valid_from AND new.valid_to <= conflict.valid_to
+        -- c                   [----------------------------]
+        -- n           [-------------------------]
+        -- Resolution: conflict.valid_from = new.valid_to + '1 day'
+        -- c                                     [----------]
+        -- n           [-------------------------]
+        --
+        ELSIF NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to THEN
+          RAISE DEBUG 'Scenario #4: NEW.valid_from <= conflict.valid_from AND NEW.valid_to <= conflict.valid_to';
+          adjusted_valid_from := NEW.valid_to + interval '1 day';
+          RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
+          IF conflict.valid_to < adjusted_valid_from THEN
+              RAISE DEBUG 'Deleting conflict with zero valid duration %.%(id=%)', schema_name, table_name, conflict.id;
+              EXECUTE format($$
+                  DELETE FROM %1$I.%2$I
+                   WHERE id = $1
+                     AND valid_from = $2
+                     AND valid_to = $3;
+              $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          ELSIF NOT NEW.active THEN
+              RAISE DEBUG 'Deleting conflict after liquidation %.%(id=%)', schema_name, table_name, conflict.id;
+              EXECUTE format($$
+                  DELETE FROM %1$I.%2$I
+                   WHERE id = $1
+                     AND valid_from = $2
+                     AND valid_to = $3;
+              $$, schema_name, table_name) USING conflict.id, conflict.valid_from, conflict.valid_to;
+          ELSE
+            RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
+            EXECUTE format($$
+                UPDATE %1$I.%2$I
+                SET valid_from = $1
+                WHERE
+                  id = $2
+                  AND valid_from = $3
+                  AND valid_to = $4
+              $$, schema_name, table_name) USING adjusted_valid_from, conflict.id, conflict.valid_from, conflict.valid_to;
+          END IF;
         ELSE
-          RAISE DEBUG 'Adjusting conflicting row %.%(id=%)', schema_name, table_name, conflict.id;
-          EXECUTE format($$
-              UPDATE %1$I.%2$I
-              SET valid_from = $1
-              WHERE
-                id = $2
-                AND valid_from = $3
-                AND valid_to = $4
-            $$, schema_name, table_name) USING adjusted_valid_from, conflict.id, conflict.valid_from, conflict.valid_to;
+          RAISE EXCEPTION 'Unhandled conflicting case %', conflict_data;
         END IF;
-      ELSE
-        RAISE EXCEPTION 'Unhandled conflicting case %', conflict_data;
       END IF;
     END LOOP;
   --
   -- Insert a new entry
-  new_base_data := new_data - generated_columns;
   -- If there was any existing row, then reuse that same id
-  IF conflict.id IS NOT NULL THEN
-    new_base_data := jsonb_set(new_base_data, '{id}', to_jsonb(conflict.id));
+  new_base_data := to_jsonb(NEW) - generated_columns;
+  -- The id is a generated row, so add it back again after removal.
+  IF existing_id IS NOT NULL THEN
+    new_base_data := jsonb_set(new_base_data, '{id}', existing_id::text::jsonb, true);
   END IF;
 
-  RAISE DEBUG 'NEW %.%(%)', schema_name, table_name, to_json(new_base_data);
+  RAISE DEBUG 'NEW %.%(%)', schema_name, table_name, new_base_data;
   EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
     (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
     (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
