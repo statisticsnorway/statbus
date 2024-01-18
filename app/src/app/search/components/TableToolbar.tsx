@@ -5,23 +5,18 @@ import {ResetFilterButton} from "@/app/search/components/ResetFilterButton";
 
 interface TableToolbarProps {
   readonly onSearch: (search: string) => void,
-  readonly filter: SearchFilter,
+  readonly filters: SearchFilter[],
   readonly dispatch: Dispatch<SearchFilterAction>
 }
 
 export default function TableToolbar(
   {
-    filter: {
-      selectedRegions,
-      selectedActivityCategories,
-      activityCategoryOptions,
-      regionOptions
-    },
+    filters,
     dispatch,
     onSearch
   }: TableToolbarProps) {
 
-  const hasFilterSelected = selectedActivityCategories.length > 0 || selectedRegions.length > 0
+  const hasFilterSelected = filters.some(({selected}) => selected.length > 0)
 
   return (
     <div className="flex items-center flex-wrap space-x-2 h-10">
@@ -32,23 +27,21 @@ export default function TableToolbar(
         className="w-[150px] h-full"
         onChange={(e) => onSearch(e.target.value.trim())}
       />
-      <TableFilter
-        title="Activity Category"
-        options={activityCategoryOptions}
-        selectedValues={selectedActivityCategories}
-        onToggle={({value}) => dispatch({type: "toggleActivityCategory", payload: value})}
-        onReset={() => dispatch({type: "resetActivityCategories", payload: ""})}
-      />
-      <TableFilter
-        title="Region"
-        options={regionOptions}
-        selectedValues={selectedRegions}
-        onToggle={({value}) => dispatch({type: "toggleRegion", payload: value})}
-        onReset={() => dispatch({type: "resetRegions", payload: ""})}
-      />
+      {
+        filters.map(({name, label, options, selected}) => (
+          <TableFilter
+            key={name}
+            title={label}
+            options={options}
+            selectedValues={selected}
+            onToggle={({value}) => dispatch({type: "toggle", payload: {name, value}})}
+            onReset={() => dispatch({type: "reset", payload: {name, value: ""}})}
+          />
+        ))
+      }
       {
         hasFilterSelected && (
-          <ResetFilterButton onReset={() => dispatch({type: "reset", payload: ""})}/>
+          <ResetFilterButton onReset={() => dispatch({type: "reset_all"})}/>
         )
       }
     </div>

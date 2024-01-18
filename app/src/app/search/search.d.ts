@@ -3,26 +3,23 @@ type LegalUnit = {
   name: string | null
 }
 
+type SearchFilterValue = string | number
+
 type SearchFilterOption = {
   readonly label: string
-  readonly value: string
+  readonly value: SearchFilterValue
 }
 
 type SearchFilter = {
-  selectedRegions: string[]
-  selectedActivityCategories: string[],
-  regionOptions: SearchFilterOption[],
-  activityCategoryOptions: SearchFilterOption[]
-};
+  readonly name: string
+  readonly label: string
+  options: SearchFilterOption[]
+  selected: SearchFilterValue[]
+}
 
-type SearchFilterActionTypes =
-  "toggleRegion"
-  | "toggleActivityCategory"
-  | "reset"
-  | "resetRegions"
-  | "resetActivityCategories";
+type SearchFilterActionTypes = "toggle" | "reset" | "reset_all"
 
-type SearchFilterAction = { type: SearchFilterActionTypes; payload: any };
+type SearchFilterAction = { type: SearchFilterActionTypes; payload?: { name: string, value: SearchFilterValue } };
 
 type SearchResult = {
   legalUnits: LegalUnit[]

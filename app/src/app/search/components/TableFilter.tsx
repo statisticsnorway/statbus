@@ -13,18 +13,12 @@ import {
 import * as React from "react";
 import {Separator} from "@/components/ui/separator";
 import {Badge} from "@/components/ui/badge";
-import {cn} from "@/lib/utils";
-
-interface ITableFilterOption {
-  label: string,
-  value: string
-}
 
 interface ITableFilterProps {
   title: string,
-  options: ITableFilterOption[]
-  selectedValues: string[],
-  onToggle: (option: ITableFilterOption) => void,
+  options: SearchFilterOption[]
+  selectedValues: SearchFilterValue[],
+  onToggle: (option: SearchFilterOption) => void,
   onReset: () => void,
 }
 

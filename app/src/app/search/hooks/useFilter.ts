@@ -1,52 +1,57 @@
 import {Tables} from "@/lib/database.types";
 import {useReducer} from "react";
 
-function searchFilterReducer(state: SearchFilter, {type, payload}: SearchFilterAction): SearchFilter {
-  const {selectedRegions, selectedActivityCategories} = state;
+function searchFilterReducer(state: SearchFilter[], {
+  type,
+  payload
+}: SearchFilterAction): SearchFilter[] {
   switch (type) {
-    case "toggleRegion":
-      return {
-        ...state,
-        selectedRegions: selectedRegions.includes(payload)
-          ? selectedRegions.filter(id => id !== payload)
-          : [...selectedRegions, payload]
-      }
-    case "toggleActivityCategory":
-      return {
-        ...state,
-        selectedActivityCategories: selectedActivityCategories.includes(payload)
-          ? selectedActivityCategories.filter(id => id !== payload)
-          : [...selectedActivityCategories, payload]
-      }
-    case "reset": {
-      return {
-        ...state,
-        selectedRegions: [],
-        selectedActivityCategories: []
-      }
-    }
-    case "resetRegions":
-      return {
-        ...state,
-        selectedRegions: []
-      }
-    case "resetActivityCategories":
-      return {
-        ...state,
-        selectedActivityCategories: []
-      }
+    case "toggle":
+      return state.map(f =>
+        f.name === payload?.name ? {
+          ...f,
+          selected: f.selected.includes(payload.value)
+            ? f.selected.filter(id => id !== payload.value)
+            : [...f.selected, payload.value]
+        } : f
+      )
+    case "reset":
+      return state.map(f => f.name === payload?.name ? {...f, selected: []} : f)
+    case "reset_all":
+      return state.map(f => ({...f, selected: []}))
     default:
       return state
   }
 }
 
-export const useFilter = (activityCategories: Tables<"activity_category_available">[], regions: Tables<"region">[]) => {
-  return useReducer(searchFilterReducer, {
-    selectedRegions: [],
-    selectedActivityCategories: [],
-    activityCategoryOptions: activityCategories.map(({label, name}) =>
-      ({label: `${label} ${name}`, value: label ?? ""})),
-    regionOptions: regions.map(({code, name}) =>
-      ({label: `${code} ${name}`, value: code ?? ""}))
-  })
+interface FilterOptions {
+  activityCategories: Tables<"activity_category_available">[],
+  regions: Tables<"region">[]
+}
+
+export const useFilter = ({regions = [], activityCategories = []}: FilterOptions) => {
+  return useReducer(searchFilterReducer, [
+    {
+      name: "region_codes",
+      label: "Region",
+      options: regions.map(({code, name}) => (
+        {
+          label: `${code} ${name}`,
+          value: code ?? ""
+        }
+      )),
+      selected: []
+    },
+    {
+      name: "activity_category_codes",
+      label: "Activity Category",
+      options: activityCategories.map(({label, name}) => (
+        {
+          label: `${label} ${name}`,
+          value: label ?? ""
+        }
+      )),
+      selected: []
+    }
+  ])
 }

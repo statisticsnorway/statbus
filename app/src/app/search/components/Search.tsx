@@ -15,12 +15,12 @@ interface SearchProps {
 
 export default function Search({legalUnits = [], regions = [], activityCategories, count = 0}: SearchProps) {
   const [searchPrompt, setSearchPrompt] = useState('')
-  const [searchFilter, searchFilterDispatch] = useFilter(activityCategories, regions)
-  const {data} = useSearch(searchPrompt, searchFilter, {legalUnits, count})
+  const [filters, searchFilterDispatch] = useFilter({activityCategories, regions})
+  const {data} = useSearch(searchPrompt, filters, {legalUnits, count})
 
   return (
     <section className="space-y-3">
-      <TableToolbar filter={searchFilter} dispatch={searchFilterDispatch} onSearch={q => setSearchPrompt(q)}/>
+      <TableToolbar dispatch={searchFilterDispatch} filters={filters} onSearch={q => setSearchPrompt(q)}/>
       <div className="rounded-md border">
         <SearchResultTable searchResult={data ?? {legalUnits, count}}/>
       </div>
