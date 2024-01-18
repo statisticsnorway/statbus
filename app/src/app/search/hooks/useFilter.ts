@@ -27,9 +27,10 @@ function searchFilterReducer(state: SearchFilter[], {
 interface FilterOptions {
   activityCategories: Tables<"activity_category_available">[],
   regions: Tables<"region">[]
+  statisticalVariables: Tables<"stat_definition">[]
 }
 
-export const useFilter = ({regions = [], activityCategories = []}: FilterOptions) => {
+export const useFilter = ({regions = [], activityCategories = [], statisticalVariables = []}: FilterOptions) => {
   return useReducer(searchFilterReducer, [
     {
       name: "region_codes",
@@ -49,6 +50,17 @@ export const useFilter = ({regions = [], activityCategories = []}: FilterOptions
         {
           label: `${label} ${name}`,
           value: label ?? ""
+        }
+      )),
+      selected: []
+    },
+    {
+      name: "statistical_variable_codes",
+      label: "Statistical Variable",
+      options: statisticalVariables.map(({code, name}) => (
+        {
+          label: name,
+          value: code
         }
       )),
       selected: []

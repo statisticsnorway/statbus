@@ -17,6 +17,11 @@ export default async function Home() {
     .from('activity_category_available')
     .select();
 
+  const {data: statisticalVariables} = await client
+    .from('stat_definition')
+    .select()
+    .order('priority', {ascending: true});
+
   if (legalUnitsError) {
     console.error('⚠️failed to fetch legal units', legalUnitsError);
   }
@@ -35,6 +40,7 @@ export default async function Home() {
       <Search
         regions={regions ?? []}
         activityCategories={activityCategories ?? []}
+        statisticalVariables={statisticalVariables ?? []}
         legalUnits={legalUnits ?? []}
         count={count ?? 0}
       />

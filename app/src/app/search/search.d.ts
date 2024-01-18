@@ -13,8 +13,8 @@ type SearchFilterOption = {
 type SearchFilter = {
   readonly name: string
   readonly label: string
-  options: SearchFilterOption[]
-  selected: SearchFilterValue[]
+  readonly options: SearchFilterOption[]
+  readonly selected: SearchFilterValue[]
 }
 
 type SearchFilterActionTypes = "toggle" | "reset" | "reset_all"

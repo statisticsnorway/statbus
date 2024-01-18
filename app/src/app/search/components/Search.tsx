@@ -8,14 +8,23 @@ import {useFilter} from "@/app/search/hooks/useFilter";
 
 interface SearchProps {
   readonly legalUnits: LegalUnit[],
+  readonly count: number
   readonly regions: Tables<"region">[]
   readonly activityCategories: Tables<"activity_category_available">[]
-  readonly count: number
+  readonly statisticalVariables: Tables<"stat_definition">[]
 }
 
-export default function Search({legalUnits = [], regions = [], activityCategories, count = 0}: SearchProps) {
+export default function Search(
+  {
+    legalUnits = [],
+    count = 0,
+    regions = [],
+    activityCategories,
+    statisticalVariables
+  }: SearchProps
+) {
   const [searchPrompt, setSearchPrompt] = useState('')
-  const [filters, searchFilterDispatch] = useFilter({activityCategories, regions})
+  const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
   const {data} = useSearch(searchPrompt, filters, {legalUnits, count})
 
   return (
