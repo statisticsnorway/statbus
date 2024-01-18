@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     .from('legal_unit')
     .select('tax_reg_ident, name', {count: 'exact'})
     .ilike('name', `*${searchTerm}*`)
+    .order('id', {ascending: false})
     .limit(10)
 
   if (error) {

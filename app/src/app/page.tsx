@@ -6,13 +6,12 @@ export default async function Home() {
   const {data: legalUnits, count, error: legalUnitsError} = await client
     .from('legal_unit')
     .select('tax_reg_ident, name', {count: 'exact'})
-    .gt('id', 0)
+    .order('id', {ascending: false})
     .limit(10);
 
   const {data: regions, error: regionsError} = await client
     .from('region')
     .select()
-    .gt('id', 0);
 
   const {data: activityCategories, error: activityCategoriesError} = await client
     .from('activity_category_available')
