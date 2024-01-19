@@ -3783,18 +3783,18 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     -- e is existing
     -- e_t is new tail to existing
     -- Used to merge to avoid multiple rows
-    ( 'adjacent_earlier'
+    ( 'existing_adjacent_valid_from'
     -- [--e--]
     --        [--n--]
     -- IF equivalent THEN delete(e) AND n.valid_from = e.valid.from
     -- [---------n--]
-    , 'adjacent_later'
+    , 'existing_adjacent_valid_to'
     --        [--e--]
     -- [--n--]
     -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
     -- [--n---------]
     -- Used to adjust the valid_from/valid_to to carve out room for new data.
-    , 'valid_from_earlier_valid_to_earlier_or_eq'
+    , 'existing_overlaps_valid_from'
     --    [---e---]
     --         [----n----]
     -- IFF equivalent THEN delete(e) AND n.valid_from = e.valid_from
@@ -3802,7 +3802,7 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     -- ELSE e.valid_to = n.valid_from - '1 day'
     --    [-e-]
     --         [----n----]
-    , 'valid_from_earlier_valid_to_later'
+    , 'inside_existing'
     -- [---------e--------]
     --        [--n--]
     -- IFF equivalent THEN delete(e) AND n.valid_from = e.valid_from AND n.valid_to = e.valid_to
@@ -3813,12 +3813,12 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     -- ELSE e.valid_to = n.valid_from - '1 day', e_t.valid_from = n.valid_to + '1 day', e_t.valid_to = e.valid_to
     -- [--e--]       [-e_t-]
     --        [--n--]
-    , 'valid_from_later_or_eq_valid_to_earlier_or_eq'
+    , 'contains_existing'
     --          [-e-]
     --       [----n----]
     -- THEN delete(e)
     --       [----n----]
-    , 'valid_from_later_or_eq_valid_to_later'
+    , 'existing_overlaps_valid_to'
     --        [----e----]
     --    [----n----]
     -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
@@ -3921,12 +3921,12 @@ BEGIN
       SELECT *
            , (%3$s) AS equivalent
            , CASE
-             WHEN valid_to = ($1.valid_from - '1 day'::INTERVAL) THEN 'adjacent_earlier'
-             WHEN valid_from = ($1.valid_to + '1 day'::INTERVAL) THEN 'adjacent_later'
-             WHEN valid_from <  $1.valid_from AND valid_to <= $1.valid_to THEN 'valid_from_earlier_valid_to_earlier_or_eq'
-             WHEN valid_from <  $1.valid_from AND valid_to >  $1.valid_to THEN 'valid_from_earlier_valid_to_later'
-             WHEN valid_from >= $1.valid_from AND valid_to <= $1.valid_to THEN 'valid_from_later_or_eq_valid_to_earlier_or_eq'
-             WHEN valid_from >= $1.valid_from AND valid_to >  $1.valid_to THEN 'valid_from_later_or_eq_valid_to_later'
+             WHEN valid_to = ($1.valid_from - '1 day'::INTERVAL) THEN 'existing_adjacent_valid_from'
+             WHEN valid_from = ($1.valid_to + '1 day'::INTERVAL) THEN 'existing_adjacent_valid_to'
+             WHEN valid_from <  $1.valid_from AND valid_to <= $1.valid_to THEN 'existing_overlaps_valid_from'
+             WHEN valid_from <  $1.valid_from AND valid_to >  $1.valid_to THEN 'inside_existing'
+             WHEN valid_from >= $1.valid_from AND valid_to <= $1.valid_to THEN 'contains_existing'
+             WHEN valid_from >= $1.valid_from AND valid_to >  $1.valid_to THEN 'existing_overlaps_valid_to'
              END::admin.existing_upsert_case AS upsert_case
       FROM %1$I.%2$I
       WHERE daterange(valid_from, valid_to, '[]') && daterange(($1.valid_from - '1 day'::INTERVAL)::DATE, ($1.valid_to + '1 day'::INTERVAL)::DATE, '[]')
@@ -3951,25 +3951,25 @@ BEGIN
       $$, schema_name, table_name);
 
       CASE existing.upsert_case
-      WHEN 'adjacent_earlier' THEN
+      WHEN 'existing_adjacent_valid_from' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: adjacent_earlier AND equivalent';
+          RAISE DEBUG 'Upsert Case: existing_adjacent_valid_from AND equivalent';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_from := existing.valid_from;
         END IF;
-      WHEN 'adjacent_later' THEN
+      WHEN 'existing_adjacent_valid_to' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: adjacent_later AND equivalent';
+          RAISE DEBUG 'Upsert Case: existing_adjacent_valid_to AND equivalent';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_to := existing.valid_to;
         END IF;
-      WHEN 'valid_from_earlier_valid_to_earlier_or_eq' THEN
+      WHEN 'existing_overlaps_valid_from' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_earlier_or_eq AND equivalent';
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_from AND equivalent';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_from := existing.valid_from;
         ELSE
-          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_earlier_or_eq AND different';
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_from AND different';
           adjusted_valid_to := NEW.valid_from - interval '1 day';
           RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
           IF adjusted_valid_to <= existing.valid_from THEN
@@ -3987,14 +3987,14 @@ BEGIN
               $$, schema_name, table_name) USING adjusted_valid_to, existing.id, existing.valid_from, existing.valid_to;
           END IF;
         END IF;
-      WHEN 'valid_from_earlier_valid_to_later' THEN
+      WHEN 'inside_existing' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_later AND equivalent';
+          RAISE DEBUG 'Upsert Case: inside_existing AND equivalent';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_from := existing.valid_from;
           NEW.valid_to := existing.valid_to;
         ELSE
-          RAISE DEBUG 'Upsert Case: valid_from_earlier_valid_to_later AND different';
+          RAISE DEBUG 'Upsert Case: inside_existing AND different';
           adjusted_valid_from := NEW.valid_to + interval '1 day';
           adjusted_valid_to := NEW.valid_from - interval '1 day';
           RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
@@ -4027,17 +4027,17 @@ BEGIN
             RAISE DEBUG 'No tail for a liquidated company';
           END IF;
         END IF;
-      WHEN 'valid_from_later_or_eq_valid_to_earlier_or_eq' THEN
-          RAISE DEBUG 'Upsert Case: valid_from_later_or_eq_valid_to_earlier_or_eq';
+      WHEN 'contains_existing' THEN
+          RAISE DEBUG 'Upsert Case: contains_existing';
           RAISE DEBUG 'Deleting existing contained by NEW %.%(id=%)', schema_name, table_name, existing.id;
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
-      WHEN 'valid_from_later_or_eq_valid_to_later' THEN
+      WHEN 'existing_overlaps_valid_to' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: valid_from_later_or_eq_valid_to_later AND equivalent';
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_to AND equivalent';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_to := existing.valid_to;
         ELSE
-          RAISE DEBUG 'Upsert Case: valid_from_later_or_eq_valid_to_later AND different';
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_to AND different';
           adjusted_valid_from := NEW.valid_to + interval '1 day';
           RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
           IF existing.valid_to < adjusted_valid_from THEN
