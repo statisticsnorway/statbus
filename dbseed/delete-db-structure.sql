@@ -5,6 +5,18 @@ BEGIN;
 --   SELECT table_name, column_names, key_name FROM sql_saga.foreign_keys;
 
 -- Drop era handling
+
+SELECT sql_saga.drop_foreign_key('public.location', 'location_establishment_id_valid');
+SELECT sql_saga.drop_foreign_key('public.location', 'location_legal_unit_id_valid');
+SELECT sql_saga.drop_foreign_key('public.location', 'location_enterprise_id_valid');
+SELECT sql_saga.drop_foreign_key('public.location', 'location_enterprise_group_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_enterprise_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_enterprise_group_id_valid');
+SELECT sql_saga.drop_era('public.location');
+
 SELECT sql_saga.drop_foreign_key('public.stat_for_unit', 'stat_for_unit_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_stat_definition_id_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_id_valid');
@@ -202,6 +214,7 @@ DROP TYPE public.statbus_role_type;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
 DROP TYPE admin.existing_upsert_case;
+DROP TYPE public.location_type;
 
 DROP FUNCTION admin.enterprise_group_id_exists(integer);
 DROP FUNCTION admin.enterprise_id_exists(integer);

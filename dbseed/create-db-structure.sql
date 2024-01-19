@@ -1060,19 +1060,38 @@ CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 -- Name: address; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
+CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 CREATE TABLE public.location (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    valid_from date NOT NULL DEFAULT current_date,
+    valid_to date NOT NULL DEFAULT 'infinity',
+    region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
+    location_type public.location_type NOT NULL,
     address_part1 character varying(200),
     address_part2 character varying(200),
     address_part3 character varying(200),
-    region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
     latitude double precision,
-    longitude double precision
+    longitude double precision,
+    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
+    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+        )
 );
+CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
+CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
+CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_unit_id);
+CREATE INDEX ix_location_enterprise_id_id ON public.location USING btree (enterprise_id);
+CREATE INDEX ix_location_enterprise_group_id_id ON public.location USING btree (enterprise_group_id);
+CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
 CREATE INDEX ix_address_address_part1_address_part2_address_part3_region_id
 ON public.location USING btree (address_part1, address_part2, address_part3, region_id, latitude, longitude);
-CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
-
 
 
 
@@ -4707,6 +4726,16 @@ SELECT sql_saga.add_unique_key('public.stat_for_unit', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.stat_for_unit', ARRAY['stat_definition_id', 'establishment_id']);
 SELECT sql_saga.add_foreign_key('public.stat_for_unit', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 
+SELECT sql_saga.add_era('public.location', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.location', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'establishment_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'legal_unit_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_group_id']);
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
 
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;
