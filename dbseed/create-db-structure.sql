@@ -1049,7 +1049,7 @@ CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 
 CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 CREATE TABLE public.location (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
@@ -1059,10 +1059,10 @@ CREATE TABLE public.location (
     address_part3 character varying(200),
     latitude double precision,
     longitude double precision,
-    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
-    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
-    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
-    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
+    establishment_id integer,
+    legal_unit_id integer,
+    enterprise_id integer,
+    enterprise_group_id integer,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
@@ -3651,10 +3651,11 @@ CREATE FUNCTION admin.upsert_generic_valid_time_table
     , ephemeral_columns text[]
     , NEW RECORD
     )
-RETURNS VOID AS $upsert_generic_valid_time_table$
+RETURNS INTEGER AS $upsert_generic_valid_time_table$
 DECLARE
   existing_id integer;
   existing RECORD;
+  result RECORD;
   existing_data jsonb;
   new_data jsonb;
   new_base_data jsonb;
@@ -3881,10 +3882,11 @@ BEGIN
   END IF;
 
   RAISE DEBUG 'NEW %.%(%)', schema_name, table_name, new_base_data;
-  EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
+  EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s) RETURNING *', schema_name, table_name,
     (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
-    (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
-  RETURN;
+    (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)))
+  INTO result;
+  RETURN result.id;
 END;
 $upsert_generic_valid_time_table$ LANGUAGE plpgsql;
 
@@ -3919,15 +3921,15 @@ DECLARE
   -- this system?
   ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
 BEGIN
-  PERFORM admin.upsert_generic_valid_time_table
+  SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
     , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
-    );
-  RETURN NULL;
+    ) INTO NEW.id;
+  RETURN NEW;
 END;
 $legal_unit_era_upsert$ LANGUAGE plpgsql;
 
@@ -3956,17 +3958,17 @@ DECLARE
     jsonb_build_array('region_id', 'location_type', 'enterprise_group_id')
     );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  ephemeral_columns text[] := ARRAY[];
+  ephemeral_columns text[] := ARRAY[]::text[];
 BEGIN
-  PERFORM admin.upsert_generic_valid_time_table
+  SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
     , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
-    );
-  RETURN NULL;
+    ) INTO NEW.id;
+  RETURN NEW;
 END;
 $location_era_upsert$ LANGUAGE plpgsql;
 
@@ -4013,48 +4015,84 @@ WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
 CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current()
 RETURNS TRIGGER AS $$
 DECLARE
-  result RECORD;
+    edited_by_user RECORD;
+    physical_region RECORD;
+    upsert_data RECORD;
+    inserted_legal_unit RECORD;
+    inserted_location RECORD;
 BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        LIMIT 1
-        --WHERE uuid = auth.uid()
-    ), upsert_data AS (
-        SELECT
-          NEW.tax_reg_ident AS tax_reg_ident
-        , statement_timestamp() AS tax_reg_date
-        , current_date AS valid_from
-        , 'infinity'::date AS valid_to
-        , NEW.name AS name
-        , true AS active
-        , statement_timestamp() AS seen_in_import_at
-        , 'Batch upload' AS edit_comment
-        , (SELECT id FROM su) AS edit_by_user_id
-    )
+    SELECT * INTO edited_by_user
+    FROM public.statbus_user
+    -- TODO: Uncomment when going into production
+    -- WHERE uuid = auth.uid()
+    LIMIT 1;
+
+    SELECT * INTO physical_region
+    FROM public.region
+    WHERE code = NEW.physical_region_code;
+    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL THEN
+      RAISE EXCEPTION 'Could not find physical_region_code for row %', to_json(NEW);
+    END IF;
+
+    SELECT NEW.tax_reg_ident AS tax_reg_ident
+         , statement_timestamp() AS tax_reg_date
+         , current_date AS valid_from
+         , 'infinity'::date AS valid_to
+         , NEW.name AS name
+         , true AS active
+         , statement_timestamp() AS seen_in_import_at
+         , 'Batch upload' AS edit_comment
+     INTO upsert_data;
+
+    SET CONSTRAINTS ALL DEFERRED;
     INSERT INTO public.legal_unit_era
-      ( tax_reg_ident
-      , tax_reg_date
-      , valid_from
-      , valid_to
-      , name
-      , active
-      , seen_in_import_at
-      , edit_comment
-      , edit_by_user_id
-      )
-    SELECT
-        upsert_data.tax_reg_ident
-      , upsert_data.tax_reg_date
-      , upsert_data.valid_from
-      , upsert_data.valid_to
-      , upsert_data.name
-      , upsert_data.active
-      , upsert_data.seen_in_import_at
-      , upsert_data.edit_comment
-      , upsert_data.edit_by_user_id
-    FROM upsert_data
-    RETURNING * INTO result;
+    (
+        tax_reg_ident,
+        tax_reg_date,
+        valid_from,
+        valid_to,
+        name,
+        active,
+        seen_in_import_at,
+        edit_comment,
+        edit_by_user_id
+    )
+    VALUES
+    (
+        upsert_data.tax_reg_ident,
+        upsert_data.tax_reg_date,
+        upsert_data.valid_from,
+        upsert_data.valid_to,
+        upsert_data.name,
+        upsert_data.active,
+        upsert_data.seen_in_import_at,
+        upsert_data.edit_comment,
+        edited_by_user.id
+    )
+    RETURNING * INTO inserted_legal_unit;
+
+    IF physical_region IS NOT NULL THEN
+        INSERT INTO public.location_era
+        (
+            legal_unit_id,
+            valid_from,
+            valid_to,
+            region_id,
+            location_type,
+            updated_by_user_id
+        )
+        VALUES
+        (
+            inserted_legal_unit.id,
+            upsert_data.valid_from,
+            upsert_data.valid_to,
+            physical_region.id,
+            'physical',
+            edited_by_user.id
+        )
+        RETURNING * INTO inserted_location;
+    END IF;
+    SET CONSTRAINTS ALL IMMEDIATE;
 
     RETURN NULL;
 END;
