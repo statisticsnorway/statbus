@@ -835,7 +835,7 @@ $$ LANGUAGE sql IMMUTABLE;
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
 CREATE TABLE public.activity (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     activity_type public.activity_type NOT NULL,
