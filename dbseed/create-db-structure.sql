@@ -558,7 +558,6 @@ CREATE TABLE public.enterprise_group (
     name varchar(256),
     data_source text,
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    address_id integer,
     enterprise_group_type_id integer,
     telephone_no text,
     email_address text,
@@ -657,10 +656,6 @@ CREATE TABLE public.enterprise (
     name character varying(256),
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     parent_org_link integer,
-    visiting_address_id integer,
-    custom_visiting_address_id integer,
-    postal_address_id integer,
-    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
@@ -762,10 +757,6 @@ CREATE TABLE public.legal_unit (
     death_date date,
     parent_org_link integer,
     data_source character varying(200),
-    visiting_address_id integer,
-    custom_visiting_address_id integer,
-    postal_address_id integer,
-    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
@@ -815,10 +806,6 @@ CREATE TABLE public.establishment (
     death_date date,
     parent_org_link integer,
     data_source character varying(200),
-    visiting_address_id integer,
-    custom_visiting_address_id integer,
-    postal_address_id integer,
-    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
@@ -1966,7 +1953,7 @@ CREATE VIEW public.statistical_units
     -- external_ident character varying(50),
     -- external_ident_type character varying(50),
     -- data_source character varying(200),
-    -- address_id integer,
+    -- region_ids integer[], -- FROM location
     -- web_address character varying(200),
     -- telephone_no character varying(50),
     -- email_address character varying(50),
@@ -2357,13 +2344,6 @@ CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading
 
 
 --
--- Name: ix_enterprise_group_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_enterprise_group_address_id ON public.enterprise_group USING btree (address_id);
-
-
---
 -- Name: ix_enterprise_group_data_source_classification_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2410,12 +2390,6 @@ CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_rol
 --
 
 CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
-
-
-CREATE INDEX ix_enterprise_custom_postal_address_id ON public.enterprise USING btree (custom_postal_address_id);
-CREATE INDEX ix_enterprise_custom_visiting_address_id ON public.enterprise USING btree (custom_visiting_address_id);
-CREATE INDEX ix_enterprise_postal_address_id ON public.enterprise USING btree (postal_address_id);
-CREATE INDEX ix_enterprise_visiting_address_id ON public.enterprise USING btree (visiting_address_id);
 
 
 --
@@ -2496,20 +2470,6 @@ CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code);
 
 
 --
--- Name: ix_legal_unit_actual_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_visiting_address_id ON public.legal_unit USING btree (visiting_address_id);
-
-
---
--- Name: ix_legal_unit_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_custom_visiting_address_id ON public.legal_unit USING btree (custom_visiting_address_id);
-
-
---
 -- Name: ix_legal_unit_data_source_classification_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2552,13 +2512,6 @@ CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
 
 
 --
--- Name: ix_legal_unit_postal_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_postal_address_id ON public.legal_unit USING btree (postal_address_id);
-
-
---
 -- Name: ix_legal_unit_reorg_type_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2587,20 +2540,6 @@ CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ide
 
 
 --
--- Name: ix_establishment_actual_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_visiting_address_id ON public.establishment USING btree (visiting_address_id);
-
-
---
--- Name: ix_establishment_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_custom_visiting_address_id ON public.establishment USING btree (custom_visiting_address_id);
-
-
---
 -- Name: ix_establishment_data_source_classification_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2626,13 +2565,6 @@ CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree 
 --
 
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
-
-
---
--- Name: ix_establishment_postal_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_postal_address_id ON public.establishment USING btree (postal_address_id);
 
 
 --
@@ -2793,14 +2725,6 @@ ALTER TABLE ONLY public.data_uploading_log
 
 
 --
--- Name: enterprise_group fk_enterprise_group_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_address_address_id FOREIGN KEY (address_id) REFERENCES public.location(id);
-
-
---
 -- Name: enterprise_group fk_enterprise_group_data_source_classification_data_source_cla; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -2841,30 +2765,6 @@ ALTER TABLE ONLY public.enterprise_group
 
 
 --
--- Name: enterprise fk_enterprise_address_actual_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_address_visiting_address_id FOREIGN KEY (visiting_address_id) REFERENCES public.location(id);
-
-
---
--- Name: enterprise fk_enterprise_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_address_custom_visiting_address_id FOREIGN KEY (custom_visiting_address_id) REFERENCES public.location(id);
-
-
---
--- Name: enterprise fk_enterprise_address_postal_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_address_postal_address_id FOREIGN KEY (postal_address_id) REFERENCES public.location(id);
-
-
---
 -- Name: enterprise fk_enterprise_data_source_classification_data_source_clas; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -2902,30 +2802,6 @@ ALTER TABLE ONLY public.enterprise
 
 ALTER TABLE ONLY public.enterprise
     ADD CONSTRAINT fk_enterprise_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-
-
---
--- Name: legal_unit fk_legal_unit_address_actual_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_address_visiting_address_id FOREIGN KEY (visiting_address_id) REFERENCES public.location(id);
-
-
---
--- Name: legal_unit fk_legal_unit_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_address_custom_visiting_address_id FOREIGN KEY (custom_visiting_address_id) REFERENCES public.location(id);
-
-
---
--- Name: legal_unit fk_legal_unit_address_postal_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_address_postal_address_id FOREIGN KEY (postal_address_id) REFERENCES public.location(id);
 
 
 --
@@ -2974,30 +2850,6 @@ ALTER TABLE ONLY public.legal_unit
 
 ALTER TABLE ONLY public.legal_unit
     ADD CONSTRAINT fk_legal_unit_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-
-
---
--- Name: establishment fk_establishment_address_actual_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_address_visiting_address_id FOREIGN KEY (visiting_address_id) REFERENCES public.location(id);
-
-
---
--- Name: establishment fk_establishment_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_address_custom_visiting_address_id FOREIGN KEY (custom_visiting_address_id) REFERENCES public.location(id);
-
-
---
--- Name: establishment fk_establishment_address_postal_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_address_postal_address_id FOREIGN KEY (postal_address_id) REFERENCES public.location(id);
 
 
 --
