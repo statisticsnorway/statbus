@@ -1077,9 +1077,6 @@ CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_
 CREATE INDEX ix_location_enterprise_id_id ON public.location USING btree (enterprise_id);
 CREATE INDEX ix_location_enterprise_group_id_id ON public.location USING btree (enterprise_group_id);
 CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
-CREATE INDEX ix_address_address_part1_address_part2_address_part3_region_id
-ON public.location USING btree (address_part1, address_part2, address_part3, region_id, latitude, longitude);
-
 
 
 -- Create function for upsert operation on country
