@@ -3987,21 +3987,21 @@ EXECUTE FUNCTION admin.location_era_upsert();
 
 CREATE VIEW public.legal_unit_region_activity_category_stats_current
 WITH (security_invoker=on) AS
-SELECT luc.tax_reg_ident
-     , luc.name
+SELECT lu.tax_reg_ident
+     , lu.name
+     , phr.code AS physical_region_code
+     , por.code AS postal_region_code
      , '' AS employees
-     , '' AS region_code
-     , ac.code AS primary_activity_category_code
---     , ac.path AS "primary_activity_category_path"
-FROM public.legal_unit_era AS luc
-   , public.activity AS a_p
-   , public.activity_category AS ac
---   , public.activity_category AS ac
-WHERE luc.valid_from >= current_date AND current_date <= luc.valid_to
-  AND luc.active
-  AND a_p.valid_from >= current_date AND current_date <= a_p.valid_to
-  AND a_p.activity_type = 'primary'
-  AND a_p.activity_category_id = ac.id
+     , prac.code AS primary_activity_category_code
+FROM public.legal_unit AS lu
+LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
+LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
+LEFT JOIN public.location AS phl ON phl.legal_unit_id = lu.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
+LEFT JOIN public.region AS phr ON phl.region_id = phr.id
+LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
+LEFT JOIN public.region AS por ON pol.region_id = por.id
+WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
+  AND lu.active
 ;
 
 CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current()
