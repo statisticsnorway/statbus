@@ -139,7 +139,7 @@ CREATE TABLE public.activity_category (
     parent_id integer REFERENCES public.activity_category(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
+    code varchar GENERATED ALWAYS AS (regexp_replace(regexp_replace(path::text, '[^0-9]', '', 'g'),'^([0-9]{2})(.+)$','\1.\2','')) STORED,
     name character varying(256) NOT NULL,
     description text,
     active boolean NOT NULL,
@@ -3974,6 +3974,44 @@ INSTEAD OF INSERT ON public.location_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.location_era_upsert();
 
+
+-- View for current information about a activity.
+CREATE VIEW public.activity_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.activity;
+
+CREATE FUNCTION admin.activity_era_upsert()
+RETURNS TRIGGER AS $activity_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'activity';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('activity_category_id', 'activity_type', 'establishment_id'),
+    jsonb_build_array('activity_category_id', 'activity_type', 'legal_unit_id')
+    );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  ephemeral_columns text[] := ARRAY['updated_at'];
+BEGIN
+  SELECT admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    ) INTO NEW.id;
+  RETURN NEW;
+END;
+$activity_era_upsert$ LANGUAGE plpgsql;
+
+CREATE TRIGGER activity_era_upsert
+INSTEAD OF INSERT ON public.activity_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.activity_era_upsert();
+
+
 ---- Create function for deleting stale countries
 --CREATE FUNCTION admin.delete_stale_legal_unit_era()
 --RETURNS TRIGGER AS $$
@@ -4014,9 +4052,11 @@ RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
+    primary_activity_category RECORD;
     upsert_data RECORD;
     inserted_legal_unit RECORD;
     inserted_location RECORD;
+    inserted_activity RECORD;
 BEGIN
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -4029,6 +4069,13 @@ BEGIN
     WHERE code = NEW.physical_region_code;
     IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL THEN
       RAISE EXCEPTION 'Could not find physical_region_code for row %', to_json(NEW);
+    END IF;
+
+    SELECT * INTO primary_activity_category
+    FROM public.activity_category_available
+    WHERE code = NEW.primary_activity_category_code;
+    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL THEN
+      RAISE EXCEPTION 'Could not find primary_activity_category_code for row %', to_json(NEW);
     END IF;
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
@@ -4071,23 +4118,45 @@ BEGIN
     IF physical_region IS NOT NULL THEN
         INSERT INTO public.location_era
         (
-            legal_unit_id,
             valid_from,
             valid_to,
-            region_id,
+            legal_unit_id,
             location_type,
+            region_id,
             updated_by_user_id
         )
         VALUES
         (
-            inserted_legal_unit.id,
             upsert_data.valid_from,
             upsert_data.valid_to,
-            physical_region.id,
+            inserted_legal_unit.id,
             'physical',
+            physical_region.id,
             edited_by_user.id
         )
         RETURNING * INTO inserted_location;
+    END IF;
+
+    IF primary_activity_category IS NOT NULL THEN
+        INSERT INTO public.activity_era
+        (
+            valid_from,
+            valid_to,
+            legal_unit_id,
+            activity_type,
+            activity_category_id,
+            updated_by_user_id
+        )
+        VALUES
+        (
+            upsert_data.valid_from,
+            upsert_data.valid_to,
+            inserted_legal_unit.id,
+            'physical',
+            primary_activity_category.id,
+            edited_by_user.id
+        )
+        RETURNING * INTO inserted_activity;
     END IF;
     SET CONSTRAINTS ALL IMMEDIATE;
 

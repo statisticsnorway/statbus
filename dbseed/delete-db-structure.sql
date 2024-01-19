@@ -107,6 +107,10 @@ DROP TRIGGER location_era_upsert ON public.location_era;
 DROP FUNCTION admin.location_era_upsert();
 DROP VIEW public.location_era;
 
+DROP TRIGGER activity_era_upsert ON public.activity_era;
+DROP FUNCTION admin.activity_era_upsert();
+DROP VIEW public.activity_era;
+
 DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
