@@ -154,7 +154,7 @@ DROP TABLE public.enterprise_group_role;
 DROP TABLE public.enterprise_group;
 DROP TABLE public.enterprise_group_type;
 
-DROP TABLE public.address;
+DROP TABLE public.location;
 
 DROP TABLE public.custom_analysis_check;
 
