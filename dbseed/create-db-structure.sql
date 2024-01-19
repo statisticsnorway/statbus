@@ -3948,7 +3948,13 @@ RETURNS TRIGGER AS $location_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'location';
-  unique_columns jsonb := jsonb_build_array('id');
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('region_id', 'location_type', 'establishment_id'),
+    jsonb_build_array('region_id', 'location_type', 'legal_unit_id'),
+    jsonb_build_array('region_id', 'location_type', 'enterprise_id'),
+    jsonb_build_array('region_id', 'location_type', 'enterprise_group_id')
+    );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY[];
 BEGIN
