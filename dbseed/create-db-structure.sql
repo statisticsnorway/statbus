@@ -3056,7 +3056,7 @@ BEGIN
     -- This allows a query of the target_table that returns the expected columns
     -- of the source.
     -- Example:
-    --    CREATE VIEW public.legal_unit_custom_view
+    --    CREATE VIEW public.legal_unit_brreg_view
     --    WITH (security_invoker=on) AS
     --    SELECT
     --        COALESCE(t."$target_column1",'') AS "source column 1"
@@ -3591,16 +3591,6 @@ SET LOCAL client_min_messages TO INFO;
 \copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
--- View for current information about a legal unit, support update and delete.
-CREATE VIEW public.legal_unit_current
-WITH (security_invoker=on) AS
-SELECT *
-FROM public.legal_unit
-WHERE valid_from >= current_date AND current_date <= valid_to
-  AND active
-  ;
-
-
 -- TODO Later: Move to sql_saga
 CREATE TYPE admin.existing_upsert_case AS ENUM
     -- n is NEW
@@ -3899,8 +3889,17 @@ END;
 $upsert_generic_valid_time_table$ LANGUAGE plpgsql;
 
 
-CREATE FUNCTION admin.upsert_legal_unit_current()
-RETURNS TRIGGER AS $upsert_legal_unit_current$
+
+
+-- View for current information about a legal unit.
+CREATE VIEW public.legal_unit_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.legal_unit
+  ;
+
+CREATE FUNCTION admin.legal_unit_era_upsert()
+RETURNS TRIGGER AS $legal_unit_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'legal_unit';
@@ -3930,17 +3929,48 @@ BEGIN
     );
   RETURN NULL;
 END;
-$upsert_legal_unit_current$ LANGUAGE plpgsql;
+$legal_unit_era_upsert$ LANGUAGE plpgsql;
 
-
-
-CREATE TRIGGER upsert_legal_unit_current
-INSTEAD OF INSERT ON public.legal_unit_current
+CREATE TRIGGER legal_unit_era_upsert
+INSTEAD OF INSERT ON public.legal_unit_era
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_current();
+EXECUTE FUNCTION admin.legal_unit_era_upsert();
+
+
+-- View for current information about a location.
+CREATE VIEW public.location_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.location;
+
+CREATE FUNCTION admin.location_era_upsert()
+RETURNS TRIGGER AS $location_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'location';
+  unique_columns jsonb := jsonb_build_array('id');
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  ephemeral_columns text[] := ARRAY[];
+BEGIN
+  PERFORM admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    );
+  RETURN NULL;
+END;
+$location_era_upsert$ LANGUAGE plpgsql;
+
+CREATE TRIGGER location_era_upsert
+INSTEAD OF INSERT ON public.location_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.location_era_upsert();
 
 ---- Create function for deleting stale countries
---CREATE FUNCTION admin.delete_stale_legal_unit_current()
+--CREATE FUNCTION admin.delete_stale_legal_unit_era()
 --RETURNS TRIGGER AS $$
 --BEGIN
 --    DELETE FROM public.region
@@ -3949,10 +3979,10 @@ EXECUTE FUNCTION admin.upsert_legal_unit_current();
 --END;
 --$$ LANGUAGE plpgsql;
 
---CREATE TRIGGER delete_stale_legal_unit_current
---AFTER INSERT ON public.legal_unit_current
+--CREATE TRIGGER delete_stale_legal_unit_era
+--AFTER INSERT ON public.legal_unit_era
 --FOR EACH STATEMENT
---EXECUTE FUNCTION admin.delete_stale_legal_unit_current();
+--EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
 
 CREATE VIEW public.legal_unit_region_activity_category_stats_current
@@ -3963,7 +3993,7 @@ SELECT luc.tax_reg_ident
      , '' AS region_code
      , ac.code AS primary_activity_category_code
 --     , ac.path AS "primary_activity_category_path"
-FROM public.legal_unit_current AS luc
+FROM public.legal_unit_era AS luc
    , public.activity AS a_p
    , public.activity_category AS ac
 --   , public.activity_category AS ac
@@ -3996,7 +4026,7 @@ BEGIN
         , 'Batch upload' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     )
-    INSERT INTO public.legal_unit_current
+    INSERT INTO public.legal_unit_era
       ( tax_reg_ident
       , tax_reg_date
       , valid_from
@@ -4063,7 +4093,7 @@ EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_cu
 -- \i samples/100BREGUnits.sql
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
-CREATE VIEW public.legal_unit_custom_view
+CREATE VIEW public.legal_unit_brreg_view
 WITH (security_invoker=on) AS
 SELECT '' AS "organisasjonsnummer"
      , '' AS "navn"
@@ -4121,7 +4151,7 @@ SELECT '' AS "organisasjonsnummer"
      , '' AS "aktivitet"
      ;
 
-CREATE FUNCTION admin.upsert_legal_unit_custom_view()
+CREATE FUNCTION admin.upsert_legal_unit_brreg_view()
 RETURNS TRIGGER AS $$
 DECLARE
   result RECORD;
@@ -4199,7 +4229,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION admin.delete_stale_legal_unit_custom_view()
+CREATE FUNCTION admin.delete_stale_legal_unit_brreg_view()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH su AS (
@@ -4219,25 +4249,25 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for the view
-CREATE TRIGGER upsert_legal_unit_custom_view
-INSTEAD OF INSERT ON public.legal_unit_custom_view
+CREATE TRIGGER upsert_legal_unit_brreg_view
+INSTEAD OF INSERT ON public.legal_unit_brreg_view
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_custom_view();
+EXECUTE FUNCTION admin.upsert_legal_unit_brreg_view();
 
-CREATE TRIGGER delete_stale_legal_unit_custom_view
-AFTER INSERT ON public.legal_unit_custom_view
+CREATE TRIGGER delete_stale_legal_unit_brreg_view
+AFTER INSERT ON public.legal_unit_brreg_view
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_legal_unit_custom_view();
+EXECUTE FUNCTION admin.delete_stale_legal_unit_brreg_view();
 
 
 -- time psql <<EOS
--- \copy public.legal_unit_custom_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- \copy public.legal_unit_brreg_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
 
 
 
--- View for insert of Norwegian Legal Unit (Underenhet)
-CREATE VIEW public.establishment_custom_view
+-- View for insert of Norwegian Establishment (Underenhet)
+CREATE VIEW public.establishment_brreg_view
 WITH (security_invoker=on) AS
 SELECT '' AS "organisasjonsnummer"
      , '' AS "navn"
@@ -4278,7 +4308,7 @@ SELECT '' AS "organisasjonsnummer"
      ;
 
 -- Create function for upsert operation on country
-CREATE FUNCTION admin.upsert_establishment_custom_view()
+CREATE FUNCTION admin.upsert_establishment_brreg_view()
 RETURNS TRIGGER AS $$
 DECLARE
   result RECORD;
@@ -4357,7 +4387,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function for deleting stale countries
-CREATE FUNCTION admin.delete_stale_establishment_custom_view()
+CREATE FUNCTION admin.delete_stale_establishment_brreg_view()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH su AS (
@@ -4377,18 +4407,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for the view
-CREATE TRIGGER upsert_establishment_custom_view
-INSTEAD OF INSERT ON public.establishment_custom_view
+CREATE TRIGGER upsert_establishment_brreg_view
+INSTEAD OF INSERT ON public.establishment_brreg_view
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_establishment_custom_view();
+EXECUTE FUNCTION admin.upsert_establishment_brreg_view();
 
-CREATE TRIGGER delete_stale_establishment_custom_view
-AFTER INSERT ON public.establishment_custom_view
+CREATE TRIGGER delete_stale_establishment_brreg_view
+AFTER INSERT ON public.establishment_brreg_view
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_establishment_custom_view();
+EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
 -- time psql <<EOS
--- \copy public.establishment_custom_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
 
 -- Add security.

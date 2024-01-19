@@ -71,14 +71,14 @@ DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
 
-DROP VIEW public.legal_unit_custom_view;
-DROP FUNCTION admin.upsert_legal_unit_custom_view();
-DROP FUNCTION admin.delete_stale_legal_unit_custom_view();
+DROP VIEW public.legal_unit_brreg_view;
+DROP FUNCTION admin.upsert_legal_unit_brreg_view();
+DROP FUNCTION admin.delete_stale_legal_unit_brreg_view();
 
 --DROP VIEW public.establishment_current;
-DROP VIEW public.establishment_custom_view;
-DROP FUNCTION admin.upsert_establishment_custom_view();
-DROP FUNCTION admin.delete_stale_establishment_custom_view();
+DROP VIEW public.establishment_brreg_view;
+DROP FUNCTION admin.upsert_establishment_brreg_view();
+DROP FUNCTION admin.delete_stale_establishment_brreg_view();
 
 DELETE FROM public.custom_view_def;
 DROP TRIGGER custom_view_def_before_trigger ON public.custom_view_def;
@@ -99,10 +99,15 @@ DROP TRIGGER upsert_legal_unit_region_activity_category_stats_current_trigger ON
 DROP FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current();
 DROP VIEW public.legal_unit_region_activity_category_stats_current;
 
-DROP TRIGGER upsert_legal_unit_current ON public.legal_unit_current;
-DROP FUNCTION admin.upsert_legal_unit_current();
+DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
+DROP FUNCTION admin.legal_unit_era_upsert();
+DROP VIEW public.legal_unit_era;
+
+DROP TRIGGER location_era_upsert ON public.location_era;
+DROP FUNCTION admin.location_era_upsert();
+DROP VIEW public.location_era;
+
 DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
-DROP VIEW public.legal_unit_current;
 
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
