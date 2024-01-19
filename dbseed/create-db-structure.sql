@@ -3839,7 +3839,7 @@ BEGIN
           END IF;
           IF existing.valid_to < adjusted_valid_from THEN
             RAISE DEBUG 'Don''t create zero duration row';
-          ELSIF NEW.active THEN
+          ELSE
             existing.valid_from := adjusted_valid_from;
             existing_data := to_jsonb(existing);
             new_base_data := existing_data - generated_columns;
@@ -3847,8 +3847,6 @@ BEGIN
             EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
               (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
               (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
-          ELSE
-            RAISE DEBUG 'No tail for a liquidated company';
           END IF;
         END IF;
       WHEN 'contains_existing' THEN
@@ -3866,9 +3864,6 @@ BEGIN
           RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
           IF existing.valid_to < adjusted_valid_from THEN
               RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
-              EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
-          ELSIF NOT NEW.active THEN
-              RAISE DEBUG 'Deleting existing after liquidation %.%(id=%)', schema_name, table_name, existing.id;
               EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
             RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
