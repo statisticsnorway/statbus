@@ -194,6 +194,7 @@ BEGIN
                 , description = NEW.description
                 , updated_at = statement_timestamp()
                 , custom = false
+        WHERE activity_category.id = EXCLUDED.id
                 ;
     RETURN NULL;
 END;
@@ -285,17 +286,110 @@ CREATE TABLE public.settings (
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
 SELECT acs.code AS standard_code
+     , ac.id
      , ac.path
-     , ac.parent_id
+     , acp.code AS parent_code
      , ac.label
      , ac.code
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
-JOIN public.activity_category_standard AS acs
-ON ac.activity_category_standard_id = acs.id
+JOIN public.activity_category_standard AS acs ON ac.activity_category_standard_id = acs.id
+LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
 WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
+  AND ac.active
 ORDER BY path;
+
+
+CREATE FUNCTION admin.activity_category_available_upsert_custom()
+RETURNS TRIGGER AS $$
+DECLARE
+    setting_activity_category_standard_id int;
+    found_parent_id int;
+    existing_category_id int;
+BEGIN
+    -- Retrieve the setting_activity_category_standard_id from public.settings
+    SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
+    IF setting_activity_category_standard_id IS NULL THEN
+        RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
+    END IF;
+
+    -- Find parent category based on NEW.parent_code or NEW.path
+    IF NEW.parent_code IS NOT NULL THEN
+        -- If NEW.parent_code is provided, use it to find the parent category
+        SELECT id INTO found_parent_id
+          FROM public.activity_category
+         WHERE code = NEW.parent_code
+           AND activity_category_standard_id = setting_activity_category_standard_id;
+        IF found_parent_id IS NULL THEN
+          RAISE EXCEPTION 'Could not find parent_code %', NEW.parent_code;
+        END IF;
+    ELSIF public.nlevel(NEW.path) > 1 THEN
+        -- If NEW.parent_code is not provided, use NEW.path to find the parent category
+        SELECT id INTO found_parent_id
+          FROM public.activity_category
+         WHERE activity_category_standard_id = setting_activity_category_standard_id
+           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
+        IF found_parent_id IS NULL THEN
+          RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
+        END IF;
+    END IF;
+
+    -- Query to see if there is an existing "active AND NOT custom" row
+    SELECT id INTO existing_category_id
+      FROM public.activity_category
+     WHERE activity_category_standard_id = setting_activity_category_standard_id
+       AND path = NEW.path
+       AND active
+       AND NOT custom;
+
+    -- If there is, then update that row to active = FALSE
+    IF existing_category_id IS NOT NULL THEN
+        UPDATE public.activity_category
+           SET active = FALSE
+         WHERE id = existing_category_id;
+    END IF;
+
+    -- Perform an upsert operation on public.activity_category
+    INSERT INTO public.activity_category
+        ( activity_category_standard_id
+        , path
+        , parent_id
+        , name
+        , description
+        , updated_at
+        , active
+        , custom
+        )
+    VALUES
+        ( setting_activity_category_standard_id
+        , NEW.path
+        , found_parent_id
+        , NEW.name
+        , NEW.description
+        , statement_timestamp()
+        , TRUE -- Active
+        , TRUE -- Custom
+        )
+    ON CONFLICT (activity_category_standard_id, path)
+    DO UPDATE SET
+            parent_id = found_parent_id
+          , name = NEW.name
+          , description = NEW.description
+          , updated_at = statement_timestamp()
+          , active = TRUE
+          , custom = TRUE
+       WHERE activity_category.id = EXCLUDED.id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER activity_category_available_upsert_custom
+INSTEAD OF INSERT ON public.activity_category_available
+FOR EACH ROW
+EXECUTE FUNCTION admin.activity_category_available_upsert_custom();
 
 
 --
@@ -1974,11 +2068,6 @@ CREATE VIEW public.statistical_units
     UNION ALL
     SELECT NULL::INTEGER AS establishment_id, NULL::INTEGER AS legal_unit_id, NULL::INTEGER AS enterprise_id, id AS enterprise_group_id, name FROM public.enterprise_group
 ;
---
--- Name: activity_category_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
---
-
-SELECT pg_catalog.setval('public.activity_category_id_seq', 1, false);
 
 
 --
@@ -4074,7 +4163,10 @@ BEGIN
     SELECT * INTO primary_activity_category
     FROM public.activity_category_available
     WHERE code = NEW.primary_activity_category_code;
-    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL THEN
+    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL
+       -- Many places theere is a variety of 00.000... to signify null
+       AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
+    THEN
       RAISE EXCEPTION 'Could not find primary_activity_category_code for row %', to_json(NEW);
     END IF;
 
@@ -4145,16 +4237,18 @@ BEGIN
             legal_unit_id,
             activity_type,
             activity_category_id,
-            updated_by_user_id
+            updated_by_user_id,
+            updated_at
         )
         VALUES
         (
             upsert_data.valid_from,
             upsert_data.valid_to,
             inserted_legal_unit.id,
-            'physical',
+            'primary',
             primary_activity_category.id,
-            edited_by_user.id
+            edited_by_user.id,
+            statement_timestamp()
         )
         RETURNING * INTO inserted_activity;
     END IF;
