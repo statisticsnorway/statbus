@@ -1,0 +1,13 @@
+name: statbus
+version: 0.1.0
+
+authors:
+  - Jørgen H. Fjeld <jorgen@veridit.no>
+
+targets:
+  statbus:
+    main: src/statbus.cr
+
+crystal: '>= 1.10.1'
+
+license: MIT
