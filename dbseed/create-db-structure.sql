@@ -750,19 +750,21 @@ CREATE TABLE public.enterprise (
     name character varying(256),
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     parent_org_link integer,
-    web_address character varying(200),
-    telephone_no character varying(50),
-    email_address character varying(50),
     notes text,
-    sector_code_id integer,
     edit_by_user_id character varying(100) NOT NULL,
-    edit_comment character varying(500),
-    unit_size_id integer,
-    foreign_participation_id integer,
-    data_source_classification_id integer,
-    enterprise_group_id integer,
-    enterprise_group_date timestamp with time zone,
-    enterprise_group_role_id integer
+    edit_comment character varying(500)
+    -- TODO: Reconsider these fields, as they are found in establishment and legal_unit
+    --web_address character varying(200),
+    --telephone_no character varying(50),
+    --email_address character varying(50),
+    --sector_code_id integer,
+    --unit_size_id integer,
+    --foreign_participation_id integer,
+    --data_source_classification_id integer,
+    -- TODO: Reconsider grouping by enterprise_group to grouping by enterprise itself.
+    -- enterprise_group_id integer,
+    -- enterprise_group_date timestamp with time zone,
+    -- enterprise_group_role_id integer
 );
 
 
