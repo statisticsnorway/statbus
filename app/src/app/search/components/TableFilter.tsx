@@ -26,7 +26,7 @@ export function TableFilter({title, options, selectedValues, onToggle, onReset}:
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="border-dashed h-full space-x-2">
+        <Button variant="outline" size="sm" className="border-dashed h-10 space-x-2 m-2">
           <PlusCircle className="mr-2 h-4 w-4"/>
           {title}
           {selectedValues?.length ? (
@@ -45,7 +45,7 @@ export function TableFilter({title, options, selectedValues, onToggle, onReset}:
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto max-w-[350px] md:max-w-[500px] p-0" align="start">
         <Command>
           <CommandInput placeholder={title}/>
           <CommandList>

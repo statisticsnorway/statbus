@@ -19,12 +19,12 @@ export default function TableToolbar(
   const hasFilterSelected = filters.some(({selected}) => selected.length > 0)
 
   return (
-    <div className="flex items-center flex-wrap space-x-2 h-10">
+    <div className="flex items-center flex-wrap -m-2 space-x-2">
       <Input
         type="text"
         id="search-prompt"
         placeholder="Name"
-        className="w-[150px] h-full"
+        className="w-[150px] h-full m-2"
         onChange={(e) => onSearch(e.target.value.trim())}
       />
       {
