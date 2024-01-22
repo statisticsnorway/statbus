@@ -7,8 +7,7 @@ import useSearch from "@/app/search/hooks/useSearch";
 import {useFilter} from "@/app/search/hooks/useFilter";
 
 interface SearchProps {
-  readonly legalUnits: LegalUnit[],
-  readonly count: number
+  readonly initialSearchResult: SearchResult
   readonly regions: Tables<"region">[]
   readonly activityCategories: Tables<"activity_category_available">[]
   readonly statisticalVariables: Tables<"stat_definition">[]
@@ -16,8 +15,7 @@ interface SearchProps {
 
 export default function Search(
   {
-    legalUnits = [],
-    count = 0,
+    initialSearchResult,
     regions = [],
     activityCategories,
     statisticalVariables
@@ -25,17 +23,17 @@ export default function Search(
 ) {
   const [searchPrompt, setSearchPrompt] = useState('')
   const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
-  const {data} = useSearch(searchPrompt, filters, {legalUnits, count})
+  const {data: searchResult} = useSearch(searchPrompt, filters, initialSearchResult)
 
   return (
     <section className="space-y-3">
       <TableToolbar dispatch={searchFilterDispatch} filters={filters} onSearch={q => setSearchPrompt(q)}/>
       <div className="rounded-md border">
-        <SearchResultTable searchResult={data ?? {legalUnits, count}}/>
+        <SearchResultTable searchResult={searchResult ?? initialSearchResult}/>
       </div>
       <div className="px-4">
         <small className="text-xs text-gray-500">
-          Showing {data?.legalUnits?.length} of total {data?.count}
+          Showing {searchResult?.legalUnits?.length} of total {searchResult?.count}
         </small>
       </div>
     </section>

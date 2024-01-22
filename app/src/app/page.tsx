@@ -41,8 +41,7 @@ export default async function Home() {
         regions={regions ?? []}
         activityCategories={activityCategories ?? []}
         statisticalVariables={statisticalVariables ?? []}
-        legalUnits={legalUnits ?? []}
-        count={count ?? 0}
+        initialSearchResult={{legalUnits: legalUnits ?? [], count: count ?? 0}}
       />
     </main>
   )
