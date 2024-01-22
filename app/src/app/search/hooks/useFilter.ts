@@ -31,7 +31,7 @@ interface FilterOptions {
 }
 
 export const useFilter = ({regions = [], activityCategories = [], statisticalVariables = []}: FilterOptions) => {
-  return useReducer(searchFilterReducer, [
+  const fixedFilters = [
     {
       name: "region_codes",
       label: "Region",
@@ -53,17 +53,15 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         }
       )),
       selected: []
-    },
-    {
-      name: "statistical_variable_codes",
-      label: "Statistical Variable",
-      options: statisticalVariables.map(({code, name}) => (
-        {
-          label: name,
-          value: code
-        }
-      )),
-      selected: []
     }
-  ])
+  ];
+
+  const statisticalVariableFilters = statisticalVariables.map(variable => ({
+    name: variable.code,
+    label: variable.name,
+    options: [], // Options can be dynamically generated based on the data available
+    selected: []
+  }));
+
+  return useReducer(searchFilterReducer, [...fixedFilters, ...statisticalVariableFilters])
 }
