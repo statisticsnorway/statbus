@@ -6,7 +6,7 @@ export default async function ProfilePage() {
   const {data: {session}} = await client.auth.getSession()
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-8 md:p-24">
+    <main className="flex min-h-screen flex-col items-center justify-between py-8 px-2 md:py-24">
       <div className="mx-auto sm:w-full lg:max-w-5xl">
         <div>
           <h3 className="text-base font-semibold leading-7 text-gray-900">Profile Information</h3>

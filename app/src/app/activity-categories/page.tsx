@@ -7,7 +7,7 @@ export default async function ActivityCategoriesPage() {
     .limit(25)
 
   return (
-    <main className="flex flex-col items-center justify-between space-y-8 md:p-24">
+    <main className="flex flex-col items-center justify-between space-y-8 md:py-24">
       <h1 className="text-xl text-center">Showing top 25 out of total {count} categories</h1>
       <ul className="divide-y divide-gray-100">
         {activityCategories?.map((category) => (
