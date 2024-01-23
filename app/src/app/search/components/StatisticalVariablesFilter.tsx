@@ -60,9 +60,9 @@ export function StatisticalVariablesFilter(
                             <SelectValue placeholder="Condition"/>
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="equal_to">Equal to</SelectItem>
-                            <SelectItem value="greater_than">Greater than</SelectItem>
-                            <SelectItem value="less_than">Less than</SelectItem>
+                            <SelectItem value="eq">Equal to</SelectItem>
+                            <SelectItem value="gt">Greater than</SelectItem>
+                            <SelectItem value="lt">Less than</SelectItem>
                             <SelectItem value="in">In list</SelectItem>
                         </SelectContent>
                     </Select>

@@ -5,7 +5,7 @@ export type LegalUnit = {
 
 export type SearchFilterValue = string | number
 
-export type SearchFilterCondition = "equal_to" | "greater_than" | "less_than" | "in" | "not_in"
+export type SearchFilterCondition = "eq" | "gt" | "lt" | "in"
 
 export type SearchFilterOption = {
     readonly label: string

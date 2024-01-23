@@ -6,11 +6,11 @@ export function ConditionalValueBadge({condition, value}: ConditionalValue) {
 
     function resolveSymbol(condition: SearchFilterCondition) {
         switch (condition) {
-            case "equal_to":
+            case "eq":
                 return ""
-            case "greater_than":
+            case "gt":
                 return ">"
-            case "less_than":
+            case "lt":
                 return "<"
             case "in":
                 return "in"
