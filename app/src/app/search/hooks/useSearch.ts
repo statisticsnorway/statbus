@@ -8,14 +8,20 @@ export default function useSearch(prompt: string, filters: SearchFilter[], fallb
     const searchParams = new URLSearchParams()
 
     if (prompt) {
-        searchParams.set('q', prompt)
+        searchParams.set('name', `ilike.*${prompt}*`)
     }
 
-    filters.forEach(({name, selected}) => {
-        if (selected.length) {
-            searchParams.set(name, selected.join(','))
-        }
-    })
+    filters
+        .filter(({selected}) => selected.length)
+        .forEach(({name, selected, condition}) => {
+
+            if (condition === 'in') {
+                searchParams.set(name, `${condition}.(${selected.join(',')})`)
+                return
+            }
+
+            searchParams.set(name, `${condition}.${selected.join(',')}`)
+        })
 
     return useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
         keepPreviousData: true,
