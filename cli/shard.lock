@@ -1,0 +1,10 @@
+version: 2.0
+shards:
+  db:
+    git: https://github.com/crystal-lang/crystal-db.git
+    version: 0.12.0
+
+  pg:
+    git: https://github.com/17dec/crystal-pg.git
+    version: 0.27.0+git.commit.ed26146a226f31acf77c1949dea6d3e7c6b5674e
+
