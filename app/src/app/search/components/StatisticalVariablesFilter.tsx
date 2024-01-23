@@ -56,8 +56,8 @@ export function StatisticalVariablesFilter(
                         value={condition ?? ""}
                         onValueChange={(value) => setCondition(value as SearchFilterCondition)}
                     >
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select condition"/>
+                        <SelectTrigger className="w-auto max-w-[180px] space-x-2">
+                            <SelectValue placeholder="Condition"/>
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="equal_to">Equal to</SelectItem>
@@ -67,7 +67,7 @@ export function StatisticalVariablesFilter(
                         </SelectContent>
                     </Select>
                     <Input
-                        className="w-auto w-max-[100px]"
+                        className="w-auto max-w-[80px]"
                         value={conditionalValue ?? ""}
                         onChange={(e) =>
                             setConditionalValue(e.target.value.trim())
@@ -75,6 +75,13 @@ export function StatisticalVariablesFilter(
                     />
                     <Button onClick={updateFilter} variant="outline">OK</Button>
                 </Command>
+                {
+                    selected?.value && selected.condition ? (
+                        <div className="w-full p-2">
+                            <Button onClick={onReset} variant="outline" className="w-full">Clear</Button>
+                        </div>
+                    ) : null
+                }
             </PopoverContent>
         </Popover>
     )

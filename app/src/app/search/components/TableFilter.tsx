@@ -2,14 +2,7 @@ import {Button} from "@/components/ui/button";
 import {Check, PlusCircle} from "lucide-react";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 import {Command} from "cmdk";
-import {
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator
-} from "@/components/ui/command";
+import {CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from "@/components/ui/command";
 import * as React from "react";
 import {Separator} from "@/components/ui/separator";
 import {Badge} from "@/components/ui/badge";
@@ -63,18 +56,15 @@ export function TableFilter({title, options = [], selectedValues, onToggle, onRe
                                 ))
                             }
                         </CommandGroup>
-                        {
-                            selectedValues?.length ? (
-                                <>
-                                    <CommandSeparator/>
-                                    <CommandGroup heading="Reset">
-                                        <CommandItem onSelect={onReset}>Clear all</CommandItem>
-                                    </CommandGroup>
-                                </>
-                            ) : null
-                        }
                     </CommandList>
                 </Command>
+                {
+                    selectedValues.length ? (
+                        <div className="w-full p-2">
+                            <Button onClick={onReset} variant="outline" className="w-full">Clear</Button>
+                        </div>
+                    ) : null
+                }
             </PopoverContent>
         </Popover>
     )
