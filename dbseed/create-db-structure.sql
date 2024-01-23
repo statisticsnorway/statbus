@@ -139,7 +139,7 @@ CREATE TABLE public.activity_category (
     parent_id integer REFERENCES public.activity_category(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
+    code varchar GENERATED ALWAYS AS (regexp_replace(regexp_replace(path::text, '[^0-9]', '', 'g'),'^([0-9]{2})(.+)$','\1.\2','')) STORED,
     name character varying(256) NOT NULL,
     description text,
     active boolean NOT NULL,
@@ -194,6 +194,7 @@ BEGIN
                 , description = NEW.description
                 , updated_at = statement_timestamp()
                 , custom = false
+        WHERE activity_category.id = EXCLUDED.id
                 ;
     RETURN NULL;
 END;
@@ -284,17 +285,111 @@ CREATE TABLE public.settings (
 
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
-SELECT acs.code AS standard
+SELECT acs.code AS standard_code
+     , ac.id
      , ac.path
+     , acp.code AS parent_code
      , ac.label
      , ac.code
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
-JOIN public.activity_category_standard AS acs
-ON ac.activity_category_standard_id = acs.id
+JOIN public.activity_category_standard AS acs ON ac.activity_category_standard_id = acs.id
+LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
 WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
+  AND ac.active
 ORDER BY path;
+
+
+CREATE FUNCTION admin.activity_category_available_upsert_custom()
+RETURNS TRIGGER AS $$
+DECLARE
+    setting_activity_category_standard_id int;
+    found_parent_id int;
+    existing_category_id int;
+BEGIN
+    -- Retrieve the setting_activity_category_standard_id from public.settings
+    SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
+    IF setting_activity_category_standard_id IS NULL THEN
+        RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
+    END IF;
+
+    -- Find parent category based on NEW.parent_code or NEW.path
+    IF NEW.parent_code IS NOT NULL THEN
+        -- If NEW.parent_code is provided, use it to find the parent category
+        SELECT id INTO found_parent_id
+          FROM public.activity_category
+         WHERE code = NEW.parent_code
+           AND activity_category_standard_id = setting_activity_category_standard_id;
+        IF found_parent_id IS NULL THEN
+          RAISE EXCEPTION 'Could not find parent_code %', NEW.parent_code;
+        END IF;
+    ELSIF public.nlevel(NEW.path) > 1 THEN
+        -- If NEW.parent_code is not provided, use NEW.path to find the parent category
+        SELECT id INTO found_parent_id
+          FROM public.activity_category
+         WHERE activity_category_standard_id = setting_activity_category_standard_id
+           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
+        IF found_parent_id IS NULL THEN
+          RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
+        END IF;
+    END IF;
+
+    -- Query to see if there is an existing "active AND NOT custom" row
+    SELECT id INTO existing_category_id
+      FROM public.activity_category
+     WHERE activity_category_standard_id = setting_activity_category_standard_id
+       AND path = NEW.path
+       AND active
+       AND NOT custom;
+
+    -- If there is, then update that row to active = FALSE
+    IF existing_category_id IS NOT NULL THEN
+        UPDATE public.activity_category
+           SET active = FALSE
+         WHERE id = existing_category_id;
+    END IF;
+
+    -- Perform an upsert operation on public.activity_category
+    INSERT INTO public.activity_category
+        ( activity_category_standard_id
+        , path
+        , parent_id
+        , name
+        , description
+        , updated_at
+        , active
+        , custom
+        )
+    VALUES
+        ( setting_activity_category_standard_id
+        , NEW.path
+        , found_parent_id
+        , NEW.name
+        , NEW.description
+        , statement_timestamp()
+        , TRUE -- Active
+        , TRUE -- Custom
+        )
+    ON CONFLICT (activity_category_standard_id, path)
+    DO UPDATE SET
+            parent_id = found_parent_id
+          , name = NEW.name
+          , description = NEW.description
+          , updated_at = statement_timestamp()
+          , active = TRUE
+          , custom = TRUE
+       WHERE activity_category.id = EXCLUDED.id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER activity_category_available_upsert_custom
+INSTEAD OF INSERT ON public.activity_category_available
+FOR EACH ROW
+EXECUTE FUNCTION admin.activity_category_available_upsert_custom();
 
 
 --
@@ -306,36 +401,6 @@ CREATE TABLE public.activity_category_role (
     role_id integer NOT NULL,
     activity_category_id integer NOT NULL,
     UNIQUE(role_id, activity_category_id)
-);
-
-
---
--- Name: address; Type: TABLE; Schema: public; Owner: statbus_development
---
-
-CREATE TABLE public.address (
-    id integer NOT NULL,
-    address_part1 character varying(200),
-    address_part2 character varying(200),
-    address_part3 character varying(200),
-    region_id integer NOT NULL,
-    latitude double precision,
-    longitude double precision
-);
-
-
-
---
--- Name: address_id_seq; Type: SEQUENCE; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE public.address ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME public.address_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
 );
 
 
@@ -374,7 +439,7 @@ ALTER TABLE public.analysis_queue ALTER COLUMN id ADD GENERATED BY DEFAULT AS ID
 --
 
 CREATE TABLE public.country (
-    id integer NOT NULL,
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code_2 text UNIQUE NOT NULL,
     code_3 text UNIQUE NOT NULL,
     code_num text UNIQUE NOT NULL,
@@ -383,20 +448,6 @@ CREATE TABLE public.country (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(code_2, code_3, code_num, name)
-);
-
-
---
--- Name: country_id_seq; Type: SEQUENCE; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE public.country ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME public.country_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
 );
 
 
@@ -588,7 +639,7 @@ CREATE TABLE public.tag (
 --
 
 CREATE TABLE public.enterprise_group (
-    id SERIAL PRIMARY KEY NOT NULL,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident text,
@@ -601,7 +652,6 @@ CREATE TABLE public.enterprise_group (
     name varchar(256),
     data_source text,
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    address_id integer,
     enterprise_group_type_id integer,
     telephone_no text,
     email_address text,
@@ -618,6 +668,10 @@ CREATE TABLE public.enterprise_group (
     foreign_participation_id integer
 );
 
+
+CREATE OR REPLACE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
+    SELECT EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
+$$ LANGUAGE sql IMMUTABLE;
 
 
 --
@@ -683,7 +737,7 @@ ALTER TABLE public.enterprise_group_type ALTER COLUMN id ADD GENERATED BY DEFAUL
 --
 
 CREATE TABLE public.enterprise (
-    id SERIAL PRIMARY KEY NOT NULL,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
@@ -696,26 +750,27 @@ CREATE TABLE public.enterprise (
     name character varying(256),
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     parent_org_link integer,
-    visiting_address_id integer,
-    custom_visiting_address_id integer,
-    postal_address_id integer,
-    custom_postal_address_id integer,
-    web_address character varying(200),
-    telephone_no character varying(50),
-    email_address character varying(50),
     notes text,
-    sector_code_id integer,
     edit_by_user_id character varying(100) NOT NULL,
-    edit_comment character varying(500),
-    unit_size_id integer,
-    foreign_participation_id integer,
-    data_source_classification_id integer,
-    enterprise_group_id integer,
-    enterprise_group_date timestamp with time zone,
-    enterprise_group_role_id integer
+    edit_comment character varying(500)
+    -- TODO: Reconsider these fields, as they are found in establishment and legal_unit
+    --web_address character varying(200),
+    --telephone_no character varying(50),
+    --email_address character varying(50),
+    --sector_code_id integer,
+    --unit_size_id integer,
+    --foreign_participation_id integer,
+    --data_source_classification_id integer,
+    -- TODO: Reconsider grouping by enterprise_group to grouping by enterprise itself.
+    -- enterprise_group_id integer,
+    -- enterprise_group_date timestamp with time zone,
+    -- enterprise_group_role_id integer
 );
 
 
+CREATE OR REPLACE FUNCTION admin.enterprise_id_exists(fk_id integer) RETURNS boolean AS $$
+    SELECT EXISTS (SELECT 1 FROM public.enterprise WHERE id = fk_id);
+$$ LANGUAGE sql IMMUTABLE;
 
 
 --
@@ -781,7 +836,7 @@ ALTER TABLE public.legal_form ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTI
 --
 
 CREATE TABLE public.legal_unit (
-    id SERIAL PRIMARY KEY NOT NULL,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
@@ -798,10 +853,6 @@ CREATE TABLE public.legal_unit (
     death_date date,
     parent_org_link integer,
     data_source character varying(200),
-    visiting_address_id integer,
-    custom_visiting_address_id integer,
-    postal_address_id integer,
-    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
@@ -824,13 +875,17 @@ CREATE TABLE public.legal_unit (
 CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 
+CREATE OR REPLACE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
+    SELECT EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
+$$ LANGUAGE sql IMMUTABLE;
+
 
 --
 -- Name: establishment; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
 CREATE TABLE public.establishment (
-    id SERIAL PRIMARY KEY NOT NULL,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
@@ -847,10 +902,6 @@ CREATE TABLE public.establishment (
     death_date date,
     parent_org_link integer,
     data_source character varying(200),
-    visiting_address_id integer,
-    custom_visiting_address_id integer,
-    postal_address_id integer,
-    custom_postal_address_id integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
@@ -871,35 +922,56 @@ CREATE TABLE public.establishment (
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 
+CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
+    SELECT EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
+$$ LANGUAGE sql IMMUTABLE;
+
+
+
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
 CREATE TABLE public.activity (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    activity_category_id integer NOT NULL,
     activity_type public.activity_type NOT NULL,
-    updated_by_user_id integer NOT NULL,
+    activity_category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE
+    establishment_id integer,
+    legal_unit_id integer,
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
+        )
 );
-
+CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
+CREATE INDEX ix_activity_establishment_id_id ON public.activity USING btree (establishment_id);
+CREATE INDEX ix_activity_legal_unit_id_id ON public.activity USING btree (legal_unit_id);
+CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 
 
 CREATE TABLE public.tag_for_unit (
     id SERIAL PRIMARY KEY NOT NULL,
     tag_id integer NOT NULL REFERENCES public.tag(id) ON DELETE CASCADE,
-    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
-    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id or enterprise_group_id must be set"
+    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
+    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
         )
 );
+CREATE INDEX ix_tag_for_unit_tag_id ON public.tag_for_unit USING btree (tag_id);
+CREATE INDEX ix_tag_for_unit_establishment_id_id ON public.tag_for_unit USING btree (establishment_id);
+CREATE INDEX ix_tag_for_unit_legal_unit_id_id ON public.tag_for_unit USING btree (legal_unit_id);
+CREATE INDEX ix_tag_for_unit_enterprise_id_id ON public.tag_for_unit USING btree (enterprise_id);
+CREATE INDEX ix_tag_for_unit_enterprise_group_id_id ON public.tag_for_unit USING btree (enterprise_group_id);
+CREATE INDEX ix_tag_for_unit_updated_by_user_id ON public.tag_for_unit USING btree (updated_by_user_id);
 
 
 --
@@ -909,15 +981,15 @@ CREATE TABLE public.tag_for_unit (
 CREATE TABLE public.analysis_log (
     id integer NOT NULL,
     analysis_queue_id integer NOT NULL,
-    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
-    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
+    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
+    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
     issued_at timestamp with time zone NOT NULL,
     resolved_at timestamp with time zone,
     summary_messages text,
     error_values text,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id must be set"
+    CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
@@ -945,18 +1017,22 @@ ALTER TABLE public.analysis_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDEN
 
 CREATE TABLE public.country_for_unit (
     id SERIAL PRIMARY KEY NOT NULL,
-    country_id integer NOT NULL,
-    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
-    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    enterprise_group_id integer REFERENCES public.enterprise_group(id) ON DELETE CASCADE,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id enterprise_id must be set"
+    country_id integer NOT NULL REFERENCES public.country(id) ON DELETE CASCADE,
+    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
+    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
+    CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
         )
 );
+CREATE INDEX ix_country_for_unit_country_id ON public.country_for_unit USING btree (country_id);
+CREATE INDEX ix_country_for_unit_establishment_id ON public.country_for_unit USING btree (establishment_id);
+CREATE INDEX ix_country_for_unit_enterprise_group_id ON public.country_for_unit USING btree (enterprise_group_id);
+CREATE INDEX ix_country_for_unit_legal_unit_id ON public.country_for_unit USING btree (legal_unit_id);
 
 
 --
@@ -966,9 +1042,9 @@ CREATE TABLE public.country_for_unit (
 CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
 
 CREATE TABLE public.person (
-    id integer NOT NULL,
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     personal_ident text UNIQUE,
-    country_id integer,
+    country_id integer REFERENCES public.country(id),
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     given_name character varying(150),
     middle_name character varying(150),
@@ -979,40 +1055,8 @@ CREATE TABLE public.person (
     phone_number_2 text,
     address text
 );
-
-
-
---
--- Name: person_for_unit; Type: TABLE; Schema: public; Owner: statbus_development
---
-
-CREATE TABLE public.person_for_unit (
-    id SERIAL PRIMARY KEY NOT NULL,
-    person_id integer NOT NULL,
-    person_type_id integer,
-    establishment_id integer REFERENCES public.establishment(id) ON DELETE CASCADE,
-    legal_unit_id integer REFERENCES public.legal_unit(id) ON DELETE CASCADE,
-    CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
-
-);
-
-
-
---
--- Name: person_id_seq; Type: SEQUENCE; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE public.person ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME public.person_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
+CREATE INDEX ix_person_country_id ON public.person USING btree (country_id);
+CREATE INDEX ix_person_given_name_surname ON public.person USING btree (given_name, middle_name, family_name);
 
 
 --
@@ -1020,7 +1064,7 @@ ALTER TABLE public.person ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
 --
 
 CREATE TABLE public.person_type (
-    id integer NOT NULL,
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,
     name text UNIQUE NOT NULL,
     active boolean NOT NULL,
@@ -1029,19 +1073,23 @@ CREATE TABLE public.person_type (
 );
 
 
-
 --
--- Name: person_type_id_seq; Type: SEQUENCE; Schema: public; Owner: statbus_development
+-- Name: person_for_unit; Type: TABLE; Schema: public; Owner: statbus_development
 --
 
-ALTER TABLE public.person_type ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME public.person_type_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
+CREATE TABLE public.person_for_unit (
+    id SERIAL PRIMARY KEY NOT NULL,
+    person_id integer NOT NULL REFERENCES public.person(id) ON DELETE CASCADE,
+    person_type_id integer REFERENCES public.person_type(id),
+    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
+    CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
+        )
+
 );
+
 
 
 --
@@ -1089,6 +1137,42 @@ CREATE TABLE public.region (
       CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL)
 );
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
+
+
+--
+-- Name: address; Type: TABLE; Schema: public; Owner: statbus_development
+--
+
+CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
+CREATE TABLE public.location (
+    id SERIAL NOT NULL,
+    valid_from date NOT NULL DEFAULT current_date,
+    valid_to date NOT NULL DEFAULT 'infinity',
+    region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
+    location_type public.location_type NOT NULL,
+    address_part1 character varying(200),
+    address_part2 character varying(200),
+    address_part3 character varying(200),
+    latitude double precision,
+    longitude double precision,
+    establishment_id integer,
+    legal_unit_id integer,
+    enterprise_id integer,
+    enterprise_group_id integer,
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+        )
+);
+CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
+CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
+CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_unit_id);
+CREATE INDEX ix_location_enterprise_id_id ON public.location USING btree (enterprise_id);
+CREATE INDEX ix_location_enterprise_group_id_id ON public.location USING btree (enterprise_group_id);
+CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
 
 
 -- Create function for upsert operation on country
@@ -1751,10 +1835,11 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE public.region_role (
     id SERIAL PRIMARY KEY NOT NULL,
-    role_id integer NOT NULL,
-    region_id integer NOT NULL,
+    role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
+    region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
     UNIQUE(role_id, region_id)
 );
+CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
 
 
 CREATE TYPE public.stat_type AS ENUM(
@@ -1794,15 +1879,21 @@ INSERT INTO public.stat_definition(code, stat_type, frequency, name, description
   ('turnover','int','yearly','Turnover','The amount (EUR)',3);
 
 CREATE TABLE public.stat_for_unit (
-    id SERIAL PRIMARY KEY NOT NULL,
-    stat_definition_id integer NOT NULL,
+    id SERIAL NOT NULL,
+    stat_definition_id integer NOT NULL REFERENCES public.stat_definition(id) ON DELETE RESTRICT,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    establishment_id integer NOT NULL REFERENCES public.establishment(id) ON DELETE CASCADE,
+    establishment_id integer NOT NULL,
     value_int INTEGER,
     value_float FLOAT,
     value_str VARCHAR,
-    value_bool BOOLEAN
+    value_bool BOOLEAN,
+    CHECK(
+        (value_int IS NOT NULL AND value_float IS     NULL AND value_str IS     NULL AND value_bool IS     NULL) OR
+        (value_int IS     NULL AND value_float IS NOT NULL AND value_str IS     NULL AND value_bool IS     NULL) OR
+        (value_int IS     NULL AND value_float IS     NULL AND value_str IS NOT NULL AND value_bool IS     NULL) OR
+        (value_int IS     NULL AND value_float IS     NULL AND value_str IS     NULL AND value_bool IS NOT NULL)
+    )
 );
 
 
@@ -1894,7 +1985,7 @@ SET LOCAL client_min_messages TO INFO;
 --     stat_code RECORD;
 -- BEGIN
 --     -- Start building the dynamic query
---     dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, change_description, valid_from, valid_to';
+--     dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, edit_comment, valid_from, valid_to';
 -- 
 --     -- For each code in stat_definition, add it as a column
 --     FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
@@ -1955,7 +2046,7 @@ CREATE VIEW public.statistical_units
     -- external_ident character varying(50),
     -- external_ident_type character varying(50),
     -- data_source character varying(200),
-    -- address_id integer,
+    -- region_ids integer[], -- FROM location
     -- web_address character varying(200),
     -- telephone_no character varying(50),
     -- email_address character varying(50),
@@ -1979,18 +2070,6 @@ CREATE VIEW public.statistical_units
     UNION ALL
     SELECT NULL::INTEGER AS establishment_id, NULL::INTEGER AS legal_unit_id, NULL::INTEGER AS enterprise_id, id AS enterprise_group_id, name FROM public.enterprise_group
 ;
---
--- Name: activity_category_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
---
-
-SELECT pg_catalog.setval('public.activity_category_id_seq', 1, false);
-
-
---
--- Name: address_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
---
-
-SELECT pg_catalog.setval('public.address_id_seq', 1, false);
 
 
 --
@@ -2005,13 +2084,6 @@ SELECT pg_catalog.setval('public.analysis_log_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.analysis_queue_id_seq', 1, false);
-
-
---
--- Name: country_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
---
-
-SELECT pg_catalog.setval('public.country_id_seq', 1, false);
 
 
 --
@@ -2106,20 +2178,6 @@ SELECT pg_catalog.setval('public.establishment_id_seq', 1, false);
 
 
 --
--- Name: person_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
---
-
-SELECT pg_catalog.setval('public.person_id_seq', 1, false);
-
-
---
--- Name: person_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
---
-
-SELECT pg_catalog.setval('public.person_type_id_seq', 1, false);
-
-
---
 -- Name: postal_index_id_seq; Type: SEQUENCE SET; Schema: public; Owner: statbus_development
 --
 
@@ -2162,14 +2220,6 @@ SELECT pg_catalog.setval('public.unit_size_id_seq', 1, false);
 
 
 --
--- Name: address pk_address; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.address
-    ADD CONSTRAINT pk_address PRIMARY KEY (id);
-
-
---
 -- Name: analysis_log pk_analysis_log; Type: CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -2183,14 +2233,6 @@ ALTER TABLE ONLY public.analysis_log
 
 ALTER TABLE ONLY public.analysis_queue
     ADD CONSTRAINT pk_analysis_queue PRIMARY KEY (id);
-
-
---
--- Name: country pk_country; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.country
-    ADD CONSTRAINT pk_country PRIMARY KEY (id);
 
 
 --
@@ -2266,22 +2308,6 @@ ALTER TABLE ONLY public.legal_form
 
 
 --
--- Name: person pk_person; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person
-    ADD CONSTRAINT pk_person PRIMARY KEY (id);
-
-
---
--- Name: person_type pk_person_type; Type: CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_type
-    ADD CONSTRAINT pk_person_type PRIMARY KEY (id);
-
-
---
 -- Name: postal_index pk_postal_index; Type: CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -2330,13 +2356,6 @@ ALTER TABLE ONLY public.unit_size
 
 
 --
--- Name: ix_activity_activity_category_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
-
-
---
 -- Name: ix_activity_category_parent_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2349,34 +2368,6 @@ CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING bt
 
 CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
 CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
-
-
---
--- Name: ix_activity_establishment_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
-
-
---
--- Name: ix_activity_updated_by; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
-
-
---
--- Name: ix_address_address_part1_address_part2_address_part3_region_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_address_address_part1_address_part2_address_part3_region_id ON public.address USING btree (address_part1, address_part2, address_part3, region_id, latitude, longitude);
-
-
---
--- Name: ix_address_region_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_address_region_id ON public.address USING btree (region_id);
 
 
 --
@@ -2396,34 +2387,6 @@ CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.ana
 
 CREATE INDEX ix_analysis_queue_user_id ON public.analysis_queue USING btree (user_id);
 
-
-
---
--- Name: ix_country_for_unit_country_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_country_for_unit_country_id ON public.country_for_unit USING btree (country_id);
-
-
---
--- Name: ix_country_for_unit_enterprise_group_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_country_for_unit_enterprise_group_id ON public.country_for_unit USING btree (enterprise_group_id);
-
-
---
--- Name: ix_country_for_unit_legal_unit_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_country_for_unit_legal_unit_id ON public.country_for_unit USING btree (legal_unit_id);
-
-
---
--- Name: ix_country_for_unit_establishment_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_country_for_unit_establishment_id ON public.country_for_unit USING btree (establishment_id);
 
 
 --
@@ -2466,13 +2429,6 @@ CREATE INDEX ix_data_source_user_id ON public.data_source USING btree (user_id);
 --
 
 CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading_log USING btree (data_source_queue_id);
-
-
---
--- Name: ix_enterprise_group_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_enterprise_group_address_id ON public.enterprise_group USING btree (address_id);
 
 
 --
@@ -2522,12 +2478,6 @@ CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_rol
 --
 
 CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
-
-
-CREATE INDEX ix_enterprise_custom_postal_address_id ON public.enterprise USING btree (custom_postal_address_id);
-CREATE INDEX ix_enterprise_custom_visiting_address_id ON public.enterprise USING btree (custom_visiting_address_id);
-CREATE INDEX ix_enterprise_postal_address_id ON public.enterprise USING btree (postal_address_id);
-CREATE INDEX ix_enterprise_visiting_address_id ON public.enterprise USING btree (visiting_address_id);
 
 
 --
@@ -2608,20 +2558,6 @@ CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code);
 
 
 --
--- Name: ix_legal_unit_actual_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_visiting_address_id ON public.legal_unit USING btree (visiting_address_id);
-
-
---
--- Name: ix_legal_unit_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_custom_visiting_address_id ON public.legal_unit USING btree (custom_visiting_address_id);
-
-
---
 -- Name: ix_legal_unit_data_source_classification_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2664,13 +2600,6 @@ CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
 
 
 --
--- Name: ix_legal_unit_postal_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_legal_unit_postal_address_id ON public.legal_unit USING btree (postal_address_id);
-
-
---
 -- Name: ix_legal_unit_reorg_type_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2696,20 +2625,6 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_i
 --
 
 CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
-
-
---
--- Name: ix_establishment_actual_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_visiting_address_id ON public.establishment USING btree (visiting_address_id);
-
-
---
--- Name: ix_establishment_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_custom_visiting_address_id ON public.establishment USING btree (custom_visiting_address_id);
 
 
 --
@@ -2741,13 +2656,6 @@ CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
 
 
 --
--- Name: ix_establishment_postal_address_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_establishment_postal_address_id ON public.establishment USING btree (postal_address_id);
-
-
---
 -- Name: ix_establishment_reorg_type_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2773,13 +2681,6 @@ CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_
 --
 
 CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
-
-
---
--- Name: ix_person_country_id; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_person_country_id ON public.person USING btree (country_id);
 
 
 --
@@ -2811,13 +2712,6 @@ CREATE UNIQUE INDEX ix_person_for_unit_person_type_id_establishment_id_legal_uni
 
 
 --
--- Name: ix_person_given_name_surname; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_person_given_name_surname ON public.person USING btree (given_name, middle_name, family_name);
-
-
---
 -- Name: ix_sample_frame_user_id; Type: INDEX; Schema: public; Owner: statbus_development
 --
 
@@ -2845,20 +2739,6 @@ CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code);
 
 
---
--- Name: ix_region_role; Type: INDEX; Schema: public; Owner: statbus_development
---
-
-CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
-
-
---
--- Name: activity fk_activity_activity_category_activity_category_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity
-    ADD CONSTRAINT fk_activity_activity_category_activity_category_id FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
-
 
 --
 -- Name: activity_category fk_activity_category_activity_category_parent_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
@@ -2885,22 +2765,6 @@ ALTER TABLE ONLY public.activity_category_role
 
 
 --
--- Name: activity fk_activity_user_updated_by_user_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.activity
-    ADD CONSTRAINT fk_activity_user_updated_by_user_id_user_id FOREIGN KEY (updated_by_user_id) REFERENCES public.statbus_user(id) ON DELETE CASCADE;
-
-
---
--- Name: address fk_address_region_region_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.address
-    ADD CONSTRAINT fk_address_region_region_id FOREIGN KEY (region_id) REFERENCES public.region(id) ON DELETE CASCADE;
-
-
---
 -- Name: analysis_log fk_analysis_log_analysis_queue_analysis_queue_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -2914,14 +2778,6 @@ ALTER TABLE ONLY public.analysis_log
 
 ALTER TABLE ONLY public.analysis_queue
     ADD CONSTRAINT fk_analysis_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id) ON DELETE CASCADE;
-
-
---
--- Name: country_for_unit fk_country_for_unit_country_country_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.country_for_unit
-    ADD CONSTRAINT fk_country_for_unit_country_country_id FOREIGN KEY (country_id) REFERENCES public.country(id) ON DELETE CASCADE;
 
 
 --
@@ -2954,14 +2810,6 @@ ALTER TABLE ONLY public.data_source
 
 ALTER TABLE ONLY public.data_uploading_log
     ADD CONSTRAINT fk_data_uploading_log_data_source_queue_data_source_queue_id FOREIGN KEY (data_source_queue_id) REFERENCES public.data_source_queue(id) ON DELETE CASCADE;
-
-
---
--- Name: enterprise_group fk_enterprise_group_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_address_address_id FOREIGN KEY (address_id) REFERENCES public.address(id);
 
 
 --
@@ -3005,43 +2853,11 @@ ALTER TABLE ONLY public.enterprise_group
 
 
 --
--- Name: enterprise fk_enterprise_address_actual_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_address_visiting_address_id FOREIGN KEY (visiting_address_id) REFERENCES public.address(id);
-
-
---
--- Name: enterprise fk_enterprise_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_address_custom_visiting_address_id FOREIGN KEY (custom_visiting_address_id) REFERENCES public.address(id);
-
-
---
--- Name: enterprise fk_enterprise_address_postal_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_address_postal_address_id FOREIGN KEY (postal_address_id) REFERENCES public.address(id);
-
-
---
 -- Name: enterprise fk_enterprise_data_source_classification_data_source_clas; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.enterprise
     ADD CONSTRAINT fk_enterprise_data_source_classification_data_source_clas FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-
-
---
--- Name: enterprise fk_enterprise_enterprise_group_enterprise_group_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_enterprise_group_enterprise_group_id FOREIGN KEY (enterprise_group_id) REFERENCES public.enterprise_group(id);
 
 
 --
@@ -3077,43 +2893,11 @@ ALTER TABLE ONLY public.enterprise
 
 
 --
--- Name: legal_unit fk_legal_unit_address_actual_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_address_visiting_address_id FOREIGN KEY (visiting_address_id) REFERENCES public.address(id);
-
-
---
--- Name: legal_unit fk_legal_unit_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_address_custom_visiting_address_id FOREIGN KEY (custom_visiting_address_id) REFERENCES public.address(id);
-
-
---
--- Name: legal_unit fk_legal_unit_address_postal_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_address_postal_address_id FOREIGN KEY (postal_address_id) REFERENCES public.address(id);
-
-
---
 -- Name: legal_unit fk_legal_unit_data_source_classification_data_source_classific; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.legal_unit
     ADD CONSTRAINT fk_legal_unit_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-
-
---
--- Name: legal_unit fk_legal_unit_enterprise_enterprise_temp_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_enterprise_enterprise_temp_id FOREIGN KEY (enterprise_id) REFERENCES public.enterprise(id);
 
 
 --
@@ -3157,43 +2941,11 @@ ALTER TABLE ONLY public.legal_unit
 
 
 --
--- Name: establishment fk_establishment_address_actual_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_address_visiting_address_id FOREIGN KEY (visiting_address_id) REFERENCES public.address(id);
-
-
---
--- Name: establishment fk_establishment_address_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_address_custom_visiting_address_id FOREIGN KEY (custom_visiting_address_id) REFERENCES public.address(id);
-
-
---
--- Name: establishment fk_establishment_address_postal_address_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_address_postal_address_id FOREIGN KEY (postal_address_id) REFERENCES public.address(id);
-
-
---
 -- Name: establishment fk_establishment_data_source_classification_data_source_classific; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
 ALTER TABLE ONLY public.establishment
     ADD CONSTRAINT fk_establishment_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-
-
---
--- Name: establishment fk_establishment_legal_unit_legal_unit_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_legal_unit_legal_unit_id FOREIGN KEY (enterprise_id) REFERENCES public.enterprise(id);
 
 
 --
@@ -3221,46 +2973,6 @@ ALTER TABLE ONLY public.establishment
 
 
 --
--- Name: person fk_person_country_country_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person
-    ADD CONSTRAINT fk_person_country_country_id FOREIGN KEY (country_id) REFERENCES public.country(id);
-
-
---
--- Name: person_for_unit fk_person_for_unit_legal_unit_legal_unit_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_legal_unit_legal_unit_id FOREIGN KEY (legal_unit_id) REFERENCES public.legal_unit(id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_establishment_establishment_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_establishment_establishment_id FOREIGN KEY (establishment_id) REFERENCES public.establishment(id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_person_person_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_person_person_id FOREIGN KEY (person_id) REFERENCES public.person(id) ON DELETE CASCADE;
-
-
---
--- Name: person_for_unit fk_person_for_unit_person_type_person_type_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.person_for_unit
-    ADD CONSTRAINT fk_person_for_unit_person_type_person_type_id FOREIGN KEY (person_type_id) REFERENCES public.person_type(id);
-
-
---
 -- Name: region fk_region_region_parent_id; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
 --
 
@@ -3282,22 +2994,6 @@ ALTER TABLE ONLY public.sample_frame
 
 ALTER TABLE ONLY public.sector_code
     ADD CONSTRAINT fk_sector_code_sector_code_parent_id FOREIGN KEY (parent_id) REFERENCES public.sector_code(id);
-
-
---
--- Name: region_role fk_region_role; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.region_role
-    ADD CONSTRAINT fk_region_role_region_id FOREIGN KEY (region_id) REFERENCES public.region(id) ON DELETE CASCADE;
-
-
---
--- Name: region_role fk_region_role; Type: FK CONSTRAINT; Schema: public; Owner: statbus_development
---
-
-ALTER TABLE ONLY public.region_role
-    ADD CONSTRAINT fk_region_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
 
 
 --
@@ -3448,7 +3144,7 @@ BEGIN
     -- This allows a query of the target_table that returns the expected columns
     -- of the source.
     -- Example:
-    --    CREATE VIEW public.legal_unit_custom_view
+    --    CREATE VIEW public.legal_unit_brreg_view
     --    WITH (security_invoker=on) AS
     --    SELECT
     --        COALESCE(t."$target_column1",'') AS "source column 1"
@@ -3983,39 +3679,432 @@ SET LOCAL client_min_messages TO INFO;
 \copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
--- View for current information about a legal unit, support update and delete.
-CREATE VIEW public.legal_unit_current
+-- TODO Later: Move to sql_saga
+CREATE TYPE admin.existing_upsert_case AS ENUM
+    -- n is NEW
+    -- e is existing
+    -- e_t is new tail to existing
+    -- Used to merge to avoid multiple rows
+    ( 'existing_adjacent_valid_from'
+    -- [--e--]
+    --        [--n--]
+    -- IF equivalent THEN delete(e) AND n.valid_from = e.valid.from
+    -- [---------n--]
+    , 'existing_adjacent_valid_to'
+    --        [--e--]
+    -- [--n--]
+    -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
+    -- [--n---------]
+    -- Used to adjust the valid_from/valid_to to carve out room for new data.
+    , 'existing_overlaps_valid_from'
+    --    [---e---]
+    --         [----n----]
+    -- IFF equivalent THEN delete(e) AND n.valid_from = e.valid_from
+    --    [---------n----]
+    -- ELSE e.valid_to = n.valid_from - '1 day'
+    --    [-e-]
+    --         [----n----]
+    , 'inside_existing'
+    -- [---------e--------]
+    --        [--n--]
+    -- IFF equivalent THEN delete(e) AND n.valid_from = e.valid_from AND n.valid_to = e.valid_to
+    -- [---------n--------]
+    -- ELSE IF NOT n.active THEN e.valid_to = n.valid_from - '1 day'
+    -- [--e--]
+    --        [--n--]
+    -- ELSE e.valid_to = n.valid_from - '1 day', e_t.valid_from = n.valid_to + '1 day', e_t.valid_to = e.valid_to
+    -- [--e--]       [-e_t-]
+    --        [--n--]
+    , 'contains_existing'
+    --          [-e-]
+    --       [----n----]
+    -- THEN delete(e)
+    --       [----n----]
+    , 'existing_overlaps_valid_to'
+    --        [----e----]
+    --    [----n----]
+    -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
+    --    [----n--------]
+    -- ELSE e.valid_from = n.valid_to + '1 day'
+    --               [-e-]
+    --    [----n----]
+    );
+-- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
+
+CREATE FUNCTION admin.upsert_generic_valid_time_table
+    ( schema_name text
+    , table_name text
+    , unique_columns jsonb
+    , temporal_columns text[]
+    , ephemeral_columns text[]
+    , NEW RECORD
+    )
+RETURNS INTEGER AS $upsert_generic_valid_time_table$
+DECLARE
+  existing_id integer;
+  existing RECORD;
+  result RECORD;
+  existing_data jsonb;
+  new_data jsonb;
+  new_base_data jsonb;
+  adjusted_valid_from date;
+  adjusted_valid_to date;
+  equivalent_data jsonb;
+  equivalent_clause text;
+  identifying_clause text;
+  existing_query text;
+  delete_existing_sql text;
+  identifying_query text;
+  generated_columns text[];
+  generated_columns_sql CONSTANT text :=
+      'SELECT array_agg(a.attname) '
+      'FROM pg_catalog.pg_attribute AS a '
+      'WHERE a.attrelid = $1 '
+      '  AND a.attnum > 0 '
+      '  AND NOT a.attisdropped '
+      '  AND (pg_catalog.pg_get_serial_sequence(a.attrelid::regclass::text, a.attname) IS NOT NULL '
+      '    OR a.attidentity <> '''' '
+      '    OR a.attgenerated <> '''' '
+      '    OR EXISTS (SELECT FROM pg_catalog.pg_constraint AS _c '
+      '               WHERE _c.conrelid = a.attrelid '
+      '                 AND _c.contype = ''p'' '
+      '                 AND _c.conkey @> ARRAY[a.attnum]) '
+      '              )';
+BEGIN
+  new_data := to_jsonb(NEW);
+  -- Loop through each conflicting row
+  RAISE DEBUG 'NEW row %', new_data;
+  -- Remove fields that are generated by the database,
+  -- since we don't wish to override them with NULL
+  -- and get a constraint error.
+  EXECUTE generated_columns_sql INTO generated_columns USING (schema_name||'.'||table_name)::regclass;
+
+  new_base_data := new_data - generated_columns;
+  -- The equivalent data is the data that makes up the equivalent, and
+  -- is the basis for considering it equal to another row, and thus
+  -- no historic versioning is required.
+  -- Ephemeral columns are used for internal delete tracking, and are non temporal,
+  -- and the temporal columns themselves are not part of the value.
+  equivalent_data := new_base_data - ephemeral_columns - temporal_columns;
+
+  SELECT string_agg(' '||quote_ident(key)||' IS NOT DISTINCT FROM $1.'||quote_ident(key)||' ', ' AND ')
+  INTO equivalent_clause
+  FROM jsonb_each_text(equivalent_data);
+
+  SELECT
+    string_agg(
+        CASE jsonb_typeof(unique_column)
+        WHEN 'array' THEN
+                '(' || (SELECT string_agg(' '||element||'= $1.'||element||' ', ' AND ') FROM jsonb_array_elements_text(unique_column) AS element) || ')'
+        WHEN 'string' THEN ' '||unique_column::text||'= $1.'||unique_column::text||' '
+        ELSE NULL
+        END,
+        ' OR '
+    ) INTO identifying_clause
+  FROM (SELECT jsonb_array_elements(unique_columns) AS unique_column) AS subquery;
+
+  identifying_query := format($$
+      SELECT id
+      FROM %1$I.%2$I
+      WHERE %3$s
+      LIMIT 1;$$
+      , schema_name
+      , table_name
+      , identifying_clause
+    );
+  --RAISE DEBUG 'identifying_query %', identifying_query;
+
+  EXECUTE identifying_query INTO existing_id USING NEW;
+  RAISE DEBUG 'existing_id %', existing_id;
+  IF NEW.id IS NULL THEN
+      NEW.id = existing_id;
+  END IF;
+
+  existing_query := format($$
+      SELECT *
+           , (%3$s) AS equivalent
+           , CASE
+             WHEN valid_to = ($1.valid_from - '1 day'::INTERVAL) THEN 'existing_adjacent_valid_from'
+             WHEN valid_from = ($1.valid_to + '1 day'::INTERVAL) THEN 'existing_adjacent_valid_to'
+             WHEN valid_from <  $1.valid_from AND valid_to <= $1.valid_to THEN 'existing_overlaps_valid_from'
+             WHEN valid_from <  $1.valid_from AND valid_to >  $1.valid_to THEN 'inside_existing'
+             WHEN valid_from >= $1.valid_from AND valid_to <= $1.valid_to THEN 'contains_existing'
+             WHEN valid_from >= $1.valid_from AND valid_to >  $1.valid_to THEN 'existing_overlaps_valid_to'
+             END::admin.existing_upsert_case AS upsert_case
+      FROM %1$I.%2$I
+      WHERE daterange(valid_from, valid_to, '[]') && daterange(($1.valid_from - '1 day'::INTERVAL)::DATE, ($1.valid_to + '1 day'::INTERVAL)::DATE, '[]')
+        AND id = $2
+      ORDER BY valid_from$$
+      , schema_name
+      , table_name
+      , equivalent_clause
+    );
+  --RAISE DEBUG 'existing_query %', existing_query;
+
+  FOR existing IN EXECUTE existing_query USING NEW, existing_id
+  LOOP
+      existing_data := to_jsonb(existing);
+      RAISE DEBUG 'Existing row %', existing_data;
+
+      delete_existing_sql := format($$
+       DELETE FROM %1$I.%2$I
+        WHERE id = $1
+          AND valid_from = $2
+          AND valid_to = $3;
+      $$, schema_name, table_name);
+
+      CASE existing.upsert_case
+      WHEN 'existing_adjacent_valid_from' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: existing_adjacent_valid_from AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_from := existing.valid_from;
+        END IF;
+      WHEN 'existing_adjacent_valid_to' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: existing_adjacent_valid_to AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_to := existing.valid_to;
+        END IF;
+      WHEN 'existing_overlaps_valid_from' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_from AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_from := existing.valid_from;
+        ELSE
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_from AND different';
+          adjusted_valid_to := NEW.valid_from - interval '1 day';
+          RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
+          IF adjusted_valid_to <= existing.valid_from THEN
+            RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          ELSE
+            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE format($$
+                UPDATE %1$I.%2$I
+                SET valid_to = $1
+                WHERE
+                  id = $2
+                  AND valid_from = $3
+                  AND valid_to = $4
+              $$, schema_name, table_name) USING adjusted_valid_to, existing.id, existing.valid_from, existing.valid_to;
+          END IF;
+        END IF;
+      WHEN 'inside_existing' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: inside_existing AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_from := existing.valid_from;
+          NEW.valid_to := existing.valid_to;
+        ELSE
+          RAISE DEBUG 'Upsert Case: inside_existing AND different';
+          adjusted_valid_from := NEW.valid_to + interval '1 day';
+          adjusted_valid_to := NEW.valid_from - interval '1 day';
+          RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
+          RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
+          IF adjusted_valid_to <= existing.valid_from THEN
+            RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          ELSE
+            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE format($$
+                UPDATE %1$I.%2$I
+                SET valid_to = $1
+                WHERE
+                  id = $2
+                  AND valid_from = $3
+                  AND valid_to = $4
+              $$, schema_name, table_name) USING adjusted_valid_to, existing.id, existing.valid_from, existing.valid_to;
+          END IF;
+          IF existing.valid_to < adjusted_valid_from THEN
+            RAISE DEBUG 'Don''t create zero duration row';
+          ELSE
+            existing.valid_from := adjusted_valid_from;
+            existing_data := to_jsonb(existing);
+            new_base_data := existing_data - generated_columns;
+            RAISE DEBUG 'Inserting new tail %', new_base_data;
+            EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s)', schema_name, table_name,
+              (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
+              (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)));
+          END IF;
+        END IF;
+      WHEN 'contains_existing' THEN
+          RAISE DEBUG 'Upsert Case: contains_existing';
+          RAISE DEBUG 'Deleting existing contained by NEW %.%(id=%)', schema_name, table_name, existing.id;
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+      WHEN 'existing_overlaps_valid_to' THEN
+        IF existing.equivalent THEN
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_to AND equivalent';
+          EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          NEW.valid_to := existing.valid_to;
+        ELSE
+          RAISE DEBUG 'Upsert Case: existing_overlaps_valid_to AND different';
+          adjusted_valid_from := NEW.valid_to + interval '1 day';
+          RAISE DEBUG 'adjusted_valid_from = %', adjusted_valid_from;
+          IF existing.valid_to < adjusted_valid_from THEN
+              RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
+              EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+          ELSE
+            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
+            EXECUTE format($$
+                UPDATE %1$I.%2$I
+                SET valid_from = $1
+                WHERE
+                  id = $2
+                  AND valid_from = $3
+                  AND valid_to = $4
+              $$, schema_name, table_name) USING adjusted_valid_from, existing.id, existing.valid_from, existing.valid_to;
+          END IF;
+        END IF;
+      ELSE
+        RAISE EXCEPTION 'Unknown existing_upsert_case: %', existing.upsert_case;
+      END CASE;
+    END LOOP;
+  --
+  -- Insert a new entry
+  -- If there was any existing row, then reuse that same id
+  new_base_data := to_jsonb(NEW) - generated_columns;
+  -- The id is a generated row, so add it back again after removal.
+  IF existing_id IS NOT NULL THEN
+    new_base_data := jsonb_set(new_base_data, '{id}', existing_id::text::jsonb, true);
+  END IF;
+
+  RAISE DEBUG 'NEW %.%(%)', schema_name, table_name, new_base_data;
+  EXECUTE format('INSERT INTO %1$I.%2$I(%3$s) VALUES (%4$s) RETURNING *', schema_name, table_name,
+    (SELECT string_agg(quote_ident(key), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)),
+    (SELECT string_agg(quote_nullable(value), ', ' ORDER BY key) FROM jsonb_each_text(new_base_data)))
+  INTO result;
+  RETURN result.id;
+END;
+$upsert_generic_valid_time_table$ LANGUAGE plpgsql;
+
+
+
+
+-- View for current information about a legal unit.
+CREATE VIEW public.legal_unit_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.legal_unit
-WHERE valid_from >= statement_timestamp()
-  AND statement_timestamp() <= valid_to
-  AND active
   ;
 
+CREATE FUNCTION admin.legal_unit_era_upsert()
+RETURNS TRIGGER AS $legal_unit_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'legal_unit';
+  unique_columns jsonb :=
+    jsonb_build_array(
+            'id',
+            'stat_ident',
+            'tax_reg_ident',
+            jsonb_build_array('external_ident', 'external_ident_type')
+        );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  -- The tax_reg_date is just set to the current date, unless provided,
+  -- and as such is not useful to track changes, as there would be new row
+  -- with a new valid_from when the tax_reg_ident is first set.
+  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
+  -- is it when registered with the tax authority, or when registered in
+  -- this system?
+  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
+BEGIN
+  SELECT admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    ) INTO NEW.id;
+  RETURN NEW;
+END;
+$legal_unit_era_upsert$ LANGUAGE plpgsql;
 
---CREATE FUNCTION admin.upsert_legal_unit_current()
---RETURNS TRIGGER AS $$
---BEGIN
---    WITH parent AS (
---        SELECT id
---        FROM public.region
---        WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
---    )
---    INSERT INTO public.region (path, parent_id, name, active, updated_at)
---    VALUES (NEW.path, (SELECT id FROM parent), NEW.name, true, statement_timestamp())
---    ON CONFLICT (path)
---    DO UPDATE SET
---        parent_id = (SELECT id FROM parent),
---        name = EXCLUDED.name,
---        updated_at = statement_timestamp()
---    WHERE region.id = EXCLUDED.id;
---    RETURN NULL;
---END;
---$$ LANGUAGE plpgsql;
---
+CREATE TRIGGER legal_unit_era_upsert
+INSTEAD OF INSERT ON public.legal_unit_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.legal_unit_era_upsert();
+
+
+-- View for current information about a location.
+CREATE VIEW public.location_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.location;
+
+CREATE FUNCTION admin.location_era_upsert()
+RETURNS TRIGGER AS $location_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'location';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('region_id', 'location_type', 'establishment_id'),
+    jsonb_build_array('region_id', 'location_type', 'legal_unit_id'),
+    jsonb_build_array('region_id', 'location_type', 'enterprise_id'),
+    jsonb_build_array('region_id', 'location_type', 'enterprise_group_id')
+    );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  ephemeral_columns text[] := ARRAY[]::text[];
+BEGIN
+  SELECT admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    ) INTO NEW.id;
+  RETURN NEW;
+END;
+$location_era_upsert$ LANGUAGE plpgsql;
+
+CREATE TRIGGER location_era_upsert
+INSTEAD OF INSERT ON public.location_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.location_era_upsert();
+
+
+-- View for current information about a activity.
+CREATE VIEW public.activity_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.activity;
+
+CREATE FUNCTION admin.activity_era_upsert()
+RETURNS TRIGGER AS $activity_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'activity';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('activity_category_id', 'activity_type', 'establishment_id'),
+    jsonb_build_array('activity_category_id', 'activity_type', 'legal_unit_id')
+    );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  ephemeral_columns text[] := ARRAY['updated_at'];
+BEGIN
+  SELECT admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    ) INTO NEW.id;
+  RETURN NEW;
+END;
+$activity_era_upsert$ LANGUAGE plpgsql;
+
+CREATE TRIGGER activity_era_upsert
+INSTEAD OF INSERT ON public.activity_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.activity_era_upsert();
+
+
 ---- Create function for deleting stale countries
---CREATE FUNCTION admin.delete_stale_legal_unit_current()
+--CREATE FUNCTION admin.delete_stale_legal_unit_era()
 --RETURNS TRIGGER AS $$
 --BEGIN
 --    DELETE FROM public.region
@@ -4023,121 +4112,164 @@ WHERE valid_from >= statement_timestamp()
 --    RETURN NULL;
 --END;
 --$$ LANGUAGE plpgsql;
---
----- Create triggers for the view
---CREATE TRIGGER upsert_legal_unit_current
---INSTEAD OF INSERT ON public.legal_unit_current
---FOR EACH ROW
---EXECUTE FUNCTION admin.upsert_legal_unit_current();
---
---CREATE TRIGGER delete_stale_legal_unit_current
---AFTER INSERT ON public.legal_unit_current
+
+--CREATE TRIGGER delete_stale_legal_unit_era
+--AFTER INSERT ON public.legal_unit_era
 --FOR EACH STATEMENT
---EXECUTE FUNCTION admin.delete_stale_legal_unit_current();
+--EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
 
-CREATE VIEW public.legal_unit_region_activity_category_stats_view
+CREATE VIEW public.legal_unit_region_activity_category_stats_current
 WITH (security_invoker=on) AS
 SELECT lu.tax_reg_ident
      , lu.name
+     , phr.code AS physical_region_code
+     , por.code AS postal_region_code
      , '' AS employees
-     , '' AS region_code
-     , '' AS activity_category_code
---     , ac.path AS "primary_activity_category_path"
---     , ac.code AS "primary_activity_category_code"
+     , prac.code AS primary_activity_category_code
 FROM public.legal_unit AS lu
---   , public.activity AS a
---   , public.activity_category AS ac
-WHERE lu.valid_from >= statement_timestamp() AND statement_timestamp() <= lu.valid_to
+LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
+LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
+LEFT JOIN public.location AS phl ON phl.legal_unit_id = lu.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
+LEFT JOIN public.region AS phr ON phl.region_id = phr.id
+LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
+LEFT JOIN public.region AS por ON pol.region_id = por.id
+WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
   AND lu.active
---  AND a.valid_from >= statement_timestamp() AND statement_timestamp() <= a.valid_to
---  AND a.activity_type = 'primary'
---  AND a.activity_category_id = ac.id
 ;
 
-CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view()
+CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current()
 RETURNS TRIGGER AS $$
 DECLARE
-  result RECORD;
+    edited_by_user RECORD;
+    physical_region RECORD;
+    primary_activity_category RECORD;
+    upsert_data RECORD;
+    inserted_legal_unit RECORD;
+    inserted_location RECORD;
+    inserted_activity RECORD;
 BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        LIMIT 1
-        --WHERE uuid = auth.uid()
-    ), upsert_data AS (
-        SELECT
-          NEW.tax_reg_ident AS tax_reg_ident
-        , statement_timestamp() AS tax_reg_date
-        , current_date AS valid_from
-        , 'infinity'::date AS valid_to
-        , NEW.name AS name
-        , true AS active
-        , statement_timestamp() AS seen_in_import_at
-        , 'Batch upload' AS edit_comment
-        , (SELECT id FROM su) AS edit_by_user_id
-    ),
-    updated_curr AS (
-        UPDATE public.legal_unit
-        SET tax_reg_date = upsert_data.tax_reg_date
-          , valid_from = upsert_data.valid_from
-          , valid_to = upsert_data.valid_to
-          , name = upsert_data.name
-          , active = upsert_data.active
-          , seen_in_import_at = upsert_data.seen_in_import_at
-          , edit_comment = upsert_data.edit_comment
-          , edit_by_user_id = upsert_data.edit_by_user_id
-        FROM upsert_data
-        WHERE legal_unit.tax_reg_ident = upsert_data.tax_reg_ident
-          AND legal_unit.valid_from = upsert_data.valid_from
-          AND legal_unit.valid_to = upsert_data.valid_to
-        RETURNING 'update curr'::text AS action, legal_unit.id
-    ),
-    updated_prev AS (
-        UPDATE public.legal_unit
-        SET valid_to = upsert_data.valid_to - '1 day'::INTERVAL
-        FROM upsert_data
-        WHERE legal_unit.tax_reg_ident = upsert_data.tax_reg_ident
-          AND legal_unit.valid_from < upsert_data.valid_from
-          AND legal_unit.valid_to = 'infinity'::date
-        RETURNING 'update prev'::text AS action, legal_unit.id
-    ),
-    inserted_curr AS (
-        INSERT INTO public.legal_unit
-          ( tax_reg_ident
-          , tax_reg_date
-          , valid_from
-          , valid_to
-          , name
-          , active
-          , seen_in_import_at
-          , edit_comment
-          , edit_by_user_id
-          )
-        SELECT
-            upsert_data.tax_reg_ident
-          , upsert_data.tax_reg_date
-          , upsert_data.valid_from
-          , upsert_data.valid_to
-          , upsert_data.name
-          , upsert_data.active
-          , upsert_data.seen_in_import_at
-          , upsert_data.edit_comment
-          , upsert_data.edit_by_user_id
-        FROM upsert_data
-        WHERE NOT EXISTS (SELECT id FROM updated_curr LIMIT 1)
-        RETURNING 'insert'::text AS action, id
-    ), combined AS (
-      SELECT * FROM updated_curr UNION ALL
-      SELECT * FROM updated_prev UNION ALL
-      SELECT * FROM inserted_curr
+    SELECT * INTO edited_by_user
+    FROM public.statbus_user
+    -- TODO: Uncomment when going into production
+    -- WHERE uuid = auth.uid()
+    LIMIT 1;
+
+    SELECT * INTO physical_region
+    FROM public.region
+    WHERE code = NEW.physical_region_code;
+    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL THEN
+      RAISE EXCEPTION 'Could not find physical_region_code for row %', to_json(NEW);
+    END IF;
+
+    SELECT * INTO primary_activity_category
+    FROM public.activity_category_available
+    WHERE code = NEW.primary_activity_category_code;
+    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL
+       -- Many places theere is a variety of 00.000... to signify null
+       AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
+    THEN
+      RAISE EXCEPTION 'Could not find primary_activity_category_code for row %', to_json(NEW);
+    END IF;
+
+    SELECT NEW.tax_reg_ident AS tax_reg_ident
+         , statement_timestamp() AS tax_reg_date
+         , current_date AS valid_from
+         , 'infinity'::date AS valid_to
+         , NEW.name AS name
+         , true AS active
+         , statement_timestamp() AS seen_in_import_at
+         , 'Batch upload' AS edit_comment
+     INTO upsert_data;
+
+    SET CONSTRAINTS ALL DEFERRED;
+    INSERT INTO public.legal_unit_era
+    (
+        tax_reg_ident,
+        tax_reg_date,
+        valid_from,
+        valid_to,
+        name,
+        active,
+        seen_in_import_at,
+        edit_comment,
+        edit_by_user_id
     )
-    SELECT * INTO result FROM combined;
+    VALUES
+    (
+        upsert_data.tax_reg_ident,
+        upsert_data.tax_reg_date,
+        upsert_data.valid_from,
+        upsert_data.valid_to,
+        upsert_data.name,
+        upsert_data.active,
+        upsert_data.seen_in_import_at,
+        upsert_data.edit_comment,
+        edited_by_user.id
+    )
+    RETURNING * INTO inserted_legal_unit;
+
+    IF physical_region IS NOT NULL THEN
+        INSERT INTO public.location_era
+        (
+            valid_from,
+            valid_to,
+            legal_unit_id,
+            location_type,
+            region_id,
+            updated_by_user_id
+        )
+        VALUES
+        (
+            upsert_data.valid_from,
+            upsert_data.valid_to,
+            inserted_legal_unit.id,
+            'physical',
+            physical_region.id,
+            edited_by_user.id
+        )
+        RETURNING * INTO inserted_location;
+    END IF;
+
+    IF primary_activity_category IS NOT NULL THEN
+        INSERT INTO public.activity_era
+        (
+            valid_from,
+            valid_to,
+            legal_unit_id,
+            activity_type,
+            activity_category_id,
+            updated_by_user_id,
+            updated_at
+        )
+        VALUES
+        (
+            upsert_data.valid_from,
+            upsert_data.valid_to,
+            inserted_legal_unit.id,
+            'primary',
+            primary_activity_category.id,
+            edited_by_user.id,
+            statement_timestamp()
+        )
+        RETURNING * INTO inserted_activity;
+    END IF;
+    SET CONSTRAINTS ALL IMMEDIATE;
+
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_view()
+CREATE TRIGGER upsert_legal_unit_region_activity_category_stats_current_trigger
+INSTEAD OF INSERT ON public.legal_unit_region_activity_category_stats_current
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current();
+
+CREATE VIEW public.legal_unit_region_activity_category_stats_current_with_delete
+WITH (security_invoker=on) AS
+SELECT * FROM public.legal_unit_region_activity_category_stats_current;
+
+CREATE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_current_with_delete()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH su AS (
@@ -4159,20 +4291,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER upsert_legal_unit_region_activity_category_stats_view_trigger
-INSTEAD OF INSERT ON public.legal_unit_region_activity_category_stats_view
-FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_view();
-
-CREATE TRIGGER delete_stale_legal_unit_region_activity_category_stats_view_trigger
-AFTER INSERT ON public.legal_unit_region_activity_category_stats_view
+CREATE TRIGGER delete_stale_legal_unit_region_activity_category_stats_current_with_delete_trigger
+AFTER INSERT ON public.legal_unit_region_activity_category_stats_current_with_delete
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_view();
+EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_current_with_delete();
 
 -- \i samples/100BREGUnits.sql
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
-CREATE VIEW public.legal_unit_custom_view
+CREATE VIEW public.legal_unit_brreg_view
 WITH (security_invoker=on) AS
 SELECT '' AS "organisasjonsnummer"
      , '' AS "navn"
@@ -4230,7 +4357,7 @@ SELECT '' AS "organisasjonsnummer"
      , '' AS "aktivitet"
      ;
 
-CREATE FUNCTION admin.upsert_legal_unit_custom_view()
+CREATE FUNCTION admin.upsert_legal_unit_brreg_view()
 RETURNS TRIGGER AS $$
 DECLARE
   result RECORD;
@@ -4308,7 +4435,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION admin.delete_stale_legal_unit_custom_view()
+CREATE FUNCTION admin.delete_stale_legal_unit_brreg_view()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH su AS (
@@ -4328,25 +4455,25 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for the view
-CREATE TRIGGER upsert_legal_unit_custom_view
-INSTEAD OF INSERT ON public.legal_unit_custom_view
+CREATE TRIGGER upsert_legal_unit_brreg_view
+INSTEAD OF INSERT ON public.legal_unit_brreg_view
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_custom_view();
+EXECUTE FUNCTION admin.upsert_legal_unit_brreg_view();
 
-CREATE TRIGGER delete_stale_legal_unit_custom_view
-AFTER INSERT ON public.legal_unit_custom_view
+CREATE TRIGGER delete_stale_legal_unit_brreg_view
+AFTER INSERT ON public.legal_unit_brreg_view
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_legal_unit_custom_view();
+EXECUTE FUNCTION admin.delete_stale_legal_unit_brreg_view();
 
 
 -- time psql <<EOS
--- \copy public.legal_unit_custom_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- \copy public.legal_unit_brreg_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
 
 
 
--- View for insert of Norwegian Legal Unit (Underenhet)
-CREATE VIEW public.establishment_custom_view
+-- View for insert of Norwegian Establishment (Underenhet)
+CREATE VIEW public.establishment_brreg_view
 WITH (security_invoker=on) AS
 SELECT '' AS "organisasjonsnummer"
      , '' AS "navn"
@@ -4387,7 +4514,7 @@ SELECT '' AS "organisasjonsnummer"
      ;
 
 -- Create function for upsert operation on country
-CREATE FUNCTION admin.upsert_establishment_custom_view()
+CREATE FUNCTION admin.upsert_establishment_brreg_view()
 RETURNS TRIGGER AS $$
 DECLARE
   result RECORD;
@@ -4466,7 +4593,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function for deleting stale countries
-CREATE FUNCTION admin.delete_stale_establishment_custom_view()
+CREATE FUNCTION admin.delete_stale_establishment_brreg_view()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH su AS (
@@ -4486,18 +4613,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for the view
-CREATE TRIGGER upsert_establishment_custom_view
-INSTEAD OF INSERT ON public.establishment_custom_view
+CREATE TRIGGER upsert_establishment_brreg_view
+INSTEAD OF INSERT ON public.establishment_brreg_view
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_establishment_custom_view();
+EXECUTE FUNCTION admin.upsert_establishment_brreg_view();
 
-CREATE TRIGGER delete_stale_establishment_custom_view
-AFTER INSERT ON public.establishment_custom_view
+CREATE TRIGGER delete_stale_establishment_brreg_view
+AFTER INSERT ON public.establishment_brreg_view
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_establishment_custom_view();
+EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
 -- time psql <<EOS
--- \copy public.establishment_custom_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
 
 -- Add security.
@@ -4644,22 +4771,54 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
 
 --CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[]));
 
-
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['stat_ident']);
+SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['external_ident', 'external_ident_type']);
 
 SELECT sql_saga.add_era('public.enterprise', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['stat_ident']);
+SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['external_ident', 'external_ident_type']);
 SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
 
 SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_reg_ident']);
+SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['external_ident', 'external_ident_type']);
+SELECT sql_saga.add_foreign_key('public.legal_unit', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
 
 SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
+SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
+SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
+
+SELECT sql_saga.add_era('public.activity', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['activity_type', 'activity_category_id', 'establishment_id']);
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['activity_type', 'activity_category_id', 'legal_unit_id']);
+SELECT sql_saga.add_foreign_key('public.activity', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
+SELECT sql_saga.add_foreign_key('public.activity', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
+
+SELECT sql_saga.add_era('public.stat_for_unit', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.stat_for_unit', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.stat_for_unit', ARRAY['stat_definition_id', 'establishment_id']);
+SELECT sql_saga.add_foreign_key('public.stat_for_unit', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
+
+SELECT sql_saga.add_era('public.location', 'valid_from', 'valid_to');
+SELECT sql_saga.add_unique_key('public.location', ARRAY['id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'establishment_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'legal_unit_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_group_id']);
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
+SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
 
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;

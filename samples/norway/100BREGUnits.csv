@@ -1,4 +1,4 @@
-tax_reg_ident,name,employees,region_code,activity_category_code
+tax_reg_ident,name,employees,physical_region_code,primary_activity_category_code
 810034882,SANDNES ELEKTRISKE FORRETNING AS,11,1108,43.210
 810059672,AASEN & FARSTAD AS,,1506,68.209
 810093382,BRIS EIENDOM AS,,4204,68.209
