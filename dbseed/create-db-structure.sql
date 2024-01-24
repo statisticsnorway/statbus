@@ -752,19 +752,19 @@ CREATE TABLE public.enterprise (
     parent_org_link integer,
     notes text,
     edit_by_user_id character varying(100) NOT NULL,
-    edit_comment character varying(500)
+    edit_comment character varying(500),
     -- TODO: Reconsider these fields, as they are found in establishment and legal_unit
-    --web_address character varying(200),
-    --telephone_no character varying(50),
-    --email_address character varying(50),
-    --sector_code_id integer,
-    --unit_size_id integer,
-    --foreign_participation_id integer,
-    --data_source_classification_id integer,
+    web_address character varying(200),
+    telephone_no character varying(50),
+    email_address character varying(50),
+    sector_code_id integer,
+    unit_size_id integer,
+    foreign_participation_id integer,
+    data_source_classification_id integer,
     -- TODO: Reconsider grouping by enterprise_group to grouping by enterprise itself.
-    -- enterprise_group_id integer,
-    -- enterprise_group_date timestamp with time zone,
-    -- enterprise_group_role_id integer
+    enterprise_group_id integer,
+    enterprise_group_date timestamp with time zone,
+    enterprise_group_role_id integer
 );
 
 
@@ -4158,7 +4158,9 @@ BEGIN
     SELECT * INTO physical_region
     FROM public.region
     WHERE code = NEW.physical_region_code;
-    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL THEN
+    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL
+       AND NEW.physical_region_code <> ''
+    THEN
       RAISE EXCEPTION 'Could not find physical_region_code for row %', to_json(NEW);
     END IF;
 
@@ -4208,6 +4210,8 @@ BEGIN
         edited_by_user.id
     )
     RETURNING * INTO inserted_legal_unit;
+    RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
+    RAISE DEBUG 'inserted_legal_unit';
 
     IF physical_region IS NOT NULL THEN
         INSERT INTO public.location_era

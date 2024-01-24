@@ -34,7 +34,7 @@ services:
     image: ghcr.io/veridit/supabase_postgres:latest
     #image: veridit/supabase_postgres:latest
     ports:
-      - ${DB_BIND_ADDRESS}:5432
+      - ${DB_PUBLIC_LOCALHOST_PORT}:5432
   vector:
     container_name: ${COMPOSE_INSTANCE_NAME}-vector
 
