@@ -59,7 +59,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       postgrestQuery: ({selected}) => `eq.${selected[0]}`
     },
     {
-      type: "standard",
+      type: "options",
       name: "region_codes",
       label: "Region",
       options: regions.map(({code, name}) => (
@@ -72,7 +72,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       postgrestQuery: ({selected}) => `in.(${selected.join(',')})`
     },
     {
-      type: "standard",
+      type: "options",
       name: "primary_activity_category_code",
       label: "Activity Category",
       options: activityCategories.map(({code, label, name}) => (
@@ -87,7 +87,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
   ];
 
   const statisticalVariableFilters: SearchFilter[] = statisticalVariables.map(variable => ({
-    type: "statistical_variable",
+    type: "conditional",
     name: variable.code,
     label: variable.name,
     selected: [],

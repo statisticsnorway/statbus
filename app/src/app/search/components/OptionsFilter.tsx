@@ -16,7 +16,7 @@ interface ITableFilterProps {
   onReset: () => void,
 }
 
-export function TableFilter({title, options = [], selectedValues, onToggle, onReset}: ITableFilterProps) {
+export function OptionsFilter({title, options = [], selectedValues, onToggle, onReset}: ITableFilterProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>

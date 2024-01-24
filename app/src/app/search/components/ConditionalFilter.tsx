@@ -20,7 +20,7 @@ interface ITableFilterCustomProps {
     onReset: () => void,
 }
 
-export function StatisticalVariablesFilter(
+export function ConditionalFilter(
     {
         title,
         selected,

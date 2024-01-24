@@ -10,7 +10,7 @@ export type SearchFilterOption = {
 }
 
 export type SearchFilter = {
-    readonly type: "standard" | "statistical_variable" | "search"
+    readonly type: "options" | "conditional" | "search"
     readonly name: string
     readonly label: string
     readonly options?: SearchFilterOption[]
