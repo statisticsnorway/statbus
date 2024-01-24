@@ -71,7 +71,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       label: "Activity Category",
       options: activityCategories.map(({code, label, name}) => (
         {
-          label: `${label} ${name} (${code})`,
+          label: `${label} ${name}`,
           value: code ?? ""
         }
       )),
