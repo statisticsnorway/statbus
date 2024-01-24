@@ -30,7 +30,7 @@ export interface ConditionalValue {
 }
 
 interface Toggle {
-    type: "toggle",
+    type: "toggle_option",
     payload: {
         name: string,
         value: SearchFilterValue

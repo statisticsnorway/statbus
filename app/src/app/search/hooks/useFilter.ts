@@ -4,7 +4,7 @@ import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types"
 
 function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
   switch (action.type) {
-    case "toggle":
+    case "toggle_option":
       return state.map(f =>
         f.name === action.payload?.name ? {
           ...f,
@@ -20,15 +20,9 @@ function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions)
           : f
       )
     case "reset":
-      return state.map(f =>
-        f.name === action.payload?.name
-          ? {...f, selected: []}
-          : f
-      )
+      return state.map(f => f.name === action.payload?.name ? {...f, selected: []} : f)
     case "reset_all":
-      return state.map(f =>
-        ({...f, selected: []})
-      )
+      return state.map(f => ({...f, selected: []}))
     default:
       return state
   }

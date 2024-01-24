@@ -75,7 +75,7 @@ function OptionsFilterComponent({filter: {name, label, options, selected}, dispa
       title={label}
       options={options}
       selectedValues={selected}
-      onToggle={({value}) => dispatch({type: "toggle", payload: {name, value}})}
+      onToggle={({value}) => dispatch({type: "toggle_option", payload: {name, value}})}
       onReset={() => dispatch({type: "reset", payload: {name}})}
     />
   )
