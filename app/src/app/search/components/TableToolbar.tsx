@@ -1,4 +1,4 @@
-import {Dispatch} from "react";
+import {Dispatch, useCallback, useMemo} from "react";
 import {Input} from "@/components/ui/input";
 import {OptionsFilter} from "@/app/search/components/OptionsFilter";
 import {ResetFilterButton} from "@/app/search/components/ResetFilterButton";
@@ -13,7 +13,7 @@ interface TableToolbarProps {
 export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
   const hasFilterSelected = filters.some(({selected}) => selected.length > 0)
 
-  const createFilterComponent = (filter: SearchFilter) => {
+  const createFilterComponent = useCallback((filter: SearchFilter) => {
     switch (filter.type) {
       case "options":
         return <OptionsFilterComponent key={filter.name} filter={filter} dispatch={dispatch}/>;
@@ -24,7 +24,7 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
       default:
         return null;
     }
-  }
+  }, [dispatch])
 
   return (
     <div className="flex items-center flex-wrap -m-2 space-x-2">
@@ -34,7 +34,7 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
   )
 }
 
-function SearchFilterComponent({filter: {name, label}, dispatch}: {
+function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
   filter: SearchFilter,
   dispatch: Dispatch<SearchFilterActions>
 }) {
@@ -43,7 +43,8 @@ function SearchFilterComponent({filter: {name, label}, dispatch}: {
       type="text"
       id="search-prompt"
       placeholder={label}
-      className="w-[150px] h-10 ml-2"
+      className="w-[100px] h-10 ml-2"
+      value={selected[0] ?? ""}
       onChange={(e) => {
         dispatch({type: "set", payload: {name, value: e.target.value.trim()}})
       }}
