@@ -4,9 +4,9 @@ import Search from "@/app/search/components/Search";
 export default async function Home() {
   const client = createClient();
   const {data: legalUnits, count, error: legalUnitsError} = await client
-    .from('legal_unit')
+    .from('legal_unit_region_activity_category_stats_current')
     .select('tax_reg_ident, name', {count: 'exact'})
-    .order('id', {ascending: false})
+    .order('tax_reg_ident', {ascending: false})
     .limit(10);
 
   const {data: regions, error: regionsError} = await client

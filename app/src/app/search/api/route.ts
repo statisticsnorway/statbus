@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     }
 
     if (!searchParams.has('order')) {
-        searchParams.set('order', 'id.desc')
+        searchParams.set('order', 'tax_reg_ident.desc')
     }
 
     if (!searchParams.has('select')) {
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     }
 
     const authFetch = setupAuthorizedFetchFn()
-    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/legal_unit?${searchParams}`, {
+    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/legal_unit_region_activity_category_stats_current?${searchParams}`, {
         method: 'GET',
         headers: {
             'Prefer': 'count=exact',

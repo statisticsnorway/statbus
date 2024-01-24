@@ -57,12 +57,12 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         },
         {
             type: "standard",
-            name: "activity_category_codes",
+            name: "primary_activity_category_code",
             label: "Activity Category",
-            options: activityCategories.map(({label, name}) => (
+            options: activityCategories.map(({code, label, name}) => (
                 {
-                    label: `${label} ${name}`,
-                    value: label ?? ""
+                    label: `${label} ${name} (${code})`,
+                    value: code ?? ""
                 }
             )),
             selected: [],
