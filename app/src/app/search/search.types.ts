@@ -5,7 +5,7 @@ export type LegalUnit = {
 
 export type SearchFilterValue = string | number
 
-export type SearchFilterCondition = "eq" | "gt" | "lt" | "in"
+export type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
 
 export type SearchFilterOption = {
     readonly label: string
@@ -13,12 +13,13 @@ export type SearchFilterOption = {
 }
 
 export type SearchFilter = {
-    readonly type: "standard" | "statistical_variable"
+    readonly type: "standard" | "statistical_variable" | "search"
     readonly name: string
     readonly label: string
     readonly options?: SearchFilterOption[]
     readonly selected: SearchFilterValue[]
-    readonly condition: SearchFilterCondition | null
+    readonly condition?: SearchFilterCondition
+    readonly postgrestQuery: (filter: SearchFilter) => string
 }
 
 export type SearchResult = {
@@ -44,7 +45,7 @@ interface Set {
     payload: {
         name: string,
         value: SearchFilterValue,
-        condition: SearchFilterCondition
+        condition?: SearchFilterCondition
     }
 }
 

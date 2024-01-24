@@ -13,7 +13,7 @@ import type {ConditionalValue, SearchFilterCondition, SearchFilterValue} from "@
 interface ITableFilterCustomProps {
     title: string,
     selected?: {
-        condition: SearchFilterCondition | null,
+        condition?: SearchFilterCondition,
         value: SearchFilterValue | null
     }
     onChange: ({value, condition}: ConditionalValue) => void,

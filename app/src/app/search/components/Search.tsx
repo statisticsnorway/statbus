@@ -1,5 +1,4 @@
 "use client";
-import {useState} from "react";
 import TableToolbar from "@/app/search/components/TableToolbar";
 import {Tables} from "@/lib/database.types";
 import SearchResultTable from "@/app/search/components/SearchResultTable";
@@ -22,13 +21,12 @@ export default function Search(
         statisticalVariables
     }: SearchProps
 ) {
-    const [searchPrompt, setSearchPrompt] = useState('')
     const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
-    const {data: searchResult} = useSearch(searchPrompt, filters, initialSearchResult)
+    const {data: searchResult} = useSearch(filters, initialSearchResult)
 
     return (
         <section className="space-y-3">
-            <TableToolbar dispatch={searchFilterDispatch} filters={filters} onSearch={q => setSearchPrompt(q)}/>
+            <TableToolbar dispatch={searchFilterDispatch} filters={filters} />
             <div className="rounded-md border">
                 <SearchResultTable searchResult={searchResult ?? initialSearchResult}/>
             </div>
