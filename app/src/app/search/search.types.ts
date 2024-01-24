@@ -1,7 +1,4 @@
-export type LegalUnit = {
-    tax_reg_ident: string | null,
-    name: string | null
-}
+import {Tables} from "@/lib/database.types";
 
 export type SearchFilterValue = string | number
 
@@ -23,7 +20,7 @@ export type SearchFilter = {
 }
 
 export type SearchResult = {
-    legalUnits: LegalUnit[]
+    legalUnits: Partial<Tables<"legal_unit_region_activity_category_stats_current">>[]
     count: number
 }
 

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     }
 
     if (!searchParams.has('select')) {
-        searchParams.set('select', 'tax_reg_ident,name, name')
+        searchParams.set('select', 'tax_reg_ident,name, name, primary_activity_category_code')
     }
 
     const authFetch = setupAuthorizedFetchFn()

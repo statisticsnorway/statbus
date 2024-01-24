@@ -5,7 +5,7 @@ export default async function Home() {
   const client = createClient();
   const {data: legalUnits, count, error: legalUnitsError} = await client
     .from('legal_unit_region_activity_category_stats_current')
-    .select('tax_reg_ident, name', {count: 'exact'})
+    .select('tax_reg_ident, name, primary_activity_category_code', {count: 'exact'})
     .order('tax_reg_ident', {ascending: false})
     .limit(10);
 

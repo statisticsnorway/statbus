@@ -1,11 +1,8 @@
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import type {LegalUnit} from "@/app/search/search.types";
+import {SearchResult} from "@/app/search/search.types";
 
 interface TableProps {
-    searchResult: {
-        legalUnits: LegalUnit[],
-        count: number
-    }
+    searchResult: SearchResult
 }
 
 export default function SearchResultTable({searchResult: {legalUnits}}: TableProps) {
@@ -15,8 +12,6 @@ export default function SearchResultTable({searchResult: {legalUnits}}: TablePro
                 <TableRow>
                     <TableHead className="w-[100px]">ID</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead className="text-right">Employees</TableHead>
-                    <TableHead className="text-right">Region</TableHead>
                     <TableHead className="text-right">Activity Category Code</TableHead>
                 </TableRow>
             </TableHeader>
@@ -26,9 +21,7 @@ export default function SearchResultTable({searchResult: {legalUnits}}: TablePro
                         <TableRow key={legalUnit.tax_reg_ident}>
                             <TableCell className="font-medium p-3 px-4">{legalUnit.tax_reg_ident}</TableCell>
                             <TableCell className="p-3">{legalUnit.name}</TableCell>
-                            <TableCell className="text-right p-3"></TableCell>
-                            <TableCell className="text-right p-3"></TableCell>
-                            <TableCell className="text-right p-3 px-4"></TableCell>
+                            <TableCell className="text-right p-3 px-4">{legalUnit.primary_activity_category_code}</TableCell>
                         </TableRow>
                     ))
                 }
