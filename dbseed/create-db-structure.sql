@@ -4474,8 +4474,8 @@ BEGIN
     WITH su AS (
         SELECT *
         FROM statbus_user
+        WHERE uuid = auth.uid()
         LIMIT 1
-        --WHERE uuid = auth.uid()
     )
     UPDATE public.legal_unit
     SET valid_to = current_date
@@ -4564,8 +4564,8 @@ BEGIN
     WITH su AS (
         SELECT *
         FROM statbus_user
+        WHERE uuid = auth.uid()
         LIMIT 1
-        --WHERE uuid = auth.uid()
     ), upsert_data AS (
         SELECT
           NEW."organisasjonsnummer" AS tax_reg_ident
@@ -4640,8 +4640,8 @@ BEGIN
     WITH su AS (
         SELECT *
         FROM statbus_user
+        WHERE uuid = auth.uid()
         LIMIT 1
-        --WHERE uuid = auth.uid()
     )
     UPDATE public.legal_unit
     SET valid_to = statement_timestamp()
@@ -4721,8 +4721,8 @@ BEGIN
     WITH su AS (
         SELECT *
         FROM statbus_user
+        WHERE uuid = auth.uid()
         LIMIT 1
-        --WHERE uuid = auth.uid()
     ), upsert_data AS (
         SELECT
           NEW."organisasjonsnummer" AS tax_reg_ident
@@ -4798,8 +4798,8 @@ BEGIN
     WITH su AS (
         SELECT *
         FROM statbus_user
+        WHERE uuid = auth.uid()
         LIMIT 1
-        --WHERE uuid = auth.uid()
     )
     UPDATE public.establishment
     SET valid_to = statement_timestamp()
