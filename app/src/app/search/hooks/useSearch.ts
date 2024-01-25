@@ -1,20 +1,15 @@
 import useSWR, {Fetcher} from "swr";
+import type {SearchFilter, SearchResult} from "@/app/search/search.types";
 
-const fetcher : Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
+const fetcher: Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
 
-export default function useSearch(prompt: string, filters: SearchFilter[], fallbackData: SearchResult) {
-
-  const searchParams = new URLSearchParams()
-
-  if (prompt) {
-    searchParams.set('q', prompt)
-  }
-
-  filters.forEach(({ name, selected}) => {
-    if (selected.length) {
-      searchParams.set(name, selected.join(','))
-    }
-  })
+export default function useSearch(filters: SearchFilter[], fallbackData: SearchResult) {
+  const searchParams = filters
+    .filter(({selected}) => !!selected?.[0])
+    .reduce((params, f) => {
+      params.set(f.name, f.postgrestQuery(f));
+      return params;
+    }, new URLSearchParams());
 
   return useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
     keepPreviousData: true,

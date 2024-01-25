@@ -13,8 +13,9 @@ export interface Database {
         Row: {
           activity_category_id: number
           activity_type: Database["public"]["Enums"]["activity_type"]
-          establishment_id: number
+          establishment_id: number | null
           id: number
+          legal_unit_id: number | null
           updated_at: string
           updated_by_user_id: number
           valid_from: string
@@ -23,8 +24,9 @@ export interface Database {
         Insert: {
           activity_category_id: number
           activity_type: Database["public"]["Enums"]["activity_type"]
-          establishment_id: number
-          id?: never
+          establishment_id?: number | null
+          id?: number
+          legal_unit_id?: number | null
           updated_at?: string
           updated_by_user_id: number
           valid_from?: string
@@ -33,8 +35,9 @@ export interface Database {
         Update: {
           activity_category_id?: number
           activity_type?: Database["public"]["Enums"]["activity_type"]
-          establishment_id?: number
-          id?: never
+          establishment_id?: number | null
+          id?: number
+          legal_unit_id?: number | null
           updated_at?: string
           updated_by_user_id?: number
           valid_from?: string
@@ -42,21 +45,21 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "activity_establishment_id_fkey"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_activity_activity_category_activity_category_id"
+            foreignKeyName: "activity_activity_category_id_fkey"
             columns: ["activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_activity_user_updated_by_user_id_user_id"
+            foreignKeyName: "activity_activity_category_id_fkey"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_updated_by_user_id_fkey"
             columns: ["updated_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
@@ -123,10 +126,24 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activity_category_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_activity_category_activity_category_parent_id"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_activity_category_activity_category_parent_id"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
             referencedColumns: ["id"]
           }
         ]
@@ -153,6 +170,13 @@ export interface Database {
             columns: ["activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_activity_category_role_activity_category_activity_category_"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
             referencedColumns: ["id"]
           },
           {
@@ -184,51 +208,6 @@ export interface Database {
           obsolete?: boolean
         }
         Relationships: []
-      }
-      address: {
-        Row: {
-          address_part1: string | null
-          address_part2: string | null
-          address_part3: string | null
-          id: number
-          latitude: number | null
-          longitude: number | null
-          region_id: number
-        }
-        Insert: {
-          address_part1?: string | null
-          address_part2?: string | null
-          address_part3?: string | null
-          id?: number
-          latitude?: number | null
-          longitude?: number | null
-          region_id: number
-        }
-        Update: {
-          address_part1?: string | null
-          address_part2?: string | null
-          address_part3?: string | null
-          id?: number
-          latitude?: number | null
-          longitude?: number | null
-          region_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_address_region_region_id"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_address_region_region_id"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
-            referencedColumns: ["id"]
-          }
-        ]
       }
       analysis_log: {
         Row: {
@@ -268,41 +247,6 @@ export interface Database {
           summary_messages?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "analysis_log_enterprise_group_id_fkey"
-            columns: ["enterprise_group_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "analysis_log_enterprise_id_fkey"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "analysis_log_establishment_id_fkey"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "analysis_log_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "analysis_log_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit_current"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_analysis_log_analysis_queue_analysis_queue_id"
             columns: ["analysis_queue_id"]
@@ -367,7 +311,7 @@ export interface Database {
           code_3: string
           code_num: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -377,7 +321,7 @@ export interface Database {
           code_3?: string
           code_num?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -410,49 +354,14 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "country_for_unit_enterprise_group_id_fkey"
-            columns: ["enterprise_group_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "country_for_unit_enterprise_id_fkey"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "country_for_unit_establishment_id_fkey"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "country_for_unit_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "country_for_unit_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit_current"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_country_for_unit_country_country_id"
+            foreignKeyName: "country_for_unit_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_country_for_unit_country_country_id"
+            foreignKeyName: "country_for_unit_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
@@ -876,8 +785,6 @@ export interface Database {
         Row: {
           active: boolean
           created_at: string
-          custom_postal_address_id: number | null
-          custom_visiting_address_id: number | null
           data_source_classification_id: number | null
           edit_by_user_id: string
           edit_comment: string | null
@@ -893,7 +800,6 @@ export interface Database {
           name: string | null
           notes: string | null
           parent_org_link: number | null
-          postal_address_id: number | null
           sector_code_id: number | null
           short_name: string | null
           stat_ident: string | null
@@ -902,14 +808,11 @@ export interface Database {
           unit_size_id: number | null
           valid_from: string
           valid_to: string
-          visiting_address_id: number | null
           web_address: string | null
         }
         Insert: {
           active?: boolean
           created_at?: string
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source_classification_id?: number | null
           edit_by_user_id: string
           edit_comment?: string | null
@@ -925,7 +828,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           sector_code_id?: number | null
           short_name?: string | null
           stat_ident?: string | null
@@ -934,14 +836,11 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Update: {
           active?: boolean
           created_at?: string
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source_classification_id?: number | null
           edit_by_user_id?: string
           edit_comment?: string | null
@@ -957,7 +856,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           sector_code_id?: number | null
           short_name?: string | null
           stat_ident?: string | null
@@ -966,31 +864,9 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_enterprise_address_custom_visiting_address_id"
-            columns: ["custom_visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_address_postal_address_id"
-            columns: ["postal_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_address_visiting_address_id"
-            columns: ["visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_enterprise_data_source_classification_data_source_clas"
             columns: ["data_source_classification_id"]
@@ -1010,13 +886,6 @@ export interface Database {
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_enterprise_group_enterprise_group_id"
-            columns: ["enterprise_group_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group"
             referencedColumns: ["id"]
           },
           {
@@ -1108,7 +977,6 @@ export interface Database {
       enterprise_group: {
         Row: {
           active: boolean
-          address_id: number | null
           contact_person: string | null
           created_at: string
           data_source: string | null
@@ -1138,7 +1006,6 @@ export interface Database {
         }
         Insert: {
           active?: boolean
-          address_id?: number | null
           contact_person?: string | null
           created_at?: string
           data_source?: string | null
@@ -1168,7 +1035,6 @@ export interface Database {
         }
         Update: {
           active?: boolean
-          address_id?: number | null
           contact_person?: string | null
           created_at?: string
           data_source?: string | null
@@ -1197,13 +1063,6 @@ export interface Database {
           web_address?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_enterprise_group_address_address_id"
-            columns: ["address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_enterprise_group_data_source_classification_data_source_cla"
             columns: ["data_source_classification_id"]
@@ -1369,8 +1228,6 @@ export interface Database {
         Row: {
           active: boolean
           birth_date: string | null
-          custom_postal_address_id: number | null
-          custom_visiting_address_id: number | null
           data_source: string | null
           data_source_classification_id: number | null
           death_date: string | null
@@ -1386,7 +1243,6 @@ export interface Database {
           name: string | null
           notes: string | null
           parent_org_link: number | null
-          postal_address_id: number | null
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
@@ -1401,14 +1257,11 @@ export interface Database {
           unit_size_id: number | null
           valid_from: string
           valid_to: string
-          visiting_address_id: number | null
           web_address: string | null
         }
         Insert: {
           active?: boolean
           birth_date?: string | null
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source?: string | null
           data_source_classification_id?: number | null
           death_date?: string | null
@@ -1424,7 +1277,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1439,14 +1291,11 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Update: {
           active?: boolean
           birth_date?: string | null
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source?: string | null
           data_source_classification_id?: number | null
           death_date?: string | null
@@ -1462,7 +1311,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1477,31 +1325,9 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_establishment_address_custom_visiting_address_id"
-            columns: ["custom_visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_establishment_address_postal_address_id"
-            columns: ["postal_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_establishment_address_visiting_address_id"
-            columns: ["visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_establishment_data_source_classification_data_source_classif"
             columns: ["data_source_classification_id"]
@@ -1521,13 +1347,6 @@ export interface Database {
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_establishment_legal_unit_legal_unit_id"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
             referencedColumns: ["id"]
           },
           {
@@ -1653,8 +1472,6 @@ export interface Database {
         Row: {
           active: boolean
           birth_date: string | null
-          custom_postal_address_id: number | null
-          custom_visiting_address_id: number | null
           data_source: string | null
           data_source_classification_id: number | null
           death_date: string | null
@@ -1672,7 +1489,6 @@ export interface Database {
           name: string | null
           notes: string | null
           parent_org_link: number | null
-          postal_address_id: number | null
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
@@ -1687,14 +1503,11 @@ export interface Database {
           unit_size_id: number | null
           valid_from: string
           valid_to: string
-          visiting_address_id: number | null
           web_address: string | null
         }
         Insert: {
           active?: boolean
           birth_date?: string | null
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source?: string | null
           data_source_classification_id?: number | null
           death_date?: string | null
@@ -1712,7 +1525,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1727,14 +1539,11 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Update: {
           active?: boolean
           birth_date?: string | null
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source?: string | null
           data_source_classification_id?: number | null
           death_date?: string | null
@@ -1752,7 +1561,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1767,31 +1575,9 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_legal_unit_address_custom_visiting_address_id"
-            columns: ["custom_visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_legal_unit_address_postal_address_id"
-            columns: ["postal_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_legal_unit_address_visiting_address_id"
-            columns: ["visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
             columns: ["data_source_classification_id"]
@@ -1811,13 +1597,6 @@ export interface Database {
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_legal_unit_enterprise_enterprise_temp_id"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
             referencedColumns: ["id"]
           },
           {
@@ -1927,6 +1706,82 @@ export interface Database {
           }
         ]
       }
+      location: {
+        Row: {
+          address_part1: string | null
+          address_part2: string | null
+          address_part3: string | null
+          enterprise_group_id: number | null
+          enterprise_id: number | null
+          establishment_id: number | null
+          id: number
+          latitude: number | null
+          legal_unit_id: number | null
+          location_type: Database["public"]["Enums"]["location_type"]
+          longitude: number | null
+          region_id: number
+          updated_by_user_id: number
+          valid_from: string
+          valid_to: string
+        }
+        Insert: {
+          address_part1?: string | null
+          address_part2?: string | null
+          address_part3?: string | null
+          enterprise_group_id?: number | null
+          enterprise_id?: number | null
+          establishment_id?: number | null
+          id?: number
+          latitude?: number | null
+          legal_unit_id?: number | null
+          location_type: Database["public"]["Enums"]["location_type"]
+          longitude?: number | null
+          region_id: number
+          updated_by_user_id: number
+          valid_from?: string
+          valid_to?: string
+        }
+        Update: {
+          address_part1?: string | null
+          address_part2?: string | null
+          address_part3?: string | null
+          enterprise_group_id?: number | null
+          enterprise_id?: number | null
+          establishment_id?: number | null
+          id?: number
+          latitude?: number | null
+          legal_unit_id?: number | null
+          location_type?: Database["public"]["Enums"]["location_type"]
+          longitude?: number | null
+          region_id?: number
+          updated_by_user_id?: number
+          valid_from?: string
+          valid_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       person: {
         Row: {
           address: string | null
@@ -1949,7 +1804,7 @@ export interface Database {
           created_at?: string
           family_name?: string | null
           given_name?: string | null
-          id?: number
+          id?: never
           middle_name?: string | null
           personal_ident?: string | null
           phone_number_1?: string | null
@@ -1963,7 +1818,7 @@ export interface Database {
           created_at?: string
           family_name?: string | null
           given_name?: string | null
-          id?: number
+          id?: never
           middle_name?: string | null
           personal_ident?: string | null
           phone_number_1?: string | null
@@ -1972,14 +1827,14 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_person_country_country_id"
+            foreignKeyName: "person_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_person_country_country_id"
+            foreignKeyName: "person_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
@@ -2011,73 +1866,31 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_person_for_unit_establishment_establishment_id"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_person_for_unit_legal_unit_legal_unit_id"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_person_for_unit_legal_unit_legal_unit_id"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit_current"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_person_for_unit_person_person_id"
+            foreignKeyName: "person_for_unit_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_person_for_unit_person_type_person_type_id"
+            foreignKeyName: "person_for_unit_person_type_id_fkey"
             columns: ["person_type_id"]
             isOneToOne: false
             referencedRelation: "person_type"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_person_for_unit_person_type_person_type_id"
+            foreignKeyName: "person_for_unit_person_type_id_fkey"
             columns: ["person_type_id"]
             isOneToOne: false
             referencedRelation: "person_type_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_person_for_unit_person_type_person_type_id"
+            foreignKeyName: "person_for_unit_person_type_id_fkey"
             columns: ["person_type_id"]
             isOneToOne: false
             referencedRelation: "person_type_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_for_unit_establishment_id_fkey"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_for_unit_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_for_unit_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit_current"
             referencedColumns: ["id"]
           }
         ]
@@ -2095,7 +1908,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -2103,7 +1916,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -2213,21 +2026,21 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_region_role_region_id"
+            foreignKeyName: "region_role_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_region_role_region_id"
+            foreignKeyName: "region_role_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region_view"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_region_role_role_id"
+            foreignKeyName: "region_role_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "statbus_role"
@@ -2501,10 +2314,10 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "stat_for_unit_establishment_id_fkey"
-            columns: ["establishment_id"]
+            foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
             isOneToOne: false
-            referencedRelation: "establishment"
+            referencedRelation: "stat_definition"
             referencedColumns: ["id"]
           }
         ]
@@ -2621,6 +2434,7 @@ export interface Database {
           id: number
           legal_unit_id: number | null
           tag_id: number
+          updated_by_user_id: number
         }
         Insert: {
           enterprise_group_id?: number | null
@@ -2629,6 +2443,7 @@ export interface Database {
           id?: number
           legal_unit_id?: number | null
           tag_id: number
+          updated_by_user_id: number
         }
         Update: {
           enterprise_group_id?: number | null
@@ -2637,48 +2452,21 @@ export interface Database {
           id?: number
           legal_unit_id?: number | null
           tag_id?: number
+          updated_by_user_id?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "tag_for_unit_enterprise_group_id_fkey"
-            columns: ["enterprise_group_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_for_unit_enterprise_id_fkey"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_for_unit_establishment_id_fkey"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_for_unit_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_for_unit_legal_unit_id_fkey"
-            columns: ["legal_unit_id"]
-            isOneToOne: false
-            referencedRelation: "legal_unit_current"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tag_for_unit_tag_id_fkey"
             columns: ["tag_id"]
             isOneToOne: false
             referencedRelation: "tag"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           }
         ]
@@ -2716,10 +2504,12 @@ export interface Database {
         Row: {
           code: string | null
           description: string | null
+          id: number | null
           label: string | null
           name: string | null
+          parent_code: string | null
           path: unknown | null
-          standard: string | null
+          standard_code: string | null
         }
         Relationships: []
       }
@@ -2744,6 +2534,64 @@ export interface Database {
           standard: string | null
         }
         Relationships: []
+      }
+      activity_era: {
+        Row: {
+          activity_category_id: number | null
+          activity_type: Database["public"]["Enums"]["activity_type"] | null
+          establishment_id: number | null
+          id: number | null
+          legal_unit_id: number | null
+          updated_at: string | null
+          updated_by_user_id: number | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          activity_category_id?: number | null
+          activity_type?: Database["public"]["Enums"]["activity_type"] | null
+          establishment_id?: number | null
+          id?: number | null
+          legal_unit_id?: number | null
+          updated_at?: string | null
+          updated_by_user_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          activity_category_id?: number | null
+          activity_type?: Database["public"]["Enums"]["activity_type"] | null
+          establishment_id?: number | null
+          id?: number | null
+          legal_unit_id?: number | null
+          updated_at?: string | null
+          updated_by_user_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_activity_category_id_fkey"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_activity_category_id_fkey"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       country_view: {
         Row: {
@@ -2937,7 +2785,7 @@ export interface Database {
         }
         Relationships: []
       }
-      establishment_custom_view: {
+      establishment_brreg_view: {
         Row: {
           antallAnsatte: string | null
           "beliggenhetsadresse.adresse": string | null
@@ -3094,12 +2942,69 @@ export interface Database {
         }
         Relationships: []
       }
-      legal_unit_current: {
+      legal_unit_brreg_view: {
+        Row: {
+          aktivitet: string | null
+          antallAnsatte: string | null
+          "forretningsadresse.adresse": string | null
+          "forretningsadresse.kommune": string | null
+          "forretningsadresse.kommunenummer": string | null
+          "forretningsadresse.land": string | null
+          "forretningsadresse.landkode": string | null
+          "forretningsadresse.postnummer": string | null
+          "forretningsadresse.poststed": string | null
+          frivilligMvaRegistrertBeskrivelser: string | null
+          harRegistrertAntallAnsatte: string | null
+          "hjelpeenhetskode.beskrivelse": string | null
+          "hjelpeenhetskode.kode": string | null
+          hjemmeside: string | null
+          "institusjonellSektorkode.beskrivelse": string | null
+          "institusjonellSektorkode.kode": string | null
+          konkurs: string | null
+          konkursdato: string | null
+          maalform: string | null
+          "naeringskode1.beskrivelse": string | null
+          "naeringskode1.kode": string | null
+          "naeringskode2.beskrivelse": string | null
+          "naeringskode2.kode": string | null
+          "naeringskode3.beskrivelse": string | null
+          "naeringskode3.kode": string | null
+          navn: string | null
+          "organisasjonsform.beskrivelse": string | null
+          "organisasjonsform.kode": string | null
+          organisasjonsnummer: string | null
+          overordnetEnhet: string | null
+          "postadresse.adresse": string | null
+          "postadresse.kommune": string | null
+          "postadresse.kommunenummer": string | null
+          "postadresse.land": string | null
+          "postadresse.landkode": string | null
+          "postadresse.postnummer": string | null
+          "postadresse.poststed": string | null
+          registreringsdatoenhetsregisteret: string | null
+          registrertIForetaksregisteret: string | null
+          registrertIFrivillighetsregisteret: string | null
+          registrertIMvaRegisteret: string | null
+          registrertIStiftelsesregisteret: string | null
+          sisteInnsendteAarsregnskap: string | null
+          stiftelsesdato: string | null
+          tvangsavvikletPgaManglendeSlettingDato: string | null
+          tvangsopplostPgaMangelfulltStyreDato: string | null
+          tvangsopplostPgaManglendeDagligLederDato: string | null
+          tvangsopplostPgaManglendeRegnskapDato: string | null
+          tvangsopplostPgaManglendeRevisorDato: string | null
+          underAvvikling: string | null
+          underAvviklingDato: string | null
+          underTvangsavviklingEllerTvangsopplosning: string | null
+          vedtektsdato: string | null
+          vedtektsfestetFormaal: string | null
+        }
+        Relationships: []
+      }
+      legal_unit_era: {
         Row: {
           active: boolean | null
           birth_date: string | null
-          custom_postal_address_id: number | null
-          custom_visiting_address_id: number | null
           data_source: string | null
           data_source_classification_id: number | null
           death_date: string | null
@@ -3117,7 +3022,6 @@ export interface Database {
           name: string | null
           notes: string | null
           parent_org_link: number | null
-          postal_address_id: number | null
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
@@ -3132,14 +3036,11 @@ export interface Database {
           unit_size_id: number | null
           valid_from: string | null
           valid_to: string | null
-          visiting_address_id: number | null
           web_address: string | null
         }
         Insert: {
           active?: boolean | null
           birth_date?: string | null
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source?: string | null
           data_source_classification_id?: number | null
           death_date?: string | null
@@ -3157,7 +3058,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -3172,14 +3072,11 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string | null
           valid_to?: string | null
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Update: {
           active?: boolean | null
           birth_date?: string | null
-          custom_postal_address_id?: number | null
-          custom_visiting_address_id?: number | null
           data_source?: string | null
           data_source_classification_id?: number | null
           death_date?: string | null
@@ -3197,7 +3094,6 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
-          postal_address_id?: number | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -3212,31 +3108,9 @@ export interface Database {
           unit_size_id?: number | null
           valid_from?: string | null
           valid_to?: string | null
-          visiting_address_id?: number | null
           web_address?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_legal_unit_address_custom_visiting_address_id"
-            columns: ["custom_visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_legal_unit_address_postal_address_id"
-            columns: ["postal_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_legal_unit_address_visiting_address_id"
-            columns: ["visiting_address_id"]
-            isOneToOne: false
-            referencedRelation: "address"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
             columns: ["data_source_classification_id"]
@@ -3256,13 +3130,6 @@ export interface Database {
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_legal_unit_enterprise_enterprise_temp_id"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
             referencedColumns: ["id"]
           },
           {
@@ -3372,88 +3239,103 @@ export interface Database {
           }
         ]
       }
-      legal_unit_custom_view: {
+      legal_unit_region_activity_category_stats_current: {
         Row: {
-          aktivitet: string | null
-          antallAnsatte: string | null
-          "forretningsadresse.adresse": string | null
-          "forretningsadresse.kommune": string | null
-          "forretningsadresse.kommunenummer": string | null
-          "forretningsadresse.land": string | null
-          "forretningsadresse.landkode": string | null
-          "forretningsadresse.postnummer": string | null
-          "forretningsadresse.poststed": string | null
-          frivilligMvaRegistrertBeskrivelser: string | null
-          harRegistrertAntallAnsatte: string | null
-          "hjelpeenhetskode.beskrivelse": string | null
-          "hjelpeenhetskode.kode": string | null
-          hjemmeside: string | null
-          "institusjonellSektorkode.beskrivelse": string | null
-          "institusjonellSektorkode.kode": string | null
-          konkurs: string | null
-          konkursdato: string | null
-          maalform: string | null
-          "naeringskode1.beskrivelse": string | null
-          "naeringskode1.kode": string | null
-          "naeringskode2.beskrivelse": string | null
-          "naeringskode2.kode": string | null
-          "naeringskode3.beskrivelse": string | null
-          "naeringskode3.kode": string | null
-          navn: string | null
-          "organisasjonsform.beskrivelse": string | null
-          "organisasjonsform.kode": string | null
-          organisasjonsnummer: string | null
-          overordnetEnhet: string | null
-          "postadresse.adresse": string | null
-          "postadresse.kommune": string | null
-          "postadresse.kommunenummer": string | null
-          "postadresse.land": string | null
-          "postadresse.landkode": string | null
-          "postadresse.postnummer": string | null
-          "postadresse.poststed": string | null
-          registreringsdatoenhetsregisteret: string | null
-          registrertIForetaksregisteret: string | null
-          registrertIFrivillighetsregisteret: string | null
-          registrertIMvaRegisteret: string | null
-          registrertIStiftelsesregisteret: string | null
-          sisteInnsendteAarsregnskap: string | null
-          stiftelsesdato: string | null
-          tvangsavvikletPgaManglendeSlettingDato: string | null
-          tvangsopplostPgaMangelfulltStyreDato: string | null
-          tvangsopplostPgaManglendeDagligLederDato: string | null
-          tvangsopplostPgaManglendeRegnskapDato: string | null
-          tvangsopplostPgaManglendeRevisorDato: string | null
-          underAvvikling: string | null
-          underAvviklingDato: string | null
-          underTvangsavviklingEllerTvangsopplosning: string | null
-          vedtektsdato: string | null
-          vedtektsfestetFormaal: string | null
+          employees: string | null
+          name: string | null
+          physical_region_code: string | null
+          postal_region_code: string | null
+          primary_activity_category_code: string | null
+          tax_reg_ident: string | null
         }
         Relationships: []
       }
-      legal_unit_region_activity_category_stats_view: {
+      legal_unit_region_activity_category_stats_current_with_delete: {
         Row: {
-          activity_category_code: string | null
           employees: string | null
           name: string | null
-          region_code: string | null
+          physical_region_code: string | null
+          postal_region_code: string | null
+          primary_activity_category_code: string | null
           tax_reg_ident: string | null
         }
+        Relationships: []
+      }
+      location_era: {
+        Row: {
+          address_part1: string | null
+          address_part2: string | null
+          address_part3: string | null
+          enterprise_group_id: number | null
+          enterprise_id: number | null
+          establishment_id: number | null
+          id: number | null
+          latitude: number | null
+          legal_unit_id: number | null
+          location_type: Database["public"]["Enums"]["location_type"] | null
+          longitude: number | null
+          region_id: number | null
+          updated_by_user_id: number | null
+          valid_from: string | null
+          valid_to: string | null
+        }
         Insert: {
-          activity_category_code?: never
-          employees?: never
-          name?: string | null
-          region_code?: never
-          tax_reg_ident?: string | null
+          address_part1?: string | null
+          address_part2?: string | null
+          address_part3?: string | null
+          enterprise_group_id?: number | null
+          enterprise_id?: number | null
+          establishment_id?: number | null
+          id?: number | null
+          latitude?: number | null
+          legal_unit_id?: number | null
+          location_type?: Database["public"]["Enums"]["location_type"] | null
+          longitude?: number | null
+          region_id?: number | null
+          updated_by_user_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Update: {
-          activity_category_code?: never
-          employees?: never
-          name?: string | null
-          region_code?: never
-          tax_reg_ident?: string | null
+          address_part1?: string | null
+          address_part2?: string | null
+          address_part3?: string | null
+          enterprise_group_id?: number | null
+          enterprise_id?: number | null
+          establishment_id?: number | null
+          id?: number | null
+          latitude?: number | null
+          legal_unit_id?: number | null
+          location_type?: Database["public"]["Enums"]["location_type"] | null
+          longitude?: number | null
+          region_id?: number | null
+          updated_by_user_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       person_type_custom: {
         Row: {
@@ -4316,6 +4198,7 @@ export interface Database {
       allowed_operations: "create" | "alter" | "create_and_alter"
       data_source_priority: "trusted" | "ok" | "not_trusted"
       data_source_upload_type: "stat_units" | "activities"
+      location_type: "physical" | "postal"
       person_sex: "Male" | "Female"
       stat_frequency:
         | "daily"
