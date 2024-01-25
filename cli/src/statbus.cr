@@ -136,26 +136,26 @@ def import_legal_units(import_filename : String)
     puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}"
     puts "Loading data from #{import_filename}"
     DB.connect("postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}") do |db|
-      copy = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(tax_reg_ident,name,employees,physical_region_code,primary_activity_category_code) FROM STDIN"
-      csv = CSV.new(File.open(import_filename), headers: true, separator: ',', quote_char: '"')
-      while csv.next
-        sql_text = [csv["tax_reg_ident"],
-                    csv["name"],
-                    csv["employees"],
-                    csv["physical_region_code"],
-                    csv["primary_activity_category_code"],
+      copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(tax_reg_ident,name,employees,physical_region_code,primary_activity_category_code) FROM STDIN"
+      csv_stream = CSV.new(File.open(import_filename), headers: true, separator: ',', quote_char: '"')
+      while csv_stream.next
+        row = csv_stream.row
+        sql_text = [row["tax_reg_ident"],
+                    row["name"],
+                    row["employees"],
+                    row["physical_region_code"],
+                    row["primary_activity_category_code"],
         ].map do |v|
           case v
-          when nil then nil
-          when ""  then nil
-          else          v
+          when "" then nil
+          else         v
           end
         end.join("\t")
         puts "Uploading #{sql_text}"
-        copy.puts sql_text
+        copy_stream.puts sql_text
       end
       puts "Waiting for processing"
-      copy.close
+      copy_stream.close
       db.close
     end
   end
