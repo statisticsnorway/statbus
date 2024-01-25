@@ -10,7 +10,7 @@ export default function SearchResultTable({searchResult: {legalUnits}}: TablePro
         <Table>
             <TableHeader className="bg-gray-100">
                 <TableRow>
-                    <TableHead className="w-[100px]">ID</TableHead>
+                    <TableHead className="w-[100px]">Tax ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead className="text-right">Activity Category Code</TableHead>
                 </TableRow>
