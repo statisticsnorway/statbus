@@ -55,7 +55,10 @@ SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_
 SELECT sql_saga.drop_era('public.enterprise_group');
 
 
-DROP VIEW public.statistical_units;
+DROP MATERIALIZED VIEW public.statistical_units;
+DROP FUNCTION public.refresh_materialized_view(materialized_view_name text);
+DROP FUNCTION public.materialised_view_updated_at();
+
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
 

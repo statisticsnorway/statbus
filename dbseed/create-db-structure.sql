@@ -2025,20 +2025,21 @@ SET LOCAL client_min_messages TO INFO;
 -- TODO: Use pg_audit.
 
 
-CREATE VIEW public.statistical_units
+CREATE MATERIALIZED VIEW public.statistical_units
     (
     -- TODO: Generate SQL to provide these columns:
+    valid_from,
+    valid_to,
     establishment_id,
     legal_unit_id,
     enterprise_id,
     enterprise_group_id,
-    name
-    -- id integer NOT NULL,
-    -- valid_from date NOT NULL,
-    -- valid_to date NOT NULL,
+    name,
+    primary_activity_category_id,
+    secondary_activity_category_id,
+    physical_region_id
     -- legal_form_id integer,
     -- sector_code_ids integer[],
-    -- region_ids integer[],
     -- activity_category_ids integer[],
     -- unit_size_id integer,
     -- short_name character varying(200),
@@ -2046,7 +2047,6 @@ CREATE VIEW public.statistical_units
     -- external_ident character varying(50),
     -- external_ident_type character varying(50),
     -- data_source character varying(200),
-    -- region_ids integer[], -- FROM location
     -- web_address character varying(200),
     -- telephone_no character varying(50),
     -- email_address character varying(50),
@@ -2059,17 +2059,118 @@ CREATE VIEW public.statistical_units
     -- reorg_type_id integer,
     -- active boolean,
     )
-    -- Ensure RLS as the connecting user.
-    WITH (security_invoker=on)
     AS
-    SELECT id AS establishment_id, NULL::INTEGER AS legal_unit_id, NULL::INTEGER AS enterprise_id, NULL::INTEGER AS enterprise_group_id, name FROM public.establishment
+    SELECT valid_from
+         , valid_to
+         , id AS establishment_id
+         , NULL::INTEGER AS legal_unit_id
+         , NULL::INTEGER AS enterprise_id
+         , NULL::INTEGER AS enterprise_group_id
+         , name
+         , NULL::INTEGER AS primary_activity_category_id
+         , NULL::INTEGER AS secondary_activity_category_id
+         , NULL::INTEGER AS physical_region_id
+      FROM public.establishment
     UNION ALL
-    SELECT NULL::INTEGER AS establishment_id, id AS legal_unit_id, NULL::INTEGER AS enterprise_id, NULL::INTEGER AS enterprise_group_id, name FROM public.legal_unit
+    SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
+         , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
+         , NULL::INTEGER AS establishment_id
+         , lu.id AS legal_unit_id
+         , NULL::INTEGER AS enterprise_id
+         , NULL::INTEGER AS enterprise_group_id
+         , lu.name
+         , pa.id         AS primary_activity_category_id
+         , sa.id         AS secondary_activity_category_id
+         , phl.id        AS physical_region_id
+    FROM public.legal_unit AS lu
+    LEFT OUTER JOIN public.activity AS pa
+            ON pa.legal_unit_id = lu.id
+           AND pa.activity_type = 'primary'
+           AND daterange(lu.valid_from, lu.valid_to, '[]')
+            && daterange(pa.valid_from, pa.valid_to, '[]')
+    LEFT OUTER JOIN public.activity AS sa
+            ON sa.legal_unit_id = lu.id
+           AND sa.activity_type = 'secondary'
+           AND daterange(lu.valid_from, lu.valid_to, '[]')
+            && daterange(sa.valid_from, sa.valid_to, '[]')
+    LEFT OUTER JOIN public.location AS phl
+            ON phl.legal_unit_id = lu.id
+           AND phl.location_type = 'physical'
+           AND daterange(lu.valid_from, lu.valid_to, '[]')
+            && daterange(phl.valid_from, phl.valid_to, '[]')
     UNION ALL
-    SELECT NULL::INTEGER AS establishment_id, NULL::INTEGER AS legal_unit_id, id AS enterprise_id, NULL::INTEGER AS enterprise_group_id, name FROM public.enterprise
+    SELECT valid_from
+         , valid_to
+         , NULL::INTEGER AS establishment_id
+         , NULL::INTEGER AS legal_unit_id
+         , id AS enterprise_id
+         , NULL::INTEGER AS enterprise_group_id
+         , name
+         , NULL::INTEGER AS primary_activity_category_id
+         , NULL::INTEGER AS secondary_activity_category_id
+         , NULL::INTEGER AS physical_region_id
+      FROM public.enterprise
     UNION ALL
-    SELECT NULL::INTEGER AS establishment_id, NULL::INTEGER AS legal_unit_id, NULL::INTEGER AS enterprise_id, id AS enterprise_group_id, name FROM public.enterprise_group
+    SELECT valid_from
+         , valid_to
+         , NULL::INTEGER AS establishment_id
+         , NULL::INTEGER AS legal_unit_id
+         , NULL::INTEGER AS enterprise_id
+         , id AS enterprise_group_id
+         , name
+         , NULL::INTEGER AS primary_activity_category_id
+         , NULL::INTEGER AS secondary_activity_category_id
+         , NULL::INTEGER AS physical_region_id
+      FROM public.enterprise_group
 ;
+CREATE UNIQUE INDEX "statistical_units_key"
+    ON public.statistical_units
+    (valid_from
+    ,valid_to
+    ,establishment_id
+    ,legal_unit_id
+    ,enterprise_id
+    ,enterprise_group_id
+    );
+
+-- Run this statement regularly
+REFRESH MATERIALIZED VIEW public.statistical_units;
+
+
+CREATE FUNCTION public.refresh_materialized_view(materialized_view_name text)
+RETURNS void AS $$
+BEGIN
+    -- Using dynamic SQL to refresh the specified materialized view
+    EXECUTE 'REFRESH MATERIALIZED VIEW public.' || quote_ident(materialized_view_name);
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+CREATE FUNCTION public.materialised_view_updated_at()
+RETURNS TABLE(materialized_view_name text, updated_at timestamptz) AS $$
+DECLARE
+    path_separator char;
+BEGIN
+    SELECT INTO path_separator
+    CASE WHEN SUBSTR(setting, 1, 1) = '/' THEN '/' ELSE '\\' END
+    FROM pg_settings WHERE name = 'data_directory';
+
+    RETURN QUERY
+    SELECT
+        ns.nspname || '.' || c.relname AS materialized_view_name,
+        (pg_stat_file(
+            (SELECT setting FROM pg_settings WHERE name = 'data_directory')
+            || path_separator || pg_relation_filepath(c.oid)
+        )).modification AS updated_at
+    FROM
+        pg_class c
+        JOIN pg_namespace ns ON c.relnamespace = ns.oid
+    WHERE
+        c.relkind = 'm';
+END;
+$$ LANGUAGE plpgsql;
+
 
 
 --
