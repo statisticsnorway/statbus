@@ -2119,7 +2119,7 @@ SET LOCAL client_min_messages TO INFO;
 -- TODO: Use pg_audit.
 
 
-CREATE MATERIALIZED VIEW public.statistical_units
+CREATE MATERIALIZED VIEW public.statistical_unit
     (
     -- TODO: Generate SQL to provide these columns:
     valid_from,
@@ -2217,8 +2217,8 @@ CREATE MATERIALIZED VIEW public.statistical_units
          , NULL::INTEGER AS physical_region_id
       FROM public.enterprise_group
 ;
-CREATE UNIQUE INDEX "statistical_units_key"
-    ON public.statistical_units
+CREATE UNIQUE INDEX "statistical_unit_key"
+    ON public.statistical_unit
     (valid_from
     ,valid_to
     ,establishment_id
@@ -2228,7 +2228,44 @@ CREATE UNIQUE INDEX "statistical_units_key"
     );
 
 -- Run this statement regularly
-REFRESH MATERIALIZED VIEW public.statistical_units;
+REFRESH MATERIALIZED VIEW public.statistical_unit;
+
+
+CREATE FUNCTION public.refresh_statistical_unit()
+RETURNS void AS $$
+    REFRESH MATERIALIZED VIEW public.statistical_unit;
+$$ LANGUAGE sql;
+--SELECT public.refresh_statistical_unit();
+
+CREATE FUNCTION public.statistical_unit_updated_at()
+RETURNS timestamptz AS $$
+DECLARE
+    path_separator char;
+    materialized_view_schema text := 'public';
+    materialized_view_name text := 'statistical_unit';
+    updated_at TIMESTAMPTZ;
+BEGIN
+    SELECT INTO path_separator
+    CASE WHEN SUBSTR(setting, 1, 1) = '/' THEN '/' ELSE '\\' END
+    FROM pg_settings WHERE name = 'data_directory';
+
+    SELECT
+        (pg_stat_file(
+            (SELECT setting FROM pg_settings WHERE name = 'data_directory')
+            || path_separator || pg_relation_filepath(c.oid)
+        )).modification INTO updated_at
+    FROM
+        pg_class c
+        JOIN pg_namespace ns ON c.relnamespace = ns.oid
+    WHERE
+        c.relkind = 'm'
+        AND ns.nspname = materialized_view_schema
+        AND c.relname = materialized_view_name
+    ;
+    RETURN updated_at;
+END;
+$$ LANGUAGE plpgsql;
+--SELECT public.statistical_unit_updated_at();
 
 
 CREATE FUNCTION public.refresh_materialized_view(materialized_view_name text)
