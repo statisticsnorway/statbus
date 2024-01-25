@@ -29,7 +29,7 @@ export interface ConditionalValue {
     value: SearchFilterValue,
 }
 
-interface Toggle {
+interface ToggleOption {
     type: "toggle_option",
     payload: {
         name: string,
@@ -37,13 +37,21 @@ interface Toggle {
     }
 }
 
-interface Set {
-    type: "set",
+interface SetCondition {
+    type: "set_condition",
     payload: {
         name: string,
         value: SearchFilterValue,
-        condition?: SearchFilterCondition
+        condition: SearchFilterCondition
     }
+}
+
+interface SetSearch {
+  type: "set_search",
+  payload: {
+    name: string,
+    value: SearchFilterValue
+  }
 }
 
 interface Reset {
@@ -57,4 +65,4 @@ interface ResetAll {
     type: "reset_all"
 }
 
-export type SearchFilterActions = Toggle | Set | Reset | ResetAll
+export type SearchFilterActions = ToggleOption | SetCondition | SetSearch | Reset | ResetAll

@@ -4,23 +4,27 @@ import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types"
 
 function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
   switch (action.type) {
-    case "toggle_option":
+    case "toggle_option": {
+      const {name, value} = action.payload
       return state.map(f =>
-        f.name === action.payload?.name ? {
+        f.name === name ? {
           ...f,
-          selected: f.selected.includes(action.payload.value)
-            ? f.selected.filter(id => id !== action.payload.value)
-            : [...f.selected, action.payload.value]
+          selected: f.selected.includes(value) ? f.selected.filter(id => id !== value) : [...f.selected, value]
         } : f
       )
-    case "set":
-      return state.map(f =>
-        f.name === action.payload?.name
-          ? {...f, selected: [action.payload.value], condition: action.payload.condition}
-          : f
-      )
-    case "reset":
-      return state.map(f => f.name === action.payload?.name ? {...f, selected: []} : f)
+    }
+    case "set_condition": {
+      const {name, value, condition} = action.payload
+      return state.map(f => f.name === name ? {...f, selected: [value], condition} : f)
+    }
+    case "set_search": {
+      const {name, value} = action.payload
+      return state.map(f => f.name === name ? {...f, selected: [value]} : f)
+    }
+    case "reset": {
+      const {name} = action.payload
+      return state.map(f => f.name === name ? {...f, selected: []} : f)
+    }
     case "reset_all":
       return state.map(f => ({...f, selected: []}))
     default:

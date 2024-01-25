@@ -1,4 +1,4 @@
-import {Dispatch, useCallback, useMemo} from "react";
+import {Dispatch, useCallback} from "react";
 import {Input} from "@/components/ui/input";
 import {OptionsFilter} from "@/app/search/components/OptionsFilter";
 import {ResetFilterButton} from "@/app/search/components/ResetFilterButton";
@@ -46,7 +46,7 @@ function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
       className="w-[100px] h-10 ml-2"
       value={selected[0] ?? ""}
       onChange={(e) => {
-        dispatch({type: "set", payload: {name, value: e.target.value.trim()}})
+        dispatch({type: "set_search", payload: {name, value: e.target.value.trim()}})
       }}
     />
   )
@@ -60,7 +60,7 @@ function ConditionalFilterComponent({filter: {name, label, condition, selected},
     <ConditionalFilter
       title={label}
       selected={{condition, value: selected[0]}}
-      onChange={({condition, value}) => dispatch({type: "set", payload: {name, value, condition}})}
+      onChange={({condition, value}) => dispatch({type: "set_condition", payload: {name, value, condition}})}
       onReset={() => dispatch({type: "reset", payload: {name}})}
     />
   )
