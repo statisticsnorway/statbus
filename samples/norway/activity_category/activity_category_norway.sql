@@ -9,5 +9,5 @@ DO UPDATE SET
    WHERE settings.id = EXCLUDED.id;
 ;
 
-\copy public.activity_category_available(path, name, description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 END;

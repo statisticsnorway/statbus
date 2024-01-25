@@ -392,6 +392,100 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.activity_category_available_upsert_custom();
 
 
+
+CREATE VIEW public.activity_category_available_custom(path, name, description)
+WITH (security_invoker=on) AS
+SELECT ac.path
+     , ac.name
+     , ac.description
+FROM public.activity_category AS ac
+WHERE ac.activity_category_standard_id = (SELECT activity_category_standard_id FROM public.settings)
+  AND ac.active
+  AND ac.custom
+ORDER BY path;
+
+CREATE FUNCTION admin.activity_category_available_custom_upsert_custom()
+RETURNS TRIGGER AS $$
+DECLARE
+    setting_activity_category_standard_id int;
+    found_parent_id int;
+    existing_category_id int;
+BEGIN
+    -- Retrieve the setting_activity_category_standard_id from public.settings
+    SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
+    IF setting_activity_category_standard_id IS NULL THEN
+        RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
+    END IF;
+
+    -- Find parent category based on NEW.path
+    IF public.nlevel(NEW.path) > 1 THEN
+        -- If NEW.parent_code is not provided, use NEW.path to find the parent category
+        SELECT id INTO found_parent_id
+          FROM public.activity_category
+         WHERE activity_category_standard_id = setting_activity_category_standard_id
+           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
+        IF found_parent_id IS NULL THEN
+          RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
+        END IF;
+    END IF;
+
+    -- Query to see if there is an existing "active AND NOT custom" row
+    SELECT id INTO existing_category_id
+      FROM public.activity_category
+     WHERE activity_category_standard_id = setting_activity_category_standard_id
+       AND path = NEW.path
+       AND active
+       AND NOT custom;
+
+    -- If there is, then update that row to active = FALSE
+    IF existing_category_id IS NOT NULL THEN
+        UPDATE public.activity_category
+           SET active = FALSE
+         WHERE id = existing_category_id;
+    END IF;
+
+    -- Perform an upsert operation on public.activity_category
+    INSERT INTO public.activity_category
+        ( activity_category_standard_id
+        , path
+        , parent_id
+        , name
+        , description
+        , updated_at
+        , active
+        , custom
+        )
+    VALUES
+        ( setting_activity_category_standard_id
+        , NEW.path
+        , found_parent_id
+        , NEW.name
+        , NEW.description
+        , statement_timestamp()
+        , TRUE -- Active
+        , TRUE -- Custom
+        )
+    ON CONFLICT (activity_category_standard_id, path)
+    DO UPDATE SET
+            parent_id = found_parent_id
+          , name = NEW.name
+          , description = NEW.description
+          , updated_at = statement_timestamp()
+          , active = TRUE
+          , custom = TRUE
+       WHERE activity_category.id = EXCLUDED.id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER activity_category_available_custom_upsert_custom
+INSTEAD OF INSERT ON public.activity_category_available_custom
+FOR EACH ROW
+EXECUTE FUNCTION admin.activity_category_available_custom_upsert_custom();
+
+
 --
 -- Name: activity_category_role; Type: TABLE; Schema: public; Owner: statbus_development
 --

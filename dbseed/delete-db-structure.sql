@@ -62,6 +62,10 @@ DROP FUNCTION public.materialised_view_updated_at();
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
 
+DROP TRIGGER activity_category_available_custom_upsert_custom ON public.activity_category_available_custom;
+DROP FUNCTION admin.activity_category_available_custom_upsert_custom();
+DROP VIEW public.activity_category_available_custom;
+
 DROP TRIGGER activity_category_available_upsert_custom ON public.activity_category_available;
 DROP FUNCTION admin.activity_category_available_upsert_custom();
 DROP VIEW public.activity_category_available;
