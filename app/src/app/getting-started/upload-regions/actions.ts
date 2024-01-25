@@ -27,5 +27,5 @@ export async function uploadRegions(formData: FormData) {
     return {error: 'failed to upload regions'}
   }
 
-  return redirect('/getting-started/upload-legal-units', RedirectType.push)
+  return redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
 }

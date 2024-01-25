@@ -22,7 +22,7 @@ export default async function UploadRegionsPage() {
         count && count > 0 ? (
           <InfoBox>
             <p>
-              There are already {count} legal units defined. You may skip this step.
+              There are already {count} legal units defined.
             </p>
           </InfoBox>
         ) : null

@@ -20,7 +20,7 @@ export default async function UploadRegionsPage() {
         count && count > 0 ? (
           <InfoBox>
             <p>
-              There are already {count} regions defined. You may skip this step.
+              There are already {count} regions defined.
             </p>
           </InfoBox>
         ) : null
@@ -31,7 +31,7 @@ export default async function UploadRegionsPage() {
         <Input required id="regions-file" type="file" name="regions"/>
         <div className="space-x-3">
           <Button type="submit">Upload</Button>
-          <Link href="/getting-started/upload-legal-units" className={buttonVariants({variant: 'outline'})}>Skip</Link>
+          <Link href="/getting-started/upload-custom-activity-standard-codes" className={buttonVariants({variant: 'outline'})}>Skip</Link>
         </div>
       </form>
 
