@@ -2,7 +2,11 @@
 import {redirect, RedirectType} from "next/navigation";
 import {setupAuthorizedFetchFn} from "@/lib/supabase/request-helper";
 
-export async function uploadLegalUnits(_prevState: { error: string | null }, formData: FormData) {
+interface State {
+  error: string | null
+}
+
+export async function uploadLegalUnits(_prevState: State, formData: FormData): Promise<State> {
   "use server";
 
   try {
