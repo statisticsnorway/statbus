@@ -7,7 +7,7 @@ import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import React from "react";
-import {AlertCircle} from "lucide-react";
+import {ErrorBox} from "@/components/ErrorBox";
 
 const initialState: { error: string | null } = {
   error: null
@@ -22,12 +22,9 @@ export default function UploadLegalUnitsForm() {
       <Input required id="legal-units-file" type="file" name="legal_units"/>
       {
         state.error ? (
-          <div className="text-sm flex space-x-4 items-center p-3 bg-red-100">
-            <div>
-              <AlertCircle size={32} color="red"/>
-            </div>
-            <span className="text-red-500 font-semibold">{state.error}</span>
-          </div>
+          <ErrorBox>
+            <span>{state.error}</span>
+          </ErrorBox>
         ) : null
       }
       <div className="space-x-3">
