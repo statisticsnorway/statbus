@@ -24,6 +24,9 @@ SET default_table_access_method = heap;
 --ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
 SET datestyle TO 'ISO, DMY';
 
+-- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
+CREATE SCHEMA admin;
+
 CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restricted_user', 'external_user');
 
 CREATE TABLE public.statbus_role (
@@ -45,7 +48,7 @@ CREATE TABLE public.statbus_user (
 
 
 -- inserts a row into public.profiles
-CREATE FUNCTION public.create_new_statbus_user()
+CREATE FUNCTION admin.create_new_statbus_user()
 RETURNS TRIGGER
 LANGUAGE PLPGSQL
 SECURITY DEFINER SET search_path = public
@@ -63,7 +66,7 @@ $$;
 -- trigger the function every time a user is created
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.create_new_statbus_user();
+  FOR EACH ROW EXECUTE PROCEDURE admin.create_new_statbus_user();
 
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('super_user', 'Super User', 'Can manage all metadata and do everything in the Web interface and manage role rights.');
 INSERT INTO public.statbus_role(role_type, name, description) VALUES ('regular_user', 'Regular User', 'Can do everything in the Web interface.');
@@ -147,9 +150,6 @@ CREATE TABLE public.activity_category (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(activity_category_standard_id, path)
 );
-
--- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
-CREATE SCHEMA admin;
 
 CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
@@ -1991,7 +1991,7 @@ CREATE TABLE public.stat_for_unit (
 );
 
 
-CREATE OR REPLACE FUNCTION public.check_stat_for_unit_values()
+CREATE OR REPLACE FUNCTION admin.check_stat_for_unit_values()
 RETURNS trigger AS $$
 DECLARE
   new_stat_type public.stat_type;
@@ -2029,10 +2029,10 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER check_stat_for_unit_values_trigger
 BEFORE INSERT OR UPDATE ON public.stat_for_unit
-FOR EACH ROW EXECUTE FUNCTION public.check_stat_for_unit_values();
+FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values();
 
 
-CREATE OR REPLACE FUNCTION public.prevent_id_update()
+CREATE OR REPLACE FUNCTION admin.prevent_id_update()
   RETURNS TRIGGER
   AS $$
 BEGIN
@@ -2059,7 +2059,7 @@ BEGIN
         WHERE n.nspname = 'public' AND c.relkind = 'r'
     LOOP
         RAISE NOTICE '%s.%s: Preventing id changes', schema_name_str, table_name_str;
-        EXECUTE format('CREATE TRIGGER trigger_prevent_'||table_name_str||'_id_update BEFORE UPDATE OF id ON '||schema_name_str||'.'||table_name_str||' FOR EACH ROW EXECUTE FUNCTION public.prevent_id_update();');
+        EXECUTE format('CREATE TRIGGER trigger_prevent_'||table_name_str||'_id_update BEFORE UPDATE OF id ON '||schema_name_str||'.'||table_name_str||' FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update();');
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
