@@ -171,7 +171,7 @@ DROP TABLE public.stat_for_unit;
 DROP TABLE public.stat_definition;
 DROP TYPE public.stat_type;
 DROP TYPE public.stat_frequency;
-DROP FUNCTION public.check_stat_for_unit_values;
+DROP FUNCTION admin.check_stat_for_unit_values;
 
 DROP TABLE public.custom_view_def_mapping;
 DROP TABLE public.custom_view_def_source_column;
@@ -219,8 +219,8 @@ DROP TRIGGER on_auth_user_created ON auth.users;
 DROP TABLE public.statbus_user;
 DROP TABLE public.statbus_role;
 
-DROP FUNCTION public.prevent_id_update();
-DROP FUNCTION public.create_new_statbus_user();
+DROP FUNCTION admin.prevent_id_update();
+DROP FUNCTION admin.create_new_statbus_user();
 DROP FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type);
 DROP FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.statbus_role_type[]);
 DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer);
@@ -244,6 +244,8 @@ DROP FUNCTION admin.establishment_id_exists(integer);
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
+
+DROP FUNCTION admin.grant_type_and_function_access_to_authenticated();
 
 DROP EXTENSION ltree;
 DROP SCHEMA admin CASCADE;

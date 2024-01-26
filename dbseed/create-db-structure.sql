@@ -4996,6 +4996,115 @@ SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.enable_rls_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
 
+-- Allow access read to the admin schema for all users,
+-- as some nested UPSERT queries use views that call functions that require this.
+-- This is strange, as there is no specific access to anything inside
+-- admin that is requried.
+GRANT USAGE ON SCHEMA admin TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION admin.grant_type_and_function_access_to_authenticated()
+RETURNS void AS $$
+DECLARE
+    rec record;
+    query text;
+BEGIN
+    -- Grant usage on the schema
+    query := 'GRANT USAGE ON SCHEMA admin TO authenticated';
+    RAISE DEBUG 'Executing query: %', query;
+    EXECUTE query;
+
+    -- Grant usage on all enum types in admin schema
+    FOR rec IN SELECT typname FROM pg_type JOIN pg_namespace ON pg_type.typnamespace = pg_namespace.oid WHERE nspname = 'admin' AND typtype = 'e'
+    LOOP
+        query := format('GRANT USAGE ON TYPE admin.%I TO authenticated', rec.typname);
+        RAISE DEBUG 'Executing query: %', query;
+        EXECUTE query;
+    END LOOP;
+
+    -- Grant execute on all functions in admin schema
+    FOR rec IN SELECT p.proname, n.nspname, p.oid,
+                      pg_catalog.pg_get_function_identity_arguments(p.oid) as func_args
+               FROM pg_proc p
+               JOIN pg_namespace n ON p.pronamespace = n.oid
+               WHERE n.nspname = 'admin'
+    LOOP
+        query := format('GRANT EXECUTE ON FUNCTION admin.%I(%s) TO authenticated', rec.proname, rec.func_args);
+        RAISE DEBUG 'Executing query: %', query;
+        EXECUTE query;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- TODO: Remove this if there is no need to grant specific read access to admin objects used by nested triggers.
+--SET LOCAL client_min_messages TO DEBUG;
+--SELECT admin.grant_type_and_function_access_to_authenticated();
+--SET LOCAL client_min_messages TO INFO;
+
+--GRANT USAGE ON SCHEMA admin TO authenticated;
+-- admin.existing_upsert_case
+-- admin.upsert_generic_valid_time_table
+--GRANT USAGE ON TYPE admin.existing_upsert_case TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_generic_valid_time_table TO authenticated;
+
+
+--GRANT USAGE ON TYPE admin.view_type_enum TO authenticated;
+--GRANT USAGE ON TYPE admin.table_type_enum TO authenticated;
+--GRANT USAGE ON TYPE admin.custom_view_def_names TO authenticated;
+--GRANT USAGE ON TYPE admin.existing_upsert_case TO authenticated;
+--
+--GRANT EXECUTE ON FUNCTION admin.upsert_activity_category() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_activity_category() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.activity_category_available_upsert_custom() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.activity_category_available_custom_upsert_custom() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_region() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_region() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_region_7_levels() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_country() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_country() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def) TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_generic_valid_time_table TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_current_with_delete() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_establishment_brreg_view() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_establishment_brreg_view() TO authenticated;
+--
+--
+--GRANT EXECUTE ON FUNCTION admin.check_stat_for_unit_values() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.create_new_statbus_user() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_activity_category() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_activity_category() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.activity_category_available_upsert_custom() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.activity_category_available_custom_upsert_custom() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_region() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_region() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_region_7_levels() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_country() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_country() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.prevent_id_update() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_stats_current_with_delete() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_establishment_brreg_view() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.delete_stale_establishment_brreg_view() TO authenticated;
+
+--GRANT SELECT ON ALL TYPES IN SCHEMA admin TO authenticated;
+
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
 USING (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_role_type)
