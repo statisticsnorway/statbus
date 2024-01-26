@@ -1,14 +1,10 @@
-import {Label} from "@/components/ui/label";
-import {Input} from "@/components/ui/input";
-import {Button, buttonVariants} from "@/components/ui/button";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
-import {uploadLegalUnits} from "@/app/getting-started/upload-legal-units/actions";
 import React from "react";
-import Link from "next/link";
 import {InfoBox} from "@/components/InfoBox";
 import {createClient} from "@/lib/supabase/server";
+import UploadLegalUnitsForm from "@/app/getting-started/upload-legal-units/UploadLegalUnitsForm";
 
-export default async function UploadRegionsPage() {
+export default async function UploadLegalUnitsPage() {
   const client = createClient()
   const {count} = await client.from('legal_unit').select('*', {count: 'exact', head: true})
   return (
@@ -28,14 +24,7 @@ export default async function UploadRegionsPage() {
         ) : null
       }
 
-      <form action={uploadLegalUnits} className="space-y-6 bg-green-100 p-6">
-        <Label className="block" htmlFor="regions-file">Select Legal Units file:</Label>
-        <Input required id="regions-file" type="file" name="regions"/>
-        <div className="space-x-3">
-          <Button type="submit">Upload</Button>
-          <Link href="/getting-started/summary" className={buttonVariants({variant: 'outline'})}>Skip</Link>
-        </div>
-      </form>
+      <UploadLegalUnitsForm />
 
       <Accordion type="single" collapsible>
         <AccordionItem value="Legal Unit">

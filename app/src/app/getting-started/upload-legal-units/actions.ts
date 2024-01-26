@@ -2,11 +2,11 @@
 import {redirect, RedirectType} from "next/navigation";
 import {setupAuthorizedFetchFn} from "@/lib/supabase/request-helper";
 
-export async function uploadLegalUnits(formData: FormData) {
+export async function uploadLegalUnits(_prevState: { error: string | null }, formData: FormData) {
   "use server";
 
   try {
-    const file = formData.get('regions') as File
+    const file = formData.get('legal_units') as File
     const authFetch = setupAuthorizedFetchFn()
     const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/legal_unit_region_activity_category_stats_current`, {
       method: 'POST',
@@ -20,7 +20,7 @@ export async function uploadLegalUnits(formData: FormData) {
       const data = await response.json()
       console.error(`legal units upload failed with status ${response.status} ${response.statusText}`)
       console.error(data)
-      return {error: data.message}
+      return {error: data.message.replace(/,/g, ', ')}
     }
 
   } catch (e) {
