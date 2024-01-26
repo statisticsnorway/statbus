@@ -1,12 +1,8 @@
 import React from "react";
-import Link from "next/link";
-import {Label} from "@/components/ui/label";
-import {Input} from "@/components/ui/input";
-import {Button, buttonVariants} from "@/components/ui/button";
-import {uploadRegions} from "@/app/getting-started/upload-regions/actions";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {InfoBox} from "@/components/InfoBox";
 import {createClient} from "@/lib/supabase/server";
+import UploadRegionsForm from "@/app/getting-started/upload-regions/UploadRegionsForm";
 
 export default async function UploadRegionsPage() {
   const client = createClient()
@@ -26,14 +22,7 @@ export default async function UploadRegionsPage() {
         ) : null
       }
 
-      <form action={uploadRegions} className="space-y-6 bg-green-100 p-6">
-        <Label className="block" htmlFor="regions-file">Select regions file:</Label>
-        <Input required id="regions-file" type="file" name="regions"/>
-        <div className="space-x-3">
-          <Button type="submit">Upload</Button>
-          <Link href="/getting-started/upload-custom-activity-standard-codes" className={buttonVariants({variant: 'outline'})}>Skip</Link>
-        </div>
-      </form>
+      <UploadRegionsForm/>
 
       <Accordion type="single" collapsible>
         <AccordionItem value="Activity Category Standard">

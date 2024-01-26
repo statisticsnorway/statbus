@@ -2,7 +2,7 @@
 import {redirect, RedirectType} from "next/navigation";
 import {setupAuthorizedFetchFn} from "@/lib/supabase/request-helper";
 
-export async function uploadRegions(formData: FormData) {
+export async function uploadRegions(_prevState: { error: string | null }, formData: FormData) {
   "use server";
 
   try {
@@ -20,7 +20,7 @@ export async function uploadRegions(formData: FormData) {
       const data = await response.json()
       console.error(`regions upload failed with status ${response.status} ${response.statusText}`)
       console.error(data)
-      return {error: data.message}
+      return {error: data.message.replace(/,/g, ', ')}
     }
 
   } catch (e) {
