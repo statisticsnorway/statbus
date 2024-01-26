@@ -1,11 +1,7 @@
-import {Label} from "@/components/ui/label";
-import {Input} from "@/components/ui/input";
-import {Button, buttonVariants} from "@/components/ui/button";
 import React from "react";
-import Link from "next/link";
 import {InfoBox} from "@/components/InfoBox";
 import {createClient} from "@/lib/supabase/server";
-import {uploadCustomActivityCodes} from "@/app/getting-started/upload-custom-activity-standard-codes/actions";
+import UploadCustomActivitiesForm from "@/app/getting-started/upload-custom-activity-standard-codes/UploadCustomActivitiesForm";
 
 export default async function UploadCustomActivityCategoryCodesPage() {
   const client = createClient()
@@ -26,16 +22,7 @@ export default async function UploadCustomActivityCategoryCodesPage() {
           </InfoBox>
         ) : null
       }
-
-      <form action={uploadCustomActivityCodes} className="space-y-6 bg-green-100 p-6">
-        <Label className="block" htmlFor="custom-activity-categories-file">Select Custom Activity Categories
-          file:</Label>
-        <Input required id="custom-activity-categories-file" type="file" name="custom_activity_category_codes"/>
-        <div className="space-x-3">
-          <Button type="submit">Upload</Button>
-          <Link href="/getting-started/upload-legal-units" className={buttonVariants({variant: 'outline'})}>Skip</Link>
-        </div>
-      </form>
+      <UploadCustomActivitiesForm/>
     </section>
   )
 }

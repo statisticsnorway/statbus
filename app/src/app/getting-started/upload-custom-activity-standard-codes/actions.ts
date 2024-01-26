@@ -2,7 +2,11 @@
 import {redirect, RedirectType} from "next/navigation";
 import {setupAuthorizedFetchFn} from "@/lib/supabase/request-helper";
 
-export async function uploadCustomActivityCodes(formData: FormData) {
+interface State {
+  error: string | null
+}
+
+export async function uploadCustomActivityCodes(_prevState: State, formData: FormData): Promise<State> {
   "use server";
 
   try {
