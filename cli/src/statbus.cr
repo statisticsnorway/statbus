@@ -45,7 +45,9 @@ class StatBus
   @verbose = false
   @import_file_name : String | Nil = nil
   @config_field_mapping = Array(ConfigFieldMapping).new
+  @config_file_path : Path | Nil = nil
   @sql_field_mapping = Array(SqlFieldMapping).new
+  @working_directory = Dir.current
 
   def initialize
     option_parser = build_option_parser
@@ -163,7 +165,16 @@ class StatBus
         # Now there is a mapping for every field.
         # This mapping can be printed for the user.
         puts "Example mapping:"
-        puts @config_field_mapping.to_pretty_json
+        Dir.cd(@working_directory) do
+          if !@config_file_path.nil?
+            if !File.exists?(@config_file_path.not_nil!)
+              File.write(
+                @config_file_path.not_nil!,
+                @config_field_mapping.to_pretty_json
+              )
+            end
+          end
+        end
 
         raise ArgumentError.new("Missing sql fields #{sql_missing_fields.to_a.to_pretty_json} you need to add a mapping")
       end
@@ -176,6 +187,19 @@ class StatBus
         {1, sql_field_list.index(mapping.sql).not_nil!, ""}
       end
 
+      Dir.cd(@working_directory) do
+        if !@config_file_path.nil?
+          if !File.exists?(@config_file_path.not_nil!)
+            puts "Writing file #{@config_file_path}"
+            File.write(
+              @config_file_path.not_nil!,
+              @sql_field_mapping.to_pretty_json
+            )
+            puts @sql_field_mapping.to_pretty_json
+          end
+        end
+      end
+
       DB.connect("postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}") do |db|
         copy_fields_str = @sql_field_mapping.map do |mapping|
           if !mapping.sql.nil?
@@ -185,6 +209,7 @@ class StatBus
         puts "copy_fields_str = #{copy_fields_str}" if @verbose
 
         copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(#{copy_fields_str}) FROM STDIN"
+        rowcount = 0
         while csv_stream.next
           csv_row = csv_stream.row
           sql_row = @sql_field_mapping.map do |mapping|
@@ -198,12 +223,14 @@ class StatBus
             end
           end
           sql_text = sql_row.join("\t")
-          puts "Uploading #{sql_text}"
+          puts "Uploading #{sql_text}" if @verbose
           copy_stream.puts sql_text
+          rowcount += 1
         end
-        puts "Waiting for processing"
+        puts "Waiting for processing" if @verbose
         copy_stream.close
         db.close
+        puts "Wrote #{rowcount} rows"
       end
     end
   end
@@ -241,9 +268,20 @@ class StatBus
           parser.banner = "Usage: #{@name} import establishment [arguments]"
           @import_mode = ImportMode::Establishment
         end
-        parser.on("-f NAME", "--file=NAME", "The file to read from") do |file_name|
+        parser.on("-f FILENAME", "--file=FILENAME", "The file to read from") do |file_name|
           import_file_name = file_name
           @import_file_name = import_file_name
+        end
+        parser.on("-c FILENAME", "--config=FILENAME", "A config file with field mappings. Will be written to with an example if the file does not exist.") do |file_name|
+          Dir.cd(@working_directory) do
+            @config_file_path = Path.new(file_name)
+            if File.exists?(@config_file_path.not_nil!)
+              config_data = File.read(@config_file_path.not_nil!)
+              @config_field_mapping = Array(ConfigFieldMapping).from_json(config_data)
+            else
+              STDERR.puts "Could not find #{@config_file_path}"
+            end
+          end
         end
         parser.on("-m NEW=OLD", "--mapping=NEW=OLD", "A field name mapping") do |mapping|
           sql, csv = mapping.split("=").map do |field_name|
