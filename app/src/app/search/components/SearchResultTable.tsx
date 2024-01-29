@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {SearchResult} from "@/app/search/search.types";
 
@@ -17,13 +18,17 @@ export default function SearchResultTable({searchResult: {legalUnits}}: TablePro
             </TableHeader>
             <TableBody>
                 {
-                    legalUnits?.map((legalUnit) => (
-                        <TableRow key={legalUnit.tax_reg_ident}>
-                            <TableCell className="font-medium p-3 px-4">{legalUnit.tax_reg_ident}</TableCell>
-                            <TableCell className="p-3">{legalUnit.name}</TableCell>
-                            <TableCell className="text-right p-3 px-4">{legalUnit.primary_activity_category_code}</TableCell>
-                        </TableRow>
-                    ))
+                  legalUnits?.map((legalUnit) => (
+                    <TableRow key={legalUnit.tax_reg_ident}>
+                      <TableCell className="font-medium p-3 px-4">
+                        <Link href={`/legal-units/${legalUnit.tax_reg_ident}`}>
+                          {legalUnit.tax_reg_ident}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="p-3">{legalUnit.name}</TableCell>
+                      <TableCell className="text-right p-3 px-4">{legalUnit.primary_activity_category_code}</TableCell>
+                    </TableRow>
+                  ))
                 }
             </TableBody>
         </Table>
