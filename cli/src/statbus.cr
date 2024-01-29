@@ -27,6 +27,10 @@ class StatBus
     Stop
     Status
   end
+  enum ImportStrategy
+    Copy
+    Insert
+  end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
   # or not using a csv field.
@@ -48,6 +52,7 @@ class StatBus
   @config_file_path : Path | Nil = nil
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
+  @import_strategy = ImportStrategy::Copy
 
   def initialize
     option_parser = build_option_parser
@@ -110,7 +115,7 @@ class StatBus
       postgres_db = global_vars["POSTGRES_DB"]
       postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
       #
-      puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}"
+      puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}" if @verbose
       puts "Loading data from #{import_file_name}"
       sql_field_required_list = ["tax_reg_ident"]
       sql_field_list = sql_field_required_list +
@@ -201,39 +206,69 @@ class StatBus
       end
 
       DB.connect("postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}") do |db|
-        copy_fields_str = @sql_field_mapping.map do |mapping|
+        sql_fields_str = @sql_field_mapping.map do |mapping|
           if !mapping.sql.nil?
             db.escape_identifier(mapping.sql.not_nil!)
           end
         end.compact.join(",")
-        puts "copy_fields_str = #{copy_fields_str}" if @verbose
+        puts "sql_fields_str = #{sql_fields_str}" if @verbose
 
-        copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(#{copy_fields_str}) FROM STDIN"
-        rowcount = 0
-        while csv_stream.next
-          csv_row = csv_stream.row
-          sql_row = @sql_field_mapping.map do |mapping|
-            csv_value = csv_row[mapping.csv]
-            if csv_value.nil?
-              nil
-            elsif csv_value.includes?("\t")
-              raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
-            else
-              csv_value.strip
+        case @import_strategy
+        when ImportStrategy::Copy
+          copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) FROM STDIN"
+          rowcount = 0
+          while csv_stream.next
+            csv_row = csv_stream.row
+            sql_row = @sql_field_mapping.map do |mapping|
+              csv_value = csv_row[mapping.csv]
+              if csv_value.nil?
+                nil
+              elsif csv_value.includes?("\t")
+                raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
+              else
+                csv_value.strip
+              end
+            end
+            sql_text = sql_row.join("\t")
+            puts "Uploading #{sql_text}" if @verbose
+            copy_stream.puts sql_text
+            rowcount += 1
+            if (rowcount % 10000) == 0
+              puts "Uploaded #{rowcount} rows"
             end
           end
-          sql_text = sql_row.join("\t")
-          puts "Uploading #{sql_text}" if @verbose
-          copy_stream.puts sql_text
-          rowcount += 1
-          if (rowcount % 10000) == 0
-            puts "Uploaded #{rowcount} rows"
+          puts "Waiting for processing" if @verbose
+          copy_stream.close
+          db.close
+          puts "Wrote #{rowcount} rows"
+        when ImportStrategy::Insert
+          sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
+          sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
+          puts "sql_statment = #{sql_statment}" if @verbose
+          insert = db.build sql_statment
+          rowcount = 0
+          while csv_stream.next
+            csv_row = csv_stream.row
+            sql_row = @sql_field_mapping.map do |mapping|
+              csv_value = csv_row[mapping.csv]
+              if csv_value.nil?
+                nil
+              elsif csv_value.includes?("\t")
+                raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
+              else
+                csv_value.strip
+              end
+            end
+            puts "Uploading #{sql_row}" if @verbose
+            insert.exec(args: sql_row)
+            rowcount += 1
+            if (rowcount % 1000) == 0
+              puts "Uploaded #{rowcount} rows"
+            end
           end
+          db.close
+          puts "Wrote #{rowcount} rows"
         end
-        puts "Waiting for processing" if @verbose
-        copy_stream.close
-        db.close
-        puts "Wrote #{rowcount} rows"
       end
     end
   end
@@ -274,6 +309,18 @@ class StatBus
         parser.on("-f FILENAME", "--file=FILENAME", "The file to read from") do |file_name|
           import_file_name = file_name
           @import_file_name = import_file_name
+        end
+        parser.on("-s STRATEGY", "--strategy=STRATEGY", "Use fast bulk \"copy\" or slower \"insert\" with earlier error messages.") do |strategy|
+          case strategy
+          when "copy"
+            @import_strategy = ImportStrategy::Copy
+          when "insert"
+            @import_strategy = ImportStrategy::Insert
+          else
+            puts "Unknown strategy: use COPY or INSERT"
+            puts parser
+            exit(1)
+          end
         end
         parser.on("-c FILENAME", "--config=FILENAME", "A config file with field mappings. Will be written to with an example if the file does not exist.") do |file_name|
           Dir.cd(@working_directory) do
