@@ -100,6 +100,10 @@ export function CommandPalette() {
             <Upload className="mr-2 h-4 w-4"/>
             <span>Upload Regions</span>
           </CommandItem>
+          <CommandItem onSelect={() => navigate("/getting-started/upload-custom-activity-standard-codes")}>
+            <Upload className="mr-2 h-4 w-4"/>
+            <span>Upload Custom Activity Category Standards</span>
+          </CommandItem>
           <CommandItem onSelect={() => navigate("/getting-started/upload-legal-units")}>
             <Upload className="mr-2 h-4 w-4"/>
             <span>Upload Legal Units</span>

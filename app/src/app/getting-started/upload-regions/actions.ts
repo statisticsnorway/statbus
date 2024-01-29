@@ -2,13 +2,17 @@
 import {redirect, RedirectType} from "next/navigation";
 import {setupAuthorizedFetchFn} from "@/lib/supabase/request-helper";
 
-export async function uploadRegions(formData: FormData) {
+interface State {
+  error: string | null
+}
+
+export async function uploadRegions(_prevState: State, formData: FormData): Promise<State> {
   "use server";
 
   try {
     const file = formData.get('regions') as File
     const authFetch = setupAuthorizedFetchFn()
-    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/region_view`, {
+    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/region_upload`, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/csv'
@@ -20,12 +24,12 @@ export async function uploadRegions(formData: FormData) {
       const data = await response.json()
       console.error(`regions upload failed with status ${response.status} ${response.statusText}`)
       console.error(data)
-      return {error: data.message}
+      return {error: data.message.replace(/,/g, ', ')}
     }
 
   } catch (e) {
     return {error: 'failed to upload regions'}
   }
 
-  return redirect('/getting-started/upload-legal-units', RedirectType.push)
+  return redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
 }

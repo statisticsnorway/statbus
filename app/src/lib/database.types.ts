@@ -1767,13 +1767,6 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "location_updated_by_user_id_fkey"
             columns: ["updated_by_user_id"]
             isOneToOne: false
@@ -1955,7 +1948,6 @@ export interface Database {
           name: string
           parent_id: number | null
           path: unknown
-          updated_at: string
         }
         Insert: {
           code?: string | null
@@ -1965,7 +1957,6 @@ export interface Database {
           name: string
           parent_id?: number | null
           path: unknown
-          updated_at?: string
         }
         Update: {
           code?: string | null
@@ -1975,7 +1966,6 @@ export interface Database {
           name?: string
           parent_id?: number | null
           path?: unknown
-          updated_at?: string
         }
         Relationships: [
           {
@@ -1986,24 +1976,10 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_region_region_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "region_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "region_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
             referencedColumns: ["id"]
           }
         ]
@@ -2030,13 +2006,6 @@ export interface Database {
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "region_role_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
             referencedColumns: ["id"]
           },
           {
@@ -2510,6 +2479,24 @@ export interface Database {
           parent_code: string | null
           path: unknown | null
           standard_code: string | null
+        }
+        Relationships: []
+      }
+      activity_category_available_custom: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: unknown | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
         }
         Relationships: []
       }
@@ -3322,13 +3309,6 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "location_updated_by_user_id_fkey"
             columns: ["updated_by_user_id"]
             isOneToOne: false
@@ -3410,67 +3390,20 @@ export interface Database {
         }
         Relationships: []
       }
-      region_view: {
+      region_upload: {
         Row: {
-          code: string | null
-          id: number | null
-          label: string | null
-          level: number | null
           name: string | null
-          parent_id: number | null
           path: unknown | null
-          updated_at: string | null
         }
         Insert: {
-          code?: string | null
-          id?: number | null
-          label?: string | null
-          level?: number | null
           name?: string | null
-          parent_id?: number | null
           path?: unknown | null
-          updated_at?: string | null
         }
         Update: {
-          code?: string | null
-          id?: number | null
-          label?: string | null
-          level?: number | null
           name?: string | null
-          parent_id?: number | null
           path?: unknown | null
-          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_region_region_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_region_region_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "region_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "region_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "region_view"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       reorg_type_custom: {
         Row: {
@@ -3648,13 +3581,18 @@ export interface Database {
           }
         ]
       }
-      statistical_units: {
+      statistical_unit: {
         Row: {
           enterprise_group_id: number | null
           enterprise_id: number | null
           establishment_id: number | null
           legal_unit_id: number | null
           name: string | null
+          physical_region_id: number | null
+          primary_activity_category_id: number | null
+          secondary_activity_category_id: number | null
+          valid_from: string | null
+          valid_to: string | null
         }
         Relationships: []
       }
@@ -4180,11 +4118,32 @@ export interface Database {
         }
         Returns: string
       }
+      materialised_view_updated_at: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          materialized_view_name: string
+          updated_at: string
+        }[]
+      }
       nlevel: {
         Args: {
           "": unknown
         }
         Returns: number
+      }
+      refresh_materialized_view: {
+        Args: {
+          materialized_view_name: string
+        }
+        Returns: undefined
+      }
+      refresh_statistical_unit: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      statistical_unit_updated_at: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       text2ltree: {
         Args: {
