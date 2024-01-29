@@ -12,7 +12,7 @@ export async function uploadRegions(_prevState: State, formData: FormData): Prom
   try {
     const file = formData.get('regions') as File
     const authFetch = setupAuthorizedFetchFn()
-    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/region_view`, {
+    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/region_upload`, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/csv'
