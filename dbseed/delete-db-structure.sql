@@ -72,9 +72,8 @@ DROP TRIGGER activity_category_available_upsert_custom ON public.activity_catego
 DROP FUNCTION admin.activity_category_available_upsert_custom();
 DROP VIEW public.activity_category_available;
 
-DROP VIEW public.region_view;
-DROP FUNCTION admin.upsert_region();
-DROP FUNCTION admin.delete_stale_region();
+DROP VIEW public.region_upload;
+DROP FUNCTION admin.region_upload_upsert();
 
 DROP VIEW public.region_7_levels_view;
 DROP FUNCTION admin.upsert_region_7_levels();

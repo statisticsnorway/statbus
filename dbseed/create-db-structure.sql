@@ -1226,7 +1226,6 @@ CREATE TABLE public.region (
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     CONSTRAINT "parent_id is required for child"
       CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL)
 );
@@ -1269,8 +1268,15 @@ CREATE INDEX ix_location_enterprise_group_id_id ON public.location USING btree (
 CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
 
 
--- Create function for upsert operation on country
-CREATE FUNCTION admin.upsert_region()
+-- Create a view for region upload using path and name
+CREATE VIEW public.region_upload
+WITH (security_invoker=on) AS
+SELECT path, name
+FROM public.region
+ORDER BY path;
+COMMENT ON VIEW public.region_upload IS 'Upload of region by path,name that automatically connects parent_id';
+
+CREATE FUNCTION admin.region_upload_upsert()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH parent AS (
@@ -1278,44 +1284,22 @@ BEGIN
         FROM public.region
         WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
-    INSERT INTO public.region (path, parent_id, name, updated_at)
-    VALUES (NEW.path, (SELECT id FROM parent), NEW.name, statement_timestamp())
+    INSERT INTO public.region (path, parent_id, name)
+    VALUES (NEW.path, (SELECT id FROM parent), NEW.name)
     ON CONFLICT (path)
     DO UPDATE SET
         parent_id = (SELECT id FROM parent),
-        name = EXCLUDED.name,
-        updated_at = statement_timestamp()
+        name = EXCLUDED.name
     WHERE region.id = EXCLUDED.id;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
--- Create function for deleting stale countries
-CREATE FUNCTION admin.delete_stale_region()
-RETURNS TRIGGER AS $$
-BEGIN
-    DELETE FROM public.region
-    WHERE updated_at < statement_timestamp();
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create a view for region
-CREATE VIEW public.region_view
-WITH (security_invoker=on) AS
-SELECT *
-FROM public.region;
-
 -- Create triggers for the view
-CREATE TRIGGER upsert_region_view
-INSTEAD OF INSERT ON public.region_view
+CREATE TRIGGER region_upload_upsert
+INSTEAD OF INSERT ON public.region_upload
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_region();
-
-CREATE TRIGGER delete_stale_region_view
-AFTER INSERT ON public.region_view
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_region();
+EXECUTE FUNCTION admin.region_upload_upsert();
 
 
 
