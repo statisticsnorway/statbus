@@ -1,0 +1,22 @@
+[
+  {
+    "sql": "tax_reg_ident",
+    "csv": "custom_tax_reg_ident"
+  },
+  {
+    "sql": "name",
+    "csv": "custom_name"
+  },
+  {
+    "sql": "employees",
+    "csv": "custom_employees"
+  },
+  {
+    "sql": "physical_region_code",
+    "csv": "custom_physical_region_code"
+  },
+  {
+    "sql": "primary_activity_category_code",
+    "csv": "custom_primary_activity_category_code"
+  }
+]
