@@ -226,6 +226,9 @@ class StatBus
           puts "Uploading #{sql_text}" if @verbose
           copy_stream.puts sql_text
           rowcount += 1
+          if (rowcount % 10000) == 0
+            puts "Uploaded #{rowcount} rows"
+          end
         end
         puts "Waiting for processing" if @verbose
         copy_stream.close
