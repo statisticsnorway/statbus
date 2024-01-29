@@ -242,32 +242,34 @@ class StatBus
           db.close
           puts "Wrote #{rowcount} rows"
         when ImportStrategy::Insert
-          sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
-          sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
-          puts "sql_statment = #{sql_statment}" if @verbose
-          insert = db.build sql_statment
-          rowcount = 0
-          while csv_stream.next
-            csv_row = csv_stream.row
-            sql_row = @sql_field_mapping.map do |mapping|
-              csv_value = csv_row[mapping.csv]
-              if csv_value.nil?
-                nil
-              elsif csv_value.includes?("\t")
-                raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
-              else
-                csv_value.strip
+          db.transaction do |tx|
+            sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
+            sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
+            puts "sql_statment = #{sql_statment}" if @verbose
+            insert = db.build sql_statment
+            rowcount = 0
+            while csv_stream.next
+              csv_row = csv_stream.row
+              sql_row = @sql_field_mapping.map do |mapping|
+                csv_value = csv_row[mapping.csv]
+                if csv_value.nil?
+                  nil
+                elsif csv_value.includes?("\t")
+                  raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
+                else
+                  csv_value.strip
+                end
+              end
+              puts "Uploading #{sql_row}" if @verbose
+              insert.exec(args: sql_row)
+              rowcount += 1
+              if (rowcount % 1000) == 0
+                puts "Uploaded #{rowcount} rows"
               end
             end
-            puts "Uploading #{sql_row}" if @verbose
-            insert.exec(args: sql_row)
-            rowcount += 1
-            if (rowcount % 1000) == 0
-              puts "Uploaded #{rowcount} rows"
-            end
+            puts "Wrote #{rowcount} rows"
           end
           db.close
-          puts "Wrote #{rowcount} rows"
         end
       end
     end
