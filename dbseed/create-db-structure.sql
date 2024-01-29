@@ -963,6 +963,7 @@ CREATE TABLE public.legal_unit (
     foreign_participation_id integer,
     data_source_classification_id integer,
     enterprise_id integer,
+    invalid_codes jsonb,
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
@@ -4364,6 +4365,7 @@ DECLARE
     inserted_legal_unit RECORD;
     inserted_location RECORD;
     inserted_activity RECORD;
+    invalid_codes JSONB := '{}'::jsonb;
 BEGIN
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -4377,17 +4379,19 @@ BEGIN
     IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL
        AND NEW.physical_region_code <> ''
     THEN
-      RAISE EXCEPTION 'Could not find physical_region_code for row %', to_json(NEW);
+      RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
+      invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
     END IF;
 
     SELECT * INTO primary_activity_category
     FROM public.activity_category_available
     WHERE code = NEW.primary_activity_category_code;
     IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL
-       -- Many places theere is a variety of 00.000... to signify null
+       -- Many places there is a variety of 00.000... to signify null
        AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
     THEN
-      RAISE EXCEPTION 'Could not find primary_activity_category_code for row %', to_json(NEW);
+      RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
+      invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
     END IF;
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
@@ -4398,6 +4402,7 @@ BEGIN
          , true AS active
          , statement_timestamp() AS seen_in_import_at
          , 'Batch upload' AS edit_comment
+         , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
      INTO upsert_data;
 
     SET CONSTRAINTS ALL DEFERRED;
@@ -4411,6 +4416,7 @@ BEGIN
         active,
         seen_in_import_at,
         edit_comment,
+        invalid_codes,
         edit_by_user_id
     )
     VALUES
@@ -4423,6 +4429,7 @@ BEGIN
         upsert_data.active,
         upsert_data.seen_in_import_at,
         upsert_data.edit_comment,
+        upsert_data.invalid_codes,
         edited_by_user.id
     )
     RETURNING * INTO inserted_legal_unit;
