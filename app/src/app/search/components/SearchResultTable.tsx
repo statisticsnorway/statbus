@@ -13,12 +13,13 @@ export default function SearchResultTable({searchResult: {statisticalUnits}}: Ta
                 <TableRow>
                     <TableHead className="w-[100px]">Tax ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead className="text-right">Region</TableHead>
                     <TableHead className="text-right">Activity Category Code</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {
-                  statisticalUnits?.map(({legal_unit_id, name, primary_activity_category_id}) => (
+                  statisticalUnits?.map(({legal_unit_id, name, physical_region_id, primary_activity_category_id}) => (
                     <TableRow key={legal_unit_id}>
                       <TableCell className="font-medium p-3 px-4">
                         <Link href={`/legal-units/${legal_unit_id}`}>
@@ -26,6 +27,7 @@ export default function SearchResultTable({searchResult: {statisticalUnits}}: Ta
                         </Link>
                       </TableCell>
                       <TableCell className="p-3">{name}</TableCell>
+                      <TableCell className="p-3 text-right">{physical_region_id}</TableCell>
                       <TableCell className="text-right p-3 px-4">{primary_activity_category_id}</TableCell>
                     </TableRow>
                   ))
