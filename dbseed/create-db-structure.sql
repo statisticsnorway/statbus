@@ -2107,7 +2107,6 @@ CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','e
 
 CREATE MATERIALIZED VIEW public.statistical_unit
     (
-    -- TODO: Generate SQL to provide these columns:
     valid_from,
     valid_to,
     unit_type,
@@ -2115,10 +2114,15 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     legal_unit_id,
     enterprise_id,
     enterprise_group_id,
+    stat_ident,
+    tax_reg_ident,
+    external_ident,
+    external_ident_type,
     name,
     primary_activity_category_id,
     secondary_activity_category_id,
     physical_region_id
+    -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
     -- sector_code_ids integer[],
     -- activity_category_ids integer[],
@@ -2148,6 +2152,10 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS legal_unit_id
          , NULL::INTEGER AS enterprise_id
          , NULL::INTEGER AS enterprise_group_id
+         , NULL::TEXT AS stat_ident
+         , NULL::TEXT AS tax_reg_ident
+         , NULL::TEXT AS external_ident
+         , NULL::TEXT AS external_ident_type
          , name
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::INTEGER AS secondary_activity_category_id
@@ -2161,6 +2169,10 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , lu.id AS legal_unit_id
          , NULL::INTEGER AS enterprise_id
          , NULL::INTEGER AS enterprise_group_id
+         , lu.stat_ident AS stat_ident
+         , lu.tax_reg_ident AS tax_reg_ident
+         , lu.external_ident AS external_ident
+         , lu.external_ident_type AS external_ident_type
          , lu.name
          , pa.activity_category_id AS primary_activity_category_id
          , sa.activity_category_id AS secondary_activity_category_id
@@ -2189,6 +2201,10 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS legal_unit_id
          , id AS enterprise_id
          , NULL::INTEGER AS enterprise_group_id
+         , NULL::TEXT AS stat_ident
+         , NULL::TEXT AS tax_reg_ident
+         , NULL::TEXT AS external_ident
+         , NULL::TEXT AS external_ident_type
          , name
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::INTEGER AS secondary_activity_category_id
@@ -2202,6 +2218,10 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS legal_unit_id
          , NULL::INTEGER AS enterprise_id
          , id AS enterprise_group_id
+         , NULL::TEXT AS stat_ident
+         , NULL::TEXT AS tax_reg_ident
+         , NULL::TEXT AS external_ident
+         , NULL::TEXT AS external_ident_type
          , name
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::INTEGER AS secondary_activity_category_id
