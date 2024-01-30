@@ -25,7 +25,7 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { params:
       <div>
         <h3 className="text-lg font-medium">General Info</h3>
         <p className="text-sm text-muted-foreground">
-          Update general info for statistical unit.
+          General information for a statistical unit.
         </p>
       </div>
       <Separator />
