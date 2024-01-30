@@ -14,6 +14,7 @@ export async function resetLegalUnits() {
       .gt('id', 0)
 
     if (response.status >= 400) {
+      console.error('failed to reset legal units', response.error)
       return {error: response.statusText}
     }
 

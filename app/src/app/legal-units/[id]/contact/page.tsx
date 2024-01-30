@@ -3,10 +3,10 @@ import {createClient} from "@/lib/supabase/server";
 import {notFound} from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Legal Unit | General Info"
+  title: "Legal Unit | Contact"
 }
 
-export default async function LegalUnitGeneralInfoPage({params: {id}}: { params: { id: string } }) {
+export default async function LegalUnitContactPage({params: {id}}: { params: { id: string } }) {
   const client = createClient()
   const {data: legalUnit} = await client
     .from("legal_unit")
@@ -19,8 +19,6 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { params:
   }
 
   return (
-    <>
-      <code className="text-xs">{JSON.stringify(legalUnit, null, 1)}</code>
-    </>
+    <>Contact info goes here</>
   )
 }
