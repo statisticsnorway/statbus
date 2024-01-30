@@ -2103,12 +2103,14 @@ SET LOCAL client_min_messages TO INFO;
 
 -- TODO: Use pg_audit.
 
+CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','enterprise','enterprise_group');
 
 CREATE MATERIALIZED VIEW public.statistical_unit
     (
     -- TODO: Generate SQL to provide these columns:
     valid_from,
     valid_to,
+    unit_type,
     establishment_id,
     legal_unit_id,
     enterprise_id,
@@ -2141,6 +2143,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     AS
     SELECT valid_from
          , valid_to
+         , 'establishment'::public.statistical_unit_type AS unit_type
          , id AS establishment_id
          , NULL::INTEGER AS legal_unit_id
          , NULL::INTEGER AS enterprise_id
@@ -2153,6 +2156,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     UNION ALL
     SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
          , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
+         , 'legal_unit'::public.statistical_unit_type AS unit_type
          , NULL::INTEGER AS establishment_id
          , lu.id AS legal_unit_id
          , NULL::INTEGER AS enterprise_id
@@ -2180,6 +2184,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     UNION ALL
     SELECT valid_from
          , valid_to
+         , 'enterprise'::public.statistical_unit_type AS unit_type
          , NULL::INTEGER AS establishment_id
          , NULL::INTEGER AS legal_unit_id
          , id AS enterprise_id
@@ -2192,6 +2197,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     UNION ALL
     SELECT valid_from
          , valid_to
+         , 'enterprise_group'::public.statistical_unit_type AS unit_type
          , NULL::INTEGER AS establishment_id
          , NULL::INTEGER AS legal_unit_id
          , NULL::INTEGER AS enterprise_id

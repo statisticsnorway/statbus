@@ -60,6 +60,7 @@ DROP FUNCTION public.statistical_unit_refresh_now();
 DROP FUNCTION public.statistical_unit_refreshed_at();
 DROP FUNCTION public.refresh_materialized_view(materialized_view_name text);
 DROP FUNCTION public.materialised_view_updated_at();
+DROP TYPE public.statistical_unit_type;
 
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
