@@ -2120,8 +2120,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     external_ident_type,
     name,
     primary_activity_category_id,
+    primary_activity_category_path,
     secondary_activity_category_id,
-    physical_region_id
+    secondary_activity_category_path,
+    activity_category_paths,
+    physical_region_id,
+    physical_region_path
     -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
     -- sector_code_ids integer[],
@@ -2158,8 +2162,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS external_ident_type
          , name
          , NULL::INTEGER AS primary_activity_category_id
+         , NULL::public.ltree AS primary_activity_category_path
          , NULL::INTEGER AS secondary_activity_category_id
+         , NULL::public.ltree AS secondary_activity_category_path
+         , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
+         , NULL::public.ltree AS physical_region_path
       FROM public.establishment
     UNION ALL
     SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
@@ -2175,24 +2183,39 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , lu.external_ident_type AS external_ident_type
          , lu.name
          , pa.activity_category_id AS primary_activity_category_id
+         , pac.path                AS primary_activity_category_path
          , sa.activity_category_id AS secondary_activity_category_id
+         , sac.path                AS secondary_activity_category_path
+         , CASE
+           WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
+           WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
+           WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
+           WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
+           END AS activity_category_paths
          , phl.region_id           AS physical_region_id
+         , phr.path                AS physical_region_path
     FROM public.legal_unit AS lu
     LEFT OUTER JOIN public.activity AS pa
             ON pa.legal_unit_id = lu.id
            AND pa.activity_type = 'primary'
            AND daterange(lu.valid_from, lu.valid_to, '[]')
             && daterange(pa.valid_from, pa.valid_to, '[]')
+    LEFT OUTER JOIN public.activity_category AS pac
+            ON pa.activity_category_id = pac.id
     LEFT OUTER JOIN public.activity AS sa
             ON sa.legal_unit_id = lu.id
            AND sa.activity_type = 'secondary'
            AND daterange(lu.valid_from, lu.valid_to, '[]')
             && daterange(sa.valid_from, sa.valid_to, '[]')
+    LEFT OUTER JOIN public.activity_category AS sac
+            ON sa.activity_category_id = sac.id
     LEFT OUTER JOIN public.location AS phl
             ON phl.legal_unit_id = lu.id
            AND phl.location_type = 'physical'
            AND daterange(lu.valid_from, lu.valid_to, '[]')
             && daterange(phl.valid_from, phl.valid_to, '[]')
+    LEFT OUTER JOIN public.region AS phr
+            ON phl.region_id = phr.id
     UNION ALL
     SELECT valid_from
          , valid_to
@@ -2207,8 +2230,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS external_ident_type
          , name
          , NULL::INTEGER AS primary_activity_category_id
+         , NULL::public.ltree AS primary_activity_category_path
          , NULL::INTEGER AS secondary_activity_category_id
+         , NULL::public.ltree AS secondary_activity_category_path
+         , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
+         , NULL::public.ltree AS physical_region_path
       FROM public.enterprise
     UNION ALL
     SELECT valid_from
@@ -2224,8 +2251,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS external_ident_type
          , name
          , NULL::INTEGER AS primary_activity_category_id
+         , NULL::public.ltree AS primary_activity_category_path
          , NULL::INTEGER AS secondary_activity_category_id
+         , NULL::public.ltree AS secondary_activity_category_path
+         , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
+         , NULL::public.ltree AS physical_region_path
       FROM public.enterprise_group
 ;
 CREATE UNIQUE INDEX "statistical_unit_key"
