@@ -1,44 +1,31 @@
-"use client"
-
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-
-import { cn } from "@/lib/utils"
+'use client';
+import {HTMLAttributes, ReactNode} from "react";
+import {cn} from "@/lib/utils";
+import Link from "next/link";
 import {buttonVariants} from "@/components/ui/button";
+import {usePathname} from "next/navigation";
 
-interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
-  items: {
-    href: string
-    title: string
-  }[]
-}
-
-export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
+export function SidebarLink({children, href}: { children: ReactNode, href: string }) {
   const pathname = usePathname()
 
   return (
-    <nav
+    <Link
+      href={href}
       className={cn(
-        "flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1",
-        className
+        buttonVariants({variant: "ghost"}),
+        pathname === href ? "bg-gray-50 hover:bg-gray-100" : "hover:bg-transparent hover:underline",
+        "justify-start"
       )}
-      {...props}
     >
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            buttonVariants({ variant: "ghost" }),
-            pathname === item.href
-              ? "bg-muted hover:bg-muted"
-              : "hover:bg-transparent hover:underline",
-            "justify-start"
-          )}
-        >
-          {item.title}
-        </Link>
-      ))}
+      {children}
+    </Link>
+  )
+}
+
+export function SidebarNav({children, className}: { children?: ReactNode } & HTMLAttributes<HTMLElement>) {
+  return (
+    <nav className={cn("flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1", className)}>
+      {children}
     </nav>
   )
 }
