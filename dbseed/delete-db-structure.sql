@@ -56,8 +56,8 @@ SELECT sql_saga.drop_era('public.enterprise_group');
 
 
 DROP MATERIALIZED VIEW public.statistical_unit;
-DROP FUNCTION public.refresh_statistical_unit();
-DROP FUNCTION public.statistical_unit_updated_at();
+DROP FUNCTION public.statistical_unit_refresh_now();
+DROP FUNCTION public.statistical_unit_refreshed_at();
 DROP FUNCTION public.refresh_materialized_view(materialized_view_name text);
 DROP FUNCTION public.materialised_view_updated_at();
 

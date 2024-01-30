@@ -2216,13 +2216,13 @@ CREATE UNIQUE INDEX "statistical_unit_key"
 REFRESH MATERIALIZED VIEW public.statistical_unit;
 
 
-CREATE FUNCTION public.refresh_statistical_unit()
+CREATE FUNCTION public.statistical_unit_refresh_now()
 RETURNS void AS $$
     REFRESH MATERIALIZED VIEW public.statistical_unit;
 $$ LANGUAGE sql;
---SELECT public.refresh_statistical_unit();
+--SELECT public.statistical_unit_refresh_now();
 
-CREATE FUNCTION public.statistical_unit_updated_at()
+CREATE FUNCTION public.statistical_unit_refreshed_at()
 RETURNS timestamptz AS $$
 DECLARE
     path_separator char;
@@ -2250,7 +2250,7 @@ BEGIN
     RETURN updated_at;
 END;
 $$ LANGUAGE plpgsql;
---SELECT public.statistical_unit_updated_at();
+--SELECT public.statistical_unit_refreshed_at();
 
 
 CREATE FUNCTION public.refresh_materialized_view(materialized_view_name text)
