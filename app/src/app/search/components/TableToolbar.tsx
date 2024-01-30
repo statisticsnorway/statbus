@@ -41,7 +41,7 @@ function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
   return (
     <Input
       type="text"
-      id="search-prompt"
+      id={`search-prompt-${name}`}
       placeholder={label}
       className="w-[100px] h-10 ml-2"
       value={selected[0] ?? ""}
