@@ -253,7 +253,7 @@ class StatBus
         if rowcount < @offset
           next
         elsif rowcount == @offset
-          puts "Skipped  #{rowcount.format(delimiter: '_')} rows"
+          puts "Continuing after  #{rowcount.format(delimiter: '_')} rows"
           next
         end
       end
