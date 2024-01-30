@@ -53,6 +53,7 @@ class StatBus
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
   @import_strategy = ImportStrategy::Copy
+  @offset = 0
 
   def initialize
     option_parser = build_option_parser
@@ -216,61 +217,61 @@ class StatBus
         case @import_strategy
         when ImportStrategy::Copy
           copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) FROM STDIN"
-          rowcount = 0
-          while csv_stream.next
-            csv_row = csv_stream.row
-            sql_row = @sql_field_mapping.map do |mapping|
-              csv_value = csv_row[mapping.csv]
-              if csv_value.nil?
-                nil
-              elsif csv_value.includes?("\t")
+          iterate_csv_stream(csv_stream) do |sql_row, csv_row|
+            sql_row.any? do |value|
+              if !value.nil? && value.includes?("\t")
                 raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
-              else
-                csv_value.strip
               end
             end
             sql_text = sql_row.join("\t")
             puts "Uploading #{sql_text}" if @verbose
             copy_stream.puts sql_text
-            rowcount += 1
-            if (rowcount % 10000) == 0
-              puts "Uploaded #{rowcount} rows"
-            end
           end
           puts "Waiting for processing" if @verbose
           copy_stream.close
           db.close
-          puts "Wrote #{rowcount} rows"
         when ImportStrategy::Insert
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
           sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
           puts "sql_statment = #{sql_statment}" if @verbose
           insert = db.build sql_statment
-          rowcount = 0
-          while csv_stream.next
-            csv_row = csv_stream.row
-            sql_row = @sql_field_mapping.map do |mapping|
-              csv_value = csv_row[mapping.csv]
-              if csv_value.nil?
-                nil
-              elsif csv_value.includes?("\t")
-                raise ArgumentError.new("Found illegal character TAB \\t in row #{csv_row}")
-              else
-                csv_value.strip
-              end
-            end
+          iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             puts "Uploading #{sql_row}" if @verbose
             insert.exec(args: sql_row)
-            rowcount += 1
-            if (rowcount % 1000) == 0
-              puts "Uploaded #{rowcount} rows"
-            end
           end
-          puts "Wrote #{rowcount} rows"
           db.close
         end
       end
     end
+  end
+
+  private def iterate_csv_stream(csv_stream)
+    rowcount = 0
+    while csv_stream.next
+      rowcount += 1
+      if 0 < @offset
+        if rowcount < @offset
+          next
+        elsif rowcount == @offset
+          puts "Skipped  #{rowcount} rows"
+          next
+        end
+      end
+      csv_row = csv_stream.row
+      sql_row = @sql_field_mapping.map do |mapping|
+        csv_value = csv_row[mapping.csv]
+        if csv_value.nil?
+          nil
+        else
+          csv_value.strip
+        end
+      end
+      yield(sql_row, csv_row)
+      if (rowcount % 1000) == 0
+        puts "Uploaded #{rowcount.format(',', '\'')} rows"
+      end
+    end
+    puts "Wrote #{rowcount} rows"
   end
 
   private def build_option_parser
@@ -309,6 +310,9 @@ class StatBus
         parser.on("-f FILENAME", "--file=FILENAME", "The file to read from") do |file_name|
           import_file_name = file_name
           @import_file_name = import_file_name
+        end
+        parser.on("-o offset", "--offset=NUMBER", "Number of rows to skip") do |offset|
+          @offset = offset.to_i
         end
         parser.on("-s STRATEGY", "--strategy=STRATEGY", "Use fast bulk \"copy\" or slower \"insert\" with earlier error messages.") do |strategy|
           case strategy
