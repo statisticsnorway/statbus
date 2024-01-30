@@ -1,17 +1,14 @@
 "use server"
 import React from "react";
 import {login} from "@/app/login/actions";
+import Image from "next/image";
 
 export default async function LoginPage() {
 
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <img
-          className="mx-auto h-10 w-auto"
-          src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600"
-          alt="Your Company"
-        />
+        <Image src="/statbus-logo.png" alt="Statbus Logo" width={32} height={32} className="h-10 w-auto mx-auto" />
         <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
           Sign in to your account
         </h2>
