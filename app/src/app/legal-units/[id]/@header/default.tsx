@@ -8,12 +8,11 @@ export default async function LegalUnitHeader({ params: { id }}: { params: { id:
     .eq("id", id)
     .single()
 
-
   return (
     <div className="space-y-0.5">
       <h2 className="text-2xl font-bold tracking-tight">{legalUnit?.name || id}</h2>
       <p className="text-muted-foreground">
-        Manage settings for legal unit
+        Manage settings for legal unit {id}
       </p>
     </div>
   )
