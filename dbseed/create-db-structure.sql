@@ -2158,9 +2158,9 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS enterprise_id
          , NULL::INTEGER AS enterprise_group_id
          , lu.name
-         , pa.id         AS primary_activity_category_id
-         , sa.id         AS secondary_activity_category_id
-         , phl.id        AS physical_region_id
+         , pa.activity_category_id AS primary_activity_category_id
+         , sa.activity_category_id AS secondary_activity_category_id
+         , phl.region_id           AS physical_region_id
     FROM public.legal_unit AS lu
     LEFT OUTER JOIN public.activity AS pa
             ON pa.legal_unit_id = lu.id
