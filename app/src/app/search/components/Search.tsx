@@ -32,7 +32,7 @@ export default function Search(
             </div>
             <div className="px-4">
                 <small className="text-xs text-gray-500">
-                    Showing {searchResult?.legalUnits?.length} of total {searchResult?.count}
+                    Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count}
                 </small>
             </div>
         </section>

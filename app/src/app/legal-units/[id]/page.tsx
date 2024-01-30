@@ -11,7 +11,7 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { params:
   const {data: legalUnit} = await client
     .from("legal_unit")
     .select("*")
-    .eq("tax_reg_ident", id)
+    .eq("id", id)
     .single()
 
   if (!legalUnit) {
