@@ -6,7 +6,7 @@ interface TableProps {
     searchResult: SearchResult
 }
 
-export default function SearchResultTable({searchResult: {legalUnits}}: TableProps) {
+export default function SearchResultTable({searchResult: {statisticalUnits}}: TableProps) {
     return (
         <Table>
             <TableHeader className="bg-gray-100">
@@ -18,15 +18,15 @@ export default function SearchResultTable({searchResult: {legalUnits}}: TablePro
             </TableHeader>
             <TableBody>
                 {
-                  legalUnits?.map((legalUnit) => (
-                    <TableRow key={legalUnit.tax_reg_ident}>
+                  statisticalUnits?.map(({legal_unit_id, name, primary_activity_category_id}) => (
+                    <TableRow key={legal_unit_id}>
                       <TableCell className="font-medium p-3 px-4">
-                        <Link href={`/legal-units/${legalUnit.tax_reg_ident}`}>
-                          {legalUnit.tax_reg_ident}
+                        <Link href={`/legal-units/${legal_unit_id}`}>
+                          {legal_unit_id}
                         </Link>
                       </TableCell>
-                      <TableCell className="p-3">{legalUnit.name}</TableCell>
-                      <TableCell className="text-right p-3 px-4">{legalUnit.primary_activity_category_code}</TableCell>
+                      <TableCell className="p-3">{name}</TableCell>
+                      <TableCell className="text-right p-3 px-4">{primary_activity_category_id}</TableCell>
                     </TableRow>
                   ))
                 }

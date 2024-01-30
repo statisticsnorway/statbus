@@ -20,7 +20,7 @@ export type SearchFilter = {
 }
 
 export type SearchResult = {
-    legalUnits: Partial<Tables<"legal_unit_region_activity_category_stats_current">>[]
+    statisticalUnits: Partial<Tables<"statistical_unit">>[]
     count: number
 }
 

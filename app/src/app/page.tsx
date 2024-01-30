@@ -3,10 +3,10 @@ import Search from "@/app/search/components/Search";
 
 export default async function Home() {
   const client = createClient();
-  const {data: legalUnits, count, error: legalUnitsError} = await client
-    .from('legal_unit_region_activity_category_stats_current')
-    .select('tax_reg_ident, name, primary_activity_category_code', {count: 'exact'})
-    .order('tax_reg_ident', {ascending: false})
+  const {data: statisticalUnits, count, error: legalUnitsError} = await client
+    .from('statistical_unit')
+    .select('name, primary_activity_category_id, legal_unit_id', {count: 'exact'})
+    .order('enterprise_id', {ascending: false})
     .limit(10);
 
   const {data: regions, error: regionsError} = await client
@@ -41,7 +41,7 @@ export default async function Home() {
         regions={regions ?? []}
         activityCategories={activityCategories ?? []}
         statisticalVariables={statisticalVariables ?? []}
-        initialSearchResult={{legalUnits: legalUnits ?? [], count: count ?? 0}}
+        initialSearchResult={{statisticalUnits: statisticalUnits ?? [], count: count ?? 0}}
       />
     </main>
   )
