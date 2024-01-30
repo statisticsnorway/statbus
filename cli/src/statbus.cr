@@ -253,7 +253,7 @@ class StatBus
         if rowcount < @offset
           next
         elsif rowcount == @offset
-          puts "Skipped  #{rowcount} rows"
+          puts "Skipped  #{rowcount.format(delimiter: '_')} rows"
           next
         end
       end
@@ -268,7 +268,7 @@ class StatBus
       end
       yield(sql_row, csv_row)
       if (rowcount % 1000) == 0
-        puts "Uploaded #{rowcount.format(',', '\'')} rows"
+        puts "Uploaded #{rowcount.format(delimiter: '_')} rows"
       end
     end
     puts "Wrote #{rowcount} rows"
@@ -312,7 +312,7 @@ class StatBus
           @import_file_name = import_file_name
         end
         parser.on("-o offset", "--offset=NUMBER", "Number of rows to skip") do |offset|
-          @offset = offset.to_i
+          @offset = offset.to_i(underscore: true)
         end
         parser.on("-s STRATEGY", "--strategy=STRATEGY", "Use fast bulk \"copy\" or slower \"insert\" with earlier error messages.") do |strategy|
           case strategy
