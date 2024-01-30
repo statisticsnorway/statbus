@@ -1,3 +1,5 @@
+import ProfileAvatar from "@/components/ProfileAvatar";
+
 export default function NavBar() {
   return (
     <nav className="bg-gray-100">
@@ -9,7 +11,7 @@ export default function NavBar() {
         <div className="items-center justify-between flex w-auto order-1" id="navbar-user">
           <ul className="flex flex-col font-medium">
             <li>
-              <a href="/profile">Profile</a>
+              <ProfileAvatar/>
             </li>
           </ul>
         </div>
