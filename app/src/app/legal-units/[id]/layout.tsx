@@ -23,6 +23,7 @@ export default function SettingsLayout({children, header, params: {id}}: Setting
           <SidebarNav>
             <SidebarLink href={`/legal-units/${id}`}>General info</SidebarLink>
             <SidebarLink href={`/legal-units/${id}/contact`}>Contact</SidebarLink>
+            <SidebarLink href={`/legal-units/${id}/inspect`}>Inspect</SidebarLink>
           </SidebarNav>
         </aside>
         <div className="flex-1">{children}</div>

@@ -3,15 +3,16 @@ import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import type {State} from "@/app/legal-units/[id]/general-info/action";
 import {updateGeneralInfo} from "@/app/legal-units/[id]/general-info/action";
-import {FormValue} from "@/app/legal-units/[id]/general-info/validation";
 import {useFormState} from "react-dom";
 import React from "react";
 import {Label} from "@/components/ui/label";
 import {cn} from "@/lib/utils";
+import {z} from "zod";
+import {formSchema} from "@/app/legal-units/[id]/general-info/validation";
 
 export default function GeneralInfoForm({id, values}: {
     id: string,
-    values: FormValue
+    values: z.infer<typeof formSchema>
 }) {
     const [state, formAction] = useFormState(updateGeneralInfo.bind(null, id), null)
 
@@ -19,7 +20,7 @@ export default function GeneralInfoForm({id, values}: {
         <form className="space-y-8" action={formAction}>
             <FormField label="Name" name="name" value={values.name} state={state}/>
             <FormField label="Tax Register ID" name="tax_reg_ident" value={values.tax_reg_ident} state={state}/>
-            <SubmissionFeedbackDebugInfo state={state} />
+            <SubmissionFeedbackDebugInfo state={state}/>
             <Button type="submit">Update Legal Unit</Button>
         </form>
     )
@@ -43,10 +44,13 @@ function FormField({label, name, value, state}: {
     )
 }
 
-function SubmissionFeedbackDebugInfo({state}: { state: State }) {
+function SubmissionFeedbackDebugInfo({state}: {
+    state: State
+}) {
     return state?.status ? (
         <small className="block">
-            <pre className={cn("mt-2 rounded-md bg-red-100 p-4", state.status === "success" ? "bg-green-100" : "bg-red-100")}>
+            <pre
+                className={cn("mt-2 rounded-md bg-red-100 p-4", state.status === "success" ? "bg-green-100" : "bg-red-100")}>
                 <code className="text-xs">{JSON.stringify(state, null, 2)}</code>
             </pre>
         </small>
