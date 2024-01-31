@@ -10,7 +10,7 @@ export default async function LegalUnitHeader({ params: { id }}: { params: { id:
 
   return (
     <div className="space-y-0.5">
-      <h2 className="text-2xl font-bold tracking-tight">{legalUnit?.name || id}</h2>
+      <h2 className="text-2xl font-bold tracking-tight">{legalUnit?.name || "Unnamed Organization"}</h2>
       <p className="text-muted-foreground">
         Manage settings for legal unit {id}
       </p>

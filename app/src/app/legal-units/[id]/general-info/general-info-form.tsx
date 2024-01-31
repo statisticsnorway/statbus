@@ -1,18 +1,12 @@
 'use client';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {useForm} from "react-hook-form";
-import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import {toast} from "@/components/ui/use-toast";
-
-const schema = z.object({
-  name: z.string().nullable(),
-  tax_reg_ident: z.string().nullable()
-})
-
-type FormValue = z.infer<typeof schema>
+import {updateGeneralInfo} from "@/app/legal-units/[id]/general-info/action";
+import {FormValue, schema} from "@/app/legal-units/[id]/general-info/validation";
 
 export default function GeneralInfoForm({values}: { values: FormValue }) {
 
@@ -21,7 +15,9 @@ export default function GeneralInfoForm({values}: { values: FormValue }) {
     defaultValues: values
   })
 
-  const submit = (value: FormValue) => {
+  const submit = async (value: FormValue) => {
+    await updateGeneralInfo(value)
+
     toast({
       title: "You submitted the following values:",
       description: (

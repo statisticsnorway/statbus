@@ -1,7 +1,7 @@
 import {Metadata} from "next";
 import {createClient} from "@/lib/supabase/server";
 import {notFound} from "next/navigation";
-import GeneralInfoForm from "@/app/legal-units/[id]/general-info-form";
+import GeneralInfoForm from "@/app/legal-units/[id]/general-info/general-info-form";
 import {Separator} from "@/components/ui/separator";
 
 export const metadata: Metadata = {
