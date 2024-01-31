@@ -1,64 +1,54 @@
 'use client';
-import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
-import {useForm} from "react-hook-form";
-import {zodResolver} from "@hookform/resolvers/zod";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
-import {toast} from "@/components/ui/use-toast";
+import type {State} from "@/app/legal-units/[id]/general-info/action";
 import {updateGeneralInfo} from "@/app/legal-units/[id]/general-info/action";
-import {FormValue, schema} from "@/app/legal-units/[id]/general-info/validation";
+import {FormValue} from "@/app/legal-units/[id]/general-info/validation";
+import {useFormState} from "react-dom";
+import React from "react";
+import {Label} from "@/components/ui/label";
+import {cn} from "@/lib/utils";
 
-export default function GeneralInfoForm({values}: { values: FormValue }) {
+export default function GeneralInfoForm({id, values}: {
+    id: string,
+    values: FormValue
+}) {
+    const [state, formAction] = useFormState(updateGeneralInfo.bind(null, id), null)
 
-  const form = useForm<FormValue>({
-    resolver: zodResolver(schema),
-    defaultValues: values
-  })
+    return (
+        <form className="space-y-8" action={formAction}>
+            <FormField label="Name" name="name" value={values.name} state={state}/>
+            <FormField label="Tax Register ID" name="tax_reg_ident" value={values.tax_reg_ident} state={state}/>
+            <SubmissionFeedbackDebugInfo state={state} />
+            <Button type="submit">Update Legal Unit</Button>
+        </form>
+    )
+}
 
-  const submit = async (value: FormValue) => {
-    await updateGeneralInfo(value)
+function FormField({label, name, value, state}: {
+    label: string,
+    name: string,
+    value: string | null,
+    state: State
+}) {
+    const error = state?.status === "error" ? state?.errors?.find(a => a.path === name) : null
+    return (
+        <div>
+            <Label className="space-y-2 block">
+                <span className="uppercase text-xs text-gray-600">{label}</span>
+                <Input type="text" name={name} defaultValue={value ?? ""} autoComplete="off"/>
+            </Label>
+            {error ? (<span className="mt-2 block text-sm text-red-500">{error?.message}</span>) : null}
+        </div>
+    )
+}
 
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 rounded-md bg-slate-950 p-4">
-          <code className="text-white text-xs">{JSON.stringify(value, null, 2)}</code>
-        </pre>
-      ),
-    })
-  }
-
-  return (
-    <Form {...form}>
-      <form className="space-y-8" onSubmit={form.handleSubmit(submit)}>
-        <FormField
-          control={form.control}
-          name="name"
-          render={({field: {value, ...rest}}) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Unit name" {...rest} value={value ?? ""}/>
-              </FormControl>
-              <FormMessage/>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="tax_reg_ident"
-          render={({field: {value, ...rest}}) => (
-            <FormItem>
-              <FormLabel>Tax Reg Ident</FormLabel>
-              <FormControl>
-                <Input placeholder="Tax Reg Ident" {...rest} value={value ?? ""}/>
-              </FormControl>
-              <FormMessage/>
-            </FormItem>
-          )}
-        />
-        <Button type="submit">Update Legal Unit</Button>
-      </form>
-    </Form>
-  )
+function SubmissionFeedbackDebugInfo({state}: { state: State }) {
+    return state?.status ? (
+        <small className="block">
+            <pre className={cn("mt-2 rounded-md bg-red-100 p-4", state.status === "success" ? "bg-green-100" : "bg-red-100")}>
+                <code className="text-xs">{JSON.stringify(state, null, 2)}</code>
+            </pre>
+        </small>
+    ) : null
 }

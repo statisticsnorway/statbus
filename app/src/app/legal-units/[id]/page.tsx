@@ -29,12 +29,7 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { params:
         </p>
       </div>
       <Separator />
-      <GeneralInfoForm values={legalUnit} />
-      <div>
-        <pre className="mt-2 rounded-md bg-slate-950 p-4">
-          <code className="text-white text-xs">{JSON.stringify(legalUnit, null, 2)}</code>
-        </pre>
-      </div>
+      <GeneralInfoForm values={legalUnit} id={id} />
     </div>
   )
 }

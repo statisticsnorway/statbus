@@ -1,33 +1,54 @@
 "use server";
 import {createClient} from "@/lib/supabase/server";
-import {FormValue, schema} from "@/app/legal-units/[id]/general-info/validation";
+import {formSchema} from "@/app/legal-units/[id]/general-info/validation";
 import {revalidatePath} from "next/cache";
 
-export async function updateGeneralInfo(formValue: FormValue) {
-  "use server";
-  const client = createClient()
+export type State = {
+    status: "success";
+    message: string;
+} | {
+    status: "error";
+    message: string;
+    errors?: Array<{
+        path: string;
+        message: string;
+    }>;
+} | null;
 
-  try {
-    const data = schema.parse(formValue)
+export async function updateGeneralInfo(id: string, _prevState: any, formData: FormData): Promise<State> {
+    "use server";
+    const supabase = createClient()
+    const validatedFields = formSchema.safeParse(formData)
 
-    const response = await client
-      .from('legal_unit')
-      .update(data)
-      .eq('tax_reg_ident', data.tax_reg_ident!!)
-
-    if (response.status >= 400) {
-      console.error('failed to update legal unit general info')
-      console.error(response.error)
-      return {error: response.statusText}
+    if (!validatedFields.success) {
+        console.error('failed to parse form data', validatedFields.error)
+        return {
+            status: "error",
+            message: "failed to parse form data",
+            errors: validatedFields.error.issues.map(issue => ({
+                path: issue.path.join("."),
+                message: issue.message
+            })),
+        }
     }
 
-    revalidatePath("/legal-units/[id]/general-info", "page")
+    try {
+        const response = await supabase
+            .from('legal_unit')
+            .update(validatedFields.data)
+            .eq('id', id)
 
-  } catch (error) {
-    console.error('failed to update legal unit general info', error)
-    return {error}
-  }
+        if (response.status >= 400) {
+            console.error('failed to update legal unit general info', response.error)
+            return {status: "error", message: response.statusText}
+        }
 
-  return {error: null}
+        revalidatePath("/legal-units/[id]/general-info", "page")
+
+    } catch (error) {
+        return {status: "error", message: "failed to update legal unit general info"}
+    }
+
+    return {status: "success", message: "Legal unit general info successfully updated"}
 }
 
