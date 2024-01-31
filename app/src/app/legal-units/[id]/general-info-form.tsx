@@ -4,7 +4,6 @@ import {useForm} from "react-hook-form";
 import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {Input} from "@/components/ui/input";
-import {Tables} from "@/lib/database.types";
 import {Button} from "@/components/ui/button";
 import {toast} from "@/components/ui/use-toast";
 
@@ -15,11 +14,11 @@ const schema = z.object({
 
 type FormValue = z.infer<typeof schema>
 
-export default function GeneralInfoForm({unit}: { unit: Tables<'legal_unit'> }) {
+export default function GeneralInfoForm({values}: { values: FormValue }) {
 
   const form = useForm<FormValue>({
     resolver: zodResolver(schema),
-    defaultValues: unit
+    defaultValues: values
   })
 
   const submit = (value: FormValue) => {

@@ -25,11 +25,11 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { params:
       <div>
         <h3 className="text-lg font-medium">General Info</h3>
         <p className="text-sm text-muted-foreground">
-          General information for a statistical unit.
+          General information such as name, id, sector and primary activity.
         </p>
       </div>
       <Separator />
-      <GeneralInfoForm unit={legalUnit} />
+      <GeneralInfoForm values={legalUnit} />
       <div>
         <pre className="mt-2 rounded-md bg-slate-950 p-4">
           <code className="text-white text-xs">{JSON.stringify(legalUnit, null, 2)}</code>
