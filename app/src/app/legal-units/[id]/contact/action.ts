@@ -1,10 +1,10 @@
 "use server";
 import {createClient} from "@/lib/supabase/server";
-import {formSchema} from "@/app/legal-units/[id]/general-info/validation";
 import {revalidatePath} from "next/cache";
 import {UpdateResponse} from "@/app/legal-units/types";
+import {formSchema} from "@/app/legal-units/[id]/contact/validation";
 
-export async function updateGeneralInfo(id: string, _prevState: any, formData: FormData): Promise<UpdateResponse> {
+export async function updateContactInfo(id: string, _prevState: any, formData: FormData): Promise<UpdateResponse> {
     "use server";
     const supabase = createClient()
     const validatedFields = formSchema.safeParse(formData)
@@ -30,12 +30,12 @@ export async function updateGeneralInfo(id: string, _prevState: any, formData: F
             return {status: "error", message: response.statusText}
         }
 
-        revalidatePath("/legal-units/[id]/general-info", "page")
+        revalidatePath("/legal-units/[id]/contact", "page")
 
     } catch (error) {
-        return {status: "error", message: "failed to update legal unit general info"}
+        return {status: "error", message: "failed to update legal unit"}
     }
 
-    return {status: "success", message: "Legal unit general info successfully updated"}
+    return {status: "success", message: "Legal unit successfully updated"}
 }
 

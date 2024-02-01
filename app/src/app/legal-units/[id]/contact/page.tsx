@@ -2,6 +2,7 @@ import {Metadata} from "next";
 import {createClient} from "@/lib/supabase/server";
 import {notFound} from "next/navigation";
 import {Separator} from "@/components/ui/separator";
+import ContactInfoForm from "@/app/legal-units/[id]/contact/contact-info-form";
 
 export const metadata: Metadata = {
   title: "Legal Unit | Contact"
@@ -27,10 +28,8 @@ export default async function LegalUnitContactPage({params: {id}}: { params: { i
           Contact information such as email, phone, and addresses.
         </p>
       </div>
-      <Separator />
-      <div className="bg-amber-100 p-8 flex justify-center align-middle">
-        Contact form goes here...
-      </div>
+      <Separator/>
+      <ContactInfoForm values={legalUnit} id={id}/>
     </div>
   )
 }

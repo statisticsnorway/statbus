@@ -1,0 +1,26 @@
+'use client';
+import {Button} from "@/components/ui/button";
+import {useFormState} from "react-dom";
+import React from "react";
+import {z} from "zod";
+import {formSchema} from "@/app/legal-units/[id]/contact/validation";
+import {FormField} from "@/app/legal-units/components/form-field";
+import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submission-feedback-debug-info";
+import {updateContactInfo} from "@/app/legal-units/[id]/contact/action";
+
+export default function ContactInfoForm({id, values}: {
+  id: string,
+  values: z.infer<typeof formSchema>
+}) {
+  const [state, formAction] = useFormState(updateContactInfo.bind(null, id), null)
+
+  return (
+    <form className="space-y-8" action={formAction}>
+      <FormField label="Email address" name="email_address" value={values.email_address} response={state}/>
+      <FormField label="Telephone number" name="telephone_no" value={values.telephone_no} response={state}/>
+      <FormField label="Web Address" name="web_address" value={values.web_address} response={state}/>
+      <SubmissionFeedbackDebugInfo state={state}/>
+      <Button type="submit">Update Contact Information</Button>
+    </form>
+  )
+}
