@@ -21,7 +21,6 @@ export async function updateGeneralInfo(id: string, _prevState: any, formData: F
     const validatedFields = formSchema.safeParse(formData)
 
     if (!validatedFields.success) {
-        console.error('failed to parse form data', validatedFields.error)
         return {
             status: "error",
             message: "failed to parse form data",
@@ -39,7 +38,6 @@ export async function updateGeneralInfo(id: string, _prevState: any, formData: F
             .eq('id', id)
 
         if (response.status >= 400) {
-            console.error('failed to update legal unit general info', response.error)
             return {status: "error", message: response.statusText}
         }
 
