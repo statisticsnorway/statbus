@@ -7,19 +7,23 @@ import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import React from "react";
 import {ErrorBox} from "@/components/error-box";
-import {uploadCustomActivityCodes} from "@/app/getting-started/getting-started-actions";
+import type {UploadView} from "@/app/getting-started/getting-started-actions";
+import {uploadFile} from "@/app/getting-started/getting-started-actions";
 
 const initialState: { error: string | null } = {
   error: null
 }
 
+const filename = "custom_activity_category_codes"
+const uploadView: UploadView = "activity_category_available_custom"
+
 export default function UploadCustomActivitiesForm() {
-  const [state, formAction] = useFormState(uploadCustomActivityCodes, initialState)
+  const [state, formAction] = useFormState(uploadFile.bind(null, filename, uploadView), initialState)
 
   return (
     <form action={formAction} className="space-y-6 bg-green-100 p-6">
       <Label className="block" htmlFor="custom-activity-categories-file">Select Custom Activity Categories file:</Label>
-      <Input required id="custom-activity-categories-file" type="file" name="custom_activity_category_codes"/>
+      <Input required id="custom-activity-categories-file" type="file" name={filename}/>
       {
         state.error ? (
           <ErrorBox>

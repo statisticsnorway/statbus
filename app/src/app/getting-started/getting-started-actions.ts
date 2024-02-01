@@ -8,13 +8,18 @@ interface State {
     error: string | null
 }
 
-export async function uploadRegions(_prevState: State, formData: FormData): Promise<State> {
+export type UploadView =
+    "region_upload"
+    | "legal_unit_region_activity_category_stats_current"
+    | "activity_category_available_custom"
+
+export async function uploadFile(filename: string, uploadView: UploadView, _prevState: State, formData: FormData): Promise<State> {
     "use server";
 
     try {
-        const file = formData.get('regions') as File
+        const file = formData.get(filename) as File
         const authFetch = setupAuthorizedFetchFn()
-        const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/region_upload`, {
+        const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/${uploadView}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/csv'
@@ -24,72 +29,23 @@ export async function uploadRegions(_prevState: State, formData: FormData): Prom
 
         if (!response.ok) {
             const data = await response.json()
-            console.error(`regions upload failed with status ${response.status} ${response.statusText}`)
+            console.error(`upload to ${uploadView} failed with status ${response.status} ${response.statusText}`)
             console.error(data)
             return {error: data.message.replace(/,/g, ', ')}
         }
 
     } catch (e) {
-        return {error: 'failed to upload regions'}
+        return {error: `failed to upload in view ${uploadView}`}
     }
 
-    return redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
-}
-
-export async function uploadLegalUnits(_prevState: State, formData: FormData): Promise<State> {
-    "use server";
-
-    try {
-        const file = formData.get('legal_units') as File
-        const authFetch = setupAuthorizedFetchFn()
-        const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/legal_unit_region_activity_category_stats_current`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/csv'
-            },
-            body: file
-        })
-
-        if (!response.ok) {
-            const data = await response.json()
-            console.error(`legal units upload failed with status ${response.status} ${response.statusText}`)
-            console.error(data)
-            return {error: data.message.replace(/,/g, ', ')}
-        }
-
-    } catch (e) {
-        return {error: 'failed to upload legal units'}
+    switch (uploadView) {
+        case "region_upload":
+            return redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
+        case "activity_category_available_custom":
+            return redirect('/getting-started/upload-legal-units', RedirectType.push)
+        case "legal_unit_region_activity_category_stats_current":
+            return redirect('/getting-started/summary', RedirectType.push)
     }
-
-    return redirect('/getting-started/summary', RedirectType.push)
-}
-
-export async function uploadCustomActivityCodes(_prevState: State, formData: FormData): Promise<State> {
-    "use server";
-
-    try {
-        const file = formData.get('custom_activity_category_codes') as File
-        const authFetch = setupAuthorizedFetchFn()
-        const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/activity_category_available_custom`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/csv'
-            },
-            body: file
-        })
-
-        if (!response.ok) {
-            const data = await response.json()
-            console.error(`failed to upload custom activity category standards with status ${response.status} ${response.statusText}`)
-            console.error(data)
-            return {error: data.message}
-        }
-
-    } catch (e) {
-        return {error: 'failed to upload custom activity category standards'}
-    }
-
-    return redirect('/getting-started/upload-legal-units', RedirectType.push)
 }
 
 export async function setCategoryStandard(formData: FormData) {

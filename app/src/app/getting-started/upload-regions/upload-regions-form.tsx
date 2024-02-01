@@ -7,19 +7,22 @@ import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import React from "react";
 import {ErrorBox} from "@/components/error-box";
-import {uploadRegions} from "@/app/getting-started/getting-started-actions";
+import {uploadFile, UploadView} from "@/app/getting-started/getting-started-actions";
 
 const initialState: { error: string | null } = {
   error: null
 }
 
+const filename = "regions"
+const uploadView: UploadView = "region_upload"
+
 export default function UploadRegionsForm() {
-  const [state, formAction] = useFormState(uploadRegions, initialState)
+    const [state, formAction] = useFormState(uploadFile.bind(null, filename, uploadView), initialState)
 
   return (
     <form action={formAction} className="space-y-6 bg-green-100 p-6">
       <Label className="block" htmlFor="regions-file">Select regions file:</Label>
-      <Input required id="regions-file" type="file" name="regions"/>
+      <Input required id="regions-file" type="file" name={filename}/>
       {
         state.error ? (
           <ErrorBox>
