@@ -29,24 +29,22 @@ while $starting; do
 	-H "apikey: $SERVICE_ROLE_KEY" && starting=false
 done
 
-curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/admin/users" \
--H 'accept: application/json' \
--H "apikey: $SERVICE_ROLE_KEY" \
--H "authorization: Bearer $SERVICE_ROLE_KEY" \
--H 'content-type: application/json' \
---data-raw '{"email":"jorgen@veridit.no", "password":"thaik0VooD8p", "email_confirm": true}' 
-curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/admin/users" \
--H 'accept: application/json' \
--H "apikey: $SERVICE_ROLE_KEY" \
--H "authorization: Bearer $SERVICE_ROLE_KEY" \
--H 'content-type: application/json' \
---data-raw '{"email":"erik.soberg@ssb.no", "password":"Chei4Aijiexu", "email_confirm": true}' 
-curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/admin/users" \
--H 'accept: application/json' \
--H "apikey: $SERVICE_ROLE_KEY" \
--H "authorization: Bearer $SERVICE_ROLE_KEY" \
--H 'content-type: application/json' \
---data-raw '{"email":"jonas.lundeland@sonat.no", "password":"shaiShozoe9O", "email_confirm": true}' 
+echo 'Creating users defined in STATBUS_USERS_JSON=[{"email":"john@doe.com","password":"secret"}, ...]'
+
+# Parse the JSON array and iterate over each object
+echo "${STATBUS_USERS_JSON}" | jq -c '.[]' | while read -r user; do
+  # Extract user details using jq
+  email=$(echo "${user}" | jq -r '.email')
+  password=$(echo "${user}" | jq -r '.password')
+
+  # Run the curl command for each user
+  curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/admin/users" \
+    -H 'accept: application/json' \
+    -H "apikey: $SERVICE_ROLE_KEY" \
+    -H "authorization: Bearer $SERVICE_ROLE_KEY" \
+    -H 'content-type: application/json' \
+    --data-raw "{\"email\":\"$email\", \"password\":\"$password\", \"email_confirm\":true}"
+done
 
 popd
 
