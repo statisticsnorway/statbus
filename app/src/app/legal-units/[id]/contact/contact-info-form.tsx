@@ -3,16 +3,16 @@ import {Button} from "@/components/ui/button";
 import {useFormState} from "react-dom";
 import React from "react";
 import {z} from "zod";
-import {formSchema} from "@/app/legal-units/[id]/contact/validation";
+import {contactInfoSchema} from "@/app/legal-units/[id]/contact/validation";
 import {FormField} from "@/app/legal-units/components/form-field";
 import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submission-feedback-debug-info";
-import {updateContactInfo} from "@/app/legal-units/[id]/contact/action";
+import {updateLegalUnit} from "@/app/legal-units/[id]/action";
 
 export default function ContactInfoForm({id, values}: {
   readonly id: string,
-  readonly values: z.infer<typeof formSchema>
+  readonly values: z.infer<typeof contactInfoSchema>
 }) {
-  const [state, formAction] = useFormState(updateContactInfo.bind(null, id), null)
+  const [state, formAction] = useFormState(updateLegalUnit.bind(null, id, "contact-info"), null)
 
   return (
     <form className="space-y-8" action={formAction}>

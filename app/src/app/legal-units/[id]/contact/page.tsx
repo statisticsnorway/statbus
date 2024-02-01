@@ -1,22 +1,17 @@
 import {Metadata} from "next";
-import {createClient} from "@/lib/supabase/server";
 import {notFound} from "next/navigation";
 import {Separator} from "@/components/ui/separator";
 import ContactInfoForm from "@/app/legal-units/[id]/contact/contact-info-form";
+import {getLegalUnitById} from "@/app/legal-units/[id]/requests";
 
 export const metadata: Metadata = {
   title: "Legal Unit | Contact"
 }
 
 export default async function LegalUnitContactPage({params: {id}}: { readonly params: { id: string } }) {
-  const client = createClient()
-  const {data: legalUnit} = await client
-    .from("legal_unit")
-    .select("*")
-    .eq("id", id)
-    .single()
+  const unit = await getLegalUnitById(id);
 
-  if (!legalUnit) {
+  if (!unit) {
     notFound()
   }
 
@@ -29,7 +24,7 @@ export default async function LegalUnitContactPage({params: {id}}: { readonly pa
         </p>
       </div>
       <Separator/>
-      <ContactInfoForm values={legalUnit} id={id}/>
+      <ContactInfoForm values={unit} id={id}/>
     </div>
   )
 }

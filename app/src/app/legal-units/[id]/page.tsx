@@ -1,22 +1,17 @@
 import {Metadata} from "next";
-import {createClient} from "@/lib/supabase/server";
 import {notFound} from "next/navigation";
 import GeneralInfoForm from "@/app/legal-units/[id]/general-info/general-info-form";
 import {Separator} from "@/components/ui/separator";
+import {getLegalUnitById} from "@/app/legal-units/[id]/requests";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info"
 }
 
 export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonly params: { id: string } }) {
-  const client = createClient()
-  const {data: legalUnit} = await client
-    .from("legal_unit")
-    .select("*")
-    .eq("id", id)
-    .single()
+  const unit = await getLegalUnitById(id)
 
-  if (!legalUnit) {
+  if (!unit) {
     notFound()
   }
 
@@ -28,8 +23,8 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
           General information such as name, id, sector and primary activity.
         </p>
       </div>
-      <Separator />
-      <GeneralInfoForm values={legalUnit} id={id} />
+      <Separator/>
+      <GeneralInfoForm values={unit} id={id}/>
     </div>
   )
 }
