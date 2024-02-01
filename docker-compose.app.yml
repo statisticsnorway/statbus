@@ -16,3 +16,4 @@ services:
     environment:
       - SUPABASE_ANON_KEY
       - SUPABASE_URL
+    restart: unless-stopped
