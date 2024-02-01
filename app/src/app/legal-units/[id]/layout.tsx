@@ -8,9 +8,9 @@ export const metadata: Metadata = {
 }
 
 interface SettingsLayoutProps {
-  children: ReactNode,
-  header: ReactNode,
-  params: { id: string }
+  readonly children: ReactNode,
+  readonly header: ReactNode,
+  readonly params: { id: string }
 }
 
 export default function SettingsLayout({children, header, params: {id}}: SettingsLayoutProps) {

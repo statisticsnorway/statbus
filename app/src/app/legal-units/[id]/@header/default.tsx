@@ -1,6 +1,6 @@
 import {createClient} from "@/lib/supabase/server";
 
-export default async function LegalUnitHeader({ params: { id }}: { params: { id: string } }) {
+export default async function LegalUnitHeader({params: {id}}: { readonly params: { id: string } }) {
   const client = createClient()
   const {data: legalUnit} = await client
     .from("legal_unit")

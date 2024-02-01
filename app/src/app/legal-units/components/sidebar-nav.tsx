@@ -5,7 +5,7 @@ import Link from "next/link";
 import {buttonVariants} from "@/components/ui/button";
 import {usePathname} from "next/navigation";
 
-export function SidebarLink({children, href}: { children: ReactNode, href: string }) {
+export function SidebarLink({children, href}: { readonly children: ReactNode, readonly href: string }) {
   const pathname = usePathname()
 
   return (

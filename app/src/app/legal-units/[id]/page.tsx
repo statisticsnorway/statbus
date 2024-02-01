@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Legal Unit | General Info"
 }
 
-export default async function LegalUnitGeneralInfoPage({params: {id}}: { params: { id: string } }) {
+export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonly params: { id: string } }) {
   const client = createClient()
   const {data: legalUnit} = await client
     .from("legal_unit")

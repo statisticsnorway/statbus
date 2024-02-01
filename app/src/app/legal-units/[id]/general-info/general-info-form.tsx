@@ -9,8 +9,8 @@ import {FormField} from "@/app/legal-units/components/form-field";
 import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submission-feedback-debug-info";
 
 export default function GeneralInfoForm({id, values}: {
-  id: string,
-  values: z.infer<typeof formSchema>
+  readonly id: string,
+  readonly values: z.infer<typeof formSchema>
 }) {
   const [state, formAction] = useFormState(updateGeneralInfo.bind(null, id), null)
 

@@ -4,10 +4,10 @@ import React from "react";
 import {UpdateResponse} from "@/app/legal-units/types";
 
 export function FormField({label, name, value, response}: {
-  label: string,
-  name: string,
-  value?: string | null,
-  response: UpdateResponse
+  readonly label: string,
+  readonly name: string,
+  readonly value?: string | null,
+  readonly response: UpdateResponse
 }) {
   const error = response?.status === "error" ? response?.errors?.find(a => a.path === name) : null
   return (

@@ -2,7 +2,7 @@
 import {User} from "lucide-react";
 import {cn} from "@/lib/utils";
 
-export default function ProfileAvatar({className}: { className?: string }) {
+export default function ProfileAvatar({className}: { readonly className?: string }) {
   return (
     <a
       href="/profile"

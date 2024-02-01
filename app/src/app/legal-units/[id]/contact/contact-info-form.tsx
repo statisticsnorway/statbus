@@ -9,8 +9,8 @@ import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submissi
 import {updateContactInfo} from "@/app/legal-units/[id]/contact/action";
 
 export default function ContactInfoForm({id, values}: {
-  id: string,
-  values: z.infer<typeof formSchema>
+  readonly id: string,
+  readonly values: z.infer<typeof formSchema>
 }) {
   const [state, formAction] = useFormState(updateContactInfo.bind(null, id), null)
 
