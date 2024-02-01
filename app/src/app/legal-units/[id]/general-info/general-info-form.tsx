@@ -1,0 +1,25 @@
+'use client';
+import {Button} from "@/components/ui/button";
+import {updateLegalUnit} from "@/app/legal-units/[id]/action";
+import {useFormState} from "react-dom";
+import React from "react";
+import {z} from "zod";
+import {generalInfoSchema} from "@/app/legal-units/[id]/general-info/validation";
+import {FormField} from "@/app/legal-units/components/form-field";
+import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submission-feedback-debug-info";
+
+export default function GeneralInfoForm({id, values}: {
+  readonly id: string,
+  readonly values: z.infer<typeof generalInfoSchema>
+}) {
+  const [state, formAction] = useFormState(updateLegalUnit.bind(null, id, "general-info"), null)
+
+  return (
+    <form className="space-y-8" action={formAction}>
+      <FormField label="Name" name="name" value={values.name} response={state}/>
+      <FormField label="Tax Register ID" name="tax_reg_ident" value={values.tax_reg_ident} response={state}/>
+      <SubmissionFeedbackDebugInfo state={state}/>
+      <Button type="submit">Update Legal Unit</Button>
+    </form>
+  )
+}

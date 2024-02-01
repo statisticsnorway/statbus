@@ -9,15 +9,15 @@ export async function GET(request: Request) {
     }
 
     if (!searchParams.has('order')) {
-        searchParams.set('order', 'tax_reg_ident.desc')
+        searchParams.set('order', 'enterprise_id.desc')
     }
 
     if (!searchParams.has('select')) {
-        searchParams.set('select', 'tax_reg_ident,name, name, primary_activity_category_code')
+        searchParams.set('select', 'name, primary_activity_category_id, legal_unit_id, physical_region_id')
     }
 
     const authFetch = setupAuthorizedFetchFn()
-    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/legal_unit_region_activity_category_stats_current?${searchParams}`, {
+    const response = await authFetch(`${process.env.SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`, {
         method: 'GET',
         headers: {
             'Prefer': 'count=exact',
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         return NextResponse.json({error: response.statusText})
     }
 
-    const legalUnits = await response.json()
+    const statisticalUnits = await response.json()
     const count = response.headers.get('content-range')?.split('/')[1]
-    return NextResponse.json({legalUnits, count: parseInt(count ?? '-1', 10)})
+    return NextResponse.json({statisticalUnits, count: parseInt(count ?? '-1', 10)})
 }

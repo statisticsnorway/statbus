@@ -56,7 +56,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
     },
     {
       type: "options",
-      name: "physical_region_code",
+      name: "physical_region_id",
       label: "Region",
       options: regions.map(({code, name}) => (
         {
