@@ -1,8 +1,8 @@
 import {Dispatch, useCallback} from "react";
 import {Input} from "@/components/ui/input";
-import {OptionsFilter} from "@/app/search/components/OptionsFilter";
-import {ResetFilterButton} from "@/app/search/components/ResetFilterButton";
-import {ConditionalFilter} from "@/app/search/components/ConditionalFilter";
+import {OptionsFilter} from "@/app/search/components/options-filter";
+import {ResetFilterButton} from "@/app/search/components/reset-filter-button";
+import {ConditionalFilter} from "@/app/search/components/conditional-filter";
 import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
 
 interface TableToolbarProps {

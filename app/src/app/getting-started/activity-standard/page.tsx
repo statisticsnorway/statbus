@@ -1,5 +1,5 @@
 import React from "react";
-import CategoryStandardForm from "@/app/getting-started/activity-standard/_components/CategoryStandardForm";
+import CategoryStandardForm from "@/app/getting-started/activity-standard/category-standard-form";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {createClient} from "@/lib/supabase/server";
 

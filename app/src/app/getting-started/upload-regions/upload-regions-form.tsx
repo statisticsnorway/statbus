@@ -6,8 +6,8 @@ import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import React from "react";
-import {ErrorBox} from "@/components/ErrorBox";
-import {uploadRegions} from "@/app/getting-started/upload-regions/actions";
+import {ErrorBox} from "@/components/error-box";
+import {uploadRegions} from "@/app/getting-started/getting-started-actions";
 
 const initialState: { error: string | null } = {
   error: null

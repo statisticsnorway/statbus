@@ -1,7 +1,7 @@
-import ProfileAvatar from "@/components/ProfileAvatar";
+import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 
-export default function NavBar() {
+export default function Navbar() {
   return (
     <nav className="bg-gray-100">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">

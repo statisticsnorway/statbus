@@ -6,20 +6,20 @@ import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import React from "react";
-import {ErrorBox} from "@/components/ErrorBox";
-import {uploadCustomActivityCodes} from "@/app/getting-started/upload-custom-activity-standard-codes/actions";
+import {ErrorBox} from "@/components/error-box";
+import {uploadLegalUnits} from "@/app/getting-started/getting-started-actions";
 
 const initialState: { error: string | null } = {
   error: null
 }
 
-export default function UploadCustomActivitiesForm() {
-  const [state, formAction] = useFormState(uploadCustomActivityCodes, initialState)
+export default function UploadLegalUnitsForm() {
+  const [state, formAction] = useFormState(uploadLegalUnits, initialState)
 
   return (
     <form action={formAction} className="space-y-6 bg-green-100 p-6">
-      <Label className="block" htmlFor="custom-activity-categories-file">Select Custom Activity Categories file:</Label>
-      <Input required id="custom-activity-categories-file" type="file" name="custom_activity_category_codes"/>
+      <Label className="block" htmlFor="legal-units-file">Select Legal Units file:</Label>
+      <Input required id="legal-units-file" type="file" name="legal_units"/>
       {
         state.error ? (
           <ErrorBox>
@@ -29,7 +29,7 @@ export default function UploadCustomActivitiesForm() {
       }
       <div className="space-x-3">
         <Button type="submit">Upload</Button>
-        <Link href="/getting-started/upload-legal-units" className={buttonVariants({variant: 'outline'})}>Skip</Link>
+        <Link href="/getting-started/summary" className={buttonVariants({variant: 'outline'})}>Skip</Link>
       </div>
     </form>
   )

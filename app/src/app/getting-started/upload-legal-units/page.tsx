@@ -1,8 +1,8 @@
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import React from "react";
-import {InfoBox} from "@/components/InfoBox";
+import {InfoBox} from "@/components/info-box";
 import {createClient} from "@/lib/supabase/server";
-import UploadLegalUnitsForm from "@/app/getting-started/upload-legal-units/UploadLegalUnitsForm";
+import UploadLegalUnitsForm from "@/app/getting-started/upload-legal-units/upload-legal-units-form";
 
 export default async function UploadLegalUnitsPage() {
   const client = createClient()

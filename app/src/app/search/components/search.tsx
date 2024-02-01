@@ -1,9 +1,9 @@
 "use client";
-import TableToolbar from "@/app/search/components/TableToolbar";
+import TableToolbar from "@/app/search/components/table-toolbar";
 import {Tables} from "@/lib/database.types";
-import SearchResultTable from "@/app/search/components/SearchResultTable";
-import useSearch from "@/app/search/hooks/useSearch";
-import {useFilter} from "@/app/search/hooks/useFilter";
+import SearchResultTable from "@/app/search/components/search-result-table";
+import useSearch from "@/app/search/hooks/use-search";
+import {useFilter} from "@/app/search/hooks/use-filter";
 import type {SearchResult} from "@/app/search/search.types";
 
 interface SearchProps {

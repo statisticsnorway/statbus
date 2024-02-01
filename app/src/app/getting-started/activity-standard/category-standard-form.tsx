@@ -5,9 +5,9 @@ import {RadioGroup, RadioGroupItem} from "@/components/ui/radio-group"
 import {Button, buttonVariants} from "@/components/ui/button";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage,} from "@/components/ui/form"
 import {useForm} from "react-hook-form";
-import {setCategoryStandard} from "@/app/getting-started/activity-standard/actions";
 import Link from "next/link";
 import {Tables} from "@/lib/database.types";
+import {setCategoryStandard} from "@/app/getting-started/getting-started-actions";
 
 interface CategoryStandardFormProps {
   readonly standards: Tables<'activity_category_standard'>[] | null

@@ -1,11 +1,10 @@
 "use client"
 
 import * as React from "react"
-import {resetSettings} from "@/app/_actions/resetSettings";
-import {resetRegions} from "@/app/_actions/resetRegions";
 import {useToast} from "@/components/ui/use-toast";
 import {useRouter} from "next/navigation";
 import {Footprints, Home, Pilcrow, Trash, Upload, User} from "lucide-react"
+import {resetLegalUnits, resetRegions, resetSettings} from "@/components/command-palette/command-palette-actions";
 
 import {
   CommandDialog,
@@ -16,7 +15,6 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
-import {resetLegalUnits} from "@/app/_actions/resetLegalUnits";
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)

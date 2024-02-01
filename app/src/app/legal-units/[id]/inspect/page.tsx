@@ -1,7 +1,7 @@
 import {Metadata} from "next";
 import {notFound} from "next/navigation";
 import {Separator} from "@/components/ui/separator";
-import {getLegalUnitById} from "@/app/legal-units/[id]/requests";
+import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
 
 export const metadata: Metadata = {
   title: "Legal Unit | Inspect"
