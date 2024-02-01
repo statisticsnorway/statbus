@@ -17,7 +17,7 @@ services:
     container_name: ${COMPOSE_INSTANCE_NAME}-rest
   realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
-    container_name: realtime-dev.statbus-realtime
+    container_name: ${COMPOSE_INSTANCE_NAME}-realtime
   storage:
     container_name: ${COMPOSE_INSTANCE_NAME}-storage
   imgproxy:
