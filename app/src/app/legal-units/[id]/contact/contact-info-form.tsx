@@ -6,7 +6,7 @@ import {z} from "zod";
 import {contactInfoSchema} from "@/app/legal-units/[id]/contact/validation";
 import {FormField} from "@/app/legal-units/components/form-field";
 import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submission-feedback-debug-info";
-import {updateLegalUnit} from "@/app/legal-units/[id]/action";
+import {updateLegalUnit} from "@/app/legal-units/[id]/update-legal-unit-actions";
 
 export default function ContactInfoForm({id, values}: {
   readonly id: string,

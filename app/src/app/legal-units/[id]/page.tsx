@@ -2,7 +2,7 @@ import {Metadata} from "next";
 import {notFound} from "next/navigation";
 import GeneralInfoForm from "@/app/legal-units/[id]/general-info/general-info-form";
 import {Separator} from "@/components/ui/separator";
-import {getLegalUnitById} from "@/app/legal-units/[id]/requests";
+import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info"

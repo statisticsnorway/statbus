@@ -1,7 +1,7 @@
 import React from "react";
-import {InfoBox} from "@/components/InfoBox";
+import {InfoBox} from "@/components/info-box";
 import {createClient} from "@/lib/supabase/server";
-import UploadCustomActivitiesForm from "@/app/getting-started/upload-custom-activity-standard-codes/UploadCustomActivitiesForm";
+import UploadCustomActivitiesForm from "@/app/getting-started/upload-custom-activity-standard-codes/upload-custom-activities-form";
 
 export default async function UploadCustomActivityCategoryCodesPage() {
   const client = createClient()

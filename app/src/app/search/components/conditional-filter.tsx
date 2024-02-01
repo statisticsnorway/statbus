@@ -7,7 +7,7 @@ import {useCallback, useState} from "react";
 import {Separator} from "@/components/ui/separator";
 import {Input} from "@/components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {ConditionalValueBadge} from "@/app/search/components/ConditionalValueBadge";
+import {ConditionalValueBadge} from "@/app/search/components/conditional-value-badge";
 import type {ConditionalValue, SearchFilterCondition, SearchFilterValue} from "@/app/search/search.types";
 
 interface ITableFilterCustomProps {

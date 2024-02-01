@@ -1,8 +1,8 @@
 import React from "react";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
-import {InfoBox} from "@/components/InfoBox";
+import {InfoBox} from "@/components/info-box";
 import {createClient} from "@/lib/supabase/server";
-import UploadRegionsForm from "@/app/getting-started/upload-regions/UploadRegionsForm";
+import UploadRegionsForm from "@/app/getting-started/upload-regions/upload-regions-form";
 
 export default async function UploadRegionsPage() {
   const client = createClient()
