@@ -35,8 +35,8 @@ export default async function Home() {
   }
 
   return (
-    <main className="flex flex-col py-8 px-2 md:py-24 space-y-6 max-w-5xl mx-auto">
-      <h1 className="font-medium text-lg">Welcome to Statbus!</h1>
+    <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto">
+      <h1 className="font-medium text-xl text-center mb-12">Search for statistical units</h1>
       <Search
         regions={regions ?? []}
         activityCategories={activityCategories ?? []}

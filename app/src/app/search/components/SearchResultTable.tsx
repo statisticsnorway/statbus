@@ -21,7 +21,7 @@ export default function SearchResultTable({searchResult: {statisticalUnits}}: Ta
                   statisticalUnits?.map(({legal_unit_id, name, physical_region_id, primary_activity_category_id}) => (
                     <TableRow key={legal_unit_id}>
                       <TableCell className="p-3">
-                        <Link href={`/legal-units/${legal_unit_id}`} className="underline">
+                        <Link href={`/legal-units/${legal_unit_id}`} className="font-medium">
                           {name}
                         </Link>
                       </TableCell>
