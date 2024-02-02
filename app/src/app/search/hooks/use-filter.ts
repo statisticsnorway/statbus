@@ -62,9 +62,9 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       type: "radio",
       name: "physical_region_path",
       label: "Region",
-      options: regions.map(({path, name}) => (
+      options: regions.map(({code,path, name}) => (
         {
-          label: `${path} ${name}`,
+          label: `${code} ${name}`,
           value: path as string,
           humanReadableValue: name
         }
@@ -76,9 +76,9 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       type: "radio",
       name: "primary_activity_category_path",
       label: "Activity Category",
-      options: activityCategories.map(({path, name}) => (
+      options: activityCategories.map(({code, path, name}) => (
         {
-          label: `${path} ${name}`,
+          label: `${code} ${name}`,
           value: path as string,
           humanReadableValue: name?.toString()
         }
