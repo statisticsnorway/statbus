@@ -31,7 +31,7 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
   return (
     <div className="flex items-center flex-wrap -m-2 space-x-2">
       {filters.map(createFilterComponent)}
-      {hasFilterSelected && <ResetFilterButton onReset={() => dispatch({type: "reset_all"})}/>}
+      {hasFilterSelected && <ResetFilterButton className="h-10 m-2" onReset={() => dispatch({type: "reset_all"})}/>}
     </div>
   )
 }
