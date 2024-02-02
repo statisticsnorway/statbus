@@ -2275,8 +2275,10 @@ REFRESH MATERIALIZED VIEW public.statistical_unit;
 
 CREATE FUNCTION public.statistical_unit_refresh_now()
 RETURNS void AS $$
+BEGIN
     REFRESH MATERIALIZED VIEW public.statistical_unit;
-$$ LANGUAGE sql;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 --SELECT public.statistical_unit_refresh_now();
 
 CREATE FUNCTION public.statistical_unit_refreshed_at()
@@ -2306,7 +2308,7 @@ BEGIN
     ;
     RETURN updated_at;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 --SELECT public.statistical_unit_refreshed_at();
 
 
