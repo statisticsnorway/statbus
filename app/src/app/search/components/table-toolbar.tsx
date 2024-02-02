@@ -15,6 +15,8 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
 
   const createFilterComponent = useCallback((filter: SearchFilter) => {
     switch (filter.type) {
+      case "radio":
+        return <RadioFilterComponent key={filter.name} filter={filter} dispatch={dispatch}/>;
       case "options":
         return <OptionsFilterComponent key={filter.name} filter={filter} dispatch={dispatch}/>;
       case "conditional":
@@ -29,14 +31,14 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
   return (
     <div className="flex items-center flex-wrap -m-2 space-x-2">
       {filters.map(createFilterComponent)}
-      {hasFilterSelected && <ResetFilterButton onReset={() => dispatch({type: "reset_all"})}/>}
+      {hasFilterSelected && <ResetFilterButton className="h-10 m-2" onReset={() => dispatch({type: "reset_all"})}/>}
     </div>
   )
 }
 
 function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <Input
@@ -53,8 +55,8 @@ function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
 }
 
 function ConditionalFilterComponent({filter: {name, label, condition, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <ConditionalFilter
@@ -67,8 +69,8 @@ function ConditionalFilterComponent({filter: {name, label, condition, selected},
 }
 
 function OptionsFilterComponent({filter: {name, label, options, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <OptionsFilter
@@ -76,6 +78,21 @@ function OptionsFilterComponent({filter: {name, label, options, selected}, dispa
       options={options}
       selectedValues={selected}
       onToggle={({value}) => dispatch({type: "toggle_option", payload: {name, value}})}
+      onReset={() => dispatch({type: "reset", payload: {name}})}
+    />
+  )
+}
+
+function RadioFilterComponent({filter: {name, label, options, selected}, dispatch}: {
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
+}) {
+  return (
+    <OptionsFilter
+      title={label}
+      options={options}
+      selectedValues={selected}
+      onToggle={({value}) => dispatch({type: "toggle_radio_option", payload: {name, value}})}
       onReset={() => dispatch({type: "reset", payload: {name}})}
     />
   )

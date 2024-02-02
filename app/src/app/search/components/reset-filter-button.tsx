@@ -1,12 +1,19 @@
 import {Button} from "@/components/ui/button";
 import {X} from "lucide-react";
+import {cn} from "@/lib/utils";
 
-export const ResetFilterButton = ({onReset}: { onReset: () => void }) => (
+interface ResetFilterButtonProps {
+  onReset: () => void;
+  className?: string;
+}
+
+export const ResetFilterButton = ({onReset, className}: ResetFilterButtonProps) => (
   <Button
-    variant="ghost"
-    className="px-2 h-10 w-10"
+    variant="secondary"
+    className={cn("space-x-1 flex items-center h-10 bg-amber-200", className)}
     onClick={onReset}
   >
+    <span>Reset Search</span>
     <X size={18}/>
   </Button>
 )

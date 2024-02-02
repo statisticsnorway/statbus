@@ -1232,7 +1232,7 @@ export interface Database {
           data_source_classification_id: number | null
           death_date: string | null
           edit_by_user_id: string
-          edit_comment: string
+          edit_comment: string | null
           email_address: string | null
           enterprise_id: number | null
           external_ident: string | null
@@ -1266,7 +1266,7 @@ export interface Database {
           data_source_classification_id?: number | null
           death_date?: string | null
           edit_by_user_id: string
-          edit_comment: string
+          edit_comment?: string | null
           email_address?: string | null
           enterprise_id?: number | null
           external_ident?: string | null
@@ -1300,7 +1300,7 @@ export interface Database {
           data_source_classification_id?: number | null
           death_date?: string | null
           edit_by_user_id?: string
-          edit_comment?: string
+          edit_comment?: string | null
           email_address?: string | null
           enterprise_id?: number | null
           external_ident?: string | null
@@ -1476,7 +1476,7 @@ export interface Database {
           data_source_classification_id: number | null
           death_date: string | null
           edit_by_user_id: string
-          edit_comment: string
+          edit_comment: string | null
           email_address: string | null
           enterprise_id: number | null
           external_ident: string | null
@@ -1485,6 +1485,7 @@ export interface Database {
           foreign_participation_id: number | null
           free_econ_zone: boolean | null
           id: number
+          invalid_codes: Json | null
           legal_form_id: number | null
           name: string | null
           notes: string | null
@@ -1512,7 +1513,7 @@ export interface Database {
           data_source_classification_id?: number | null
           death_date?: string | null
           edit_by_user_id: string
-          edit_comment: string
+          edit_comment?: string | null
           email_address?: string | null
           enterprise_id?: number | null
           external_ident?: string | null
@@ -1521,6 +1522,7 @@ export interface Database {
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
           id?: number
+          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
           notes?: string | null
@@ -1548,7 +1550,7 @@ export interface Database {
           data_source_classification_id?: number | null
           death_date?: string | null
           edit_by_user_id?: string
-          edit_comment?: string
+          edit_comment?: string | null
           email_address?: string | null
           enterprise_id?: number | null
           external_ident?: string | null
@@ -1557,6 +1559,7 @@ export interface Database {
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
           id?: number
+          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
           notes?: string | null
@@ -3005,6 +3008,7 @@ export interface Database {
           foreign_participation_id: number | null
           free_econ_zone: boolean | null
           id: number | null
+          invalid_codes: Json | null
           legal_form_id: number | null
           name: string | null
           notes: string | null
@@ -3041,6 +3045,7 @@ export interface Database {
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
           id?: number | null
+          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
           notes?: string | null
@@ -3077,6 +3082,7 @@ export interface Database {
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
           id?: number | null
+          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
           notes?: string | null
@@ -3583,14 +3589,23 @@ export interface Database {
       }
       statistical_unit: {
         Row: {
+          activity_category_paths: unknown[] | null
           enterprise_group_id: number | null
           enterprise_id: number | null
           establishment_id: number | null
+          external_ident: string | null
+          external_ident_type: string | null
           legal_unit_id: number | null
           name: string | null
           physical_region_id: number | null
+          physical_region_path: unknown | null
           primary_activity_category_id: number | null
+          primary_activity_category_path: unknown | null
           secondary_activity_category_id: number | null
+          secondary_activity_category_path: unknown | null
+          stat_ident: string | null
+          tax_reg_ident: string | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from: string | null
           valid_to: string | null
         }
@@ -4137,11 +4152,11 @@ export interface Database {
         }
         Returns: undefined
       }
-      refresh_statistical_unit: {
+      statistical_unit_refresh_now: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      statistical_unit_updated_at: {
+      statistical_unit_refreshed_at: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
@@ -4179,6 +4194,11 @@ export interface Database {
         | "regular_user"
         | "restricted_user"
         | "external_user"
+      statistical_unit_type:
+        | "establishment"
+        | "legal_unit"
+        | "enterprise"
+        | "enterprise_group"
     }
     CompositeTypes: {
       [_ in never]: never

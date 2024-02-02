@@ -7,10 +7,11 @@ export type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
 export type SearchFilterOption = {
     readonly label: string
     readonly value: SearchFilterValue
+    readonly humanReadableValue?: string
 }
 
 export type SearchFilter = {
-    readonly type: "options" | "conditional" | "search"
+    readonly type: "options" | "radio" | "conditional" | "search"
     readonly name: string
     readonly label: string
     readonly options?: SearchFilterOption[]
@@ -35,6 +36,14 @@ interface ToggleOption {
         name: string,
         value: SearchFilterValue
     }
+}
+
+interface ToggleRadioOption {
+  type: "toggle_radio_option",
+  payload: {
+    name: string,
+    value: SearchFilterValue
+  }
 }
 
 interface SetCondition {
@@ -65,4 +74,4 @@ interface ResetAll {
     type: "reset_all"
 }
 
-export type SearchFilterActions = ToggleOption | SetCondition | SetSearch | Reset | ResetAll
+export type SearchFilterActions = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll

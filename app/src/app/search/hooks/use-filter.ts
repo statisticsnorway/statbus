@@ -13,6 +13,10 @@ function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions)
         } : f
       )
     }
+    case "toggle_radio_option": {
+      const {name, value} = action.payload
+      return state.map(f => f.name === name ? {...f, selected: f.selected.find(id => id == value) ? [] : [value]} : f)
+    }
     case "set_condition": {
       const {name, value, condition} = action.payload
       return state.map(f => f.name === name ? {...f, selected: [value], condition} : f)
@@ -55,30 +59,32 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       postgrestQuery: ({selected}) => `eq.${selected[0]}`
     },
     {
-      type: "options",
-      name: "physical_region_id",
+      type: "radio",
+      name: "physical_region_path",
       label: "Region",
-      options: regions.map(({code, name}) => (
+      options: regions.map(({code,path, name}) => (
         {
           label: `${code} ${name}`,
-          value: code ?? ""
+          value: path as string,
+          humanReadableValue: name
         }
       )),
       selected: [],
-      postgrestQuery: ({selected}) => `in.(${selected.join(',')})`
+      postgrestQuery: ({selected}) => `cd.${selected.join()}`
     },
     {
-      type: "options",
-      name: "primary_activity_category_code",
+      type: "radio",
+      name: "primary_activity_category_path",
       label: "Activity Category",
-      options: activityCategories.map(({code, label, name}) => (
+      options: activityCategories.map(({code, path, name}) => (
         {
-          label: `${label} ${name}`,
-          value: code ?? ""
+          label: `${code} ${name}`,
+          value: path as string,
+          humanReadableValue: name?.toString()
         }
       )),
       selected: [],
-      postgrestQuery: ({selected}) => `in.(${selected.join(',')})`
+      postgrestQuery: ({selected}) => `cd.${selected.join()}`
     }
   ];
 
