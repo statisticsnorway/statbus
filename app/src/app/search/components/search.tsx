@@ -28,7 +28,7 @@ export default function Search(
         <section className="space-y-3">
             <TableToolbar dispatch={searchFilterDispatch} filters={filters} />
             <div className="rounded-md border">
-                <SearchResultTable searchResult={searchResult ?? initialSearchResult}/>
+                <SearchResultTable regions={regions} searchResult={searchResult ?? initialSearchResult}/>
             </div>
             <div className="px-4">
                 <small className="text-xs text-gray-500">
