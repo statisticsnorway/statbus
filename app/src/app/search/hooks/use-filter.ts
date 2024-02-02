@@ -73,7 +73,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       postgrestQuery: ({selected}) => `cd.${selected.join()}`
     },
     {
-      type: "options",
+      type: "radio",
       name: "primary_activity_category_path",
       label: "Activity Category",
       options: activityCategories.map(({path, name}) => (
@@ -83,7 +83,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         }
       )),
       selected: [],
-      postgrestQuery: ({selected}) => `in.(${selected.join(',')})`
+      postgrestQuery: ({selected}) => `cd.${selected.join()}`
     }
   ];
 
