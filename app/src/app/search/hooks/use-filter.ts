@@ -13,6 +13,10 @@ function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions)
         } : f
       )
     }
+    case "toggle_radio_option": {
+      const {name, value} = action.payload
+      return state.map(f => f.name === name ? {...f, selected: f.selected.find(id => id == value) ? [] : [value]} : f)
+    }
     case "set_condition": {
       const {name, value, condition} = action.payload
       return state.map(f => f.name === name ? {...f, selected: [value], condition} : f)
@@ -55,7 +59,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       postgrestQuery: ({selected}) => `eq.${selected[0]}`
     },
     {
-      type: "options",
+      type: "radio",
       name: "physical_region_path",
       label: "Region",
       options: regions.map(({path, name}) => (
@@ -65,7 +69,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         }
       )),
       selected: [],
-      postgrestQuery: ({selected}) => `in.(${selected.join(',')})`
+      postgrestQuery: ({selected}) => `cd.${selected.join()}`
     },
     {
       type: "options",

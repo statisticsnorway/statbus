@@ -15,6 +15,8 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
 
   const createFilterComponent = useCallback((filter: SearchFilter) => {
     switch (filter.type) {
+      case "radio":
+        return <RadioFilterComponent key={filter.name} filter={filter} dispatch={dispatch}/>;
       case "options":
         return <OptionsFilterComponent key={filter.name} filter={filter} dispatch={dispatch}/>;
       case "conditional":
@@ -76,6 +78,21 @@ function OptionsFilterComponent({filter: {name, label, options, selected}, dispa
       options={options}
       selectedValues={selected}
       onToggle={({value}) => dispatch({type: "toggle_option", payload: {name, value}})}
+      onReset={() => dispatch({type: "reset", payload: {name}})}
+    />
+  )
+}
+
+function RadioFilterComponent({filter: {name, label, options, selected}, dispatch}: {
+  filter: SearchFilter,
+  dispatch: Dispatch<SearchFilterActions>
+}) {
+  return (
+    <OptionsFilter
+      title={label}
+      options={options}
+      selectedValues={selected}
+      onToggle={({value}) => dispatch({type: "toggle_radio_option", payload: {name, value}})}
       onReset={() => dispatch({type: "reset", payload: {name}})}
     />
   )
