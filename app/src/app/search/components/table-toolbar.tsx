@@ -37,8 +37,8 @@ export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
 }
 
 function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <Input
@@ -55,8 +55,8 @@ function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
 }
 
 function ConditionalFilterComponent({filter: {name, label, condition, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <ConditionalFilter
@@ -69,8 +69,8 @@ function ConditionalFilterComponent({filter: {name, label, condition, selected},
 }
 
 function OptionsFilterComponent({filter: {name, label, options, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <OptionsFilter
@@ -84,8 +84,8 @@ function OptionsFilterComponent({filter: {name, label, options, selected}, dispa
 }
 
 function RadioFilterComponent({filter: {name, label, options, selected}, dispatch}: {
-  filter: SearchFilter,
-  dispatch: Dispatch<SearchFilterActions>
+  readonly filter: SearchFilter,
+  readonly dispatch: Dispatch<SearchFilterActions>
 }) {
   return (
     <OptionsFilter

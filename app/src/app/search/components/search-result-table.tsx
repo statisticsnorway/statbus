@@ -9,7 +9,7 @@ interface TableProps {
 }
 
 export default function SearchResultTable({searchResult: {statisticalUnits}, regions}: TableProps) {
-  const getRegionByPath = (physical_region_path: string | unknown) =>
+  const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({path}) => path === physical_region_path);
 
   return (
