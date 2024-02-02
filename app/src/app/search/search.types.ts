@@ -7,6 +7,7 @@ export type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
 export type SearchFilterOption = {
     readonly label: string
     readonly value: SearchFilterValue
+    readonly humanReadableValue?: string
 }
 
 export type SearchFilter = {

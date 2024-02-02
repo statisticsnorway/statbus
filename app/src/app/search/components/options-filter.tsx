@@ -30,9 +30,8 @@ export function OptionsFilter({title, options = [], selectedValues, onToggle, on
                 options
                   .filter((option) => selectedValues.includes(option.value))
                   .map((option) => (
-                    <Badge variant="secondary" key={option.value}
-                           className="rounded-sm px-1 font-normal">
-                      {option.value}
+                    <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
+                      {option.humanReadableValue ?? option.value}
                     </Badge>
                   ))
               }
