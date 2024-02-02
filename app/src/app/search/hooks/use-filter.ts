@@ -56,12 +56,12 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
     },
     {
       type: "options",
-      name: "physical_region_id",
+      name: "physical_region_path",
       label: "Region",
-      options: regions.map(({code, name}) => (
+      options: regions.map(({path, name}) => (
         {
-          label: `${code} ${name}`,
-          value: code ?? ""
+          label: `${path} ${name}`,
+          value: path as string
         }
       )),
       selected: [],
@@ -69,12 +69,12 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
     },
     {
       type: "options",
-      name: "primary_activity_category_code",
+      name: "primary_activity_category_path",
       label: "Activity Category",
-      options: activityCategories.map(({code, label, name}) => (
+      options: activityCategories.map(({path, name}) => (
         {
-          label: `${label} ${name}`,
-          value: code ?? ""
+          label: `${path} ${name}`,
+          value: path as string
         }
       )),
       selected: [],

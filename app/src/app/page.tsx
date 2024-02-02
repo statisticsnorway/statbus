@@ -5,7 +5,7 @@ export default async function Home() {
   const client = createClient();
   const {data: statisticalUnits, count, error: legalUnitsError} = await client
     .from('statistical_unit')
-    .select('name, primary_activity_category_id, legal_unit_id, physical_region_id', {count: 'exact'})
+    .select('name, primary_activity_category_path, legal_unit_id, physical_region_path', {count: 'exact'})
     .order('enterprise_id', {ascending: false})
     .limit(10);
 

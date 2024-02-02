@@ -18,15 +18,15 @@ export default function SearchResultTable({searchResult: {statisticalUnits}}: Ta
       </TableHeader>
       <TableBody>
         {
-          statisticalUnits?.map(({legal_unit_id, name, physical_region_id, primary_activity_category_id}) => (
+          statisticalUnits?.map(({legal_unit_id, name, physical_region_path, primary_activity_category_path}) => (
             <TableRow key={legal_unit_id}>
               <TableCell className="p-3">
                 <Link href={`/legal-units/${legal_unit_id}`} className="font-medium">
                   {name}
                 </Link>
               </TableCell>
-              <TableCell className="p-3 text-right">{physical_region_id}</TableCell>
-              <TableCell className="text-right p-3 px-4">{primary_activity_category_id}</TableCell>
+              <TableCell className="p-3 text-right">{physical_region_path as string}</TableCell>
+              <TableCell className="text-right p-3 px-4">{primary_activity_category_path as string}</TableCell>
             </TableRow>
           ))
         }
