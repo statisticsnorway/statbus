@@ -2269,17 +2269,23 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     ,enterprise_group_id
     );
 
--- Run this statement regularly
-REFRESH MATERIALIZED VIEW public.statistical_unit;
-
 
 CREATE FUNCTION public.statistical_unit_refresh_now()
-RETURNS void AS $$
+RETURNS TEXT AS $$
+DECLARE
+  start_at TIMESTAMPTZ;
+  duration_ms numeric(18,3);
+  stop_at TIMESTAMPTZ;
 BEGIN
+    SELECT clock_timestamp() INTO start_at;
     REFRESH MATERIALIZED VIEW public.statistical_unit;
+    SELECT clock_timestamp() INTO stop_at;
+    duration_ms := cast(extract(MILLISECONDS from (stop_at - start_at)) as numeric(18,3));
+    RETURN format('Refresh took %s ms', duration_ms);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
---SELECT public.statistical_unit_refresh_now();
+
+SELECT public.statistical_unit_refresh_now();
 
 CREATE FUNCTION public.statistical_unit_refreshed_at()
 RETURNS timestamptz AS $$
@@ -5221,5 +5227,6 @@ TABLE sql_saga.foreign_keys;
 
 
 NOTIFY pgrst, 'reload config';
+NOTIFY pgrst, 'reload schema';
 
 END;
