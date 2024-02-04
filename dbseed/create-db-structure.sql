@@ -2106,26 +2106,26 @@ SET LOCAL client_min_messages TO INFO;
 CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','enterprise','enterprise_group');
 
 CREATE MATERIALIZED VIEW public.statistical_unit
-    (
-    valid_from,
-    valid_to,
-    unit_type,
-    establishment_id,
-    legal_unit_id,
-    enterprise_id,
-    enterprise_group_id,
-    stat_ident,
-    tax_reg_ident,
-    external_ident,
-    external_ident_type,
-    name,
-    primary_activity_category_id,
-    primary_activity_category_path,
-    secondary_activity_category_id,
-    secondary_activity_category_path,
-    activity_category_paths,
-    physical_region_id,
-    physical_region_path
+    ( valid_from
+    , valid_to
+    , unit_type
+    , establishment_id
+    , legal_unit_id
+    , enterprise_id
+    , enterprise_group_id
+    , stat_ident
+    , tax_reg_ident
+    , external_ident
+    , external_ident_type
+    , name
+    , search
+    , primary_activity_category_id
+    , primary_activity_category_path
+    , secondary_activity_category_id
+    , secondary_activity_category_path
+    , activity_category_paths
+    , physical_region_id
+    , physical_region_path
     -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
     -- sector_code_ids integer[],
@@ -2160,7 +2160,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS tax_reg_ident
          , NULL::TEXT AS external_ident
          , NULL::TEXT AS external_ident_type
-         , name
+         , NULL::TEXT AS name
+         , NULL::TSVECTOR AS search
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::public.ltree AS primary_activity_category_path
          , NULL::INTEGER AS secondary_activity_category_id
@@ -2182,6 +2183,14 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , lu.external_ident AS external_ident
          , lu.external_ident_type AS external_ident_type
          , lu.name
+         -- Se supported languages with `SELECT * FROM pg_ts_config`
+         , to_tsvector('norwegian', lu.name) ||
+           to_tsvector('english', lu.name) ||
+           to_tsvector('arabic', lu.name) ||
+           to_tsvector('greek', lu.name) ||
+           to_tsvector('russian', lu.name) ||
+           to_tsvector('french', lu.name) ||
+           to_tsvector('simple', lu.name) AS search
          , pa.activity_category_id AS primary_activity_category_id
          , pac.path                AS primary_activity_category_path
          , sa.activity_category_id AS secondary_activity_category_id
@@ -2228,7 +2237,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS tax_reg_ident
          , NULL::TEXT AS external_ident
          , NULL::TEXT AS external_ident_type
-         , name
+         , NULL::TEXT AS name
+         , NULL::TSVECTOR AS search
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::public.ltree AS primary_activity_category_path
          , NULL::INTEGER AS secondary_activity_category_id
@@ -2249,7 +2259,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS tax_reg_ident
          , NULL::TEXT AS external_ident
          , NULL::TEXT AS external_ident_type
-         , name
+         , NULL::TEXT AS name
+         , NULL::TSVECTOR AS search
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::public.ltree AS primary_activity_category_path
          , NULL::INTEGER AS secondary_activity_category_id
@@ -2268,7 +2279,19 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     ,enterprise_id
     ,enterprise_group_id
     );
-
+CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
+CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (establishment_id);
+CREATE INDEX idx_statistical_unit_legal_unit_id ON public.statistical_unit (legal_unit_id);
+CREATE INDEX idx_statistical_unit_enterprise_id ON public.statistical_unit (enterprise_id);
+CREATE INDEX idx_statistical_unit_enterprise_group_id ON public.statistical_unit (enterprise_group_id);
+CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
+CREATE INDEX idx_statistical_unit_primary_activity_category_id ON public.statistical_unit (primary_activity_category_id);
+CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.statistical_unit (secondary_activity_category_id);
+CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
+CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
+CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
+CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
+CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
 
 CREATE FUNCTION public.statistical_unit_refresh_now()
 RETURNS TEXT AS $$
