@@ -49,7 +49,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       label: "Name",
       name: "name",
       selected: [],
-      postgrestQuery: ({selected}) => `ilike.*${selected[0]}*`
+      postgrestQuery: ({selected}) => `fts(simple).${selected[0]}:*`
     },
     {
       type: "search",
