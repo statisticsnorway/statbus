@@ -235,10 +235,26 @@ class StatBus
           sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
           puts "sql_statment = #{sql_statment}" if @verbose
           insert = db.build sql_statment
+          db.exec "BEGIN;"
+          db.exec "SET CONSTRAINTS ALL DEFERRED;"
+          batch_size = 10000
+          batch_item = 0
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
+            batch_item += 1
             puts "Uploading #{sql_row}" if @verbose
             insert.exec(args: sql_row)
+            if (batch_item % batch_size) == 0
+              puts "Commit-ing changes and refreshing statistical_unit"
+              db.exec "END;"
+              db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+              db.exec "SELECT statistical_unit_refresh_now();"
+              db.exec "BEGIN;"
+              db.exec "SET CONSTRAINTS ALL DEFERRED;"
+            end
           end
+          db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+          db.exec "END;"
+          db.exec "SELECT statistical_unit_refresh_now();"
           db.close
         end
       end
