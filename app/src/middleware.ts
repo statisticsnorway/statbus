@@ -11,17 +11,17 @@ export async function middleware(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname === '/') {
-    const { data: settings } = await client.from('settings').select('*')
+    const { data: settings } = await client.from('settings').select('id').limit(1)
     if (!settings?.length){
       return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/activity-standard`)
     }
 
-    const { data: regions } = await client.from('region').select('*')
+    const { data: regions } = await client.from('region').select('id').limit(1)
     if (!regions?.length){
       return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/upload-regions`)
     }
 
-    const { data: legalUnits } = await client.from('legal_unit').select('*')
+    const { data: legalUnits } = await client.from('legal_unit').select('id').limit(1)
     if (!legalUnits?.length){
       return NextResponse.redirect(`${request.nextUrl.origin}/getting-started/upload-legal-units`)
     }
