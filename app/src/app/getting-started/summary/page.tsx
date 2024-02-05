@@ -11,104 +11,38 @@ export default async function OnboardingCompletedPage() {
     const {count: numberOfCustomActivityCategoryCodes} = await client.from('activity_category_available_custom').select('path', {count: 'exact'}).limit(1)
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-12">
             <h1 className="font-medium text-lg text-center">Summary</h1>
 
+            <div className="space-y-6">
 
-            <div className="flex items-center space-x-3">
-                <div>
-                    {
-                        numberOfSettings ? <Check/> : <X/>
-                    }
-                </div>
-                <p>
-                    {
-                        numberOfSettings ? (
-                            <>
-                                You have configured StatBus to use
-                                the <strong>{settings?.[0]?.activity_category_standard?.name}</strong> activity category
-                                standard.
-                            </>
-                        ) : (
-                            <>
-                                You have not configured StatBus to use an activity category standard. You can configure
-                                activity category standards&nbsp;
-                                <Link className="underline" href={"/getting-started/activity-standard"}>here</Link>
-                            </>
-                        )
-                    }
-                </p>
-            </div>
+                <SummaryBlock
+                    success={!!numberOfSettings}
+                    successText={`You have configured StatBus to use the activity category standard ${settings?.[0]?.activity_category_standard?.name}.`}
+                    failureText={"You have not configured StatBus to use an activity category standard."}
+                    failureLink={"/getting-started/activity-standard"}
+                />
 
-            <div className="flex items-center space-x-3">
-                <div>
-                    {
-                        numberOfCustomActivityCategoryCodes ? <Check/> : <X/>
-                    }
-                </div>
-                <p>
-                    {
-                        numberOfCustomActivityCategoryCodes ? (
-                            <>
-                                You have configured StatBus to use
-                                the <strong>{numberOfCustomActivityCategoryCodes}</strong> custom activity category
-                                codes.
-                            </>
-                        ) : (
-                            <>
-                                You have not configured StatBus to use any custom activity category codes. You can
-                                configure
-                                custom activity category standards&nbsp;
-                                <Link className="underline"
-                                      href={"/getting-started/upload-custom-activity-standard-codes"}>here</Link>
-                            </>
-                        )
-                    }
-                </p>
-            </div>
+                <SummaryBlock
+                    success={!!numberOfCustomActivityCategoryCodes}
+                    successText={`You have configured StatBus to use ${numberOfCustomActivityCategoryCodes} custom activity category codes.`}
+                    failureText="You have not configured StatBus to use any custom activity category codes."
+                    failureLink={"/getting-started/upload-custom-activity-standard-codes"}
+                />
 
-            <div className="flex items-center space-x-3">
-                <div>
-                    {
-                        numberOfRegions ? <Check/> : <X/>
-                    }
-                </div>
-                <p>
-                    {
-                        numberOfRegions ? (
-                            <>
-                                You have uploaded <strong>{numberOfRegions}</strong> regions.
-                            </>
-                        ) : (
-                            <>
-                                You have not uploaded any regions. You can upload regions&nbsp;
-                                <Link className="underline" href={"/getting-started/upload-regions"}> here</Link>
-                            </>
-                        )
-                    }
-                </p>
-            </div>
+                <SummaryBlock
+                    success={!!numberOfRegions}
+                    successText={`You have uploaded ${numberOfRegions} regions.`}
+                    failureText="You have not uploaded any regions."
+                    failureLink={"/getting-started/upload-regions"}
+                />
 
-            <div className="flex items-center space-x-3">
-                <div>
-                    {
-                        numberOfLegalUnits ? <Check/> : <X/>
-                    }
-                </div>
-                <p>
-                    {
-                        numberOfLegalUnits ? (
-                            <>
-                                You have uploaded <strong>{numberOfLegalUnits}</strong> legal units.
-                            </>
-                        ) : (
-                            <>
-                                You have not uploaded any legal units. You can do so&nbsp;
-                                <Link className="underline" href={"/getting-started/upload-legal-units"}>here</Link>
-                            </>
-                        )
-                    }
-                </p>
+                <SummaryBlock
+                    success={!!numberOfLegalUnits}
+                    successText={`You have uploaded ${numberOfLegalUnits} legal units.`}
+                    failureText="You have not uploaded any legal units."
+                    failureLink={"/getting-started/upload-legal-units"}
+                />
             </div>
 
             {
@@ -118,6 +52,23 @@ export default async function OnboardingCompletedPage() {
                     </div>
                 ) : null
             }
+        </div>
+    )
+}
+
+const SummaryBlock = ({success, successText, failureText, failureLink}: { success: boolean, successText: string, failureText: string, failureLink: string }) => {
+    return (
+        <div className="flex items-center space-x-6">
+            <div>
+                {
+                    success ? <Check/> : <X/>
+                }
+            </div>
+            <p>
+                {
+                    success ? successText : <Link className="underline" href={failureLink}>{failureText}</Link>
+                }
+            </p>
         </div>
     )
 }
