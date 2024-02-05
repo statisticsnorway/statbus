@@ -2145,40 +2145,23 @@ SELECT pg_catalog.setval('public.sector_code_id_seq', 1, false);
 SELECT pg_catalog.setval('public.unit_size_id_seq', 1, false);
 
 
-ALTER TABLE ONLY public.analysis_log
-    ADD CONSTRAINT pk_analysis_log PRIMARY KEY (id);
-ALTER TABLE ONLY public.analysis_queue
-    ADD CONSTRAINT pk_analysis_queue PRIMARY KEY (id);
-ALTER TABLE ONLY public.custom_analysis_check
-    ADD CONSTRAINT pk_custom_analysis_check PRIMARY KEY (id);
-ALTER TABLE ONLY public.data_source
-    ADD CONSTRAINT pk_data_source PRIMARY KEY (id);
-ALTER TABLE ONLY public.data_source_classification
-    ADD CONSTRAINT pk_data_source_classification PRIMARY KEY (id);
-ALTER TABLE ONLY public.data_source_queue
-    ADD CONSTRAINT pk_data_source_queue PRIMARY KEY (id);
-ALTER TABLE ONLY public.data_uploading_log
-    ADD CONSTRAINT pk_data_uploading_log PRIMARY KEY (id);
-ALTER TABLE ONLY public.enterprise_group_role
-    ADD CONSTRAINT pk_enterprise_group_role PRIMARY KEY (id);
-ALTER TABLE ONLY public.enterprise_group_type
-    ADD CONSTRAINT pk_enterprise_group_type PRIMARY KEY (id);
-ALTER TABLE ONLY public.foreign_participation
-    ADD CONSTRAINT pk_foreign_participation PRIMARY KEY (id);
-ALTER TABLE ONLY public.legal_form
-    ADD CONSTRAINT pk_legal_form PRIMARY KEY (id);
-ALTER TABLE ONLY public.postal_index
-    ADD CONSTRAINT pk_postal_index PRIMARY KEY (id);
-ALTER TABLE ONLY public.reorg_type
-    ADD CONSTRAINT pk_reorg_type PRIMARY KEY (id);
-ALTER TABLE ONLY public.report_tree
-    ADD CONSTRAINT pk_report_tree PRIMARY KEY (id);
-ALTER TABLE ONLY public.sample_frame
-    ADD CONSTRAINT pk_sample_frame PRIMARY KEY (id);
-ALTER TABLE ONLY public.sector_code
-    ADD CONSTRAINT pk_sector_code PRIMARY KEY (id);
-ALTER TABLE ONLY public.unit_size
-    ADD CONSTRAINT pk_unit_size PRIMARY KEY (id);
+ALTER TABLE ONLY public.analysis_log ADD CONSTRAINT pk_analysis_log PRIMARY KEY (id);
+ALTER TABLE ONLY public.analysis_queue ADD CONSTRAINT pk_analysis_queue PRIMARY KEY (id);
+ALTER TABLE ONLY public.custom_analysis_check ADD CONSTRAINT pk_custom_analysis_check PRIMARY KEY (id);
+ALTER TABLE ONLY public.data_source ADD CONSTRAINT pk_data_source PRIMARY KEY (id);
+ALTER TABLE ONLY public.data_source_classification ADD CONSTRAINT pk_data_source_classification PRIMARY KEY (id);
+ALTER TABLE ONLY public.data_source_queue ADD CONSTRAINT pk_data_source_queue PRIMARY KEY (id);
+ALTER TABLE ONLY public.data_uploading_log ADD CONSTRAINT pk_data_uploading_log PRIMARY KEY (id);
+ALTER TABLE ONLY public.enterprise_group_role ADD CONSTRAINT pk_enterprise_group_role PRIMARY KEY (id);
+ALTER TABLE ONLY public.enterprise_group_type ADD CONSTRAINT pk_enterprise_group_type PRIMARY KEY (id);
+ALTER TABLE ONLY public.foreign_participation ADD CONSTRAINT pk_foreign_participation PRIMARY KEY (id);
+ALTER TABLE ONLY public.legal_form ADD CONSTRAINT pk_legal_form PRIMARY KEY (id);
+ALTER TABLE ONLY public.postal_index ADD CONSTRAINT pk_postal_index PRIMARY KEY (id);
+ALTER TABLE ONLY public.reorg_type ADD CONSTRAINT pk_reorg_type PRIMARY KEY (id);
+ALTER TABLE ONLY public.report_tree ADD CONSTRAINT pk_report_tree PRIMARY KEY (id);
+ALTER TABLE ONLY public.sample_frame ADD CONSTRAINT pk_sample_frame PRIMARY KEY (id);
+ALTER TABLE ONLY public.sector_code ADD CONSTRAINT pk_sector_code PRIMARY KEY (id);
+ALTER TABLE ONLY public.unit_size ADD CONSTRAINT pk_unit_size PRIMARY KEY (id);
 
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
 CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
@@ -2240,70 +2223,38 @@ CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code)
 CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code);
 
-ALTER TABLE ONLY public.activity_category
-    ADD CONSTRAINT fk_activity_category_activity_category_parent_id FOREIGN KEY (parent_id) REFERENCES public.activity_category(id);
-ALTER TABLE ONLY public.activity_category_role
-    ADD CONSTRAINT fk_activity_category_role_activity_category_activity_category_ FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.activity_category_role
-    ADD CONSTRAINT fk_activity_category_role_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.analysis_log
-    ADD CONSTRAINT fk_analysis_log_analysis_queue_analysis_queue_id FOREIGN KEY (analysis_queue_id) REFERENCES public.analysis_queue(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.analysis_queue
-    ADD CONSTRAINT fk_analysis_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.data_source_queue
-    ADD CONSTRAINT fk_data_source_queue_data_source_data_source_id FOREIGN KEY (data_source_id) REFERENCES public.data_source(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.data_source_queue
-    ADD CONSTRAINT fk_data_source_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
-ALTER TABLE ONLY public.data_source
-    ADD CONSTRAINT fk_data_source_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
-ALTER TABLE ONLY public.data_uploading_log
-    ADD CONSTRAINT fk_data_uploading_log_data_source_queue_data_source_queue_id FOREIGN KEY (data_source_queue_id) REFERENCES public.data_source_queue(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_data_source_classification_data_source_cla FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_enterprise_group_type_enterprise_group_type_id FOREIGN KEY (enterprise_group_type_id) REFERENCES public.enterprise_group_type(id);
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_foreign_participation_foreign_participatio FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
-ALTER TABLE ONLY public.enterprise_group
-    ADD CONSTRAINT fk_enterprise_group_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_data_source_classification_data_source_clas FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_enterprise_group_role_enterprise_group_role_id FOREIGN KEY (enterprise_group_role_id) REFERENCES public.enterprise_group_role(id);
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_foreign_participation_foreign_participation FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
-ALTER TABLE ONLY public.enterprise
-    ADD CONSTRAINT fk_enterprise_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_foreign_participation_foreign_participation_id FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_legal_form_legal_form_id FOREIGN KEY (legal_form_id) REFERENCES public.legal_form(id);
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
-ALTER TABLE ONLY public.legal_unit
-    ADD CONSTRAINT fk_legal_unit_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
-ALTER TABLE ONLY public.establishment
-    ADD CONSTRAINT fk_establishment_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.region
-    ADD CONSTRAINT fk_region_region_parent_id FOREIGN KEY (parent_id) REFERENCES public.region(id);
-ALTER TABLE ONLY public.sample_frame
-    ADD CONSTRAINT fk_sample_frame_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
-ALTER TABLE ONLY public.sector_code
-    ADD CONSTRAINT fk_sector_code_sector_code_parent_id FOREIGN KEY (parent_id) REFERENCES public.sector_code(id);
+ALTER TABLE ONLY public.activity_category ADD CONSTRAINT fk_activity_category_activity_category_parent_id FOREIGN KEY (parent_id) REFERENCES public.activity_category(id);
+ALTER TABLE ONLY public.activity_category_role ADD CONSTRAINT fk_activity_category_role_activity_category_activity_category_ FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.activity_category_role ADD CONSTRAINT fk_activity_category_role_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.analysis_log ADD CONSTRAINT fk_analysis_log_analysis_queue_analysis_queue_id FOREIGN KEY (analysis_queue_id) REFERENCES public.analysis_queue(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.analysis_queue ADD CONSTRAINT fk_analysis_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.data_source_queue ADD CONSTRAINT fk_data_source_queue_data_source_data_source_id FOREIGN KEY (data_source_id) REFERENCES public.data_source(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.data_source_queue ADD CONSTRAINT fk_data_source_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
+ALTER TABLE ONLY public.data_source ADD CONSTRAINT fk_data_source_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
+ALTER TABLE ONLY public.data_uploading_log ADD CONSTRAINT fk_data_uploading_log_data_source_queue_data_source_queue_id FOREIGN KEY (data_source_queue_id) REFERENCES public.data_source_queue(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_data_source_classification_data_source_cla FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
+ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_enterprise_group_type_enterprise_group_type_id FOREIGN KEY (enterprise_group_type_id) REFERENCES public.enterprise_group_type(id);
+ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_foreign_participation_foreign_participatio FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
+ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
+ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
+ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_data_source_classification_data_source_clas FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
+ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_enterprise_group_role_enterprise_group_role_id FOREIGN KEY (enterprise_group_role_id) REFERENCES public.enterprise_group_role(id);
+ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_foreign_participation_foreign_participation FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
+ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
+ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
+ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
+ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_foreign_participation_foreign_participation_id FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
+ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_legal_form_legal_form_id FOREIGN KEY (legal_form_id) REFERENCES public.legal_form(id);
+ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
+ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
+ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
+ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
+ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
+ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
+ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
+ALTER TABLE ONLY public.region ADD CONSTRAINT fk_region_region_parent_id FOREIGN KEY (parent_id) REFERENCES public.region(id);
+ALTER TABLE ONLY public.sample_frame ADD CONSTRAINT fk_sample_frame_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
+ALTER TABLE ONLY public.sector_code ADD CONSTRAINT fk_sector_code_sector_code_parent_id FOREIGN KEY (parent_id) REFERENCES public.sector_code(id);
 
 
 --
