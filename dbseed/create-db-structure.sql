@@ -150,6 +150,8 @@ CREATE TABLE public.activity_category (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(activity_category_standard_id, path)
 );
+CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
+
 
 CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
@@ -491,6 +493,9 @@ CREATE TABLE public.activity_category_role (
     activity_category_id integer NOT NULL,
     UNIQUE(role_id, activity_category_id)
 );
+CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
+CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
+
 
 CREATE TABLE public.analysis_queue (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -501,6 +506,7 @@ CREATE TABLE public.analysis_queue (
     server_start_period timestamp with time zone,
     server_end_period timestamp with time zone
 );
+CREATE INDEX ix_analysis_queue_user_id ON public.analysis_queue USING btree (user_id);
 
 
 CREATE TABLE public.country (
@@ -544,6 +550,9 @@ CREATE TABLE public.data_source (
     csv_skip_count integer NOT NULL,
     data_source_upload_type public.data_source_upload_type NOT NULL
 );
+CREATE UNIQUE INDEX ix_data_source_name ON public.data_source USING btree (name);
+CREATE INDEX ix_data_source_user_id ON public.data_source USING btree (user_id);
+
 
 CREATE TABLE public.data_source_classification (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -553,6 +562,7 @@ CREATE TABLE public.data_source_classification (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_data_source_classification_code ON public.data_source_classification USING btree (code) WHERE active;
 
 
 CREATE TABLE public.data_source_queue (
@@ -568,6 +578,9 @@ CREATE TABLE public.data_source_queue (
     user_id integer,
     skip_lines_count integer NOT NULL
 );
+CREATE INDEX ix_data_source_queue_data_source_id ON public.data_source_queue USING btree (data_source_id);
+CREATE INDEX ix_data_source_queue_user_id ON public.data_source_queue USING btree (user_id);
+
 
 CREATE TABLE public.data_uploading_log (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -583,6 +596,7 @@ CREATE TABLE public.data_uploading_log (
     errors text,
     summary text
 );
+CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading_log USING btree (data_source_queue_id);
 
 
 CREATE TABLE public.tag (
@@ -628,6 +642,12 @@ CREATE TABLE public.enterprise_group (
     reorg_type_id integer,
     foreign_participation_id integer
 );
+CREATE INDEX ix_enterprise_group_data_source_classification_id ON public.enterprise_group USING btree (data_source_classification_id);
+CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
+CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);
+CREATE INDEX ix_enterprise_group_name ON public.enterprise_group USING btree (name);
+CREATE INDEX ix_enterprise_group_reorg_type_id ON public.enterprise_group USING btree (reorg_type_id);
+CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
 
 
 CREATE OR REPLACE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
@@ -642,6 +662,8 @@ CREATE TABLE public.enterprise_group_role (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_role USING btree (code) WHERE active;
+
 
 CREATE TABLE public.enterprise_group_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -682,6 +704,15 @@ CREATE TABLE public.enterprise (
     enterprise_group_date timestamp with time zone,
     enterprise_group_role_id integer
 );
+CREATE INDEX ix_enterprise_data_source_classification_id ON public.enterprise USING btree (data_source_classification_id);
+CREATE INDEX ix_enterprise_enterprise_group_role_id ON public.enterprise USING btree (enterprise_group_role_id);
+CREATE INDEX ix_enterprise_enterprise_group_id ON public.enterprise USING btree (enterprise_group_id);
+CREATE INDEX ix_enterprise_foreign_participation_id ON public.enterprise USING btree (foreign_participation_id);
+CREATE INDEX ix_enterprise_sector_code_id ON public.enterprise USING btree (sector_code_id);
+CREATE INDEX ix_enterprise_name ON public.enterprise USING btree (name);
+CREATE INDEX ix_enterprise_short_name_stat_ident ON public.enterprise USING btree (short_name, stat_ident);
+CREATE INDEX ix_enterprise_size_id ON public.enterprise USING btree (unit_size_id);
+CREATE INDEX ix_enterprise_stat_ident ON public.enterprise USING btree (stat_ident);
 
 
 CREATE OR REPLACE FUNCTION admin.enterprise_id_exists(fk_id integer) RETURNS boolean AS $$
@@ -696,6 +727,7 @@ CREATE TABLE public.foreign_participation (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_foreign_participation_code ON public.foreign_participation USING btree (code) WHERE active;
 
 CREATE TABLE public.legal_form (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -705,6 +737,8 @@ CREATE TABLE public.legal_form (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
+
 
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
@@ -746,6 +780,17 @@ CREATE TABLE public.legal_unit (
 
 CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
+CREATE INDEX ix_legal_unit_data_source_classification_id ON public.legal_unit USING btree (data_source_classification_id);
+CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
+CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
+CREATE INDEX ix_legal_unit_sector_code_id ON public.legal_unit USING btree (sector_code_id);
+CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
+CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
+CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
+CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax ON public.legal_unit USING btree (short_name, stat_ident, tax_reg_ident);
+CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
+CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
+
 
 CREATE OR REPLACE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
     SELECT EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
@@ -788,6 +833,15 @@ CREATE TABLE public.establishment (
 
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
+CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
+CREATE INDEX ix_establishment_sector_code_id ON public.establishment USING btree (sector_code_id);
+CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
+CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
+CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
+CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_reg_ident);
+CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
+CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
+
 
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
     SELECT EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
@@ -858,6 +912,12 @@ CREATE TABLE public.analysis_log (
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
         )
 );
+CREATE INDEX ix_analysis_log_analysis_queue_id_analyzed_queue_id ON public.analysis_log USING btree (analysis_queue_id);
+CREATE INDEX ix_analysis_log_analysis_queue_id_establishment_id ON public.analysis_log USING btree (establishment_id);
+CREATE INDEX ix_analysis_log_analysis_queue_id_legal_unit_id ON public.analysis_log USING btree (legal_unit_id);
+CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_id ON public.analysis_log USING btree (enterprise_id);
+CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.analysis_log USING btree (enterprise_group_id);
+
 
 CREATE TABLE public.country_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -915,8 +975,12 @@ CREATE TABLE public.person_for_unit (
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
         )
-
 );
+CREATE INDEX ix_person_for_unit_legal_unit_id ON public.person_for_unit USING btree (legal_unit_id);
+CREATE INDEX ix_person_for_unit_establishment_id ON public.person_for_unit USING btree (establishment_id);
+CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree (person_id);
+CREATE UNIQUE INDEX ix_person_for_unit_person_type_id_establishment_id_legal_unit_id_ ON public.person_for_unit USING btree (person_type_id, establishment_id, legal_unit_id, person_id);
+
 
 CREATE TABLE public.postal_index (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1088,6 +1152,8 @@ CREATE TABLE public.sample_frame (
     creation_date timestamp with time zone NOT NULL,
     editing_date timestamp with time zone
 );
+CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id);
+
 
 CREATE TABLE public.sector_code (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1100,6 +1166,9 @@ CREATE TABLE public.sector_code (
     custom bool NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code) WHERE active;
+CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
+
 
 CREATE TABLE public.unit_size (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1109,6 +1178,7 @@ CREATE TABLE public.unit_size (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code) WHERE active;
 
 -- Create function for upsert operation on country
 CREATE FUNCTION admin.upsert_country()
@@ -1993,66 +2063,6 @@ SELECT pg_catalog.setval('public.sample_frame_id_seq', 1, false);
 SELECT pg_catalog.setval('public.sector_code_id_seq', 1, false);
 SELECT pg_catalog.setval('public.unit_size_id_seq', 1, false);
 
-
-CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
-CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
-CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
-CREATE INDEX ix_analysis_log_analysis_queue_id_analyzed_queue_id ON public.analysis_log USING btree (analysis_queue_id);
-CREATE INDEX ix_analysis_log_analysis_queue_id_establishment_id ON public.analysis_log USING btree (establishment_id);
-CREATE INDEX ix_analysis_log_analysis_queue_id_legal_unit_id ON public.analysis_log USING btree (legal_unit_id);
-CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_id ON public.analysis_log USING btree (enterprise_id);
-CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.analysis_log USING btree (enterprise_group_id);
-CREATE INDEX ix_analysis_queue_user_id ON public.analysis_queue USING btree (user_id);
-CREATE UNIQUE INDEX ix_data_source_classification_code ON public.data_source_classification USING btree (code);
-CREATE UNIQUE INDEX ix_data_source_name ON public.data_source USING btree (name);
-CREATE INDEX ix_data_source_queue_data_source_id ON public.data_source_queue USING btree (data_source_id);
-CREATE INDEX ix_data_source_queue_user_id ON public.data_source_queue USING btree (user_id);
-CREATE INDEX ix_data_source_user_id ON public.data_source USING btree (user_id);
-CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading_log USING btree (data_source_queue_id);
-CREATE INDEX ix_enterprise_group_data_source_classification_id ON public.enterprise_group USING btree (data_source_classification_id);
-CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
-CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);
-CREATE INDEX ix_enterprise_group_name ON public.enterprise_group USING btree (name);
-CREATE INDEX ix_enterprise_group_reorg_type_id ON public.enterprise_group USING btree (reorg_type_id);
-CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_role USING btree (code);
-CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
-CREATE INDEX ix_enterprise_data_source_classification_id ON public.enterprise USING btree (data_source_classification_id);
-CREATE INDEX ix_enterprise_enterprise_group_role_id ON public.enterprise USING btree (enterprise_group_role_id);
-CREATE INDEX ix_enterprise_enterprise_group_id ON public.enterprise USING btree (enterprise_group_id);
-CREATE INDEX ix_enterprise_foreign_participation_id ON public.enterprise USING btree (foreign_participation_id);
-CREATE INDEX ix_enterprise_sector_code_id ON public.enterprise USING btree (sector_code_id);
-CREATE INDEX ix_enterprise_name ON public.enterprise USING btree (name);
-CREATE INDEX ix_enterprise_short_name_stat_ident ON public.enterprise USING btree (short_name, stat_ident);
-CREATE INDEX ix_enterprise_size_id ON public.enterprise USING btree (unit_size_id);
-CREATE INDEX ix_enterprise_stat_ident ON public.enterprise USING btree (stat_ident);
-CREATE UNIQUE INDEX ix_foreign_participation_code ON public.foreign_participation USING btree (code);
-CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code);
-CREATE INDEX ix_legal_unit_data_source_classification_id ON public.legal_unit USING btree (data_source_classification_id);
-CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
-CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
-CREATE INDEX ix_legal_unit_sector_code_id ON public.legal_unit USING btree (sector_code_id);
-CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
-CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
-CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
-CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax ON public.legal_unit USING btree (short_name, stat_ident, tax_reg_ident);
-CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
-CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
-CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
-CREATE INDEX ix_establishment_sector_code_id ON public.establishment USING btree (sector_code_id);
-CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
-CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
-CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
-CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_reg_ident);
-CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
-CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
-CREATE INDEX ix_person_for_unit_legal_unit_id ON public.person_for_unit USING btree (legal_unit_id);
-CREATE INDEX ix_person_for_unit_establishment_id ON public.person_for_unit USING btree (establishment_id);
-CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree (person_id);
-CREATE UNIQUE INDEX ix_person_for_unit_person_type_id_establishment_id_legal_unit_id_ ON public.person_for_unit USING btree (person_type_id, establishment_id, legal_unit_id, person_id);
-CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id);
-CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code);
-CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
-CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code);
 
 ALTER TABLE ONLY public.activity_category ADD CONSTRAINT fk_activity_category_activity_category_parent_id FOREIGN KEY (parent_id) REFERENCES public.activity_category(id);
 ALTER TABLE ONLY public.activity_category_role ADD CONSTRAINT fk_activity_category_role_activity_category_activity_category_ FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
