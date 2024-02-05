@@ -1,5 +1,10 @@
 import {createClient} from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
+import {Metadata} from "next";
+
+export const metadata: Metadata = {
+  title: "StatBus | Search statistical units"
+}
 
 export default async function Home() {
   const client = createClient();
