@@ -2,7 +2,11 @@
 import {redirect} from "next/navigation";
 import {createClient} from "@/lib/supabase/server";
 
-export async function login(formData: FormData) {
+export interface LoginState {
+  error: string | null
+}
+
+export async function login(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get('email'))
   const password = String(formData.get('password'))
   const supabaseClient = createClient()
@@ -13,12 +17,10 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
-    console.error("Error logging in:", error)
+    return {error: error.message}
   }
 
-  if (!error) {
-    redirect("/")
-  }
+  redirect("/")
 }
 
 export async function logout() {
