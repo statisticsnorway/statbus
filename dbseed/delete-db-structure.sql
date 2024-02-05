@@ -234,6 +234,7 @@ DROP TYPE public.data_source_upload_type;
 
 DROP TYPE public.statbus_role_type;
 DROP TYPE public.data_source_queue_status;
+DROP TYPE public.data_uploading_log_status;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
 DROP TYPE admin.existing_upsert_case;

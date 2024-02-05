@@ -583,6 +583,7 @@ CREATE INDEX ix_data_source_queue_data_source_id ON public.data_source_queue USI
 CREATE INDEX ix_data_source_queue_user_id ON public.data_source_queue USING btree (user_id);
 
 
+CREATE TYPE public.data_uploading_log_status AS ENUM ('done', 'warning', 'error');
 CREATE TABLE public.data_uploading_log (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     start_import_date timestamp with time zone,
@@ -592,7 +593,7 @@ CREATE TABLE public.data_uploading_log (
     serialized_unit text,
     serialized_raw_unit text,
     data_source_queue_id integer NOT NULL REFERENCES public.data_source_queue(id) ON DELETE CASCADE,
-    status integer NOT NULL,
+    status public.data_uploading_log_status NOT NULL,
     note text,
     errors text,
     summary text
