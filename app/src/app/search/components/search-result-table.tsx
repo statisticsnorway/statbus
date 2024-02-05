@@ -6,11 +6,15 @@ import {Tables} from "@/lib/database.types";
 interface TableProps {
   readonly searchResult: SearchResult
   readonly regions: Tables<'region'>[]
+  readonly activityCategories: Tables<'activity_category_available'>[]
 }
 
-export default function SearchResultTable({searchResult: {statisticalUnits}, regions}: TableProps) {
+export default function SearchResultTable({searchResult: {statisticalUnits}, regions = [], activityCategories = []}: TableProps) {
   const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({path}) => path === physical_region_path);
+
+  const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
+      activityCategories.find(({path}) => path === primary_activity_category_path);
 
   return (
     <Table>
@@ -34,7 +38,7 @@ export default function SearchResultTable({searchResult: {statisticalUnits}, reg
                       <small className="text-gray-700">{tax_reg_ident}</small>
                   </TableCell>
                   <TableCell className="p-2 text-right">{getRegionByPath(physical_region_path)?.name}</TableCell>
-                  <TableCell className="text-right p-2 px-4">{primary_activity_category_path as string}</TableCell>
+                  <TableCell className="text-right p-2 px-4">{getActivityCategoryByPath(primary_activity_category_path)?.code}</TableCell>
               </TableRow>
           ))
         }
