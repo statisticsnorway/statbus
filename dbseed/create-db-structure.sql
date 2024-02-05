@@ -564,6 +564,8 @@ CREATE TABLE public.data_source_classification (
 );
 CREATE UNIQUE INDEX ix_data_source_classification_code ON public.data_source_classification USING btree (code) WHERE active;
 
+
+CREATE TYPE public.data_source_queue_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
 CREATE TABLE public.data_source_queue (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     start_import_date timestamp with time zone,
@@ -571,7 +573,7 @@ CREATE TABLE public.data_source_queue (
     data_source_path text NOT NULL,
     data_source_file_name text NOT NULL,
     description text,
-    status integer NOT NULL,
+    status public.data_source_queue_status NOT NULL,
     note text,
     data_source_id integer NOT NULL REFERENCES public.data_source(id) ON DELETE CASCADE,
     user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
