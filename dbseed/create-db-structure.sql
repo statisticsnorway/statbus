@@ -2071,28 +2071,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-SELECT pg_catalog.setval('public.analysis_log_id_seq', 1, false);
-SELECT pg_catalog.setval('public.analysis_queue_id_seq', 1, false);
-SELECT pg_catalog.setval('public.custom_analysis_check_id_seq', 1, false);
-SELECT pg_catalog.setval('public.data_source_classification_id_seq', 1, false);
-SELECT pg_catalog.setval('public.data_source_id_seq', 1, false);
-SELECT pg_catalog.setval('public.data_source_queue_id_seq', 1, false);
-SELECT pg_catalog.setval('public.data_uploading_log_id_seq', 1, false);
-SELECT pg_catalog.setval('public.enterprise_group_id_seq', 1, false);
-SELECT pg_catalog.setval('public.enterprise_group_role_id_seq', 1, false);
-SELECT pg_catalog.setval('public.enterprise_group_type_id_seq', 1, false);
-SELECT pg_catalog.setval('public.enterprise_id_seq', 1, false);
-SELECT pg_catalog.setval('public.foreign_participation_id_seq', 1, false);
-SELECT pg_catalog.setval('public.legal_form_id_seq', 1, false);
-SELECT pg_catalog.setval('public.legal_unit_id_seq', 1, false);
-SELECT pg_catalog.setval('public.establishment_id_seq', 1, false);
-SELECT pg_catalog.setval('public.postal_index_id_seq', 1, false);
-SELECT pg_catalog.setval('public.reorg_type_id_seq', 1, false);
-SELECT pg_catalog.setval('public.report_tree_id_seq', 1, false);
-SELECT pg_catalog.setval('public.sample_frame_id_seq', 1, false);
-SELECT pg_catalog.setval('public.sector_code_id_seq', 1, false);
-SELECT pg_catalog.setval('public.unit_size_id_seq', 1, false);
-
 --
 CREATE TABLE public.custom_view_def_target_table(
     id serial PRIMARY KEY,
