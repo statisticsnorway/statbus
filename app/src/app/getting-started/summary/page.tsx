@@ -24,13 +24,13 @@ export default async function OnboardingCompletedPage() {
           {
             settings?.length ? (
               <>
-                You have configured Statbus to use
+                You have configured StatBus to use
                 the <strong>{settings?.[0]?.activity_category_standard?.name}</strong> activity category
                 standard.
               </>
             ) : (
               <>
-                You have not configured Statbus to use an activity category standard. You can configure
+                You have not configured StatBus to use an activity category standard. You can configure
                 activity category standards&nbsp;
                 <Link className="underline" href={"/getting-started/activity-standard"}>here</Link>
               </>
@@ -86,7 +86,7 @@ export default async function OnboardingCompletedPage() {
       {
         settings?.length && regions?.length && legalUnits?.length ? (
           <div className="text-center">
-            <Link className="underline" href="/">Start using Statbus</Link>
+            <Link className="underline" href="/">Start using StatBus</Link>
           </div>
         ) : null
       }

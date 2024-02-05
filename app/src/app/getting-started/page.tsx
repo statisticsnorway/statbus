@@ -6,7 +6,7 @@ export default async function GettingStartedPage() {
     <div className="text-center space-y-6">
       <h1 className="font-medium text-lg">Welcome!</h1>
       <p>
-        In this onboarding guide we will try to help you get going with Statbus.
+        In this onboarding guide we will try to help you get going with StatBus.
         We will assist you in selecting an activity standard and you will get
         to upload your first region data set.
       </p>
