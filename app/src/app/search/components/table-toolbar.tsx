@@ -11,7 +11,7 @@ interface TableToolbarProps {
 }
 
 export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
-  const hasFilterSelected = filters.some(({selected}) => selected.length > 0)
+  const hasFilterSelected = filters.some(({selected}) => selected?.[0]?.toString().length)
 
   const createFilterComponent = useCallback((filter: SearchFilter) => {
     switch (filter.type) {
