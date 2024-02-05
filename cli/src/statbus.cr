@@ -236,6 +236,9 @@ class StatBus
           puts "sql_statment = #{sql_statment}" if @verbose
           insert = db.build sql_statment
           db.exec "BEGIN;"
+          # Set a config that prevents inner trigger functions form activating constraints,
+          # make the deferral moot.
+          db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
           db.exec "SET CONSTRAINTS ALL DEFERRED;"
           batch_size = 10000
           batch_item = 0

@@ -3232,7 +3232,10 @@ DECLARE
     inserted_location RECORD;
     inserted_activity RECORD;
     invalid_codes JSONB := '{}'::jsonb;
+    statbus_constraints_already_deferred BOOLEAN;
 BEGIN
+    SELECT current_setting('statbus.constraints_already_deferred', true)::boolean INTO statbus_constraints_already_deferred;
+
     SELECT * INTO edited_by_user
     FROM public.statbus_user
     -- TODO: Uncomment when going into production
@@ -3271,7 +3274,10 @@ BEGIN
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
      INTO upsert_data;
 
-    SET CONSTRAINTS ALL DEFERRED;
+    IF NOT statbus_constraints_already_deferred THEN
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     INSERT INTO public.legal_unit_era
     (
         tax_reg_ident,
@@ -3347,7 +3353,10 @@ BEGIN
         )
         RETURNING * INTO inserted_activity;
     END IF;
-    SET CONSTRAINTS ALL IMMEDIATE;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        SET CONSTRAINTS ALL IMMEDIATE;
+    END IF;
 
     RETURN NULL;
 END;
