@@ -489,8 +489,8 @@ EXECUTE FUNCTION admin.activity_category_available_custom_upsert_custom();
 
 CREATE TABLE public.activity_category_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    role_id integer NOT NULL,
-    activity_category_id integer NOT NULL,
+    role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
+    activity_category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
     UNIQUE(role_id, activity_category_id)
 );
 CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
@@ -501,7 +501,7 @@ CREATE TABLE public.analysis_queue (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_start_period timestamp with time zone NOT NULL,
     user_end_period timestamp with time zone NOT NULL,
-    user_id integer NOT NULL,
+    user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     comment text,
     server_start_period timestamp with time zone,
     server_end_period timestamp with time zone
@@ -538,7 +538,7 @@ CREATE TABLE public.data_source (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text NOT NULL,
     description text,
-    user_id integer,
+    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
     priority public.data_source_priority NOT NULL,
     allowed_operations public.allowed_operations NOT NULL,
     attributes_to_check text,
@@ -564,7 +564,6 @@ CREATE TABLE public.data_source_classification (
 );
 CREATE UNIQUE INDEX ix_data_source_classification_code ON public.data_source_classification USING btree (code) WHERE active;
 
-
 CREATE TABLE public.data_source_queue (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     start_import_date timestamp with time zone,
@@ -574,8 +573,8 @@ CREATE TABLE public.data_source_queue (
     description text,
     status integer NOT NULL,
     note text,
-    data_source_id integer NOT NULL,
-    user_id integer,
+    data_source_id integer NOT NULL REFERENCES public.data_source(id) ON DELETE CASCADE,
+    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
     skip_lines_count integer NOT NULL
 );
 CREATE INDEX ix_data_source_queue_data_source_id ON public.data_source_queue USING btree (data_source_id);
@@ -590,7 +589,7 @@ CREATE TABLE public.data_uploading_log (
     stat_unit_name text,
     serialized_unit text,
     serialized_raw_unit text,
-    data_source_queue_id integer NOT NULL,
+    data_source_queue_id integer NOT NULL REFERENCES public.data_source_queue(id) ON DELETE CASCADE,
     status integer NOT NULL,
     note text,
     errors text,
@@ -613,6 +612,52 @@ CREATE TABLE public.tag (
     archived boolean NOT NULL DEFAULT false
 );
 
+
+CREATE TABLE public.unit_size (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code text NOT NULL,
+    name text NOT NULL,
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+);
+CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code) WHERE active;
+
+
+CREATE TABLE public.reorg_type (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code text UNIQUE NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+);
+CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code) WHERE active;
+
+
+CREATE TABLE public.foreign_participation (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code text NOT NULL,
+    name text NOT NULL,
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+);
+CREATE UNIQUE INDEX ix_foreign_participation_code ON public.foreign_participation USING btree (code) WHERE active;
+
+
+CREATE TABLE public.enterprise_group_type (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code text UNIQUE NOT NULL,
+    name text UNIQUE NOT NULL,
+    active boolean NOT NULL,
+    custom boolean NOT NULL,
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+);
+CREATE UNIQUE INDEX ix_enterprise_group_type_code ON public.enterprise_group_type USING btree (code) WHERE active;
+
+
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -627,7 +672,7 @@ CREATE TABLE public.enterprise_group (
     name varchar(256),
     data_source text,
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    enterprise_group_type_id integer,
+    enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
     telephone_no text,
     email_address text,
     web_address text,
@@ -635,12 +680,12 @@ CREATE TABLE public.enterprise_group (
     notes text,
     edit_by_user_id integer NOT NULL,
     edit_comment text,
-    unit_size_id integer,
-    data_source_classification_id integer,
+    unit_size_id integer REFERENCES public.unit_size(id),
+    data_source_classification_id integer REFERENCES public.data_source_classification(id),
     reorg_references text,
     reorg_date timestamp with time zone,
-    reorg_type_id integer,
-    foreign_participation_id integer
+    reorg_type_id integer REFERENCES public.reorg_type(id),
+    foreign_participation_id integer REFERENCES public.foreign_participation(id)
 );
 CREATE INDEX ix_enterprise_group_data_source_classification_id ON public.enterprise_group USING btree (data_source_classification_id);
 CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
@@ -665,14 +710,20 @@ CREATE TABLE public.enterprise_group_role (
 CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_role USING btree (code) WHERE active;
 
 
-CREATE TABLE public.enterprise_group_type (
+CREATE TABLE public.sector_code (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code text UNIQUE NOT NULL,
-    name text UNIQUE NOT NULL,
+    path public.ltree UNIQUE NOT NULL,
+    parent_id integer,
+    label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
+    code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
+    name text NOT NULL,
     active boolean NOT NULL,
-    custom boolean NOT NULL,
+    custom bool NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code) WHERE active;
+CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
+
 
 CREATE TABLE public.enterprise (
     id SERIAL NOT NULL,
@@ -695,14 +746,14 @@ CREATE TABLE public.enterprise (
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
-    sector_code_id integer,
-    unit_size_id integer,
-    foreign_participation_id integer,
-    data_source_classification_id integer,
+    sector_code_id integer REFERENCES public.sector_code(id),
+    unit_size_id integer REFERENCES public.unit_size(id),
+    foreign_participation_id integer REFERENCES public.foreign_participation(id),
+    data_source_classification_id integer REFERENCES public.data_source_classification(id),
     -- TODO: Reconsider grouping by enterprise_group to grouping by enterprise itself.
     enterprise_group_id integer,
     enterprise_group_date timestamp with time zone,
-    enterprise_group_role_id integer
+    enterprise_group_role_id integer REFERENCES public.enterprise_group_role(id)
 );
 CREATE INDEX ix_enterprise_data_source_classification_id ON public.enterprise USING btree (data_source_classification_id);
 CREATE INDEX ix_enterprise_enterprise_group_role_id ON public.enterprise USING btree (enterprise_group_role_id);
@@ -719,15 +770,6 @@ CREATE OR REPLACE FUNCTION admin.enterprise_id_exists(fk_id integer) RETURNS boo
     SELECT EXISTS (SELECT 1 FROM public.enterprise WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
 
-CREATE TABLE public.foreign_participation (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code text NOT NULL,
-    name text NOT NULL,
-    active boolean NOT NULL,
-    custom boolean NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
-);
-CREATE UNIQUE INDEX ix_foreign_participation_code ON public.foreign_participation USING btree (code) WHERE active;
 
 CREATE TABLE public.legal_form (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -763,16 +805,16 @@ CREATE TABLE public.legal_unit (
     email_address character varying(50),
     free_econ_zone boolean,
     notes text,
-    sector_code_id integer,
-    legal_form_id integer,
+    sector_code_id integer REFERENCES public.sector_code(id),
+    legal_form_id integer REFERENCES public.legal_form(id),
     reorg_date timestamp with time zone,
     reorg_references integer,
-    reorg_type_id integer,
+    reorg_type_id integer REFERENCES public.reorg_type(id),
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
-    unit_size_id integer,
-    foreign_participation_id integer,
-    data_source_classification_id integer,
+    unit_size_id integer REFERENCES public.unit_size(id),
+    foreign_participation_id integer REFERENCES public.foreign_participation(id),
+    data_source_classification_id integer REFERENCES public.data_source_classification(id),
     enterprise_id integer,
     invalid_codes jsonb,
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
@@ -819,14 +861,14 @@ CREATE TABLE public.establishment (
     email_address character varying(50),
     free_econ_zone boolean,
     notes text,
-    sector_code_id integer,
+    sector_code_id integer REFERENCES public.sector_code(id),
     reorg_date timestamp with time zone,
     reorg_references integer,
-    reorg_type_id integer,
+    reorg_type_id integer REFERENCES public.reorg_type(id),
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
-    unit_size_id integer,
-    data_source_classification_id integer,
+    unit_size_id integer REFERENCES public.unit_size(id),
+    data_source_classification_id integer REFERENCES public.data_source_classification(id),
     enterprise_id integer,
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
@@ -896,7 +938,7 @@ CREATE INDEX ix_tag_for_unit_updated_by_user_id ON public.tag_for_unit USING btr
 
 CREATE TABLE public.analysis_log (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    analysis_queue_id integer NOT NULL,
+    analysis_queue_id integer NOT NULL REFERENCES public.analysis_queue(id) ON DELETE CASCADE,
     establishment_id integer check (admin.establishment_id_exists(establishment_id)),
     legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
     enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
@@ -1118,15 +1160,6 @@ INSTEAD OF INSERT ON public.region_7_levels_view
 FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_region_7_levels();
 
-CREATE TABLE public.reorg_type (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code text UNIQUE NOT NULL,
-    name text NOT NULL,
-    description text NOT NULL,
-    active boolean NOT NULL,
-    custom boolean NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
-);
 
 CREATE TABLE public.report_tree (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1145,7 +1178,7 @@ CREATE TABLE public.sample_frame (
     description text,
     predicate text NOT NULL,
     fields text NOT NULL,
-    user_id integer,
+    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
     status integer NOT NULL,
     file_path text,
     generated_date_time timestamp with time zone,
@@ -1154,31 +1187,6 @@ CREATE TABLE public.sample_frame (
 );
 CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id);
 
-
-CREATE TABLE public.sector_code (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    path public.ltree UNIQUE NOT NULL,
-    parent_id integer,
-    label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
-    name text NOT NULL,
-    active boolean NOT NULL,
-    custom bool NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
-);
-CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code) WHERE active;
-CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
-
-
-CREATE TABLE public.unit_size (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code text NOT NULL,
-    name text NOT NULL,
-    active boolean NOT NULL,
-    custom boolean NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
-);
-CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code) WHERE active;
 
 -- Create function for upsert operation on country
 CREATE FUNCTION admin.upsert_country()
@@ -1818,7 +1826,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     -- legal_form_id integer,
     -- sector_code_ids integer[],
     -- activity_category_ids integer[],
-    -- unit_size_id integer,
+    -- unit_size_id integer REFERENCES public.unit_size(id),
     -- short_name character varying(200),
     -- tax_reg_ident character varying(50),
     -- external_ident character varying(50),
@@ -1832,8 +1840,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     -- liq_reason character varying(200),
     -- user_id character varying(100) NOT NULL,
     -- edit_comment character varying(500),
-    -- data_source_classification_id integer,
-    -- reorg_type_id integer,
+    -- data_source_classification_id integer REFERENCES public.data_source_classification(id),
+    -- reorg_type_id integer REFERENCES public.reorg_type(id),
     -- active boolean,
     )
     AS
@@ -2084,41 +2092,6 @@ SELECT pg_catalog.setval('public.report_tree_id_seq', 1, false);
 SELECT pg_catalog.setval('public.sample_frame_id_seq', 1, false);
 SELECT pg_catalog.setval('public.sector_code_id_seq', 1, false);
 SELECT pg_catalog.setval('public.unit_size_id_seq', 1, false);
-
-
-ALTER TABLE ONLY public.activity_category ADD CONSTRAINT fk_activity_category_activity_category_parent_id FOREIGN KEY (parent_id) REFERENCES public.activity_category(id);
-ALTER TABLE ONLY public.activity_category_role ADD CONSTRAINT fk_activity_category_role_activity_category_activity_category_ FOREIGN KEY (activity_category_id) REFERENCES public.activity_category(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.activity_category_role ADD CONSTRAINT fk_activity_category_role_role_role_id FOREIGN KEY (role_id) REFERENCES public.statbus_role(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.analysis_log ADD CONSTRAINT fk_analysis_log_analysis_queue_analysis_queue_id FOREIGN KEY (analysis_queue_id) REFERENCES public.analysis_queue(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.analysis_queue ADD CONSTRAINT fk_analysis_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.data_source_queue ADD CONSTRAINT fk_data_source_queue_data_source_data_source_id FOREIGN KEY (data_source_id) REFERENCES public.data_source(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.data_source_queue ADD CONSTRAINT fk_data_source_queue_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
-ALTER TABLE ONLY public.data_source ADD CONSTRAINT fk_data_source_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
-ALTER TABLE ONLY public.data_uploading_log ADD CONSTRAINT fk_data_uploading_log_data_source_queue_data_source_queue_id FOREIGN KEY (data_source_queue_id) REFERENCES public.data_source_queue(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_data_source_classification_data_source_cla FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_enterprise_group_type_enterprise_group_type_id FOREIGN KEY (enterprise_group_type_id) REFERENCES public.enterprise_group_type(id);
-ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_foreign_participation_foreign_participatio FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
-ALTER TABLE ONLY public.enterprise_group ADD CONSTRAINT fk_enterprise_group_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_data_source_classification_data_source_clas FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_enterprise_group_role_enterprise_group_role_id FOREIGN KEY (enterprise_group_role_id) REFERENCES public.enterprise_group_role(id);
-ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_foreign_participation_foreign_participation FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
-ALTER TABLE ONLY public.enterprise ADD CONSTRAINT fk_enterprise_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_foreign_participation_foreign_participation_id FOREIGN KEY (foreign_participation_id) REFERENCES public.foreign_participation(id);
-ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_legal_form_legal_form_id FOREIGN KEY (legal_form_id) REFERENCES public.legal_form(id);
-ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
-ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
-ALTER TABLE ONLY public.legal_unit ADD CONSTRAINT fk_legal_unit_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_data_source_classification_data_source_classific FOREIGN KEY (data_source_classification_id) REFERENCES public.data_source_classification(id);
-ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_reorg_type_reorg_type_id FOREIGN KEY (reorg_type_id) REFERENCES public.reorg_type(id);
-ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_sector_code_sector_code_id FOREIGN KEY (sector_code_id) REFERENCES public.sector_code(id);
-ALTER TABLE ONLY public.establishment ADD CONSTRAINT fk_establishment_unit_size_size_id FOREIGN KEY (unit_size_id) REFERENCES public.unit_size(id);
-ALTER TABLE ONLY public.region ADD CONSTRAINT fk_region_region_parent_id FOREIGN KEY (parent_id) REFERENCES public.region(id);
-ALTER TABLE ONLY public.sample_frame ADD CONSTRAINT fk_sample_frame_user_user_id FOREIGN KEY (user_id) REFERENCES public.statbus_user(id);
-ALTER TABLE ONLY public.sector_code ADD CONSTRAINT fk_sector_code_sector_code_parent_id FOREIGN KEY (parent_id) REFERENCES public.sector_code(id);
-
 
 --
 CREATE TABLE public.custom_view_def_target_table(
