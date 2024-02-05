@@ -22,7 +22,7 @@ export default async function SearchPage() {
         .from('activity_category_available')
         .select();
 
-    const statDefinitionPromise = await client
+    const statDefinitionPromise = client
         .from('stat_definition')
         .select()
         .order('priority', {ascending: true});
