@@ -67,7 +67,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         {
           label: `${code} ${name}`,
           value: path as string,
-          humanReadableValue: name
+          humanReadableValue: `${code} ${name}`
         }
       )),
       selected: [],
@@ -81,7 +81,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         {
           label: `${code} ${name}`,
           value: path as string,
-          humanReadableValue: name?.toString()
+          humanReadableValue: `${code} ${name}`
         }
       )),
       selected: [],
