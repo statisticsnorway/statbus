@@ -3,6 +3,7 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {BarChart3, Building, Globe2, ScrollText} from "lucide-react";
 import {createClient} from "@/lib/supabase/server";
 import {ReactNode} from "react";
+import {cn} from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "StatBus | Dashboard"
@@ -51,25 +52,29 @@ export default async function Dashboard() {
         <DashboardCard
           title="Statistical Units"
           icon={<Building size={18}/>}
-          text={`${statisticalUnitsCount}`}
+          text={statisticalUnitsCount?.toString() ?? '-'}
+          failed={!!statisticalUnitsError}
         />
 
         <DashboardCard
           title="Regions"
           icon={<Globe2 size={18}/>}
-          text={`${regionsCount}`}
+          text={regionsCount?.toString() ?? '-'}
+          failed={!!regionsError}
         />
 
         <DashboardCard
           title="Activity Category Standard"
           icon={<ScrollText size={18}/>}
-          text={`${settings?.[0]?.activity_category_standard?.name}`}
+          text={settings?.[0]?.activity_category_standard?.name ?? '-'}
+          failed={!!settingsError}
         />
 
         <DashboardCard
           title="Statistical Variables"
           icon={<BarChart3 size={18}/>}
-          text={`${statisticalVariablesCount}`}
+          text={statisticalVariablesCount?.toString() ?? '-'}
+          failed={!!statisticalVariablesError}
         />
 
         <DashboardCardPlaceholder/>
@@ -83,9 +88,14 @@ const DashboardCardPlaceholder = () => (
   <div className="col-span-1 bg-gray-50 text-center p-12 text-gray-500 rounded"></div>
 )
 
-const DashboardCard = ({title, icon, text}: { title: string, icon: ReactNode, text: string }) => {
+const DashboardCard = ({title, icon, text, failed}: {
+  title: string,
+  icon: ReactNode,
+  text: string,
+  failed: boolean
+}) => {
   return (
-    <Card>
+    <Card className={cn("", failed ? "bg-red-100" : "")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">
           {title}
