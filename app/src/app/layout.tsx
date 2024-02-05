@@ -10,7 +10,7 @@ import {Toaster} from "@/components/ui/toaster";
 const inter = Inter({subsets: ['latin']})
 
 export const metadata: Metadata = {
-    title: 'Statbus',
+    title: 'StatBus',
     description: 'Simple To Use, Simple To Understand, Simply useful!',
 }
 
