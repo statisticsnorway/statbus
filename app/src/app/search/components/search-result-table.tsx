@@ -23,16 +23,17 @@ export default function SearchResultTable({searchResult: {statisticalUnits}, reg
       </TableHeader>
       <TableBody>
         {
-          statisticalUnits?.map(({legal_unit_id, name, physical_region_path, primary_activity_category_path}) => (
-            <TableRow key={legal_unit_id}>
-              <TableCell className="p-3">
-                <Link href={`/legal-units/${legal_unit_id}`} className="font-medium">
-                  {name}
-                </Link>
-              </TableCell>
-              <TableCell className="p-3 text-right">{getRegionByPath(physical_region_path)?.name}</TableCell>
-              <TableCell className="text-right p-3 px-4">{primary_activity_category_path as string}</TableCell>
-            </TableRow>
+          statisticalUnits?.map(({legal_unit_id, tax_reg_ident, name, physical_region_path, primary_activity_category_path}) => (
+              <TableRow key={legal_unit_id}>
+                  <TableCell className="p-2 flex flex-col space-y-1.5">
+                      <Link href={`/legal-units/${legal_unit_id}`} className="font-medium leading-none">
+                          {name}
+                      </Link>
+                      <small className="text-gray-700 leading-none">{tax_reg_ident}</small>
+                  </TableCell>
+                  <TableCell className="p-2 text-right">{getRegionByPath(physical_region_path)?.name}</TableCell>
+                  <TableCell className="text-right p-2 px-4">{primary_activity_category_path as string}</TableCell>
+              </TableRow>
           ))
         }
       </TableBody>
