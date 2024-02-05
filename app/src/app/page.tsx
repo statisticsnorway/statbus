@@ -1,6 +1,6 @@
 import {Metadata} from "next";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {BarChart3, Building, Globe2, ScrollText} from "lucide-react";
+import {BarChart3, Building, Globe2, ScrollText, Settings} from "lucide-react";
 import {createClient} from "@/lib/supabase/server";
 import {ReactNode} from "react";
 import {cn} from "@/lib/utils";
@@ -27,20 +27,27 @@ export default async function Dashboard() {
     .select('activity_category_standard(id,name)')
     .limit(1)
 
-  const statDefinitionPromise = await client
+  const statDefinitionPromise = client
     .from('stat_definition')
     .select('id', {count: 'exact'})
+    .limit(0)
+
+  const customActivityCategoryCodesPromise = await client
+    .from('activity_category_available_custom')
+    .select('path', {count: 'exact'})
     .limit(0)
 
   const [
     {count: statisticalUnitsCount, error: statisticalUnitsError},
     {count: regionsCount, error: regionsError},
     {count: statisticalVariablesCount, error: statisticalVariablesError},
+    {count: customActivityCategoryCodesCount, error: customActivityCategoryCodesError},
     {data: settings, error: settingsError}
   ] = await Promise.all([
     statisticalUnitPromise,
     regionPromise,
     statDefinitionPromise,
+    customActivityCategoryCodesPromise,
     settingsPromise
   ]);
 
@@ -77,7 +84,13 @@ export default async function Dashboard() {
           failed={!!statisticalVariablesError}
         />
 
-        <DashboardCardPlaceholder/>
+        <DashboardCard
+          title="Custom Activity Category Codes"
+          icon={<Settings size={18}/>}
+          text={customActivityCategoryCodesCount?.toString() ?? '-'}
+          failed={!!customActivityCategoryCodesError}
+        />
+
         <DashboardCardPlaceholder/>
       </div>
     </main>
