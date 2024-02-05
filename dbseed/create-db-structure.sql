@@ -534,8 +534,7 @@ CREATE TABLE public.custom_analysis_check (
 
 CREATE TYPE public.data_source_priority AS ENUM ('trusted','ok','not_trusted');
 CREATE TYPE public.allowed_operations AS ENUM ('create','alter','create_and_alter');
-CREATE TYPE public.stat_unit_type AS ENUM ('local_unit','legal_unit','enterprise_unit','enterprise_group'
-);
+CREATE TYPE public.stat_unit_type AS ENUM ('local_unit','legal_unit','enterprise_unit','enterprise_group');
 CREATE TYPE public.data_source_upload_type AS ENUM ('stat_units','activities');
 
 CREATE TABLE public.data_source (
