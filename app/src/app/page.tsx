@@ -102,10 +102,10 @@ const DashboardCardPlaceholder = () => (
 )
 
 const DashboardCard = ({title, icon, text, failed}: {
-  title: string,
-  icon: ReactNode,
-  text: string,
-  failed: boolean
+  readonly title: string,
+  readonly icon: ReactNode,
+  readonly text: string,
+  readonly failed: boolean
 }) => {
   return (
     <Card className={cn("", failed ? "bg-red-100" : "")}>
