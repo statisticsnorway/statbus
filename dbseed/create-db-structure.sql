@@ -520,6 +520,10 @@ CREATE TABLE public.country (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(code_2, code_3, code_num, name)
 );
+CREATE UNIQUE INDEX ix_country_code_2 ON public.country USING btree (code_2) WHERE active;
+CREATE UNIQUE INDEX ix_country_code_3 ON public.country USING btree (code_3) WHERE active;
+CREATE UNIQUE INDEX ix_country_code_num ON public.country USING btree (code_num) WHERE active;
+
 
 CREATE TABLE public.custom_analysis_check (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
