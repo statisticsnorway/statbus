@@ -1,21 +1,30 @@
-"use server"
+"use client"
 import React from "react";
+import type {LoginState} from "@/app/login/actions";
 import {login} from "@/app/login/actions";
 import Image from "next/image";
+import {useFormState} from "react-dom";
+import logo from '@/../public/statbus-logo.png'
 
-export default async function LoginPage() {
+const initialState: LoginState = {
+  error: null
+}
+
+export default function LoginPage() {
+
+  const [state, formAction] = useFormState(login, initialState)
 
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <Image src="/statbus-logo.png" alt="Statbus Logo" width={32} height={32} className="h-10 w-auto mx-auto" />
+        <Image src={logo} alt="Statbus Logo" width={32} height={32} className="h-10 w-auto mx-auto" />
         <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
           Sign in to your account
         </h2>
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <form className="group space-y-6" action={login} noValidate>
+        <form className="group space-y-6" action={formAction} noValidate>
           <div>
             <label htmlFor="email" className="block text-sm font-medium leading-6 text-gray-900">
               Email address
@@ -62,6 +71,11 @@ export default async function LoginPage() {
           </div>
 
           <div>
+            {state.error ? (
+              <div className="text-red-500 text-sm my-2 text-center">
+                {state.error}
+                </div>
+            ) : null}
             <button
               type="submit"
               className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 group-invalid:pointer-events-none group-invalid:opacity-30"
