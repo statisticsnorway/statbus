@@ -15,6 +15,13 @@ services:
     container_name: ${COMPOSE_INSTANCE_NAME}-auth
   rest:
     container_name: ${COMPOSE_INSTANCE_NAME}-rest
+    environment:
+      # Enable group by counting for getting the available filter values with counts
+      # for statistical_unit
+      # Available with the query `select=count(),primary_activity_category_id`
+      # and `select=count(),physical_region_id`
+      # and uses indices for this.
+      PGRST_DB_AGGREGATES_ENABLED: true
   realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
     container_name: ${COMPOSE_INSTANCE_NAME}-realtime
