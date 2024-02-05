@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     title: "StatBus | Search statistical units"
 }
 
-export default async function Home() {
+export default async function SearchPage() {
     const client = createClient();
     const statisticalUnitPromise = client
         .from('statistical_unit')
@@ -28,7 +28,7 @@ export default async function Home() {
         .order('priority', {ascending: true});
 
     const [
-        {data: statisticalUnits, count, error: legalUnitsError},
+        {data: statisticalUnits, count, error: statisticalUnitsError},
         {data: regions, error: regionsError},
         {data: activityCategories, error: activityCategoriesError},
         {data: statisticalVariables}
@@ -39,8 +39,8 @@ export default async function Home() {
         statDefinitionPromise
     ]);
 
-    if (legalUnitsError) {
-        console.error('⚠️failed to fetch legal units', legalUnitsError);
+    if (statisticalUnitsError) {
+        console.error('⚠️failed to fetch statistical units', statisticalUnitsError);
     }
 
     if (regionsError) {
