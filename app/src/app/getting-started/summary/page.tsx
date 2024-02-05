@@ -1,13 +1,14 @@
 import React from "react";
 import Link from "next/link";
-import {AlertCircle, Check} from "lucide-react";
+import {Check, X} from "lucide-react";
 import {createClient} from "@/lib/supabase/server";
 
 export default async function OnboardingCompletedPage() {
     const client = createClient()
-    const {data: settings, count: numberOfSettings} = await client.from('settings').select('id, activity_category_standard(id,name)', {count: 'exact'}).limit(1)
+    const {data: settings, count: numberOfSettings} = await client.from('settings').select('activity_category_standard(id,name)', {count: 'exact'}).limit(1)
     const {count: numberOfRegions} = await client.from('region').select('id', {count: 'exact'}).limit(1)
     const {count: numberOfLegalUnits} = await client.from('legal_unit').select('id', {count: 'exact'}).limit(1)
+    const {count: numberOfCustomActivityCategoryCodes} = await client.from('activity_category_available_custom').select('path', {count: 'exact'}).limit(1)
 
     return (
         <div className="space-y-8">
@@ -17,7 +18,7 @@ export default async function OnboardingCompletedPage() {
             <div className="flex items-center space-x-3">
                 <div>
                     {
-                        numberOfSettings ? <Check/> : <AlertCircle/>
+                        numberOfSettings ? <Check/> : <X/>
                     }
                 </div>
                 <p>
@@ -42,7 +43,34 @@ export default async function OnboardingCompletedPage() {
             <div className="flex items-center space-x-3">
                 <div>
                     {
-                        numberOfRegions ? <Check/> : <AlertCircle/>
+                        numberOfCustomActivityCategoryCodes ? <Check/> : <X/>
+                    }
+                </div>
+                <p>
+                    {
+                        numberOfCustomActivityCategoryCodes ? (
+                            <>
+                                You have configured StatBus to use
+                                the <strong>{numberOfCustomActivityCategoryCodes}</strong> custom activity category
+                                codes.
+                            </>
+                        ) : (
+                            <>
+                                You have not configured StatBus to use any custom activity category codes. You can
+                                configure
+                                custom activity category standards&nbsp;
+                                <Link className="underline"
+                                      href={"/getting-started/upload-custom-activity-standard-codes"}>here</Link>
+                            </>
+                        )
+                    }
+                </p>
+            </div>
+
+            <div className="flex items-center space-x-3">
+                <div>
+                    {
+                        numberOfRegions ? <Check/> : <X/>
                     }
                 </div>
                 <p>
@@ -64,7 +92,7 @@ export default async function OnboardingCompletedPage() {
             <div className="flex items-center space-x-3">
                 <div>
                     {
-                        numberOfLegalUnits ? <Check/> : <AlertCircle/>
+                        numberOfLegalUnits ? <Check/> : <X/>
                     }
                 </div>
                 <p>
