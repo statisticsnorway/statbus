@@ -1274,6 +1274,26 @@ END;
 $generate_view$ LANGUAGE plpgsql;
 
 
+CREATE FUNCTION admin.generate_active_code_custom_unique_constraint(table_name regclass)
+RETURNS VOID AS $generate_active_code_custom_unique_constraint$
+-- Construct the SQL constraint for the upsert function
+    DECLARE
+        table_name_str text;
+        constraint_sql text;
+    BEGIN
+        SELECT relname INTO table_name_str
+        FROM pg_catalog.pg_class
+        WHERE oid = table_name;
+
+        constraint_sql := format($$
+            CREATE UNIQUE INDEX ix_%1$s_active_code_custom ON public.%1$I USING btree (active, code, custom);
+        $$, table_name_str);
+        EXECUTE constraint_sql;
+        RAISE NOTICE 'Created unique constraint on %(active, code, custom)', table_name_str;
+    END;
+$generate_active_code_custom_unique_constraint$ LANGUAGE plpgsql;
+
+
 CREATE FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_code_upsert_function$
 DECLARE
@@ -1323,7 +1343,7 @@ BEGIN
                             BEGIN
                                 INSERT INTO %s (code, %s, active, custom, updated_at)
                                 VALUES (NEW.code, %s, %L, %L, statement_timestamp())
-                                ON CONFLICT (code) DO UPDATE SET
+                                ON CONFLICT (active, code, custom) DO UPDATE SET
                                     %s,
                                     custom = %L,
                                     updated_at = statement_timestamp()
@@ -1520,6 +1540,8 @@ DECLARE
 BEGIN
     view_name_system := admin.generate_view(table_name, 'system');
     view_name_custom := admin.generate_view(table_name, 'custom');
+
+    PERFORM admin.generate_active_code_custom_unique_constraint(table_name);
 
     IF table_type = 'code' THEN
         upsert_function_name_system := admin.generate_code_upsert_function(table_name,'system');
