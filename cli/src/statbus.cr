@@ -234,12 +234,12 @@ class StatBus
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
           sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
           puts "sql_statment = #{sql_statment}" if @verbose
-          insert = db.build sql_statment
           db.exec "BEGIN;"
           # Set a config that prevents inner trigger functions form activating constraints,
           # make the deferral moot.
           db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
           db.exec "SET CONSTRAINTS ALL DEFERRED;"
+          insert = db.build sql_statment
           batch_size = 10000
           batch_item = 0
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
@@ -252,7 +252,9 @@ class StatBus
               db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
               db.exec "SELECT statistical_unit_refresh_now();"
               db.exec "BEGIN;"
+              db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
               db.exec "SET CONSTRAINTS ALL DEFERRED;"
+              insert = db.build sql_statment
             end
           end
           db.exec "SET CONSTRAINTS ALL IMMEDIATE;"

@@ -3234,7 +3234,7 @@ DECLARE
     invalid_codes JSONB := '{}'::jsonb;
     statbus_constraints_already_deferred BOOLEAN;
 BEGIN
-    SELECT current_setting('statbus.constraints_already_deferred', true)::boolean INTO statbus_constraints_already_deferred;
+    SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
