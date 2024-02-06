@@ -3259,7 +3259,6 @@ SELECT lu.tax_reg_ident
      , lu.name
      , phr.code AS physical_region_code
      , por.code AS postal_region_code
-     , '' AS employees
      , prac.code AS primary_activity_category_code
 FROM public.legal_unit AS lu
 LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
