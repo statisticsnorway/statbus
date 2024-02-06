@@ -70,7 +70,7 @@ export function CommandPalette() {
     const response = await refreshStatisticalUnits()
     toast({
       title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units Refresh OK",
-      description: response?.error ?? "All Statistical Units have been refreshed.",
+      description: response?.error ?? response?.data ?? "Statistical Units have been refreshed.",
     })
   }
 
