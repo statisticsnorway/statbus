@@ -3,8 +3,13 @@
 import * as React from "react"
 import {useToast} from "@/components/ui/use-toast";
 import {useRouter} from "next/navigation";
-import {Footprints, Home, Pilcrow, Trash, Upload, User} from "lucide-react"
-import {resetLegalUnits, resetRegions, resetSettings} from "@/components/command-palette/command-palette-actions";
+import {Footprints, Home, ListRestart, Pilcrow, Trash, Upload, User} from "lucide-react"
+import {
+  refreshStatisticalUnits,
+  resetLegalUnits,
+  resetRegions,
+  resetSettings
+} from "@/components/command-palette/command-palette-actions";
 
 import {
   CommandDialog,
@@ -60,6 +65,15 @@ export function CommandPalette() {
     })
   }
 
+  const handleStatisticalUnitsRefresh = async () => {
+    setOpen(false)
+    const response = await refreshStatisticalUnits()
+    toast({
+      title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units Refresh OK",
+      description: response?.error ?? "All Statistical Units have been refreshed.",
+    })
+  }
+
   const navigate = (path: string) => {
     setOpen(false)
     router.push(path)
@@ -82,6 +96,10 @@ export function CommandPalette() {
           <CommandItem onSelect={handleLegalUnitsReset}>
             <Trash className="mr-2 h-4 w-4"/>
             <span>Reset Legal Units</span>
+          </CommandItem>
+          <CommandItem onSelect={handleStatisticalUnitsRefresh}>
+            <ListRestart className="mr-2 h-4 w-4"/>
+            <span>Refresh Statistical Units</span>
           </CommandItem>
         </CommandGroup>
         <CommandSeparator/>
