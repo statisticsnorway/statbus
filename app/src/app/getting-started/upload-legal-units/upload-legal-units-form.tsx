@@ -15,7 +15,7 @@ const initialState: { error: string | null } = {
 }
 
 const filename = "legal_units"
-const uploadView: UploadView = "legal_unit_region_activity_category_stats_current"
+const uploadView: UploadView = "legal_unit_region_activity_category_current"
 
 export default function UploadLegalUnitsForm() {
   const [state, formAction] = useFormState(uploadFile.bind(null, filename, uploadView), initialState)

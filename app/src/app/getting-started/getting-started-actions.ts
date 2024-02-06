@@ -10,7 +10,7 @@ interface State {
 
 export type UploadView =
     "region_upload"
-    | "legal_unit_region_activity_category_stats_current"
+    | "legal_unit_region_activity_category_current"
     | "activity_category_available_custom"
 
 export async function uploadFile(filename: string, uploadView: UploadView, _prevState: State, formData: FormData): Promise<State> {
@@ -43,7 +43,7 @@ export async function uploadFile(filename: string, uploadView: UploadView, _prev
             return redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
         case "activity_category_available_custom":
             return redirect('/getting-started/upload-legal-units', RedirectType.push)
-        case "legal_unit_region_activity_category_stats_current":
+        case "legal_unit_region_activity_category_current":
             return redirect('/getting-started/summary', RedirectType.push)
     }
 }

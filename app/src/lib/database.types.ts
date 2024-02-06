@@ -3232,7 +3232,7 @@ export interface Database {
           }
         ]
       }
-      legal_unit_region_activity_category_stats_current: {
+      legal_unit_region_activity_category_current: {
         Row: {
           employees: string | null
           name: string | null
@@ -3243,7 +3243,7 @@ export interface Database {
         }
         Relationships: []
       }
-      legal_unit_region_activity_category_stats_current_with_delete: {
+      legal_unit_region_activity_category_current_with_delete: {
         Row: {
           employees: string | null
           name: string | null

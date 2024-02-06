@@ -216,7 +216,7 @@ class StatBus
 
         case @import_strategy
         when ImportStrategy::Copy
-          copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) FROM STDIN"
+          copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_current(#{sql_fields_str}) FROM STDIN"
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             sql_row.any? do |value|
               if !value.nil? && value.includes?("\t")
@@ -232,7 +232,7 @@ class StatBus
           db.close
         when ImportStrategy::Insert
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
-          sql_statment = "INSERT INTO public.legal_unit_region_activity_category_stats_current(#{sql_fields_str}) VALUES(#{sql_args})"
+          sql_statment = "INSERT INTO public.legal_unit_region_activity_category_current(#{sql_fields_str}) VALUES(#{sql_args})"
           puts "sql_statment = #{sql_statment}" if @verbose
           db.exec "BEGIN;"
           # Set a config that prevents inner trigger functions form activating constraints,

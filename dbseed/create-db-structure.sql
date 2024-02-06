@@ -3298,7 +3298,7 @@ EXECUTE FUNCTION admin.activity_era_upsert();
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
 
-CREATE VIEW public.legal_unit_region_activity_category_stats_current
+CREATE VIEW public.legal_unit_region_activity_category_current
 WITH (security_invoker=on) AS
 SELECT lu.tax_reg_ident
      , lu.name
@@ -3316,7 +3316,7 @@ WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
   AND lu.active
 ;
 
-CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current()
+CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_current()
 RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
@@ -3457,14 +3457,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER upsert_legal_unit_region_activity_category_stats_current_trigger
-INSTEAD OF INSERT ON public.legal_unit_region_activity_category_stats_current
+CREATE TRIGGER upsert_legal_unit_region_activity_category_current_trigger
+INSTEAD OF INSERT ON public.legal_unit_region_activity_category_current
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current();
+EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_current();
 
 CREATE VIEW public.legal_unit_region_activity_category_current_with_delete
 WITH (security_invoker=on) AS
-SELECT * FROM public.legal_unit_region_activity_category_stats_current;
+SELECT * FROM public.legal_unit_region_activity_category_current;
 
 CREATE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete()
 RETURNS TRIGGER AS $$
@@ -4034,7 +4034,7 @@ $$ LANGUAGE plpgsql;
 --GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_current() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
@@ -4057,7 +4057,7 @@ $$ LANGUAGE plpgsql;
 --GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_stats_current() TO authenticated;
+--GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_current() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
 --GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
