@@ -1842,6 +1842,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , activity_category_paths
     , physical_region_id
     , physical_region_path
+    , employees
     -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
     -- sector_code_ids integer[],
@@ -1865,27 +1866,68 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     -- active boolean,
     )
     AS
-    SELECT valid_from
-         , valid_to
+    SELECT greatest(es.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
+         , least(es.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
          , 'establishment'::public.statistical_unit_type AS unit_type
-         , id AS establishment_id
+         , es.id AS establishment_id
          , NULL::INTEGER AS legal_unit_id
          , NULL::INTEGER AS enterprise_id
          , NULL::INTEGER AS enterprise_group_id
-         , NULL::TEXT AS stat_ident
-         , NULL::TEXT AS tax_reg_ident
-         , NULL::TEXT AS external_ident
-         , NULL::TEXT AS external_ident_type
-         , NULL::TEXT AS name
-         , NULL::TSVECTOR AS search
-         , NULL::INTEGER AS primary_activity_category_id
-         , NULL::public.ltree AS primary_activity_category_path
-         , NULL::INTEGER AS secondary_activity_category_id
-         , NULL::public.ltree AS secondary_activity_category_path
-         , NULL::public.ltree[] AS activity_category_paths
-         , NULL::INTEGER AS physical_region_id
-         , NULL::public.ltree AS physical_region_path
-      FROM public.establishment
+         , es.stat_ident AS stat_ident
+         , es.tax_reg_ident AS tax_reg_ident
+         , es.external_ident AS external_ident
+         , es.external_ident_type AS external_ident_type
+         , es.name
+         -- Se supported languages with `SELECT * FROM pg_ts_config`
+         , to_tsvector('norwegian', es.name) ||
+           to_tsvector('english', es.name) ||
+           to_tsvector('arabic', es.name) ||
+           to_tsvector('greek', es.name) ||
+           to_tsvector('russian', es.name) ||
+           to_tsvector('french', es.name) ||
+           to_tsvector('simple', es.name) AS search
+         , pa.activity_category_id AS primary_activity_category_id
+         , pac.path                AS primary_activity_category_path
+         , sa.activity_category_id AS secondary_activity_category_id
+         , sac.path                AS secondary_activity_category_path
+         , CASE
+           WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
+           WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
+           WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
+           WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
+           END AS activity_category_paths
+         , phl.region_id           AS physical_region_id
+         , phr.path                AS physical_region_path
+         , sfu1.value_int AS employees
+    FROM public.establishment AS es
+    LEFT OUTER JOIN public.activity AS pa
+            ON pa.establishment_id = es.id
+           AND pa.activity_type = 'primary'
+           AND daterange(es.valid_from, es.valid_to, '[]')
+            && daterange(pa.valid_from, pa.valid_to, '[]')
+    LEFT OUTER JOIN public.activity_category AS pac
+            ON pa.activity_category_id = pac.id
+    LEFT OUTER JOIN public.activity AS sa
+            ON sa.establishment_id = es.id
+           AND sa.activity_type = 'secondary'
+           AND daterange(es.valid_from, es.valid_to, '[]')
+            && daterange(sa.valid_from, sa.valid_to, '[]')
+    LEFT OUTER JOIN public.activity_category AS sac
+            ON sa.activity_category_id = sac.id
+    LEFT OUTER JOIN public.location AS phl
+            ON phl.establishment_id = es.id
+           AND phl.location_type = 'physical'
+           AND daterange(es.valid_from, es.valid_to, '[]')
+            && daterange(phl.valid_from, phl.valid_to, '[]')
+    LEFT OUTER JOIN public.region AS phr
+            ON phl.region_id = phr.id
+    LEFT OUTER JOIN public.stat_for_unit AS sfu1
+            ON sfu1.establishment_id = es.id
+           AND daterange(es.valid_from, es.valid_to, '[]')
+            && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+    LEFT OUTER JOIN public.stat_definition AS sd1
+            ON sfu1.stat_definition_id = sd1.id
+            AND sd1.code = 'employees'
     UNION ALL
     SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
          , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
@@ -1919,6 +1961,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            END AS activity_category_paths
          , phl.region_id           AS physical_region_id
          , phr.path                AS physical_region_path
+         , NULL::int AS employees
     FROM public.legal_unit AS lu
     LEFT OUTER JOIN public.activity AS pa
             ON pa.legal_unit_id = lu.id
@@ -1962,6 +2005,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
+         , NULL::int AS employees
       FROM public.enterprise
     UNION ALL
     SELECT valid_from
@@ -1984,6 +2028,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
+         , NULL::int AS employees
       FROM public.enterprise_group
 ;
 CREATE UNIQUE INDEX "statistical_unit_key"
