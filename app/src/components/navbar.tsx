@@ -3,6 +3,9 @@ import Image from "next/image";
 import logo from '@/../public/statbus-logo.png'
 import Link from "next/link";
 import {Search} from "lucide-react";
+import CommandPaletteTriggerButton from "@/components/command-palette/command-palette-trigger-button";
+import {cn} from "@/lib/utils";
+import {buttonVariants} from "@/components/ui/button";
 
 export default function Navbar() {
   return (
@@ -13,8 +16,9 @@ export default function Navbar() {
                   <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">StatBus</span>
               </a>
               <div className="flex-1 flex items-center gap-8 justify-end">
-                  <Link href="/search" className="text-sm flex items-center space-x-2 underline">
-                      <Search className="h-4 w-4"/>
+                  <CommandPaletteTriggerButton />
+                  <Link href="/search" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "font-normal space-x-1")}>
+                      <Search size={16} />
                       <span>Statistical Units</span>
                   </Link>
                   <div className="items-center justify-between flex w-auto order-1" id="navbar-user">
