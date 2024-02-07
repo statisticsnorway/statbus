@@ -16,7 +16,7 @@ export default function Navbar() {
                   <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">StatBus</span>
               </a>
               <div className="flex-1 flex items-center gap-8 justify-end">
-                  <CommandPaletteTriggerButton />
+                  <CommandPaletteTriggerButton className="max-lg:hidden" />
                   <Link href="/search" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "font-normal space-x-1")}>
                       <Search size={16} />
                       <span>Statistical Units</span>
