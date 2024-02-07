@@ -8,13 +8,13 @@ import {Separator} from "@/components/ui/separator";
 import {Input} from "@/components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {ConditionalValueBadge} from "@/app/search/components/conditional-value-badge";
-import type {ConditionalValue, SearchFilterCondition, SearchFilterValue} from "@/app/search/search.types";
+import type {ConditionalValue, SearchFilterCondition} from "@/app/search/search.types";
 
 interface ITableFilterCustomProps {
     title: string,
     selected?: {
         condition?: SearchFilterCondition,
-        value: SearchFilterValue | null
+        value: string | null
     }
     onChange: ({value, condition}: ConditionalValue) => void,
     onReset: () => void,
@@ -29,7 +29,7 @@ export function ConditionalFilter(
     }: ITableFilterCustomProps) {
 
     const [condition, setCondition] = useState<SearchFilterCondition | null>(selected?.condition ?? null)
-    const [conditionalValue, setConditionalValue] = useState<SearchFilterValue | null>(selected?.value ?? null)
+    const [conditionalValue, setConditionalValue] = useState<string | null>(selected?.value ?? null)
 
     const updateFilter = useCallback(() => {
         if (!conditionalValue || !condition) return

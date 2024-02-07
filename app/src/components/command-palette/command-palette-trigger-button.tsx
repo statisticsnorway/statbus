@@ -3,7 +3,7 @@ import {ArrowBigUp, Command} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
 
-export default function CommandPaletteTriggerButton({className}: { className?: string }) {
+export default function CommandPaletteTriggerButton({className}: { readonly className?: string }) {
     function showCommandPalette() {
         document.dispatchEvent(new CustomEvent('toggle-command-palette'))
     }

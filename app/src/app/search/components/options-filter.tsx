@@ -6,12 +6,12 @@ import {CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from
 import * as React from "react";
 import {Separator} from "@/components/ui/separator";
 import {Badge} from "@/components/ui/badge";
-import type {SearchFilterOption, SearchFilterValue} from "@/app/search/search.types";
+import type {SearchFilterOption} from "@/app/search/search.types";
 
 interface ITableFilterProps {
   title: string,
   options?: SearchFilterOption[]
-  selectedValues: SearchFilterValue[],
+  selectedValues: string[],
   onToggle: (option: SearchFilterOption) => void,
   onReset: () => void,
 }
