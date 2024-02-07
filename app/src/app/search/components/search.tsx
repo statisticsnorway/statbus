@@ -5,6 +5,7 @@ import SearchResultTable from "@/app/search/components/search-result-table";
 import useSearch from "@/app/search/hooks/use-search";
 import {useFilter} from "@/app/search/hooks/use-filter";
 import type {SearchResult} from "@/app/search/search.types";
+import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 
 interface SearchProps {
     readonly initialSearchResult: SearchResult
@@ -34,11 +35,8 @@ export default function Search(
                 <span>
                     Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count}
                 </span>
-                <span>
-                    <a target="_blank" href={`/search/export?${searchParams}`} className="hover:underline">Export as CSV</a>
-                </span>
+                <ExportCSVLink searchResult={searchResult} searchParams={searchParams} />
             </div>
         </section>
     )
 }
-
