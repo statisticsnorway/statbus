@@ -11,7 +11,7 @@ export default async function SearchPage() {
     const statisticalUnitPromise = client
         .from('statistical_unit')
         .select('name, tax_reg_ident, primary_activity_category_path, legal_unit_id, physical_region_path', {count: 'exact'})
-        .order('enterprise_id', {ascending: false})
+        .order('tax_reg_ident', {ascending: false})
         .limit(10);
 
     const regionPromise = client
