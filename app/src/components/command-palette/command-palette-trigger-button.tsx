@@ -1,8 +1,9 @@
 'use client';
 import {ArrowBigUp, Command} from "lucide-react";
 import {Button} from "@/components/ui/button";
+import {cn} from "@/lib/utils";
 
-export default function CommandPaletteTriggerButton() {
+export default function CommandPaletteTriggerButton({className}: { readonly className?: string }) {
     function showCommandPalette() {
         document.dispatchEvent(new CustomEvent('toggle-command-palette'))
     }
@@ -13,7 +14,7 @@ export default function CommandPaletteTriggerButton() {
             variant="ghost"
             size="sm"
             type="button"
-            className="space-x-1 font-normal"
+            className={cn("space-x-1 font-normal", className)}
             onClick={showCommandPalette}
         >
             <span>Command Palette</span>

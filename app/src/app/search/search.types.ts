@@ -1,12 +1,10 @@
 import {Tables} from "@/lib/database.types";
 
-export type SearchFilterValue = string | number
-
 export type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
 
 export type SearchFilterOption = {
     readonly label: string
-    readonly value: SearchFilterValue
+    readonly value: string
     readonly humanReadableValue?: string
 }
 
@@ -15,7 +13,7 @@ export type SearchFilter = {
     readonly name: string
     readonly label: string
     readonly options?: SearchFilterOption[]
-    readonly selected: SearchFilterValue[]
+    readonly selected: string[]
     readonly condition?: SearchFilterCondition
     readonly postgrestQuery: (filter: SearchFilter) => string
 }
@@ -27,14 +25,14 @@ export type SearchResult = {
 
 export interface ConditionalValue {
     condition: SearchFilterCondition
-    value: SearchFilterValue,
+    value: string,
 }
 
 interface ToggleOption {
     type: "toggle_option",
     payload: {
         name: string,
-        value: SearchFilterValue
+        value: string
     }
 }
 
@@ -42,7 +40,7 @@ interface ToggleRadioOption {
   type: "toggle_radio_option",
   payload: {
     name: string,
-    value: SearchFilterValue
+    value: string
   }
 }
 
@@ -50,7 +48,7 @@ interface SetCondition {
     type: "set_condition",
     payload: {
         name: string,
-        value: SearchFilterValue,
+        value: string,
         condition: SearchFilterCondition
     }
 }
@@ -59,7 +57,7 @@ interface SetSearch {
   type: "set_search",
   payload: {
     name: string,
-    value: SearchFilterValue
+    value: string
   }
 }
 
