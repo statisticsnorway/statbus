@@ -14,6 +14,10 @@ export async function GET(request: Request) {
         searchParams.set('select', '*')
     }
 
+    if (!searchParams.has('limit')) {
+        searchParams.set('limit', '10000')
+    }
+
     const statisticalUnitsResponse = await getStatisticalUnits(searchParams);
 
     if (!statisticalUnitsResponse.ok) {
