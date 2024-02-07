@@ -48,7 +48,7 @@ function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
       className="w-[100px] h-10 ml-2"
       value={selected[0] ?? ""}
       onChange={(e) => {
-        dispatch({type: "set_search", payload: {name, value: e.target.value.trim()}})
+        dispatch({type: "set_search", payload: {name, value: e.target.value}})
       }}
     />
   )

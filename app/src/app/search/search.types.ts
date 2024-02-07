@@ -1,6 +1,6 @@
 import {Tables} from "@/lib/database.types";
 
-export type SearchFilterValue = string | number
+export type SearchFilterValue = string
 
 export type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
 

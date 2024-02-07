@@ -50,7 +50,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       // Search is a vector field of name indexed for fast full text search.
       name: "search",
       selected: [],
-      postgrestQuery: ({selected}) => `fts(simple).${selected[0]}:*`
+      postgrestQuery: ({selected}) => `fts(simple).${selected[0]?.trim()}:*`
     },
     {
       type: "search",
