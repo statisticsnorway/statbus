@@ -22,7 +22,7 @@ export default function Search(
     }: SearchProps
 ) {
     const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
-    const {data: searchResult} = useSearch(filters, initialSearchResult)
+    const {search: { data: searchResult}, searchParams} = useSearch(filters, initialSearchResult)
 
     return (
         <section className="space-y-3">
@@ -30,10 +30,13 @@ export default function Search(
             <div className="rounded-md border">
                 <SearchResultTable regions={regions} activityCategories={activityCategories} searchResult={searchResult ?? initialSearchResult}/>
             </div>
-            <div className="px-4">
-                <small className="text-xs text-gray-500">
+            <div className="px-4 flex justify-between text-xs text-gray-500">
+                <span>
                     Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count}
-                </small>
+                </span>
+                <span>
+                    <a target="_blank" href={`/search/export?${searchParams}`} className="hover:underline">Export as CSV</a>
+                </span>
             </div>
         </section>
     )

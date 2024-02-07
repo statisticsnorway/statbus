@@ -1,16 +1,5 @@
 import {NextResponse} from "next/server";
-import {setupAuthorizedFetchFn} from "@/lib/supabase/request-helper";
-
-async function getStatisticalUnits(searchParams: URLSearchParams) {
-    const authFetch = setupAuthorizedFetchFn()
-    return await authFetch(`${process.env.SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`, {
-        method: 'GET',
-        headers: {
-            'Prefer': 'count=exact',
-            'Range-Unit': 'items'
-        },
-    });
-}
+import {getStatisticalUnits} from "@/app/search/search-requests";
 
 export async function GET(request: Request) {
     const {searchParams} = new URL(request.url)
