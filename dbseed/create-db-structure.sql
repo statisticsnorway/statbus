@@ -2118,8 +2118,8 @@ CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON publi
 
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_facet_drilldown(
-    region_path public.ltree,
-    activity_category_path public.ltree,
+    region_path public.ltree DEFAULT NULL,
+    activity_category_path public.ltree DEFAULT NULL,
     valid_on date DEFAULT current_date
 )
 RETURNS jsonb AS $$
