@@ -2090,6 +2090,31 @@ ORDER BY path;
 CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
 
+
+CREATE MATERIALIZED VIEW public.statistical_unit_facet AS
+SELECT count(*)
+     , valid_from
+     , valid_to
+     , unit_type
+     , physical_region_path
+     , primary_activity_category_path
+FROM public.statistical_unit
+WHERE physical_region_path IS NOT NULL
+  AND primary_activity_category_path IS NOT NULL
+GROUP BY valid_from
+       , valid_to
+       , unit_type
+       , physical_region_path
+       , primary_activity_category_path
+;
+
+CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
+CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
+CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
+CREATE INDEX statistical_unit_facet_physical_region_path ON public.statistical_unit_facet(physical_region_path);
+CREATE INDEX statistical_unit_facet_primary_activity_category_path ON public.statistical_unit_facet(primary_activity_category_path);
+
+
 CREATE OR REPLACE FUNCTION public.statistical_unit_refresh_now()
 RETURNS TABLE(view_name text, refresh_time_ms numeric) AS $$
 DECLARE
@@ -2097,7 +2122,7 @@ DECLARE
     start_at TIMESTAMPTZ;
     stop_at TIMESTAMPTZ;
     duration_ms numeric(18,3);
-    materialized_views text[] := ARRAY['statistical_unit', 'activity_category_used', 'region_used'];
+    materialized_views text[] := ARRAY['statistical_unit', 'activity_category_used', 'region_used', 'statistical_unit_facet'];
 BEGIN
     FOREACH name IN ARRAY materialized_views LOOP
         SELECT clock_timestamp() INTO start_at;
@@ -2124,7 +2149,7 @@ RETURNS TABLE(view_name text, modified_at timestamp) AS $$
 DECLARE
     path_separator char;
     materialized_view_schema text := 'public';
-    materialized_view_names text[] := ARRAY['statistical_unit','activity_category_used','region_used'];
+    materialized_view_names text[] := ARRAY['statistical_unit','activity_category_used','region_used', 'statistical_unit_facet'];
 BEGIN
     SELECT INTO path_separator
     CASE WHEN SUBSTR(setting, 1, 1) = '/' THEN '/' ELSE '\\' END
