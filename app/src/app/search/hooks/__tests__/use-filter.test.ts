@@ -50,4 +50,9 @@ describe("generateFTSQuery", () => {
     const query = generateFTSQuery('Electric -e -E');
     expect(query).toEqual("fts(simple).'electric':* & !'e':*");
   });
+
+  it('formats a query without special chars such as &', () => {
+    const query = generateFTSQuery('Bang & -Olufsen');
+    expect(query).toEqual("fts(simple).'bang':* & !'olufsen':*");
+  });
 })

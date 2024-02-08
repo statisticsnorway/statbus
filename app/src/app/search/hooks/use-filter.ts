@@ -101,11 +101,12 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
 }
 
 export function generateFTSQuery(prompt: string = ""): string {
-  const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(prompt)
-  const uniqueWordsInPrompt = new Set(prompt.trim().toLowerCase().match(/\b\w+\b/g) ?? []);
+  const cleanedPrompt = prompt.trim().toLowerCase();
+  const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(cleanedPrompt)
+  const uniqueWordsInPrompt = new Set(cleanedPrompt.match(/\b\w+\b/g) ?? []);
   const tsQuery = [...uniqueWordsInPrompt]
     .map(word => isNegated(word) ? `!'${word}':*` : `'${word}':*`)
-    .reduce((acc, word) => acc + ' & ' + word);
+    .join(' & ');
 
   return `fts(simple).${tsQuery}`;
 }
