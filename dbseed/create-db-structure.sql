@@ -2042,41 +2042,6 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 --SELECT public.statistical_unit_refreshed_at();
 
-
-CREATE FUNCTION public.refresh_materialized_view(materialized_view_name text)
-RETURNS void AS $$
-BEGIN
-    -- Using dynamic SQL to refresh the specified materialized view
-    EXECUTE 'REFRESH MATERIALIZED VIEW public.' || quote_ident(materialized_view_name);
-END;
-$$ LANGUAGE plpgsql;
-
-
-
-CREATE FUNCTION public.materialised_view_updated_at()
-RETURNS TABLE(materialized_view_name text, updated_at timestamptz) AS $$
-DECLARE
-    path_separator char;
-BEGIN
-    SELECT INTO path_separator
-    CASE WHEN SUBSTR(setting, 1, 1) = '/' THEN '/' ELSE '\\' END
-    FROM pg_settings WHERE name = 'data_directory';
-
-    RETURN QUERY
-    SELECT
-        ns.nspname || '.' || c.relname AS materialized_view_name,
-        (pg_stat_file(
-            (SELECT setting FROM pg_settings WHERE name = 'data_directory')
-            || path_separator || pg_relation_filepath(c.oid)
-        )).modification AS updated_at
-    FROM
-        pg_class c
-        JOIN pg_namespace ns ON c.relnamespace = ns.oid
-    WHERE
-        c.relkind = 'm';
-END;
-$$ LANGUAGE plpgsql;
-
 --
 CREATE TABLE public.custom_view_def_target_table(
     id serial PRIMARY KEY,
