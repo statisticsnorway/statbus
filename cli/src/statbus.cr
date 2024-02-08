@@ -121,7 +121,6 @@ class StatBus
       sql_field_required_list = ["tax_reg_ident"]
       sql_field_list = sql_field_required_list +
                        ["name",
-                        "employees",
                         "physical_region_code",
                         "primary_activity_category_code"]
       csv_stream = CSV.new(File.open(import_file_name), headers: true, separator: ',', quote_char: '"')
