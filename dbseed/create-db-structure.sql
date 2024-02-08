@@ -2126,11 +2126,31 @@ RETURNS jsonb AS $$
 DECLARE
     result_json jsonb := '{}'::jsonb;
 BEGIN
-    -- Identify available regions
-    WITH available_regions AS (
+    WITH settings_activity_category_standard AS (
+        SELECT activity_category_standard_id AS id FROM public.settings
+    ),
+    available_facet AS (
+        SELECT
+            suf.physical_region_path,
+            suf.primary_activity_category_path,
+            count
+        FROM
+            public.statistical_unit_facet AS suf
+        WHERE
+            suf.valid_from <= valid_on AND valid_on <= suf.valid_to
+            AND (
+                region_path IS NULL
+                OR suf.physical_region_path <@ region_path
+            )
+            AND (
+                activity_category_path IS NULL
+                OR suf.primary_activity_category_path <@ activity_category_path
+            )
+    ),
+    available_region AS (
         SELECT r.path
              , r.name
-        FROM public.region r
+        FROM public.region AS r
         WHERE
             (
                 (region_path IS NULL AND r.path ~ '*{1}'::lquery)
@@ -2143,22 +2163,15 @@ BEGIN
              , ar.name
             , COALESCE(SUM(suf.count), 0) AS count
         FROM
-            available_regions ar
-        LEFT JOIN public.statistical_unit_facet suf ON suf.physical_region_path <@ ar.path
-        WHERE
-            suf.valid_from <= valid_on AND valid_on <= suf.valid_to
-            OR suf IS NULL
+            available_region AS ar
+        LEFT JOIN available_facet AS suf ON suf.physical_region_path <@ ar.path
         GROUP BY ar.path, ar.name
     ),
-    settings_activity_category_standard AS (
-        SELECT activity_category_standard_id AS id FROM public.settings
-    ),
-    -- Identify available activity categories
-    available_activity_categories AS (
+    available_activity_category AS (
         SELECT ac.path
              , ac.name
         FROM
-            public.activity_category ac
+            public.activity_category AS ac
         WHERE ac.active
            AND ac.activity_category_standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
@@ -2173,11 +2186,8 @@ BEGIN
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
         FROM
-            available_activity_categories aac
-        LEFT JOIN public.statistical_unit_facet suf ON suf.primary_activity_category_path <@ aac.path
-        WHERE
-            suf.valid_from <= valid_on AND valid_on <= suf.valid_to
-            OR suf IS NULL
+            available_activity_category AS aac
+        LEFT JOIN available_facet AS suf ON suf.primary_activity_category_path <@ aac.path
         GROUP BY aac.path, aac.name
     )
     SELECT
