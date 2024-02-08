@@ -1759,7 +1759,7 @@ BEGIN
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE n.nspname = 'public' AND c.relkind = 'r'
     LOOP
-        RAISE NOTICE '%s.%s: Preventing id changes', schema_name_str, table_name_str;
+        RAISE NOTICE '%.%: Preventing id changes', schema_name_str, table_name_str;
         EXECUTE format('CREATE TRIGGER trigger_prevent_'||table_name_str||'_id_update BEFORE UPDATE OF id ON '||schema_name_str||'.'||table_name_str||' FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update();');
     END LOOP;
 END;
