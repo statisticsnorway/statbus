@@ -50,7 +50,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       // Search is a vector field of name indexed for fast full text search.
       name: "search",
       selected: [],
-      postgrestQuery: ({selected}) => `fts(simple).${selected[0]?.trim()}:*`
+      postgrestQuery: ({selected}) => generateFTSQuery(selected[0])
     },
     {
       type: "search",
@@ -63,7 +63,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       type: "radio",
       name: "physical_region_path",
       label: "Region",
-      options: regions.map(({code,path, name}) => (
+      options: regions.map(({code, path, name}) => (
         {
           label: `${code} ${name}`,
           value: path as string,
@@ -98,4 +98,14 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
   }));
 
   return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters])
+}
+
+export function generateFTSQuery(prompt: string = ""): string {
+  const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(prompt)
+  const uniqueWordsInPrompt = new Set(prompt.trim().toLowerCase().match(/\b\w+\b/g) ?? []);
+  const tsQuery = [...uniqueWordsInPrompt]
+    .map(word => isNegated(word) ? `!${word}:*` : `${word}:*`)
+    .reduce((acc, word) => acc + ' & ' + word);
+
+  return `fts(simple).${tsQuery}`;
 }
