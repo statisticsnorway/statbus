@@ -57,6 +57,8 @@ SELECT sql_saga.drop_era('public.enterprise_group');
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
 DROP FUNCTION public.statistical_unit_refresh_now();
 DROP FUNCTION public.statistical_unit_refreshed_at();
+DROP MATERIALIZED VIEW public.region_used;
+DROP MATERIALIZED VIEW public.activity_category_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
 DROP TYPE public.statistical_unit_type;
 

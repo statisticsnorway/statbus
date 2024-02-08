@@ -2009,51 +2009,102 @@ CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.sta
 CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
 CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
 
-CREATE FUNCTION public.statistical_unit_refresh_now()
-RETURNS TEXT AS $$
+
+CREATE MATERIALIZED VIEW public.activity_category_used AS
+SELECT acs.code AS standard_code
+     , ac.id
+     , ac.path
+     , acp.code AS parent_code
+     , ac.label
+     , ac.code
+     , ac.name
+     , ac.description
+FROM public.activity_category AS ac
+JOIN public.activity_category_standard AS acs ON ac.activity_category_standard_id = acs.id
+LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
+WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
+  AND ac.active
+  AND ac.path OPERATOR(public.@>) (SELECT array_agg(primary_activity_category_path) FROM public.statistical_unit WHERE primary_activity_category_path IS NOT NULL)
+ORDER BY path;
+
+CREATE UNIQUE INDEX "activity_category_used_key"
+    ON public.activity_category_used (path);
+
+
+CREATE MATERIALIZED VIEW public.region_used AS
+SELECT r.id
+     , r.path
+     , r.level
+     , r.label
+     , r.code
+     , r.name
+FROM public.region AS r
+WHERE r.path OPERATOR(public.@>) (SELECT array_agg(physical_region_path) FROM public.statistical_unit WHERE physical_region_path IS NOT NULL)
+ORDER BY path;
+
+CREATE UNIQUE INDEX "region_used_key"
+    ON public.region_used (path);
+
+CREATE OR REPLACE FUNCTION public.statistical_unit_refresh_now()
+RETURNS TABLE(view_name text, refresh_time_ms numeric) AS $$
 DECLARE
-  start_at TIMESTAMPTZ;
-  duration_ms numeric(18,3);
-  stop_at TIMESTAMPTZ;
+    name text;
+    start_at TIMESTAMPTZ;
+    stop_at TIMESTAMPTZ;
+    duration_ms numeric(18,3);
+    materialized_views text[] := ARRAY['statistical_unit', 'activity_category_used', 'region_used'];
 BEGIN
-    SELECT clock_timestamp() INTO start_at;
-    REFRESH MATERIALIZED VIEW public.statistical_unit;
-    SELECT clock_timestamp() INTO stop_at;
-    duration_ms := cast(extract(MILLISECONDS from (stop_at - start_at)) as numeric(18,3));
-    RETURN format('Refresh took %s ms', duration_ms);
+    FOREACH name IN ARRAY materialized_views LOOP
+        SELECT clock_timestamp() INTO start_at;
+
+        EXECUTE format('REFRESH MATERIALIZED VIEW public.%I', name);
+
+        SELECT clock_timestamp() INTO stop_at;
+        duration_ms := EXTRACT(EPOCH FROM (stop_at - start_at)) * 1000;
+
+        -- Set the function's returning columns
+        view_name := name;
+        refresh_time_ms := duration_ms;
+
+        RETURN NEXT;
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 SELECT public.statistical_unit_refresh_now();
 
 CREATE FUNCTION public.statistical_unit_refreshed_at()
-RETURNS timestamptz AS $$
+RETURNS TABLE(view_name text, modified_at timestamp) AS $$
 DECLARE
     path_separator char;
     materialized_view_schema text := 'public';
-    materialized_view_name text := 'statistical_unit';
-    updated_at TIMESTAMPTZ;
+    materialized_view_names text[] := ARRAY['statistical_unit','activity_category_used','region_used'];
 BEGIN
     SELECT INTO path_separator
     CASE WHEN SUBSTR(setting, 1, 1) = '/' THEN '/' ELSE '\\' END
     FROM pg_settings WHERE name = 'data_directory';
 
-    SELECT
-        (pg_stat_file(
-            (SELECT setting FROM pg_settings WHERE name = 'data_directory')
-            || path_separator || pg_relation_filepath(c.oid)
-        )).modification INTO updated_at
-    FROM
-        pg_class c
-        JOIN pg_namespace ns ON c.relnamespace = ns.oid
-    WHERE
-        c.relkind = 'm'
-        AND ns.nspname = materialized_view_schema
-        AND c.relname = materialized_view_name
-    ;
-    RETURN updated_at;
+    FOR view_name, modified_at IN
+        SELECT
+              c.relname AS view_name
+            , (pg_stat_file(
+                (SELECT setting FROM pg_settings WHERE name = 'data_directory')
+                || path_separator || pg_relation_filepath(c.oid)
+            )).modification AS modified_at
+        FROM
+            pg_class c
+            JOIN pg_namespace ns ON c.relnamespace = ns.oid
+        WHERE
+            c.relkind = 'm'
+            AND ns.nspname = materialized_view_schema
+            AND c.relname = ANY(materialized_view_names)
+    LOOP
+        RETURN NEXT;
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 --SELECT public.statistical_unit_refreshed_at();
 
 
