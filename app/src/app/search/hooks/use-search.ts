@@ -5,17 +5,18 @@ const fetcher: Fetcher<SearchResult, string> = (...args) => fetch(...args).then(
 
 export default function useSearch(filters: SearchFilter[], fallbackData: SearchResult) {
     const searchParams = filters
-        .filter(({selected}) => !!selected?.[0])
-        .reduce((params, f) => {
-            params.set(f.name, f.postgrestQuery(f));
+        .map(f => [f.name, f.postgrestQuery(f)])
+        .filter(([, query]) => !!query)
+        .reduce((params, [name, query]) => {
+            params.set(name!, query!);
             return params;
         }, new URLSearchParams());
 
-    const search = useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
-        keepPreviousData: true,
-        revalidateOnFocus: false,
-        fallbackData
-    })
+  const search = useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
+    keepPreviousData: true,
+    revalidateOnFocus: false,
+    fallbackData
+  })
 
-    return {search, searchParams}
+  return {search, searchParams}
 }
