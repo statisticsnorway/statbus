@@ -78,8 +78,12 @@ export function CommandPalette() {
         setOpen(false)
         const response = await refreshStatisticalUnits()
         toast({
-            title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units Refresh OK",
-            description: response?.error ?? response?.data ?? "Statistical Units have been refreshed.",
+          title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units successfully refreshed.",
+          description: response?.error ?? (
+            <pre className="mt-2 rounded-md bg-slate-950 p-4">
+              <code className="text-white text-xs">{JSON.stringify(response.data, null, 2)}</code>
+            </pre>
+          ) ?? "Statistical Units have been refreshed.",
         })
     }
 
