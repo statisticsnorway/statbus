@@ -148,7 +148,7 @@ CREATE TABLE public.activity_category (
     active boolean NOT NULL,
     custom bool NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(activity_category_standard_id, path)
+    UNIQUE(activity_category_standard_id, path, active)
 );
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
 
@@ -190,7 +190,7 @@ BEGIN
          , statement_timestamp()
          , true
          , false
-    ON CONFLICT (activity_category_standard_id, path)
+    ON CONFLICT (activity_category_standard_id, path, active)
     DO UPDATE SET parent_id = (SELECT id FROM parent)
                 , name = NEW.name
                 , description = NEW.description
@@ -410,8 +410,10 @@ CREATE FUNCTION admin.activity_category_available_custom_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE
     setting_activity_category_standard_id int;
-    found_parent_id int;
+    found_parent_id int := NULL;
     existing_category_id int;
+    existing_category RECORD;
+    row RECORD;
 BEGIN
     -- Retrieve the setting_activity_category_standard_id from public.settings
     SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
@@ -421,11 +423,12 @@ BEGIN
 
     -- Find parent category based on NEW.path
     IF public.nlevel(NEW.path) > 1 THEN
-        -- If NEW.parent_code is not provided, use NEW.path to find the parent category
         SELECT id INTO found_parent_id
           FROM public.activity_category
          WHERE activity_category_standard_id = setting_activity_category_standard_id
-           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
+           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
+           AND active;
+        RAISE DEBUG 'found_parent_id %', found_parent_id;
         IF found_parent_id IS NULL THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
         END IF;
@@ -443,7 +446,9 @@ BEGIN
     IF existing_category_id IS NOT NULL THEN
         UPDATE public.activity_category
            SET active = FALSE
-         WHERE id = existing_category_id;
+         WHERE id = existing_category_id
+         RETURNING * INTO existing_category;
+        RAISE DEBUG 'EXISTING %', to_json(existing_category);
     END IF;
 
     -- Perform an upsert operation on public.activity_category
@@ -467,7 +472,7 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (activity_category_standard_id, path)
+    ON CONFLICT (activity_category_standard_id, path, active)
     DO UPDATE SET
             parent_id = found_parent_id
           , name = NEW.name
@@ -475,7 +480,16 @@ BEGIN
           , updated_at = statement_timestamp()
           , active = TRUE
           , custom = TRUE
-       WHERE activity_category.id = EXCLUDED.id;
+       WHERE activity_category.id = EXCLUDED.id
+       RETURNING * INTO row;
+    RAISE DEBUG 'UPSERTED %', to_json(row);
+
+    -- Connect any children of the existing row to thew newly inserted row.
+    IF existing_category_id IS NOT NULL THEN
+        UPDATE public.activity_category
+           SET parent_id = row.id
+        WHERE parent_id = existing_category_id;
+    END IF;
 
     RETURN NULL;
 END;
