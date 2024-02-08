@@ -3588,6 +3588,7 @@ INSTEAD OF INSERT ON public.legal_unit_region_activity_category_current
 FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_current();
 
+
 CREATE VIEW public.legal_unit_region_activity_category_current_with_delete
 WITH (security_invoker=on) AS
 SELECT * FROM public.legal_unit_region_activity_category_current;
@@ -3620,6 +3621,176 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete();
 
 -- \i samples/100BREGUnits.sql
+
+
+CREATE VIEW public.establishment_region_activity_category_stats_current
+WITH (security_invoker=on) AS
+SELECT es.tax_reg_ident
+     , es.name
+     , phr.code AS physical_region_code
+     , por.code AS postal_region_code
+     , prac.code AS primary_activity_category_code
+     , sfu1.value_int AS employees
+FROM public.establishment AS es
+LEFT JOIN public.activity AS pra ON pra.establishment_id = es.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
+LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
+LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
+LEFT JOIN public.region AS phr ON phl.region_id = phr.id
+LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
+LEFT JOIN public.region AS por ON pol.region_id = por.id
+LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id
+LEFT JOIN public.stat_definition AS sd1 ON sfu1.stat_definition_id = sd1.id AND sd1.code = 'employees'
+WHERE es.valid_from >= current_date AND current_date <= es.valid_to
+  AND es.active
+;
+
+CREATE FUNCTION admin.upsert_establishment_region_activity_category_stats_current()
+RETURNS TRIGGER AS $$
+DECLARE
+    edited_by_user RECORD;
+    physical_region RECORD;
+    primary_activity_category RECORD;
+    upsert_data RECORD;
+    inserted_establishment RECORD;
+    inserted_location RECORD;
+    inserted_activity RECORD;
+    invalid_codes JSONB := '{}'::jsonb;
+    statbus_constraints_already_deferred BOOLEAN;
+BEGIN
+    SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
+
+    SELECT * INTO edited_by_user
+    FROM public.statbus_user
+    -- TODO: Uncomment when going into production
+    -- WHERE uuid = auth.uid()
+    LIMIT 1;
+
+    SELECT * INTO physical_region
+    FROM public.region
+    WHERE code = NEW.physical_region_code;
+    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL
+       AND NEW.physical_region_code <> ''
+    THEN
+      RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
+      invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+    END IF;
+
+    SELECT * INTO primary_activity_category
+    FROM public.activity_category_available
+    WHERE code = NEW.primary_activity_category_code;
+    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL
+       -- Many places there is a variety of 00.000... to signify null
+       AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
+    THEN
+      RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
+      invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
+    END IF;
+
+    SELECT NEW.tax_reg_ident AS tax_reg_ident
+         , statement_timestamp() AS tax_reg_date
+         , current_date AS valid_from
+         , 'infinity'::date AS valid_to
+         , NEW.name AS name
+         , true AS active
+         , statement_timestamp() AS seen_in_import_at
+         , 'Batch upload' AS edit_comment
+         , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
+     INTO upsert_data;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
+    INSERT INTO public.establishment_era
+    (
+        tax_reg_ident,
+        tax_reg_date,
+        valid_from,
+        valid_to,
+        name,
+        active,
+        seen_in_import_at,
+        edit_comment,
+        invalid_codes,
+        edit_by_user_id
+    )
+    VALUES
+    (
+        upsert_data.tax_reg_ident,
+        upsert_data.tax_reg_date,
+        upsert_data.valid_from,
+        upsert_data.valid_to,
+        upsert_data.name,
+        upsert_data.active,
+        upsert_data.seen_in_import_at,
+        upsert_data.edit_comment,
+        upsert_data.invalid_codes,
+        edited_by_user.id
+    )
+    RETURNING * INTO inserted_establishment;
+    RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);
+    RAISE DEBUG 'inserted_establishment';
+
+    IF physical_region IS NOT NULL THEN
+        INSERT INTO public.location_era
+        (
+            valid_from,
+            valid_to,
+            establishment_id,
+            location_type,
+            region_id,
+            updated_by_user_id
+        )
+        VALUES
+        (
+            upsert_data.valid_from,
+            upsert_data.valid_to,
+            inserted_establishment.id,
+            'physical',
+            physical_region.id,
+            edited_by_user.id
+        )
+        RETURNING * INTO inserted_location;
+    END IF;
+
+    IF primary_activity_category IS NOT NULL THEN
+        INSERT INTO public.activity_era
+        (
+            valid_from,
+            valid_to,
+            establishment_id,
+            activity_type,
+            activity_category_id,
+            updated_by_user_id,
+            updated_at
+        )
+        VALUES
+        (
+            upsert_data.valid_from,
+            upsert_data.valid_to,
+            inserted_establishment.id,
+            'primary',
+            primary_activity_category.id,
+            edited_by_user.id,
+            statement_timestamp()
+        )
+        RETURNING * INTO inserted_activity;
+    END IF;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        SET CONSTRAINTS ALL IMMEDIATE;
+    END IF;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER upsert_establishment_region_activity_category_stats_current_trigger
+INSTEAD OF INSERT ON public.establishment_region_activity_category_stats_current
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_establishment_region_activity_category_stats_current();
+
+
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
 CREATE VIEW public.legal_unit_brreg_view

@@ -113,6 +113,10 @@ DROP TRIGGER upsert_legal_unit_region_activity_category_current_trigger ON publi
 DROP FUNCTION admin.upsert_legal_unit_region_activity_category_current();
 DROP VIEW public.legal_unit_region_activity_category_current;
 
+DROP TRIGGER upsert_establishment_region_activity_category_stats_current_trigger ON public.establishment_region_activity_category_stats_current;
+DROP FUNCTION admin.upsert_establishment_region_activity_category_stats_current();
+DROP VIEW public.establishment_region_activity_category_stats_current;
+
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();
 DROP VIEW public.legal_unit_era;
