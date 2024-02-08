@@ -104,7 +104,7 @@ export function generateFTSQuery(prompt: string = ""): string {
   const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(prompt)
   const uniqueWordsInPrompt = new Set(prompt.trim().toLowerCase().match(/\b\w+\b/g) ?? []);
   const tsQuery = [...uniqueWordsInPrompt]
-    .map(word => isNegated(word) ? `!${word}:*` : `${word}:*`)
+    .map(word => isNegated(word) ? `!'${word}':*` : `'${word}':*`)
     .reduce((acc, word) => acc + ' & ' + word);
 
   return `fts(simple).${tsQuery}`;
