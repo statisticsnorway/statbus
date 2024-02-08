@@ -15,7 +15,7 @@ export type SearchFilter = {
     readonly options?: SearchFilterOption[]
     readonly selected: string[]
     readonly condition?: SearchFilterCondition
-    readonly postgrestQuery: (filter: SearchFilter) => string
+    readonly postgrestQuery: (filter: SearchFilter) => string | null
 }
 
 export type SearchResult = {

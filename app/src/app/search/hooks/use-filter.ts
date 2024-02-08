@@ -57,7 +57,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       label: "Tax ID",
       name: "tax_reg_ident",
       selected: [],
-      postgrestQuery: ({selected}) => `eq.${selected[0]}`
+      postgrestQuery: ({selected}) => selected.length ? `eq.${selected[0]}` : null
     },
     {
       type: "radio",
@@ -71,7 +71,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         }
       )),
       selected: [],
-      postgrestQuery: ({selected}) => `cd.${selected.join()}`
+      postgrestQuery: ({selected}) => selected.length ? `cd.${selected.join()}` : null
     },
     {
       type: "radio",
@@ -85,7 +85,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
         }
       )),
       selected: [],
-      postgrestQuery: ({selected}) => `cd.${selected.join()}`
+      postgrestQuery: ({selected}) => selected.length ? `cd.${selected.join()}` : null
     }
   ];
 
@@ -94,18 +94,20 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
     name: variable.code,
     label: variable.name,
     selected: [],
-    postgrestQuery: ({condition, selected}: SearchFilter) => `${condition}.${selected.join(',')}`
+    postgrestQuery: ({condition, selected}: SearchFilter) =>
+      condition && selected.length ? `${condition}.${selected.join(',')}` : null
   }));
 
   return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters])
 }
 
-export function generateFTSQuery(prompt: string = ""): string {
-  const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(prompt)
-  const uniqueWordsInPrompt = new Set(prompt.trim().toLowerCase().match(/\b\w+\b/g) ?? []);
+export function generateFTSQuery(prompt: string = ""): string | null {
+  const cleanedPrompt = prompt.trim().toLowerCase();
+  const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(cleanedPrompt)
+  const uniqueWordsInPrompt = new Set(cleanedPrompt.match(/\b\w+\b/g) ?? []);
   const tsQuery = [...uniqueWordsInPrompt]
-    .map(word => isNegated(word) ? `!${word}:*` : `${word}:*`)
-    .reduce((acc, word) => acc + ' & ' + word);
+    .map(word => isNegated(word) ? `!'${word}':*` : `'${word}':*`)
+    .join(' & ');
 
-  return `fts(simple).${tsQuery}`;
+  return tsQuery ? `fts(simple).${tsQuery}` : null;
 }
