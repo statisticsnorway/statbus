@@ -15,11 +15,11 @@ export default async function SearchPage() {
         .limit(10);
 
     const regionPromise = client
-        .from('region')
+        .from('region_used')
         .select()
 
     const activityCategoryPromise = client
-        .from('activity_category_available')
+        .from('activity_category_used')
         .select();
 
     const statDefinitionPromise = client
