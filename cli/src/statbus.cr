@@ -188,8 +188,12 @@ class StatBus
       puts "@config_field_mapping = #{@config_field_mapping}" if @verbose
       # Sort header mappings based on position in sql_field_list
       @sql_field_mapping.sort_by! do |mapping|
+        index = sql_field_list.index(mapping.sql)
+        if index.nil?
+          raise ArgumentError.new("Found mapping for non existing sql field #{mapping.sql}")
+        end
         # Every field found is order according to its position
-        {1, sql_field_list.index(mapping.sql).not_nil!, ""}
+        {1, index.not_nil!, ""}
       end
 
       Dir.cd(@working_directory) do
