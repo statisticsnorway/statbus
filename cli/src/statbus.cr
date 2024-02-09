@@ -354,6 +354,7 @@ class StatBus
           Dir.cd(@working_directory) do
             @config_file_path = Path.new(file_name)
             if File.exists?(@config_file_path.not_nil!)
+              puts "Loading mapping from #{file_name}"
               config_data = File.read(@config_file_path.not_nil!)
               @config_field_mapping = Array(ConfigFieldMapping).from_json(config_data)
             else
