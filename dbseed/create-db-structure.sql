@@ -2149,6 +2149,8 @@ BEGIN
     ),
     available_region AS (
         SELECT r.path
+             , r.label
+             , r.code
              , r.name
         FROM public.region AS r
         WHERE
@@ -2160,15 +2162,22 @@ BEGIN
         ORDER BY r.path
     ), aggregated_region_counts AS (
         SELECT ar.path
+             , ar.label
+             , ar.code
              , ar.name
             , COALESCE(SUM(suf.count), 0) AS count
         FROM
             available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path <@ ar.path
-        GROUP BY ar.path, ar.name
+        GROUP BY ar.path
+               , ar.label
+               , ar.code
+               , ar.name
     ),
     available_activity_category AS (
         SELECT ac.path
+             , ac.label
+             , ac.code
              , ac.name
         FROM
             public.activity_category AS ac
@@ -2183,12 +2192,17 @@ BEGIN
         ORDER BY ac.path
     ), aggregated_activity_counts AS (
         SELECT aac.path
+             , aac.label
+             , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
         FROM
             available_activity_category AS aac
         LEFT JOIN available_facet AS suf ON suf.primary_activity_category_path <@ aac.path
-        GROUP BY aac.path, aac.name
+        GROUP BY aac.path
+               , aac.label
+               , aac.code
+               , aac.name
     )
     SELECT
         jsonb_build_object(
