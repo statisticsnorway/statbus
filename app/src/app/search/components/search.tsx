@@ -6,6 +6,7 @@ import useSearch from "@/app/search/hooks/use-search";
 import {useFilter} from "@/app/search/hooks/use-filter";
 import type {SearchResult} from "@/app/search/search.types";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
+import SaveSearchButton from "@/app/search/components/search-save-button";
 
 interface SearchProps {
     readonly initialSearchResult: SearchResult
@@ -31,11 +32,14 @@ export default function Search(
             <div className="rounded-md border">
                 <SearchResultTable regions={regions} activityCategories={activityCategories} searchResult={searchResult ?? initialSearchResult}/>
             </div>
-            <div className="px-4 flex justify-between text-xs text-gray-500">
-                <span>
-                    Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count}
+            <div className="flex justify-between text-xs text-gray-500 items-center">
+                <span className="indent-2.5">
+                    Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count} results
                 </span>
-                <ExportCSVLink searchResult={searchResult} searchParams={searchParams} />
+                <div className="space-x-3 flex">
+                  <SaveSearchButton disabled />
+                  <ExportCSVLink searchResult={searchResult} searchParams={searchParams} />
+                </div>
             </div>
         </section>
     )

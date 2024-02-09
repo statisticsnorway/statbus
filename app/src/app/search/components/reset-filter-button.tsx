@@ -1,5 +1,5 @@
 import {Button} from "@/components/ui/button";
-import {X} from "lucide-react";
+import {SearchX} from "lucide-react";
 import {cn} from "@/lib/utils";
 
 interface ResetFilterButtonProps {
@@ -9,11 +9,13 @@ interface ResetFilterButtonProps {
 
 export const ResetFilterButton = ({onReset, className}: ResetFilterButtonProps) => (
   <Button
-    variant="secondary"
-    className={cn("space-x-1 flex items-center h-10 bg-amber-200", className)}
     onClick={onReset}
+    type="button"
+    size="sm"
+    variant="secondary"
+    className={cn("flex items-center space-x-2", className)}
   >
+    <SearchX size={17}/>
     <span>Reset Search</span>
-    <X size={18}/>
   </Button>
 )
