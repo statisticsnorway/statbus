@@ -3645,12 +3645,14 @@ EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_
 CREATE VIEW public.establishment_region_activity_category_stats_current
 WITH (security_invoker=on) AS
 SELECT es.tax_reg_ident
+     , lu.tax_reg_ident AS legal_unit_tax_reg_ident
      , es.name
      , phr.code AS physical_region_code
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
      , sfu1.value_int AS employees
 FROM public.establishment AS es
+LEFT JOIN public.legal_unit AS lu ON lu.id = es.legal_unit_id AND lu.valid_from >= current_date AND current_date <= lu.valid_to
 LEFT JOIN public.activity AS pra ON pra.establishment_id = es.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
 LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
 LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
@@ -3668,6 +3670,8 @@ RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
+    legal_unit RECORD := NULL;
+    enterprise RECORD := NULL;
     primary_activity_category RECORD;
     upsert_data RECORD;
     inserted_establishment RECORD;
@@ -3683,6 +3687,27 @@ BEGIN
     -- TODO: Uncomment when going into production
     -- WHERE uuid = auth.uid()
     LIMIT 1;
+
+    IF NEW.legal_unit_tax_reg_ident IS NULL THEN
+        -- Create an enterprise and connect to it.
+        INSERT INTO public.enterprise
+            ( active
+            , edit_by_user_id
+            , edit_comment
+            ) VALUES
+            ( true
+            , edited_by_user.id
+            , 'Batch import'
+            ) RETURNING *
+            INTO enterprise;
+    ELSE -- Lookup the legal_unit - it must exist.
+        SELECT * INTO legal_unit
+        FROM public.legal_unit
+        WHERE tax_reg_ident = NEW.legal_unit_tax_reg_ident;
+        IF legal_unit IS NULL THEN
+          RAISE EXCEPTION 'Could not find legal_unit_tax_reg_ident for row %', to_json(NEW);
+        END IF;
+    END IF;
 
     SELECT * INTO physical_region
     FROM public.region
@@ -3714,6 +3739,8 @@ BEGIN
          , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
+         , CASE WHEN enterprise IS NOT NULL THEN enterprise.id ELSE NULL END AS enterprise_id
+         , CASE WHEN legal_unit IS NOT NULL THEN legal_unit.id ELSE NULL END AS legal_unit_id
      INTO upsert_data;
 
     IF NOT statbus_constraints_already_deferred THEN
@@ -3721,17 +3748,18 @@ BEGIN
     END IF;
 
     INSERT INTO public.establishment_era
-    (
-        tax_reg_ident,
-        tax_reg_date,
-        valid_from,
-        valid_to,
-        name,
-        active,
-        seen_in_import_at,
-        edit_comment,
-        invalid_codes,
-        edit_by_user_id
+    ( tax_reg_ident
+    , tax_reg_date
+    , valid_from
+    , valid_to
+    , name
+    , active
+    , seen_in_import_at
+    , edit_comment
+    , invalid_codes
+    , enterprise_id
+    , legal_unit_id
+    , edit_by_user_id
     )
     VALUES
     (
@@ -3744,6 +3772,8 @@ BEGIN
         upsert_data.seen_in_import_at,
         upsert_data.edit_comment,
         upsert_data.invalid_codes,
+        upsert_data.enterprise_id,
+        upsert_data.legal_unit_id,
         edited_by_user.id
     )
     RETURNING * INTO inserted_establishment;
