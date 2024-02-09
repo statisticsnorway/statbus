@@ -102,6 +102,29 @@ class StatBus
 
   def import_legal_units(import_file_name : String)
     puts "Importing legal units"
+    sql_field_required_list = ["tax_reg_ident"]
+    sql_field_optional_list = [
+      "name",
+      "physical_region_code",
+      "primary_activity_category_code",
+    ]
+    upload_view_name = "legal_unit_region_activity_category_current"
+    import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
+  end
+
+  def import_establishments(import_file_name : String)
+    puts "Importing establishments"
+    sql_field_required_list = ["tax_reg_ident"]
+    sql_field_optional_list = [
+      "name",
+      "physical_region_code",
+      "primary_activity_category_code",
+    ]
+    upload_view_name = "establishment_region_activity_category_stats_current"
+    import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
+  end
+
+  private def import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
     # Find .env and load required secrets
     Dir.cd("../supabase_docker") do
       ini_data = File.read(".env")
@@ -115,14 +138,9 @@ class StatBus
       postgres_password = global_vars["POSTGRES_PASSWORD"]
       postgres_db = global_vars["POSTGRES_DB"]
       postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
-      #
       puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}" if @verbose
-      puts "Loading data from #{import_file_name}"
-      sql_field_required_list = ["tax_reg_ident"]
-      sql_field_list = sql_field_required_list +
-                       ["name",
-                        "physical_region_code",
-                        "primary_activity_category_code"]
+
+      sql_field_list = sql_field_required_list + sql_field_optional_list
       csv_stream = CSV.new(File.open(import_file_name), headers: true, separator: ',', quote_char: '"')
       csv_fields_list = csv_stream.headers
       # For every equal header, insert a mapping.
@@ -219,7 +237,7 @@ class StatBus
 
         case @import_strategy
         when ImportStrategy::Copy
-          copy_stream = db.exec_copy "COPY public.legal_unit_region_activity_category_current(#{sql_fields_str}) FROM STDIN"
+          copy_stream = db.exec_copy "COPY public.#{upload_view_name}(#{sql_fields_str}) FROM STDIN"
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             sql_row.any? do |value|
               if !value.nil? && value.includes?("\t")
@@ -235,7 +253,7 @@ class StatBus
           db.close
         when ImportStrategy::Insert
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
-          sql_statment = "INSERT INTO public.legal_unit_region_activity_category_current(#{sql_fields_str}) VALUES(#{sql_args})"
+          sql_statment = "INSERT INTO public.#{upload_view_name}(#{sql_fields_str}) VALUES(#{sql_args})"
           puts "sql_statment = #{sql_statment}" if @verbose
           db.exec "BEGIN;"
           # Set a config that prevents inner trigger functions form activating constraints,
@@ -334,6 +352,7 @@ class StatBus
         parser.on("-f FILENAME", "--file=FILENAME", "The file to read from") do |file_name|
           import_file_name = file_name
           @import_file_name = import_file_name
+          puts "Loading data from #{@import_file_name}"
         end
         parser.on("-o offset", "--offset=NUMBER", "Number of rows to skip") do |offset|
           @offset = offset.to_i(underscore: true)
@@ -405,23 +424,22 @@ class StatBus
         exit(1)
       end
     when Mode::Import
-      case @import_mode
-      when ImportMode::LegalUnit
-        if @import_file_name.nil?
-          STDERR.puts "missing required name of file to read from"
-          # puts parser
-        else
-          import_legal_units(@import_file_name.not_nil!)
-        end
-      when ImportMode::Establishment
-        puts "Importing establishments"
-      else
-        puts "Unknown import mode #{@import_mode}"
+      if @import_file_name.nil?
+        STDERR.puts "missing required name of file to read from"
         # puts parser
         exit(1)
+      else
+        case @import_mode
+        when ImportMode::LegalUnit
+          import_legal_units(@import_file_name.not_nil!)
+        when ImportMode::Establishment
+          import_establishments(@import_file_name.not_nil!)
+        else
+          puts "Unknown import mode #{@import_mode}"
+          # puts parser
+          exit(1)
+        end
       end
-    when Nil
-      # puts parser
     else
       puts "Unknown mode #{@mode}"
       exit(1)
