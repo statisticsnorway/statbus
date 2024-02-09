@@ -2539,7 +2539,7 @@ BEGIN
         upsert_function_stmt := upsert_function_stmt ||
         ', true AS active' ||
         ', statement_timestamp() AS seen_in_import_at' ||
-        ', ''Batch upload'' AS edit_comment' ||
+        ', ''Batch import'' AS edit_comment' ||
         ', (SELECT id FROM su) AS edit_by_user_id';
     END;
     upsert_function_stmt := upsert_function_stmt || format(
@@ -3491,7 +3491,7 @@ BEGIN
          , NEW.name AS name
          , true AS active
          , statement_timestamp() AS seen_in_import_at
-         , 'Batch upload' AS edit_comment
+         , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
      INTO upsert_data;
 
@@ -3693,7 +3693,7 @@ BEGIN
          , NEW.name AS name
          , true AS active
          , statement_timestamp() AS seen_in_import_at
-         , 'Batch upload' AS edit_comment
+         , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
      INTO upsert_data;
 
@@ -3875,7 +3875,7 @@ BEGIN
         , NEW."navn" AS name
         , true AS active
         , statement_timestamp() AS seen_in_import_at
-        , 'Batch upload' AS edit_comment
+        , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
     update_outcome AS (
@@ -4032,7 +4032,7 @@ BEGIN
         , NEW."navn" AS name
         , true AS active
         , statement_timestamp() AS seen_in_import_at
-        , 'Batch upload' AS edit_comment
+        , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
     update_outcome AS (
