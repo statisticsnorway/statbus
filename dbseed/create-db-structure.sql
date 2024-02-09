@@ -890,6 +890,7 @@ CREATE TABLE public.establishment (
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_classification_id integer REFERENCES public.data_source_classification(id),
     enterprise_id integer,
+    invalid_codes jsonb,
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
@@ -3330,6 +3331,52 @@ CREATE TRIGGER legal_unit_era_upsert
 INSTEAD OF INSERT ON public.legal_unit_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.legal_unit_era_upsert();
+
+
+-- View for current information about a legal unit.
+CREATE VIEW public.establishment_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.establishment
+  ;
+
+CREATE FUNCTION admin.establishment_era_upsert()
+RETURNS TRIGGER AS $establishment_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'establishment';
+  unique_columns jsonb :=
+    jsonb_build_array(
+            'id',
+            'stat_ident',
+            'tax_reg_ident',
+            jsonb_build_array('external_ident', 'external_ident_type')
+        );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  -- The tax_reg_date is just set to the current date, unless provided,
+  -- and as such is not useful to track changes, as there would be new row
+  -- with a new valid_from when the tax_reg_ident is first set.
+  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
+  -- is it when registered with the tax authority, or when registered in
+  -- this system?
+  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
+BEGIN
+  SELECT admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    ) INTO NEW.id;
+  RETURN NEW;
+END;
+$establishment_era_upsert$ LANGUAGE plpgsql;
+
+CREATE TRIGGER establishment_era_upsert
+INSTEAD OF INSERT ON public.establishment_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.establishment_era_upsert();
 
 
 -- View for current information about a location.

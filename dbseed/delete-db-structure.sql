@@ -121,6 +121,10 @@ DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();
 DROP VIEW public.legal_unit_era;
 
+DROP TRIGGER establishment_era_upsert ON public.establishment_era;
+DROP FUNCTION admin.establishment_era_upsert();
+DROP VIEW public.establishment_era;
+
 DROP TRIGGER location_era_upsert ON public.location_era;
 DROP FUNCTION admin.location_era_upsert();
 DROP VIEW public.location_era;
