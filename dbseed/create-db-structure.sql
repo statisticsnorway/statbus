@@ -746,49 +746,15 @@ CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_
 
 
 CREATE TABLE public.enterprise (
-    id SERIAL NOT NULL,
-    valid_from date NOT NULL DEFAULT current_date,
-    valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident character varying(15),
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    stat_ident character varying(15) UNIQUE,
     stat_ident_date timestamp with time zone,
-    external_ident character varying(50),
-    external_ident_date timestamp with time zone,
-    external_ident_type character varying(50),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
-    name character varying(256),
-    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    parent_org_link integer,
     notes text,
     edit_by_user_id character varying(100) NOT NULL,
-    edit_comment character varying(500),
-    -- TODO: Reconsider these fields, as they are found in establishment and legal_unit
-    web_address character varying(200),
-    telephone_no character varying(50),
-    email_address character varying(50),
-    sector_code_id integer REFERENCES public.sector_code(id),
-    unit_size_id integer REFERENCES public.unit_size(id),
-    foreign_participation_id integer REFERENCES public.foreign_participation(id),
-    data_source_classification_id integer REFERENCES public.data_source_classification(id),
-    -- TODO: Reconsider grouping by enterprise_group to grouping by enterprise itself.
-    enterprise_group_id integer,
-    enterprise_group_date timestamp with time zone,
-    enterprise_group_role_id integer REFERENCES public.enterprise_group_role(id)
+    edit_comment character varying(500)
 );
-CREATE INDEX ix_enterprise_data_source_classification_id ON public.enterprise USING btree (data_source_classification_id);
-CREATE INDEX ix_enterprise_enterprise_group_role_id ON public.enterprise USING btree (enterprise_group_role_id);
-CREATE INDEX ix_enterprise_enterprise_group_id ON public.enterprise USING btree (enterprise_group_id);
-CREATE INDEX ix_enterprise_foreign_participation_id ON public.enterprise USING btree (foreign_participation_id);
-CREATE INDEX ix_enterprise_sector_code_id ON public.enterprise USING btree (sector_code_id);
-CREATE INDEX ix_enterprise_name ON public.enterprise USING btree (name);
-CREATE INDEX ix_enterprise_short_name_stat_ident ON public.enterprise USING btree (short_name, stat_ident);
-CREATE INDEX ix_enterprise_size_id ON public.enterprise USING btree (unit_size_id);
-CREATE INDEX ix_enterprise_stat_ident ON public.enterprise USING btree (stat_ident);
-
-
-CREATE OR REPLACE FUNCTION admin.enterprise_id_exists(fk_id integer) RETURNS boolean AS $$
-    SELECT EXISTS (SELECT 1 FROM public.enterprise WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
 
 
 CREATE TABLE public.legal_form (
@@ -890,8 +856,13 @@ CREATE TABLE public.establishment (
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_classification_id integer REFERENCES public.data_source_classification(id),
     enterprise_id integer,
+    legal_unit_id integer,
     invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
+    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
+    CONSTRAINT "Must have either legal_unit_id or enterprise_id"
+    CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
+        )
 );
 
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
@@ -899,6 +870,7 @@ CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
 CREATE INDEX ix_establishment_sector_code_id ON public.establishment USING btree (sector_code_id);
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
+CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
 CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
 CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_reg_ident);
@@ -940,7 +912,7 @@ CREATE TABLE public.tag_for_unit (
     tag_id integer NOT NULL REFERENCES public.tag(id) ON DELETE CASCADE,
     establishment_id integer check (admin.establishment_id_exists(establishment_id)),
     legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
-    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
     enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     CONSTRAINT "One and only one statistical unit id must be set"
@@ -962,7 +934,7 @@ CREATE TABLE public.analysis_log (
     analysis_queue_id integer NOT NULL REFERENCES public.analysis_queue(id) ON DELETE CASCADE,
     establishment_id integer check (admin.establishment_id_exists(establishment_id)),
     legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
-    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
     enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
     issued_at timestamp with time zone NOT NULL,
     resolved_at timestamp with time zone,
@@ -987,7 +959,7 @@ CREATE TABLE public.country_for_unit (
     country_id integer NOT NULL REFERENCES public.country(id) ON DELETE CASCADE,
     establishment_id integer check (admin.establishment_id_exists(establishment_id)),
     legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
-    enterprise_id integer check (admin.enterprise_id_exists(enterprise_id)),
+    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
     enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
@@ -1986,8 +1958,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     LEFT OUTER JOIN public.region AS phr
             ON phl.region_id = phr.id
     UNION ALL
-    SELECT valid_from
-         , valid_to
+    SELECT NULL::date AS valid_from
+         , NULL::date AS valid_to
          , 'enterprise'::public.statistical_unit_type AS unit_type
          , NULL::INTEGER AS establishment_id
          , NULL::INTEGER AS legal_unit_id
@@ -4427,25 +4399,17 @@ SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['external_ident', 'external_ident_type']);
 
-SELECT sql_saga.add_era('public.enterprise', 'valid_from', 'valid_to');
-SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.enterprise', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_foreign_key('public.enterprise', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
-
 SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_reg_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_foreign_key('public.legal_unit', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
 
 SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
 
 SELECT sql_saga.add_era('public.activity', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
@@ -4467,7 +4431,6 @@ SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterp
 SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_group_id']);
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
-SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_id'], 'valid', 'enterprise_id_valid');
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
 
 TABLE sql_saga.era;

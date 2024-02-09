@@ -8,7 +8,6 @@ BEGIN;
 
 SELECT sql_saga.drop_foreign_key('public.location', 'location_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.location', 'location_legal_unit_id_valid');
-SELECT sql_saga.drop_foreign_key('public.location', 'location_enterprise_id_valid');
 SELECT sql_saga.drop_foreign_key('public.location', 'location_enterprise_group_id_valid');
 SELECT sql_saga.drop_unique_key('public.location', 'location_id_valid');
 SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_establishment_id_valid');
@@ -29,25 +28,17 @@ SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activ
 SELECT sql_saga.drop_unique_key('public.activity', 'activity_id_valid');
 SELECT sql_saga.drop_era('public.activity');
 
-SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_enterprise_id_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
 
-SELECT sql_saga.drop_foreign_key('public.legal_unit', 'legal_unit_enterprise_id_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
-
-SELECT sql_saga.drop_foreign_key('public.enterprise', 'enterprise_enterprise_group_id_valid');
-SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_id_valid');
-SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_stat_ident_valid');
-SELECT sql_saga.drop_unique_key('public.enterprise', 'enterprise_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_era('public.enterprise');
 
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_stat_ident_valid');
@@ -251,7 +242,6 @@ DROP TYPE admin.existing_upsert_case;
 DROP TYPE public.location_type;
 
 DROP FUNCTION admin.enterprise_group_id_exists(integer);
-DROP FUNCTION admin.enterprise_id_exists(integer);
 DROP FUNCTION admin.legal_unit_id_exists(integer);
 DROP FUNCTION admin.establishment_id_exists(integer);
 
