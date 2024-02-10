@@ -3476,31 +3476,41 @@ DECLARE
 BEGIN
     SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
 
+    -- Ensure that id exists and can be referenced
+    -- without getting either error
+    --   record "physical_region" is not assigned yet
+    --   record "physical_region" has no field "id"
+    -- Since it always has the correct fallback of NULL for id
+    --
+    SELECT NULL::int AS id INTO physical_region;
+    SELECT NULL::int AS id INTO primary_activity_category;
+
     SELECT * INTO edited_by_user
     FROM public.statbus_user
     -- TODO: Uncomment when going into production
     -- WHERE uuid = auth.uid()
     LIMIT 1;
 
-    SELECT * INTO physical_region
-    FROM public.region
-    WHERE code = NEW.physical_region_code;
-    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL
-       AND NEW.physical_region_code <> ''
-    THEN
-      RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
-      invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
+      SELECT * INTO physical_region
+      FROM public.region
+      WHERE code = NEW.physical_region_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+      END IF;
     END IF;
 
-    SELECT * INTO primary_activity_category
-    FROM public.activity_category_available
-    WHERE code = NEW.primary_activity_category_code;
-    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL
-       -- Many places there is a variety of 00.000... to signify null
+    IF NEW.primary_activity_category_code IS NOT NULL
        AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
     THEN
-      RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
-      invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
+      SELECT * INTO primary_activity_category
+      FROM public.activity_category_available
+      WHERE code = NEW.primary_activity_category_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
+      END IF;
     END IF;
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
@@ -3548,7 +3558,7 @@ BEGIN
     RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
     RAISE DEBUG 'inserted_legal_unit';
 
-    IF physical_region IS NOT NULL THEN
+    IF physical_region.id IS NOT NULL THEN
         INSERT INTO public.location_era
         (
             valid_from,
@@ -3570,7 +3580,7 @@ BEGIN
         RETURNING * INTO inserted_location;
     END IF;
 
-    IF primary_activity_category IS NOT NULL THEN
+    IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
         (
             valid_from,
@@ -3670,8 +3680,8 @@ RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
-    legal_unit RECORD := NULL;
-    enterprise RECORD := NULL;
+    legal_unit RECORD;
+    enterprise RECORD;
     primary_activity_category RECORD;
     upsert_data RECORD;
     inserted_establishment RECORD;
@@ -3681,6 +3691,17 @@ DECLARE
     statbus_constraints_already_deferred BOOLEAN;
 BEGIN
     SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
+
+    -- Ensure that id exists and can be referenced
+    -- without getting either error
+    --   record "enterprise" is not assigned yet
+    --   record "enterprise" has no field "id"
+    -- Since it always has the correct fallback of NULL for id
+    --
+    SELECT NULL::int AS id INTO legal_unit;
+    SELECT NULL::int AS id INTO enterprise;
+    SELECT NULL::int AS id INTO physical_region;
+    SELECT NULL::int AS id INTO primary_activity_category;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -3704,30 +3725,31 @@ BEGIN
         SELECT * INTO legal_unit
         FROM public.legal_unit
         WHERE tax_reg_ident = NEW.legal_unit_tax_reg_ident;
-        IF legal_unit IS NULL THEN
+        IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find legal_unit_tax_reg_ident for row %', to_json(NEW);
         END IF;
     END IF;
 
-    SELECT * INTO physical_region
-    FROM public.region
-    WHERE code = NEW.physical_region_code;
-    IF NEW.physical_region_code IS NOT NULL AND physical_region IS NULL
-       AND NEW.physical_region_code <> ''
-    THEN
-      RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
-      invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
+      SELECT * INTO physical_region
+      FROM public.region
+      WHERE code = NEW.physical_region_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+      END IF;
     END IF;
 
-    SELECT * INTO primary_activity_category
-    FROM public.activity_category_available
-    WHERE code = NEW.primary_activity_category_code;
-    IF NEW.primary_activity_category_code IS NOT NULL AND primary_activity_category IS NULL
-       -- Many places there is a variety of 00.000... to signify null
-       AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
-    THEN
-      RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
-      invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
+    IF NEW.primary_activity_category_code IS NOT NULL
+    -- Many places there is a variety of 00.000... to signify null
+    AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> '' THEN
+      SELECT * INTO primary_activity_category
+      FROM public.activity_category_available
+      WHERE code = NEW.primary_activity_category_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
+      END IF;
     END IF;
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
@@ -3739,8 +3761,8 @@ BEGIN
          , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
-         , CASE WHEN enterprise IS NOT NULL THEN enterprise.id ELSE NULL END AS enterprise_id
-         , CASE WHEN legal_unit IS NOT NULL THEN legal_unit.id ELSE NULL END AS legal_unit_id
+         , enterprise.id AS enterprise_id
+         , legal_unit.id AS legal_unit_id
      INTO upsert_data;
 
     IF NOT statbus_constraints_already_deferred THEN
@@ -3780,7 +3802,7 @@ BEGIN
     RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);
     RAISE DEBUG 'inserted_establishment';
 
-    IF physical_region IS NOT NULL THEN
+    IF physical_region.id IS NOT NULL THEN
         INSERT INTO public.location_era
         (
             valid_from,
@@ -3802,7 +3824,7 @@ BEGIN
         RETURNING * INTO inserted_location;
     END IF;
 
-    IF primary_activity_category IS NOT NULL THEN
+    IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
         (
             valid_from,
