@@ -767,7 +767,6 @@ CREATE TABLE public.legal_form (
 );
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
 
-
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -801,11 +800,13 @@ CREATE TABLE public.legal_unit (
     unit_size_id integer REFERENCES public.unit_size(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id),
     data_source_classification_id integer REFERENCES public.data_source_classification(id),
-    enterprise_id integer,
+    enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
+    primary_for_enterprise boolean NOT NULL,
     invalid_codes jsonb,
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
+CREATE UNIQUE INDEX "Only one primary legal_unit per enterprise" ON public.legal_unit(enterprise_id) WHERE primary_for_enterprise;
 CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 CREATE INDEX ix_legal_unit_data_source_classification_id ON public.legal_unit USING btree (data_source_classification_id);
@@ -855,16 +856,28 @@ CREATE TABLE public.establishment (
     edit_comment character varying(500),
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_classification_id integer REFERENCES public.data_source_classification(id),
-    enterprise_id integer,
+    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE RESTRICT,
+    primary_for_enterprise boolean,
     legal_unit_id integer,
+    primary_for_legal_unit boolean,
     invalid_codes jsonb,
     seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
     CONSTRAINT "Must have either legal_unit_id or enterprise_id"
     CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
         OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
+        ),
+    CONSTRAINT "primary_for_enterprise and enterprise_id must be defined together"
+    CHECK( enterprise_id IS NOT NULL AND primary_for_enterprise IS NOT NULL
+        OR enterprise_id IS     NULL AND primary_for_enterprise IS     NULL
+        ),
+    CONSTRAINT "primary_for_legal_unit and legal_unit_id must be defined together"
+    CHECK( legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL
+        OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
         )
 );
 
+CREATE UNIQUE INDEX "Only one primary establishment per enterprise" ON public.establishment(enterprise_id) WHERE primary_for_enterprise;
+CREATE UNIQUE INDEX "Only one primary establishment per legal_unit" ON public.establishment(legal_unit_id) WHERE primary_for_legal_unit;
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
@@ -959,13 +972,11 @@ CREATE TABLE public.country_for_unit (
     country_id integer NOT NULL REFERENCES public.country(id) ON DELETE CASCADE,
     establishment_id integer check (admin.establishment_id_exists(establishment_id)),
     legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
-    enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
     enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_group_id IS NOT NULL
         )
 );
 CREATE INDEX ix_country_for_unit_country_id ON public.country_for_unit USING btree (country_id);
@@ -1052,21 +1063,15 @@ CREATE TABLE public.location (
     longitude double precision,
     establishment_id integer,
     legal_unit_id integer,
-    enterprise_id integer,
-    enterprise_group_id integer,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
         )
 );
 CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
 CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_unit_id);
-CREATE INDEX ix_location_enterprise_id_id ON public.location USING btree (enterprise_id);
-CREATE INDEX ix_location_enterprise_group_id_id ON public.location USING btree (enterprise_group_id);
 CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
 
 
@@ -4479,11 +4484,8 @@ SELECT sql_saga.add_era('public.location', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.location', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'establishment_id']);
 SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'legal_unit_id']);
-SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_id']);
-SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'enterprise_group_id']);
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
-SELECT sql_saga.add_foreign_key('public.location', ARRAY['enterprise_group_id'], 'valid', 'enterprise_group_id_valid');
 
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;
