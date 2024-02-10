@@ -116,9 +116,9 @@ class StatBus
     puts "Importing establishments"
     sql_field_required_list = [
       "tax_reg_ident",
-      "legal_unit_tax_reg_ident",
     ]
     sql_field_optional_list = [
+      "legal_unit_tax_reg_ident",
       "name",
       "physical_region_code",
       "primary_activity_category_code",
