@@ -11,7 +11,7 @@ export default function CommandPaletteTriggerButton({className}: { readonly clas
     return (
         <Button
             title="Open command palette"
-            variant="ghost"
+            variant="outline"
             size="sm"
             type="button"
             className={cn("space-x-1 font-normal", className)}
