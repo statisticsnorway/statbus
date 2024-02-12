@@ -37,6 +37,7 @@
     "zod-form-data": "^2.0.2"
   },
   "devDependencies": {
+    "@types/highcharts": "^7.0.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20",
     "@types/react": "^18",
