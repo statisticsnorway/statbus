@@ -2304,12 +2304,14 @@ CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON publ
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
 
 
-CREATE OR REPLACE FUNCTION public.statistical_unit_facet_drilldown(
+CREATE FUNCTION public.statistical_unit_facet_drilldown(
+    unit_type public.statistical_unit_type DEFAULT 'enterprise',
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
     valid_on date DEFAULT current_date
 )
 RETURNS jsonb AS $$
+#variable_conflict use_variable
 DECLARE
     result_json jsonb := '{}'::jsonb;
 BEGIN
@@ -2325,6 +2327,7 @@ BEGIN
             public.statistical_unit_facet AS suf
         WHERE
             suf.valid_from <= valid_on AND valid_on <= suf.valid_to
+            AND suf.unit_type = unit_type
             AND (
                 region_path IS NULL
                 OR suf.physical_region_path <@ region_path
@@ -2333,6 +2336,18 @@ BEGIN
                 activity_category_path IS NULL
                 OR suf.primary_activity_category_path <@ activity_category_path
             )
+    ),
+    breadcrumb_region AS (
+        SELECT r.path
+             , r.label
+             , r.code
+             , r.name
+        FROM public.region AS r
+        WHERE
+            (   region_path IS NOT NULL
+            AND r.path @> (region_path)
+            )
+        ORDER BY path
     ),
     available_region AS (
         SELECT r.path
@@ -2352,14 +2367,29 @@ BEGIN
              , ar.label
              , ar.code
              , ar.name
-            , COALESCE(SUM(suf.count), 0) AS count
-        FROM
-            available_region AS ar
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path <> ar.path), false) AS has_children
+        FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path <@ ar.path
         GROUP BY ar.path
                , ar.label
                , ar.code
                , ar.name
+    ),
+    breadcrumb_activity_category AS (
+        SELECT ac.path
+             , ac.label
+             , ac.code
+             , ac.name
+        FROM
+            public.activity_category AS ac
+        WHERE ac.active
+           AND ac.activity_category_standard_id = (SELECT id FROM settings_activity_category_standard)
+           AND
+            (     activity_category_path IS NOT NULL
+              AND ac.path @> activity_category_path
+            )
+        ORDER BY path
     ),
     available_activity_category AS (
         SELECT ac.path
@@ -2377,12 +2407,14 @@ BEGIN
                 (activity_category_path IS NOT NULL AND ac.path ~ (activity_category_path::text || '.*{1}')::lquery)
             )
         ORDER BY ac.path
-    ), aggregated_activity_counts AS (
+    ),
+    aggregated_activity_counts AS (
         SELECT aac.path
              , aac.label
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path <> aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
         LEFT JOIN available_facet AS suf ON suf.primary_activity_category_path <@ aac.path
@@ -2393,8 +2425,15 @@ BEGIN
     )
     SELECT
         jsonb_build_object(
+          'unit_type', unit_type,
+          'breadcrumb',jsonb_build_object(
+            'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source)
+          ),
+          'available',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0)
+          )
         ) INTO result_json;
 
     RETURN result_json;
