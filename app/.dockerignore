@@ -1,0 +1,3 @@
+# Prevent interaction between local node_modules
+# and image installed node_modules.
+node_modules/

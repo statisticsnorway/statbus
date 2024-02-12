@@ -1,10 +1,10 @@
 FROM node:20.10-alpine  AS base
 
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat dumb-init
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci && npm cache clean --force
 
 FROM base AS builder
 WORKDIR /app
@@ -29,4 +29,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV NODE_ENV production
 
-CMD ["node", "server.js"]
+CMD ["dumb-init","node", "server.js"]
