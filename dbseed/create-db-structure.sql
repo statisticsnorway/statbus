@@ -3471,11 +3471,15 @@ DECLARE
     physical_region RECORD;
     primary_activity_category RECORD;
     upsert_data RECORD;
+    enterprise RECORD;
+    is_primary_for_enterprise BOOLEAN;
     inserted_legal_unit RECORD;
     inserted_location RECORD;
     inserted_activity RECORD;
     invalid_codes JSONB := '{}'::jsonb;
     statbus_constraints_already_deferred BOOLEAN;
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
 BEGIN
     SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
 
@@ -3485,6 +3489,7 @@ BEGIN
     --   record "physical_region" has no field "id"
     -- Since it always has the correct fallback of NULL for id
     --
+    SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO primary_activity_category;
 
@@ -3518,8 +3523,6 @@ BEGIN
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
          , statement_timestamp() AS tax_reg_date
-         , current_date AS valid_from
-         , 'infinity'::date AS valid_to
          , NEW.name AS name
          , true AS active
          , statement_timestamp() AS seen_in_import_at
@@ -3530,6 +3533,24 @@ BEGIN
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
+
+    -- TODO: Lookup any existing enterprise and re-use it
+    -- SELECT * INTO enterprise
+    -- FROM public.enterprise
+    -- WHERE
+
+    -- Create an enterprise and connect to it.
+    INSERT INTO public.enterprise
+        ( active
+        , edit_by_user_id
+        , edit_comment
+        ) VALUES
+        ( true
+        , edited_by_user.id
+        , 'Batch import'
+        ) RETURNING *
+        INTO enterprise;
+    is_primary_for_enterprise := true;
 
     INSERT INTO public.legal_unit_era
     (
@@ -3542,19 +3563,23 @@ BEGIN
         seen_in_import_at,
         edit_comment,
         invalid_codes,
+        enterprise_id,
+        primary_for_enterprise,
         edit_by_user_id
     )
     VALUES
     (
         upsert_data.tax_reg_ident,
         upsert_data.tax_reg_date,
-        upsert_data.valid_from,
-        upsert_data.valid_to,
+        new_valid_from,
+        new_valid_to,
         upsert_data.name,
         upsert_data.active,
         upsert_data.seen_in_import_at,
         upsert_data.edit_comment,
         upsert_data.invalid_codes,
+        enterprise.id,
+        is_primary_for_enterprise,
         edited_by_user.id
     )
     RETURNING * INTO inserted_legal_unit;
@@ -3573,8 +3598,8 @@ BEGIN
         )
         VALUES
         (
-            upsert_data.valid_from,
-            upsert_data.valid_to,
+            new_valid_from,
+            new_valid_to,
             inserted_legal_unit.id,
             'physical',
             physical_region.id,
@@ -3596,8 +3621,8 @@ BEGIN
         )
         VALUES
         (
-            upsert_data.valid_from,
-            upsert_data.valid_to,
+            new_valid_from,
+            new_valid_to,
             inserted_legal_unit.id,
             'primary',
             primary_activity_category.id,
@@ -3684,7 +3709,9 @@ DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
     legal_unit RECORD;
+    is_primary_for_legal_unit BOOLEAN;
     enterprise RECORD;
+    is_primary_for_enterprise BOOLEAN;
     primary_activity_category RECORD;
     upsert_data RECORD;
     inserted_establishment RECORD;
@@ -3692,6 +3719,8 @@ DECLARE
     inserted_activity RECORD;
     invalid_codes JSONB := '{}'::jsonb;
     statbus_constraints_already_deferred BOOLEAN;
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
 BEGIN
     SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
 
@@ -3713,6 +3742,7 @@ BEGIN
     LIMIT 1;
 
     IF NEW.legal_unit_tax_reg_ident IS NULL THEN
+        -- TODO: Reuse any existing enterprise connection.
         -- Create an enterprise and connect to it.
         INSERT INTO public.enterprise
             ( active
@@ -3724,12 +3754,27 @@ BEGIN
             , 'Batch import'
             ) RETURNING *
             INTO enterprise;
+        is_primary_for_enterprise := true;
     ELSE -- Lookup the legal_unit - it must exist.
-        SELECT * INTO legal_unit
-        FROM public.legal_unit
-        WHERE tax_reg_ident = NEW.legal_unit_tax_reg_ident;
+        SELECT lu.* INTO legal_unit
+        FROM public.legal_unit AS lu
+        WHERE lu.tax_reg_ident = NEW.legal_unit_tax_reg_ident
+          AND daterange(lu.valid_from, lu.valid_to, '[]')
+            && daterange(new_valid_from, new_valid_to, '[]')
+        ;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find legal_unit_tax_reg_ident for row %', to_json(NEW);
+        END IF;
+        PERFORM *
+        FROM public.establishment AS es
+        WHERE es.legal_unit_id = legal_unit.id
+          AND daterange(es.valid_from, es.valid_to, '[]')
+            && daterange(new_valid_from, new_valid_to, '[]')
+        LIMIT 1;
+        IF NOT FOUND THEN
+            is_primary_for_legal_unit := true;
+        ELSE
+            is_primary_for_legal_unit := false;
         END IF;
     END IF;
 
@@ -3757,15 +3802,15 @@ BEGIN
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
          , statement_timestamp() AS tax_reg_date
-         , current_date AS valid_from
-         , 'infinity'::date AS valid_to
          , NEW.name AS name
          , true AS active
          , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
          , enterprise.id AS enterprise_id
+         , is_primary_for_enterprise AS primary_for_enterprise
          , legal_unit.id AS legal_unit_id
+         , is_primary_for_legal_unit AS primary_for_legal_unit
      INTO upsert_data;
 
     IF NOT statbus_constraints_already_deferred THEN
@@ -3783,22 +3828,26 @@ BEGIN
     , edit_comment
     , invalid_codes
     , enterprise_id
+    , primary_for_enterprise
     , legal_unit_id
+    , primary_for_legal_unit
     , edit_by_user_id
     )
     VALUES
     (
         upsert_data.tax_reg_ident,
         upsert_data.tax_reg_date,
-        upsert_data.valid_from,
-        upsert_data.valid_to,
+        new_valid_from,
+        new_valid_to,
         upsert_data.name,
         upsert_data.active,
         upsert_data.seen_in_import_at,
         upsert_data.edit_comment,
         upsert_data.invalid_codes,
         upsert_data.enterprise_id,
+        upsert_data.primary_for_enterprise,
         upsert_data.legal_unit_id,
+        upsert_data.primary_for_legal_unit,
         edited_by_user.id
     )
     RETURNING * INTO inserted_establishment;
@@ -3817,8 +3866,8 @@ BEGIN
         )
         VALUES
         (
-            upsert_data.valid_from,
-            upsert_data.valid_to,
+            new_valid_from,
+            new_valid_to,
             inserted_establishment.id,
             'physical',
             physical_region.id,
@@ -3840,8 +3889,8 @@ BEGIN
         )
         VALUES
         (
-            upsert_data.valid_from,
-            upsert_data.valid_to,
+            new_valid_from,
+            new_valid_to,
             inserted_establishment.id,
             'primary',
             primary_activity_category.id,
