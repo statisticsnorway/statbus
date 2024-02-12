@@ -1821,6 +1821,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , physical_region_id
     , physical_region_path
     , employees
+    , turnover
     -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
     -- sector_code_ids integer[],
@@ -1877,6 +1878,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , phl.region_id           AS physical_region_id
          , phr.path                AS physical_region_path
          , sfu1.value_int AS employees
+         , sfu2.value_int AS turnover
     FROM public.establishment AS es
     LEFT OUTER JOIN public.activity AS pa
             ON pa.establishment_id = es.id
@@ -1906,6 +1908,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     LEFT OUTER JOIN public.stat_definition AS sd1
             ON sfu1.stat_definition_id = sd1.id
             AND sd1.code = 'employees'
+    LEFT OUTER JOIN public.stat_for_unit AS sfu2
+            ON sfu2.establishment_id = es.id
+           AND daterange(es.valid_from, es.valid_to, '[]')
+            && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
+    LEFT OUTER JOIN public.stat_definition AS sd2
+            ON sfu2.stat_definition_id = sd2.id
+            AND sd2.code = 'turnover'
     UNION ALL
     SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
          , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
@@ -1940,6 +1949,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , phl.region_id           AS physical_region_id
          , phr.path                AS physical_region_path
          , NULL::int AS employees
+         , NULL::int AS turnover
     FROM public.legal_unit AS lu
     LEFT OUTER JOIN public.activity AS pa
             ON pa.legal_unit_id = lu.id
@@ -1984,6 +1994,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
          , NULL::int AS employees
+         , NULL::int AS turnover
       FROM public.enterprise
     UNION ALL
     SELECT valid_from
@@ -2007,6 +2018,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
          , NULL::int AS employees
+         , NULL::int AS turnover
       FROM public.enterprise_group
 ;
 CREATE UNIQUE INDEX "statistical_unit_key"
