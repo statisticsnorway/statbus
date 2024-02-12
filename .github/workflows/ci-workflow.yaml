@@ -15,5 +15,6 @@ jobs:
         run: |
           cd app
           npm ci
+          npm test -- --ci --silent
           npm run lint -- --quiet
           npm run build -- --no-lint
