@@ -20,6 +20,14 @@
     "csv": "overordnetEnhet"
   },
   {
+    "sql": "employees",
+    "csv": "antallAnsatte"
+  },
+  {
+    "sql": "turnover",
+    "csv": null
+  },
+  {
     "sql": null,
     "csv": "organisasjonsform.kode"
   },
@@ -58,10 +66,6 @@
   {
     "sql": null,
     "csv": "harRegistrertAntallAnsatte"
-  },
-  {
-    "sql": null,
-    "csv": "antallAnsatte"
   },
   {
     "sql": null,

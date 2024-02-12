@@ -1925,20 +1925,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(phl.valid_from, phl.valid_to, '[]')
       LEFT OUTER JOIN public.region AS phr
               ON phl.region_id = phr.id
+      LEFT OUTER JOIN public.stat_definition AS sd1
+              ON sd1.code = 'employees'
       LEFT OUTER JOIN public.stat_for_unit AS sfu1
-              ON sfu1.establishment_id = es.id
+              ON sfu1.stat_definition_id = sd1.id
+             AND sfu1.establishment_id = es.id
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-      LEFT OUTER JOIN public.stat_definition AS sd1
-              ON sfu1.stat_definition_id = sd1.id
-              AND sd1.code = 'employees'
+      LEFT OUTER JOIN public.stat_definition AS sd2
+              ON sd2.code = 'turnover'
       LEFT OUTER JOIN public.stat_for_unit AS sfu2
-              ON sfu2.establishment_id = es.id
+              ON sfu2.stat_definition_id = sd2.id
+             AND sfu2.establishment_id = es.id
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-      LEFT OUTER JOIN public.stat_definition AS sd2
-              ON sfu2.stat_definition_id = sd2.id
-              AND sd2.code = 'turnover'
     ) as source
     GROUP BY valid_from
            , valid_to
@@ -2044,20 +2044,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 ON lu.id = es.legal_unit_id
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(es.valid_from, es.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd1
+                ON sd1.code = 'employees'
         LEFT OUTER JOIN public.stat_for_unit AS sfu1
-                ON sfu1.establishment_id = es.id
+                ON sfu1.stat_definition_id = sd1.id
+               AND sfu1.establishment_id = es.id
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd1
-                ON sfu1.stat_definition_id = sd1.id
-                AND sd1.code = 'employees'
+        LEFT OUTER JOIN public.stat_definition AS sd2
+                ON sd2.code = 'turnover'
         LEFT OUTER JOIN public.stat_for_unit AS sfu2
-                ON sfu2.establishment_id = es.id
+                ON sfu2.stat_definition_id = sd2.id
+               AND sfu2.establishment_id = es.id
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd2
-                ON sfu2.stat_definition_id = sd2.id
-                AND sd2.code = 'turnover'
     ) AS source
     GROUP BY valid_from
            , valid_to
@@ -2166,20 +2166,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 ON lu.id = es.legal_unit_id
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(es.valid_from, es.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd1
+                ON sd1.code = 'employees'
         LEFT OUTER JOIN public.stat_for_unit AS sfu1
-                ON sfu1.establishment_id = es.id
+                ON sfu1.stat_definition_id = sd1.id
+               AND sfu1.establishment_id = es.id
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd1
-                ON sfu1.stat_definition_id = sd1.id
-                AND sd1.code = 'employees'
+        LEFT OUTER JOIN public.stat_definition AS sd2
+                ON sd2.code = 'turnover'
         LEFT OUTER JOIN public.stat_for_unit AS sfu2
-                ON sfu2.establishment_id = es.id
+                ON sfu2.stat_definition_id = sd2.id
+               AND sfu2.establishment_id = es.id
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd2
-                ON sfu2.stat_definition_id = sd2.id
-                AND sd2.code = 'turnover'
     ) AS source
     GROUP BY valid_from
            , valid_to
@@ -3639,6 +3639,41 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.activity_era_upsert();
 
 
+CREATE VIEW public.stat_for_unit_era
+WITH (security_invoker=on) AS
+SELECT *
+FROM public.stat_for_unit;
+
+CREATE FUNCTION admin.stat_for_unit_era_upsert()
+RETURNS TRIGGER AS $stat_for_unit_era_upsert$
+DECLARE
+  schema_name text := 'public';
+  table_name text := 'stat_for_unit';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('stat_definition_id', 'establishment_id')
+    );
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
+  ephemeral_columns text[] := ARRAY[]::text[];
+BEGIN
+  SELECT admin.upsert_generic_valid_time_table
+    ( schema_name
+    , table_name
+    , unique_columns
+    , temporal_columns
+    , ephemeral_columns
+    , NEW
+    ) INTO NEW.id;
+  RETURN NEW;
+END;
+$stat_for_unit_era_upsert$ LANGUAGE plpgsql;
+
+CREATE TRIGGER stat_for_unit_era_upsert
+INSTEAD OF INSERT ON public.stat_for_unit_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
+
+
 ---- Create function for deleting stale countries
 --CREATE FUNCTION admin.delete_stale_legal_unit_era()
 --RETURNS TRIGGER AS $$
@@ -3898,6 +3933,7 @@ SELECT es.tax_reg_ident
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
      , sfu1.value_int AS employees
+     , sfu2.value_int AS turnover
 FROM public.establishment AS es
 LEFT JOIN public.legal_unit AS lu ON lu.id = es.legal_unit_id AND lu.valid_from >= current_date AND current_date <= lu.valid_to
 LEFT JOIN public.activity AS pra ON pra.establishment_id = es.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
@@ -3906,8 +3942,10 @@ LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.locatio
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
 LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 LEFT JOIN public.region AS por ON pol.region_id = por.id
-LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id
-LEFT JOIN public.stat_definition AS sd1 ON sfu1.stat_definition_id = sd1.id AND sd1.code = 'employees'
+LEFT JOIN public.stat_definition AS sd1 ON sd1.code = 'employees'
+LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id AND sfu1.stat_definition_id = sd1.id AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
+LEFT JOIN public.stat_definition AS sd2 ON sd2.code = 'turnover'
+LEFT JOIN public.stat_for_unit AS sfu2 ON sfu2.establishment_id = es.id AND sfu2.stat_definition_id = sd2.id AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
 WHERE es.valid_from >= current_date AND current_date <= es.valid_to
   AND es.active
 ;
@@ -3926,6 +3964,8 @@ DECLARE
     inserted_establishment RECORD;
     inserted_location RECORD;
     inserted_activity RECORD;
+    stat_def RECORD;
+    inserted_stat_for_unit RECORD;
     invalid_codes JSONB := '{}'::jsonb;
     statbus_constraints_already_deferred BOOLEAN;
     new_valid_from DATE := current_date;
@@ -4107,6 +4147,50 @@ BEGIN
             statement_timestamp()
         )
         RETURNING * INTO inserted_activity;
+    END IF;
+
+    IF NEW.employees IS NOT NULL THEN
+        SELECT * INTO stat_def
+        FROM stat_definition
+        WHERE code = 'employees';
+
+        INSERT INTO public.stat_for_unit_era
+        ( stat_definition_id
+        , valid_from
+        , valid_to
+        , establishment_id
+        , value_int
+        )
+        VALUES
+        ( stat_def.id
+        , new_valid_from
+        , new_valid_to
+        , inserted_establishment.id
+        , NEW.employees
+        )
+        RETURNING * INTO inserted_stat_for_unit;
+    END IF;
+
+    IF NEW.turnover IS NOT NULL THEN
+        SELECT * INTO stat_def
+        FROM stat_definition
+        WHERE code = 'turnover';
+
+        INSERT INTO public.stat_for_unit_era
+        ( stat_definition_id
+        , valid_from
+        , valid_to
+        , establishment_id
+        , value_int
+        )
+        VALUES
+        ( stat_def.id
+        , new_valid_from
+        , new_valid_to
+        , inserted_establishment.id
+        , NEW.turnover
+        )
+        RETURNING * INTO inserted_stat_for_unit;
     END IF;
 
     IF NOT statbus_constraints_already_deferred THEN

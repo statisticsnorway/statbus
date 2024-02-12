@@ -122,6 +122,8 @@ class StatBus
       "name",
       "physical_region_code",
       "primary_activity_category_code",
+      "employees",
+      "turnover",
     ]
     upload_view_name = "establishment_region_activity_category_stats_current"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
@@ -306,6 +308,8 @@ class StatBus
       sql_row = @sql_field_mapping.map do |mapping|
         csv_value = csv_row[mapping.csv]
         if csv_value.nil?
+          nil
+        elsif csv_value.strip == ""
           nil
         else
           csv_value.strip
