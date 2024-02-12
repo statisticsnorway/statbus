@@ -1,3 +1,3 @@
 
-\copy (SELECT * FROM tmp.enhet WHERE "organisasjonsnummer" IN (SELECT enhet_orgnr FROM tmp.selection)) TO 'samples/norway/enheter-selection-1000.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
-\copy (SELECT * FROM tmp.underenhet WHERE "overordnetEnhet" IN (SELECT enhet_orgnr FROM tmp.selection)) TO 'samples/norway/underenheter-selection-1000.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
+\copy (SELECT * FROM tmp.enhet WHERE "organisasjonsnummer" IN (SELECT enhet_orgnr FROM tmp.selection)) TO 'samples/norway/enheter-selection.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
+\copy (SELECT * FROM tmp.underenhet WHERE "overordnetEnhet" IN (SELECT enhet_orgnr FROM tmp.selection)) TO 'samples/norway/underenheter-selection.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
