@@ -1803,10 +1803,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     ( valid_from
     , valid_to
     , unit_type
-    , establishment_id
-    , legal_unit_id
-    , enterprise_id
-    , enterprise_group_id
+    , unit_id
     , stat_ident
     , tax_reg_ident
     , external_ident
@@ -1820,6 +1817,9 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , activity_category_paths
     , physical_region_id
     , physical_region_path
+    , aggregated_establishment_ids
+    , aggregated_legal_unit_ids
+    , aggregated_enterprise_ids
     , employees
     , turnover
     -- TODO: Generate SQL to provide these columns:
@@ -1845,165 +1845,364 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     -- active boolean,
     )
     AS
-    SELECT greatest(es.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
-         , least(es.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
-         , 'establishment'::public.statistical_unit_type AS unit_type
-         , es.id AS establishment_id
-         , NULL::INTEGER AS legal_unit_id
-         , NULL::INTEGER AS enterprise_id
-         , NULL::INTEGER AS enterprise_group_id
-         , es.stat_ident AS stat_ident
-         , es.tax_reg_ident AS tax_reg_ident
-         , es.external_ident AS external_ident
-         , es.external_ident_type AS external_ident_type
-         , es.name
-         -- Se supported languages with `SELECT * FROM pg_ts_config`
-         , to_tsvector('norwegian', es.name) ||
-           to_tsvector('english', es.name) ||
-           to_tsvector('arabic', es.name) ||
-           to_tsvector('greek', es.name) ||
-           to_tsvector('russian', es.name) ||
-           to_tsvector('french', es.name) ||
-           to_tsvector('simple', es.name) AS search
-         , pa.activity_category_id AS primary_activity_category_id
-         , pac.path                AS primary_activity_category_path
-         , sa.activity_category_id AS secondary_activity_category_id
-         , sac.path                AS secondary_activity_category_path
-         , CASE
-           WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
-           WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
-           WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
-           WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
-           END AS activity_category_paths
-         , phl.region_id           AS physical_region_id
-         , phr.path                AS physical_region_path
-         , sfu1.value_int AS employees
-         , sfu2.value_int AS turnover
-    FROM public.establishment AS es
-    LEFT OUTER JOIN public.activity AS pa
-            ON pa.establishment_id = es.id
-           AND pa.activity_type = 'primary'
-           AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(pa.valid_from, pa.valid_to, '[]')
-    LEFT OUTER JOIN public.activity_category AS pac
-            ON pa.activity_category_id = pac.id
-    LEFT OUTER JOIN public.activity AS sa
-            ON sa.establishment_id = es.id
-           AND sa.activity_type = 'secondary'
-           AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(sa.valid_from, sa.valid_to, '[]')
-    LEFT OUTER JOIN public.activity_category AS sac
-            ON sa.activity_category_id = sac.id
-    LEFT OUTER JOIN public.location AS phl
-            ON phl.establishment_id = es.id
-           AND phl.location_type = 'physical'
-           AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(phl.valid_from, phl.valid_to, '[]')
-    LEFT OUTER JOIN public.region AS phr
-            ON phl.region_id = phr.id
-    LEFT OUTER JOIN public.stat_for_unit AS sfu1
-            ON sfu1.establishment_id = es.id
-           AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-    LEFT OUTER JOIN public.stat_definition AS sd1
-            ON sfu1.stat_definition_id = sd1.id
-            AND sd1.code = 'employees'
-    LEFT OUTER JOIN public.stat_for_unit AS sfu2
-            ON sfu2.establishment_id = es.id
-           AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-    LEFT OUTER JOIN public.stat_definition AS sd2
-            ON sfu2.stat_definition_id = sd2.id
-            AND sd2.code = 'turnover'
+    SELECT valid_from
+         , valid_to
+         , unit_type
+         , unit_id
+         , stat_ident
+         , tax_reg_ident
+         , external_ident
+         , external_ident_type
+         , name
+         , search
+         , primary_activity_category_id
+         , primary_activity_category_path
+         , secondary_activity_category_id
+         , secondary_activity_category_path
+         , activity_category_paths
+         , physical_region_id
+         , physical_region_path
+         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
+         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
+         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
+         , sum(employees) AS employees
+         , sum(turnover) AS turnover
+      FROM (
+      SELECT greatest(es.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
+           , least(es.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
+           , 'establishment'::public.statistical_unit_type AS unit_type
+           , es.id AS unit_id
+           , es.id AS establishment_id
+           , NULL::INTEGER AS legal_unit_id
+           , NULL::INTEGER AS enterprise_id
+           , NULL::INTEGER AS enterprise_group_id
+           , es.stat_ident AS stat_ident
+           , es.tax_reg_ident AS tax_reg_ident
+           , es.external_ident AS external_ident
+           , es.external_ident_type AS external_ident_type
+           , es.name AS name
+           -- Se supported languages with `SELECT * FROM pg_ts_config`
+           , -- to_tsvector('norwegian', es.name) ||
+             -- to_tsvector('english', es.name) ||
+             -- to_tsvector('arabic', es.name) ||
+             -- to_tsvector('greek', es.name) ||
+             -- to_tsvector('russian', es.name) ||
+             -- to_tsvector('french', es.name) ||
+             to_tsvector('simple', es.name) AS search
+           , pa.activity_category_id AS primary_activity_category_id
+           , pac.path                AS primary_activity_category_path
+           , sa.activity_category_id AS secondary_activity_category_id
+           , sac.path                AS secondary_activity_category_path
+           , CASE
+             WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
+             WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
+             WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
+             WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
+             END AS activity_category_paths
+           , phl.region_id           AS physical_region_id
+           , phr.path                AS physical_region_path
+           , sfu1.value_int AS employees
+           , sfu2.value_int AS turnover
+      FROM public.establishment AS es
+      LEFT OUTER JOIN public.activity AS pa
+              ON pa.establishment_id = es.id
+             AND pa.activity_type = 'primary'
+             AND daterange(es.valid_from, es.valid_to, '[]')
+              && daterange(pa.valid_from, pa.valid_to, '[]')
+      LEFT OUTER JOIN public.activity_category AS pac
+              ON pa.activity_category_id = pac.id
+      LEFT OUTER JOIN public.activity AS sa
+              ON sa.establishment_id = es.id
+             AND sa.activity_type = 'secondary'
+             AND daterange(es.valid_from, es.valid_to, '[]')
+              && daterange(sa.valid_from, sa.valid_to, '[]')
+      LEFT OUTER JOIN public.activity_category AS sac
+              ON sa.activity_category_id = sac.id
+      LEFT OUTER JOIN public.location AS phl
+              ON phl.establishment_id = es.id
+             AND phl.location_type = 'physical'
+             AND daterange(es.valid_from, es.valid_to, '[]')
+              && daterange(phl.valid_from, phl.valid_to, '[]')
+      LEFT OUTER JOIN public.region AS phr
+              ON phl.region_id = phr.id
+      LEFT OUTER JOIN public.stat_for_unit AS sfu1
+              ON sfu1.establishment_id = es.id
+             AND daterange(es.valid_from, es.valid_to, '[]')
+              && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+      LEFT OUTER JOIN public.stat_definition AS sd1
+              ON sfu1.stat_definition_id = sd1.id
+              AND sd1.code = 'employees'
+      LEFT OUTER JOIN public.stat_for_unit AS sfu2
+              ON sfu2.establishment_id = es.id
+             AND daterange(es.valid_from, es.valid_to, '[]')
+              && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
+      LEFT OUTER JOIN public.stat_definition AS sd2
+              ON sfu2.stat_definition_id = sd2.id
+              AND sd2.code = 'turnover'
+    ) as source
+    GROUP BY valid_from
+           , valid_to
+           , unit_type
+           , unit_id
+           , stat_ident
+           , tax_reg_ident
+           , external_ident
+           , external_ident_type
+           , name
+           , search
+           , primary_activity_category_id
+           , primary_activity_category_path
+           , secondary_activity_category_id
+           , secondary_activity_category_path
+           , activity_category_paths
+           , physical_region_id
+           , physical_region_path
+           , employees
+           , turnover
     UNION ALL
-    SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from) AS valid_from
-         , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to) AS valid_to
-         , 'legal_unit'::public.statistical_unit_type AS unit_type
-         , NULL::INTEGER AS establishment_id
-         , lu.id AS legal_unit_id
-         , NULL::INTEGER AS enterprise_id
-         , NULL::INTEGER AS enterprise_group_id
-         , lu.stat_ident AS stat_ident
-         , lu.tax_reg_ident AS tax_reg_ident
-         , lu.external_ident AS external_ident
-         , lu.external_ident_type AS external_ident_type
-         , lu.name
-         -- Se supported languages with `SELECT * FROM pg_ts_config`
-         , to_tsvector('norwegian', lu.name) ||
-           to_tsvector('english', lu.name) ||
-           to_tsvector('arabic', lu.name) ||
-           to_tsvector('greek', lu.name) ||
-           to_tsvector('russian', lu.name) ||
-           to_tsvector('french', lu.name) ||
-           to_tsvector('simple', lu.name) AS search
-         , pa.activity_category_id AS primary_activity_category_id
-         , pac.path                AS primary_activity_category_path
-         , sa.activity_category_id AS secondary_activity_category_id
-         , sac.path                AS secondary_activity_category_path
-         , CASE
-           WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
-           WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
-           WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
-           WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
-           END AS activity_category_paths
-         , phl.region_id           AS physical_region_id
-         , phr.path                AS physical_region_path
-         , NULL::int AS employees
-         , NULL::int AS turnover
-    FROM public.legal_unit AS lu
-    LEFT OUTER JOIN public.activity AS pa
-            ON pa.legal_unit_id = lu.id
-           AND pa.activity_type = 'primary'
-           AND daterange(lu.valid_from, lu.valid_to, '[]')
-            && daterange(pa.valid_from, pa.valid_to, '[]')
-    LEFT OUTER JOIN public.activity_category AS pac
-            ON pa.activity_category_id = pac.id
-    LEFT OUTER JOIN public.activity AS sa
-            ON sa.legal_unit_id = lu.id
-           AND sa.activity_type = 'secondary'
-           AND daterange(lu.valid_from, lu.valid_to, '[]')
-            && daterange(sa.valid_from, sa.valid_to, '[]')
-    LEFT OUTER JOIN public.activity_category AS sac
-            ON sa.activity_category_id = sac.id
-    LEFT OUTER JOIN public.location AS phl
-            ON phl.legal_unit_id = lu.id
-           AND phl.location_type = 'physical'
-           AND daterange(lu.valid_from, lu.valid_to, '[]')
-            && daterange(phl.valid_from, phl.valid_to, '[]')
-    LEFT OUTER JOIN public.region AS phr
-            ON phl.region_id = phr.id
+    SELECT valid_from
+         , valid_to
+         , unit_type
+         , unit_id
+         , stat_ident
+         , tax_reg_ident
+         , external_ident
+         , external_ident_type
+         , name
+         , search
+         , primary_activity_category_id
+         , primary_activity_category_path
+         , secondary_activity_category_id
+         , secondary_activity_category_path
+         , activity_category_paths
+         , physical_region_id
+         , physical_region_path
+         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
+         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
+         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
+         , sum(employees) AS employees
+         , sum(turnover) AS turnover
+      FROM (
+        SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, es.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
+             , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, es.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
+             , 'legal_unit'::public.statistical_unit_type AS unit_type
+             , lu.id AS unit_id
+             , es.id AS establishment_id
+             , lu.id AS legal_unit_id
+             , NULL::INTEGER AS enterprise_id
+             , NULL::INTEGER AS enterprise_group_id
+             , lu.stat_ident AS stat_ident
+             , lu.tax_reg_ident AS tax_reg_ident
+             , lu.external_ident AS external_ident
+             , lu.external_ident_type AS external_ident_type
+             , lu.name AS name
+             -- Se supported languages with `SELECT * FROM pg_ts_config`
+             , -- to_tsvector('norwegian', lu.name) ||
+               -- to_tsvector('english', lu.name) ||
+               -- to_tsvector('arabic', lu.name) ||
+               -- to_tsvector('greek', lu.name) ||
+               -- to_tsvector('russian', lu.name) ||
+               -- to_tsvector('french', lu.name) ||
+               to_tsvector('simple', lu.name) AS search
+             , pa.activity_category_id AS primary_activity_category_id
+             , pac.path                AS primary_activity_category_path
+             , sa.activity_category_id AS secondary_activity_category_id
+             , sac.path                AS secondary_activity_category_path
+             , CASE
+               WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
+               WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
+               WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
+               WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
+               END AS activity_category_paths
+             , phl.region_id           AS physical_region_id
+             , phr.path                AS physical_region_path
+             , sfu1.value_int AS employees
+             , sfu2.value_int AS turnover
+        FROM public.legal_unit AS lu
+        LEFT OUTER JOIN public.activity AS pa
+                ON pa.legal_unit_id = lu.id
+               AND pa.activity_type = 'primary'
+               AND daterange(lu.valid_from, lu.valid_to, '[]')
+                && daterange(pa.valid_from, pa.valid_to, '[]')
+        LEFT OUTER JOIN public.activity_category AS pac
+                ON pa.activity_category_id = pac.id
+        LEFT OUTER JOIN public.activity AS sa
+                ON sa.legal_unit_id = lu.id
+               AND sa.activity_type = 'secondary'
+               AND daterange(lu.valid_from, lu.valid_to, '[]')
+                && daterange(sa.valid_from, sa.valid_to, '[]')
+        LEFT OUTER JOIN public.activity_category AS sac
+                ON sa.activity_category_id = sac.id
+        LEFT OUTER JOIN public.location AS phl
+                ON phl.legal_unit_id = lu.id
+               AND phl.location_type = 'physical'
+               AND daterange(lu.valid_from, lu.valid_to, '[]')
+                && daterange(phl.valid_from, phl.valid_to, '[]')
+        LEFT OUTER JOIN public.region AS phr
+                ON phl.region_id = phr.id
+        LEFT OUTER JOIN public.establishment AS es
+                ON lu.id = es.legal_unit_id
+               AND daterange(lu.valid_from, lu.valid_to, '[]')
+                && daterange(es.valid_from, es.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_for_unit AS sfu1
+                ON sfu1.establishment_id = es.id
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd1
+                ON sfu1.stat_definition_id = sd1.id
+                AND sd1.code = 'employees'
+        LEFT OUTER JOIN public.stat_for_unit AS sfu2
+                ON sfu2.establishment_id = es.id
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd2
+                ON sfu2.stat_definition_id = sd2.id
+                AND sd2.code = 'turnover'
+    ) AS source
+    GROUP BY valid_from
+           , valid_to
+           , unit_type
+           , unit_id
+           , stat_ident
+           , tax_reg_ident
+           , external_ident
+           , external_ident_type
+           , name
+           , search
+           , primary_activity_category_id
+           , primary_activity_category_path
+           , secondary_activity_category_id
+           , secondary_activity_category_path
+           , activity_category_paths
+           , physical_region_id
+           , physical_region_path
     UNION ALL
-    SELECT NULL::date AS valid_from
-         , NULL::date AS valid_to
-         , 'enterprise'::public.statistical_unit_type AS unit_type
-         , NULL::INTEGER AS establishment_id
-         , NULL::INTEGER AS legal_unit_id
-         , id AS enterprise_id
-         , NULL::INTEGER AS enterprise_group_id
-         , NULL::TEXT AS stat_ident
-         , NULL::TEXT AS tax_reg_ident
-         , NULL::TEXT AS external_ident
-         , NULL::TEXT AS external_ident_type
-         , NULL::TEXT AS name
-         , NULL::TSVECTOR AS search
-         , NULL::INTEGER AS primary_activity_category_id
-         , NULL::public.ltree AS primary_activity_category_path
-         , NULL::INTEGER AS secondary_activity_category_id
-         , NULL::public.ltree AS secondary_activity_category_path
-         , NULL::public.ltree[] AS activity_category_paths
-         , NULL::INTEGER AS physical_region_id
-         , NULL::public.ltree AS physical_region_path
-         , NULL::int AS employees
-         , NULL::int AS turnover
-      FROM public.enterprise
+    SELECT valid_from
+         , valid_to
+         , unit_type
+         , unit_id
+         , stat_ident
+         , tax_reg_ident
+         , external_ident
+         , external_ident_type
+         , name
+         , search
+         , primary_activity_category_id
+         , primary_activity_category_path
+         , secondary_activity_category_id
+         , secondary_activity_category_path
+         , activity_category_paths
+         , physical_region_id
+         , physical_region_path
+         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
+         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
+         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
+         , sum(employees) AS employees
+         , sum(turnover) AS turnover
+      FROM (
+        SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, es.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
+             , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, es.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
+             , 'enterprise'::public.statistical_unit_type AS unit_type
+             , en.id AS unit_id
+             , es.id AS establishment_id
+             , lu.id AS legal_unit_id
+             , en.id AS enterprise_id
+             , NULL::INTEGER AS enterprise_group_id
+             , plu.stat_ident AS stat_ident
+             , plu.tax_reg_ident AS tax_reg_ident
+             , plu.external_ident AS external_ident
+             , plu.external_ident_type AS external_ident_type
+             , plu.name AS name
+             -- Se supported languages with `SELECT * FROM pg_ts_config`
+             , -- to_tsvector('norwegian', lu.name) ||
+               -- to_tsvector('english', lu.name) ||
+               -- to_tsvector('arabic', lu.name) ||
+               -- to_tsvector('greek', lu.name) ||
+               -- to_tsvector('russian', lu.name) ||
+               -- to_tsvector('french', lu.name) ||
+               to_tsvector('simple', lu.name) AS search
+             , pa.activity_category_id AS primary_activity_category_id
+             , pac.path                AS primary_activity_category_path
+             , sa.activity_category_id AS secondary_activity_category_id
+             , sac.path                AS secondary_activity_category_path
+             , CASE
+               WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
+               WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
+               WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
+               WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
+               END AS activity_category_paths
+             , phl.region_id           AS physical_region_id
+             , phr.path                AS physical_region_path
+             , sfu1.value_int AS employees
+             , sfu2.value_int AS turnover
+        FROM public.enterprise AS en
+        LEFT OUTER JOIN public.legal_unit AS plu
+                ON plu.enterprise_id = en.id
+                AND plu.primary_for_enterprise
+        LEFT OUTER JOIN public.activity AS pa
+                ON pa.legal_unit_id = plu.id
+               AND pa.activity_type = 'primary'
+               AND daterange(plu.valid_from, plu.valid_to, '[]')
+                && daterange(pa.valid_from, pa.valid_to, '[]')
+        LEFT OUTER JOIN public.activity_category AS pac
+                ON pa.activity_category_id = pac.id
+        LEFT OUTER JOIN public.activity AS sa
+                ON sa.legal_unit_id = plu.id
+               AND sa.activity_type = 'secondary'
+               AND daterange(plu.valid_from, plu.valid_to, '[]')
+                && daterange(sa.valid_from, sa.valid_to, '[]')
+        LEFT OUTER JOIN public.activity_category AS sac
+                ON sa.activity_category_id = sac.id
+        LEFT OUTER JOIN public.location AS phl
+                ON phl.legal_unit_id = plu.id
+               AND phl.location_type = 'physical'
+               AND daterange(plu.valid_from, plu.valid_to, '[]')
+                && daterange(phl.valid_from, phl.valid_to, '[]')
+        LEFT OUTER JOIN public.region AS phr
+                ON phl.region_id = phr.id
+        LEFT OUTER JOIN public.legal_unit AS lu
+                ON lu.enterprise_id = en.id
+        LEFT OUTER JOIN public.establishment AS es
+                ON lu.id = es.legal_unit_id
+               AND daterange(lu.valid_from, lu.valid_to, '[]')
+                && daterange(es.valid_from, es.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_for_unit AS sfu1
+                ON sfu1.establishment_id = es.id
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd1
+                ON sfu1.stat_definition_id = sd1.id
+                AND sd1.code = 'employees'
+        LEFT OUTER JOIN public.stat_for_unit AS sfu2
+                ON sfu2.establishment_id = es.id
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd2
+                ON sfu2.stat_definition_id = sd2.id
+                AND sd2.code = 'turnover'
+    ) AS source
+    GROUP BY valid_from
+           , valid_to
+           , unit_type
+           , unit_id
+           , stat_ident
+           , tax_reg_ident
+           , external_ident
+           , external_ident_type
+           , name
+           , search
+           , primary_activity_category_id
+           , primary_activity_category_path
+           , secondary_activity_category_id
+           , secondary_activity_category_path
+           , activity_category_paths
+           , physical_region_id
+           , physical_region_path
     UNION ALL
     SELECT valid_from
          , valid_to
          , 'enterprise_group'::public.statistical_unit_type AS unit_type
-         , NULL::INTEGER AS establishment_id
-         , NULL::INTEGER AS legal_unit_id
-         , NULL::INTEGER AS enterprise_id
-         , id AS enterprise_group_id
+         , id AS unit_id
          , NULL::TEXT AS stat_ident
          , NULL::TEXT AS tax_reg_ident
          , NULL::TEXT AS external_ident
@@ -2017,6 +2216,9 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
+         , NULL::INT[] AS aggregated_establishment_ids
+         , NULL::INT[] AS aggregated_legal_unit_ids
+         , NULL::INT[] AS aggregated_enterprise_ids
          , NULL::int AS employees
          , NULL::int AS turnover
       FROM public.enterprise_group
@@ -2025,16 +2227,11 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     ON public.statistical_unit
     (valid_from
     ,valid_to
-    ,establishment_id
-    ,legal_unit_id
-    ,enterprise_id
-    ,enterprise_group_id
+    ,unit_type
+    ,unit_id
     );
 CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
-CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (establishment_id);
-CREATE INDEX idx_statistical_unit_legal_unit_id ON public.statistical_unit (legal_unit_id);
-CREATE INDEX idx_statistical_unit_enterprise_id ON public.statistical_unit (enterprise_id);
-CREATE INDEX idx_statistical_unit_enterprise_group_id ON public.statistical_unit (enterprise_group_id);
+CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (unit_id);
 CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
 CREATE INDEX idx_statistical_unit_primary_activity_category_id ON public.statistical_unit (primary_activity_category_id);
 CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.statistical_unit (secondary_activity_category_id);
