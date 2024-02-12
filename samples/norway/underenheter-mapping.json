@@ -1,0 +1,146 @@
+[
+  {
+    "sql": "tax_reg_ident",
+    "csv": "organisasjonsnummer"
+  },
+  {
+    "sql": "name",
+    "csv": "navn"
+  },
+  {
+    "sql": "physical_region_code",
+    "csv": "beliggenhetsadresse.kommunenummer"
+  },
+  {
+    "sql": "primary_activity_category_code",
+    "csv": "naeringskode1.kode"
+  },
+  {
+    "sql": "legal_unit_tax_reg_ident",
+    "csv": "overordnetEnhet"
+  },
+  {
+    "sql": null,
+    "csv": "organisasjonsform.kode"
+  },
+  {
+    "sql": null,
+    "csv": "organisasjonsform.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode1.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode2.kode"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode2.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode3.kode"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode3.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "hjelpeenhetskode.kode"
+  },
+  {
+    "sql": null,
+    "csv": "hjelpeenhetskode.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "harRegistrertAntallAnsatte"
+  },
+  {
+    "sql": null,
+    "csv": "antallAnsatte"
+  },
+  {
+    "sql": null,
+    "csv": "hjemmeside"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.adresse"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.poststed"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.postnummer"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.kommune"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.kommunenummer"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.land"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.landkode"
+  },
+  {
+    "sql": null,
+    "csv": "beliggenhetsadresse.adresse"
+  },
+  {
+    "sql": null,
+    "csv": "beliggenhetsadresse.poststed"
+  },
+  {
+    "sql": null,
+    "csv": "beliggenhetsadresse.postnummer"
+  },
+  {
+    "sql": null,
+    "csv": "beliggenhetsadresse.kommune"
+  },
+  {
+    "sql": null,
+    "csv": "beliggenhetsadresse.land"
+  },
+  {
+    "sql": null,
+    "csv": "beliggenhetsadresse.landkode"
+  },
+  {
+    "sql": null,
+    "csv": "registreringsdatoIEnhetsregisteret"
+  },
+  {
+    "sql": null,
+    "csv": "frivilligMvaRegistrertBeskrivelser"
+  },
+  {
+    "sql": null,
+    "csv": "registrertIMvaregisteret"
+  },
+  {
+    "sql": null,
+    "csv": "oppstartsdato"
+  },
+  {
+    "sql": null,
+    "csv": "datoEierskifte"
+  },
+  {
+    "sql": null,
+    "csv": "nedleggelsesdato"
+  }
+]

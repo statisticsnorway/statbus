@@ -1,0 +1,218 @@
+[
+  {
+    "sql": "tax_reg_ident",
+    "csv": "organisasjonsnummer"
+  },
+  {
+    "sql": "name",
+    "csv": "navn"
+  },
+  {
+    "sql": null,
+    "csv": "antallAnsatte"
+  },
+  {
+    "sql": "physical_region_code",
+    "csv": "forretningsadresse.kommunenummer"
+  },
+  {
+    "sql": "primary_activity_category_code",
+    "csv": "naeringskode1.kode"
+  },
+  {
+    "sql": null,
+    "csv": "organisasjonsform.kode"
+  },
+  {
+    "sql": null,
+    "csv": "organisasjonsform.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode1.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode2.kode"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode2.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode3.kode"
+  },
+  {
+    "sql": null,
+    "csv": "naeringskode3.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "hjelpeenhetskode.kode"
+  },
+  {
+    "sql": null,
+    "csv": "hjelpeenhetskode.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "harRegistrertAntallAnsatte"
+  },
+  {
+    "sql": null,
+    "csv": "hjemmeside"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.adresse"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.poststed"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.postnummer"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.kommune"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.kommunenummer"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.land"
+  },
+  {
+    "sql": null,
+    "csv": "postadresse.landkode"
+  },
+  {
+    "sql": null,
+    "csv": "forretningsadresse.adresse"
+  },
+  {
+    "sql": null,
+    "csv": "forretningsadresse.poststed"
+  },
+  {
+    "sql": null,
+    "csv": "forretningsadresse.postnummer"
+  },
+  {
+    "sql": null,
+    "csv": "forretningsadresse.kommune"
+  },
+  {
+    "sql": null,
+    "csv": "forretningsadresse.land"
+  },
+  {
+    "sql": null,
+    "csv": "forretningsadresse.landkode"
+  },
+  {
+    "sql": null,
+    "csv": "institusjonellSektorkode.kode"
+  },
+  {
+    "sql": null,
+    "csv": "institusjonellSektorkode.beskrivelse"
+  },
+  {
+    "sql": null,
+    "csv": "sisteInnsendteAarsregnskap"
+  },
+  {
+    "sql": null,
+    "csv": "registreringsdatoenhetsregisteret"
+  },
+  {
+    "sql": null,
+    "csv": "stiftelsesdato"
+  },
+  {
+    "sql": null,
+    "csv": "registrertIMvaRegisteret"
+  },
+  {
+    "sql": null,
+    "csv": "frivilligMvaRegistrertBeskrivelser"
+  },
+  {
+    "sql": null,
+    "csv": "registrertIFrivillighetsregisteret"
+  },
+  {
+    "sql": null,
+    "csv": "registrertIForetaksregisteret"
+  },
+  {
+    "sql": null,
+    "csv": "registrertIStiftelsesregisteret"
+  },
+  {
+    "sql": null,
+    "csv": "konkurs"
+  },
+  {
+    "sql": null,
+    "csv": "konkursdato"
+  },
+  {
+    "sql": null,
+    "csv": "underAvvikling"
+  },
+  {
+    "sql": null,
+    "csv": "underAvviklingDato"
+  },
+  {
+    "sql": null,
+    "csv": "underTvangsavviklingEllerTvangsopplosning"
+  },
+  {
+    "sql": null,
+    "csv": "tvangsopplostPgaManglendeDagligLederDato"
+  },
+  {
+    "sql": null,
+    "csv": "tvangsopplostPgaManglendeRevisorDato"
+  },
+  {
+    "sql": null,
+    "csv": "tvangsopplostPgaManglendeRegnskapDato"
+  },
+  {
+    "sql": null,
+    "csv": "tvangsopplostPgaMangelfulltStyreDato"
+  },
+  {
+    "sql": null,
+    "csv": "tvangsavvikletPgaManglendeSlettingDato"
+  },
+  {
+    "sql": null,
+    "csv": "overordnetEnhet"
+  },
+  {
+    "sql": null,
+    "csv": "maalform"
+  },
+  {
+    "sql": null,
+    "csv": "vedtektsdato"
+  },
+  {
+    "sql": null,
+    "csv": "vedtektsfestetFormaal"
+  },
+  {
+    "sql": null,
+    "csv": "aktivitet"
+  }
+]
