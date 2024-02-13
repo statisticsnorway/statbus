@@ -38,7 +38,7 @@ function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions)
 
 interface FilterOptions {
   activityCategories: Tables<"activity_category_available">[],
-  regions: Tables<"region">[]
+  regions: Tables<"region_used">[]
   statisticalVariables: Tables<"stat_definition">[]
 }
 

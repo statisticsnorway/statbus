@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     }
 
     if (!searchParams.has('select')) {
-        searchParams.set('select', 'name, tax_reg_ident, primary_activity_category_path, legal_unit_id, physical_region_path')
+        searchParams.set('select', 'name, tax_reg_ident, primary_activity_category_path, unit_id, unit_type, physical_region_path')
     }
 
     if (!searchParams.has('limit')) {
