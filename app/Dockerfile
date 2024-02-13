@@ -1,7 +1,7 @@
 FROM node:20.10-alpine  AS base
 
 FROM base AS deps
-RUN apk add --no-cache libc6-compat dumb-init
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci && npm cache clean --force
@@ -13,6 +13,7 @@ COPY . .
 RUN npm run build
 
 FROM base AS runner
+RUN apk add --no-cache dumb-init
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup -g 1001 -S nodejs
