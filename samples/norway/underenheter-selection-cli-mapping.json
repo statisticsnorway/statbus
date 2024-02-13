@@ -4,8 +4,20 @@
     "csv": "organisasjonsnummer"
   },
   {
+    "sql": "legal_unit_tax_reg_ident",
+    "csv": "overordnetEnhet"
+  },
+  {
     "sql": "name",
     "csv": "navn"
+  },
+  {
+    "sql": "birth_date",
+    "csv": "nedleggelsesdato"
+  },
+  {
+    "sql": "death_date",
+    "csv": "oppstartsdato"
   },
   {
     "sql": "physical_region_code",
@@ -16,8 +28,8 @@
     "csv": "naeringskode1.kode"
   },
   {
-    "sql": "legal_unit_tax_reg_ident",
-    "csv": "overordnetEnhet"
+    "sql": "secondary_activity_category_code",
+    "csv": "naeringskode2.kode"
   },
   {
     "sql": "employees",
@@ -38,10 +50,6 @@
   {
     "sql": null,
     "csv": "naeringskode1.beskrivelse"
-  },
-  {
-    "sql": null,
-    "csv": "naeringskode2.kode"
   },
   {
     "sql": null,
@@ -137,14 +145,6 @@
   },
   {
     "sql": null,
-    "csv": "oppstartsdato"
-  },
-  {
-    "sql": null,
     "csv": "datoEierskifte"
-  },
-  {
-    "sql": null,
-    "csv": "nedleggelsesdato"
   }
 ]

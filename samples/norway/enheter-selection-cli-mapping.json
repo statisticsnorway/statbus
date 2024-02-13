@@ -8,8 +8,12 @@
     "csv": "navn"
   },
   {
-    "sql": null,
-    "csv": "antallAnsatte"
+    "sql": "birth_date",
+    "csv": "stiftelsesdato"
+  },
+  {
+    "sql": "death_date",
+    "csv": null
   },
   {
     "sql": "physical_region_code",
@@ -18,6 +22,14 @@
   {
     "sql": "primary_activity_category_code",
     "csv": "naeringskode1.kode"
+  },
+  {
+    "sql": "secondary_activity_category_code",
+    "csv": "naeringskode2.kode"
+  },
+  {
+    "sql": null,
+    "csv": "antallAnsatte"
   },
   {
     "sql": null,
@@ -30,10 +42,6 @@
   {
     "sql": null,
     "csv": "naeringskode1.beskrivelse"
-  },
-  {
-    "sql": null,
-    "csv": "naeringskode2.kode"
   },
   {
     "sql": null,
@@ -130,10 +138,6 @@
   {
     "sql": null,
     "csv": "registreringsdatoenhetsregisteret"
-  },
-  {
-    "sql": null,
-    "csv": "stiftelsesdato"
   },
   {
     "sql": null,
