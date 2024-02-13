@@ -56,6 +56,13 @@ CREATE UNLOGGED TABLE tmp.enhet(
 "vedtektsfestetFormaal" TEXT,
 "aktivitet" TEXT);
 
+CREATE VIEW tmp.enhet_for_web_import AS
+SELECT "organisasjonsnummer" AS tax_reg_ident
+     , "navn" AS name
+     , "forretningsadresse.kommunenummer" AS physical_region_code
+     , "naeringskode1.kode" AS primary_activity_category_code
+FROM tmp.enhet;
+
 
 CREATE UNLOGGED TABLE tmp.underenhet(
 "organisasjonsnummer" TEXT PRIMARY KEY,
@@ -94,3 +101,12 @@ CREATE UNLOGGED TABLE tmp.underenhet(
 "datoEierskifte" TEXT,
 "overordnetEnhet" TEXT,-- NOT NULL REFERENCES enhet("organisasjonsnummer"),
 "nedleggelsesdato" TEXT);
+
+
+CREATE VIEW tmp.underenhet_for_web_import AS
+SELECT "organisasjonsnummer" AS tax_reg_ident
+     , "overordnetEnhet" AS legal_unit_tax_reg_ident
+     , "navn" AS name
+     , "beliggenhetsadresse.kommunenummer" AS physical_region_code
+     , "naeringskode1.kode" AS primary_activity_category_code
+FROM tmp.underenhet;

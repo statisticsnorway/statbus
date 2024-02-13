@@ -1,12 +1,12 @@
-ALTER TABLE tmp.underenhet ADD prn FLOAT DEFAULT random();
-CREATE INDEX underenhet_prn_idx ON tmp.underenhet(prn);
+ALTER TABLE tmp.underenhet ADD periodic_random FLOAT DEFAULT random();
+CREATE INDEX underenhet_periodic_random_idx ON tmp.underenhet(periodic_random);
 
 SELECT "organisasjonsnummer" AS underenhet_orgnr
       ,"overordnetEnhet" AS enhet_orgnr
+      , periodic_random
 INTO TABLE tmp.selection
 FROM tmp.underenhet
 WHERE EXISTS(SELECT * FROM tmp.enhet WHERE enhet."organisasjonsnummer" = underenhet."overordnetEnhet")
-ORDER BY prn
-LIMIT 1000;
+ORDER BY periodic_random;
 
-ALTER TABLE tmp.underenhet DROP prn;
+ALTER TABLE tmp.underenhet DROP periodic_random;
