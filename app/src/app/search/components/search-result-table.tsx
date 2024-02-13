@@ -5,7 +5,7 @@ import {Tables} from "@/lib/database.types";
 
 interface TableProps {
   readonly searchResult: SearchResult
-  readonly regions: Tables<'region'>[]
+  readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
 
@@ -21,23 +21,25 @@ export default function SearchResultTable({searchResult: {statisticalUnits}, reg
       <TableHeader className="bg-gray-100">
         <TableRow>
           <TableHead>Name</TableHead>
-          <TableHead className="text-right">Region</TableHead>
+          <TableHead className="text-left">Type</TableHead>
+          <TableHead className="text-left">Region</TableHead>
           <TableHead className="text-right">Activity Category Code</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {
-          statisticalUnits?.map(({legal_unit_id, tax_reg_ident, name, physical_region_path, primary_activity_category_path}) => (
-              <TableRow key={legal_unit_id}>
+          statisticalUnits?.map(({unit_type, unit_id, tax_reg_ident, name, physical_region_path, primary_activity_category_path}) => (
+              <TableRow key={`${unit_type}_${unit_id}`}>
                   <TableCell className="p-2 flex flex-col">
                       <div>
-                          <Link href={`/legal-units/${legal_unit_id}`} className="font-medium">
+                          <Link href={`/legal-units/${unit_id}`} className="font-medium">
                               {name}
                           </Link>
                       </div>
                       <small className="text-gray-700">{tax_reg_ident}</small>
                   </TableCell>
-                  <TableCell className="p-2 text-right">{getRegionByPath(physical_region_path)?.name}</TableCell>
+                  <TableCell className="text-left">{unit_type}</TableCell>
+                  <TableCell className="text-left">{getRegionByPath(physical_region_path)?.name}</TableCell>
                   <TableCell className="text-right p-2 px-4">{getActivityCategoryByPath(primary_activity_category_path)?.code}</TableCell>
               </TableRow>
           ))

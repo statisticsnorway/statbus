@@ -10,7 +10,7 @@ import SaveSearchButton from "@/app/search/components/search-save-button";
 
 interface SearchProps {
     readonly initialSearchResult: SearchResult
-    readonly regions: Tables<"region">[]
+    readonly regions: Tables<"region_used">[]
     readonly activityCategories: Tables<"activity_category_available">[]
     readonly statisticalVariables: Tables<"stat_definition">[]
 }
