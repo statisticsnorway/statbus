@@ -2118,7 +2118,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.enterprise AS en
-        LEFT OUTER JOIN public.legal_unit AS plu
+        INNER JOIN public.legal_unit AS plu
                 ON plu.enterprise_id = en.id
                 AND plu.primary_for_enterprise
         LEFT OUTER JOIN public.activity AS pa
@@ -2235,7 +2235,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.enterprise AS en
-        LEFT OUTER JOIN public.establishment AS es
+        INNER JOIN public.establishment AS es
                 ON es.enterprise_id = en.id
         LEFT OUTER JOIN public.activity AS pa
                 ON pa.legal_unit_id = es.id
