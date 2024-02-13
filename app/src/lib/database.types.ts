@@ -59,6 +59,13 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activity_activity_category_id_fkey"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "activity_updated_by_user_id_fkey"
             columns: ["updated_by_user_id"]
             isOneToOne: false
@@ -88,7 +95,7 @@ export interface Database {
           code?: string | null
           custom: boolean
           description?: string | null
-          id?: number
+          id?: never
           label?: string
           level?: number | null
           name: string
@@ -102,7 +109,7 @@ export interface Database {
           code?: string | null
           custom?: boolean
           description?: string | null
-          id?: number
+          id?: never
           label?: string
           level?: number | null
           name?: string
@@ -133,17 +140,10 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_activity_category_activity_category_parent_id"
+            foreignKeyName: "activity_category_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_activity_category_activity_category_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           }
         ]
@@ -156,31 +156,38 @@ export interface Database {
         }
         Insert: {
           activity_category_id: number
-          id?: number
+          id?: never
           role_id: number
         }
         Update: {
           activity_category_id?: number
-          id?: number
+          id?: never
           role_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "fk_activity_category_role_activity_category_activity_category_"
+            foreignKeyName: "activity_category_role_activity_category_id_fkey"
             columns: ["activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_activity_category_role_activity_category_activity_category_"
+            foreignKeyName: "activity_category_role_activity_category_id_fkey"
             columns: ["activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_available"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_activity_category_role_role_role_id"
+            foreignKeyName: "activity_category_role_activity_category_id_fkey"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_role_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "statbus_role"
@@ -197,13 +204,13 @@ export interface Database {
         }
         Insert: {
           code: string
-          id?: number
+          id?: never
           name: string
           obsolete?: boolean
         }
         Update: {
           code?: string
-          id?: number
+          id?: never
           name?: string
           obsolete?: boolean
         }
@@ -228,7 +235,7 @@ export interface Database {
           enterprise_id?: number | null
           error_values?: string | null
           establishment_id?: number | null
-          id?: number
+          id?: never
           issued_at: string
           legal_unit_id?: number | null
           resolved_at?: string | null
@@ -240,7 +247,7 @@ export interface Database {
           enterprise_id?: number | null
           error_values?: string | null
           establishment_id?: number | null
-          id?: number
+          id?: never
           issued_at?: string
           legal_unit_id?: number | null
           resolved_at?: string | null
@@ -248,10 +255,17 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_analysis_log_analysis_queue_analysis_queue_id"
+            foreignKeyName: "analysis_log_analysis_queue_id_fkey"
             columns: ["analysis_queue_id"]
             isOneToOne: false
             referencedRelation: "analysis_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_log_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
             referencedColumns: ["id"]
           }
         ]
@@ -268,7 +282,7 @@ export interface Database {
         }
         Insert: {
           comment?: string | null
-          id?: number
+          id?: never
           server_end_period?: string | null
           server_start_period?: string | null
           user_end_period: string
@@ -277,7 +291,7 @@ export interface Database {
         }
         Update: {
           comment?: string | null
-          id?: number
+          id?: never
           server_end_period?: string | null
           server_start_period?: string | null
           user_end_period?: string
@@ -286,7 +300,7 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_analysis_queue_user_user_id"
+            foreignKeyName: "analysis_queue_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
@@ -331,7 +345,6 @@ export interface Database {
         Row: {
           country_id: number
           enterprise_group_id: number | null
-          enterprise_id: number | null
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
@@ -339,17 +352,15 @@ export interface Database {
         Insert: {
           country_id: number
           enterprise_group_id?: number | null
-          enterprise_id?: number | null
           establishment_id?: number | null
-          id?: number
+          id?: never
           legal_unit_id?: number | null
         }
         Update: {
           country_id?: number
           enterprise_group_id?: number | null
-          enterprise_id?: number | null
           establishment_id?: number | null
-          id?: number
+          id?: never
           legal_unit_id?: number | null
         }
         Relationships: [
@@ -377,13 +388,13 @@ export interface Database {
           target_unit_types: string | null
         }
         Insert: {
-          id?: number
+          id?: never
           name?: string | null
           query?: string | null
           target_unit_types?: string | null
         }
         Update: {
-          id?: number
+          id?: never
           name?: string | null
           query?: string | null
           target_unit_types?: string | null
@@ -609,7 +620,7 @@ export interface Database {
           csv_skip_count: number
           data_source_upload_type: Database["public"]["Enums"]["data_source_upload_type"]
           description?: string | null
-          id?: number
+          id?: never
           name: string
           original_csv_attributes?: string | null
           priority: Database["public"]["Enums"]["data_source_priority"]
@@ -625,7 +636,7 @@ export interface Database {
           csv_skip_count?: number
           data_source_upload_type?: Database["public"]["Enums"]["data_source_upload_type"]
           description?: string | null
-          id?: number
+          id?: never
           name?: string
           original_csv_attributes?: string | null
           priority?: Database["public"]["Enums"]["data_source_priority"]
@@ -636,7 +647,7 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_data_source_user_user_id"
+            foreignKeyName: "data_source_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
@@ -657,7 +668,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -665,7 +676,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -682,7 +693,7 @@ export interface Database {
           note: string | null
           skip_lines_count: number
           start_import_date: string | null
-          status: number
+          status: Database["public"]["Enums"]["data_source_queue_status"]
           user_id: number | null
         }
         Insert: {
@@ -691,11 +702,11 @@ export interface Database {
           data_source_path: string
           description?: string | null
           end_import_date?: string | null
-          id?: number
+          id?: never
           note?: string | null
           skip_lines_count: number
           start_import_date?: string | null
-          status: number
+          status: Database["public"]["Enums"]["data_source_queue_status"]
           user_id?: number | null
         }
         Update: {
@@ -704,23 +715,23 @@ export interface Database {
           data_source_path?: string
           description?: string | null
           end_import_date?: string | null
-          id?: number
+          id?: never
           note?: string | null
           skip_lines_count?: number
           start_import_date?: string | null
-          status?: number
+          status?: Database["public"]["Enums"]["data_source_queue_status"]
           user_id?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_data_source_queue_data_source_data_source_id"
+            foreignKeyName: "data_source_queue_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
             referencedRelation: "data_source"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_data_source_queue_user_user_id"
+            foreignKeyName: "data_source_queue_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
@@ -739,7 +750,7 @@ export interface Database {
           serialized_unit: string | null
           start_import_date: string | null
           stat_unit_name: string | null
-          status: number
+          status: Database["public"]["Enums"]["data_uploading_log_status"]
           summary: string | null
           target_stat_ident: string | null
         }
@@ -747,13 +758,13 @@ export interface Database {
           data_source_queue_id: number
           end_import_date?: string | null
           errors?: string | null
-          id?: number
+          id?: never
           note?: string | null
           serialized_raw_unit?: string | null
           serialized_unit?: string | null
           start_import_date?: string | null
           stat_unit_name?: string | null
-          status: number
+          status: Database["public"]["Enums"]["data_uploading_log_status"]
           summary?: string | null
           target_stat_ident?: string | null
         }
@@ -761,19 +772,19 @@ export interface Database {
           data_source_queue_id?: number
           end_import_date?: string | null
           errors?: string | null
-          id?: number
+          id?: never
           note?: string | null
           serialized_raw_unit?: string | null
           serialized_unit?: string | null
           start_import_date?: string | null
           stat_unit_name?: string | null
-          status?: number
+          status?: Database["public"]["Enums"]["data_uploading_log_status"]
           summary?: string | null
           target_stat_ident?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_data_uploading_log_data_source_queue_data_source_queue_id"
+            foreignKeyName: "data_uploading_log_data_source_queue_id_fkey"
             columns: ["data_source_queue_id"]
             isOneToOne: false
             referencedRelation: "data_source_queue"
@@ -784,195 +795,35 @@ export interface Database {
       enterprise: {
         Row: {
           active: boolean
-          created_at: string
-          data_source_classification_id: number | null
           edit_by_user_id: string
           edit_comment: string | null
-          email_address: string | null
-          enterprise_group_date: string | null
-          enterprise_group_id: number | null
-          enterprise_group_role_id: number | null
-          external_ident: string | null
-          external_ident_date: string | null
-          external_ident_type: string | null
-          foreign_participation_id: number | null
           id: number
-          name: string | null
           notes: string | null
-          parent_org_link: number | null
-          sector_code_id: number | null
           short_name: string | null
           stat_ident: string | null
           stat_ident_date: string | null
-          telephone_no: string | null
-          unit_size_id: number | null
-          valid_from: string
-          valid_to: string
-          web_address: string | null
         }
         Insert: {
           active?: boolean
-          created_at?: string
-          data_source_classification_id?: number | null
           edit_by_user_id: string
           edit_comment?: string | null
-          email_address?: string | null
-          enterprise_group_date?: string | null
-          enterprise_group_id?: number | null
-          enterprise_group_role_id?: number | null
-          external_ident?: string | null
-          external_ident_date?: string | null
-          external_ident_type?: string | null
-          foreign_participation_id?: number | null
-          id?: number
-          name?: string | null
+          id?: never
           notes?: string | null
-          parent_org_link?: number | null
-          sector_code_id?: number | null
           short_name?: string | null
           stat_ident?: string | null
           stat_ident_date?: string | null
-          telephone_no?: string | null
-          unit_size_id?: number | null
-          valid_from?: string
-          valid_to?: string
-          web_address?: string | null
         }
         Update: {
           active?: boolean
-          created_at?: string
-          data_source_classification_id?: number | null
           edit_by_user_id?: string
           edit_comment?: string | null
-          email_address?: string | null
-          enterprise_group_date?: string | null
-          enterprise_group_id?: number | null
-          enterprise_group_role_id?: number | null
-          external_ident?: string | null
-          external_ident_date?: string | null
-          external_ident_type?: string | null
-          foreign_participation_id?: number | null
-          id?: number
-          name?: string | null
+          id?: never
           notes?: string | null
-          parent_org_link?: number | null
-          sector_code_id?: number | null
           short_name?: string | null
           stat_ident?: string | null
           stat_ident_date?: string | null
-          telephone_no?: string | null
-          unit_size_id?: number | null
-          valid_from?: string
-          valid_to?: string
-          web_address?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_enterprise_data_source_classification_data_source_clas"
-            columns: ["data_source_classification_id"]
-            isOneToOne: false
-            referencedRelation: "data_source_classification"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_data_source_classification_data_source_clas"
-            columns: ["data_source_classification_id"]
-            isOneToOne: false
-            referencedRelation: "data_source_classification_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_data_source_classification_data_source_clas"
-            columns: ["data_source_classification_id"]
-            isOneToOne: false
-            referencedRelation: "data_source_classification_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_enterprise_group_role_enterprise_group_role_id"
-            columns: ["enterprise_group_role_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group_role"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_enterprise_group_role_enterprise_group_role_id"
-            columns: ["enterprise_group_role_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group_role_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_enterprise_group_role_enterprise_group_role_id"
-            columns: ["enterprise_group_role_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise_group_role_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_foreign_participation_foreign_participation"
-            columns: ["foreign_participation_id"]
-            isOneToOne: false
-            referencedRelation: "foreign_participation"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_foreign_participation_foreign_participation"
-            columns: ["foreign_participation_id"]
-            isOneToOne: false
-            referencedRelation: "foreign_participation_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_foreign_participation_foreign_participation"
-            columns: ["foreign_participation_id"]
-            isOneToOne: false
-            referencedRelation: "foreign_participation_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_sector_code_sector_code_id"
-            columns: ["sector_code_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_sector_code_sector_code_id"
-            columns: ["sector_code_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_sector_code_sector_code_id"
-            columns: ["sector_code_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_system"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_unit_size_size_id"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "unit_size"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_unit_size_size_id"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "unit_size_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_enterprise_unit_size_size_id"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "unit_size_system"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       enterprise_group: {
         Row: {
@@ -1064,105 +915,105 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_enterprise_group_data_source_classification_data_source_cla"
+            foreignKeyName: "enterprise_group_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_data_source_classification_data_source_cla"
+            foreignKeyName: "enterprise_group_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_data_source_classification_data_source_cla"
+            foreignKeyName: "enterprise_group_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_enterprise_group_type_enterprise_group_type"
+            foreignKeyName: "enterprise_group_enterprise_group_type_id_fkey"
             columns: ["enterprise_group_type_id"]
             isOneToOne: false
             referencedRelation: "enterprise_group_type"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_enterprise_group_type_enterprise_group_type"
+            foreignKeyName: "enterprise_group_enterprise_group_type_id_fkey"
             columns: ["enterprise_group_type_id"]
             isOneToOne: false
             referencedRelation: "enterprise_group_type_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_enterprise_group_type_enterprise_group_type"
+            foreignKeyName: "enterprise_group_enterprise_group_type_id_fkey"
             columns: ["enterprise_group_type_id"]
             isOneToOne: false
             referencedRelation: "enterprise_group_type_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_foreign_participation_foreign_participatio"
+            foreignKeyName: "enterprise_group_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_foreign_participation_foreign_participatio"
+            foreignKeyName: "enterprise_group_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_foreign_participation_foreign_participatio"
+            foreignKeyName: "enterprise_group_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_reorg_type_reorg_type_id"
+            foreignKeyName: "enterprise_group_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_reorg_type_reorg_type_id"
+            foreignKeyName: "enterprise_group_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_reorg_type_reorg_type_id"
+            foreignKeyName: "enterprise_group_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_unit_size_size_id"
+            foreignKeyName: "enterprise_group_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_unit_size_size_id"
+            foreignKeyName: "enterprise_group_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_enterprise_group_unit_size_size_id"
+            foreignKeyName: "enterprise_group_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_system"
@@ -1183,7 +1034,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -1191,7 +1042,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -1210,7 +1061,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -1218,7 +1069,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -1240,9 +1091,13 @@ export interface Database {
           external_ident_type: string | null
           free_econ_zone: boolean | null
           id: number
+          invalid_codes: Json | null
+          legal_unit_id: number | null
           name: string | null
           notes: string | null
           parent_org_link: number | null
+          primary_for_enterprise: boolean | null
+          primary_for_legal_unit: boolean | null
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
@@ -1274,9 +1129,13 @@ export interface Database {
           external_ident_type?: string | null
           free_econ_zone?: boolean | null
           id?: number
+          invalid_codes?: Json | null
+          legal_unit_id?: number | null
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
+          primary_for_legal_unit?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1308,9 +1167,13 @@ export interface Database {
           external_ident_type?: string | null
           free_econ_zone?: boolean | null
           id?: number
+          invalid_codes?: Json | null
+          legal_unit_id?: number | null
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
+          primary_for_legal_unit?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1329,84 +1192,91 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_establishment_data_source_classification_data_source_classif"
+            foreignKeyName: "establishment_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_data_source_classification_data_source_classif"
+            foreignKeyName: "establishment_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_data_source_classification_data_source_classif"
+            foreignKeyName: "establishment_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_reorg_type_reorg_type_id"
+            foreignKeyName: "establishment_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_reorg_type_reorg_type_id"
+            foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_reorg_type_reorg_type_id"
+            foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_sector_code_sector_code_id"
+            foreignKeyName: "establishment_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_sector_code_sector_code_id"
+            foreignKeyName: "establishment_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_sector_code_sector_code_id"
+            foreignKeyName: "establishment_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_unit_size_size_id"
+            foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_unit_size_size_id"
+            foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_establishment_unit_size_size_id"
+            foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_system"
@@ -1427,7 +1297,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -1435,7 +1305,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -1454,7 +1324,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -1462,7 +1332,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -1478,7 +1348,7 @@ export interface Database {
           edit_by_user_id: string
           edit_comment: string | null
           email_address: string | null
-          enterprise_id: number | null
+          enterprise_id: number
           external_ident: string | null
           external_ident_date: string | null
           external_ident_type: string | null
@@ -1490,6 +1360,7 @@ export interface Database {
           name: string | null
           notes: string | null
           parent_org_link: number | null
+          primary_for_enterprise: boolean
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
@@ -1515,7 +1386,7 @@ export interface Database {
           edit_by_user_id: string
           edit_comment?: string | null
           email_address?: string | null
-          enterprise_id?: number | null
+          enterprise_id: number
           external_ident?: string | null
           external_ident_date?: string | null
           external_ident_type?: string | null
@@ -1527,6 +1398,7 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise: boolean
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1552,7 +1424,7 @@ export interface Database {
           edit_by_user_id?: string
           edit_comment?: string | null
           email_address?: string | null
-          enterprise_id?: number | null
+          enterprise_id?: number
           external_ident?: string | null
           external_ident_date?: string | null
           external_ident_type?: string | null
@@ -1564,6 +1436,7 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -1582,126 +1455,133 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
+            foreignKeyName: "legal_unit_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
+            foreignKeyName: "legal_unit_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
+            foreignKeyName: "legal_unit_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_foreign_participation_foreign_participation_id"
+            foreignKeyName: "legal_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_foreign_participation_foreign_participation_id"
+            foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_foreign_participation_foreign_participation_id"
+            foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_legal_form_legal_form_id"
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "legal_form"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_legal_form_legal_form_id"
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "legal_form_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_legal_form_legal_form_id"
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "legal_form_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_reorg_type_reorg_type_id"
+            foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_reorg_type_reorg_type_id"
+            foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_reorg_type_reorg_type_id"
+            foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_sector_code_sector_code_id"
+            foreignKeyName: "legal_unit_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_sector_code_sector_code_id"
+            foreignKeyName: "legal_unit_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_sector_code_sector_code_id"
+            foreignKeyName: "legal_unit_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_unit_size_size_id"
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_unit_size_size_id"
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_unit_size_size_id"
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_system"
@@ -1714,8 +1594,6 @@ export interface Database {
           address_part1: string | null
           address_part2: string | null
           address_part3: string | null
-          enterprise_group_id: number | null
-          enterprise_id: number | null
           establishment_id: number | null
           id: number
           latitude: number | null
@@ -1731,8 +1609,6 @@ export interface Database {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
-          enterprise_group_id?: number | null
-          enterprise_id?: number | null
           establishment_id?: number | null
           id?: number
           latitude?: number | null
@@ -1748,8 +1624,6 @@ export interface Database {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
-          enterprise_group_id?: number | null
-          enterprise_id?: number | null
           establishment_id?: number | null
           id?: number
           latitude?: number | null
@@ -1767,6 +1641,13 @@ export interface Database {
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
@@ -1848,14 +1729,14 @@ export interface Database {
         }
         Insert: {
           establishment_id?: number | null
-          id?: number
+          id?: never
           legal_unit_id?: number | null
           person_id: number
           person_type_id?: number | null
         }
         Update: {
           establishment_id?: number | null
-          id?: number
+          id?: never
           legal_unit_id?: number | null
           person_id?: number
           person_type_id?: number | null
@@ -1928,14 +1809,14 @@ export interface Database {
         }
         Insert: {
           archived?: boolean
-          id?: number
+          id?: never
           name?: string | null
           name_language1?: string | null
           name_language2?: string | null
         }
         Update: {
           archived?: boolean
-          id?: number
+          id?: never
           name?: string | null
           name_language1?: string | null
           name_language2?: string | null
@@ -1972,7 +1853,7 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_region_region_parent_id"
+            foreignKeyName: "region_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -1982,7 +1863,7 @@ export interface Database {
             foreignKeyName: "region_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "region"
+            referencedRelation: "region_used"
             referencedColumns: ["id"]
           }
         ]
@@ -1994,12 +1875,12 @@ export interface Database {
           role_id: number
         }
         Insert: {
-          id?: number
+          id?: never
           region_id: number
           role_id: number
         }
         Update: {
-          id?: number
+          id?: never
           region_id?: number
           role_id?: number
         }
@@ -2009,6 +1890,13 @@ export interface Database {
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "region_role_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
@@ -2035,7 +1923,7 @@ export interface Database {
           code: string
           custom: boolean
           description: string
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -2044,7 +1932,7 @@ export interface Database {
           code?: string
           custom?: boolean
           description?: string
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -2063,7 +1951,7 @@ export interface Database {
         }
         Insert: {
           archived?: boolean
-          id?: number
+          id?: never
           parent_node_id?: number | null
           report_id?: number | null
           report_url?: string | null
@@ -2073,7 +1961,7 @@ export interface Database {
         }
         Update: {
           archived?: boolean
-          id?: number
+          id?: never
           parent_node_id?: number | null
           report_id?: number | null
           report_url?: string | null
@@ -2104,7 +1992,7 @@ export interface Database {
           fields: string
           file_path?: string | null
           generated_date_time?: string | null
-          id?: number
+          id?: never
           name: string
           predicate: string
           status: number
@@ -2117,7 +2005,7 @@ export interface Database {
           fields?: string
           file_path?: string | null
           generated_date_time?: string | null
-          id?: number
+          id?: never
           name?: string
           predicate?: string
           status?: number
@@ -2125,7 +2013,7 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_sample_frame_user_user_id"
+            foreignKeyName: "sample_frame_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
@@ -2149,7 +2037,7 @@ export interface Database {
           active: boolean
           code?: string | null
           custom: boolean
-          id?: number
+          id?: never
           label?: string
           name: string
           parent_id?: number | null
@@ -2160,36 +2048,14 @@ export interface Database {
           active?: boolean
           code?: string | null
           custom?: boolean
-          id?: number
+          id?: never
           label?: string
           name?: string
           parent_id?: number | null
           path?: unknown
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_system"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       settings: {
         Row: {
@@ -2199,12 +2065,12 @@ export interface Database {
         }
         Insert: {
           activity_category_standard_id: number
-          id?: number
+          id?: never
           only_one_setting?: boolean
         }
         Update: {
           activity_category_standard_id?: number
-          id?: number
+          id?: never
           only_one_setting?: boolean
         }
         Relationships: [
@@ -2303,13 +2169,13 @@ export interface Database {
         }
         Insert: {
           description?: string | null
-          id?: number
+          id?: never
           name: string
           role_type: Database["public"]["Enums"]["statbus_role_type"]
         }
         Update: {
           description?: string | null
-          id?: number
+          id?: never
           name?: string
           role_type?: Database["public"]["Enums"]["statbus_role_type"]
         }
@@ -2367,7 +2233,7 @@ export interface Database {
           code?: string | null
           custom: boolean
           description?: string | null
-          id?: number
+          id?: never
           label?: string
           level?: number | null
           name: string
@@ -2380,7 +2246,7 @@ export interface Database {
           code?: string | null
           custom?: boolean
           description?: string | null
-          id?: number
+          id?: never
           label?: string
           level?: number | null
           name?: string
@@ -2412,7 +2278,7 @@ export interface Database {
           enterprise_group_id?: number | null
           enterprise_id?: number | null
           establishment_id?: number | null
-          id?: number
+          id?: never
           legal_unit_id?: number | null
           tag_id: number
           updated_by_user_id: number
@@ -2421,12 +2287,19 @@ export interface Database {
           enterprise_group_id?: number | null
           enterprise_id?: number | null
           establishment_id?: number | null
-          id?: number
+          id?: never
           legal_unit_id?: number | null
           tag_id?: number
           updated_by_user_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "tag_for_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tag_for_unit_tag_id_fkey"
             columns: ["tag_id"]
@@ -2456,7 +2329,7 @@ export interface Database {
           active: boolean
           code: string
           custom: boolean
-          id?: number
+          id?: never
           name: string
           updated_at?: string
         }
@@ -2464,7 +2337,7 @@ export interface Database {
           active?: boolean
           code?: string
           custom?: boolean
-          id?: number
+          id?: never
           name?: string
           updated_at?: string
         }
@@ -2525,6 +2398,19 @@ export interface Database {
         }
         Relationships: []
       }
+      activity_category_used: {
+        Row: {
+          code: string | null
+          description: string | null
+          id: number | null
+          label: string | null
+          name: string | null
+          parent_code: string | null
+          path: unknown | null
+          standard_code: string | null
+        }
+        Relationships: []
+      }
       activity_era: {
         Row: {
           activity_category_id: number | null
@@ -2572,6 +2458,13 @@ export interface Database {
             columns: ["activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_activity_category_id_fkey"
+            columns: ["activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
@@ -2816,6 +2709,228 @@ export interface Database {
         }
         Relationships: []
       }
+      establishment_era: {
+        Row: {
+          active: boolean | null
+          birth_date: string | null
+          data_source: string | null
+          data_source_classification_id: number | null
+          death_date: string | null
+          edit_by_user_id: string | null
+          edit_comment: string | null
+          email_address: string | null
+          enterprise_id: number | null
+          external_ident: string | null
+          external_ident_date: string | null
+          external_ident_type: string | null
+          free_econ_zone: boolean | null
+          id: number | null
+          invalid_codes: Json | null
+          legal_unit_id: number | null
+          name: string | null
+          notes: string | null
+          parent_org_link: number | null
+          primary_for_enterprise: boolean | null
+          primary_for_legal_unit: boolean | null
+          reorg_date: string | null
+          reorg_references: number | null
+          reorg_type_id: number | null
+          sector_code_id: number | null
+          seen_in_import_at: string | null
+          short_name: string | null
+          stat_ident: string | null
+          stat_ident_date: string | null
+          tax_reg_date: string | null
+          tax_reg_ident: string | null
+          telephone_no: string | null
+          unit_size_id: number | null
+          valid_from: string | null
+          valid_to: string | null
+          web_address: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          birth_date?: string | null
+          data_source?: string | null
+          data_source_classification_id?: number | null
+          death_date?: string | null
+          edit_by_user_id?: string | null
+          edit_comment?: string | null
+          email_address?: string | null
+          enterprise_id?: number | null
+          external_ident?: string | null
+          external_ident_date?: string | null
+          external_ident_type?: string | null
+          free_econ_zone?: boolean | null
+          id?: number | null
+          invalid_codes?: Json | null
+          legal_unit_id?: number | null
+          name?: string | null
+          notes?: string | null
+          parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
+          primary_for_legal_unit?: boolean | null
+          reorg_date?: string | null
+          reorg_references?: number | null
+          reorg_type_id?: number | null
+          sector_code_id?: number | null
+          seen_in_import_at?: string | null
+          short_name?: string | null
+          stat_ident?: string | null
+          stat_ident_date?: string | null
+          tax_reg_date?: string | null
+          tax_reg_ident?: string | null
+          telephone_no?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          birth_date?: string | null
+          data_source?: string | null
+          data_source_classification_id?: number | null
+          death_date?: string | null
+          edit_by_user_id?: string | null
+          edit_comment?: string | null
+          email_address?: string | null
+          enterprise_id?: number | null
+          external_ident?: string | null
+          external_ident_date?: string | null
+          external_ident_type?: string | null
+          free_econ_zone?: boolean | null
+          id?: number | null
+          invalid_codes?: Json | null
+          legal_unit_id?: number | null
+          name?: string | null
+          notes?: string | null
+          parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
+          primary_for_legal_unit?: boolean | null
+          reorg_date?: string | null
+          reorg_references?: number | null
+          reorg_type_id?: number | null
+          sector_code_id?: number | null
+          seen_in_import_at?: string | null
+          short_name?: string | null
+          stat_ident?: string | null
+          stat_ident_date?: string | null
+          tax_reg_date?: string | null
+          tax_reg_ident?: string | null
+          telephone_no?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "establishment_data_source_classification_id_fkey"
+            columns: ["data_source_classification_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_classification"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_data_source_classification_id_fkey"
+            columns: ["data_source_classification_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_classification_custom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_data_source_classification_id_fkey"
+            columns: ["data_source_classification_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_classification_system"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_reorg_type_id_fkey"
+            columns: ["reorg_type_id"]
+            isOneToOne: false
+            referencedRelation: "reorg_type"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_reorg_type_id_fkey"
+            columns: ["reorg_type_id"]
+            isOneToOne: false
+            referencedRelation: "reorg_type_custom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_reorg_type_id_fkey"
+            columns: ["reorg_type_id"]
+            isOneToOne: false
+            referencedRelation: "reorg_type_system"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_sector_code_id_fkey"
+            columns: ["sector_code_id"]
+            isOneToOne: false
+            referencedRelation: "sector_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_sector_code_id_fkey"
+            columns: ["sector_code_id"]
+            isOneToOne: false
+            referencedRelation: "sector_code_custom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_sector_code_id_fkey"
+            columns: ["sector_code_id"]
+            isOneToOne: false
+            referencedRelation: "sector_code_system"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size_custom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size_system"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      establishment_region_activity_category_stats_current: {
+        Row: {
+          employees: number | null
+          legal_unit_tax_reg_ident: string | null
+          name: string | null
+          physical_region_code: string | null
+          postal_region_code: string | null
+          primary_activity_category_code: string | null
+          tax_reg_ident: string | null
+          turnover: number | null
+        }
+        Relationships: []
+      }
       foreign_participation_custom: {
         Row: {
           active: boolean | null
@@ -3013,6 +3128,7 @@ export interface Database {
           name: string | null
           notes: string | null
           parent_org_link: number | null
+          primary_for_enterprise: boolean | null
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
@@ -3050,6 +3166,7 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -3087,6 +3204,7 @@ export interface Database {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
@@ -3105,126 +3223,133 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
+            foreignKeyName: "legal_unit_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
+            foreignKeyName: "legal_unit_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_data_source_classification_data_source_classific"
+            foreignKeyName: "legal_unit_data_source_classification_id_fkey"
             columns: ["data_source_classification_id"]
             isOneToOne: false
             referencedRelation: "data_source_classification_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_foreign_participation_foreign_participation_id"
+            foreignKeyName: "legal_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_foreign_participation_foreign_participation_id"
+            foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_foreign_participation_foreign_participation_id"
+            foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
             referencedRelation: "foreign_participation_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_legal_form_legal_form_id"
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "legal_form"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_legal_form_legal_form_id"
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "legal_form_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_legal_form_legal_form_id"
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "legal_form_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_reorg_type_reorg_type_id"
+            foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_reorg_type_reorg_type_id"
+            foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_reorg_type_reorg_type_id"
+            foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
             referencedRelation: "reorg_type_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_sector_code_sector_code_id"
+            foreignKeyName: "legal_unit_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_sector_code_sector_code_id"
+            foreignKeyName: "legal_unit_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_sector_code_sector_code_id"
+            foreignKeyName: "legal_unit_sector_code_id_fkey"
             columns: ["sector_code_id"]
             isOneToOne: false
             referencedRelation: "sector_code_system"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_unit_size_size_id"
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_unit_size_size_id"
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_legal_unit_unit_size_size_id"
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "unit_size_system"
@@ -3234,7 +3359,6 @@ export interface Database {
       }
       legal_unit_region_activity_category_current: {
         Row: {
-          employees: string | null
           name: string | null
           physical_region_code: string | null
           postal_region_code: string | null
@@ -3245,7 +3369,6 @@ export interface Database {
       }
       legal_unit_region_activity_category_current_with_delete: {
         Row: {
-          employees: string | null
           name: string | null
           physical_region_code: string | null
           postal_region_code: string | null
@@ -3259,8 +3382,6 @@ export interface Database {
           address_part1: string | null
           address_part2: string | null
           address_part3: string | null
-          enterprise_group_id: number | null
-          enterprise_id: number | null
           establishment_id: number | null
           id: number | null
           latitude: number | null
@@ -3276,8 +3397,6 @@ export interface Database {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
-          enterprise_group_id?: number | null
-          enterprise_id?: number | null
           establishment_id?: number | null
           id?: number | null
           latitude?: number | null
@@ -3293,8 +3412,6 @@ export interface Database {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
-          enterprise_group_id?: number | null
-          enterprise_id?: number | null
           establishment_id?: number | null
           id?: number | null
           latitude?: number | null
@@ -3312,6 +3429,13 @@ export interface Database {
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
@@ -3411,6 +3535,17 @@ export interface Database {
         }
         Relationships: []
       }
+      region_used: {
+        Row: {
+          code: string | null
+          id: number | null
+          label: string | null
+          level: number | null
+          name: string | null
+          path: unknown | null
+        }
+        Relationships: []
+      }
       reorg_type_custom: {
         Row: {
           active: boolean | null
@@ -3505,29 +3640,7 @@ export interface Database {
           path?: unknown | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_system"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       sector_code_system: {
         Row: {
@@ -3563,26 +3676,48 @@ export interface Database {
           path?: unknown | null
           updated_at?: string | null
         }
+        Relationships: []
+      }
+      stat_for_unit_era: {
+        Row: {
+          establishment_id: number | null
+          id: number | null
+          stat_definition_id: number | null
+          valid_from: string | null
+          valid_to: string | null
+          value_bool: boolean | null
+          value_float: number | null
+          value_int: number | null
+          value_str: string | null
+        }
+        Insert: {
+          establishment_id?: number | null
+          id?: number | null
+          stat_definition_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+          value_bool?: boolean | null
+          value_float?: number | null
+          value_int?: number | null
+          value_str?: string | null
+        }
+        Update: {
+          establishment_id?: number | null
+          id?: number | null
+          stat_definition_id?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+          value_bool?: boolean | null
+          value_float?: number | null
+          value_int?: number | null
+          value_str?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
+            foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
             isOneToOne: false
-            referencedRelation: "sector_code"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_custom"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_sector_code_sector_code_parent_id"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sector_code_system"
+            referencedRelation: "stat_definition"
             referencedColumns: ["id"]
           }
         ]
@@ -3590,21 +3725,35 @@ export interface Database {
       statistical_unit: {
         Row: {
           activity_category_paths: unknown[] | null
-          enterprise_group_id: number | null
-          enterprise_id: number | null
-          establishment_id: number | null
+          aggregated_enterprise_ids: number[] | null
+          aggregated_establishment_ids: number[] | null
+          aggregated_legal_unit_ids: number[] | null
+          employees: number | null
           external_ident: string | null
           external_ident_type: string | null
-          legal_unit_id: number | null
           name: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           primary_activity_category_id: number | null
           primary_activity_category_path: unknown | null
+          search: unknown | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
           stat_ident: string | null
           tax_reg_ident: string | null
+          turnover: number | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
+      statistical_unit_facet: {
+        Row: {
+          count: number | null
+          physical_region_path: unknown | null
+          primary_activity_category_path: unknown | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from: string | null
           valid_to: string | null
@@ -4133,36 +4282,44 @@ export interface Database {
         }
         Returns: string
       }
-      materialised_view_updated_at: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          materialized_view_name: string
-          updated_at: string
-        }[]
-      }
       nlevel: {
         Args: {
           "": unknown
         }
         Returns: number
       }
-      refresh_materialized_view: {
+      statistical_unit_facet_drilldown: {
         Args: {
-          materialized_view_name: string
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          region_path?: unknown
+          activity_category_path?: unknown
+          valid_on?: string
         }
-        Returns: undefined
+        Returns: Json
       }
       statistical_unit_refresh_now: {
         Args: Record<PropertyKey, never>
-        Returns: undefined
+        Returns: {
+          view_name: string
+          refresh_time_ms: number
+        }[]
       }
       statistical_unit_refreshed_at: {
         Args: Record<PropertyKey, never>
-        Returns: string
+        Returns: {
+          view_name: string
+          modified_at: string
+        }[]
       }
       text2ltree: {
         Args: {
           "": string
+        }
+        Returns: unknown
+      }
+      websearch_to_wildcard_tsquery: {
+        Args: {
+          query: string
         }
         Returns: unknown
       }
@@ -4171,7 +4328,14 @@ export interface Database {
       activity_type: "primary" | "secondary" | "ancilliary"
       allowed_operations: "create" | "alter" | "create_and_alter"
       data_source_priority: "trusted" | "ok" | "not_trusted"
+      data_source_queue_status:
+        | "in_queue"
+        | "loading"
+        | "data_load_completed"
+        | "data_load_completed_partially"
+        | "data_load_failed"
       data_source_upload_type: "stat_units" | "activities"
+      data_uploading_log_status: "done" | "warning" | "error"
       location_type: "physical" | "postal"
       person_sex: "Male" | "Female"
       stat_frequency:
