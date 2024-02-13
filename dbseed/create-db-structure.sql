@@ -857,7 +857,6 @@ CREATE TABLE public.establishment (
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_classification_id integer REFERENCES public.data_source_classification(id),
     enterprise_id integer REFERENCES public.enterprise(id) ON DELETE RESTRICT,
-    primary_for_enterprise boolean,
     legal_unit_id integer,
     primary_for_legal_unit boolean,
     invalid_codes jsonb,
@@ -866,18 +865,12 @@ CREATE TABLE public.establishment (
     CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
         OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
         ),
-    CONSTRAINT "primary_for_enterprise and enterprise_id must be defined together"
-    CHECK( enterprise_id IS NOT NULL AND primary_for_enterprise IS NOT NULL
-        OR enterprise_id IS     NULL AND primary_for_enterprise IS     NULL
-        ),
     CONSTRAINT "primary_for_legal_unit and legal_unit_id must be defined together"
     CHECK( legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL
         OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
         )
 );
 
-CREATE UNIQUE INDEX "Only one primary establishment per enterprise" ON public.establishment(enterprise_id) WHERE primary_for_enterprise;
-CREATE UNIQUE INDEX "Only one primary establishment per legal_unit" ON public.establishment(legal_unit_id) WHERE primary_for_legal_unit;
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
@@ -1997,13 +1990,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , lu.external_ident_type AS external_ident_type
              , lu.name AS name
              -- Se supported languages with `SELECT * FROM pg_ts_config`
-             , -- to_tsvector('norwegian', lu.name) ||
-               -- to_tsvector('english', lu.name) ||
-               -- to_tsvector('arabic', lu.name) ||
-               -- to_tsvector('greek', lu.name) ||
-               -- to_tsvector('russian', lu.name) ||
-               -- to_tsvector('french', lu.name) ||
-               to_tsvector('simple', lu.name) AS search
+             , to_tsvector('simple', lu.name) AS search
              , pa.activity_category_id AS primary_activity_category_id
              , pac.path                AS primary_activity_category_path
              , sa.activity_category_id AS secondary_activity_category_id
@@ -2077,6 +2064,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , physical_region_id
            , physical_region_path
     UNION ALL
+    -- enterprise with legal_unit
     SELECT valid_from
          , valid_to
          , unit_type
@@ -2114,13 +2102,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , plu.external_ident_type AS external_ident_type
              , plu.name AS name
              -- Se supported languages with `SELECT * FROM pg_ts_config`
-             , -- to_tsvector('norwegian', lu.name) ||
-               -- to_tsvector('english', lu.name) ||
-               -- to_tsvector('arabic', lu.name) ||
-               -- to_tsvector('greek', lu.name) ||
-               -- to_tsvector('russian', lu.name) ||
-               -- to_tsvector('french', lu.name) ||
-               to_tsvector('simple', lu.name) AS search
+             , to_tsvector('simple', lu.name) AS search
              , pa.activity_category_id AS primary_activity_category_id
              , pac.path                AS primary_activity_category_path
              , sa.activity_category_id AS secondary_activity_category_id
@@ -2166,6 +2148,116 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 ON lu.id = es.legal_unit_id
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(es.valid_from, es.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd1
+                ON sd1.code = 'employees'
+        LEFT OUTER JOIN public.stat_for_unit AS sfu1
+                ON sfu1.stat_definition_id = sd1.id
+               AND sfu1.establishment_id = es.id
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+        LEFT OUTER JOIN public.stat_definition AS sd2
+                ON sd2.code = 'turnover'
+        LEFT OUTER JOIN public.stat_for_unit AS sfu2
+                ON sfu2.stat_definition_id = sd2.id
+               AND sfu2.establishment_id = es.id
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
+    ) AS source
+    GROUP BY valid_from
+           , valid_to
+           , unit_type
+           , unit_id
+           , stat_ident
+           , tax_reg_ident
+           , external_ident
+           , external_ident_type
+           , name
+           , search
+           , primary_activity_category_id
+           , primary_activity_category_path
+           , secondary_activity_category_id
+           , secondary_activity_category_path
+           , activity_category_paths
+           , physical_region_id
+           , physical_region_path
+    UNION ALL
+    -- enterprise with establishment
+    SELECT valid_from
+         , valid_to
+         , unit_type
+         , unit_id
+         , stat_ident
+         , tax_reg_ident
+         , external_ident
+         , external_ident_type
+         , name
+         , search
+         , primary_activity_category_id
+         , primary_activity_category_path
+         , secondary_activity_category_id
+         , secondary_activity_category_path
+         , activity_category_paths
+         , physical_region_id
+         , physical_region_path
+         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
+         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
+         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
+         , sum(employees) AS employees
+         , sum(turnover) AS turnover
+      FROM (
+        SELECT greatest(es.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
+             , least(es.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
+             , 'enterprise'::public.statistical_unit_type AS unit_type
+             , en.id AS unit_id
+             , es.id AS establishment_id
+             , NULL::INTEGER AS legal_unit_id
+             , en.id AS enterprise_id
+             , NULL::INTEGER AS enterprise_group_id
+             , es.stat_ident AS stat_ident
+             , es.tax_reg_ident AS tax_reg_ident
+             , es.external_ident AS external_ident
+             , es.external_ident_type AS external_ident_type
+             , es.name AS name
+             -- Se supported languages with `SELECT * FROM pg_ts_config`
+             , to_tsvector('simple', es.name) AS search
+             , pa.activity_category_id AS primary_activity_category_id
+             , pac.path                AS primary_activity_category_path
+             , sa.activity_category_id AS secondary_activity_category_id
+             , sac.path                AS secondary_activity_category_path
+             , CASE
+               WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
+               WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
+               WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
+               WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
+               END AS activity_category_paths
+             , phl.region_id           AS physical_region_id
+             , phr.path                AS physical_region_path
+             , sfu1.value_int AS employees
+             , sfu2.value_int AS turnover
+        FROM public.enterprise AS en
+        LEFT OUTER JOIN public.establishment AS es
+                ON es.enterprise_id = en.id
+        LEFT OUTER JOIN public.activity AS pa
+                ON pa.legal_unit_id = es.id
+               AND pa.activity_type = 'primary'
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(pa.valid_from, pa.valid_to, '[]')
+        LEFT OUTER JOIN public.activity_category AS pac
+                ON pa.activity_category_id = pac.id
+        LEFT OUTER JOIN public.activity AS sa
+                ON sa.legal_unit_id = es.id
+               AND sa.activity_type = 'secondary'
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(sa.valid_from, sa.valid_to, '[]')
+        LEFT OUTER JOIN public.activity_category AS sac
+                ON sa.activity_category_id = sac.id
+        LEFT OUTER JOIN public.location AS phl
+                ON phl.legal_unit_id = es.id
+               AND phl.location_type = 'physical'
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(phl.valid_from, phl.valid_to, '[]')
+        LEFT OUTER JOIN public.region AS phr
+                ON phl.region_id = phr.id
         LEFT OUTER JOIN public.stat_definition AS sd1
                 ON sd1.code = 'employees'
         LEFT OUTER JOIN public.stat_for_unit AS sfu1
@@ -3997,7 +4089,6 @@ DECLARE
     legal_unit RECORD;
     is_primary_for_legal_unit BOOLEAN;
     enterprise RECORD;
-    is_primary_for_enterprise BOOLEAN;
     primary_activity_category RECORD;
     upsert_data RECORD;
     inserted_establishment RECORD;
@@ -4042,7 +4133,6 @@ BEGIN
             , 'Batch import'
             ) RETURNING *
             INTO enterprise;
-        is_primary_for_enterprise := true;
     ELSE -- Lookup the legal_unit - it must exist.
         SELECT lu.* INTO legal_unit
         FROM public.legal_unit AS lu
@@ -4096,7 +4186,6 @@ BEGIN
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
          , enterprise.id AS enterprise_id
-         , is_primary_for_enterprise AS primary_for_enterprise
          , legal_unit.id AS legal_unit_id
          , is_primary_for_legal_unit AS primary_for_legal_unit
      INTO upsert_data;
@@ -4116,7 +4205,6 @@ BEGIN
     , edit_comment
     , invalid_codes
     , enterprise_id
-    , primary_for_enterprise
     , legal_unit_id
     , primary_for_legal_unit
     , edit_by_user_id
@@ -4133,7 +4221,6 @@ BEGIN
         upsert_data.edit_comment,
         upsert_data.invalid_codes,
         upsert_data.enterprise_id,
-        upsert_data.primary_for_enterprise,
         upsert_data.legal_unit_id,
         upsert_data.primary_for_legal_unit,
         edited_by_user.id
@@ -4846,6 +4933,8 @@ SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
+-- TODO: Extend sql_saga with support for predicates by using unique indices instead of constraints.
+--SELECT sql_saga.add_unique_key('public.establishment', ARRAY['legal_unit_id'], WHERE 'primary_for_legal_unit');
 
 SELECT sql_saga.add_era('public.activity', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
