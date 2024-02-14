@@ -52,7 +52,7 @@ export default async function SearchPage() {
     }
 
     return (
-        <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto">
+        <main className="flex flex-col py-8 px-2 md:py-24 mx-auto w-full max-w-5xl">
             <h1 className="font-medium text-xl text-center mb-12">Search for statistical units</h1>
             <Search
                 regions={regions ?? []}
