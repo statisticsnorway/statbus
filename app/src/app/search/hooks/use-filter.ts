@@ -60,6 +60,18 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       postgrestQuery: ({selected}) => selected.length ? `eq.${selected[0]}` : null
     },
     {
+      type: "options",
+      label: "Type",
+      name: "unit_type",
+      options: [
+          {label: "Legal Unit", value: "legal_unit"},
+          {label: "Establishment", value: "establishment"},
+          {label: "Enterprise", value: "enterprise"},
+      ],
+      selected: ["enterprise"],
+      postgrestQuery: ({selected}) => selected.length ? `in.(${selected.join(',')})` : null
+    },
+    {
       type: "radio",
       name: "physical_region_path",
       label: "Region",
