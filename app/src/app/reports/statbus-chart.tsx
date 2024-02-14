@@ -11,7 +11,7 @@ import {useDrillDownData} from "@/app/reports/use-drill-down-data";
 import {InfoBox} from "@/components/info-box";
 
 
-export default function StatBusChart(props: { drillDown: DrillDown }) {
+export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
     const {drillDown, region, setRegion, activityCategory, setActivityCategory} = useDrillDownData(props.drillDown);
 
     useEffect(() => {

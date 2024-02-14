@@ -3,7 +3,12 @@ import {useEffect, useRef} from "react";
 import type {Chart} from "highcharts";
 import {chart} from "highcharts";
 
-export const DrillDownChart = ({points, onSelect}: { points: DrillDownPoint[], onSelect: (p: DrillDownPoint) => void }) => {
+interface DrillDownChartProps {
+    readonly points: DrillDownPoint[];
+    readonly onSelect: (p: DrillDownPoint) => void;
+}
+
+export const DrillDownChart = ({points, onSelect}: DrillDownChartProps) => {
     const _ref = useRef<HTMLDivElement>(null)
     const _chart = useRef<Chart | null>(null)
 
