@@ -8,6 +8,7 @@ import HC_a11y from "highcharts/modules/accessibility";
 import {BreadCrumb} from "@/app/reports/bread-crumb";
 import {DrillDownChart} from "@/app/reports/drill-down-chart";
 import {useDrillDownData} from "@/app/reports/use-drill-down-data";
+import {InfoBox} from "@/components/info-box";
 
 
 export default function StatBusChart(props: { drillDown: DrillDown }) {
@@ -28,7 +29,14 @@ export default function StatBusChart(props: { drillDown: DrillDown }) {
 
     return (
         <div className="w-full space-y-12 p-6">
-            <div className="p-6 space-y-6">
+            <InfoBox>
+                <p>
+                    This page is currently in a proof of concept stage. It demonstrates how to use Highcharts to create a
+                    drill down chart. The data is fetched dynamically and the chart is updated when a user
+                    selects a new region or activity category.
+                </p>
+            </InfoBox>
+            <div className="p-6 space-y-6 border-l-4 border-gray-200 bg-gray-50">
                 <BreadCrumb
                     topLevelText="All Regions"
                     points={drillDown.breadcrumb.region}
@@ -40,7 +48,7 @@ export default function StatBusChart(props: { drillDown: DrillDown }) {
                     onSelect={selectRegion}
                 />
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 border-l-4 border-gray-200 bg-gray-50">
                 <BreadCrumb
                     topLevelText="All Activity Categories"
                     points={drillDown.breadcrumb.activity_category}

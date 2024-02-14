@@ -17,6 +17,7 @@ export const DrillDownChart = ({points, onSelect}: { points: DrillDownPoint[], o
                     events: {
                         drilldown: (e) => onSelect(e.point.options.custom as DrillDownPoint)
                     },
+                    backgroundColor: 'rgb(249, 250, 251)'
                 },
                 plotOptions: {
                     series: {
