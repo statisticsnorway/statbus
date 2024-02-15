@@ -75,8 +75,13 @@ export default async function UploadEstablishmentsPage() {
                             example
                             CSV file to get an idea of how the file should be structured:
                         </p>
-                        <a href="/underenheter-selection-web-import.csv" download="establishments.example.csv"
-                           className="underline">Download example CSV file</a>
+                        <a
+                            href="/underenheter-selection-web-import.csv"
+                            download="establishments.example.csv"
+                            className="underline"
+                        >
+                            Download example CSV file
+                        </a>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
