@@ -32,7 +32,7 @@ export default async function UploadRegionsPage() {
               A regions file is a CSV file containing the regions you want to use in your analysis. The file
               must conform to a specific format in order to be processed correctly.
             </p>
-            <a href="/norway-sample-regions.csv" download="regions.example.csv" className="underline">Download example
+            <a href="/norway-regions-2024.csv" download="regions.example.csv" className="underline">Download example
               CSV file</a>
           </AccordionContent>
         </AccordionItem>

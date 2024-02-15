@@ -43,7 +43,7 @@ export async function uploadFile(filename: string, uploadView: UploadView, _prev
         case "activity_category_available_custom":
             return redirect('/getting-started/upload-regions', RedirectType.push)
         case "region_upload":
-            return redirect('/upload-legal-units', RedirectType.push)
+            return redirect('/getting-started/upload-legal-units', RedirectType.push)
         case "legal_unit_region_activity_category_current":
             return redirect('/getting-started/upload-establishments', RedirectType.push)
         case "establishment_region_activity_category_stats_current":
