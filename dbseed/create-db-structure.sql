@@ -2376,7 +2376,8 @@ SELECT valid_from
      , unit_type
      , physical_region_path
      , primary_activity_category_path
-     , count(*)
+     , count(*) AS count
+     , sum(employees) AS employees
 FROM public.statistical_unit
 WHERE physical_region_path IS NOT NULL
   AND primary_activity_category_path IS NOT NULL
@@ -2414,7 +2415,8 @@ BEGIN
         SELECT
             suf.physical_region_path,
             suf.primary_activity_category_path,
-            count
+            count,
+            employees
         FROM
             public.statistical_unit_facet AS suf
         WHERE
@@ -2460,6 +2462,7 @@ BEGIN
              , ar.code
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path <> ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path <@ ar.path
@@ -2506,6 +2509,7 @@ BEGIN
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path <> aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
