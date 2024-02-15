@@ -2565,6 +2565,200 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
+CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
+  parent_establishment_id INTEGER,
+  valid_on DATE DEFAULT current_date
+) RETURNS JSONB AS $$
+  SELECT jsonb_agg(
+              to_jsonb(sfu.*)
+                     - 'value_int'
+                     - 'value_float'
+                     - 'value_string'
+                     - 'value_bool'
+              || jsonb_build_object('stat_definition', to_jsonb(sd.*))
+              || CASE sd.stat_type
+                 WHEN 'int' THEN jsonb_build_object(sd.code,value_int)
+                 WHEN 'float' THEN jsonb_build_object(sd.code,value_float)
+                 WHEN 'string' THEN jsonb_build_object(sd.code,value_string)
+                 WHEN 'bool' THEN jsonb_build_object(sd.code,value_bool)
+                 END
+         )
+    FROM public.stat_for_unit AS sfu
+    JOIN public.stat_definition AS sd
+      ON sd.id = sfu.stat_definition_id
+   WHERE sfu.establishment_id = parent_establishment_id
+     AND sfu.valid_from <= valid_on AND valid_on <= sfu.valid_to
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.location_hierarchy(
+  parent_establishment_id INTEGER DEFAULT NULL,
+  parent_legal_unit_id INTEGER DEFAULT NULL,
+  valid_on DATE DEFAULT current_date
+) RETURNS JSONB AS $$
+  SELECT jsonb_agg(
+             to_jsonb(l.*)
+             || jsonb_build_object(
+                'region',
+                  (SELECT to_jsonb(r.*)
+                     FROM public.region AS r
+                    WHERE r.id = l.region_id
+                  )
+             )
+        )
+    FROM public.location AS l
+   WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
+     AND (  l.establishment_id = parent_establishment_id
+         OR l.legal_unit_id = parent_legal_unit_id
+         )
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER)
+RETURNS JSONB AS $$
+  SELECT to_jsonb(ac.*)
+       ||  jsonb_build_object(
+            'activity_category_standard',
+              (SELECT to_jsonb(acs.*)
+                 FROM public.activity_category_standard AS acs
+                WHERE acs.id = ac.activity_category_standard_id
+              )
+         )
+    FROM public.activity_category AS ac
+   WHERE ac.id = activity_category_id
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.activity_hierarchy(
+  parent_establishment_id INTEGER DEFAULT NULL,
+  parent_legal_unit_id INTEGER DEFAULT NULL,
+  valid_on DATE DEFAULT current_date
+) RETURNS JSONB AS $$
+  SELECT jsonb_agg(
+           to_jsonb(a.*)
+           || jsonb_build_object(
+                'activity_category',
+                (SELECT public.activity_category_hierarchy(ac.id)
+                   FROM public.activity_category AS ac
+                  WHERE ac.id = a.activity_category_id
+                )
+           )
+         )
+    FROM public.activity AS a
+   WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
+     AND (  a.establishment_id = parent_establishment_id
+         OR a.legal_unit_id = parent_legal_unit_id
+         )
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
+    parent_legal_unit_id INTEGER DEFAULT NULL,
+    parent_enterprise_id INTEGER DEFAULT NULL,
+    valid_on DATE DEFAULT current_date
+) RETURNS JSONB AS $$
+  SELECT jsonb_agg(
+             to_jsonb(es.*)
+             || jsonb_build_object(
+                'primary', es.primary_for_legal_unit,
+                'activity',
+                  (SELECT public.activity_hierarchy(es.id,NULL,valid_on)),
+                'location',
+                  (SELECT public.location_hierarchy(es.id,NULL,valid_on)),
+                'stat_for_unit',
+                  (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
+             )
+         )
+    FROM public.establishment AS es
+   WHERE es.legal_unit_id = parent_legal_unit_id
+      OR es.enterprise_id = parent_enterprise_id
+     AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
+RETURNS JSONB AS $$
+  SELECT jsonb_agg(
+          to_jsonb(lu.*)
+           || jsonb_build_object(
+              'primary', lu.primary_for_enterprise,
+              'establishment',
+                (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on)),
+              'activity',
+                (SELECT public.activity_hierarchy(NULL,lu.id,valid_on)),
+              'location',
+                (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
+           )
+        )
+    FROM public.legal_unit AS lu
+   WHERE lu.enterprise_id = parent_enterprise_id
+     AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
+RETURNS JSONB AS $$
+  SELECT to_jsonb(en.*)
+         || jsonb_build_object(
+            'legal_unit',
+              (SELECT public.legal_unit_hierarchy(en.id, valid_on)),
+            'establishment',
+              (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
+         )
+
+    FROM public.enterprise AS en
+   WHERE en.id = enterprise_id
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
+RETURNS INTEGER AS $$
+  SELECT CASE unit_type
+         WHEN 'establishment' THEN (
+            SELECT COALESCE(lu.enterprise_id, es.enterprise_id)
+              FROM public.establishment AS es
+              LEFT JOIN public.legal_unit AS lu
+                ON es.legal_unit_id = lu.id
+             WHERE es.id = unit_id
+               AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+               AND (lu IS NULL OR lu.valid_from <= valid_on AND valid_on <= lu.valid_to)
+         )
+         WHEN 'legal_unit' THEN (
+             SELECT lu.enterprise_id
+               FROM public.legal_unit AS lu
+              WHERE lu.id = unit_id
+                AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+         )
+         WHEN 'enterprise' THEN (
+             SELECT en.id
+               FROM public.enterprise AS en
+              WHERE en.id = unit_id
+         )
+         WHEN 'enterprise_group' THEN NULL --TODO
+         END
+  ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
+RETURNS JSONB AS $$
+  SELECT jsonb_build_object(
+            'enterprise',
+              (SELECT
+                public.enterprise_hierarchy(
+                  public.statistical_unit_enterprise(unit_type, unit_id, valid_on)
+                , valid_on)
+              )
+         )
+   ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_refresh_now()
 RETURNS TABLE(view_name text, refresh_time_ms numeric) AS $$

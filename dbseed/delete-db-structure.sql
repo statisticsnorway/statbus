@@ -42,6 +42,16 @@ SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_sta
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
 
+DROP FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
+DROP FUNCTION public.statistical_unit_enterprise(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
+DROP FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE);
+DROP FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE);
+DROP FUNCTION public.establishment_hierarchy(parent_legal_unit_id INTEGER,parent_enterprise_id INTEGER,valid_on DATE);
+DROP FUNCTION public.activity_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
+DROP FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER);
+DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
+DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
+
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
 DROP FUNCTION public.statistical_unit_refresh_now();
 DROP FUNCTION public.statistical_unit_refreshed_at();
