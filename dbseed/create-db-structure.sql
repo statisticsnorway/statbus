@@ -4104,6 +4104,7 @@ DECLARE
     statbus_constraints_already_deferred BOOLEAN;
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
+    stats RECORD;
 BEGIN
     SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
 
@@ -4117,6 +4118,9 @@ BEGIN
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO primary_activity_category;
+    SELECT NULL::int AS employees
+         , NULL::int AS turnover
+        INTO stats;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -4280,28 +4284,42 @@ BEGIN
     END IF;
 
     IF NEW.employees IS NOT NULL AND NEW.employees <> '' THEN
+        BEGIN
+            stats.employees := NEW.employees::INTEGER;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid employees integer for row %', to_json(NEW);
+        END;
+
         SELECT * INTO stat_def
         FROM stat_definition
         WHERE code = 'employees';
 
         INSERT INTO public.stat_for_unit_era
-        ( stat_definition_id
-        , valid_from
-        , valid_to
-        , establishment_id
-        , value_int
+        (
+            stat_definition_id,
+            valid_from,
+            valid_to,
+            establishment_id,
+            value_int
         )
         VALUES
-        ( stat_def.id
-        , new_valid_from
-        , new_valid_to
-        , inserted_establishment.id
-        , NEW.employees
+        (
+            stat_def.id,
+            new_valid_from,
+            new_valid_to,
+            inserted_establishment.id,
+            stats.employees
         )
         RETURNING * INTO inserted_stat_for_unit;
     END IF;
 
-    IF NEW.turnover IS NOT NULL AND NEW.employees <> '' THEN
+    IF NEW.turnover IS NOT NULL AND NEW.turnover <> '' THEN
+        BEGIN
+            stats.turnover := NEW.turnover::INTEGER;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid turnover integer for row %', to_json(NEW);
+        END;
+
         SELECT * INTO stat_def
         FROM stat_definition
         WHERE code = 'turnover';
@@ -4318,7 +4336,7 @@ BEGIN
         , new_valid_from
         , new_valid_to
         , inserted_establishment.id
-        , NEW.turnover
+        , stats.turnover
         )
         RETURNING * INTO inserted_stat_for_unit;
     END IF;
