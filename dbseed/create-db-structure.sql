@@ -3856,9 +3856,9 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 CREATE VIEW public.legal_unit_region_activity_category_current
 WITH (security_invoker=on) AS
 SELECT lu.tax_reg_ident
-     , lu.name
-     , lu.birth_date
-     , lu.death_date
+     , lu.name AS name
+     , lu.birth_date::TEXT AS birth_date
+     , lu.death_date::TEXT AS death_date
      , phr.code AS physical_region_code
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
@@ -3953,7 +3953,7 @@ BEGIN
 
     IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
         BEGIN
-            new_typed.birth_date := NEW.birth_date::INTEGER;
+            new_typed.birth_date := NEW.birth_date::DATE;
         EXCEPTION WHEN OTHERS THEN
             RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
         END;
@@ -3961,7 +3961,7 @@ BEGIN
 
     IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
         BEGIN
-            new_typed.death_date := NEW.death_date::INTEGER;
+            new_typed.death_date := NEW.death_date::DATE;
         EXCEPTION WHEN OTHERS THEN
             RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
         END;
@@ -4314,7 +4314,7 @@ BEGIN
 
     IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
         BEGIN
-            new_typed.birth_date := NEW.birth_date::INTEGER;
+            new_typed.birth_date := NEW.birth_date::DATE;
         EXCEPTION WHEN OTHERS THEN
             RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
         END;
@@ -4322,7 +4322,7 @@ BEGIN
 
     IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
         BEGIN
-            new_typed.death_date := NEW.death_date::INTEGER;
+            new_typed.death_date := NEW.death_date::DATE;
         EXCEPTION WHEN OTHERS THEN
             RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
         END;
