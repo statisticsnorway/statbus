@@ -1652,13 +1652,13 @@ CREATE TABLE public.stat_for_unit (
     establishment_id integer NOT NULL,
     value_int INTEGER,
     value_float FLOAT,
-    value_str VARCHAR,
+    value_string VARCHAR,
     value_bool BOOLEAN,
     CHECK(
-        (value_int IS NOT NULL AND value_float IS     NULL AND value_str IS     NULL AND value_bool IS     NULL) OR
-        (value_int IS     NULL AND value_float IS NOT NULL AND value_str IS     NULL AND value_bool IS     NULL) OR
-        (value_int IS     NULL AND value_float IS     NULL AND value_str IS NOT NULL AND value_bool IS     NULL) OR
-        (value_int IS     NULL AND value_float IS     NULL AND value_str IS     NULL AND value_bool IS NOT NULL)
+        (value_int IS NOT NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS     NULL) OR
+        (value_int IS     NULL AND value_float IS NOT NULL AND value_string IS     NULL AND value_bool IS     NULL) OR
+        (value_int IS     NULL AND value_float IS     NULL AND value_string IS NOT NULL AND value_bool IS     NULL) OR
+        (value_int IS     NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS NOT NULL)
     )
 );
 
@@ -1676,19 +1676,19 @@ BEGIN
   -- Use CASE statement to simplify the logic
   CASE new_stat_type
     WHEN 'int' THEN
-      IF NEW.value_int IS NULL OR NEW.value_float IS NOT NULL OR NEW.value_str IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
+      IF NEW.value_int IS NULL OR NEW.value_float IS NOT NULL OR NEW.value_string IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
         RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
       END IF;
     WHEN 'float' THEN
-      IF NEW.value_float IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_str IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
+      IF NEW.value_float IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_string IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
         RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
       END IF;
     WHEN 'string' THEN
-      IF NEW.value_str IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_float IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
+      IF NEW.value_string IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_float IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
         RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
       END IF;
     WHEN 'bool' THEN
-      IF NEW.value_bool IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_float IS NOT NULL OR NEW.value_str IS NOT NULL THEN
+      IF NEW.value_bool IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_float IS NOT NULL OR NEW.value_string IS NOT NULL THEN
         RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
       END IF;
     ELSE
