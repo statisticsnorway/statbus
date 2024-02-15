@@ -10,26 +10,7 @@ import {ErrorBox} from "@/components/error-box";
 import {uploadFile} from "@/app/getting-started/getting-started-actions";
 import type {UploadView} from "@/app/getting-started/getting-started-actions";
 
-const initialState: { error: string | null } = {
-    error: null
-}
-
-const filename = "establishments"
-const uploadView: UploadView = "establishment_region_activity_category_stats_current"
-
-export default function UploadEstablishmentsForm() {
-    const [state, formAction] = useFormState(uploadFile.bind(null, filename, uploadView), initialState)
-
-    return (
-        <form action={formAction} className="space-y-6 bg-green-100 p-6">
-            <Label className="block" htmlFor={filename}>Select file:</Label>
-            <Input required id={filename} type="file" name={filename}/>
-            <ButtonRow error={state.error}/>
-        </form>
-    )
-}
-
-const ButtonRow = ({error}: { error: string | null }) => {
+const UploadFormButtons = ({error, nextPage}: { error: string | null, nextPage: string }) => {
     const {pending} = useFormStatus();
     return (
         <>
@@ -42,8 +23,21 @@ const ButtonRow = ({error}: { error: string | null }) => {
             }
             <div className="space-x-3">
                 <Button disabled={pending} type="submit">Upload</Button>
-                <Link href="/getting-started/summary" className={buttonVariants({variant: 'outline'})}>Skip</Link>
+                <Link href={nextPage} className={buttonVariants({variant: 'outline'})}>Skip</Link>
             </div>
         </>
+    )
+}
+
+export const UploadCSVForm = ({uploadView, nextPage}: { uploadView: UploadView, nextPage: string }) => {
+    const filename = "upload-file"
+    const [state, formAction] = useFormState(uploadFile.bind(null, filename, uploadView), {error: null})
+
+    return (
+        <form action={formAction} className="space-y-6 bg-green-100 p-6">
+            <Label className="block" htmlFor={filename}>Select file:</Label>
+            <Input required id={filename} type="file" name={filename}/>
+            <UploadFormButtons error={state.error} nextPage={nextPage}/>
+        </form>
     )
 }
