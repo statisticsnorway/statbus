@@ -4067,8 +4067,8 @@ SELECT es.tax_reg_ident
      , phr.code AS physical_region_code
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
-     , sfu1.value_int AS employees
-     , sfu2.value_int AS turnover
+     , sfu1.value_int::TEXT AS employees
+     , sfu2.value_int::TEXT AS turnover
 FROM public.establishment AS es
 LEFT JOIN public.legal_unit AS lu ON lu.id = es.legal_unit_id AND lu.valid_from >= current_date AND current_date <= lu.valid_to
 LEFT JOIN public.activity AS pra ON pra.establishment_id = es.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
@@ -4279,7 +4279,7 @@ BEGIN
         RETURNING * INTO inserted_activity;
     END IF;
 
-    IF NEW.employees IS NOT NULL THEN
+    IF NEW.employees IS NOT NULL AND NEW.employees <> '' THEN
         SELECT * INTO stat_def
         FROM stat_definition
         WHERE code = 'employees';
@@ -4301,7 +4301,7 @@ BEGIN
         RETURNING * INTO inserted_stat_for_unit;
     END IF;
 
-    IF NEW.turnover IS NOT NULL THEN
+    IF NEW.turnover IS NOT NULL AND NEW.employees <> '' THEN
         SELECT * INTO stat_def
         FROM stat_definition
         WHERE code = 'turnover';
