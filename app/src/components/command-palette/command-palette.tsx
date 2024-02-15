@@ -6,9 +6,9 @@ import {useRouter} from "next/navigation";
 import {Footprints, Home, ListRestart, Pilcrow, Trash, Upload, User} from "lucide-react"
 import {
     refreshStatisticalUnits,
-    resetLegalUnits,
     resetRegions,
-    resetSettings
+    resetSettings,
+    resetUnits
 } from "@/components/command-palette/command-palette-actions";
 
 import {
@@ -65,25 +65,33 @@ export function CommandPalette() {
         })
     }
 
-    const handleLegalUnitsReset = async () => {
+    const handleUnitsReset = async () => {
         setOpen(false)
-        const response = await resetLegalUnits()
+        const response = await resetUnits()
         toast({
-            title: response?.error ? "Legal Units Reset Failed" : "Legal Units Reset OK",
-            description: response?.error ?? "All Legal Units have been reset.",
+            title: response?.error ? "Units Reset Failed" : "Units Reset OK",
+            description: response?.error ?? "All units have been reset.",
         })
+
+        /*
+         * Refresh materialized view after resetting all units
+         */
+
+        setTimeout(async () => {
+            await handleStatisticalUnitsRefresh()
+        }, 2500)
     }
 
     const handleStatisticalUnitsRefresh = async () => {
         setOpen(false)
         const response = await refreshStatisticalUnits()
         toast({
-          title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units successfully refreshed.",
-          description: response?.error ?? (
-            <pre className="mt-2 rounded-md bg-slate-950 p-4">
+            title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units successfully refreshed.",
+            description: response?.error ?? (
+                <pre className="mt-2 rounded-md bg-slate-950 p-4">
               <code className="text-white text-xs">{JSON.stringify(response.data, null, 2)}</code>
             </pre>
-          ) ?? "Statistical Units have been refreshed.",
+            ) ?? "Statistical Units have been refreshed.",
         })
     }
 
@@ -106,9 +114,9 @@ export function CommandPalette() {
                         <Trash className="mr-2 h-4 w-4"/>
                         <span>Reset Regions</span>
                     </CommandItem>
-                    <CommandItem onSelect={handleLegalUnitsReset}>
+                    <CommandItem onSelect={handleUnitsReset}>
                         <Trash className="mr-2 h-4 w-4"/>
-                        <span>Reset Legal Units</span>
+                        <span>Reset All units</span>
                     </CommandItem>
                     <CommandItem onSelect={handleStatisticalUnitsRefresh}>
                         <ListRestart className="mr-2 h-4 w-4"/>

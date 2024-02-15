@@ -57,7 +57,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       label: "Tax ID",
       name: "tax_reg_ident",
       selected: [],
-      postgrestQuery: ({selected}) => selected.length ? `eq.${selected[0]}` : null
+      postgrestQuery: ({selected}) => selected[0] ? `eq.${selected[0]}` : null
     },
     {
       type: "options",

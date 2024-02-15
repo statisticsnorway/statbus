@@ -12,6 +12,7 @@ export type UploadView =
     "region_upload"
     | "legal_unit_region_activity_category_current"
     | "activity_category_available_custom"
+    | "establishment_region_activity_category_stats_current";
 
 export async function uploadFile(filename: string, uploadView: UploadView, _prevState: State, formData: FormData): Promise<State> {
     "use server";
@@ -31,7 +32,7 @@ export async function uploadFile(filename: string, uploadView: UploadView, _prev
             const data = await response.json()
             console.error(`upload to ${uploadView} failed with status ${response.status} ${response.statusText}`)
             console.error(data)
-            return {error: data.message.replace(/,/g, ', ')}
+            return {error: data.message.replace(/,/g, ', ').replace(/;/g, '; ')}
         }
 
     } catch (e) {
@@ -39,11 +40,13 @@ export async function uploadFile(filename: string, uploadView: UploadView, _prev
     }
 
     switch (uploadView) {
-        case "region_upload":
-            return redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
         case "activity_category_available_custom":
+            return redirect('/getting-started/upload-regions', RedirectType.push)
+        case "region_upload":
             return redirect('/getting-started/upload-legal-units', RedirectType.push)
         case "legal_unit_region_activity_category_current":
+            return redirect('/getting-started/upload-establishments', RedirectType.push)
+        case "establishment_region_activity_category_stats_current":
             return redirect('/getting-started/summary', RedirectType.push)
     }
 }
@@ -81,5 +84,5 @@ export async function setCategoryStandard(formData: FormData) {
         return {error: "Error setting category standard"}
     }
 
-    redirect('/getting-started/upload-regions', RedirectType.push)
+    redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
 }
