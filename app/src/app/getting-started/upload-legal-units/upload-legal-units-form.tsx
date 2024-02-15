@@ -22,7 +22,7 @@ export default function UploadLegalUnitsForm() {
 
   return (
     <form action={formAction} className="space-y-6 bg-green-100 p-6">
-      <Label className="block" htmlFor="legal-units-file">Select Legal Units file:</Label>
+      <Label className="block" htmlFor="legal-units-file">Select file:</Label>
       <Input required id="legal-units-file" type="file" name={filename} />
       {
         state.error ? (

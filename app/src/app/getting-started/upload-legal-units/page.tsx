@@ -6,7 +6,11 @@ import UploadLegalUnitsForm from "@/app/getting-started/upload-legal-units/uploa
 
 export default async function UploadLegalUnitsPage() {
   const client = createClient()
-  const {count} = await client.from('legal_unit').select('*', {count: 'exact', head: true})
+  const {count} = await client
+    .from('legal_unit')
+    .select('*', {count: 'exact', head: true})
+    .limit(0)
+
   return (
     <section className="space-y-8">
       <h1 className="text-xl text-center">Upload Legal Units</h1>
