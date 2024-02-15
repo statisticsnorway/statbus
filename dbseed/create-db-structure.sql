@@ -1802,6 +1802,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , external_ident
     , external_ident_type
     , name
+    , birth_date
+    , death_date
     , search
     , primary_activity_category_id
     , primary_activity_category_path
@@ -1847,6 +1849,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , external_ident
          , external_ident_type
          , name
+         , birth_date
+         , death_date
          , search
          , primary_activity_category_id
          , primary_activity_category_path
@@ -1874,6 +1878,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , es.external_ident AS external_ident
            , es.external_ident_type AS external_ident_type
            , es.name AS name
+           , es.birth_date AS birth_date
+           , es.death_date AS death_date
            -- Se supported languages with `SELECT * FROM pg_ts_config`
            , -- to_tsvector('norwegian', es.name) ||
              -- to_tsvector('english', es.name) ||
@@ -1942,6 +1948,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , external_ident
            , external_ident_type
            , name
+           , birth_date
+           , death_date
            , search
            , primary_activity_category_id
            , primary_activity_category_path
@@ -1962,6 +1970,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , external_ident
          , external_ident_type
          , name
+         , birth_date
+         , death_date
          , search
          , primary_activity_category_id
          , primary_activity_category_path
@@ -1989,6 +1999,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , lu.external_ident AS external_ident
              , lu.external_ident_type AS external_ident_type
              , lu.name AS name
+             , lu.birth_date AS birth_date
+             , lu.death_date AS death_date
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', lu.name) AS search
              , pa.activity_category_id AS primary_activity_category_id
@@ -2055,6 +2067,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , external_ident
            , external_ident_type
            , name
+           , birth_date
+           , death_date
            , search
            , primary_activity_category_id
            , primary_activity_category_path
@@ -2074,6 +2088,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , external_ident
          , external_ident_type
          , name
+         , birth_date
+         , death_date
          , search
          , primary_activity_category_id
          , primary_activity_category_path
@@ -2101,6 +2117,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , plu.external_ident AS external_ident
              , plu.external_ident_type AS external_ident_type
              , plu.name AS name
+             , plu.birth_date AS birth_date
+             , plu.death_date AS death_date
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', lu.name) AS search
              , pa.activity_category_id AS primary_activity_category_id
@@ -2172,6 +2190,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , external_ident
            , external_ident_type
            , name
+           , birth_date
+           , death_date
            , search
            , primary_activity_category_id
            , primary_activity_category_path
@@ -2191,6 +2211,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , external_ident
          , external_ident_type
          , name
+         , birth_date
+         , death_date
          , search
          , primary_activity_category_id
          , primary_activity_category_path
@@ -2218,6 +2240,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , es.external_ident AS external_ident
              , es.external_ident_type AS external_ident_type
              , es.name AS name
+             , es.birth_date AS birth_date
+             , es.death_date AS death_date
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', es.name) AS search
              , pa.activity_category_id AS primary_activity_category_id
@@ -2282,6 +2306,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , external_ident
            , external_ident_type
            , name
+           , birth_date
+           , death_date
            , search
            , primary_activity_category_id
            , primary_activity_category_path
@@ -2300,6 +2326,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::TEXT AS external_ident
          , NULL::TEXT AS external_ident_type
          , NULL::TEXT AS name
+         , NULL::DATE AS birth_date
+         , NULL::DATE AS death_date
          , NULL::TSVECTOR AS search
          , NULL::INTEGER AS primary_activity_category_id
          , NULL::public.ltree AS primary_activity_category_path
@@ -3829,12 +3857,17 @@ CREATE VIEW public.legal_unit_region_activity_category_current
 WITH (security_invoker=on) AS
 SELECT lu.tax_reg_ident
      , lu.name
+     , lu.birth_date
+     , lu.death_date
      , phr.code AS physical_region_code
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
+     , seac.code AS secondary_activity_category_code
 FROM public.legal_unit AS lu
 LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
 LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
+LEFT JOIN public.activity AS sea ON sea.legal_unit_id = lu.id AND sea.activity_type = 'secondary' AND sea.valid_from >= current_date AND current_date <= sea.valid_to
+LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = seac.id
 LEFT JOIN public.location AS phl ON phl.legal_unit_id = lu.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
 LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
@@ -3849,7 +3882,9 @@ DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
     primary_activity_category RECORD;
+    secondary_activity_category RECORD;
     upsert_data RECORD;
+    new_typed RECORD;
     enterprise RECORD;
     is_primary_for_enterprise BOOLEAN;
     inserted_legal_unit RECORD;
@@ -3868,9 +3903,13 @@ BEGIN
     --   record "physical_region" has no field "id"
     -- Since it always has the correct fallback of NULL for id
     --
+    SELECT NULL::DATE AS birth_date
+         , NULL::DATE AS death_date
+        INTO new_typed;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO primary_activity_category;
+    SELECT NULL::int AS id INTO secondary_activity_category;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -3900,9 +3939,39 @@ BEGIN
       END IF;
     END IF;
 
+    IF NEW.secondary_activity_category_code IS NOT NULL
+       AND REPLACE(REPLACE(NEW.secondary_activity_category_code, '.', ''), '0', '') <> ''
+    THEN
+      SELECT * INTO secondary_activity_category
+      FROM public.activity_category_available
+      WHERE code = NEW.secondary_activity_category_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find secondary_activity_category_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{secondary_activity_category_code}', to_jsonb(NEW.secondary_activity_category_code), true);
+      END IF;
+    END IF;
+
+    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
+        BEGIN
+            new_typed.birth_date := NEW.birth_date::INTEGER;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
+        END;
+    END IF;
+
+    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
+        BEGIN
+            new_typed.death_date := NEW.death_date::INTEGER;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
+        END;
+    END IF;
+
     SELECT NEW.tax_reg_ident AS tax_reg_ident
          , statement_timestamp() AS tax_reg_date
          , NEW.name AS name
+         , new_typed.birth_date AS birth_date
+         , new_typed.death_date AS death_date
          , true AS active
          , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
@@ -3938,6 +4007,8 @@ BEGIN
         valid_from,
         valid_to,
         name,
+        birth_date,
+        death_date,
         active,
         seen_in_import_at,
         edit_comment,
@@ -3953,6 +4024,8 @@ BEGIN
         new_valid_from,
         new_valid_to,
         upsert_data.name,
+        upsert_data.birth_date,
+        upsert_data.death_date,
         upsert_data.active,
         upsert_data.seen_in_import_at,
         upsert_data.edit_comment,
@@ -3963,7 +4036,6 @@ BEGIN
     )
     RETURNING * INTO inserted_legal_unit;
     RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
-    RAISE DEBUG 'inserted_legal_unit';
 
     IF physical_region.id IS NOT NULL THEN
         INSERT INTO public.location_era
@@ -4005,6 +4077,30 @@ BEGIN
             inserted_legal_unit.id,
             'primary',
             primary_activity_category.id,
+            edited_by_user.id,
+            statement_timestamp()
+        )
+        RETURNING * INTO inserted_activity;
+    END IF;
+
+    IF secondary_activity_category.id IS NOT NULL THEN
+        INSERT INTO public.activity_era
+        (
+            valid_from,
+            valid_to,
+            legal_unit_id,
+            activity_type,
+            activity_category_id,
+            updated_by_user_id,
+            updated_at
+        )
+        VALUES
+        (
+            new_valid_from,
+            new_valid_to,
+            inserted_legal_unit.id,
+            'secondary',
+            secondary_activity_category.id,
             edited_by_user.id,
             statement_timestamp()
         )
@@ -4063,24 +4159,36 @@ CREATE VIEW public.establishment_region_activity_category_stats_current
 WITH (security_invoker=on) AS
 SELECT es.tax_reg_ident
      , lu.tax_reg_ident AS legal_unit_tax_reg_ident
-     , es.name
+     , es.name AS name
+     , es.birth_date::TEXT AS birth_date
+     , es.death_date::TEXT AS death_date
      , phr.code AS physical_region_code
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
+     , seac.code AS secondary_activity_category_code
      , sfu1.value_int::TEXT AS employees
      , sfu2.value_int::TEXT AS turnover
 FROM public.establishment AS es
 LEFT JOIN public.legal_unit AS lu ON lu.id = es.legal_unit_id AND lu.valid_from >= current_date AND current_date <= lu.valid_to
+
 LEFT JOIN public.activity AS pra ON pra.establishment_id = es.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
 LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
+
+LEFT JOIN public.activity AS sea ON sea.establishment_id = es.id AND sea.activity_type = 'secondary' AND sea.valid_from >= current_date AND current_date <= sea.valid_to
+LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = prac.id
+
 LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
+
 LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 LEFT JOIN public.region AS por ON pol.region_id = por.id
+
 LEFT JOIN public.stat_definition AS sd1 ON sd1.code = 'employees'
 LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id AND sfu1.stat_definition_id = sd1.id AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
+
 LEFT JOIN public.stat_definition AS sd2 ON sd2.code = 'turnover'
 LEFT JOIN public.stat_for_unit AS sfu2 ON sfu2.establishment_id = es.id AND sfu2.stat_definition_id = sd2.id AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
+
 WHERE es.valid_from >= current_date AND current_date <= es.valid_to
   AND es.active
 ;
@@ -4094,7 +4202,9 @@ DECLARE
     is_primary_for_legal_unit BOOLEAN;
     enterprise RECORD;
     primary_activity_category RECORD;
+    secondary_activity_category RECORD;
     upsert_data RECORD;
+    new_typed RECORD;
     inserted_establishment RECORD;
     inserted_location RECORD;
     inserted_activity RECORD;
@@ -4114,10 +4224,14 @@ BEGIN
     --   record "enterprise" has no field "id"
     -- Since it always has the correct fallback of NULL for id
     --
+    SELECT NULL::DATE AS birth_date
+         , NULL::DATE AS death_date
+        INTO new_typed;
     SELECT NULL::int AS id INTO legal_unit;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO primary_activity_category;
+    SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS employees
          , NULL::int AS turnover
         INTO stats;
@@ -4186,9 +4300,39 @@ BEGIN
       END IF;
     END IF;
 
+    IF NEW.secondary_activity_category_code IS NOT NULL
+       AND REPLACE(REPLACE(NEW.secondary_activity_category_code, '.', ''), '0', '') <> ''
+    THEN
+      SELECT * INTO secondary_activity_category
+      FROM public.activity_category_available
+      WHERE code = NEW.secondary_activity_category_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find secondary_activity_category_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{secondary_activity_category_code}', to_jsonb(NEW.secondary_activity_category_code), true);
+      END IF;
+    END IF;
+
+    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
+        BEGIN
+            new_typed.birth_date := NEW.birth_date::INTEGER;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
+        END;
+    END IF;
+
+    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
+        BEGIN
+            new_typed.death_date := NEW.death_date::INTEGER;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
+        END;
+    END IF;
+
     SELECT NEW.tax_reg_ident AS tax_reg_ident
          , statement_timestamp() AS tax_reg_date
          , NEW.name AS name
+         , new_typed.birth_date AS birth_date
+         , new_typed.death_date AS death_date
          , true AS active
          , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
@@ -4208,6 +4352,8 @@ BEGIN
     , valid_from
     , valid_to
     , name
+    , birth_date
+    , death_date
     , active
     , seen_in_import_at
     , edit_comment
@@ -4224,6 +4370,8 @@ BEGIN
         new_valid_from,
         new_valid_to,
         upsert_data.name,
+        upsert_data.birth_date,
+        upsert_data.death_date,
         upsert_data.active,
         upsert_data.seen_in_import_at,
         upsert_data.edit_comment,
@@ -4235,7 +4383,6 @@ BEGIN
     )
     RETURNING * INTO inserted_establishment;
     RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);
-    RAISE DEBUG 'inserted_establishment';
 
     IF physical_region.id IS NOT NULL THEN
         INSERT INTO public.location_era
@@ -4277,6 +4424,30 @@ BEGIN
             inserted_establishment.id,
             'primary',
             primary_activity_category.id,
+            edited_by_user.id,
+            statement_timestamp()
+        )
+        RETURNING * INTO inserted_activity;
+    END IF;
+
+    IF secondary_activity_category.id IS NOT NULL THEN
+        INSERT INTO public.activity_era
+        (
+            valid_from,
+            valid_to,
+            establishment_id,
+            activity_type,
+            activity_category_id,
+            updated_by_user_id,
+            updated_at
+        )
+        VALUES
+        (
+            new_valid_from,
+            new_valid_to,
+            inserted_establishment.id,
+            'secondary',
+            secondary_activity_category.id,
             edited_by_user.id,
             statement_timestamp()
         )

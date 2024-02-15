@@ -105,8 +105,11 @@ class StatBus
     sql_field_required_list = ["tax_reg_ident"]
     sql_field_optional_list = [
       "name",
+      "birth_date",
+      "death_date",
       "physical_region_code",
       "primary_activity_category_code",
+      "secondary_activity_category_code",
     ]
     upload_view_name = "legal_unit_region_activity_category_current"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
@@ -120,8 +123,11 @@ class StatBus
     sql_field_optional_list = [
       "legal_unit_tax_reg_ident",
       "name",
+      "birth_date",
+      "death_date",
       "physical_region_code",
       "primary_activity_category_code",
+      "secondary_activity_category_code",
       "employees",
       "turnover",
     ]
