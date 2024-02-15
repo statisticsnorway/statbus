@@ -59,7 +59,7 @@ CREATE UNLOGGED TABLE tmp.enhet(
 CREATE VIEW tmp.enhet_for_web_import AS
 SELECT "organisasjonsnummer" AS tax_reg_ident
      , "navn" AS name
-     , "oppstartsdato" AS birth_date
+     , "stiftelsesdato" AS birth_date
      -- There is no death date, the entry simply vanishes!
      --, "nedleggelsesdato" AS death_date
      , "forretningsadresse.kommunenummer" AS physical_region_code
