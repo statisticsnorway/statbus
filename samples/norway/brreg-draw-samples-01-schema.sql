@@ -109,5 +109,5 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "navn" AS name
      , "beliggenhetsadresse.kommunenummer" AS physical_region_code
      , "naeringskode1.kode" AS primary_activity_category_code
-     , "antallAnsatte" AS employees
+     , CASE WHEN "antallAnsatte" = '' THEN NULL ELSE "antallAnsatte" END AS employees
 FROM tmp.underenhet;
