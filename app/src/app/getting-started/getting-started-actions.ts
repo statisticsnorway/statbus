@@ -32,7 +32,7 @@ export async function uploadFile(filename: string, uploadView: UploadView, _prev
             const data = await response.json()
             console.error(`upload to ${uploadView} failed with status ${response.status} ${response.statusText}`)
             console.error(data)
-            return {error: data.message.replace(/,/g, ', ')}
+            return {error: data.message.replace(/,/g, ', ').replace(/;/g, '; ')}
         }
 
     } catch (e) {

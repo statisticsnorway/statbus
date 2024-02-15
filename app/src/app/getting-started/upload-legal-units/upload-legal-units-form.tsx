@@ -27,7 +27,7 @@ export default function UploadLegalUnitsForm() {
       {
         state.error ? (
           <ErrorBox>
-            <span>{state.error}</span>
+            <span className="text-sm">{state.error}</span>
           </ErrorBox>
         ) : null
       }
