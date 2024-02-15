@@ -53,7 +53,7 @@ export default async function UploadLegalUnitsPage() {
               must conform to a specific format in order to be processed correctly. Have a look at this example
               CSV file to get an idea of how the file should be structured:
             </p>
-            <a href="/100BREGUnits.csv" download="legalunits.example.csv" className="underline">Download example CSV
+            <a href="/enheter-selection-web-import.csv" download="legalunits.example.csv" className="underline">Download example CSV
               file</a>
           </AccordionContent>
         </AccordionItem>
