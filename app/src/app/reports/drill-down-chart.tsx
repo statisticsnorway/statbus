@@ -13,9 +13,8 @@ export const DrillDownChart = ({points, onSelect}: DrillDownChartProps) => {
     const _chart = useRef<Chart | null>(null)
 
     useEffect(() => {
-        _chart.current?.destroy();
-
         if (_ref.current) {
+            _chart.current?.destroy();
             _chart.current = chart({
                 chart: {
                     renderTo: _ref.current,
