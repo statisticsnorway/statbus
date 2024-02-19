@@ -2,6 +2,7 @@ import {Tables} from "@/lib/database.types";
 import {useReducer} from "react";
 import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
 import {useSearchParams} from "next/navigation";
+import {PHYSICAL_REGION_PATH, PRIMARY_ACTIVITY_CATEGORY_PATH} from "@/app/search/constants";
 
 function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
   switch (action.type) {
@@ -42,9 +43,6 @@ interface FilterOptions {
   regions: Tables<"region_used">[]
   statisticalVariables: Tables<"stat_definition">[]
 }
-
-const PHYSICAL_REGION_PATH = 'physical_region_path';
-const PRIMARY_ACTIVITY_CATEGORY_PATH = 'primary_activity_category_path';
 
 export const useFilter = ({regions = [], activityCategories = [], statisticalVariables = []}: FilterOptions) => {
   const urlSearchParams = useSearchParams()

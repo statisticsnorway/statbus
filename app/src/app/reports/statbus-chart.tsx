@@ -9,6 +9,7 @@ import {BreadCrumb} from "@/app/reports/bread-crumb";
 import {DrillDownChart} from "@/app/reports/drill-down-chart";
 import {useDrillDownData} from "@/app/reports/use-drill-down-data";
 import {InfoBox} from "@/components/info-box";
+import {SearchLink} from "@/app/reports/search-link";
 
 export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
     const {drillDown, region, setRegion, activityCategory, setActivityCategory} = useDrillDownData(props.drillDown);
@@ -51,6 +52,10 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
                     onSelect={setActivityCategory}
                 />
             </div>
+
+          <div className="flex justify-end p-6 space-y-6 bg-gray-100">
+            <SearchLink region={region} activityCategory={activityCategory}/>
+          </div>
         </div>
     )
 }
