@@ -1,6 +1,7 @@
 import {Tables} from "@/lib/database.types";
 import {useReducer} from "react";
 import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
+import {useSearchParams} from "next/navigation";
 
 function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
   switch (action.type) {
@@ -42,7 +43,11 @@ interface FilterOptions {
   statisticalVariables: Tables<"stat_definition">[]
 }
 
+const PHYSICAL_REGION_PATH = 'physical_region_path';
+const PRIMARY_ACTIVITY_CATEGORY_PATH = 'primary_activity_category_path';
+
 export const useFilter = ({regions = [], activityCategories = [], statisticalVariables = []}: FilterOptions) => {
+  const urlSearchParams = useSearchParams()
   const standardFilters: SearchFilter[] = [
     {
       type: "search",
@@ -82,7 +87,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
           humanReadableValue: `${code} ${name}`
         }
       )),
-      selected: [],
+      selected: urlSearchParams?.has(PHYSICAL_REGION_PATH) ? [urlSearchParams?.get(PHYSICAL_REGION_PATH) as string] : [],
       postgrestQuery: ({selected}) => selected.length ? `cd.${selected.join()}` : null
     },
     {
@@ -96,7 +101,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
           humanReadableValue: `${code} ${name}`
         }
       )),
-      selected: [],
+      selected: urlSearchParams?.has(PRIMARY_ACTIVITY_CATEGORY_PATH) ? [urlSearchParams?.get(PRIMARY_ACTIVITY_CATEGORY_PATH) as string] : [],
       postgrestQuery: ({selected}) => selected.length ? `cd.${selected.join()}` : null
     }
   ];
