@@ -1,7 +1,7 @@
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {SearchResult} from "@/app/search/search.types";
 import {Tables} from "@/lib/database.types";
-import {StatisticalUnitDetailsLink} from "@/app/search/components/statistical-unit-details-link";
+import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-link";
 
 interface TableProps {
     readonly searchResult: SearchResult
@@ -43,10 +43,8 @@ export default function SearchResultTable({searchResult: {statisticalUnits}, reg
                                         <small className="text-gray-700">{tax_reg_ident}</small>
                                     </TableCell>
                                     <TableCell className="text-left">{unit_type}</TableCell>
-                                    <TableCell
-                                        className="text-left">{getRegionByPath(physical_region_path)?.name}</TableCell>
-                                    <TableCell
-                                        className="text-right p-2 px-4">{getActivityCategoryByPath(primary_activity_category_path)?.code}</TableCell>
+                                    <TableCell className="text-left">{getRegionByPath(physical_region_path)?.name}</TableCell>
+                                    <TableCell className="text-right p-2 px-4">{getActivityCategoryByPath(primary_activity_category_path)?.code}</TableCell>
                                 </TableRow>
                             )
                         }

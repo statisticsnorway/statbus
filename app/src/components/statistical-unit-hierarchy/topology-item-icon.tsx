@@ -1,7 +1,7 @@
 import {Building, Store} from "lucide-react";
 
 interface TopologyItemIconProps {
-    type: 'legal_unit' | 'establishment';
+    type: 'legal_unit' | 'establishment' | 'enterprise' | 'enterprise_group';
     active?: boolean;
 }
 

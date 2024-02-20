@@ -1,7 +1,7 @@
-import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
+import {getEstablishmentById} from "@/app/establishments/[id]/establishment-requests";
 
 export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
-  const unit = await getLegalUnitById(id);
+  const unit = await getEstablishmentById(id);
 
   return (
     <div className="space-y-0.5">

@@ -1,7 +1,8 @@
 import {Metadata} from "next"
 import {Separator} from "@/components/ui/separator";
 import {ReactNode} from "react";
-import {SidebarLink, SidebarNav} from "@/app/legal-units/components/sidebar-nav";
+
+import {SidebarLink, SidebarNav} from "@/components/sidebar-nav";
 
 export const metadata: Metadata = {
   title: "Legal Unit"
