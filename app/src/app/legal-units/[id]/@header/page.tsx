@@ -1,6 +1,6 @@
 import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
 
-export default async function LegalUnitHeader({params: {id}}: { readonly params: { id: string } }) {
+export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
   const unit = await getLegalUnitById(id);
 
   return (
