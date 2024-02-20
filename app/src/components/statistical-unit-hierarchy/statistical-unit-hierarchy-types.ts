@@ -9,7 +9,7 @@ export type Enterprise = {
     legal_unit: LegalUnit[];
 };
 
-export type LegalUnit = {
+type StatisticalUnit = {
     id: number;
     name: string;
     notes: string | null;
@@ -32,32 +32,13 @@ export type LegalUnit = {
     unit_size_id: string | null;
     email_address: string | null;
     enterprise_id: number | null;
+}
+
+export type LegalUnit = StatisticalUnit & {
     establishment: Establishment[];
 };
 
-export type Establishment = {
-    id: number;
-    name: string;
-    notes: string | null;
-    active: boolean;
-    primary: boolean;
-    activity: any[];
-    location: any[];
-    valid_to: string;
-    birth_date: string | null;
-    death_date: string | null;
-    reorg_date: string | null;
-    short_name: string | null;
-    stat_ident: string | null;
-    valid_from: string;
-    data_source: string | null;
-    web_address: string | null;
-    edit_comment: string;
-    tax_reg_date: string;
-    telephone_no: string | null;
-    unit_size_id: string | null;
-    email_address: string | null;
-    enterprise_id: number | null;
+export type Establishment = StatisticalUnit & {
     invalid_codes: string | null;
     legal_unit_id: number;
     reorg_type_id: string | null;
