@@ -2,6 +2,7 @@ import {Metadata} from "next";
 import {notFound} from "next/navigation";
 import {Separator} from "@/components/ui/separator";
 import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
+import DataDump from "@/components/data-dump";
 
 export const metadata: Metadata = {
   title: "Legal Unit | Inspect"
@@ -24,9 +25,7 @@ export default async function LegalUnitInspectionPage({params: {id}}: { readonly
       </div>
       <Separator />
       <div>
-        <pre className="mt-2 rounded-md bg-slate-950 p-4">
-          <code className="text-white text-xs">{JSON.stringify(unit, null, 2)}</code>
-        </pre>
+        <DataDump data={unit} />
       </div>
     </div>
   )

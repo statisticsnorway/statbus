@@ -5,21 +5,23 @@ import {useToast} from "@/components/ui/use-toast";
 import {useRouter} from "next/navigation";
 import {Footprints, Home, ListRestart, Pilcrow, Trash, Upload, User} from "lucide-react"
 import {
-    refreshStatisticalUnits,
-    resetRegions,
-    resetSettings,
-    resetUnits
+  refreshStatisticalUnits,
+  resetRegions,
+  resetSettings,
+  resetUnits
 } from "@/components/command-palette/command-palette-actions";
 
 import {
-    CommandDialog,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
 } from "@/components/ui/command"
+
+import DataDump from "@/components/data-dump";
 
 export function CommandPalette() {
     const [open, setOpen] = useState(false)
@@ -87,11 +89,7 @@ export function CommandPalette() {
         const response = await refreshStatisticalUnits()
         toast({
             title: response?.error ? "Statistical Units Refresh Failed" : "Statistical Units successfully refreshed.",
-            description: response?.error ?? (
-                <pre className="mt-2 rounded-md bg-slate-950 p-4">
-              <code className="text-white text-xs">{JSON.stringify(response.data, null, 2)}</code>
-            </pre>
-            ) ?? "Statistical Units have been refreshed.",
+            description: response?.error ?? <DataDump data={response} /> ?? "Statistical Units have been refreshed.",
         })
     }
 
