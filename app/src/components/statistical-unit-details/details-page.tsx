@@ -4,7 +4,7 @@ import {Separator} from "@/components/ui/separator";
 export const DetailsPage = ({title, subtitle, children}: {
   readonly title: string,
   readonly subtitle: string,
-  readonly children: ReactNode
+  readonly children?: ReactNode
 }) => (
   <div className="space-y-6">
     <div>

@@ -11,7 +11,7 @@ export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
   return (
     <ul className="text-xs">
       {
-        hierarchy?.enterprise.legal_unit.map((legalUnit) => (
+        hierarchy?.enterprise?.legal_unit.map((legalUnit) => (
           <TopologyItem
             key={legalUnit.id}
             unit={legalUnit}
