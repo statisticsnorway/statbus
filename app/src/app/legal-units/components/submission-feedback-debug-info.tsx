@@ -8,7 +8,7 @@ export function SubmissionFeedbackDebugInfo({state}: {
 }) {
   return state?.status ? (
     <DataDump
-      className={cn('block text-xs', state.status === "success" ? "bg-green-100" : "bg-red-100")}
+      className={cn('block text-xs text-black', state.status === "success" ? "bg-green-100" : "bg-red-100")}
       data={state}
     />
   ) : null

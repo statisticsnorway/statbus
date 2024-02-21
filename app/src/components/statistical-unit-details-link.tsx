@@ -18,7 +18,7 @@ export function StatisticalUnitDetailsLink({id, type, name, className}: Statisti
      * For example, if we are on /legal-units/1/contact, and we click on an establishment,
      * we want to go to /establishments/2/contact.
      */
-    const path = /\d+\/(.+)/.exec(pathname)?.[1] ?? '';
+    const path = /\d+\/([\w\-]+)\/?$/.exec(pathname)?.[1] ?? '';
 
     const href = {
         enterprise_group: `/enterprise-groups/${id}/${path}`,
