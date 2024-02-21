@@ -108,15 +108,15 @@ const DashboardCard = ({title, icon, text, failed}: {
   readonly failed: boolean
 }) => {
   return (
-    <Card className={cn("", failed ? "bg-red-100" : "")}>
+    <Card className={cn("tracking-tight", failed ? "bg-red-100" : "")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
+        <CardTitle className="text-xs text-gray-700 font-medium">
           {title}
         </CardTitle>
         {icon}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{text}</div>
+        <div className="text-xl font-semibold">{text}</div>
       </CardContent>
     </Card>
   )

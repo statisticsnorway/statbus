@@ -15,7 +15,7 @@ export default function Navbar() {
           <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">StatBus</span>
         </a>
         <div className="flex-1 flex items-center gap-8 justify-end">
-          <div className="space-x-3">
+          <div className="space-x-3 hidden lg:flex">
             <Link
               href="/reports"
               className={cn(buttonVariants({variant: "outline", size: "sm"}), "font-normal space-x-2")}
