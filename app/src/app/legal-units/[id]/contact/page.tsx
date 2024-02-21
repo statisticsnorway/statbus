@@ -1,8 +1,8 @@
 import {Metadata} from "next";
 import {notFound} from "next/navigation";
-import {Separator} from "@/components/ui/separator";
 import ContactInfoForm from "@/app/legal-units/[id]/contact/contact-info-form";
 import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
+import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 
 export const metadata: Metadata = {
   title: "Legal Unit | Contact"
@@ -16,15 +16,8 @@ export default async function LegalUnitContactPage({params: {id}}: { readonly pa
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Contact Info</h3>
-        <p className="text-sm text-muted-foreground">
-          Contact information such as email, phone, and addresses.
-        </p>
-      </div>
-      <Separator/>
+    <DetailsPage title="Contact Info" subtitle="Contact information such as email, phone, and addresses">
       <ContactInfoForm values={unit} id={id}/>
-    </div>
+    </DetailsPage>
   )
 }

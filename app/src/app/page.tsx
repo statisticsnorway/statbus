@@ -4,6 +4,7 @@ import {BarChart3, Building, Globe2, ScrollText, Settings} from "lucide-react";
 import {createClient} from "@/lib/supabase/server";
 import {ReactNode} from "react";
 import {cn} from "@/lib/utils";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "StatBus | Dashboard"
@@ -56,12 +57,14 @@ export default async function Dashboard() {
     <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto">
       <h1 className="font-medium text-xl text-center mb-12">StatBus Dashboard</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DashboardCard
-          title="Statistical Units"
-          icon={<Building size={18}/>}
-          text={statisticalUnitsCount?.toString() ?? '-'}
-          failed={!!statisticalUnitsError}
-        />
+        <Link href="/search">
+          <DashboardCard
+            title="Statistical Units"
+            icon={<Building size={18}/>}
+            text={statisticalUnitsCount?.toString() ?? '-'}
+            failed={!!statisticalUnitsError}
+          />
+        </Link>
 
         <DashboardCard
           title="Regions"
@@ -70,12 +73,14 @@ export default async function Dashboard() {
           failed={!!regionsError}
         />
 
-        <DashboardCard
-          title="Activity Category Standard"
-          icon={<ScrollText size={18}/>}
-          text={settings?.[0]?.activity_category_standard?.name ?? '-'}
-          failed={!!settingsError}
-        />
+        <Link href="/getting-started/activity-standard">
+          <DashboardCard
+            title="Activity Category Standard"
+            icon={<ScrollText size={18}/>}
+            text={settings?.[0]?.activity_category_standard?.name ?? '-'}
+            failed={!!settingsError}
+          />
+        </Link>
 
         <DashboardCard
           title="Statistical Variables"
@@ -84,12 +89,14 @@ export default async function Dashboard() {
           failed={!!statisticalVariablesError}
         />
 
-        <DashboardCard
-          title="Custom Activity Category Codes"
-          icon={<Settings size={18}/>}
-          text={customActivityCategoryCodesCount?.toString() ?? '-'}
-          failed={!!customActivityCategoryCodesError}
-        />
+        <Link href="/getting-started/upload-custom-activity-standard-codes">
+          <DashboardCard
+            title="Custom Activity Category Codes"
+            icon={<Settings size={18}/>}
+            text={customActivityCategoryCodesCount?.toString() ?? '-'}
+            failed={!!customActivityCategoryCodesError}
+          />
+        </Link>
 
         <DashboardCardPlaceholder/>
       </div>
@@ -108,15 +115,15 @@ const DashboardCard = ({title, icon, text, failed}: {
   readonly failed: boolean
 }) => {
   return (
-    <Card className={cn("", failed ? "bg-red-100" : "")}>
+    <Card className={cn("tracking-tight", failed ? "bg-red-100" : "")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
+        <CardTitle className="text-xs text-gray-700 font-medium">
           {title}
         </CardTitle>
         {icon}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{text}</div>
+        <div className="text-xl font-semibold">{text}</div>
       </CardContent>
     </Card>
   )

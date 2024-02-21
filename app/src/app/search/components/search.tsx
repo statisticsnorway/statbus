@@ -36,7 +36,7 @@ export default function Search(
                 <span className="indent-2.5">
                     Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count} results
                 </span>
-                <div className="space-x-3 flex">
+                <div className="space-x-3 hidden lg:flex">
                   <SaveSearchButton disabled />
                   <ExportCSVLink searchResult={searchResult} searchParams={searchParams} />
                 </div>

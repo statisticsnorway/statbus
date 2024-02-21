@@ -1,8 +1,8 @@
 import {Metadata} from "next";
 import {notFound} from "next/navigation";
 import GeneralInfoForm from "@/app/legal-units/[id]/general-info/general-info-form";
-import {Separator} from "@/components/ui/separator";
 import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
+import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info"
@@ -16,15 +16,8 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">General Info</h3>
-        <p className="text-sm text-muted-foreground">
-          General information such as name, id, sector and primary activity.
-        </p>
-      </div>
-      <Separator/>
+    <DetailsPage title="General Info" subtitle="General information such as name, id, sector and primary activity">
       <GeneralInfoForm values={unit} id={id}/>
-    </div>
+    </DetailsPage>
   )
 }

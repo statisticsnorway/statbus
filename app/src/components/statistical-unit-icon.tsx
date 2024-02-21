@@ -8,11 +8,11 @@ interface TopologyItemIconProps {
 export function StatisticalUnitIcon({type, size = 16}: TopologyItemIconProps) {
     switch (type) {
         case "legal_unit":
-            return <Building size={size} className="stroke-green-700"/>
+            return <Building size={size} className="stroke-gray-700 fill-lime-200"/>
         case "establishment":
-            return <Store size={size} className="stroke-blue-500"/>
+            return <Store size={size} className="stroke-gray-700 fill-indigo-200"/>
         case "enterprise":
-            return <Building2 size={size}/>
+            return <Building2 size={size} className="stroke-gray-700 fill-amber-200"/>
         default:
             return null
     }
