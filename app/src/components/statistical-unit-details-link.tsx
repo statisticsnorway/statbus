@@ -1,16 +1,15 @@
 import Link from "next/link";
 import {cn} from "@/lib/utils";
 
-interface StatisticalUnitDetailsLinkProps {
+export interface StatisticalUnitDetailsLinkProps {
     readonly id: number;
     readonly type: 'enterprise_group' | 'enterprise' | 'legal_unit' | 'establishment';
     readonly name: string;
     readonly className?: string;
+    readonly sub_path?: string;
 }
 
-export function StatisticalUnitDetailsLink({id, type, name, className}: StatisticalUnitDetailsLinkProps) {
-
-    // TODO: Update enterprise link when enterprise details page is implemented
+export function StatisticalUnitDetailsLink({id, type, name, className, sub_path}: StatisticalUnitDetailsLinkProps) {
     const href = {
         enterprise_group: `/enterprise-groups/${id}`,
         enterprise: `/legal-units/${id}`,
@@ -19,7 +18,7 @@ export function StatisticalUnitDetailsLink({id, type, name, className}: Statisti
     }[type];
 
     return (
-        <Link href={href} className={cn("font-medium", className)}>
+        <Link href={sub_path ? `${href}/${sub_path}` : href} className={cn("font-medium", className)}>
             {name}
         </Link>
     )

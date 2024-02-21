@@ -11,7 +11,7 @@ export default async function EstablishmentInspectionPage({params: {id}}: { read
   }
 
   return (
-    <DetailsPage title="Data dump" subtitle={`This section shows the raw data we have on ${unit?.name}`}>
+    <DetailsPage title="Data Dump" subtitle={`This section shows the raw data we have on ${unit?.name}`}>
       <DataDump data={unit}/>
     </DetailsPage>
   )
