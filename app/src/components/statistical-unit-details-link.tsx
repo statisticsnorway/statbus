@@ -1,34 +1,24 @@
-'use client';
 import Link from "next/link";
 import {cn} from "@/lib/utils";
-import {usePathname} from "next/navigation";
 
-interface StatisticalUnitDetailsLinkProps {
+export interface StatisticalUnitDetailsLinkProps {
     readonly id: number;
     readonly type: 'enterprise_group' | 'enterprise' | 'legal_unit' | 'establishment';
     readonly name: string;
     readonly className?: string;
+    readonly sub_path?: string;
 }
 
-export function StatisticalUnitDetailsLink({id, type, name, className}: StatisticalUnitDetailsLinkProps) {
-    const pathname = usePathname();
-
-    /*
-     * When navigating between units, we want to keep the path the same.
-     * For example, if we are on /legal-units/1/contact, and we click on an establishment,
-     * we want to go to /establishments/2/contact.
-     */
-    const path = /\d+\/([\w\-]+)\/?$/.exec(pathname)?.[1] ?? '';
-
+export function StatisticalUnitDetailsLink({id, type, name, className, sub_path}: StatisticalUnitDetailsLinkProps) {
     const href = {
-        enterprise_group: `/enterprise-groups/${id}/${path}`,
-        enterprise: `/legal-units/${id}/${path}`,
-        legal_unit: `/legal-units/${id}/${path}`,
-        establishment: `/establishments/${id}/${path}`
+        enterprise_group: `/enterprise-groups/${id}`,
+        enterprise: `/legal-units/${id}`,
+        legal_unit: `/legal-units/${id}`,
+        establishment: `/establishments/${id}`
     }[type];
 
     return (
-        <Link href={href} className={cn("font-medium", className)}>
+        <Link href={sub_path ? `${href}/${sub_path}` : href} className={cn("font-medium", className)}>
             {name}
         </Link>
     )
