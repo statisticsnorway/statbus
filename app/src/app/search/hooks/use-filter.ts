@@ -1,7 +1,5 @@
 import {useReducer} from "react";
-import type {FilterOptions, SearchFilter, SearchFilterActions} from "@/app/search/search.types";
-import {useSearchParams} from "next/navigation";
-import {createFilters} from "@/app/search/create-filters";
+import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
 
 function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
   switch (action.type) {
@@ -42,13 +40,3 @@ export const useFilter = (filters: [SearchFilter[], SearchFilter[]]) => {
   return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters])
 }
 
-export function generateFTSQuery(prompt: string = ""): string | null {
-  const cleanedPrompt = prompt.trim().toLowerCase();
-  const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(cleanedPrompt)
-  const uniqueWordsInPrompt = new Set(cleanedPrompt.match(/\b\w+\b/g) ?? []);
-  const tsQuery = [...uniqueWordsInPrompt]
-    .map(word => isNegated(word) ? `!'${word}':*` : `'${word}':*`)
-    .join(' & ');
-
-  return tsQuery ? `fts(simple).${tsQuery}` : null;
-}

@@ -1,4 +1,4 @@
-import {generateFTSQuery} from "@/app/search/hooks/use-filter";
+import {generateFTSQuery} from "@/app/search/hooks/use-search";
 
 describe("generateFTSQuery", () => {
   it('formats a simple query correctly', () => {
