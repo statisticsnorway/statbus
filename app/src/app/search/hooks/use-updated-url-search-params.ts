@@ -10,6 +10,6 @@ export default function useUpdatedUrlSearchParams(filters: SearchFilter[]) {
         return acc;
       }, new URLSearchParams());
 
-    window.history.pushState({}, '', `?${urlSearchParams}`)
+    window.history.replaceState({}, '', `?${urlSearchParams}`)
   }, [filters]);
 }
