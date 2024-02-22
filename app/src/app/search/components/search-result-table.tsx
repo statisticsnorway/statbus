@@ -5,14 +5,14 @@ import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-
 import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
 
 interface TableProps {
-  readonly searchResult: SearchResult
+  readonly searchResult?: SearchResult
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
 
 export default function SearchResultTable(
   {
-    searchResult: {statisticalUnits},
+    searchResult: { statisticalUnits } = { statisticalUnits: [], count: 0 },
     regions = [],
     activityCategories = [],
   }: TableProps) {
