@@ -67,9 +67,24 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       label: "Type",
       name: "unit_type",
       options: [
-          {label: "Legal Unit", value: "legal_unit"},
-          {label: "Establishment", value: "establishment"},
-          {label: "Enterprise", value: "enterprise"},
+        {
+          label: "Legal Unit",
+          value: "legal_unit",
+          humanReadableValue: "Legal Unit",
+          className: "bg-lime-200"
+        },
+        {
+          label: "Establishment",
+          value: "establishment",
+          humanReadableValue: "Establishment",
+          className: "bg-indigo-200"
+        },
+        {
+          label: "Enterprise",
+          value: "enterprise",
+          humanReadableValue: "Enterprise",
+          className: "bg-amber-200"
+        }
       ],
       selected: ["enterprise"],
       postgrestQuery: ({selected}) => selected.length ? `in.(${selected.join(',')})` : null
