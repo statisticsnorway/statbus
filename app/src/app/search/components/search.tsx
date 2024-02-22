@@ -7,6 +7,7 @@ import {useFilter} from "@/app/search/hooks/use-filter";
 import type {SearchResult} from "@/app/search/search.types";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import SaveSearchButton from "@/app/search/components/search-save-button";
+import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
 
 interface SearchProps {
     readonly initialSearchResult: SearchResult
@@ -25,6 +26,8 @@ export default function Search(
 ) {
     const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
     const {search: { data: searchResult}, searchParams} = useSearch(filters, initialSearchResult)
+
+    useUpdatedUrlSearchParams(filters)
 
     return (
         <section className="space-y-3">

@@ -1,6 +1,6 @@
 import {Tables} from "@/lib/database.types";
 import {useReducer} from "react";
-import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
+import type {SearchFilter, SearchFilterActions, SearchFilterCondition} from "@/app/search/search.types";
 import {useSearchParams} from "next/navigation";
 import {PHYSICAL_REGION_PATH, PRIMARY_ACTIVITY_CATEGORY_PATH} from "@/app/search/constants";
 
@@ -52,14 +52,14 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
       label: "Name",
       // Search is a vector field of name indexed for fast full text search.
       name: "search",
-      selected: [],
+      selected: urlSearchParams?.has('search') ? [urlSearchParams?.get('search') as string] : [],
       postgrestQuery: ({selected}) => generateFTSQuery(selected[0])
     },
     {
       type: "search",
       label: "Tax ID",
       name: "tax_reg_ident",
-      selected: [],
+      selected: urlSearchParams?.has('tax_reg_ident') ? [urlSearchParams?.get('tax_reg_ident') as string] : [],
       postgrestQuery: ({selected}) => selected[0] ? `eq.${selected[0]}` : null
     },
     {
@@ -86,7 +86,7 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
           className: "bg-enterprise-200"
         }
       ],
-      selected: ["enterprise"],
+      selected: urlSearchParams?.get('unit_type')?.split(',') ?? ["enterprise"],
       postgrestQuery: ({selected}) => selected.length ? `in.(${selected.join(',')})` : null
     },
     {
@@ -119,14 +119,20 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
     }
   ];
 
-  const statisticalVariableFilters: SearchFilter[] = statisticalVariables.map(variable => ({
-    type: "conditional",
-    name: variable.code,
-    label: variable.name,
-    selected: [],
-    postgrestQuery: ({condition, selected}: SearchFilter) =>
-      condition && selected.length ? `${condition}.${selected.join(',')}` : null
-  }));
+  const statisticalVariableFilters: SearchFilter[] = statisticalVariables.map(variable => {
+    const conditionalSearchParam = urlSearchParams?.get(variable.code)
+    const [condition, value] = conditionalSearchParam?.split('.') ?? []
+
+    return {
+      type: "conditional",
+      name: variable.code,
+      label: variable.name,
+      selected: value ? [value] : [],
+      condition: condition ? condition as SearchFilterCondition : undefined,
+      postgrestQuery: ({condition, selected}: SearchFilter) =>
+        condition && selected.length ? `${condition}.${selected.join(',')}` : null
+    }
+  });
 
   return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters])
 }
