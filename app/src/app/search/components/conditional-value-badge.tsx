@@ -20,7 +20,7 @@ export function ConditionalValueBadge({condition, value}: ConditionalValue) {
     const prefix = resolveSymbol(condition)
 
     return (
-        <Badge variant="secondary" className="rounded-sm px-1 font-normal">
+        <Badge variant="secondary" className="rounded-sm px-2 font-normal">
             {prefix} {value}
         </Badge>
     )

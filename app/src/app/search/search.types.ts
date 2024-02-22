@@ -6,6 +6,7 @@ export type SearchFilterOption = {
     readonly label: string
     readonly value: string
     readonly humanReadableValue?: string
+    readonly className?: string
 }
 
 export type SearchFilter = {
