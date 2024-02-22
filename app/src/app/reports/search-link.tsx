@@ -1,7 +1,7 @@
 import {DrillDownPoint} from "@/app/reports/types/drill-down";
 import {Button} from "@/components/ui/button";
 import Link from "next/link";
-import {PHYSICAL_REGION_PATH, PRIMARY_ACTIVITY_CATEGORY_PATH} from "@/app/search/constants";
+import {SearchFilterName} from "@/app/search/search.types";
 
 export const SearchLink = ({region, activityCategory}: {
   readonly region: DrillDownPoint | null,
@@ -11,11 +11,13 @@ export const SearchLink = ({region, activityCategory}: {
   const searchParams = new URLSearchParams();
 
   if (region) {
-    searchParams.set(PHYSICAL_REGION_PATH, region.path);
+    const name: SearchFilterName = 'physical_region_path'
+    searchParams.set(name, region.path);
   }
 
   if (activityCategory) {
-    searchParams.set(PRIMARY_ACTIVITY_CATEGORY_PATH, activityCategory.path);
+    const name: SearchFilterName = 'primary_activity_category_path'
+    searchParams.set(name, activityCategory.path);
   }
 
   return (

@@ -2,18 +2,14 @@ import {createClient} from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import {Metadata} from "next";
 
+import {createFilters} from "@/app/search/create-filters";
+
 export const metadata: Metadata = {
     title: "StatBus | Search statistical units"
 }
 
-export default async function SearchPage() {
+export default async function SearchPage({ searchParams }: { readonly searchParams: URLSearchParams }) {
     const client = createClient();
-    const statisticalUnitPromise = client
-        .from('statistical_unit')
-        .select('name, tax_reg_ident, primary_activity_category_path, unit_id, unit_type, physical_region_path', {count: 'exact'})
-        .in('unit_type', ['enterprise'])
-        .order('tax_reg_ident', {ascending: false})
-        .limit(10);
 
     const regionPromise = client
         .from('region_used')
@@ -29,20 +25,14 @@ export default async function SearchPage() {
         .order('priority', {ascending: true});
 
     const [
-        {data: statisticalUnits, count, error: statisticalUnitsError},
         {data: regions, error: regionsError},
         {data: activityCategories, error: activityCategoriesError},
         {data: statisticalVariables}
     ] = await Promise.all([
-        statisticalUnitPromise,
         regionPromise,
         activityCategoryPromise,
         statDefinitionPromise
     ]);
-
-    if (statisticalUnitsError) {
-        console.error('⚠️failed to fetch statistical units', statisticalUnitsError);
-    }
 
     if (regionsError) {
         console.error('⚠️failed to fetch regions', regionsError);
@@ -52,6 +42,12 @@ export default async function SearchPage() {
         console.error('⚠️failed to fetch activity categories', activityCategoriesError);
     }
 
+    const filters = createFilters({
+        activityCategories: activityCategories ?? [],
+        regions: regions ?? [],
+        statisticalVariables: statisticalVariables ?? []
+    }, new URLSearchParams(searchParams));
+
     return (
         <main className="flex flex-col py-8 px-2 md:py-24 mx-auto w-full max-w-5xl">
             <h1 className="font-medium text-xl text-center mb-12">Search for statistical units</h1>
@@ -59,7 +55,7 @@ export default async function SearchPage() {
                 regions={regions ?? []}
                 activityCategories={activityCategories ?? []}
                 statisticalVariables={statisticalVariables ?? []}
-                initialSearchResult={{statisticalUnits: statisticalUnits ?? [], count: count ?? 0}}
+                filters={filters}
             />
         </main>
     )

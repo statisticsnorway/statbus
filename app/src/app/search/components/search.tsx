@@ -4,33 +4,35 @@ import {Tables} from "@/lib/database.types";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import useSearch from "@/app/search/hooks/use-search";
 import {useFilter} from "@/app/search/hooks/use-filter";
-import type {SearchResult} from "@/app/search/search.types";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import SaveSearchButton from "@/app/search/components/search-save-button";
+import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
+import {SearchFilter} from "@/app/search/search.types";
 
 interface SearchProps {
-    readonly initialSearchResult: SearchResult
     readonly regions: Tables<"region_used">[]
     readonly activityCategories: Tables<"activity_category_available">[]
     readonly statisticalVariables: Tables<"stat_definition">[]
+    readonly filters: [SearchFilter[], SearchFilter[]]
 }
 
 export default function Search(
     {
-        initialSearchResult,
         regions = [],
         activityCategories,
-        statisticalVariables
+        filters: initialFilters
     }: SearchProps
 ) {
-    const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
-    const {search: { data: searchResult}, searchParams} = useSearch(filters, initialSearchResult)
+    const [filters, searchFilterDispatch] = useFilter(initialFilters)
+    const {search: { data: searchResult}, searchParams} = useSearch(filters)
+
+    useUpdatedUrlSearchParams(filters)
 
     return (
         <section className="space-y-3">
             <TableToolbar dispatch={searchFilterDispatch} filters={filters} />
             <div className="rounded-md border">
-                <SearchResultTable regions={regions} activityCategories={activityCategories} searchResult={searchResult ?? initialSearchResult}/>
+                <SearchResultTable regions={regions} activityCategories={activityCategories} searchResult={searchResult}/>
             </div>
             <div className="flex justify-between text-xs text-gray-500 items-center">
                 <span className="indent-2.5">
