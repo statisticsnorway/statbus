@@ -16,7 +16,6 @@ export type SearchFilter = {
     readonly options?: SearchFilterOption[]
     readonly selected: string[]
     readonly condition?: SearchFilterCondition
-    readonly postgrestQuery: (filter: SearchFilter) => string | null
 }
 
 export type SearchResult = {
@@ -74,3 +73,9 @@ interface ResetAll {
 }
 
 export type SearchFilterActions = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll
+
+export interface FilterOptions {
+  activityCategories: Tables<"activity_category_available">[],
+  regions: Tables<"region_used">[]
+  statisticalVariables: Tables<"stat_definition">[]
+}

@@ -7,21 +7,23 @@ import {useFilter} from "@/app/search/hooks/use-filter";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import SaveSearchButton from "@/app/search/components/search-save-button";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
+import {SearchFilter} from "@/app/search/search.types";
 
 interface SearchProps {
     readonly regions: Tables<"region_used">[]
     readonly activityCategories: Tables<"activity_category_available">[]
     readonly statisticalVariables: Tables<"stat_definition">[]
+    readonly filters: [SearchFilter[], SearchFilter[]]
 }
 
 export default function Search(
     {
         regions = [],
         activityCategories,
-        statisticalVariables
+        filters: initialFilters
     }: SearchProps
 ) {
-    const [filters, searchFilterDispatch] = useFilter({activityCategories, regions, statisticalVariables})
+    const [filters, searchFilterDispatch] = useFilter(initialFilters)
     const {search: { data: searchResult}, searchParams} = useSearch(filters)
 
     useUpdatedUrlSearchParams(filters)
