@@ -12,7 +12,7 @@ import {cn} from "@/lib/utils";
 interface ITableFilterProps {
   title: string,
   options?: SearchFilterOption[]
-  selectedValues: string[],
+  selectedValues: (string | null)[],
   onToggle: (option: SearchFilterOption) => void,
   onReset: () => void,
 }
@@ -50,7 +50,7 @@ export function OptionsFilter({title, options = [], selectedValues, onToggle, on
                 options.map((option) => (
                   <CommandItem key={`${option.value}_${option.label}`} onSelect={() => onToggle(option)} className="space-x-2">
                     {selectedValues.includes(option.value) ? <Check size={14}/> : null}
-                    <span>{option.label}</span>
+                    <span className={option.value === null ? 'font-semibold' : ''}>{option.label}</span>
                   </CommandItem>
                 ))
               }
