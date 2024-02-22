@@ -1,25 +1,30 @@
-import {FilterOptions, SearchFilter, SearchFilterCondition} from "@/app/search/search.types";
-import {PHYSICAL_REGION_PATH, PRIMARY_ACTIVITY_CATEGORY_PATH} from "@/app/search/constants";
+import {FilterOptions, SearchFilter, SearchFilterCondition, SearchFilterName} from "@/app/search/search.types";
 
 export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchParams): [SearchFilter[], SearchFilter[]] {
+  const unit_type: SearchFilterName = 'unit_type'
+  const physical_region_path: SearchFilterName = 'physical_region_path'
+  const primary_activity_category_path: SearchFilterName = 'primary_activity_category_path'
+  const tax_reg_ident: SearchFilterName = 'tax_reg_ident'
+  const search: SearchFilterName = 'search'
+  const defaultUnitTypeFilterValue = 'enterprise'
   const standardFilters: SearchFilter[] = [
     {
       type: "search",
       label: "Name",
       // Search is a vector field of name indexed for fast full text search.
-      name: "search",
-      selected: urlSearchParams?.has('search') ? [urlSearchParams?.get('search') as string] : [],
+      name: search,
+      selected: urlSearchParams?.has(search) ? [urlSearchParams?.get(search) as string] : [],
     },
     {
       type: "search",
       label: "Tax ID",
-      name: "tax_reg_ident",
-      selected: urlSearchParams?.has('tax_reg_ident') ? [urlSearchParams?.get('tax_reg_ident') as string] : [],
+      name: tax_reg_ident,
+      selected: urlSearchParams?.has(tax_reg_ident) ? [urlSearchParams?.get(tax_reg_ident) as string] : [],
     },
     {
       type: "options",
       label: "Type",
-      name: "unit_type",
+      name: unit_type,
       options: [
         {
           label: "Legal Unit",
@@ -40,11 +45,11 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           className: "bg-enterprise-200"
         }
       ],
-      selected: urlSearchParams?.get('unit_type')?.split(',') ?? ["enterprise"],
+      selected: urlSearchParams?.get(unit_type)?.split(',') ?? [defaultUnitTypeFilterValue],
     },
     {
       type: "radio",
-      name: "physical_region_path",
+      name: physical_region_path,
       label: "Region",
       options: opts.regions.map(({code, path, name}) => (
         {
@@ -53,11 +58,11 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           humanReadableValue: `${code} ${name}`
         }
       )),
-      selected: urlSearchParams?.has(PHYSICAL_REGION_PATH) ? [urlSearchParams?.get(PHYSICAL_REGION_PATH) as string] : [],
+      selected: urlSearchParams?.has(physical_region_path) ? [urlSearchParams?.get(physical_region_path) as string] : [],
     },
     {
       type: "radio",
-      name: "primary_activity_category_path",
+      name: primary_activity_category_path,
       label: "Activity Category",
       options: opts.activityCategories.map(({code, path, name}) => (
         {
@@ -66,10 +71,11 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           humanReadableValue: `${code} ${name}`
         }
       )),
-      selected: urlSearchParams?.has(PRIMARY_ACTIVITY_CATEGORY_PATH) ? [urlSearchParams?.get(PRIMARY_ACTIVITY_CATEGORY_PATH) as string] : [],
+      selected: urlSearchParams?.has(primary_activity_category_path) ? [urlSearchParams?.get(primary_activity_category_path) as string] : [],
     }
   ];
 
+  // @ts-ignore - we do not know what will be the statistical variable names
   const statisticalVariableFilters: SearchFilter[] = opts.statisticalVariables.map(variable => {
     const conditionalSearchParam = urlSearchParams?.get(variable.code)
     const [condition, value] = conditionalSearchParam?.split('.') ?? []
