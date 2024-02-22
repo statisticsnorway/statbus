@@ -71,19 +71,19 @@ export const useFilter = ({regions = [], activityCategories = [], statisticalVar
           label: "Legal Unit",
           value: "legal_unit",
           humanReadableValue: "Legal Unit",
-          className: "bg-lime-200"
+          className: "bg-legal_unit-200"
         },
         {
           label: "Establishment",
           value: "establishment",
           humanReadableValue: "Establishment",
-          className: "bg-indigo-200"
+          className: "bg-establishment-200"
         },
         {
           label: "Enterprise",
           value: "enterprise",
           humanReadableValue: "Enterprise",
-          className: "bg-amber-200"
+          className: "bg-enterprise-200"
         }
       ],
       selected: ["enterprise"],
