@@ -13,7 +13,7 @@ interface SearchProps {
     readonly regions: Tables<"region_used">[]
     readonly activityCategories: Tables<"activity_category_available">[]
     readonly statisticalVariables: Tables<"stat_definition">[]
-    readonly filters: [SearchFilter[], SearchFilter[]]
+    readonly filters: SearchFilter[][]
 }
 
 export default function Search(

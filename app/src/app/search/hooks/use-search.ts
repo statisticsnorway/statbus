@@ -39,6 +39,8 @@ const generatePostgrestQuery = (f: SearchFilter) => {
   }
 
   switch (name) {
+    case "order":
+      return selected[0] || null
     case 'search':
       return selected[0] ? generateFTSQuery(selected[0]) : null
     case 'tax_reg_ident':

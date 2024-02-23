@@ -35,8 +35,8 @@ function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions)
   }
 }
 
-export const useFilter = (filters: [SearchFilter[], SearchFilter[]]) => {
-  const [standardFilters, statisticalVariableFilters] = filters
-  return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters])
+export const useFilter = (filters: SearchFilter[][]) => {
+  const [standardFilters, statisticalVariableFilters, others] = filters
+  return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters, ...others])
 }
 

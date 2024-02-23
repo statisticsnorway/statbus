@@ -1,6 +1,6 @@
 import {FilterOptions, SearchFilter, SearchFilterCondition, SearchFilterName} from "@/app/search/search.types";
 
-export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchParams): [SearchFilter[], SearchFilter[]] {
+export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchParams): SearchFilter[][] {
   const unit_type: SearchFilterName = 'unit_type'
   const physical_region_path: SearchFilterName = 'physical_region_path'
   const primary_activity_category_path: SearchFilterName = 'primary_activity_category_path'
@@ -107,5 +107,34 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
     }
   });
 
-  return [standardFilters, statisticalVariableFilters]
+  const sortFilter: SearchFilter = {
+    type: "radio",
+    name: "order",
+    label: "Sort By",
+    options: [
+      {
+        label: "Name (Descending)",
+        value: "name.desc",
+        humanReadableValue: "Name (Descending)"
+      },
+      {
+        label: "Name (Ascending)",
+        value: "name.asc",
+        humanReadableValue: "Name (Ascending)"
+      },
+      {
+        label: "Employees (Descending)",
+        value: "employees.desc",
+        humanReadableValue: "Employees (Descending)"
+      },
+      {
+        label: "Employees (Ascending)",
+        value: "employees.asc",
+        humanReadableValue: "Employees (Ascending)"
+      }
+    ],
+    selected: urlSearchParams?.has('order') ? [urlSearchParams?.get('order') as string] : ["employees.desc"],
+  }
+
+  return [standardFilters, statisticalVariableFilters, [sortFilter]]
 }

@@ -8,6 +8,7 @@ export type SearchFilterName =
   | "unit_type"
   | "physical_region_path"
   | "primary_activity_category_path"
+  | "order"
 
 export type SearchFilterOption = {
   readonly label: string
