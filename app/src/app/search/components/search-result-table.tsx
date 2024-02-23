@@ -29,6 +29,7 @@ export default function SearchResultTable(
         <TableRow>
           <TableHead>Name</TableHead>
           <TableHead className="text-left">Region</TableHead>
+          <TableHead className="text-right">Employees</TableHead>
           <TableHead className="text-right">Activity Category Code</TableHead>
         </TableRow>
       </TableHeader>
@@ -41,7 +42,8 @@ export default function SearchResultTable(
                 tax_reg_ident,
                 name,
                 physical_region_path,
-                primary_activity_category_path
+                primary_activity_category_path,
+                employees
               } = unit;
               return (
                 <TableRow key={`${unit_type}_${unit_id}`}>
@@ -60,6 +62,9 @@ export default function SearchResultTable(
                   </TableCell>
                   <TableCell className="text-left py-1">
                     {getRegionByPath(physical_region_path)?.name}
+                  </TableCell>
+                  <TableCell className="text-right py-1">
+                    {employees ?? '-'}
                   </TableCell>
                   <TableCell className="text-right py-1 px-4">
                     {getActivityCategoryByPath(primary_activity_category_path)?.code}
