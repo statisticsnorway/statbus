@@ -32,21 +32,26 @@ export function generateFTSQuery(prompt: string = ""): string | null {
 }
 
 const generatePostgrestQuery = (f: SearchFilter) => {
-  if (f.type === 'conditional') {
-    return f.condition && f.selected.length ? `${f.condition}.${f.selected[0]}` : null
+  const {selected, type, name, condition} = f;
+
+  if (type === 'conditional') {
+    return condition && selected.length ? `${condition}.${selected[0]}` : null
   }
 
-  switch (f.name) {
+  switch (name) {
     case 'search':
-      return generateFTSQuery(f.selected[0])
+      return selected[0] ? generateFTSQuery(selected[0]) : null
     case 'tax_reg_ident':
-      return f.selected[0] ? `eq.${f.selected[0]}` : null
+      return selected[0] ? `eq.${selected[0]}` : null
     case 'unit_type':
-      return f.selected.length ? `in.(${f.selected.join(',')})` : null
+      return selected.length ? `in.(${selected.join(',')})` : null
     case 'physical_region_path':
-      return f.selected.length ? `cd.${f.selected.join()}` : null
-    case 'primary_activity_category_path':
-      return f.selected.length ? `cd.${f.selected.join()}` : null
+    case 'primary_activity_category_path': {
+      if (selected.length) {
+        return selected[0] === null ? `is.null` : `cd.${selected[0]}`
+      }
+      return null
+    }
     default:
       return null
   }

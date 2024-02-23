@@ -11,7 +11,7 @@ export type SearchFilterName =
 
 export type SearchFilterOption = {
   readonly label: string
-  readonly value: string
+  readonly value: string | null
   readonly humanReadableValue?: string
   readonly className?: string
 }
@@ -21,7 +21,7 @@ export type SearchFilter = {
   readonly name: SearchFilterName
   readonly label: string
   readonly options?: SearchFilterOption[]
-  readonly selected: string[]
+  readonly selected: (string | null)[]
   readonly condition?: SearchFilterCondition
 }
 
@@ -39,7 +39,7 @@ interface ToggleOption {
   type: "toggle_option",
   payload: {
     name: string,
-    value: string
+    value: string | null
   }
 }
 
@@ -47,7 +47,7 @@ interface ToggleRadioOption {
   type: "toggle_radio_option",
   payload: {
     name: string,
-    value: string
+    value: string | null
   }
 }
 

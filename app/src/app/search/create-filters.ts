@@ -30,19 +30,19 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           label: "Legal Unit",
           value: "legal_unit",
           humanReadableValue: "Legal Unit",
-          className: "bg-legal_unit-200"
+          className: "bg-legal_unit-100"
         },
         {
           label: "Establishment",
           value: "establishment",
           humanReadableValue: "Establishment",
-          className: "bg-establishment-200"
+          className: "bg-establishment-100"
         },
         {
           label: "Enterprise",
           value: "enterprise",
           humanReadableValue: "Enterprise",
-          className: "bg-enterprise-200"
+          className: "bg-enterprise-100"
         }
       ],
       selected: urlSearchParams?.get(unit_type)?.split(',') ?? [defaultUnitTypeFilterValue],
@@ -51,27 +51,45 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
       type: "radio",
       name: physical_region_path,
       label: "Region",
-      options: opts.regions.map(({code, path, name}) => (
+      options: [
+        {
+          label: "Not Set",
+          value: null,
+          humanReadableValue: "Missing",
+          className: "bg-orange-200"
+        },
+        ...opts.regions.map(({code, path, name}) => (
         {
           label: `${code} ${name}`,
           value: path as string,
           humanReadableValue: `${code} ${name}`
         }
-      )),
-      selected: urlSearchParams?.has(physical_region_path) ? [urlSearchParams?.get(physical_region_path) as string] : [],
+      ))],
+      selected: urlSearchParams?.has(physical_region_path)
+        ? [urlSearchParams?.get(physical_region_path)?.toString() || null]
+        : [],
     },
     {
       type: "radio",
       name: primary_activity_category_path,
       label: "Activity Category",
-      options: opts.activityCategories.map(({code, path, name}) => (
+      options: [
         {
-          label: `${code} ${name}`,
-          value: path as string,
-          humanReadableValue: `${code} ${name}`
-        }
-      )),
-      selected: urlSearchParams?.has(primary_activity_category_path) ? [urlSearchParams?.get(primary_activity_category_path) as string] : [],
+          label: "Not Set",
+          value: null,
+          humanReadableValue: "Missing",
+          className: "bg-orange-200"
+        },
+        ...opts.activityCategories.map(({code, path, name}) => (
+          {
+            label: `${code} ${name}`,
+            value: path as string,
+            humanReadableValue: `${code} ${name}`
+          }
+        ))],
+      selected: urlSearchParams?.has(primary_activity_category_path)
+        ? [urlSearchParams?.get(primary_activity_category_path)?.toString() || null]
+        : [],
     }
   ];
 
