@@ -26,7 +26,7 @@ export type SearchFilter = {
 }
 
 export type SearchResult = {
-  statisticalUnits: Partial<Tables<"statistical_unit">>[]
+  statisticalUnits: Tables<"statistical_unit">[]
   count: number
 }
 
