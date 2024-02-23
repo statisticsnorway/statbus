@@ -56,7 +56,7 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           label: "Not Set",
           value: null,
           humanReadableValue: "Missing",
-          className: "bg-red-100"
+          className: "bg-orange-200"
         },
         ...opts.regions.map(({code, path, name}) => (
         {
@@ -78,7 +78,7 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           label: "Not Set",
           value: null,
           humanReadableValue: "Missing",
-          className: "bg-red-100"
+          className: "bg-orange-200"
         },
         ...opts.activityCategories.map(({code, path, name}) => (
           {

@@ -1,6 +1,6 @@
 import {Metadata} from "next";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {BarChart3, Building, Globe2, ScrollText, Settings} from "lucide-react";
+import {AlertTriangle, BarChart3, Building, Globe2, ScrollText, Settings} from "lucide-react";
 import {createClient} from "@/lib/supabase/server";
 import {ReactNode} from "react";
 import {cn} from "@/lib/utils";
@@ -13,12 +13,24 @@ export const metadata: Metadata = {
 export default async function Dashboard() {
   const client = createClient();
 
-  const statisticalUnitPromise = client
+  const unitsPromise = client
     .from('statistical_unit')
     .select('name', {count: 'exact'})
     .limit(0);
 
-  const regionPromise = client
+  const unitsMissingRegionPromise = client
+    .from('statistical_unit')
+    .select('name', {count: 'exact'})
+    .is('physical_region_path', null)
+    .limit(0)
+
+  const unitsMissingActivityCategoryPromise = client
+    .from('statistical_unit')
+    .select('name', {count: 'exact'})
+    .is('primary_activity_category_path', null)
+    .limit(0)
+
+  const regionsPromise = client
     .from('region')
     .select('name', {count: 'exact'})
     .limit(0)
@@ -39,14 +51,18 @@ export default async function Dashboard() {
     .limit(0)
 
   const [
-    {count: statisticalUnitsCount, error: statisticalUnitsError},
+    {count: unitsCount, error: unitsError},
+    {count: unitsMissingRegionCount, error: unitsMissingRegionError},
+    {count: unitsMissingActivityCategoryCount, error: unitsMissingActivityCategoryError},
     {count: regionsCount, error: regionsError},
     {count: statisticalVariablesCount, error: statisticalVariablesError},
     {count: customActivityCategoryCodesCount, error: customActivityCategoryCodesError},
     {data: settings, error: settingsError}
   ] = await Promise.all([
-    statisticalUnitPromise,
-    regionPromise,
+    unitsPromise,
+    unitsMissingRegionPromise,
+    unitsMissingActivityCategoryPromise,
+    regionsPromise,
     statDefinitionPromise,
     customActivityCategoryCodesPromise,
     settingsPromise
@@ -61,8 +77,8 @@ export default async function Dashboard() {
           <DashboardCard
             title="Statistical Units"
             icon={<Building size={18}/>}
-            text={statisticalUnitsCount?.toString() ?? '-'}
-            failed={!!statisticalUnitsError}
+            text={unitsCount?.toString() ?? '-'}
+            failed={!!unitsError}
           />
         </Link>
 
@@ -98,6 +114,24 @@ export default async function Dashboard() {
           />
         </Link>
 
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=">
+          <DashboardCard
+            title="Units Missing Region"
+            icon={<AlertTriangle size={18}/>}
+            text={unitsMissingRegionCount?.toString() ?? '-'}
+            failed={unitsMissingRegionCount !== null && unitsMissingRegionCount > 0 || !!unitsMissingRegionError}
+          />
+        </Link>
+
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=">
+          <DashboardCard
+            title="Units Missing Activity Category"
+            icon={<AlertTriangle size={18}/>}
+            text={unitsMissingActivityCategoryCount?.toString() ?? '-'}
+            failed={unitsMissingActivityCategoryCount !== null && unitsMissingActivityCategoryCount > 0 || !!unitsMissingActivityCategoryError}
+          />
+        </Link>
+
         <DashboardCardPlaceholder/>
       </div>
     </main>
@@ -115,8 +149,8 @@ const DashboardCard = ({title, icon, text, failed}: {
   readonly failed: boolean
 }) => {
   return (
-    <Card className={cn("tracking-tight", failed ? "bg-red-100" : "")}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <Card className={cn("tracking-tight overflow-hidden", failed ? "bg-orange-100 border-orange-400" : "")}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-xs text-gray-700 font-medium">
           {title}
         </CardTitle>
