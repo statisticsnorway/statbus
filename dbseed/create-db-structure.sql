@@ -2626,6 +2626,13 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
                     WHERE r.id = l.region_id
                   )
              )
+             || jsonb_build_object(
+                'country',
+                  (SELECT to_jsonb(c.*)
+                     FROM public.country AS c
+                    WHERE c.id = l.country_id
+                  )
+             )
         )
     FROM public.location AS l
    WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
