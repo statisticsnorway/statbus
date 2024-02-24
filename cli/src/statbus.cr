@@ -403,9 +403,9 @@ class StatBus
             end
           end
         end
-        parser.on("-m NEW=OLD", "--mapping=NEW=OLD", "A field name mapping") do |mapping|
+        parser.on("-m NEW=OLD", "--mapping=NEW=OLD", "A field name mapping, possibly null if the field is unused.") do |mapping|
           sql, csv = mapping.split("=").map do |field_name|
-            if field_name.empty? || field_name == "nil"
+            if field_name.empty? || field_name == "nil" || field_name == "null"
               nil
             else
               field_name
