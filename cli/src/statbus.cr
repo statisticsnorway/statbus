@@ -37,9 +37,57 @@ class StatBus
   record ConfigFieldMapping, sql : String?, csv : String? do
     include JSON::Serializable
   end
+
   # Mapping for SQL where only sql fields that map to an actual csv
-  record SqlFieldMapping, sql : String, csv : String do
-    include JSON::Serializable
+  class SqlFieldMapping
+    property sql : String
+    property csv : String?
+    property value : String?
+
+    # Custom exception for invalid initialization
+    class InitializationError < Exception; end
+
+    def initialize(sql : String?, csv : String? = nil, value : String? = nil)
+      if (sql.nil?)
+        raise InitializationError.new("sql can not be nil")
+      end
+
+      @sql = sql.not_nil!
+      @csv = csv
+      @value = value
+
+      # Ensure exactly one of csv or value is set
+      if (csv.nil? && value.nil?) || (!csv.nil? && !value.nil?)
+        raise InitializationError.new("Either csv xor value must be set, but not both.")
+      end
+    end
+
+    def self.from_config_field_mapping(config_mapping : ConfigFieldMapping) : SqlFieldMapping?
+      value : String | Nil = nil
+      csv = config_mapping.csv
+
+      if csv && /^'(.+)'$/ =~ csv
+        value = $1
+        csv = nil
+      end
+
+      sql = config_mapping.sql
+      SqlFieldMapping.new(sql, csv: csv, value: value)
+    end
+
+    def to_config_field_mapping : ConfigFieldMapping
+      # Escape single quotes in value if present
+      escaped_value = value.try &.gsub("'", "''")
+
+      # Check if there's an escaped value and format it as a quoted string if present
+      csv_or_value = if escaped_value
+                       "'#{escaped_value}'"
+                     else
+                       csv
+                     end
+
+      ConfigFieldMapping.new(sql: sql, csv: csv_or_value)
+    end
   end
 
   @mode = Mode::Welcome
@@ -172,13 +220,13 @@ class StatBus
       common_fields = sql_fields & csv_fields
       puts "common_fields #{common_fields}" if @verbose
       common_fields.each do |common_field|
-        @sql_field_mapping.push(SqlFieldMapping.new(sql: common_field, csv: common_field))
+        @config_field_mapping.push(ConfigFieldMapping.new(sql: common_field, csv: common_field))
       end
       puts "@config_field_mapping #{@config_field_mapping}" if @verbose
       puts "@sql_field_mapping only common fields #{@sql_field_mapping}" if @verbose
       @config_field_mapping.each do |mapping|
         if !(mapping.csv.nil? || mapping.sql.nil?)
-          @sql_field_mapping.push(SqlFieldMapping.new(sql: mapping.sql.not_nil!, csv: mapping.csv.not_nil!))
+          @sql_field_mapping.push(SqlFieldMapping.from_config_field_mapping(mapping))
         end
       end
       puts "@sql_field_mapping #{@sql_field_mapping}" if @verbose
@@ -242,9 +290,9 @@ class StatBus
             puts "Writing file #{@config_file_path}"
             File.write(
               @config_file_path.not_nil!,
-              @sql_field_mapping.to_pretty_json
+              @config_field_mapping.to_pretty_json
             )
-            puts @sql_field_mapping.to_pretty_json
+            puts @config_field_mapping.to_pretty_json
           end
         end
       end
@@ -331,7 +379,12 @@ class StatBus
       end
       csv_row = csv_stream.row
       sql_row = @sql_field_mapping.map do |mapping|
-        csv_value = csv_row[mapping.csv]
+        csv_value =
+          if mapping.csv.nil?
+            mapping.value || ""
+          else
+            csv_row[mapping.csv.not_nil!]
+          end
         if csv_value.nil?
           nil
         elsif csv_value.strip == ""
@@ -413,7 +466,7 @@ class StatBus
             end
           end
         end
-        parser.on("-m NEW=OLD", "--mapping=NEW=OLD", "A field name mapping, possibly null if the field is unused.") do |mapping|
+        parser.on("-m NEW=OLD", "--mapping=NEW=OLD", "A field name mapping, possibly null if the field is unused. A constant in single quotes is possible instead of an csv field.") do |mapping|
           sql, csv = mapping.split("=").map do |field_name|
             if field_name.empty? || field_name == "nil" || field_name == "null"
               nil
