@@ -63,6 +63,7 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      -- There is no death date, the entry simply vanishes!
      --, "nedleggelsesdato" AS death_date
      , "forretningsadresse.kommunenummer" AS physical_region_code
+     , "forretningsadresse.landkode" AS physical_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
 FROM tmp.enhet;
@@ -114,6 +115,7 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "oppstartsdato" AS birth_date
      , "nedleggelsesdato" AS death_date
      , "beliggenhetsadresse.kommunenummer" AS physical_region_code
+     , "beliggenhetsadresse.landkode" AS physical_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
      , "antallAnsatte" AS employees

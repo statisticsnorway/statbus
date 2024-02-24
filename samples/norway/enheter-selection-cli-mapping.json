@@ -20,6 +20,10 @@
     "csv": "forretningsadresse.kommunenummer"
   },
   {
+    "sql": "physical_country_code_2",
+    "csv": "forretningsadresse.landkode"
+  },
+  {
     "sql": "primary_activity_category_code",
     "csv": "naeringskode1.kode"
   },
@@ -118,10 +122,6 @@
   {
     "sql": null,
     "csv": "forretningsadresse.land"
-  },
-  {
-    "sql": null,
-    "csv": "forretningsadresse.landkode"
   },
   {
     "sql": null,

@@ -21,9 +21,9 @@ psql < samples/norway/setup.sql
 
 pushd cli
 echo "Loading legal_units"
-shards build && time ./bin/statbus import legal_unit -f ../samples/norway/enheter-selection.csv --config ../samples/norway/enheter-mapping.json --strategy insert
+shards build && time ./bin/statbus import legal_unit -f ../samples/norway/enheter-selection-cli-with-mapping-import.csv --config ../samples/norway/enheter-selection-cli-mapping.json --strategy insert
 echo "Loading establishments"
-shards build && time ./bin/statbus import establishment -f ../samples/norway/underenheter-selection.csv --config ../samples/norway/underenheter-mapping.json --strategy insert
+shards build && time ./bin/statbus import establishment -f ../samples/norway/underenheter-selection-cli-with-mapping-import.csv --config ../samples/norway/underenheter-selection-cli-mapping.json --strategy insert
 popd
 
 popd

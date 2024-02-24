@@ -960,24 +960,7 @@ CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_id ON public.analysis_
 CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.analysis_log USING btree (enterprise_group_id);
 
 
-CREATE TABLE public.country_for_unit (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    country_id integer NOT NULL REFERENCES public.country(id) ON DELETE CASCADE,
-    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
-    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
-    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
-    CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_group_id IS NOT NULL
-        )
-);
-CREATE INDEX ix_country_for_unit_country_id ON public.country_for_unit USING btree (country_id);
-CREATE INDEX ix_country_for_unit_establishment_id ON public.country_for_unit USING btree (establishment_id);
-CREATE INDEX ix_country_for_unit_enterprise_group_id ON public.country_for_unit USING btree (enterprise_group_id);
-CREATE INDEX ix_country_for_unit_legal_unit_id ON public.country_for_unit USING btree (legal_unit_id);
 CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
-
 CREATE TABLE public.person (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     personal_ident text UNIQUE,
@@ -1047,16 +1030,17 @@ CREATE TABLE public.location (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    region_id integer NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
+    region_id integer REFERENCES public.region(id) ON DELETE RESTRICT,
     location_type public.location_type NOT NULL,
     address_part1 character varying(200),
     address_part2 character varying(200),
     address_part3 character varying(200),
+    country_id integer NOT NULL REFERENCES public.country(id) ON DELETE RESTRICT,
     latitude double precision,
     longitude double precision,
     establishment_id integer,
     legal_unit_id integer,
-    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
@@ -1812,6 +1796,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , activity_category_paths
     , physical_region_id
     , physical_region_path
+    , physical_country_id
+    , physical_country_code_2
     , aggregated_establishment_ids
     , aggregated_legal_unit_ids
     , aggregated_enterprise_ids
@@ -1859,6 +1845,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , activity_category_paths
          , physical_region_id
          , physical_region_path
+         , physical_country_id
+         , physical_country_code_2
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -1900,6 +1888,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              END AS activity_category_paths
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
+           , phl.country_id AS physical_country_id
+           , phc.code_2     AS physical_country_code_2
            , sfu1.value_int AS employees
            , sfu2.value_int AS turnover
       FROM public.establishment AS es
@@ -1908,22 +1898,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              AND pa.activity_type = 'primary'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(pa.valid_from, pa.valid_to, '[]')
-      LEFT OUTER JOIN public.activity_category AS pac
+      LEFT JOIN public.activity_category AS pac
               ON pa.activity_category_id = pac.id
       LEFT OUTER JOIN public.activity AS sa
               ON sa.establishment_id = es.id
              AND sa.activity_type = 'secondary'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(sa.valid_from, sa.valid_to, '[]')
-      LEFT OUTER JOIN public.activity_category AS sac
+      LEFT JOIN public.activity_category AS sac
               ON sa.activity_category_id = sac.id
       LEFT OUTER JOIN public.location AS phl
               ON phl.establishment_id = es.id
              AND phl.location_type = 'physical'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(phl.valid_from, phl.valid_to, '[]')
-      LEFT OUTER JOIN public.region AS phr
+      LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
+      LEFT JOIN public.country AS phc
+              ON phl.country_id = phc.id
       LEFT OUTER JOIN public.stat_definition AS sd1
               ON sd1.code = 'employees'
       LEFT OUTER JOIN public.stat_for_unit AS sfu1
@@ -1958,6 +1950,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , activity_category_paths
            , physical_region_id
            , physical_region_path
+           , physical_country_id
+           , physical_country_code_2
            , employees
            , turnover
     UNION ALL
@@ -1980,6 +1974,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , activity_category_paths
          , physical_region_id
          , physical_region_path
+         , physical_country_id
+         , physical_country_code_2
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2015,6 +2011,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                END AS activity_category_paths
              , phl.region_id           AS physical_region_id
              , phr.path                AS physical_region_path
+             , phl.country_id AS physical_country_id
+             , phc.code_2     AS physical_country_code_2
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.legal_unit AS lu
@@ -2023,22 +2021,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                AND pa.activity_type = 'primary'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(pa.valid_from, pa.valid_to, '[]')
-        LEFT OUTER JOIN public.activity_category AS pac
+        LEFT JOIN public.activity_category AS pac
                 ON pa.activity_category_id = pac.id
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = lu.id
                AND sa.activity_type = 'secondary'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(sa.valid_from, sa.valid_to, '[]')
-        LEFT OUTER JOIN public.activity_category AS sac
+        LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = lu.id
                AND phl.location_type = 'physical'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(phl.valid_from, phl.valid_to, '[]')
-        LEFT OUTER JOIN public.region AS phr
+        LEFT JOIN public.region AS phr
                 ON phl.region_id = phr.id
+        LEFT JOIN public.country AS phc
+                ON phl.country_id = phc.id
         LEFT OUTER JOIN public.establishment AS es
                 ON lu.id = es.legal_unit_id
                AND daterange(lu.valid_from, lu.valid_to, '[]')
@@ -2077,6 +2077,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , activity_category_paths
            , physical_region_id
            , physical_region_path
+           , physical_country_id
+           , physical_country_code_2
     UNION ALL
     -- enterprise with legal_unit
     SELECT valid_from
@@ -2098,6 +2100,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , activity_category_paths
          , physical_region_id
          , physical_region_path
+         , physical_country_id
+         , physical_country_code_2
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2133,6 +2137,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                END AS activity_category_paths
              , phl.region_id           AS physical_region_id
              , phr.path                AS physical_region_path
+             , phl.country_id AS physical_country_id
+             , phc.code_2     AS physical_country_code_2
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.enterprise AS en
@@ -2144,22 +2150,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                AND pa.activity_type = 'primary'
                AND daterange(plu.valid_from, plu.valid_to, '[]')
                 && daterange(pa.valid_from, pa.valid_to, '[]')
-        LEFT OUTER JOIN public.activity_category AS pac
+        LEFT JOIN public.activity_category AS pac
                 ON pa.activity_category_id = pac.id
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = plu.id
                AND sa.activity_type = 'secondary'
                AND daterange(plu.valid_from, plu.valid_to, '[]')
                 && daterange(sa.valid_from, sa.valid_to, '[]')
-        LEFT OUTER JOIN public.activity_category AS sac
+        LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = plu.id
                AND phl.location_type = 'physical'
                AND daterange(plu.valid_from, plu.valid_to, '[]')
                 && daterange(phl.valid_from, phl.valid_to, '[]')
-        LEFT OUTER JOIN public.region AS phr
+        LEFT JOIN public.region AS phr
                 ON phl.region_id = phr.id
+        LEFT JOIN public.country AS phc
+                ON phl.country_id = phc.id
         LEFT OUTER JOIN public.legal_unit AS lu
                 ON lu.enterprise_id = en.id
         LEFT OUTER JOIN public.establishment AS es
@@ -2200,6 +2208,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , activity_category_paths
            , physical_region_id
            , physical_region_path
+           , physical_country_id
+           , physical_country_code_2
     UNION ALL
     -- enterprise with establishment
     SELECT valid_from
@@ -2221,6 +2231,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , activity_category_paths
          , physical_region_id
          , physical_region_path
+         , physical_country_id
+         , physical_country_code_2
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2256,6 +2268,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                END AS activity_category_paths
              , phl.region_id           AS physical_region_id
              , phr.path                AS physical_region_path
+             , phl.country_id AS physical_country_id
+             , phc.code_2     AS physical_country_code_2
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.enterprise AS en
@@ -2266,22 +2280,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                AND pa.activity_type = 'primary'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(pa.valid_from, pa.valid_to, '[]')
-        LEFT OUTER JOIN public.activity_category AS pac
+        LEFT JOIN public.activity_category AS pac
                 ON pa.activity_category_id = pac.id
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = es.id
                AND sa.activity_type = 'secondary'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(sa.valid_from, sa.valid_to, '[]')
-        LEFT OUTER JOIN public.activity_category AS sac
+        LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = es.id
                AND phl.location_type = 'physical'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(phl.valid_from, phl.valid_to, '[]')
-        LEFT OUTER JOIN public.region AS phr
+        LEFT JOIN public.region AS phr
                 ON phl.region_id = phr.id
+        LEFT JOIN public.country AS phc
+                ON phl.country_id = phc.id
         LEFT OUTER JOIN public.stat_definition AS sd1
                 ON sd1.code = 'employees'
         LEFT OUTER JOIN public.stat_for_unit AS sfu1
@@ -2316,6 +2332,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , activity_category_paths
            , physical_region_id
            , physical_region_path
+           , physical_country_id
+           , physical_country_code_2
     UNION ALL
     SELECT valid_from
          , valid_to
@@ -2336,6 +2354,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::public.ltree[] AS activity_category_paths
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
+         , NULL::INTEGER AS physical_country_id
+         , NULL::TEXT AS physical_country_code_2
          , NULL::INT[] AS aggregated_establishment_ids
          , NULL::INT[] AS aggregated_legal_unit_ids
          , NULL::INT[] AS aggregated_enterprise_ids
@@ -4054,18 +4074,25 @@ SELECT lu.tax_reg_ident
      , lu.birth_date::TEXT AS birth_date
      , lu.death_date::TEXT AS death_date
      , phr.code AS physical_region_code
+     , pc.code_2 AS physical_country_code_2
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
      , seac.code AS secondary_activity_category_code
 FROM public.legal_unit AS lu
+
 LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
 LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
+
 LEFT JOIN public.activity AS sea ON sea.legal_unit_id = lu.id AND sea.activity_type = 'secondary' AND sea.valid_from >= current_date AND current_date <= sea.valid_to
 LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = seac.id
+
 LEFT JOIN public.location AS phl ON phl.legal_unit_id = lu.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
+LEFT JOIN public.country AS pc ON phl.country_id = pc.id
+
 LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 LEFT JOIN public.region AS por ON pol.region_id = por.id
+
 WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
   AND lu.active
 ;
@@ -4075,6 +4102,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
+    physical_country RECORD;
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     upsert_data RECORD;
@@ -4102,6 +4130,7 @@ BEGIN
         INTO new_typed;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
+    SELECT NULL::int AS id INTO physical_country;
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
 
@@ -4110,6 +4139,16 @@ BEGIN
     -- TODO: Uncomment when going into production
     -- WHERE uuid = auth.uid()
     LIMIT 1;
+
+    IF NEW.physical_country_code_2 IS NOT NULL AND NEW.physical_country_code_2 <> '' THEN
+      SELECT * INTO physical_country
+      FROM public.country
+      WHERE code_2 = NEW.physical_country_code_2;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find physical_country_code_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{physical_country_code_2}', to_jsonb(NEW.physical_country_code_2), true);
+      END IF;
+    END IF;
 
     IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
       SELECT * INTO physical_region
@@ -4231,7 +4270,7 @@ BEGIN
     RETURNING * INTO inserted_legal_unit;
     RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
 
-    IF physical_region.id IS NOT NULL THEN
+    IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
         (
             valid_from,
@@ -4239,6 +4278,7 @@ BEGIN
             legal_unit_id,
             location_type,
             region_id,
+            country_id,
             updated_by_user_id
         )
         VALUES
@@ -4248,6 +4288,7 @@ BEGIN
             inserted_legal_unit.id,
             'physical',
             physical_region.id,
+            physical_country.id,
             edited_by_user.id
         )
         RETURNING * INTO inserted_location;
@@ -4357,6 +4398,7 @@ SELECT es.tax_reg_ident
      , es.birth_date::TEXT AS birth_date
      , es.death_date::TEXT AS death_date
      , phr.code AS physical_region_code
+     , pc.code_2 AS physical_country_code_2
      , por.code AS postal_region_code
      , prac.code AS primary_activity_category_code
      , seac.code AS secondary_activity_category_code
@@ -4373,6 +4415,7 @@ LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = prac.id
 
 LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
+LEFT JOIN public.country AS pc ON phl.country_id = pc.id
 
 LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 LEFT JOIN public.region AS por ON pol.region_id = por.id
@@ -4392,6 +4435,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
+    physical_country RECORD;
     legal_unit RECORD;
     is_primary_for_legal_unit BOOLEAN;
     enterprise RECORD;
@@ -4424,6 +4468,7 @@ BEGIN
     SELECT NULL::int AS id INTO legal_unit;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
+    SELECT NULL::int AS id INTO physical_country;
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS employees
@@ -4470,6 +4515,16 @@ BEGIN
         ELSE
             is_primary_for_legal_unit := false;
         END IF;
+    END IF;
+
+    IF NEW.physical_country_code_2 IS NOT NULL AND NEW.physical_country_code_2 <> '' THEN
+      SELECT * INTO physical_country
+      FROM public.country
+      WHERE code_2 = NEW.physical_country_code_2;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find physical_country_code_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{physical_country_code_2}', to_jsonb(NEW.physical_country_code_2), true);
+      END IF;
     END IF;
 
     IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
@@ -4578,7 +4633,7 @@ BEGIN
     RETURNING * INTO inserted_establishment;
     RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);
 
-    IF physical_region.id IS NOT NULL THEN
+    IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
         (
             valid_from,
@@ -4586,6 +4641,7 @@ BEGIN
             establishment_id,
             location_type,
             region_id,
+            country_id,
             updated_by_user_id
         )
         VALUES
@@ -4595,6 +4651,7 @@ BEGIN
             inserted_establishment.id,
             'physical',
             physical_region.id,
+            physical_country.id,
             edited_by_user.id
         )
         RETURNING * INTO inserted_location;

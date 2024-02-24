@@ -57,9 +57,14 @@ class StatBus
   @offset = 0
 
   def initialize
-    option_parser = build_option_parser
-    option_parser.parse
-    run(option_parser)
+    begin
+      option_parser = build_option_parser
+      option_parser.parse
+      run(option_parser)
+    rescue ex : ArgumentError
+      puts ex
+      exit 1
+    end
   end
 
   def install
@@ -109,6 +114,7 @@ class StatBus
       "birth_date",
       "death_date",
       "physical_region_code",
+      "physical_country_code_2",
       "primary_activity_category_code",
       "secondary_activity_category_code",
     ]
@@ -127,6 +133,7 @@ class StatBus
       "birth_date",
       "death_date",
       "physical_region_code",
+      "physical_country_code_2",
       "primary_activity_category_code",
       "secondary_activity_category_code",
       "employees",
@@ -152,23 +159,23 @@ class StatBus
       postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
       puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}" if @verbose
 
-      sql_field_list = sql_field_required_list + sql_field_optional_list
+      sql_fields_list = sql_field_required_list + sql_field_optional_list
       csv_stream = CSV.new(File.open(import_file_name), headers: true, separator: ',', quote_char: '"')
       csv_fields_list = csv_stream.headers
       # For every equal header, insert a mapping.
       sql_field_required = sql_field_required_list.to_set
       puts "sql_field_required #{sql_field_required}" if @verbose
-      sql_field = sql_field_list.to_set
-      puts "sql_field #{sql_field}" if @verbose
+      sql_fields = sql_fields_list.to_set
+      puts "sql_field #{sql_fields}" if @verbose
       csv_fields = csv_fields_list.to_set
       puts "csv_fields #{csv_fields}" if @verbose
-      common_fields = sql_field & csv_fields
+      common_fields = sql_fields & csv_fields
       puts "common_fields #{common_fields}" if @verbose
       common_fields.each do |common_field|
         @sql_field_mapping.push(SqlFieldMapping.new(sql: common_field, csv: common_field))
       end
       puts "@config_field_mapping #{@config_field_mapping}" if @verbose
-      puts "@sql_field_mapping #{@sql_field_mapping}" if @verbose
+      puts "@sql_field_mapping only common fields #{@sql_field_mapping}" if @verbose
       @config_field_mapping.each do |mapping|
         if !(mapping.csv.nil? || mapping.sql.nil?)
           @sql_field_mapping.push(SqlFieldMapping.new(sql: mapping.sql.not_nil!, csv: mapping.csv.not_nil!))
@@ -176,26 +183,29 @@ class StatBus
       end
       puts "@sql_field_mapping #{@sql_field_mapping}" if @verbose
       mapped_sql_field = @sql_field_mapping.map(&.sql).to_set
-      mapped_csv_field = @config_field_mapping.map(&.csv).to_set
       puts "mapped_sql_field #{mapped_sql_field}" if @verbose
+      mapped_csv_field = @config_field_mapping.map(&.csv).to_set
       puts "mapped_csv_field #{mapped_csv_field}" if @verbose
       missing_required_sql_fields = sql_field_required - mapped_sql_field
 
-      config_sql_field = @config_field_mapping.map(&.sql).compact.to_set - mapped_sql_field
-      config_csv_field = @config_field_mapping.map(&.csv).compact.to_set - mapped_csv_field
+      ignored_sql_field = @config_field_mapping.select { |m| m.csv.nil? }.map(&.sql).to_set
+      puts "ignored_sql_field #{ignored_sql_field}" if @verbose
+      ignored_csv_field = @config_field_mapping.select { |m| m.sql.nil? }.map(&.csv).to_set
+      puts "ignored_csv_field #{ignored_csv_field}" if @verbose
       # Check the fields
-      missing_config_sql_fields = sql_field - config_sql_field - mapped_sql_field
+      missing_config_sql_fields = sql_fields - mapped_sql_field - ignored_sql_field
+      puts "missing_config_sql_fields #{missing_config_sql_fields}" if @verbose
 
       if missing_required_sql_fields.any? || missing_config_sql_fields.any?
         # Build the empty mappings for displaying a starting point to the user:
         # For every absent header, insert an absent mapping.
-        sql_missing_fields = sql_field - mapped_sql_field
-        sql_missing_fields.each do |sql_field|
-          @config_field_mapping.push(ConfigFieldMapping.new(sql: sql_field, csv: "?"))
+        missing_config_sql_fields.each do |sql_field|
+          @config_field_mapping.push(ConfigFieldMapping.new(sql: sql_field, csv: "null"))
         end
-        csv_missing_fields = csv_fields - mapped_csv_field
-        csv_missing_fields.each do |csv_field|
-          @config_field_mapping.push(ConfigFieldMapping.new(sql: "?", csv: csv_field))
+        missing_config_csv_fields = csv_fields - mapped_csv_field - ignored_csv_field
+        puts "missing_config_csv_fields #{missing_config_csv_fields}" if @verbose
+        missing_config_csv_fields.each do |csv_field|
+          @config_field_mapping.push(ConfigFieldMapping.new(sql: "null", csv: csv_field))
         end
         # Now there is a mapping for every field.
         # This mapping can be printed for the user.
@@ -211,14 +221,14 @@ class StatBus
           end
         end
 
-        raise ArgumentError.new("Missing sql fields #{sql_missing_fields.to_a.to_pretty_json} you need to add a mapping")
+        raise ArgumentError.new("Missing sql fields #{missing_config_sql_fields.to_a.to_pretty_json} you need to add a mapping")
       end
 
       puts "@sql_field_mapping = #{@sql_field_mapping}" if @verbose
       puts "@config_field_mapping = #{@config_field_mapping}" if @verbose
-      # Sort header mappings based on position in sql_field_list
+      # Sort header mappings based on position in sql_fields_list
       @sql_field_mapping.sort_by! do |mapping|
-        index = sql_field_list.index(mapping.sql)
+        index = sql_fields_list.index(mapping.sql)
         if index.nil?
           raise ArgumentError.new("Found mapping for non existing sql field #{mapping.sql}")
         end

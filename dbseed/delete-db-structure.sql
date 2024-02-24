@@ -174,7 +174,6 @@ DROP TABLE public.activity_category_standard;
 DROP TABLE public.tag_for_unit;
 DROP TABLE public.tag;
 
-DROP TABLE public.country_for_unit;
 DROP TABLE public.person_for_unit;
 
 DROP TABLE public.analysis_log;

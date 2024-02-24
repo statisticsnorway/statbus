@@ -24,6 +24,10 @@
     "csv": "beliggenhetsadresse.kommunenummer"
   },
   {
+    "sql": "physical_country_code_2",
+    "csv": "beliggenhetsadresse.landkode"
+  },
+  {
     "sql": "primary_activity_category_code",
     "csv": "naeringskode1.kode"
   },
@@ -126,10 +130,6 @@
   {
     "sql": null,
     "csv": "beliggenhetsadresse.land"
-  },
-  {
-    "sql": null,
-    "csv": "beliggenhetsadresse.landkode"
   },
   {
     "sql": null,
