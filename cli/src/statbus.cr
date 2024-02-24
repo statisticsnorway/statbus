@@ -47,6 +47,7 @@ class StatBus
   @manage_mode : ManageMode | Nil = nil
   @name = "statbus"
   @verbose = false
+  @delayed_constraint_checking = true
   @import_file_name : String | Nil = nil
   @config_field_mapping = Array(ConfigFieldMapping).new
   @config_file_path : Path | Nil = nil
@@ -269,8 +270,10 @@ class StatBus
           db.exec "BEGIN;"
           # Set a config that prevents inner trigger functions form activating constraints,
           # make the deferral moot.
-          db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
-          db.exec "SET CONSTRAINTS ALL DEFERRED;"
+          if @delayed_constraint_checking
+            db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
+            db.exec "SET CONSTRAINTS ALL DEFERRED;"
+          end
           insert = db.build sql_statment
           batch_size = 10000
           batch_item = 0
@@ -281,15 +284,21 @@ class StatBus
             if (batch_item % batch_size) == 0
               puts "Commit-ing changes and refreshing statistical_unit"
               db.exec "END;"
-              db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+              if @delayed_constraint_checking
+                db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+              end
               db.exec "SELECT statistical_unit_refresh_now();"
               db.exec "BEGIN;"
-              db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
-              db.exec "SET CONSTRAINTS ALL DEFERRED;"
+              if @delayed_constraint_checking
+                db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
+                db.exec "SET CONSTRAINTS ALL DEFERRED;"
+              end
               insert = db.build sql_statment
             end
           end
-          db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+          if @delayed_constraint_checking
+            db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+          end
           db.exec "END;"
           db.exec "SELECT statistical_unit_refresh_now();"
           db.close
@@ -403,6 +412,9 @@ class StatBus
             end
           end
           @config_field_mapping.push(ConfigFieldMapping.new(sql: sql, csv: csv))
+        end
+        parser.on("--immediate-constraint-checking", "Check constraints for each record immediately") do
+          @delayed_constraint_checking = false
         end
       end
       parser.on("welcome", "Print a greeting message") do
