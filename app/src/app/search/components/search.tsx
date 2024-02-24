@@ -3,17 +3,18 @@ import TableToolbar from "@/app/search/components/table-toolbar";
 import {Tables} from "@/lib/database.types";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import useSearch from "@/app/search/hooks/use-search";
-import {useFilter} from "@/app/search/hooks/use-filter";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import SaveSearchButton from "@/app/search/components/search-save-button";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
 import {SearchFilter} from "@/app/search/search.types";
+import {useReducer} from "react";
+import {searchFilterReducer} from "@/app/search/hooks/use-filter";
 
 interface SearchProps {
     readonly regions: Tables<"region_used">[]
     readonly activityCategories: Tables<"activity_category_available">[]
     readonly statisticalVariables: Tables<"stat_definition">[]
-    readonly filters: SearchFilter[][]
+    readonly filters: SearchFilter[]
 }
 
 export default function Search(
@@ -23,7 +24,7 @@ export default function Search(
         filters: initialFilters
     }: SearchProps
 ) {
-    const [filters, searchFilterDispatch] = useFilter(initialFilters)
+    const [filters, searchFilterDispatch] = useReducer(searchFilterReducer, initialFilters)
     const {search: { data: searchResult}, searchParams} = useSearch(filters)
 
     useUpdatedUrlSearchParams(filters)

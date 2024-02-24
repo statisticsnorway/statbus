@@ -1,7 +1,6 @@
-import {useReducer} from "react";
 import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
 
-function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
+export function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
   switch (action.type) {
     case "toggle_option": {
       const {name, value} = action.payload
@@ -34,9 +33,3 @@ function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions)
       return state
   }
 }
-
-export const useFilter = (filters: SearchFilter[][]) => {
-  const [standardFilters, statisticalVariableFilters, others] = filters
-  return useReducer(searchFilterReducer, [...standardFilters, ...statisticalVariableFilters, ...others])
-}
-
