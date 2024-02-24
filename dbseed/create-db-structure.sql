@@ -4089,7 +4089,7 @@ DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
+    SELECT COALESCE(NULLIF(current_setting('statbus.constraints_already_deferred', true),'')::boolean,false) INTO statbus_constraints_already_deferred;
 
     -- Ensure that id exists and can be referenced
     -- without getting either error
@@ -4410,7 +4410,7 @@ DECLARE
     new_valid_to DATE := 'infinity'::date;
     stats RECORD;
 BEGIN
-    SELECT COALESCE(current_setting('statbus.constraints_already_deferred', true)::boolean,false) INTO statbus_constraints_already_deferred;
+    SELECT COALESCE(NULLIF(current_setting('statbus.constraints_already_deferred', true),'')::boolean,false) INTO statbus_constraints_already_deferred;
 
     -- Ensure that id exists and can be referenced
     -- without getting either error
