@@ -1,13 +1,16 @@
 import {createContext, Dispatch, ReactNode, useContext, useReducer} from "react";
 import {searchFilterReducer} from "@/app/search/hooks/use-filter";
 import useSearch from "@/app/search/hooks/use-search";
-import {SearchFilter, SearchResult} from "@/app/search/search.types";
+import {SearchFilter, SearchFilterAction, SearchOrder, SearchResult, SetOrderAction} from "@/app/search/search.types";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
 import {Tables} from "@/lib/database.types";
+import {searchOrderReducer} from "@/app/search/search-order-reducer";
 
 interface SearchContextState {
   readonly filters: SearchFilter[];
-  readonly dispatch: Dispatch<any>;
+  readonly dispatch: Dispatch<SearchFilterAction>;
+  readonly order: SearchOrder;
+  readonly searchOrderDispatch: Dispatch<SetOrderAction>;
   readonly searchResult?: SearchResult;
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<'region_used'>[]
@@ -23,14 +26,33 @@ interface SearchProviderProps {
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
 
-export const SearchProvider = ({children, filters: initialFilters, regions, activityCategories}: SearchProviderProps) => {
+export const SearchProvider = (
+  {
+    children,
+    filters: initialFilters,
+    regions,
+    activityCategories
+  }: SearchProviderProps) => {
+
   const [filters, dispatch] = useReducer(searchFilterReducer, initialFilters)
-  const {search: {data: searchResult}, searchParams} = useSearch(filters)
+  const [order, searchOrderDispatch] = useReducer(searchOrderReducer, {name: 'name', direction: 'asc'})
+  const {search: {data: searchResult}, searchParams} = useSearch(filters, order)
 
   useUpdatedUrlSearchParams(filters)
 
   return (
-    <SearchContext.Provider value={{filters, dispatch, searchResult, searchParams, regions, activityCategories}}>
+    <SearchContext.Provider
+      value={{
+        filters,
+        dispatch,
+        searchResult,
+        searchParams,
+        order,
+        searchOrderDispatch,
+        regions,
+        activityCategories,
+    }}
+    >
       {children}
     </SearchContext.Provider>
   )

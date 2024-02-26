@@ -1,9 +1,10 @@
 import useSWR, {Fetcher} from "swr";
 import type {SearchFilter, SearchResult} from "@/app/search/search.types";
+import {SearchOrder} from "@/app/search/search.types";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
 
-export default function useSearch(filters: SearchFilter[]) {
+export default function useSearch(filters: SearchFilter[], order: SearchOrder) {
   const searchParams = filters
     .map(f => [f.name, generatePostgrestQuery(f)])
     .filter(([, query]) => !!query)
@@ -11,6 +12,10 @@ export default function useSearch(filters: SearchFilter[]) {
       params.set(name!, query!);
       return params;
     }, new URLSearchParams());
+
+  if (order.name && order.direction) {
+    searchParams.set('order', `${order.name}.${order.direction}`)
+  }
 
   const search = useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
     keepPreviousData: true,
@@ -39,8 +44,6 @@ const generatePostgrestQuery = (f: SearchFilter) => {
   }
 
   switch (name) {
-    case "order":
-      return selected[0] || null
     case 'search':
       return selected[0] ? generateFTSQuery(selected[0]) : null
     case 'tax_reg_ident':

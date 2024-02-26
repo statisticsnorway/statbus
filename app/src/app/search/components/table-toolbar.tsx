@@ -3,7 +3,7 @@ import {Input} from "@/components/ui/input";
 import {OptionsFilter} from "@/app/search/components/options-filter";
 import {ResetFilterButton} from "@/app/search/components/reset-filter-button";
 import {ConditionalFilter} from "@/app/search/components/conditional-filter";
-import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
+import type {SearchFilter, SearchFilterAction} from "@/app/search/search.types";
 import {useSearchContext} from "@/app/search/search-provider";
 
 export default function TableToolbar() {
@@ -36,7 +36,7 @@ export default function TableToolbar() {
 
 function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
   readonly filter: SearchFilter,
-  readonly dispatch: Dispatch<SearchFilterActions>
+  readonly dispatch: Dispatch<SearchFilterAction>
 }) {
   return (
     <Input
@@ -54,7 +54,7 @@ function SearchFilterComponent({filter: {name, label, selected}, dispatch}: {
 
 function ConditionalFilterComponent({filter: {name, label, condition, selected}, dispatch}: {
   readonly filter: SearchFilter,
-  readonly dispatch: Dispatch<SearchFilterActions>
+  readonly dispatch: Dispatch<SearchFilterAction>
 }) {
   return (
     <ConditionalFilter
@@ -68,7 +68,7 @@ function ConditionalFilterComponent({filter: {name, label, condition, selected},
 
 function OptionsFilterComponent({filter: {name, label, options, selected}, dispatch}: {
   readonly filter: SearchFilter,
-  readonly dispatch: Dispatch<SearchFilterActions>
+  readonly dispatch: Dispatch<SearchFilterAction>
 }) {
   return (
     <OptionsFilter
@@ -83,7 +83,7 @@ function OptionsFilterComponent({filter: {name, label, options, selected}, dispa
 
 function RadioFilterComponent({filter: {name, label, options, selected}, dispatch}: {
   readonly filter: SearchFilter,
-  readonly dispatch: Dispatch<SearchFilterActions>
+  readonly dispatch: Dispatch<SearchFilterAction>
 }) {
   return (
     <OptionsFilter

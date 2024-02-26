@@ -1,6 +1,6 @@
-import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
+import type {SearchFilter, SearchFilterAction} from "@/app/search/search.types";
 
-export function searchFilterReducer(state: SearchFilter[], action: SearchFilterActions): SearchFilter[] {
+export function searchFilterReducer(state: SearchFilter[], action: SearchFilterAction): SearchFilter[] {
   switch (action.type) {
     case "toggle_option": {
       const {name, value} = action.payload

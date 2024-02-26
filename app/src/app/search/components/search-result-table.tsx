@@ -1,7 +1,8 @@
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
+import {Table, TableBody, TableCell, TableHeader, TableRow} from "@/components/ui/table";
 import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-link";
 import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
 import {useSearchContext} from "../search-provider";
+import SortableTableHead from "@/app/search/components/sortable-table-head";
 
 export default function SearchResultTable() {
   const {searchResult, regions, activityCategories} = useSearchContext();
@@ -16,10 +17,10 @@ export default function SearchResultTable() {
     <Table>
       <TableHeader className="bg-gray-100">
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead className="text-left">Region</TableHead>
-          <TableHead className="text-right">Employees</TableHead>
-          <TableHead className="text-right">Activity Category Code</TableHead>
+          <SortableTableHead name="name">Name</SortableTableHead>
+          <SortableTableHead className="text-left" name="physical_region_path">Region</SortableTableHead>
+          <SortableTableHead className="text-right" name="employees">Employees</SortableTableHead>
+          <SortableTableHead className="text-right" name="primary_activity_category_path">Activity Category</SortableTableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -46,7 +47,7 @@ export default function SearchResultTable() {
                           <span className="font-medium">{name}</span>
                         )
                       }
-                      <small className="text-gray-700">{tax_reg_ident} | {prettifyUnitType(unit_type)}</small>
+                      <small className="text-gray-700">{tax_reg_ident}</small>
                     </div>
                   </TableCell>
                   <TableCell className="text-left py-1">
@@ -66,19 +67,4 @@ export default function SearchResultTable() {
       </TableBody>
     </Table>
   )
-}
-
-const prettifyUnitType = (unit_type?: 'legal_unit' | 'establishment' | 'enterprise' | 'enterprise_group' | null) => {
-  switch (unit_type) {
-    case "legal_unit":
-      return 'Legal Unit';
-    case "establishment":
-      return 'Establishment';
-    case "enterprise":
-      return 'Enterprise';
-    case "enterprise_group":
-      return 'Enterprise Group';
-    default:
-      return 'Unknown';
-  }
 }
