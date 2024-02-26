@@ -4,7 +4,6 @@ import {getStatisticalUnits} from "@/app/search/search-requests";
 export async function GET(request: Request) {
     const {searchParams} = new URL(request.url)
 
-    console.log(searchParams.toString())
     if (!searchParams.has('order')) {
         searchParams.set('order', 'tax_reg_ident.desc')
     }
