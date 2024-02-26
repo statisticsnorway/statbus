@@ -1,15 +1,13 @@
-import {SearchResult} from "@/app/search/search.types";
 import Link from "next/link";
 import {buttonVariants} from "@/components/ui/button";
 import {Download} from "lucide-react";
 import {cn} from "@/lib/utils";
+import {useSearchContext} from "@/app/search/search-provider";
 
 const MAX_LIMIT_STATISTICAL_UNITS_EXPORT = 10000
 
-export function ExportCSVLink({searchParams, searchResult}: {
-  readonly searchParams: URLSearchParams,
-  readonly searchResult?: SearchResult
-}) {
+export function ExportCSVLink() {
+  const {searchResult, searchParams} = useSearchContext()
   if (!searchResult?.count || searchResult.count > MAX_LIMIT_STATISTICAL_UNITS_EXPORT) return null
 
   return (

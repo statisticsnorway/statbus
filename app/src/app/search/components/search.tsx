@@ -2,13 +2,11 @@
 import TableToolbar from "@/app/search/components/table-toolbar";
 import {Tables} from "@/lib/database.types";
 import SearchResultTable from "@/app/search/components/search-result-table";
-import useSearch from "@/app/search/hooks/use-search";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import SaveSearchButton from "@/app/search/components/search-save-button";
-import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
 import {SearchFilter} from "@/app/search/search.types";
-import {useReducer} from "react";
-import {searchFilterReducer} from "@/app/search/hooks/use-filter";
+import {SearchProvider} from "@/app/search/search-provider";
+import {SearchResultCount} from "@/app/search/components/search-result-count";
 
 interface SearchProps {
     readonly regions: Tables<"region_used">[]
@@ -17,33 +15,23 @@ interface SearchProps {
     readonly filters: SearchFilter[]
 }
 
-export default function Search(
-    {
-        regions = [],
-        activityCategories,
-        filters: initialFilters
-    }: SearchProps
-) {
-    const [filters, searchFilterDispatch] = useReducer(searchFilterReducer, initialFilters)
-    const {search: { data: searchResult}, searchParams} = useSearch(filters)
-
-    useUpdatedUrlSearchParams(filters)
-
+export default function Search({regions = [], activityCategories, filters}: SearchProps) {
     return (
+      <SearchProvider filters={filters} regions={regions} activityCategories={activityCategories}>
         <section className="space-y-3">
-            <TableToolbar dispatch={searchFilterDispatch} filters={filters} />
+            <TableToolbar />
             <div className="rounded-md border">
-                <SearchResultTable regions={regions} activityCategories={activityCategories} searchResult={searchResult}/>
+                <SearchResultTable />
             </div>
             <div className="flex justify-between text-xs text-gray-500 items-center">
-                <span className="indent-2.5">
-                    Showing {searchResult?.statisticalUnits?.length} of total {searchResult?.count} results
-                </span>
+                <SearchResultCount />
                 <div className="space-x-3 hidden lg:flex">
                   <SaveSearchButton disabled />
-                  <ExportCSVLink searchResult={searchResult} searchParams={searchParams} />
+                  <ExportCSVLink />
                 </div>
             </div>
         </section>
+      </SearchProvider>
     )
 }
+

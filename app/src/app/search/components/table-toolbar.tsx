@@ -4,13 +4,11 @@ import {OptionsFilter} from "@/app/search/components/options-filter";
 import {ResetFilterButton} from "@/app/search/components/reset-filter-button";
 import {ConditionalFilter} from "@/app/search/components/conditional-filter";
 import type {SearchFilter, SearchFilterActions} from "@/app/search/search.types";
+import {useSearchContext} from "@/app/search/search-provider";
 
-interface TableToolbarProps {
-  readonly filters: SearchFilter[],
-  readonly dispatch: Dispatch<SearchFilterActions>
-}
+export default function TableToolbar() {
 
-export default function TableToolbar({filters, dispatch}: TableToolbarProps) {
+  const {filters, dispatch} = useSearchContext()
   const hasFilterSelected = filters.some(({selected}) => selected?.[0]?.toString().length)
 
   const createFilterComponent = useCallback((filter: SearchFilter) => {

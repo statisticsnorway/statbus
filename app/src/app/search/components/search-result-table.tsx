@@ -1,21 +1,10 @@
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {SearchResult} from "@/app/search/search.types";
-import {Tables} from "@/lib/database.types";
 import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-link";
 import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
+import {useSearchContext} from "../search-provider";
 
-interface TableProps {
-  readonly searchResult?: SearchResult
-  readonly regions: Tables<'region_used'>[]
-  readonly activityCategories: Tables<'activity_category_available'>[]
-}
-
-export default function SearchResultTable(
-  {
-    searchResult: { statisticalUnits } = { statisticalUnits: [], count: 0 },
-    regions = [],
-    activityCategories = [],
-  }: TableProps) {
+export default function SearchResultTable() {
+  const {searchResult, regions, activityCategories} = useSearchContext();
 
   const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({path}) => path === physical_region_path);
@@ -35,7 +24,7 @@ export default function SearchResultTable(
       </TableHeader>
       <TableBody>
         {
-          statisticalUnits?.map((unit) => {
+          searchResult?.statisticalUnits?.map((unit) => {
               const {
                 unit_type,
                 unit_id,
