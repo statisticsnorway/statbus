@@ -17,7 +17,7 @@ interface SearchContextState {
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
 
-export const SearchContext = createContext<SearchContextState | null>(null)
+const SearchContext = createContext<SearchContextState | null>(null)
 
 interface SearchProviderProps {
   readonly children: ReactNode;

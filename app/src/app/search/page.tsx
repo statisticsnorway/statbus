@@ -1,7 +1,6 @@
 import {createClient} from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import {Metadata} from "next";
-
 import {createFilters} from "@/app/search/create-filters";
 
 export const metadata: Metadata = {
