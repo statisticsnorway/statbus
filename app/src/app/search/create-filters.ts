@@ -107,44 +107,5 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
     }
   });
 
-  const sortFilter: SearchFilter = {
-    type: "radio",
-    name: "order",
-    label: "Sort By",
-    options: [
-      {
-        label: "Name (Descending)",
-        value: "name.desc",
-        humanReadableValue: "Name (Descending)"
-      },
-      {
-        label: "Name (Ascending)",
-        value: "name.asc",
-        humanReadableValue: "Name (Ascending)"
-      },
-      {
-        label: "Employees (Descending)",
-        value: "employees.desc.nullslast",
-        humanReadableValue: "Employees (Descending)"
-      },
-      {
-        label: "Employees (Ascending)",
-        value: "employees.asc",
-        humanReadableValue: "Employees (Ascending)"
-      },
-      {
-        label: "Activity (Ascending)",
-        value: "primary_activity_category_path.asc",
-        humanReadableValue: "Activity | Ascending"
-      },
-      {
-        label: "Activity (Descending)",
-        value: "primary_activity_category_path.desc.nullslast",
-        humanReadableValue: "Activity | Descending"
-      }
-    ],
-    selected: urlSearchParams?.has('order') ? [urlSearchParams?.get('order') as string] : ["employees.desc.nullslast"],
-  }
-
-  return [...standardFilters, ...statisticalVariableFilters, sortFilter]
+  return [...standardFilters, ...statisticalVariableFilters]
 }

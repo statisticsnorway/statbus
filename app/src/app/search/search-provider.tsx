@@ -1,5 +1,5 @@
 import {createContext, Dispatch, ReactNode, useContext, useReducer} from "react";
-import {searchFilterReducer} from "@/app/search/hooks/use-filter";
+import {searchFilterReducer} from "@/app/search/search-filter-reducer";
 import useSearch from "@/app/search/hooks/use-search";
 import {SearchFilter, SearchFilterAction, SearchOrder, SearchResult, SetOrderAction} from "@/app/search/search.types";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
@@ -51,7 +51,7 @@ export const SearchProvider = (
         searchOrderDispatch,
         regions,
         activityCategories,
-    }}
+      }}
     >
       {children}
     </SearchContext.Provider>
