@@ -28,12 +28,9 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
     }, [setActivityCategory]);
 
     return (
-        <div className="w-full space-y-6 p-6">
-            <InfoBox>
-               
-               
-            </InfoBox>
-            <div className="p-6 space-y-6 border-l-4 border-gray-200 bg-gray-50">
+        <div className="w-full space-y-2 p-2">
+           
+            <div className="p-6 space-y-2 border-l-4 border-gray-200 bg-gray-50">
                 <BreadCrumb
                     topLevelText="All Regions"
                     points={drillDown.breadcrumb.region}
@@ -45,7 +42,7 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
                     onSelect={selectRegion}
                 />
             </div>
-            <div className="p-6 space-y-6 border-l-4 border-gray-200 bg-gray-50">
+            <div className="p-6 space-y-2 border-l-4 border-gray-200 bg-gray-50">
                 <BreadCrumb
                     topLevelText="All Activity Categories"
                     points={drillDown.breadcrumb.activity_category}

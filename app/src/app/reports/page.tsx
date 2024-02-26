@@ -21,8 +21,8 @@ export default async function ReportsPage() {
     }
 
     return (
-        <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto w-full">
-            <h1 className="font-medium text-xl text-center mb-12">StatBus Reports</h1>
+        <main className="flex flex-col py-2 px-2 md:py-2 max-w-5xl mx-auto w-full">
+            <h1 className="font-medium text-xl text-center mb-12">StatBus Charts/Reports</h1>
             <StatBusChart drillDown={drillDown}/>
         </main>
     )
