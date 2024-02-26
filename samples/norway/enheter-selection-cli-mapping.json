@@ -16,6 +16,26 @@
     "csv": null
   },
   {
+    "sql": "physical_address_part1",
+    "csv": "forretningsadresse.adresse"
+  },
+  {
+    "sql": "physical_address_part2",
+    "csv": null
+  },
+  {
+    "sql": "physical_address_part3",
+    "csv": null
+  },
+  {
+    "sql": "physical_postal_code",
+    "csv": "forretningsadresse.postnummer"
+  },
+  {
+    "sql": "physical_postal_place",
+    "csv": "forretningsadresse.poststed"
+  },
+  {
     "sql": "physical_region_code",
     "csv": "forretningsadresse.kommunenummer"
   },
@@ -102,18 +122,6 @@
   {
     "sql": null,
     "csv": "postadresse.landkode"
-  },
-  {
-    "sql": null,
-    "csv": "forretningsadresse.adresse"
-  },
-  {
-    "sql": null,
-    "csv": "forretningsadresse.poststed"
-  },
-  {
-    "sql": null,
-    "csv": "forretningsadresse.postnummer"
   },
   {
     "sql": null,

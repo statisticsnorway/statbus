@@ -161,6 +161,11 @@ class StatBus
       "name",
       "birth_date",
       "death_date",
+      "physical_address_part1",
+      "physical_address_part2",
+      "physical_address_part3",
+      "physical_postal_code",
+      "physical_postal_place",
       "physical_region_code",
       "physical_country_code_2",
       "primary_activity_category_code",
@@ -180,6 +185,11 @@ class StatBus
       "name",
       "birth_date",
       "death_date",
+      "physical_address_part1",
+      "physical_address_part2",
+      "physical_address_part3",
+      "physical_postal_code",
+      "physical_postal_place",
       "physical_region_code",
       "physical_country_code_2",
       "primary_activity_category_code",
@@ -341,10 +351,10 @@ class StatBus
             insert.exec(args: sql_row)
             if (batch_item % batch_size) == 0
               puts "Commit-ing changes and refreshing statistical_unit"
-              db.exec "END;"
               if @delayed_constraint_checking
                 db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
               end
+              db.exec "END;"
               db.exec "SELECT statistical_unit_refresh_now();"
               db.exec "BEGIN;"
               if @delayed_constraint_checking
@@ -354,6 +364,7 @@ class StatBus
               insert = db.build sql_statment
             end
           end
+          puts "Commit-ing changes and refreshing statistical_unit"
           if @delayed_constraint_checking
             db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
           end

@@ -8,6 +8,34 @@
     "csv": "navn"
   },
   {
+    "sql": "birth_date",
+    "csv": "nedleggelsesdato"
+  },
+  {
+    "sql": "death_date",
+    "csv": "oppstartsdato"
+  },
+  {
+    "sql": "physical_address_part1",
+    "csv": "beliggenhetsadresse.adresse"
+  },
+  {
+    "sql": "physical_address_part2",
+    "csv": null
+  },
+  {
+    "sql": "physical_address_part3",
+    "csv": null
+  },
+  {
+    "sql": "physical_postal_code",
+    "csv": "beliggenhetsadresse.postnummer"
+  },
+  {
+    "sql": "physical_postal_place",
+    "csv": "beliggenhetsadresse.poststed"
+  },
+  {
     "sql": "physical_region_code",
     "csv": "beliggenhetsadresse.kommunenummer"
   },
@@ -98,18 +126,6 @@
   {
     "sql": null,
     "csv": "postadresse.landkode"
-  },
-  {
-    "sql": null,
-    "csv": "beliggenhetsadresse.adresse"
-  },
-  {
-    "sql": null,
-    "csv": "beliggenhetsadresse.poststed"
-  },
-  {
-    "sql": null,
-    "csv": "beliggenhetsadresse.postnummer"
   },
   {
     "sql": null,
