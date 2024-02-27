@@ -20,7 +20,7 @@ export default function SearchResultTable() {
           <SortableTableHead name="name">Name</SortableTableHead>
           <SortableTableHead className="text-left" name="physical_region_path">Region</SortableTableHead>
           <SortableTableHead className="text-right" name="employees">Employees</SortableTableHead>
-          <SortableTableHead className="text-right" name="primary_activity_category_path">Activity Category</SortableTableHead>
+          <SortableTableHead className="text-left" name="primary_activity_category_path">Activity Category</SortableTableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -35,9 +35,13 @@ export default function SearchResultTable() {
                 primary_activity_category_path,
                 employees
               } = unit;
+
+              const activityCategory = getActivityCategoryByPath(primary_activity_category_path);
+              const region = getRegionByPath(physical_region_path);
+
               return (
                 <TableRow key={`${unit_type}_${unit_id}`}>
-                  <TableCell className="px-3 py-2 flex items-center space-x-3 leading-none">
+                  <TableCell className="px-2 py-2 flex items-center space-x-3 leading-none">
                     <StatisticalUnitIcon type={unit_type} size={20}/>
                     <div className="flex flex-col space-y-1.5 flex-1">
                       {
@@ -51,13 +55,13 @@ export default function SearchResultTable() {
                     </div>
                   </TableCell>
                   <TableCell className="text-left py-1">
-                    {getRegionByPath(physical_region_path)?.name}
+                    {region?.name}
                   </TableCell>
                   <TableCell className="text-right py-1">
                     {employees ?? '-'}
                   </TableCell>
-                  <TableCell className="text-right py-1 px-4">
-                    {getActivityCategoryByPath(primary_activity_category_path)?.code}
+                  <TableCell title={activityCategory?.name ?? ''} className="text-left py-1 pl-4 pr-2 max-w-36 lg:max-w-72 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                    {activityCategory?.name ?? '-'}
                   </TableCell>
                 </TableRow>
               )
