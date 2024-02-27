@@ -4186,11 +4186,17 @@ SELECT lu.tax_reg_ident
      , phl.address_part1 AS physical_address_part1
      , phl.address_part2 AS physical_address_part2
      , phl.address_part3 AS physical_address_part3
-     , phl.postal_code AS physical_postal_code
-     , phl.postal_place AS physical_postal_place
-     , phr.code AS physical_region_code
-     , pc.code_2 AS physical_country_code_2
-     , por.code AS postal_region_code
+     , phl.postal_code   AS physical_postal_code
+     , phl.postal_place  AS physical_postal_place
+     , phr.code          AS physical_region_code
+     , phc.code_2        AS physical_country_code_2
+     , pol.address_part1 AS postal_address_part1
+     , pol.address_part2 AS postal_address_part2
+     , pol.address_part3 AS postal_address_part3
+     , pol.postal_code   AS postal_postal_code
+     , pol.postal_place  AS postal_postal_place
+     , por.code          AS postal_region_code
+     , poc.code_2        AS postal_country_code_2
      , prac.code AS primary_activity_category_code
      , seac.code AS secondary_activity_category_code
 FROM public.legal_unit AS lu
@@ -4203,10 +4209,11 @@ LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = seac.id
 
 LEFT JOIN public.location AS phl ON phl.legal_unit_id = lu.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
-LEFT JOIN public.country AS pc ON phl.country_id = pc.id
+LEFT JOIN public.country AS phc ON phl.country_id = phc.id
 
 LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 LEFT JOIN public.region AS por ON pol.region_id = por.id
+LEFT JOIN public.country AS poc ON phl.country_id = poc.id
 
 WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
   AND lu.active
@@ -4218,6 +4225,8 @@ DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
     physical_country RECORD;
+    postal_region RECORD;
+    postal_country RECORD;
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     upsert_data RECORD;
@@ -4246,6 +4255,8 @@ BEGIN
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO physical_country;
+    SELECT NULL::int AS id INTO postal_region;
+    SELECT NULL::int AS id INTO postal_country;
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
 
@@ -4272,6 +4283,26 @@ BEGIN
       IF NOT FOUND THEN
         RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
         invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+      END IF;
+    END IF;
+
+    IF NEW.postal_country_code_2 IS NOT NULL AND NEW.postal_country_code_2 <> '' THEN
+      SELECT * INTO postal_country
+      FROM public.country
+      WHERE code_2 = NEW.postal_country_code_2;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find postal_country_code_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{postal_country_code_2}', to_jsonb(NEW.postal_country_code_2), true);
+      END IF;
+    END IF;
+
+    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
+      SELECT * INTO postal_region
+      FROM public.region
+      WHERE code = NEW.postal_region_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
       END IF;
     END IF;
 
@@ -4419,6 +4450,40 @@ BEGIN
         RETURNING * INTO inserted_location;
     END IF;
 
+    IF postal_region.id IS NOT NULL OR postal_country.id IS NOT NULL THEN
+        INSERT INTO public.location_era
+        (
+            valid_from,
+            valid_to,
+            legal_unit_id,
+            location_type,
+            address_part1,
+            address_part2,
+            address_part3,
+            postal_code,
+            postal_place,
+            region_id,
+            country_id,
+            updated_by_user_id
+        )
+        VALUES
+        (
+            new_valid_from,
+            new_valid_to,
+            inserted_legal_unit.id,
+            'postal',
+            NULLIF(NEW.postal_address_part1,''),
+            NULLIF(NEW.postal_address_part2,''),
+            NULLIF(NEW.postal_address_part3,''),
+            NULLIF(NEW.postal_postal_code,''),
+            NULLIF(NEW.postal_postal_place,''),
+            postal_region.id,
+            postal_country.id,
+            edited_by_user.id
+        )
+        RETURNING * INTO inserted_location;
+    END IF;
+
     IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
         (
@@ -4525,11 +4590,17 @@ SELECT es.tax_reg_ident
      , phl.address_part1 AS physical_address_part1
      , phl.address_part2 AS physical_address_part2
      , phl.address_part3 AS physical_address_part3
-     , phl.postal_code AS physical_postal_code
-     , phl.postal_place AS physical_postal_place
-     , phr.code AS physical_region_code
-     , pc.code_2 AS physical_country_code_2
-     , por.code AS postal_region_code
+     , phl.postal_code   AS physical_postal_code
+     , phl.postal_place  AS physical_postal_place
+     , phr.code          AS physical_region_code
+     , phc.code_2        AS physical_country_code_2
+     , pol.address_part1 AS postal_address_part1
+     , pol.address_part2 AS postal_address_part2
+     , pol.address_part3 AS postal_address_part3
+     , pol.postal_code   AS postal_postal_code
+     , pol.postal_place  AS postal_postal_place
+     , por.code          AS postal_region_code
+     , poc.code_2        AS postal_country_code_2
      , prac.code AS primary_activity_category_code
      , seac.code AS secondary_activity_category_code
      , sfu1.value_int::TEXT AS employees
@@ -4545,10 +4616,11 @@ LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = prac.id
 
 LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
 LEFT JOIN public.region AS phr ON phl.region_id = phr.id
-LEFT JOIN public.country AS pc ON phl.country_id = pc.id
+LEFT JOIN public.country AS phc ON phl.country_id = phc.id
 
 LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 LEFT JOIN public.region AS por ON pol.region_id = por.id
+LEFT JOIN public.country AS poc ON phl.country_id = poc.id
 
 LEFT JOIN public.stat_definition AS sd1 ON sd1.code = 'employees'
 LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id AND sfu1.stat_definition_id = sd1.id AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
@@ -4566,6 +4638,8 @@ DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
     physical_country RECORD;
+    postal_region RECORD;
+    postal_country RECORD;
     legal_unit RECORD;
     is_primary_for_legal_unit BOOLEAN;
     enterprise RECORD;
@@ -4599,6 +4673,8 @@ BEGIN
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO physical_country;
+    SELECT NULL::int AS id INTO postal_region;
+    SELECT NULL::int AS id INTO postal_country;
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS employees
@@ -4664,6 +4740,26 @@ BEGIN
       IF NOT FOUND THEN
         RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
         invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+      END IF;
+    END IF;
+
+    IF NEW.postal_country_code_2 IS NOT NULL AND NEW.postal_country_code_2 <> '' THEN
+      SELECT * INTO postal_country
+      FROM public.country
+      WHERE code_2 = NEW.postal_country_code_2;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find postal_country_code_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{postal_country_code_2}', to_jsonb(NEW.postal_country_code_2), true);
+      END IF;
+    END IF;
+
+    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
+      SELECT * INTO postal_region
+      FROM public.region
+      WHERE code = NEW.postal_region_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
       END IF;
     END IF;
 
@@ -4792,6 +4888,40 @@ BEGIN
             NULLIF(NEW.physical_postal_place,''),
             physical_region.id,
             physical_country.id,
+            edited_by_user.id
+        )
+        RETURNING * INTO inserted_location;
+    END IF;
+
+    IF postal_region.id IS NOT NULL OR postal_country.id IS NOT NULL THEN
+        INSERT INTO public.location_era
+        (
+            valid_from,
+            valid_to,
+            establishment_id,
+            location_type,
+            address_part1,
+            address_part2,
+            address_part3,
+            postal_code,
+            postal_place,
+            region_id,
+            country_id,
+            updated_by_user_id
+        )
+        VALUES
+        (
+            new_valid_from,
+            new_valid_to,
+            inserted_establishment.id,
+            'postal',
+            NULLIF(NEW.postal_address_part1,''),
+            NULLIF(NEW.postal_address_part2,''),
+            NULLIF(NEW.postal_address_part3,''),
+            NULLIF(NEW.postal_postal_code,''),
+            NULLIF(NEW.postal_postal_place,''),
+            postal_region.id,
+            postal_country.id,
             edited_by_user.id
         )
         RETURNING * INTO inserted_location;

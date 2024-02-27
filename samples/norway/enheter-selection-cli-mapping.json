@@ -96,15 +96,23 @@
     "csv": "hjemmeside"
   },
   {
-    "sql": null,
+    "sql": "postal_address_part1",
     "csv": "postadresse.adresse"
   },
   {
-    "sql": null,
+    "sql": "postal_address_part2",
+    "csv": null
+  },
+  {
+    "sql": "postal_address_part3",
+    "csv": null
+  },
+  {
+    "sql": "postal_postal_place",
     "csv": "postadresse.poststed"
   },
   {
-    "sql": null,
+    "sql": "postal_postal_code",
     "csv": "postadresse.postnummer"
   },
   {
@@ -112,7 +120,7 @@
     "csv": "postadresse.kommune"
   },
   {
-    "sql": null,
+    "sql": "postal_region_code",
     "csv": "postadresse.kommunenummer"
   },
   {
@@ -120,7 +128,7 @@
     "csv": "postadresse.land"
   },
   {
-    "sql": null,
+    "sql": "postal_country_code_2",
     "csv": "postadresse.landkode"
   },
   {
