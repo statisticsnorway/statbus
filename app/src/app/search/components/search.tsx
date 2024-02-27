@@ -8,29 +8,34 @@ import {SearchProvider} from "@/app/search/search-provider";
 import {SearchResultCount} from "@/app/search/components/search-result-count";
 
 interface SearchProps {
-    readonly regions: Tables<"region_used">[]
-    readonly activityCategories: Tables<"activity_category_available">[]
-    readonly statisticalVariables: Tables<"stat_definition">[]
-    readonly filters: SearchFilter[]
-    readonly order: SearchOrder
+  readonly regions: Tables<"region_used">[]
+  readonly activityCategories: Tables<"activity_category_available">[]
+  readonly statisticalVariables: Tables<"stat_definition">[]
+  readonly searchFilters: SearchFilter[]
+  readonly searchOrder: SearchOrder
 }
 
-export default function Search({regions = [], activityCategories, filters, order}: SearchProps) {
-    return (
-      <SearchProvider filters={filters} regions={regions} activityCategories={activityCategories} order={order}>
-        <section className="space-y-3">
-            <TableToolbar />
-            <div className="rounded-md border">
-                <SearchResultTable />
-            </div>
-            <div className="flex justify-between text-xs text-gray-500 items-center">
-                <SearchResultCount />
-                <div className="space-x-3 hidden lg:flex">
-                  <ExportCSVLink />
-                </div>
-            </div>
-        </section>
-      </SearchProvider>
-    )
+export default function Search({regions = [], activityCategories, searchFilters, searchOrder}: SearchProps) {
+  return (
+    <SearchProvider
+      searchFilters={searchFilters}
+      searchOrder={searchOrder}
+      regions={regions}
+      activityCategories={activityCategories}
+    >
+      <section className="space-y-3">
+        <TableToolbar/>
+        <div className="rounded-md border">
+          <SearchResultTable/>
+        </div>
+        <div className="flex justify-between text-xs text-gray-500 items-center">
+          <SearchResultCount/>
+          <div className="space-x-3 hidden lg:flex">
+            <ExportCSVLink/>
+          </div>
+        </div>
+      </section>
+    </SearchProvider>
+  )
 }
 

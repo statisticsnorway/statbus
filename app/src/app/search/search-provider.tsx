@@ -21,8 +21,8 @@ const SearchContext = createContext<SearchContextState | null>(null)
 
 interface SearchProviderProps {
   readonly children: ReactNode;
-  readonly filters: SearchFilter[];
-  readonly order: SearchOrder;
+  readonly searchFilters: SearchFilter[];
+  readonly searchOrder: SearchOrder;
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
@@ -30,8 +30,8 @@ interface SearchProviderProps {
 export const SearchProvider = (
   {
     children,
-    filters: initialSearchFilters,
-    order: initialSearchOrder,
+    searchFilters: initialSearchFilters,
+    searchOrder: initialSearchOrder,
     regions,
     activityCategories
   }: SearchProviderProps) => {

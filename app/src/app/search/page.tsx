@@ -43,7 +43,7 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
 
   const urlSearchParams = new URLSearchParams(searchParams);
 
-    const filters = createFilters({
+    const searchFilters = createFilters({
         activityCategories: activityCategories ?? [],
         regions: regions ?? [],
         statisticalVariables: statisticalVariables ?? []
@@ -58,8 +58,8 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
                 regions={regions ?? []}
                 activityCategories={activityCategories ?? []}
                 statisticalVariables={statisticalVariables ?? []}
-                filters={filters}
-                order={{name: orderBy, direction: orderDirections.join('.')}}
+                searchFilters={searchFilters}
+                searchOrder={{name: orderBy, direction: orderDirections.join('.')}}
             />
         </main>
     )
