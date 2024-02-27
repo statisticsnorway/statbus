@@ -4,8 +4,8 @@ import {useSearchContext} from "@/app/search/search-provider";
 import {cn} from "@/lib/utils";
 
 interface SortableTableHeadProps extends ThHTMLAttributes<HTMLTableCellElement> {
-  name: string
-  children: ReactNode
+  readonly name: string
+  readonly children: ReactNode
 }
 
 export default function SortableTableHead({children, name, ...props}: SortableTableHeadProps) {
