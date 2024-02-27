@@ -10,25 +10,27 @@ interface TopologyProps {
 export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
   return (
     <ul className="text-xs">
-      {
-        hierarchy?.enterprise?.legal_unit.map((legalUnit) => (
-          <TopologyItem
-            key={legalUnit.id}
-            unit={legalUnit}
-            type="legal_unit"
-            active={legalUnit.id === unitId && unitType === 'legal_unit'}
-          >
-            {legalUnit.establishment.map((establishment) =>
-              <TopologyItem
-                key={establishment.id}
-                unit={establishment}
-                active={establishment.id === unitId && unitType === 'establishment'}
-                type="establishment"
-              />
-            )}
-          </TopologyItem>
-        ))
-      }
+      <TopologyItem type="enterprise" unit={hierarchy?.enterprise}>
+        {
+          hierarchy?.enterprise?.legal_unit.map((legalUnit) => (
+            <TopologyItem
+              key={legalUnit.id}
+              unit={legalUnit}
+              type="legal_unit"
+              active={legalUnit.id === unitId && unitType === 'legal_unit'}
+            >
+              {legalUnit.establishment.map((establishment) =>
+                <TopologyItem
+                  key={establishment.id}
+                  unit={establishment}
+                  active={establishment.id === unitId && unitType === 'establishment'}
+                  type="establishment"
+                />
+              )}
+            </TopologyItem>
+          ))
+        }
+      </TopologyItem>
     </ul>
   )
 }

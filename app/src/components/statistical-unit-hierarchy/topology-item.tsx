@@ -9,7 +9,7 @@ interface TopologyItemProps {
     readonly type: 'legal_unit' | 'establishment' | 'enterprise' | 'enterprise_group';
     readonly unit: {
         id: number;
-        name: string;
+        name?: string;
     }
 }
 
@@ -21,7 +21,7 @@ export function TopologyItem({unit: {id, name}, type, active, children}: Topolog
                 <StatisticalUnitDetailsLinkWithSubPath
                     id={id}
                     type={type}
-                    name={name}
+                    name={name ?? `${type} ${id}`.toUpperCase()}
                     className="font-normal flex-1 whitespace-nowrap overflow-hidden overflow-ellipsis"
                 />
             </div>
