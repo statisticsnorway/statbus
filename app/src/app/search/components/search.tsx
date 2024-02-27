@@ -3,7 +3,7 @@ import TableToolbar from "@/app/search/components/table-toolbar";
 import {Tables} from "@/lib/database.types";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
-import {SearchFilter} from "@/app/search/search.types";
+import {SearchFilter, SearchOrder} from "@/app/search/search.types";
 import {SearchProvider} from "@/app/search/search-provider";
 import {SearchResultCount} from "@/app/search/components/search-result-count";
 
@@ -12,11 +12,12 @@ interface SearchProps {
     readonly activityCategories: Tables<"activity_category_available">[]
     readonly statisticalVariables: Tables<"stat_definition">[]
     readonly filters: SearchFilter[]
+    readonly order: SearchOrder
 }
 
-export default function Search({regions = [], activityCategories, filters}: SearchProps) {
+export default function Search({regions = [], activityCategories, filters, order}: SearchProps) {
     return (
-      <SearchProvider filters={filters} regions={regions} activityCategories={activityCategories}>
+      <SearchProvider filters={filters} regions={regions} activityCategories={activityCategories} order={order}>
         <section className="space-y-3">
             <TableToolbar />
             <div className="rounded-md border">

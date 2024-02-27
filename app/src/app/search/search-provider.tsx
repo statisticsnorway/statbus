@@ -22,6 +22,7 @@ const SearchContext = createContext<SearchContextState | null>(null)
 interface SearchProviderProps {
   readonly children: ReactNode;
   readonly filters: SearchFilter[];
+  readonly order: SearchOrder;
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
@@ -29,30 +30,29 @@ interface SearchProviderProps {
 export const SearchProvider = (
   {
     children,
-    filters: initialFilters,
+    filters: initialSearchFilters,
+    order: initialSearchOrder,
     regions,
     activityCategories
   }: SearchProviderProps) => {
 
-  const [searchFilters, searchFilterDispatch] = useReducer(searchFilterReducer, initialFilters)
-  const [searchOrder, searchOrderDispatch] = useReducer(searchOrderReducer, {name: 'name', direction: 'asc'})
+  const [searchFilters, searchFilterDispatch] = useReducer(searchFilterReducer, initialSearchFilters)
+  const [searchOrder, searchOrderDispatch] = useReducer(searchOrderReducer, initialSearchOrder)
   const {search: {data: searchResult}, searchParams} = useSearch(searchFilters, searchOrder)
 
-  useUpdatedUrlSearchParams(searchFilters)
+  useUpdatedUrlSearchParams(searchFilters, searchOrder)
 
   return (
-    <SearchContext.Provider
-      value={{
-        searchFilters,
-        searchFilterDispatch,
-        searchResult,
-        searchParams,
-        searchOrder,
-        searchOrderDispatch,
-        regions,
-        activityCategories,
-      }}
-    >
+    <SearchContext.Provider value={{
+      searchFilters,
+      searchFilterDispatch,
+      searchOrder,
+      searchOrderDispatch,
+      searchResult,
+      searchParams,
+      regions,
+      activityCategories
+    }}>
       {children}
     </SearchContext.Provider>
   )

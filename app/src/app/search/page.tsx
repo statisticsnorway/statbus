@@ -41,11 +41,15 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
         console.error('⚠️failed to fetch activity categories', activityCategoriesError);
     }
 
+  const urlSearchParams = new URLSearchParams(searchParams);
+
     const filters = createFilters({
         activityCategories: activityCategories ?? [],
         regions: regions ?? [],
         statisticalVariables: statisticalVariables ?? []
-    }, new URLSearchParams(searchParams));
+    }, urlSearchParams);
+
+    const [orderBy, ...orderDirections] = urlSearchParams.get('order')?.split('.') ?? ['name', 'asc'];
 
     return (
         <main className="flex flex-col py-8 px-2 md:py-24 mx-auto w-full max-w-5xl">
@@ -55,6 +59,7 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
                 activityCategories={activityCategories ?? []}
                 statisticalVariables={statisticalVariables ?? []}
                 filters={filters}
+                order={{name: orderBy, direction: orderDirections.join('.')}}
             />
         </main>
     )

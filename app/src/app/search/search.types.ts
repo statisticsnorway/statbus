@@ -18,7 +18,7 @@ export type SearchFilterOption = {
 
 export type SearchOrder = {
   readonly name: string
-  readonly direction: "asc" | "desc" | "desc.nullslast"
+  readonly direction: string
 }
 
 export type SearchFilter = {
