@@ -1,18 +1,19 @@
 import {Building, Building2, Store} from "lucide-react";
+import {cn} from "@/lib/utils";
 
 interface TopologyItemIconProps {
     type?: 'legal_unit' | 'establishment' | 'enterprise' | 'enterprise_group' | null;
-    size?: number;
+    className?: string;
 }
 
-export function StatisticalUnitIcon({type, size = 16}: TopologyItemIconProps) {
+export function StatisticalUnitIcon({type, className}: TopologyItemIconProps) {
     switch (type) {
         case "legal_unit":
-            return <Building size={size} className="stroke-gray-700 fill-legal_unit-200"/>
+            return <Building className={cn("stroke-gray-700 fill-legal_unit-200", className)}/>
         case "establishment":
-            return <Store size={size} className="stroke-gray-700 fill-establishment-200"/>
+            return <Store className={cn("stroke-gray-700 fill-establishment-200", className)}/>
         case "enterprise":
-            return <Building2 size={size} className="stroke-gray-700 fill-enterprise-200"/>
+            return <Building2 className={cn("stroke-gray-700 fill-enterprise-200", className)}/>
         default:
             return null
     }

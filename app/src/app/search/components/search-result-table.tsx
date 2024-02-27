@@ -42,7 +42,7 @@ export default function SearchResultTable() {
               return (
                 <TableRow key={`${unit_type}_${unit_id}`}>
                   <TableCell className="px-2 py-2 flex items-center space-x-3 leading-none">
-                    <StatisticalUnitIcon type={unit_type} size={20}/>
+                    <StatisticalUnitIcon type={unit_type} className="w-5"/>
                     <div className="flex flex-col space-y-1.5 flex-1">
                       {
                         unit_type && unit_id && name ? (
