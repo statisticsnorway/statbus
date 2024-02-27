@@ -79,10 +79,11 @@ case "$action" in
         git commit -m 'Upgraded Supabase Docker'
       ;;
      'generate-types' )
-        cd $WORKSPACE/ui
         source $WORKSPACE/.env-psql-development.sh
-        db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
-        ~/.nvm/nvm-exec npx supabase gen types typescript --db-url "$db_url" > database.types.ts
+        cd $WORKSPACE/app
+        #nvm use
+        db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE?sslmode=disable"
+        ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
      * )
       echo "Unknown action '$action', select one of"
