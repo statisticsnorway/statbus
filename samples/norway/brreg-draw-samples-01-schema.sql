@@ -67,6 +67,11 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "forretningsadresse.postnummer" AS physical_postal_place
      , "forretningsadresse.kommunenummer" AS physical_region_code
      , "forretningsadresse.landkode" AS physical_country_code_2
+     , "postadresse.adresse" AS postal_address_part1
+     , "postadresse.poststed" AS postal_postal_code
+     , "postadresse.postnummer" AS postal_postal_place
+     , "postadresse.kommunenummer" AS postal_region_code
+     , "postadresse.landkode" AS postal_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
 FROM tmp.enhet;
@@ -122,6 +127,11 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "beliggenhetsadresse.postnummer" AS physical_postal_place
      , "beliggenhetsadresse.kommunenummer" AS physical_region_code
      , "beliggenhetsadresse.landkode" AS physical_country_code_2
+     , "postadresse.adresse" AS postal_address_part1
+     , "postadresse.poststed" AS postal_postal_code
+     , "postadresse.postnummer" AS postal_postal_place
+     , "postadresse.kommunenummer" AS postal_region_code
+     , "postadresse.landkode" AS postal_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
      , "antallAnsatte" AS employees
