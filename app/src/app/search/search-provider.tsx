@@ -7,9 +7,9 @@ import {Tables} from "@/lib/database.types";
 import {searchOrderReducer} from "@/app/search/search-order-reducer";
 
 interface SearchContextState {
-  readonly filters: SearchFilter[];
-  readonly dispatch: Dispatch<SearchFilterAction>;
-  readonly order: SearchOrder;
+  readonly searchFilters: SearchFilter[];
+  readonly searchFilterDispatch: Dispatch<SearchFilterAction>;
+  readonly searchOrder: SearchOrder;
   readonly searchOrderDispatch: Dispatch<SetOrderAction>;
   readonly searchResult?: SearchResult;
   readonly searchParams: URLSearchParams;
@@ -34,20 +34,20 @@ export const SearchProvider = (
     activityCategories
   }: SearchProviderProps) => {
 
-  const [filters, dispatch] = useReducer(searchFilterReducer, initialFilters)
-  const [order, searchOrderDispatch] = useReducer(searchOrderReducer, {name: 'name', direction: 'asc'})
-  const {search: {data: searchResult}, searchParams} = useSearch(filters, order)
+  const [searchFilters, searchFilterDispatch] = useReducer(searchFilterReducer, initialFilters)
+  const [searchOrder, searchOrderDispatch] = useReducer(searchOrderReducer, {name: 'name', direction: 'asc'})
+  const {search: {data: searchResult}, searchParams} = useSearch(searchFilters, searchOrder)
 
-  useUpdatedUrlSearchParams(filters)
+  useUpdatedUrlSearchParams(searchFilters)
 
   return (
     <SearchContext.Provider
       value={{
-        filters,
-        dispatch,
+        searchFilters,
+        searchFilterDispatch,
         searchResult,
         searchParams,
-        order,
+        searchOrder,
         searchOrderDispatch,
         regions,
         activityCategories,

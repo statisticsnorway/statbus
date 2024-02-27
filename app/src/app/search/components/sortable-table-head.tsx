@@ -9,13 +9,12 @@ interface SortableTableHeadProps extends ThHTMLAttributes<HTMLTableCellElement> 
 }
 
 export default function SortableTableHead({children, name, ...props}: SortableTableHeadProps) {
-  const {order, searchOrderDispatch} = useSearchContext();
-  const isActive = order.name === name;
+  const {searchOrder, searchOrderDispatch} = useSearchContext();
   return (
     <TableHead {...props}>
       <button
         onClick={() => searchOrderDispatch({type: 'set_order', payload: {name}})}
-        className={cn("p-0", isActive ? 'underline' : '')}
+        className={cn("p-0", searchOrder.name === name ? 'underline' : '')}
       >
         {children}
       </button>
