@@ -62,6 +62,9 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "stiftelsesdato" AS birth_date
      -- There is no death date, the entry simply vanishes!
      --, "nedleggelsesdato" AS death_date
+     , "forretningsadresse.adresse" AS physical_address_part1
+     , "forretningsadresse.poststed" AS physical_postal_code
+     , "forretningsadresse.postnummer" AS physical_postal_place
      , "forretningsadresse.kommunenummer" AS physical_region_code
      , "forretningsadresse.landkode" AS physical_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
@@ -114,6 +117,9 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "navn" AS name
      , "oppstartsdato" AS birth_date
      , "nedleggelsesdato" AS death_date
+     , "beliggenhetsadresse.adresse" AS physical_address_part1
+     , "beliggenhetsadresse.poststed" AS physical_postal_code
+     , "beliggenhetsadresse.postnummer" AS physical_postal_place
      , "beliggenhetsadresse.kommunenummer" AS physical_region_code
      , "beliggenhetsadresse.landkode" AS physical_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
