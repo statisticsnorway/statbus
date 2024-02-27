@@ -1,7 +1,6 @@
 import {createClient} from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import {Metadata} from "next";
-
 import {createFilters} from "@/app/search/create-filters";
 
 export const metadata: Metadata = {
@@ -42,11 +41,15 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
         console.error('⚠️failed to fetch activity categories', activityCategoriesError);
     }
 
-    const filters = createFilters({
+  const urlSearchParams = new URLSearchParams(searchParams);
+
+    const searchFilters = createFilters({
         activityCategories: activityCategories ?? [],
         regions: regions ?? [],
         statisticalVariables: statisticalVariables ?? []
-    }, new URLSearchParams(searchParams));
+    }, urlSearchParams);
+
+    const [orderBy, ...orderDirections] = urlSearchParams.get('order')?.split('.') ?? ['name', 'asc'];
 
     return (
         <main className="flex flex-col py-8 px-2 md:py-24 mx-auto w-full max-w-5xl">
@@ -55,7 +58,8 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
                 regions={regions ?? []}
                 activityCategories={activityCategories ?? []}
                 statisticalVariables={statisticalVariables ?? []}
-                filters={filters}
+                searchFilters={searchFilters}
+                searchOrder={{name: orderBy, direction: orderDirections.join('.')}}
             />
         </main>
     )

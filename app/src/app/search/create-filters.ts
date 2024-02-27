@@ -1,6 +1,6 @@
 import {FilterOptions, SearchFilter, SearchFilterCondition, SearchFilterName} from "@/app/search/search.types";
 
-export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchParams): [SearchFilter[], SearchFilter[]] {
+export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchParams): SearchFilter[] {
   const unit_type: SearchFilterName = 'unit_type'
   const physical_region_path: SearchFilterName = 'physical_region_path'
   const primary_activity_category_path: SearchFilterName = 'primary_activity_category_path'
@@ -107,5 +107,5 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
     }
   });
 
-  return [standardFilters, statisticalVariableFilters]
+  return [...standardFilters, ...statisticalVariableFilters]
 }

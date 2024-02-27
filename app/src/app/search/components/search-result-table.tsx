@@ -1,21 +1,11 @@
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {SearchResult} from "@/app/search/search.types";
-import {Tables} from "@/lib/database.types";
+import {Table, TableBody, TableCell, TableHeader, TableRow} from "@/components/ui/table";
 import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-link";
 import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
+import {useSearchContext} from "../search-provider";
+import SortableTableHead from "@/app/search/components/sortable-table-head";
 
-interface TableProps {
-  readonly searchResult?: SearchResult
-  readonly regions: Tables<'region_used'>[]
-  readonly activityCategories: Tables<'activity_category_available'>[]
-}
-
-export default function SearchResultTable(
-  {
-    searchResult: { statisticalUnits } = { statisticalUnits: [], count: 0 },
-    regions = [],
-    activityCategories = [],
-  }: TableProps) {
+export default function SearchResultTable() {
+  const {searchResult, regions, activityCategories} = useSearchContext();
 
   const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({path}) => path === physical_region_path);
@@ -27,15 +17,15 @@ export default function SearchResultTable(
     <Table>
       <TableHeader className="bg-gray-100">
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead className="text-left">Region</TableHead>
-          <TableHead className="text-right">Employees</TableHead>
-          <TableHead className="text-right">Activity Category Code</TableHead>
+          <SortableTableHead name="name">Name</SortableTableHead>
+          <SortableTableHead className="text-left" name="physical_region_path">Region</SortableTableHead>
+          <SortableTableHead className="text-right" name="employees">Employees</SortableTableHead>
+          <SortableTableHead className="text-left" name="primary_activity_category_path">Activity Category</SortableTableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {
-          statisticalUnits?.map((unit) => {
+          searchResult?.statisticalUnits?.map((unit) => {
               const {
                 unit_type,
                 unit_id,
@@ -45,9 +35,13 @@ export default function SearchResultTable(
                 primary_activity_category_path,
                 employees
               } = unit;
+
+              const activityCategory = getActivityCategoryByPath(primary_activity_category_path);
+              const region = getRegionByPath(physical_region_path);
+
               return (
                 <TableRow key={`${unit_type}_${unit_id}`}>
-                  <TableCell className="px-3 py-2 flex items-center space-x-3 leading-none">
+                  <TableCell className="px-2 py-2 flex items-center space-x-3 leading-none">
                     <StatisticalUnitIcon type={unit_type} size={20}/>
                     <div className="flex flex-col space-y-1.5 flex-1">
                       {
@@ -57,17 +51,17 @@ export default function SearchResultTable(
                           <span className="font-medium">{name}</span>
                         )
                       }
-                      <small className="text-gray-700">{tax_reg_ident} | {prettifyUnitType(unit_type)}</small>
+                      <small className="text-gray-700">{tax_reg_ident}</small>
                     </div>
                   </TableCell>
                   <TableCell className="text-left py-1">
-                    {getRegionByPath(physical_region_path)?.name}
+                    {region?.name}
                   </TableCell>
                   <TableCell className="text-right py-1">
                     {employees ?? '-'}
                   </TableCell>
-                  <TableCell className="text-right py-1 px-4">
-                    {getActivityCategoryByPath(primary_activity_category_path)?.code}
+                  <TableCell title={activityCategory?.name ?? ''} className="text-left py-1 pl-4 pr-2 max-w-36 lg:max-w-72 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                    {activityCategory?.name ?? '-'}
                   </TableCell>
                 </TableRow>
               )
@@ -77,19 +71,4 @@ export default function SearchResultTable(
       </TableBody>
     </Table>
   )
-}
-
-const prettifyUnitType = (unit_type?: 'legal_unit' | 'establishment' | 'enterprise' | 'enterprise_group' | null) => {
-  switch (unit_type) {
-    case "legal_unit":
-      return 'Legal Unit';
-    case "establishment":
-      return 'Establishment';
-    case "enterprise":
-      return 'Enterprise';
-    case "enterprise_group":
-      return 'Enterprise Group';
-    default:
-      return 'Unknown';
-  }
 }

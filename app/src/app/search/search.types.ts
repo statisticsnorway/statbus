@@ -16,6 +16,11 @@ export type SearchFilterOption = {
   readonly className?: string
 }
 
+export type SearchOrder = {
+  readonly name: string
+  readonly direction: string
+}
+
 export type SearchFilter = {
   readonly type: "options" | "radio" | "conditional" | "search"
   readonly name: SearchFilterName
@@ -79,10 +84,12 @@ interface ResetAll {
   type: "reset_all"
 }
 
-export type SearchFilterActions = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll
+export type SearchFilterAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll
 
 export interface FilterOptions {
   activityCategories: Tables<"activity_category_available">[],
   regions: Tables<"region_used">[]
   statisticalVariables: Tables<"stat_definition">[]
 }
+
+export type SetOrderAction = { type: "set_order", payload: { name: string } }

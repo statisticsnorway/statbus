@@ -18,14 +18,14 @@ export default function Navbar() {
           <div className="space-x-3 hidden lg:flex">
             <Link
               href="/reports"
-              className={cn(buttonVariants({variant: "outline", size: "sm"}), "font-normal space-x-2")}
+              className={cn(buttonVariants({variant: "ghost", size: "sm"}), "font-normal space-x-2")}
             >
               <ScrollText size={16}/>
               <span>Reports</span>
             </Link>
             <Link
               href="/search"
-              className={cn(buttonVariants({variant: "outline", size: "sm"}), "font-normal space-x-2")}
+              className={cn(buttonVariants({variant: "ghost", size: "sm"}), "font-normal space-x-2")}
             >
               <Search size={16}/>
               <span>Statistical Units</span>

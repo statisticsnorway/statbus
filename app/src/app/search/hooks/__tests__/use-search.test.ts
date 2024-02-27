@@ -55,4 +55,9 @@ describe("generateFTSQuery", () => {
     const query = generateFTSQuery('Bang & -Olufsen');
     expect(query).toEqual("fts(simple).'bang':* & !'olufsen':*");
   });
+
+  it('supports queries containing unicode characters such as æ, ø and å', () => {
+    const query = generateFTSQuery('Årseth');
+    expect(query).toEqual("fts(simple).'årseth':*");
+  });
 })
