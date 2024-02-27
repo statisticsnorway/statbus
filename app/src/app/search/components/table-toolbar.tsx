@@ -15,6 +15,7 @@ export default function TableToolbar() {
       case "radio":
         return (
           <OptionsFilter
+            key={name}
             title={label}
             options={options}
             selectedValues={selected}
@@ -25,6 +26,7 @@ export default function TableToolbar() {
       case "options":
         return (
           <OptionsFilter
+            key={name}
             title={label}
             options={options}
             selectedValues={selected}
@@ -35,6 +37,7 @@ export default function TableToolbar() {
       case "conditional":
         return (
           <ConditionalFilter
+            key={name}
             title={label}
             selected={{condition, value: selected[0]}}
             onChange={({condition, value}) => searchFilterDispatch({type: "set_condition", payload: {name, value, condition}})}
@@ -44,6 +47,7 @@ export default function TableToolbar() {
       case "search":
         return (
           <Input
+            key={name}
             type="text"
             id={`search-prompt-${name}`}
             placeholder={label}
