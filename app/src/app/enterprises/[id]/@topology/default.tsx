@@ -7,11 +7,11 @@ export default async function StatisticalUnitHierarchySlot({params: {id}}: { rea
     const client = createClient();
     const {data: hierarchy, error} = await client.rpc('statistical_unit_hierarchy', {
         unit_id: statisticalUnitId,
-        unit_type: 'establishment'
+        unit_type: 'enterprise'
     }).returns<StatisticalUnitHierarchy>()
 
     return error ? null : (
-        <Topology hierarchy={hierarchy} unitId={statisticalUnitId} unitType="establishment"/>
+        <Topology hierarchy={hierarchy} unitId={statisticalUnitId} unitType="enterprise"/>
     )
 }
 

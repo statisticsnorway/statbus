@@ -10,7 +10,7 @@ export default async function EstablishmentGeneralInfoPage({params: {id}}: { rea
   }
 
   return (
-    <DetailsPage title="General Info" subtitle="General establishment information such as name, sector">
+    <DetailsPage title="General Info" subtitle="General information such as name, sector">
       <p className="bg-gray-50 p-12 text-sm text-center">
         This section will show general information for {unit.name}
       </p>
