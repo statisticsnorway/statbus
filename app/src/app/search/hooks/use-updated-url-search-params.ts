@@ -1,7 +1,7 @@
 import {useEffect} from "react";
-import {SearchFilter, SearchOrder} from "@/app/search/search.types";
+import type {SearchContextState} from "@/app/search/search-provider";
 
-export default function useUpdatedUrlSearchParams(searchFilters: SearchFilter[], searchOrder: SearchOrder) {
+export default function useUpdatedUrlSearchParams({searchFilters, searchOrder}: SearchContextState) {
   useEffect(() => {
     const urlSearchParams = searchFilters
       .filter(f => f.selected?.length > 0 && f.selected[0] !== '')
