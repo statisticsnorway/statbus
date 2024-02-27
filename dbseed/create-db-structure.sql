@@ -1806,6 +1806,16 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , physical_region_path
     , physical_country_id
     , physical_country_code_2
+    , postal_address_part1
+    , postal_address_part2
+    , postal_address_part3
+    , postal_postal_code
+    , postal_postal_place
+    , postal_formatted_address
+    , postal_region_id
+    , postal_region_path
+    , postal_country_id
+    , postal_country_code_2
     , aggregated_establishment_ids
     , aggregated_legal_unit_ids
     , aggregated_enterprise_ids
@@ -1834,6 +1844,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     -- active boolean,
     )
     AS
+    -- Establishment
     SELECT valid_from
          , valid_to
          , unit_type
@@ -1846,11 +1857,15 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , birth_date
          , death_date
          , search
+         --
          , primary_activity_category_id
          , primary_activity_category_path
+         --
          , secondary_activity_category_id
          , secondary_activity_category_path
+         --
          , activity_category_paths
+         --
          , physical_address_part1
          , physical_address_part2
          , physical_address_part3
@@ -1867,6 +1882,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , physical_region_path
          , physical_country_id
          , physical_country_code_2
+         --
+         , postal_address_part1
+         , postal_address_part2
+         , postal_address_part3
+         , postal_postal_code
+         , postal_postal_place
+         , TRIM(CONCAT_WS(
+             E'\n',
+             NULLIF(postal_address_part1, ''),
+             NULLIF(postal_address_part2, ''),
+             NULLIF(postal_address_part3, ''),
+             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
+         )) AS postal_formatted_address
+         , postal_region_id
+         , postal_region_path
+         , postal_country_id
+         , postal_country_code_2
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -1896,16 +1929,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              -- to_tsvector('russian', es.name) ||
              -- to_tsvector('french', es.name) ||
              to_tsvector('simple', es.name) AS search
+           --
            , pa.activity_category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
+           --
            , sa.activity_category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
+           --
            , CASE
              WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
              WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
              WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
              WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
              END AS activity_category_paths
+           --
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
@@ -1915,9 +1952,21 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
            , phc.code_2     AS physical_country_code_2
+           --
+           , pol.address_part1 AS postal_address_part1
+           , pol.address_part2 AS postal_address_part2
+           , pol.address_part3 AS postal_address_part3
+           , pol.postal_code AS postal_postal_code
+           , pol.postal_place AS postal_postal_place
+           , pol.region_id           AS postal_region_id
+           , por.path                AS postal_region_path
+           , pol.country_id AS postal_country_id
+           , poc.code_2     AS postal_country_code_2
+           --
            , sfu1.value_int AS employees
            , sfu2.value_int AS turnover
       FROM public.establishment AS es
+      --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.establishment_id = es.id
              AND pa.activity_type = 'primary'
@@ -1925,6 +1974,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(pa.valid_from, pa.valid_to, '[]')
       LEFT JOIN public.activity_category AS pac
               ON pa.activity_category_id = pac.id
+      --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.establishment_id = es.id
              AND sa.activity_type = 'secondary'
@@ -1932,6 +1982,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(sa.valid_from, sa.valid_to, '[]')
       LEFT JOIN public.activity_category AS sac
               ON sa.activity_category_id = sac.id
+      --
       LEFT OUTER JOIN public.location AS phl
               ON phl.establishment_id = es.id
              AND phl.location_type = 'physical'
@@ -1941,6 +1992,17 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
               ON phl.country_id = phc.id
+      --
+      LEFT OUTER JOIN public.location AS pol
+              ON pol.establishment_id = es.id
+             AND pol.location_type = 'postal'
+             AND daterange(es.valid_from, es.valid_to, '[]')
+              && daterange(pol.valid_from, pol.valid_to, '[]')
+      LEFT JOIN public.region AS por
+              ON pol.region_id = por.id
+      LEFT JOIN public.country AS poc
+              ON pol.country_id = poc.id
+      --
       LEFT OUTER JOIN public.stat_definition AS sd1
               ON sd1.code = 'employees'
       LEFT OUTER JOIN public.stat_for_unit AS sfu1
@@ -1948,6 +2010,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              AND sfu1.establishment_id = es.id
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+      --
       LEFT OUTER JOIN public.stat_definition AS sd2
               ON sd2.code = 'turnover'
       LEFT OUTER JOIN public.stat_for_unit AS sfu2
@@ -1973,6 +2036,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_id
            , secondary_activity_category_path
            , activity_category_paths
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -1982,9 +2046,21 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , physical_region_path
            , physical_country_id
            , physical_country_code_2
+           --
+           , postal_address_part1
+           , postal_address_part2
+           , postal_address_part3
+           , postal_postal_code
+           , postal_postal_place
+           , postal_region_id
+           , postal_region_path
+           , postal_country_id
+           , postal_country_code_2
+           --
            , employees
            , turnover
     UNION ALL
+    -- Legal Unit with establishments
     SELECT valid_from
          , valid_to
          , unit_type
@@ -1997,11 +2073,15 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , birth_date
          , death_date
          , search
+         --
          , primary_activity_category_id
          , primary_activity_category_path
+         --
          , secondary_activity_category_id
          , secondary_activity_category_path
+         --
          , activity_category_paths
+         --
          , physical_address_part1
          , physical_address_part2
          , physical_address_part3
@@ -2018,6 +2098,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , physical_region_path
          , physical_country_id
          , physical_country_code_2
+         --
+         , postal_address_part1
+         , postal_address_part2
+         , postal_address_part3
+         , postal_postal_code
+         , postal_postal_place
+         , TRIM(CONCAT_WS(
+             E'\n',
+             NULLIF(postal_address_part1, ''),
+             NULLIF(postal_address_part2, ''),
+             NULLIF(postal_address_part3, ''),
+             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
+         )) AS postal_formatted_address
+         , postal_region_id
+         , postal_region_path
+         , postal_country_id
+         , postal_country_code_2
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2041,16 +2139,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , lu.death_date AS death_date
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', lu.name) AS search
+             --
              , pa.activity_category_id AS primary_activity_category_id
              , pac.path                AS primary_activity_category_path
+             --
              , sa.activity_category_id AS secondary_activity_category_id
              , sac.path                AS secondary_activity_category_path
+             --
              , CASE
                WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
                WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
                WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
                WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
                END AS activity_category_paths
+             --
              , phl.address_part1 AS physical_address_part1
              , phl.address_part2 AS physical_address_part2
              , phl.address_part3 AS physical_address_part3
@@ -2060,9 +2162,21 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , phr.path                AS physical_region_path
              , phl.country_id AS physical_country_id
              , phc.code_2     AS physical_country_code_2
+             --
+             , pol.address_part1 AS postal_address_part1
+             , pol.address_part2 AS postal_address_part2
+             , pol.address_part3 AS postal_address_part3
+             , pol.postal_code AS postal_postal_code
+             , pol.postal_place AS postal_postal_place
+             , pol.region_id           AS postal_region_id
+             , por.path                AS postal_region_path
+             , pol.country_id AS postal_country_id
+             , poc.code_2     AS postal_country_code_2
+             --
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.legal_unit AS lu
+        --
         LEFT OUTER JOIN public.activity AS pa
                 ON pa.legal_unit_id = lu.id
                AND pa.activity_type = 'primary'
@@ -2070,6 +2184,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 && daterange(pa.valid_from, pa.valid_to, '[]')
         LEFT JOIN public.activity_category AS pac
                 ON pa.activity_category_id = pac.id
+        --
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = lu.id
                AND sa.activity_type = 'secondary'
@@ -2077,6 +2192,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 && daterange(sa.valid_from, sa.valid_to, '[]')
         LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
+        --
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = lu.id
                AND phl.location_type = 'physical'
@@ -2086,6 +2202,17 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 ON phl.region_id = phr.id
         LEFT JOIN public.country AS phc
                 ON phl.country_id = phc.id
+        --
+        LEFT OUTER JOIN public.location AS pol
+                ON pol.legal_unit_id = lu.id
+               AND pol.location_type = 'postal'
+               AND daterange(lu.valid_from, lu.valid_to, '[]')
+                && daterange(pol.valid_from, pol.valid_to, '[]')
+        LEFT JOIN public.region AS por
+                ON pol.region_id = por.id
+        LEFT JOIN public.country AS poc
+                ON pol.country_id = poc.id
+        --
         LEFT OUTER JOIN public.establishment AS es
                 ON lu.id = es.legal_unit_id
                AND daterange(lu.valid_from, lu.valid_to, '[]')
@@ -2122,6 +2249,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_id
            , secondary_activity_category_path
            , activity_category_paths
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2131,8 +2259,18 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , physical_region_path
            , physical_country_id
            , physical_country_code_2
+           --
+           , postal_address_part1
+           , postal_address_part2
+           , postal_address_part3
+           , postal_postal_code
+           , postal_postal_place
+           , postal_region_id
+           , postal_region_path
+           , postal_country_id
+           , postal_country_code_2
     UNION ALL
-    -- enterprise with legal_unit
+    -- Enterprise with legal_unit with establishment
     SELECT valid_from
          , valid_to
          , unit_type
@@ -2145,11 +2283,15 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , birth_date
          , death_date
          , search
+         --
          , primary_activity_category_id
          , primary_activity_category_path
+         --
          , secondary_activity_category_id
          , secondary_activity_category_path
+         --
          , activity_category_paths
+         --
          , physical_address_part1
          , physical_address_part2
          , physical_address_part3
@@ -2166,14 +2308,32 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , physical_region_path
          , physical_country_id
          , physical_country_code_2
+         --
+         , postal_address_part1
+         , postal_address_part2
+         , postal_address_part3
+         , postal_postal_code
+         , postal_postal_place
+         , TRIM(CONCAT_WS(
+             E'\n',
+             NULLIF(postal_address_part1, ''),
+             NULLIF(postal_address_part2, ''),
+             NULLIF(postal_address_part3, ''),
+             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
+         )) AS postal_formatted_address
+         , postal_region_id
+         , postal_region_path
+         , postal_country_id
+         , postal_country_code_2
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
          , sum(employees) AS employees
          , sum(turnover) AS turnover
     FROM (
-      SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, es.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
-           , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, es.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
+      SELECT greatest(plu.valid_from, lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, es.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
+           , least(plu.valid_to, lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, es.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
            , 'enterprise'::public.statistical_unit_type AS unit_type
            , en.id AS unit_id
            , es.id AS establishment_id
@@ -2189,16 +2349,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , plu.death_date AS death_date
            -- Se supported languages with `SELECT * FROM pg_ts_config`
            , to_tsvector('simple', lu.name) AS search
+           --
            , pa.activity_category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
+           --
            , sa.activity_category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
+           --
            , CASE
              WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
              WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
              WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
              WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
              END AS activity_category_paths
+           --
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
@@ -2208,12 +2372,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
            , phc.code_2     AS physical_country_code_2
+           --
+           , pol.address_part1 AS postal_address_part1
+           , pol.address_part2 AS postal_address_part2
+           , pol.address_part3 AS postal_address_part3
+           , pol.postal_code AS postal_postal_code
+           , pol.postal_place AS postal_postal_place
+           , pol.region_id           AS postal_region_id
+           , por.path                AS postal_region_path
+           , pol.country_id AS postal_country_id
+           , poc.code_2     AS postal_country_code_2
+           --
            , sfu1.value_int AS employees
            , sfu2.value_int AS turnover
       FROM public.enterprise AS en
       INNER JOIN public.legal_unit AS plu
               ON plu.enterprise_id = en.id
               AND plu.primary_for_enterprise
+      --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.legal_unit_id = plu.id
              AND pa.activity_type = 'primary'
@@ -2221,6 +2397,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(pa.valid_from, pa.valid_to, '[]')
       LEFT JOIN public.activity_category AS pac
               ON pa.activity_category_id = pac.id
+      --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.legal_unit_id = plu.id
              AND sa.activity_type = 'secondary'
@@ -2228,6 +2405,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(sa.valid_from, sa.valid_to, '[]')
       LEFT JOIN public.activity_category AS sac
               ON sa.activity_category_id = sac.id
+      --
       LEFT OUTER JOIN public.location AS phl
               ON phl.legal_unit_id = plu.id
              AND phl.location_type = 'physical'
@@ -2237,6 +2415,17 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
               ON phl.country_id = phc.id
+      --
+      LEFT OUTER JOIN public.location AS pol
+              ON pol.legal_unit_id = plu.id
+             AND pol.location_type = 'postal'
+             AND daterange(plu.valid_from, plu.valid_to, '[]')
+              && daterange(pol.valid_from, pol.valid_to, '[]')
+      LEFT JOIN public.region AS por
+              ON pol.region_id = por.id
+      LEFT JOIN public.country AS poc
+              ON pol.country_id = poc.id
+      --
       LEFT OUTER JOIN public.legal_unit AS lu
               ON lu.enterprise_id = en.id
       LEFT OUTER JOIN public.establishment AS es
@@ -2275,6 +2464,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_id
            , secondary_activity_category_path
            , activity_category_paths
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2284,8 +2474,18 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , physical_region_path
            , physical_country_id
            , physical_country_code_2
+           --
+           , postal_address_part1
+           , postal_address_part2
+           , postal_address_part3
+           , postal_postal_code
+           , postal_postal_place
+           , postal_region_id
+           , postal_region_path
+           , postal_country_id
+           , postal_country_code_2
     UNION ALL
-    -- enterprise with establishment
+    -- Enterprise with establishment
     SELECT valid_from
          , valid_to
          , unit_type
@@ -2298,11 +2498,15 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , birth_date
          , death_date
          , search
+         --
          , primary_activity_category_id
          , primary_activity_category_path
+         --
          , secondary_activity_category_id
          , secondary_activity_category_path
+         --
          , activity_category_paths
+         --
          , physical_address_part1
          , physical_address_part2
          , physical_address_part3
@@ -2319,6 +2523,24 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , physical_region_path
          , physical_country_id
          , physical_country_code_2
+         --
+         , postal_address_part1
+         , postal_address_part2
+         , postal_address_part3
+         , postal_postal_code
+         , postal_postal_place
+         , TRIM(CONCAT_WS(
+             E'\n',
+             NULLIF(postal_address_part1, ''),
+             NULLIF(postal_address_part2, ''),
+             NULLIF(postal_address_part3, ''),
+             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
+         )) AS postal_formatted_address
+         , postal_region_id
+         , postal_region_path
+         , postal_country_id
+         , postal_country_code_2
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2342,16 +2564,20 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , es.death_date AS death_date
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', es.name) AS search
+             --
              , pa.activity_category_id AS primary_activity_category_id
              , pac.path                AS primary_activity_category_path
+             --
              , sa.activity_category_id AS secondary_activity_category_id
              , sac.path                AS secondary_activity_category_path
+             --
              , CASE
                WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
                WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
                WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
                WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
                END AS activity_category_paths
+             --
              , phl.address_part1 AS physical_address_part1
              , phl.address_part2 AS physical_address_part2
              , phl.address_part3 AS physical_address_part3
@@ -2361,11 +2587,23 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , phr.path                AS physical_region_path
              , phl.country_id AS physical_country_id
              , phc.code_2     AS physical_country_code_2
+             --
+             , pol.address_part1 AS postal_address_part1
+             , pol.address_part2 AS postal_address_part2
+             , pol.address_part3 AS postal_address_part3
+             , pol.postal_code AS postal_postal_code
+             , pol.postal_place AS postal_postal_place
+             , pol.region_id           AS postal_region_id
+             , por.path                AS postal_region_path
+             , pol.country_id AS postal_country_id
+             , poc.code_2     AS postal_country_code_2
+             --
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
         FROM public.enterprise AS en
         INNER JOIN public.establishment AS es
                 ON es.enterprise_id = en.id
+        --
         LEFT OUTER JOIN public.activity AS pa
                 ON pa.legal_unit_id = es.id
                AND pa.activity_type = 'primary'
@@ -2373,6 +2611,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 && daterange(pa.valid_from, pa.valid_to, '[]')
         LEFT JOIN public.activity_category AS pac
                 ON pa.activity_category_id = pac.id
+        --
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = es.id
                AND sa.activity_type = 'secondary'
@@ -2380,6 +2619,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 && daterange(sa.valid_from, sa.valid_to, '[]')
         LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
+        --
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = es.id
                AND phl.location_type = 'physical'
@@ -2389,6 +2629,17 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 ON phl.region_id = phr.id
         LEFT JOIN public.country AS phc
                 ON phl.country_id = phc.id
+        --
+        LEFT OUTER JOIN public.location AS pol
+                ON pol.legal_unit_id = es.id
+               AND pol.location_type = 'postal'
+               AND daterange(es.valid_from, es.valid_to, '[]')
+                && daterange(pol.valid_from, pol.valid_to, '[]')
+        LEFT JOIN public.region AS por
+                ON pol.region_id = por.id
+        LEFT JOIN public.country AS poc
+                ON pol.country_id = poc.id
+        --
         LEFT OUTER JOIN public.stat_definition AS sd1
                 ON sd1.code = 'employees'
         LEFT OUTER JOIN public.stat_for_unit AS sfu1
@@ -2421,6 +2672,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_id
            , secondary_activity_category_path
            , activity_category_paths
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2430,7 +2682,18 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , physical_region_path
            , physical_country_id
            , physical_country_code_2
+           --
+           , postal_address_part1
+           , postal_address_part2
+           , postal_address_part3
+           , postal_postal_code
+           , postal_postal_place
+           , postal_region_id
+           , postal_region_path
+           , postal_country_id
+           , postal_country_code_2
     UNION ALL
+    -- Enterprise Group
     SELECT valid_from
          , valid_to
          , 'enterprise_group'::public.statistical_unit_type AS unit_type
@@ -2448,6 +2711,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS secondary_activity_category_id
          , NULL::public.ltree AS secondary_activity_category_path
          , NULL::public.ltree[] AS activity_category_paths
+         --
          , NULL::TEXT AS physical_address_part1
          , NULL::TEXT AS physical_address_part2
          , NULL::TEXT AS physical_address_part3
@@ -2458,6 +2722,18 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::public.ltree AS physical_region_path
          , NULL::INTEGER AS physical_country_id
          , NULL::TEXT AS physical_country_code_2
+         --
+         , NULL::TEXT AS postal_address_part1
+         , NULL::TEXT AS postal_address_part2
+         , NULL::TEXT AS postal_address_part3
+         , NULL::TEXT AS postal_postal_code
+         , NULL::TEXT AS postal_postal_place
+         , NULL::TEXT AS postal_formatted_address
+         , NULL::INTEGER AS postal_region_id
+         , NULL::public.ltree AS postal_region_path
+         , NULL::INTEGER AS postal_country_id
+         , NULL::TEXT AS postal_country_code_2
+         --
          , NULL::INT[] AS aggregated_establishment_ids
          , NULL::INT[] AS aggregated_legal_unit_ids
          , NULL::INT[] AS aggregated_enterprise_ids
