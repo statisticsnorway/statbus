@@ -12,7 +12,7 @@ export interface StatisticalUnitDetailsLinkProps {
 export function StatisticalUnitDetailsLink({id, type, name, className, sub_path}: StatisticalUnitDetailsLinkProps) {
     const href = {
         enterprise_group: `/enterprise-groups/${id}`,
-        enterprise: `/legal-units/${id}`,
+        enterprise: `/enterprises/${id}`,
         legal_unit: `/legal-units/${id}`,
         establishment: `/establishments/${id}`
     }[type];

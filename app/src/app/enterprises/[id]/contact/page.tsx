@@ -1,8 +1,8 @@
-import {notFound} from "next/navigation";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
+import {notFound} from "next/navigation";
 import {getEnterpriseById} from "@/app/enterprises/[id]/enterprise-requests";
 
-export default async function EnterpriseDetailsPage({params: {id}}: { readonly params: { id: string } }) {
+export default async function EnterpriseContactPage({params: {id}}: { readonly params: { id: string } }) {
   const unit = await getEnterpriseById(id);
   const name = `Enterprise ${unit?.id}`;
 
@@ -11,10 +11,11 @@ export default async function EnterpriseDetailsPage({params: {id}}: { readonly p
   }
 
   return (
-    <DetailsPage title="General Info" subtitle="General information such as name, sector">
+    <DetailsPage title="Contact Info" subtitle="Contact information such as email, phone, and addresses">
       <p className="bg-gray-50 p-12 text-sm text-center">
-        This section will show general information for {name}
+        This section will show the contact information for {name}
       </p>
     </DetailsPage>
   )
 }
+
