@@ -3,10 +3,14 @@ import {notFound} from "next/navigation";
 import {getEnterpriseById} from "@/app/enterprises/[id]/enterprise-requests";
 
 export default async function EnterpriseContactPage({params: {id}}: { readonly params: { id: string } }) {
-  const unit = await getEnterpriseById(id);
-  const name = `Enterprise ${unit?.id}`;
+  const {enterprise, error} = await getEnterpriseById(id);
+  const name = `Enterprise ${enterprise?.id}`;
 
-  if (!unit) {
+  if (error) {
+    throw error
+  }
+
+  if (!enterprise) {
     notFound()
   }
 

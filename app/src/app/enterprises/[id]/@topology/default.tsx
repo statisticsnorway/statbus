@@ -1,17 +1,23 @@
-import {createClient} from "@/lib/supabase/server";
 import {Topology} from "@/components/statistical-unit-hierarchy/topology";
-import {StatisticalUnitHierarchy} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
+import {getTopologyByIdAndType} from "@/app/enterprises/[id]/enterprise-requests";
 
 export default async function StatisticalUnitHierarchySlot({params: {id}}: { readonly params: { id: string } }) {
-    const statisticalUnitId = parseInt(id, 10);
-    const client = createClient();
-    const {data: hierarchy, error} = await client.rpc('statistical_unit_hierarchy', {
-        unit_id: statisticalUnitId,
-        unit_type: 'enterprise'
-    }).returns<StatisticalUnitHierarchy>()
+  const unitId = parseInt(id, 10);
+  const unitType = "enterprise";
+  const {hierarchy, error} = await getTopologyByIdAndType(unitId, unitType);
 
-    return error ? null : (
-        <Topology hierarchy={hierarchy} unitId={statisticalUnitId} unitType="enterprise"/>
-    )
+  if (error) {
+    console.error(error);
+    return null
+  }
+
+  if (!hierarchy) {
+    console.warn(`no hierarchy found for statistical unit ${unitId}`);
+    return null
+  }
+
+  return (
+    <Topology hierarchy={hierarchy} unitId={unitId} unitType={unitType}/>
+  )
 }
 

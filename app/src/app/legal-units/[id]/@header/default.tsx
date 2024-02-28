@@ -4,7 +4,7 @@ import {DetailsPageHeader} from "@/components/statistical-unit-details/details-p
 export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
   const unit = await getLegalUnitById(id);
   return (
-    <DetailsPageHeader name={unit?.name} className="bg-legal_unit-50 border-lime-100"/>
+    <DetailsPageHeader title={unit?.name} className="bg-legal_unit-50 border-lime-100"/>
   )
 }
 
