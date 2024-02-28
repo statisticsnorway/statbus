@@ -1,4 +1,4 @@
-import {getEstablishmentById} from "@/app/_requests/establishment-requests";
+import {getEstablishmentById} from "@/app/_statistical-unit-details/establishment-requests";
 import DataDump from "@/components/data-dump";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 import {notFound} from "next/navigation";

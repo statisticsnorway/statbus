@@ -1,6 +1,6 @@
 import {Metadata} from "next";
 import {notFound} from "next/navigation";
-import {getLegalUnitById} from "@/app/_requests/legal-unit-requests";
+import {getLegalUnitById} from "@/app/_statistical-unit-details/legal-unit-requests";
 import DataDump from "@/components/data-dump";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 

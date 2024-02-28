@@ -1,4 +1,4 @@
-import {getEstablishmentById} from "@/app/_requests/establishment-requests";
+import {getEstablishmentById} from "@/app/_statistical-unit-details/establishment-requests";
 import {DetailsPageHeader} from "@/components/statistical-unit-details/details-page-header";
 
 export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {

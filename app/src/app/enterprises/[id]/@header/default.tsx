@@ -1,5 +1,5 @@
 import {DetailsPageHeader} from "@/components/statistical-unit-details/details-page-header";
-import {getEnterpriseById} from "@/app/_requests/enterprise-requests";
+import {getEnterpriseById} from "@/app/_statistical-unit-details/enterprise-requests";
 
 export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
   const {enterprise, error} = await getEnterpriseById(id);

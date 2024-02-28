@@ -1,7 +1,7 @@
 import {Metadata} from "next";
 import {notFound} from "next/navigation";
 import GeneralInfoForm from "@/app/legal-units/[id]/general-info/general-info-form";
-import {getLegalUnitById} from "@/app/_requests/legal-unit-requests";
+import {getLegalUnitById} from "@/app/_statistical-unit-details/legal-unit-requests";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 
 export const metadata: Metadata = {
