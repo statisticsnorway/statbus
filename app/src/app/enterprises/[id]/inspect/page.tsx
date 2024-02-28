@@ -1,23 +1,22 @@
 import DataDump from "@/components/data-dump";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 import {notFound} from "next/navigation";
-import {getEnterpriseById} from "@/app/_statistical-unit-details/enterprise-requests";
+import {getEnterpriseById} from "@/components/statistical-unit-details/requests";
 
 export default async function EnterpriseInspectionPage({params: {id}}: { readonly params: { id: string } }) {
-  const {enterprise, error} = await getEnterpriseById(id);
-  const name = `Enterprise ${enterprise?.id}`;
+  const {unit, error} = await getEnterpriseById(id)
 
-  if (error){
+  if (error) {
     throw error
   }
 
-  if (!enterprise) {
+  if (!unit) {
     notFound()
   }
 
   return (
-    <DetailsPage title="Data Dump" subtitle={`This section shows the raw data we have on ${name}`}>
-      <DataDump data={enterprise}/>
+    <DetailsPage title="Data Dump" subtitle={`This section shows the raw data we have on ${unit.id}`}>
+      <DataDump data={unit}/>
     </DetailsPage>
   )
 }

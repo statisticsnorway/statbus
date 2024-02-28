@@ -3,8 +3,8 @@ import {createClient} from "@/lib/supabase/server";
 import {StatisticalUnitHierarchy} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
 
 interface TopologySlotProps {
-  unitId: number;
-  unitType: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
+  readonly unitId: number;
+  readonly unitType: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
 }
 
 export default async function TopologySlot({unitId, unitType}: TopologySlotProps) {

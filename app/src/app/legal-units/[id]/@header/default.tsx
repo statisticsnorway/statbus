@@ -1,29 +1,8 @@
-import {getLegalUnitById} from "@/app/_statistical-unit-details/legal-unit-requests";
-import {DetailsPageHeader} from "@/components/statistical-unit-details/details-page-header";
+import {getLegalUnitById} from "@/components/statistical-unit-details/requests";
+import HeaderSlot from "@/components/statistical-unit-details/header-slot";
 
-export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
-  const {legalUnit, error} = await getLegalUnitById(id);
-
-  if (error) {
-    return (
-      <DetailsPageHeader
-        title="Something went wrong"
-        subtitle={`Could not find a legal unit with ID ${id}`}
-        className="bg-legal_unit-50 border-indigo-100"/>
-    )
-  }
-
-  if (!legalUnit) {
-    return (
-      <DetailsPageHeader
-        title="Legal Unit Not Found"
-        subtitle={`Could not find a legal unit with ID ${id}`}
-        className="bg-legal_unit-50 border-indigo-100"/>
-    )
-  }
-
-  return (
-    <DetailsPageHeader title={legalUnit.name} className="bg-legal_unit-50 border-lime-100"/>
-  )
+export default async function Slot({params: {id}}: { readonly params: { id: string } }) {
+  const {unit, error} = await getLegalUnitById(id);
+  return <HeaderSlot id={id} unit={unit} error={error} className="bg-legal_unit-100"/>
 }
 
