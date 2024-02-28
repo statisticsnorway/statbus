@@ -1,7 +1,7 @@
 import {Metadata} from "next";
 import {notFound} from "next/navigation";
 import GeneralInfoForm from "@/app/legal-units/[id]/general-info/general-info-form";
-import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
+import {getLegalUnitById} from "@/app/_requests/legal-unit-requests";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 
 export const metadata: Metadata = {
@@ -9,15 +9,19 @@ export const metadata: Metadata = {
 }
 
 export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonly params: { id: string } }) {
-  const unit = await getLegalUnitById(id)
+  const {legalUnit, error} = await getLegalUnitById(id)
 
-  if (!unit) {
+  if (error) {
+    throw error
+  }
+
+  if (!legalUnit) {
     notFound()
   }
 
   return (
     <DetailsPage title="General Info" subtitle="General information such as name, id, sector and primary activity">
-      <GeneralInfoForm values={unit} id={id}/>
+      <GeneralInfoForm values={legalUnit} id={id}/>
     </DetailsPage>
   )
 }

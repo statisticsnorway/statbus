@@ -1,5 +1,6 @@
 import {Topology} from "@/components/statistical-unit-hierarchy/topology";
-import {getTopologyByIdAndType} from "@/app/enterprises/[id]/enterprise-requests";
+
+import {getTopologyByIdAndType} from "@/app/_requests/hierarchy-requests";
 
 export default async function StatisticalUnitHierarchySlot({params: {id}}: { readonly params: { id: string } }) {
   const unitId = parseInt(id, 10);
@@ -12,7 +13,7 @@ export default async function StatisticalUnitHierarchySlot({params: {id}}: { rea
   }
 
   if (!hierarchy) {
-    console.warn(`no hierarchy found for statistical unit ${unitId}`);
+    console.warn(`no hierarchy found for enterprise ${unitId}`);
     return null
   }
 

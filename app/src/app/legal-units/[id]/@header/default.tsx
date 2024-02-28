@@ -1,10 +1,29 @@
-import {getLegalUnitById} from "@/app/legal-units/[id]/legal-unit-requests";
+import {getLegalUnitById} from "@/app/_requests/legal-unit-requests";
 import {DetailsPageHeader} from "@/components/statistical-unit-details/details-page-header";
 
 export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
-  const unit = await getLegalUnitById(id);
+  const {legalUnit, error} = await getLegalUnitById(id);
+
+  if (error) {
+    return (
+      <DetailsPageHeader
+        title="Something went wrong"
+        subtitle={`Could not find a legal unit with ID ${id}`}
+        className="bg-legal_unit-50 border-indigo-100"/>
+    )
+  }
+
+  if (!legalUnit) {
+    return (
+      <DetailsPageHeader
+        title="Legal Unit Not Found"
+        subtitle={`Could not find a legal unit with ID ${id}`}
+        className="bg-legal_unit-50 border-indigo-100"/>
+    )
+  }
+
   return (
-    <DetailsPageHeader title={unit?.name} className="bg-legal_unit-50 border-lime-100"/>
+    <DetailsPageHeader title={legalUnit.name} className="bg-legal_unit-50 border-lime-100"/>
   )
 }
 

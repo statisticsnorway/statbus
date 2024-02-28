@@ -1,11 +1,11 @@
 import {createClient} from "@/lib/supabase/server";
 
 export async function getEstablishmentById(id: string) {
-  const {data: establishment} = await createClient()
+  const {data: establishments, error} = await createClient()
     .from("establishment")
     .select("*")
     .eq("id", id)
-    .single()
+    .limit(1)
 
-  return establishment;
+  return {establishment: establishments?.[0], error};
 }

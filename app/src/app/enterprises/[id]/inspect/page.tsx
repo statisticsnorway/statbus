@@ -1,7 +1,7 @@
 import DataDump from "@/components/data-dump";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 import {notFound} from "next/navigation";
-import {getEnterpriseById} from "@/app/enterprises/[id]/enterprise-requests";
+import {getEnterpriseById} from "@/app/_requests/enterprise-requests";
 
 export default async function EnterpriseInspectionPage({params: {id}}: { readonly params: { id: string } }) {
   const {enterprise, error} = await getEnterpriseById(id);
