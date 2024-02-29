@@ -47,6 +47,8 @@ DROP FUNCTION public.statistical_unit_enterprise(unit_type public.statistical_un
 DROP FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE);
 DROP FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE);
 DROP FUNCTION public.establishment_hierarchy(parent_legal_unit_id INTEGER,parent_enterprise_id INTEGER,valid_on DATE);
+DROP FUNCTION public.sector_hierarchy(sector_id INTEGER);
+DROP FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER);
 DROP FUNCTION public.activity_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
 DROP FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER);
 DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
@@ -137,15 +139,15 @@ DROP VIEW public.stat_for_unit_era;
 
 DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 
-DROP VIEW public.sector_code_custom_only;
-DROP FUNCTION admin.sector_code_custom_only_prepare();
-DROP FUNCTION admin.sector_code_custom_only_upsert();
+DROP VIEW public.sector_custom_only;
+DROP FUNCTION admin.sector_custom_only_prepare();
+DROP FUNCTION admin.sector_custom_only_upsert();
 
 DROP VIEW public.legal_form_custom_only;
 DROP FUNCTION admin.legal_form_custom_only_prepare();
 DROP FUNCTION admin.legal_form_custom_only_upsert();
 
-SELECT admin.drop_table_views_for_batch_api('public.sector_code');
+SELECT admin.drop_table_views_for_batch_api('public.sector');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
@@ -228,7 +230,7 @@ DROP TABLE public.postal_index;
 DROP TABLE public.reorg_type;
 DROP TABLE public.report_tree;
 DROP TABLE public.sample_frame;
-DROP TABLE public.sector_code;
+DROP TABLE public.sector;
 DROP TABLE public.unit_size;
 
 DROP TABLE public.region_role;

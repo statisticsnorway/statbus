@@ -56,7 +56,7 @@
     "csv": "antallAnsatte"
   },
   {
-    "sql": null,
+    "sql": "legal_form_code",
     "csv": "organisasjonsform.kode"
   },
   {
@@ -140,7 +140,7 @@
     "csv": "forretningsadresse.land"
   },
   {
-    "sql": null,
+    "sql": "sector_code",
     "csv": "institusjonellSektorkode.kode"
   },
   {

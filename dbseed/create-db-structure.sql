@@ -730,7 +730,7 @@ CREATE TABLE public.enterprise_group_role (
 CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_role USING btree (code) WHERE active;
 
 
-CREATE TABLE public.sector_code (
+CREATE TABLE public.sector (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     path public.ltree UNIQUE NOT NULL,
     parent_id integer,
@@ -743,8 +743,8 @@ CREATE TABLE public.sector_code (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(path, active, custom)
 );
-CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code) WHERE active;
-CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
+CREATE UNIQUE INDEX ix_sector ON public.sector USING btree (code) WHERE active;
+CREATE INDEX ix_sector_parent_id ON public.sector USING btree (parent_id);
 
 
 CREATE TABLE public.enterprise (
@@ -793,7 +793,7 @@ CREATE TABLE public.legal_unit (
     email_address character varying(50),
     free_econ_zone boolean,
     notes text,
-    sector_code_id integer REFERENCES public.sector_code(id),
+    sector_id integer REFERENCES public.sector(id),
     legal_form_id integer REFERENCES public.legal_form(id),
     reorg_date timestamp with time zone,
     reorg_references integer,
@@ -815,7 +815,7 @@ CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 CREATE INDEX ix_legal_unit_data_source_classification_id ON public.legal_unit USING btree (data_source_classification_id);
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
 CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
-CREATE INDEX ix_legal_unit_sector_code_id ON public.legal_unit USING btree (sector_code_id);
+CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id);
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
 CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
@@ -851,7 +851,7 @@ CREATE TABLE public.establishment (
     email_address character varying(50),
     free_econ_zone boolean,
     notes text,
-    sector_code_id integer REFERENCES public.sector_code(id),
+    sector_id integer REFERENCES public.sector(id),
     reorg_date timestamp with time zone,
     reorg_references integer,
     reorg_type_id integer REFERENCES public.reorg_type(id),
@@ -871,13 +871,15 @@ CREATE TABLE public.establishment (
     CONSTRAINT "primary_for_legal_unit and legal_unit_id must be defined together"
     CHECK( legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL
         OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
-        )
+        ),
+    CONSTRAINT "enterprise_id enables sector_id"
+    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
 
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
-CREATE INDEX ix_establishment_sector_code_id ON public.establishment USING btree (sector_code_id);
+CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
@@ -1799,6 +1801,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , secondary_activity_category_id
     , secondary_activity_category_path
     , activity_category_paths
+    , sector_id
+    , sector_code
+    , sector_name
+    , legal_form_id
+    , legal_form_code
+    , legal_form_name
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
@@ -1826,7 +1834,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , turnover
     -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
-    -- sector_code_ids integer[],
+    -- sector_ids integer[],
     -- activity_category_ids integer[],
     -- unit_size_id integer REFERENCES public.unit_size(id),
     -- short_name character varying(200),
@@ -1868,6 +1876,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , secondary_activity_category_path
          --
          , activity_category_paths
+         --
+         , sector_id
+         , sector_code
+         , sector_name
+         , legal_form_id
+         , legal_form_code
+         , legal_form_name
          --
          , physical_address_part1
          , physical_address_part2
@@ -1946,6 +1961,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
              END AS activity_category_paths
            --
+           , s.id   AS sector_id
+           , s.code AS sector_code
+           , s.name AS sector_name
+           , NULL::INTEGER AS legal_form_id
+           , NULL::TEXT    AS legal_form_code
+           , NULL::TEXT    AS legal_form_name
+           --
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
@@ -1985,6 +2007,9 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(sa.valid_from, sa.valid_to, '[]')
       LEFT JOIN public.activity_category AS sac
               ON sa.activity_category_id = sac.id
+      --
+      LEFT OUTER JOIN public.sector AS s
+              ON es.sector_id = s.id
       --
       LEFT OUTER JOIN public.location AS phl
               ON phl.establishment_id = es.id
@@ -2040,6 +2065,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_path
            , activity_category_paths
            --
+           , sector_id
+           , sector_code
+           , sector_name
+           , legal_form_id
+           , legal_form_code
+           , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2084,6 +2116,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , secondary_activity_category_path
          --
          , activity_category_paths
+         --
+         , sector_id
+         , sector_code
+         , sector_name
+         , legal_form_id
+         , legal_form_code
+         , legal_form_name
          --
          , physical_address_part1
          , physical_address_part2
@@ -2156,6 +2195,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
                END AS activity_category_paths
              --
+             , s.id   AS sector_id
+             , s.code AS sector_code
+             , s.name AS sector_name
+             , lf.id   AS legal_form_id
+             , lf.code AS legal_form_code
+             , lf.name AS legal_form_name
+             --
              , phl.address_part1 AS physical_address_part1
              , phl.address_part2 AS physical_address_part2
              , phl.address_part3 AS physical_address_part3
@@ -2195,6 +2241,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 && daterange(sa.valid_from, sa.valid_to, '[]')
         LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
+        --
+        LEFT OUTER JOIN public.sector AS s
+                ON lu.sector_id = s.id
+        --
+        LEFT OUTER JOIN public.legal_form AS lf
+                ON lu.legal_form_id = lf.id
         --
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = lu.id
@@ -2253,6 +2305,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_path
            , activity_category_paths
            --
+           , sector_id
+           , sector_code
+           , sector_name
+           , legal_form_id
+           , legal_form_code
+           , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2294,6 +2353,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , secondary_activity_category_path
          --
          , activity_category_paths
+         --
+         , sector_id
+         , sector_code
+         , sector_name
+         , legal_form_id
+         , legal_form_code
+         , legal_form_name
          --
          , physical_address_part1
          , physical_address_part2
@@ -2366,6 +2432,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
              END AS activity_category_paths
            --
+           , s.id   AS sector_id
+           , s.code AS sector_code
+           , s.name AS sector_name
+           , lf.id   AS legal_form_id
+           , lf.code AS legal_form_code
+           , lf.name AS legal_form_name
+           --
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
@@ -2408,6 +2481,12 @@ CREATE MATERIALIZED VIEW public.statistical_unit
               && daterange(sa.valid_from, sa.valid_to, '[]')
       LEFT JOIN public.activity_category AS sac
               ON sa.activity_category_id = sac.id
+      --
+      LEFT OUTER JOIN public.sector AS s
+              ON plu.sector_id = s.id
+      --
+      LEFT OUTER JOIN public.legal_form AS lf
+              ON plu.legal_form_id = lf.id
       --
       LEFT OUTER JOIN public.location AS phl
               ON phl.legal_unit_id = plu.id
@@ -2468,6 +2547,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_path
            , activity_category_paths
            --
+           , sector_id
+           , sector_code
+           , sector_name
+           , legal_form_id
+           , legal_form_code
+           , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2509,6 +2595,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , secondary_activity_category_path
          --
          , activity_category_paths
+         --
+         , sector_id
+         , sector_code
+         , sector_name
+         , legal_form_id
+         , legal_form_code
+         , legal_form_name
          --
          , physical_address_part1
          , physical_address_part2
@@ -2581,6 +2674,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
                END AS activity_category_paths
              --
+             , s.id   AS sector_id
+             , s.code AS sector_code
+             , s.name AS sector_name
+             , NULL::INTEGER AS legal_form_id
+             , NULL::TEXT    AS legal_form_code
+             , NULL::TEXT    AS legal_form_name
+             --
              , phl.address_part1 AS physical_address_part1
              , phl.address_part2 AS physical_address_part2
              , phl.address_part3 AS physical_address_part3
@@ -2622,6 +2722,9 @@ CREATE MATERIALIZED VIEW public.statistical_unit
                 && daterange(sa.valid_from, sa.valid_to, '[]')
         LEFT JOIN public.activity_category AS sac
                 ON sa.activity_category_id = sac.id
+        --
+        LEFT OUTER JOIN public.sector AS s
+                ON es.sector_id = s.id
         --
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = es.id
@@ -2676,6 +2779,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , secondary_activity_category_path
            , activity_category_paths
            --
+           , sector_id
+           , sector_code
+           , sector_name
+           , legal_form_id
+           , legal_form_code
+           , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -2714,6 +2824,13 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS secondary_activity_category_id
          , NULL::public.ltree AS secondary_activity_category_path
          , NULL::public.ltree[] AS activity_category_paths
+         --
+         , NULL::INTEGER AS sector_id
+         , NULL::TEXT    AS sector_code
+         , NULL::TEXT    AS sector_name
+         , NULL::INTEGER AS legal_unit_id
+         , NULL::TEXT    AS legal_unit_code
+         , NULL::TEXT    AS legal_unit_name
          --
          , NULL::TEXT AS physical_address_part1
          , NULL::TEXT AS physical_address_part2
@@ -2758,6 +2875,8 @@ CREATE INDEX idx_statistical_unit_primary_activity_category_id ON public.statist
 CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.statistical_unit (secondary_activity_category_id);
 CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
+CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
+CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
 CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
 CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
 CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
@@ -3065,6 +3184,36 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
 $$ LANGUAGE sql IMMUTABLE;
 
 
+CREATE OR REPLACE FUNCTION public.sector_hierarchy(sector_id INTEGER)
+RETURNS JSONB AS $$
+BEGIN
+    RETURN (
+        SELECT COALESCE(
+            (SELECT jsonb_build_object('sector', to_jsonb(s.*))
+             FROM public.sector AS s
+             WHERE s.id = sector_id),
+            '{}'::JSONB
+        )
+    );
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER)
+RETURNS JSONB AS $$
+BEGIN
+    RETURN (
+        SELECT COALESCE(
+            (SELECT jsonb_build_object('legal_form', to_jsonb(lf.*))
+             FROM public.legal_form AS lf
+             WHERE lf.id = legal_form_id),
+            '{}'::JSONB
+        )
+    );
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
 CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
     parent_enterprise_id INTEGER DEFAULT NULL,
@@ -3081,6 +3230,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
                 'stat_for_unit',
                   (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
              )
+           || (SELECT public.sector_hierarchy(es.sector_id))
          )
     FROM public.establishment AS es
    WHERE es.legal_unit_id = parent_legal_unit_id
@@ -3102,6 +3252,8 @@ RETURNS JSONB AS $$
               'location',
                 (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
            )
+           || (SELECT public.sector_hierarchy(lu.sector_id))
+           || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
         )
     FROM public.legal_unit AS lu
    WHERE lu.enterprise_id = parent_enterprise_id
@@ -3873,26 +4025,26 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE VIEW public.sector_code_custom_only(path, name, description)
+CREATE VIEW public.sector_custom_only(path, name, description)
 WITH (security_invoker=on) AS
 SELECT ac.path
      , ac.name
      , ac.description
-FROM public.sector_code AS ac
+FROM public.sector AS ac
 WHERE ac.active
   AND ac.custom
 ORDER BY path;
 
-CREATE FUNCTION admin.sector_code_custom_only_upsert()
+CREATE FUNCTION admin.sector_custom_only_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
     maybe_parent_id int := NULL;
     row RECORD;
 BEGIN
-    -- Find parent sector_code based on NEW.path
+    -- Find parent sector based on NEW.path
     IF public.nlevel(NEW.path) > 1 THEN
         SELECT id INTO maybe_parent_id
-          FROM public.sector_code
+          FROM public.sector
          WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
            AND active
            AND custom;
@@ -3902,8 +4054,8 @@ BEGIN
         RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
     END IF;
 
-    -- Perform an upsert operation on public.sector_code
-    INSERT INTO public.sector_code
+    -- Perform an upsert operation on public.sector
+    INSERT INTO public.sector
         ( path
         , parent_id
         , name
@@ -3929,7 +4081,7 @@ BEGIN
           , updated_at = statement_timestamp()
           , active = TRUE
           , custom = TRUE
-       WHERE sector_code.id = EXCLUDED.id
+       WHERE sector.id = EXCLUDED.id
        RETURNING * INTO row;
     RAISE DEBUG 'UPSERTED %', to_json(row);
 
@@ -3938,17 +4090,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE TRIGGER sector_code_custom_only_upsert
-INSTEAD OF INSERT ON public.sector_code_custom_only
+CREATE TRIGGER sector_custom_only_upsert
+INSTEAD OF INSERT ON public.sector_custom_only
 FOR EACH ROW
-EXECUTE FUNCTION admin.sector_code_custom_only_upsert();
+EXECUTE FUNCTION admin.sector_custom_only_upsert();
 
 
-CREATE OR REPLACE FUNCTION admin.sector_code_custom_only_prepare()
+CREATE OR REPLACE FUNCTION admin.sector_custom_only_prepare()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Deactivate all non-custom sector_code entries before insertion
-    UPDATE public.sector_code
+    -- Deactivate all non-custom sector entries before insertion
+    UPDATE public.sector
        SET active = false
      WHERE active = true
        AND custom = false;
@@ -3956,10 +4108,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER sector_code_custom_only_prepare_trigger
-BEFORE INSERT ON public.sector_code_custom_only
+CREATE TRIGGER sector_custom_only_prepare_trigger
+BEFORE INSERT ON public.sector_custom_only
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.sector_code_custom_only_prepare();
+EXECUTE FUNCTION admin.sector_custom_only_prepare();
 
 
 CREATE VIEW public.legal_form_custom_only(code, name)
@@ -4032,10 +4184,10 @@ EXECUTE FUNCTION admin.legal_form_custom_only_prepare();
 
 -- Load seed data after all constraints are in place
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.sector_code', 'path');
+SELECT admin.generate_table_views_for_batch_api('public.sector', 'path');
 SET LOCAL client_min_messages TO INFO;
 
-\copy public.sector_code_system(path, name) FROM 'dbseed/sector_code.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.sector_system(path, name) FROM 'dbseed/sector.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
@@ -4635,6 +4787,8 @@ SELECT lu.tax_reg_ident
      , poc.code_2        AS postal_country_code_2
      , prac.code AS primary_activity_category_code
      , seac.code AS secondary_activity_category_code
+     , sc.code AS sector_code
+     , lf.code AS legal_form_code
 FROM public.legal_unit AS lu
 
 LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
@@ -4651,8 +4805,16 @@ LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_t
 LEFT JOIN public.region AS por ON pol.region_id = por.id
 LEFT JOIN public.country AS poc ON phl.country_id = poc.id
 
-WHERE lu.valid_from >= current_date AND current_date <= lu.valid_to
-  AND lu.active
+LEFT JOIN public.sector AS sc ON lu.sector_id = sc.id
+
+LEFT JOIN public.legal_form AS lf ON lu.legal_form_id = lf.id
+
+WHERE lu.active
+  AND lu.valid_from  >= current_date AND current_date <= lu.valid_to
+  AND pra.valid_from >= current_date AND current_date <= pra.valid_to
+  AND sea.valid_from >= current_date AND current_date <= sea.valid_to
+  AND phl.valid_from >= current_date AND current_date <= phl.valid_to
+  AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 ;
 
 CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_current()
@@ -4665,6 +4827,8 @@ DECLARE
     postal_country RECORD;
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
+    sector RECORD;
+    legal_form RECORD;
     upsert_data RECORD;
     new_typed RECORD;
     enterprise RECORD;
@@ -4695,6 +4859,8 @@ BEGIN
     SELECT NULL::int AS id INTO postal_country;
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
+    SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO legal_form;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -4766,6 +4932,26 @@ BEGIN
       END IF;
     END IF;
 
+    IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
+      SELECT * INTO sector
+      FROM public.sector
+      WHERE code = NEW.sector_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find sector_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
+      END IF;
+    END IF;
+
+    IF NEW.legal_form_code IS NOT NULL AND NEW.legal_form_code <> '' THEN
+      SELECT * INTO legal_form
+      FROM public.legal_form
+      WHERE code = NEW.legal_form_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find legal_form_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{legal_form_code}', to_jsonb(NEW.legal_form_code), true);
+      END IF;
+    END IF;
+
     IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
         BEGIN
             new_typed.birth_date := NEW.birth_date::DATE;
@@ -4816,38 +5002,40 @@ BEGIN
     is_primary_for_enterprise := true;
 
     INSERT INTO public.legal_unit_era
-    (
-        tax_reg_ident,
-        tax_reg_date,
-        valid_from,
-        valid_to,
-        name,
-        birth_date,
-        death_date,
-        active,
-        seen_in_import_at,
-        edit_comment,
-        invalid_codes,
-        enterprise_id,
-        primary_for_enterprise,
-        edit_by_user_id
+    ( tax_reg_ident
+    , tax_reg_date
+    , valid_from
+    , valid_to
+    , name
+    , birth_date
+    , death_date
+    , active
+    , seen_in_import_at
+    , edit_comment
+    , sector_id
+    , legal_form_id
+    , invalid_codes
+    , enterprise_id
+    , primary_for_enterprise
+    , edit_by_user_id
     )
     VALUES
-    (
-        upsert_data.tax_reg_ident,
-        upsert_data.tax_reg_date,
-        new_valid_from,
-        new_valid_to,
-        upsert_data.name,
-        upsert_data.birth_date,
-        upsert_data.death_date,
-        upsert_data.active,
-        upsert_data.seen_in_import_at,
-        upsert_data.edit_comment,
-        upsert_data.invalid_codes,
-        enterprise.id,
-        is_primary_for_enterprise,
-        edited_by_user.id
+    ( upsert_data.tax_reg_ident
+    , upsert_data.tax_reg_date
+    , new_valid_from
+    , new_valid_to
+    , upsert_data.name
+    , upsert_data.birth_date
+    , upsert_data.death_date
+    , upsert_data.active
+    , upsert_data.seen_in_import_at
+    , upsert_data.edit_comment
+    , sector.id
+    , legal_form.id
+    , upsert_data.invalid_codes
+    , enterprise.id
+    , is_primary_for_enterprise
+    , edited_by_user.id
     )
     RETURNING * INTO inserted_legal_unit;
     RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
@@ -5039,6 +5227,7 @@ SELECT es.tax_reg_ident
      , poc.code_2        AS postal_country_code_2
      , prac.code AS primary_activity_category_code
      , seac.code AS secondary_activity_category_code
+     , sc.code AS sector_code
      , sfu1.value_int::TEXT AS employees
      , sfu2.value_int::TEXT AS turnover
 FROM public.establishment AS es
@@ -5058,14 +5247,22 @@ LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.locatio
 LEFT JOIN public.region AS por ON pol.region_id = por.id
 LEFT JOIN public.country AS poc ON phl.country_id = poc.id
 
+LEFT JOIN public.sector AS sc ON es.sector_id = sc.id
+
 LEFT JOIN public.stat_definition AS sd1 ON sd1.code = 'employees'
 LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id AND sfu1.stat_definition_id = sd1.id AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
 
 LEFT JOIN public.stat_definition AS sd2 ON sd2.code = 'turnover'
 LEFT JOIN public.stat_for_unit AS sfu2 ON sfu2.establishment_id = es.id AND sfu2.stat_definition_id = sd2.id AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
 
-WHERE es.valid_from >= current_date AND current_date <= es.valid_to
-  AND es.active
+WHERE es.active
+  AND es.valid_from   >= current_date AND current_date <= es.valid_to
+  AND pra.valid_from  >= current_date AND current_date <= pra.valid_to
+  AND sea.valid_from  >= current_date AND current_date <= sea.valid_to
+  AND phl.valid_from  >= current_date AND current_date <= phl.valid_to
+  AND pol.valid_from  >= current_date AND current_date <= pol.valid_to
+  AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
+  AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
 ;
 
 CREATE FUNCTION admin.upsert_establishment_region_activity_category_stats_current()
@@ -5081,6 +5278,7 @@ DECLARE
     enterprise RECORD;
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
+    sector RECORD;
     upsert_data RECORD;
     new_typed RECORD;
     inserted_establishment RECORD;
@@ -5113,6 +5311,7 @@ BEGIN
     SELECT NULL::int AS id INTO postal_country;
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
+    SELECT NULL::int AS id INTO sector;
     SELECT NULL::int AS employees
          , NULL::int AS turnover
         INTO stats;
@@ -5223,6 +5422,16 @@ BEGIN
       END IF;
     END IF;
 
+    IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
+      SELECT * INTO sector
+      FROM public.sector
+      WHERE code = NEW.sector_code;
+      IF NOT FOUND THEN
+        RAISE WARNING 'Could not find sector_code for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
+      END IF;
+    END IF;
+
     IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
         BEGIN
             new_typed.birth_date := NEW.birth_date::DATE;
@@ -5268,6 +5477,7 @@ BEGIN
     , active
     , seen_in_import_at
     , edit_comment
+    , sector_id
     , invalid_codes
     , enterprise_id
     , legal_unit_id
@@ -5275,22 +5485,22 @@ BEGIN
     , edit_by_user_id
     )
     VALUES
-    (
-        upsert_data.tax_reg_ident,
-        upsert_data.tax_reg_date,
-        new_valid_from,
-        new_valid_to,
-        upsert_data.name,
-        upsert_data.birth_date,
-        upsert_data.death_date,
-        upsert_data.active,
-        upsert_data.seen_in_import_at,
-        upsert_data.edit_comment,
-        upsert_data.invalid_codes,
-        upsert_data.enterprise_id,
-        upsert_data.legal_unit_id,
-        upsert_data.primary_for_legal_unit,
-        edited_by_user.id
+    ( upsert_data.tax_reg_ident
+    , upsert_data.tax_reg_date
+    , new_valid_from
+    , new_valid_to
+    , upsert_data.name
+    , upsert_data.birth_date
+    , upsert_data.death_date
+    , upsert_data.active
+    , upsert_data.seen_in_import_at
+    , upsert_data.edit_comment
+    , sector.id
+    , upsert_data.invalid_codes
+    , upsert_data.enterprise_id
+    , upsert_data.legal_unit_id
+    , upsert_data.primary_for_legal_unit
+    , edited_by_user.id
     )
     RETURNING * INTO inserted_establishment;
     RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);

@@ -16,6 +16,10 @@
     "csv": "oppstartsdato"
   },
   {
+    "sql": "sector_code",
+    "csv": null
+  },
+  {
     "sql": "physical_address_part1",
     "csv": "beliggenhetsadresse.adresse"
   },

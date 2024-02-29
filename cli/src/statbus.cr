@@ -177,6 +177,8 @@ class StatBus
       "postal_country_code_2",
       "primary_activity_category_code",
       "secondary_activity_category_code",
+      "sector_code",
+      "legal_form_code",
     ]
     upload_view_name = "legal_unit_region_activity_category_current"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
@@ -208,6 +210,7 @@ class StatBus
       "postal_country_code_2",
       "primary_activity_category_code",
       "secondary_activity_category_code",
+      "sector_code",
       "employees",
       "turnover",
     ]

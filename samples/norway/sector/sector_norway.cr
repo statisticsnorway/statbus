@@ -1,7 +1,7 @@
 # This Crystal script is designed to process data from the Norwegian Statistics Bureau (SSB)
 # "institusjonellSektorkode" classification system. The script downloads a CSV file from the SSB API,
 # processes the data to conform to a specific structure, and outputs a new CSV file prepared for the
-# sector_code table in a database.
+# sector table in a database.
 #
 # The script handles specific fields such as 'code', 'parentCode', 'level', 'name', and 'notes', translating
 # them into a format suitable for database insertion. It employs the Crystal programming language's CSV and
@@ -11,8 +11,8 @@
 # - Ensure Crystal is installed on your system.
 # - Place this script in a directory of your choice.
 # - Run the script using `crystal <script_name>.cr`.
-# - The script will download the required CSV file from the provided SSB URL, process the data, and output
-#   a new CSV file named 'sector_code_table.csv' in the same directory.
+# - The script will download the required CSV file from the provided SSB URL,
+#   process the data, and output a new CSV file in the same directory.
 #
 # Source Data URL: https://data.ssb.no/api/klass/v1/versions/92.csv?language=nb
 # The script expects the CSV file to have specific headers as per the 'institusjonellSektorkode' classification.
@@ -24,7 +24,7 @@ require "csv"
 require "http/client"
 require "time"
 
-outputFileName = "#{__DIR__}/sector_code_norway.csv"
+outputFileName = "#{__DIR__}/sector_norway.csv"
 dataSourceUrl = "https://data.ssb.no/api/klass/v1/versions/92.csv?language=nb"
 tempFileName = "ssb_temp.csv" # Name for the temporary file for easier identification
 tempFilePath = File.join(Dir.tempdir, tempFileName)
