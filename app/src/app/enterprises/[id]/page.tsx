@@ -6,7 +6,7 @@ export default async function EnterpriseDetailsPage({params: {id}}: { readonly p
   const {unit, error} = await getEnterpriseById(id)
 
   if (error) {
-    throw error
+    throw new Error(error.message, { cause: error})
   }
 
   if (!unit) {

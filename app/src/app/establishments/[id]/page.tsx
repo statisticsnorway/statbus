@@ -6,7 +6,7 @@ export default async function EstablishmentGeneralInfoPage({params: {id}}: { rea
   const {unit, error} = await getEstablishmentById(id);
 
   if (error) {
-    throw error
+    throw new Error(error.message, { cause: error})
   }
 
   if (!unit) {

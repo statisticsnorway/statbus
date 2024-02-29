@@ -12,7 +12,7 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
   const {unit, error} = await getLegalUnitById(id)
 
   if (error) {
-    throw error
+    throw new Error(error.message, { cause: error})
   }
 
   if (!unit) {
