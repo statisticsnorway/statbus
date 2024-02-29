@@ -4,19 +4,19 @@ import {notFound} from "next/navigation";
 import {getEnterpriseById} from "@/components/statistical-unit-details/requests";
 
 export default async function EnterpriseInspectionPage({params: {id}}: { readonly params: { id: string } }) {
-  const {unit, error} = await getEnterpriseById(id)
+  const {enterprise, error} = await getEnterpriseById(id)
 
   if (error) {
     throw error
   }
 
-  if (!unit) {
+  if (!enterprise) {
     notFound()
   }
 
   return (
-    <DetailsPage title="Data Dump" subtitle={`This section shows the raw data we have on ${unit.id}`}>
-      <DataDump data={unit}/>
+    <DetailsPage title="Data Dump" subtitle={`This section shows the raw data we have on ${enterprise.id}`}>
+      <DataDump data={enterprise}/>
     </DetailsPage>
   )
 }

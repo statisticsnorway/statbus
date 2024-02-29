@@ -8,7 +8,7 @@ export async function getEnterpriseById(id: string) {
     .eq("id", id)
     .limit(1)
 
-  return {unit: enterprises?.[0], error};
+  return {enterprise: enterprises?.[0], error};
 }
 
 export async function getEstablishmentById(id: string) {
@@ -18,7 +18,7 @@ export async function getEstablishmentById(id: string) {
     .eq("id", id)
     .limit(1)
 
-  return {unit: establishments?.[0], error};
+  return {establishment: establishments?.[0], error};
 }
 
 export async function getLegalUnitById(id: string) {
@@ -28,7 +28,7 @@ export async function getLegalUnitById(id: string) {
     .eq("id", id)
     .limit(1)
 
-  return {unit: legalUnits?.[0], error};
+  return {legalUnit: legalUnits?.[0], error};
 }
 
 export async function getStatisticalUnitHierarchy(unitId: number, unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment") {

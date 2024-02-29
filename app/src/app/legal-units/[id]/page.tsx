@@ -9,19 +9,19 @@ export const metadata: Metadata = {
 }
 
 export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonly params: { id: string } }) {
-  const {unit, error} = await getLegalUnitById(id)
+  const {legalUnit, error} = await getLegalUnitById(id)
 
   if (error) {
     throw new Error(error.message, { cause: error})
   }
 
-  if (!unit) {
+  if (!legalUnit) {
     notFound()
   }
 
   return (
     <DetailsPage title="General Info" subtitle="General information such as name, id, sector and primary activity">
-      <GeneralInfoForm values={unit} id={id}/>
+      <GeneralInfoForm values={legalUnit} id={id}/>
     </DetailsPage>
   )
 }
