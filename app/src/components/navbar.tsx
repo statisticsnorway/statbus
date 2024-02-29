@@ -2,7 +2,7 @@ import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from '@/../public/statbus-logo.png'
 import Link from "next/link";
-import {ScrollText, Search} from "lucide-react";
+import {BarChartHorizontal, Search} from "lucide-react";
 import {cn} from "@/lib/utils";
 import {buttonVariants} from "@/components/ui/button";
 
@@ -20,7 +20,7 @@ export default function Navbar() {
               href="/reports"
               className={cn(buttonVariants({variant: "ghost", size: "sm"}), "font-normal space-x-2")}
             >
-              <ScrollText size={16}/>
+              <BarChartHorizontal size={16}/>
               <span>Reports</span>
             </Link>
             <Link
