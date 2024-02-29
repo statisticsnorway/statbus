@@ -1,7 +1,6 @@
 "use server";
 import {createClient} from "@/lib/supabase/server";
 import {revalidatePath} from "next/cache";
-import {UpdateResponse} from "@/app/legal-units/types";
 import {z} from "zod";
 import {generalInfoSchema} from "@/app/legal-units/[id]/general-info/validation";
 import {contactInfoSchema} from "@/app/legal-units/[id]/contact/validation";

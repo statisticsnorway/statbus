@@ -1,7 +1,10 @@
 import {notFound} from "next/navigation";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 import {getEnterpriseById, getStatisticalUnitHierarchy} from "@/components/statistical-unit-details/requests";
-import DataDump from "@/components/data-dump";
+import React from "react";
+import {InfoBox} from "@/components/info-box";
+import Link from "next/link";
+import {FormField} from "@/components/form/form-field";
 
 export default async function EnterpriseDetailsPage({params: {id}}: { readonly params: { id: string } }) {
   const {enterprise, error} = await getEnterpriseById(id)
@@ -24,14 +27,37 @@ export default async function EnterpriseDetailsPage({params: {id}}: { readonly p
     throw new Error("No primary legal unit found")
   }
 
-  const {activity, location, establishment: _, ...rest} = primaryLegalUnit
-
   return (
     <DetailsPage title="General Info" subtitle="General information such as name, sector">
-      <DataDump title="enterprise" data={enterprise}/>
-      <DataDump title="legal unit general info" data={rest}/>
-      <DataDump title="legal unit location" data={location}/>
-      <DataDump title="legal unit activity" data={activity}/>
+
+      <InfoBox>
+        <p>
+          The following information is derived from the primary legal unit
+          &nbsp;<Link className="underline" href={`/legal-units/${primaryLegalUnit.id}`}>{primaryLegalUnit.name}</Link>.
+        </p>
+        <p>
+          If you need to update this information, update the primary legal unit or change the primary legal unit
+          altogether.
+        </p>
+      </InfoBox>
+
+      <form className="space-y-8">
+        <FormField
+          readonly
+          label="Name"
+          name="name"
+          value={primaryLegalUnit.name}
+          response={null}
+        />
+
+        <FormField
+          readonly
+          label="Tax Register ID"
+          name="tax_reg_ident"
+          value={primaryLegalUnit.tax_reg_ident}
+          response={null}
+        />
+      </form>
     </DetailsPage>
   )
 }

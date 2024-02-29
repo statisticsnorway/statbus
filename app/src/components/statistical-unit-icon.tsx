@@ -9,11 +9,11 @@ interface TopologyItemIconProps {
 export function StatisticalUnitIcon({type, className}: TopologyItemIconProps) {
     switch (type) {
         case "legal_unit":
-            return <Building className={cn("stroke-gray-700 fill-legal_unit-200", className)}/>
+            return <Building className={cn("stroke-gray-700 fill-legal_unit-300", className)}/>
         case "establishment":
-            return <Store className={cn("stroke-gray-700 fill-establishment-200", className)}/>
+            return <Store className={cn("stroke-gray-700 fill-establishment-300", className)}/>
         case "enterprise":
-            return <Building2 className={cn("stroke-gray-700 fill-enterprise-200", className)}/>
+            return <Building2 className={cn("stroke-gray-700 fill-enterprise-300", className)}/>
         default:
             return null
     }
