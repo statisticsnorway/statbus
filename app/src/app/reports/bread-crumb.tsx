@@ -15,6 +15,7 @@ export const BreadCrumb = ({points, selected = null, onSelect, topLevelText = "S
             <Button
                 size="sm"
                 variant="ghost"
+                className={!selected ? 'underline' : ''}
                 onClick={() => onSelect(null)}
             >
                 {topLevelText}

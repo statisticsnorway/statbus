@@ -21,7 +21,7 @@ export const DrillDownChart = ({points, onSelect}: DrillDownChartProps) => {
                     events: {
                         drilldown: (e) => onSelect(e.point.options.custom as DrillDownPoint)
                     },
-                    backgroundColor: 'rgb(249, 250, 251)'
+                    backgroundColor: 'transparent',
                 },
                 plotOptions: {
                     series: {
@@ -39,15 +39,31 @@ export const DrillDownChart = ({points, onSelect}: DrillDownChartProps) => {
                     type: 'category'
                 },
                 yAxis: {
-                    title: {
-                        text: ''
-                    }
+                    visible: false
+                },
+                drilldown: {
+                  activeAxisLabelStyle: {
+                    color: 'black',
+                    fontWeight: 'normal'
+                  },
+                  activeDataLabelStyle: {
+                    color: 'black',
+                    fontWeight: 'normal',
+                    textDecoration: 'none'
+                  }
+                },
+                tooltip: {
+                  headerFormat: '',
+                  pointFormat: '{point.name}: <b>{point.y}</b>',
+                  outside: true,
+                  useHTML: true
                 },
                 series: [
                     {
                         type: 'bar',
                         showInLegend: false,
-                        data: points?.map(toPointOptionObject)
+                        data: points?.map(toPointOptionObject),
+                        groupPadding: 0.05
                     }
                 ]
             });
@@ -63,6 +79,7 @@ const toPointOptionObject = (point: DrillDownPoint) => ({
     name: point.name,
     y: point.count,
     drilldown: point.has_children ? '1' : '',
-    custom: point
+    custom: point,
+    color: "#00719c"
 })
 
