@@ -162,7 +162,7 @@ BEGIN
     -- Access the standard code passed as an argument
     standardCode := TG_ARGV[0];
     SELECT id INTO standardId FROM public.activity_category_standard WHERE code = standardCode;
-    IF standardId IS NULL THEN
+    IF NOT FOUND THEN
       RAISE EXCEPTION 'Unknown activity_category_standard.code %s', standardCode;
     END IF;
 
@@ -312,7 +312,7 @@ DECLARE
 BEGIN
     -- Retrieve the setting_activity_category_standard_id from public.settings
     SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
-    IF setting_activity_category_standard_id IS NULL THEN
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
     END IF;
 
@@ -323,7 +323,7 @@ BEGIN
           FROM public.activity_category
          WHERE code = NEW.parent_code
            AND activity_category_standard_id = setting_activity_category_standard_id;
-        IF found_parent_id IS NULL THEN
+        IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent_code %', NEW.parent_code;
         END IF;
     ELSIF public.nlevel(NEW.path) > 1 THEN
@@ -332,7 +332,7 @@ BEGIN
           FROM public.activity_category
          WHERE activity_category_standard_id = setting_activity_category_standard_id
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
-        IF found_parent_id IS NULL THEN
+        IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
         END IF;
     END IF;
@@ -417,7 +417,7 @@ DECLARE
 BEGIN
     -- Retrieve the setting_activity_category_standard_id from public.settings
     SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
-    IF setting_activity_category_standard_id IS NULL THEN
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
     END IF;
 
@@ -429,7 +429,7 @@ BEGIN
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
            AND active;
         RAISE DEBUG 'found_parent_id %', found_parent_id;
-        IF found_parent_id IS NULL THEN
+        IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
         END IF;
     END IF;
@@ -737,9 +737,11 @@ CREATE TABLE public.sector_code (
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
+    description text,
     active boolean NOT NULL,
     custom bool NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
+    UNIQUE(path, active)
 );
 CREATE UNIQUE INDEX ix_sector_code_code ON public.sector_code USING btree (code) WHERE active;
 CREATE INDEX ix_sector_code_parent_id ON public.sector_code USING btree (parent_id);
@@ -3868,6 +3870,96 @@ BEGIN
     RETURN result;
 END;
 $$ LANGUAGE plpgsql;
+
+
+CREATE VIEW public.sector_code_custom_only(path, name, description)
+WITH (security_invoker=on) AS
+SELECT ac.path
+     , ac.name
+     , ac.description
+FROM public.sector_code AS ac
+WHERE ac.active
+  AND ac.custom
+ORDER BY path;
+
+CREATE FUNCTION admin.sector_code_custom_only_upsert()
+RETURNS TRIGGER AS $$
+DECLARE
+    maybe_parent_id int := NULL;
+    row RECORD;
+BEGIN
+    -- Find parent sector_code based on NEW.path
+    IF public.nlevel(NEW.path) > 1 THEN
+        SELECT id INTO maybe_parent_id
+          FROM public.sector_code
+         WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
+           AND active
+           AND custom;
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
+        END IF;
+        RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
+    END IF;
+
+    -- Perform an upsert operation on public.sector_code
+    INSERT INTO public.sector_code
+        ( path
+        , parent_id
+        , name
+        , description
+        , updated_at
+        , active
+        , custom
+        )
+    VALUES
+        ( NEW.path
+        , maybe_parent_id
+        , NEW.name
+        , NEW.description
+        , statement_timestamp()
+        , TRUE -- Active
+        , TRUE -- Custom
+        )
+    ON CONFLICT (path, active)
+    DO UPDATE SET
+            parent_id = maybe_parent_id
+          , name = NEW.name
+          , description = NEW.description
+          , updated_at = statement_timestamp()
+          , active = TRUE
+          , custom = TRUE
+       WHERE sector_code.id = EXCLUDED.id
+       RETURNING * INTO row;
+    RAISE DEBUG 'UPSERTED %', to_json(row);
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER sector_code_custom_only_upsert
+INSTEAD OF INSERT ON public.sector_code_custom_only
+FOR EACH ROW
+EXECUTE FUNCTION admin.sector_code_custom_only_upsert();
+
+
+CREATE OR REPLACE FUNCTION admin.sector_code_custom_only_prepare()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Deactivate all non-custom sector_code entries before insertion
+    UPDATE public.sector_code
+       SET active = false
+     WHERE active = true
+       AND custom = false;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER sector_code_custom_only_prepare_trigger
+BEFORE INSERT ON public.sector_code_custom_only
+FOR EACH STATEMENT
+EXECUTE FUNCTION admin.sector_code_custom_only_prepare();
+
 
 
 -- Load seed data after all constraints are in place

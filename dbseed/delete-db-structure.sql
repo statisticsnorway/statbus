@@ -137,6 +137,10 @@ DROP VIEW public.stat_for_unit_era;
 
 DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 
+DROP VIEW public.sector_code_custom_only;
+DROP FUNCTION admin.sector_code_custom_only_prepare();
+DROP FUNCTION admin.sector_code_custom_only_upsert();
+
 SELECT admin.drop_table_views_for_batch_api('public.sector_code');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
