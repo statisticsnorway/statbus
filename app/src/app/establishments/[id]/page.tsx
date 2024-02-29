@@ -1,9 +1,13 @@
-import {getEstablishmentById} from "@/app/establishments/[id]/establishment-requests";
 import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 import {notFound} from "next/navigation";
+import {getEstablishmentById} from "@/components/statistical-unit-details/requests";
 
 export default async function EstablishmentGeneralInfoPage({params: {id}}: { readonly params: { id: string } }) {
-  const unit = await getEstablishmentById(id);
+  const {unit, error} = await getEstablishmentById(id);
+
+  if (error) {
+    throw error
+  }
 
   if (!unit) {
     notFound()

@@ -1,10 +1,8 @@
-import {DetailsPageHeader} from "@/components/statistical-unit-details/details-page-header";
-import {getEnterpriseById} from "@/app/enterprises/[id]/enterprise-requests";
+import {getEnterpriseById} from "@/components/statistical-unit-details/requests";
+import HeaderSlot from "@/components/statistical-unit-details/header-slot";
 
-export default async function HeaderSlot({params: {id}}: { readonly params: { id: string } }) {
-  const unit = await getEnterpriseById(id);
-  const name = `Enterprise ${unit?.id}`;
-  return (
-    <DetailsPageHeader name={name} className="bg-enterprise-50 border-indigo-100"/>
-  )
+export default async function Slot({params: {id}}: { readonly params: { id: string } }) {
+  const {error} = await getEnterpriseById(id)
+  const unit = {name: `Enterprise ${id}`};
+  return <HeaderSlot id={id} unit={unit} error={error} className="bg-enterprise-100"/>
 }

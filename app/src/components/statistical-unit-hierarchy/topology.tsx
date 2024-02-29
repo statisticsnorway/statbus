@@ -8,6 +8,10 @@ interface TopologyProps {
 }
 
 export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
+  if (hierarchy.enterprise === null) {
+    return null;
+  }
+
   return (
     <ul className="text-xs">
       <TopologyItem type="enterprise" unit={hierarchy?.enterprise}>
