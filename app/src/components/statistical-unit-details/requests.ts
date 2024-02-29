@@ -1,4 +1,5 @@
 import {createClient} from "@/lib/supabase/server";
+import {StatisticalUnitHierarchy} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
 
 export async function getEnterpriseById(id: string) {
   const {data: enterprises, error} = await createClient()
@@ -7,7 +8,7 @@ export async function getEnterpriseById(id: string) {
     .eq("id", id)
     .limit(1)
 
-  return {unit: enterprises?.[0], error};
+  return {enterprise: enterprises?.[0], error};
 }
 
 export async function getEstablishmentById(id: string) {
@@ -17,7 +18,7 @@ export async function getEstablishmentById(id: string) {
     .eq("id", id)
     .limit(1)
 
-  return {unit: establishments?.[0], error};
+  return {establishment: establishments?.[0], error};
 }
 
 export async function getLegalUnitById(id: string) {
@@ -27,5 +28,15 @@ export async function getLegalUnitById(id: string) {
     .eq("id", id)
     .limit(1)
 
-  return {unit: legalUnits?.[0], error};
+  return {legalUnit: legalUnits?.[0], error};
+}
+
+export async function getStatisticalUnitHierarchy(unitId: number, unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment") {
+  const {data: hierarchy, error} = await createClient()
+    .rpc('statistical_unit_hierarchy', {
+      unit_id: unitId,
+      unit_type: unitType
+    }).returns<StatisticalUnitHierarchy>()
+
+  return {hierarchy, error}
 }

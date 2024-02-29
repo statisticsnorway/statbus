@@ -9,19 +9,19 @@ export const metadata: Metadata = {
 }
 
 export default async function LegalUnitContactPage({params: {id}}: { readonly params: { id: string } }) {
-  const {unit, error} = await getLegalUnitById(id);
+  const {legalUnit, error} = await getLegalUnitById(id);
 
   if (error) {
     throw error
   }
 
-  if (!unit) {
+  if (!legalUnit) {
     notFound()
   }
 
   return (
     <DetailsPage title="Contact Info" subtitle="Contact information such as email, phone, and addresses">
-      <ContactInfoForm values={unit} id={id}/>
+      <ContactInfoForm values={legalUnit} id={id}/>
     </DetailsPage>
   )
 }

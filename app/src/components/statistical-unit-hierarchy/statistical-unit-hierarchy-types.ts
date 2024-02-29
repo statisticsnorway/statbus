@@ -28,6 +28,7 @@ type StatisticalUnit = {
     web_address: string | null;
     edit_comment: string;
     tax_reg_date: string;
+    tax_reg_ident: string;
     telephone_no: string | null;
     unit_size_id: string | null;
     email_address: string | null;

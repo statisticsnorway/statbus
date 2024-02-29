@@ -1,4 +1,3 @@
-import {UpdateResponse} from "@/app/legal-units/types";
 import {cn} from "@/lib/utils";
 import React from "react";
 import DataDump from "@/components/data-dump";

@@ -1,6 +1,5 @@
 import {Topology} from "@/components/statistical-unit-hierarchy/topology";
-import {createClient} from "@/lib/supabase/server";
-import {StatisticalUnitHierarchy} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
+import {getStatisticalUnitHierarchy} from "@/components/statistical-unit-details/requests";
 
 interface TopologySlotProps {
   readonly unitId: number;
@@ -8,11 +7,7 @@ interface TopologySlotProps {
 }
 
 export default async function TopologySlot({unitId, unitType}: TopologySlotProps) {
-  const {data: hierarchy, error} = await createClient()
-    .rpc('statistical_unit_hierarchy', {
-      unit_id: unitId,
-      unit_type: unitType
-    }).returns<StatisticalUnitHierarchy>()
+  const {hierarchy, error} = await getStatisticalUnitHierarchy(unitId, unitType)
 
   if (error) {
     console.error(error);

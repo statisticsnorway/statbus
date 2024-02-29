@@ -4,9 +4,9 @@ import {useFormState} from "react-dom";
 import React from "react";
 import {z} from "zod";
 import {contactInfoSchema} from "@/app/legal-units/[id]/contact/validation";
-import {FormField} from "@/app/legal-units/components/form-field";
 import {SubmissionFeedbackDebugInfo} from "@/app/legal-units/components/submission-feedback-debug-info";
 import {updateLegalUnit} from "@/app/legal-units/[id]/update-legal-unit-actions";
+import {FormField} from "@/components/form/form-field";
 
 export default function ContactInfoForm({id, values}: {
   readonly id: string,
