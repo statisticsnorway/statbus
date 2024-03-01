@@ -9,7 +9,7 @@ export type Enterprise = {
     legal_unit: LegalUnit[];
 };
 
-type StatisticalUnit = {
+export type StatisticalUnit = {
     id: number;
     name: string;
     notes: string | null;
