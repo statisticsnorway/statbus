@@ -29,6 +29,7 @@ CREATE SCHEMA admin;
 
 CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restricted_user', 'external_user');
 
+\echo public.statbus_role
 CREATE TABLE public.statbus_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     role_type public.statbus_role_type NOT NULL,
@@ -39,6 +40,7 @@ CREATE TABLE public.statbus_role (
 -- while there can be many different restricted_user roles, depending on the actual restrictions.
 CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(role_type) WHERE role_type = 'super_user' OR role_type = 'regular_user' OR role_type = 'external_user';
 
+\echo public.statbus_user
 CREATE TABLE public.statbus_user (
   id SERIAL PRIMARY KEY,
   uuid uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -48,6 +50,7 @@ CREATE TABLE public.statbus_user (
 
 
 -- inserts a row into public.profiles
+\echo admin.create_new_statbus_user
 CREATE FUNCTION admin.create_new_statbus_user()
 RETURNS TRIGGER
 LANGUAGE PLPGSQL
@@ -122,6 +125,7 @@ ON CONFLICT DO NOTHING;
 --CREATE POLICY "Users can update own data." ON "user" FOR UPDATE USING ( auth.uid() = id );
 
 
+\echo public.activity_category_standard
 CREATE TABLE public.activity_category_standard (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code character varying(16) UNIQUE NOT NULL,
@@ -135,6 +139,7 @@ VALUES ('isic_v4','ISIC Version 4')
 
 CREATE EXTENSION ltree SCHEMA public;
 
+\echo public.activity_category
 CREATE TABLE public.activity_category (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
@@ -153,6 +158,7 @@ CREATE TABLE public.activity_category (
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
 
 
+\echo admin.upsert_activity_category
 CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -204,6 +210,7 @@ $$ LANGUAGE plpgsql;
 
 
 
+\echo admin.delete_stale_activity_category
 CREATE FUNCTION admin.delete_stale_activity_category()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -221,6 +228,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+\echo public.activity_category_isic_v4
 CREATE VIEW public.activity_category_isic_v4
 WITH (security_invoker=on) AS
 SELECT acs.code AS standard
@@ -248,6 +256,7 @@ EXECUTE FUNCTION admin.delete_stale_activity_category();
 \copy public.activity_category_isic_v4(path, name) FROM 'dbseed/activity-category-standards/ISIC_Rev_4_english_structure.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
 
 
+\echo public.activity_category_nace_v2_1
 CREATE VIEW public.activity_category_nace_v2_1
 WITH (security_invoker=on) AS
 SELECT acs.code AS standard
@@ -276,6 +285,7 @@ EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 
 -- Settings as configured by the system.
+\echo public.settings
 CREATE TABLE public.settings (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
@@ -285,6 +295,7 @@ CREATE TABLE public.settings (
 );
 
 
+\echo public.activity_category_available
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
 SELECT acs.code AS standard_code
@@ -303,6 +314,7 @@ WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
 ORDER BY path;
 
 
+\echo admin.activity_category_available_upsert_custom
 CREATE FUNCTION admin.activity_category_available_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -395,6 +407,7 @@ EXECUTE FUNCTION admin.activity_category_available_upsert_custom();
 
 
 
+\echo public.activity_category_available_custom
 CREATE VIEW public.activity_category_available_custom(path, name, description)
 WITH (security_invoker=on) AS
 SELECT ac.path
@@ -406,6 +419,7 @@ WHERE ac.activity_category_standard_id = (SELECT activity_category_standard_id F
   AND ac.custom
 ORDER BY path;
 
+\echo admin.activity_category_available_custom_upsert_custom
 CREATE FUNCTION admin.activity_category_available_custom_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -501,6 +515,7 @@ INSTEAD OF INSERT ON public.activity_category_available_custom
 FOR EACH ROW
 EXECUTE FUNCTION admin.activity_category_available_custom_upsert_custom();
 
+\echo public.activity_category_role
 CREATE TABLE public.activity_category_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
@@ -511,6 +526,7 @@ CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_c
 CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
 
 
+\echo public.analysis_queue
 CREATE TABLE public.analysis_queue (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_start_period timestamp with time zone NOT NULL,
@@ -523,6 +539,7 @@ CREATE TABLE public.analysis_queue (
 CREATE INDEX ix_analysis_queue_user_id ON public.analysis_queue USING btree (user_id);
 
 
+\echo public.country
 CREATE TABLE public.country (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code_2 text UNIQUE NOT NULL,
@@ -539,6 +556,7 @@ CREATE UNIQUE INDEX ix_country_code_3 ON public.country USING btree (code_3) WHE
 CREATE UNIQUE INDEX ix_country_code_num ON public.country USING btree (code_num) WHERE active;
 
 
+\echo public.custom_analysis_check
 CREATE TABLE public.custom_analysis_check (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name character varying(64),
@@ -551,6 +569,7 @@ CREATE TYPE public.allowed_operations AS ENUM ('create','alter','create_and_alte
 CREATE TYPE public.stat_unit_type AS ENUM ('local_unit','legal_unit','enterprise_unit','enterprise_group');
 CREATE TYPE public.data_source_upload_type AS ENUM ('stat_units','activities');
 
+\echo public.data_source
 CREATE TABLE public.data_source (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text NOT NULL,
@@ -571,6 +590,7 @@ CREATE UNIQUE INDEX ix_data_source_name ON public.data_source USING btree (name)
 CREATE INDEX ix_data_source_user_id ON public.data_source USING btree (user_id);
 
 
+\echo public.data_source_classification
 CREATE TABLE public.data_source_classification (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -583,6 +603,7 @@ CREATE UNIQUE INDEX ix_data_source_classification_code ON public.data_source_cla
 
 
 CREATE TYPE public.data_source_queue_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
+\echo public.data_source_queue
 CREATE TABLE public.data_source_queue (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     start_import_date timestamp with time zone,
@@ -601,6 +622,7 @@ CREATE INDEX ix_data_source_queue_user_id ON public.data_source_queue USING btre
 
 
 CREATE TYPE public.data_uploading_log_status AS ENUM ('done', 'warning', 'error');
+\echo public.data_uploading_log
 CREATE TABLE public.data_uploading_log (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     start_import_date timestamp with time zone,
@@ -618,6 +640,7 @@ CREATE TABLE public.data_uploading_log (
 CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading_log USING btree (data_source_queue_id);
 
 
+\echo public.tag
 CREATE TABLE public.tag (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     path public.ltree UNIQUE NOT NULL,
@@ -633,6 +656,7 @@ CREATE TABLE public.tag (
 );
 
 
+\echo public.unit_size
 CREATE TABLE public.unit_size (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -644,6 +668,7 @@ CREATE TABLE public.unit_size (
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code) WHERE active;
 
 
+\echo public.reorg_type
 CREATE TABLE public.reorg_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,
@@ -656,6 +681,7 @@ CREATE TABLE public.reorg_type (
 CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code) WHERE active;
 
 
+\echo public.foreign_participation
 CREATE TABLE public.foreign_participation (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -667,6 +693,7 @@ CREATE TABLE public.foreign_participation (
 CREATE UNIQUE INDEX ix_foreign_participation_code ON public.foreign_participation USING btree (code) WHERE active;
 
 
+\echo public.enterprise_group_type
 CREATE TABLE public.enterprise_group_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,
@@ -678,6 +705,7 @@ CREATE TABLE public.enterprise_group_type (
 CREATE UNIQUE INDEX ix_enterprise_group_type_code ON public.enterprise_group_type USING btree (code) WHERE active;
 
 
+\echo public.enterprise_group
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -715,10 +743,12 @@ CREATE INDEX ix_enterprise_group_reorg_type_id ON public.enterprise_group USING 
 CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
 
 
+\echo admin.enterprise_group_id_exists
 CREATE OR REPLACE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
     SELECT EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
 
+\echo public.enterprise_group_role
 CREATE TABLE public.enterprise_group_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -730,6 +760,7 @@ CREATE TABLE public.enterprise_group_role (
 CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_role USING btree (code) WHERE active;
 
 
+\echo public.sector
 CREATE TABLE public.sector (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     path public.ltree UNIQUE NOT NULL,
@@ -747,6 +778,7 @@ CREATE UNIQUE INDEX ix_sector ON public.sector USING btree (code) WHERE active;
 CREATE INDEX ix_sector_parent_id ON public.sector USING btree (parent_id);
 
 
+\echo public.enterprise
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     stat_ident character varying(15) UNIQUE,
@@ -759,6 +791,7 @@ CREATE TABLE public.enterprise (
 );
 
 
+\echo public.legal_form
 CREATE TABLE public.legal_form (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -770,6 +803,7 @@ CREATE TABLE public.legal_form (
 );
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
 
+\echo public.legal_unit
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -824,10 +858,12 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_i
 CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
 
 
+\echo admin.legal_unit_id_exists
 CREATE OR REPLACE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
     SELECT EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
 
+\echo public.establishment
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -889,6 +925,7 @@ CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_
 CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
 
 
+\echo admin.establishment_id_exists
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
     SELECT EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
@@ -897,6 +934,7 @@ $$ LANGUAGE sql IMMUTABLE;
 
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
+\echo public.activity
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -918,6 +956,7 @@ CREATE INDEX ix_activity_legal_unit_id_id ON public.activity USING btree (legal_
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 
 
+\echo public.tag_for_unit
 CREATE TABLE public.tag_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tag_id integer NOT NULL REFERENCES public.tag(id) ON DELETE CASCADE,
@@ -940,6 +979,7 @@ CREATE INDEX ix_tag_for_unit_enterprise_id_id ON public.tag_for_unit USING btree
 CREATE INDEX ix_tag_for_unit_enterprise_group_id_id ON public.tag_for_unit USING btree (enterprise_group_id);
 CREATE INDEX ix_tag_for_unit_updated_by_user_id ON public.tag_for_unit USING btree (updated_by_user_id);
 
+\echo public.analysis_log
 CREATE TABLE public.analysis_log (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     analysis_queue_id integer NOT NULL REFERENCES public.analysis_queue(id) ON DELETE CASCADE,
@@ -966,6 +1006,7 @@ CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.ana
 
 
 CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
+\echo public.person
 CREATE TABLE public.person (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     personal_ident text UNIQUE,
@@ -983,6 +1024,7 @@ CREATE TABLE public.person (
 CREATE INDEX ix_person_country_id ON public.person USING btree (country_id);
 CREATE INDEX ix_person_given_name_surname ON public.person USING btree (given_name, middle_name, family_name);
 
+\echo public.person_type
 CREATE TABLE public.person_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,
@@ -992,6 +1034,7 @@ CREATE TABLE public.person_type (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 
+\echo public.person_for_unit
 CREATE TABLE public.person_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     person_id integer NOT NULL REFERENCES public.person(id) ON DELETE CASCADE,
@@ -1009,6 +1052,7 @@ CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree 
 CREATE UNIQUE INDEX ix_person_for_unit_person_type_id_establishment_id_legal_unit_id_ ON public.person_for_unit USING btree (person_type_id, establishment_id, legal_unit_id, person_id);
 
 
+\echo public.postal_index
 CREATE TABLE public.postal_index (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text,
@@ -1017,6 +1061,7 @@ CREATE TABLE public.postal_index (
     name_language2 text
 );
 
+\echo public.region
 CREATE TABLE public.region (
     id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     path public.ltree UNIQUE NOT NULL,
@@ -1031,6 +1076,7 @@ CREATE TABLE public.region (
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 
+\echo public.location
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
@@ -1060,6 +1106,7 @@ CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (upda
 
 
 -- Create a view for region upload using path and name
+\echo public.region_upload
 CREATE VIEW public.region_upload
 WITH (security_invoker=on) AS
 SELECT path, name
@@ -1067,6 +1114,7 @@ FROM public.region
 ORDER BY path;
 COMMENT ON VIEW public.region_upload IS 'Upload of region by path,name that automatically connects parent_id';
 
+\echo admin.region_upload_upsert
 CREATE FUNCTION admin.region_upload_upsert()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1093,6 +1141,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.region_upload_upsert();
 
 
+\echo admin.upsert_region_7_levels
 CREATE FUNCTION admin.upsert_region_7_levels()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1118,6 +1167,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create a view for region
+\echo public.region_7_levels_view
 CREATE VIEW public.region_7_levels_view
 WITH (security_invoker=on) AS
 SELECT '' AS "Regional Code"
@@ -1143,6 +1193,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_region_7_levels();
 
 
+\echo public.report_tree
 CREATE TABLE public.report_tree (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title text,
@@ -1154,6 +1205,7 @@ CREATE TABLE public.report_tree (
     report_url text
 );
 
+\echo public.sample_frame
 CREATE TABLE public.sample_frame (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text NOT NULL,
@@ -1171,6 +1223,7 @@ CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id
 
 
 -- Create function for upsert operation on country
+\echo admin.upsert_country
 CREATE FUNCTION admin.upsert_country()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1187,6 +1240,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function for deleting stale countries
+\echo admin.delete_stale_country
 CREATE FUNCTION admin.delete_stale_country()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1197,6 +1251,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create a view for country
+\echo public.country_view
 CREATE VIEW public.country_view
 WITH (security_invoker=on) AS
 SELECT id, code_2, code_3, code_num, name, active, custom
@@ -1222,6 +1277,7 @@ EXECUTE FUNCTION admin.delete_stale_country();
 CREATE TYPE admin.view_type_enum AS ENUM ('system', 'custom');
 
 
+\echo admin.generate_view
 CREATE FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum)
 RETURNS regclass AS $generate_view$
 DECLARE
@@ -1264,6 +1320,7 @@ END;
 $generate_view$ LANGUAGE plpgsql;
 
 
+\echo admin.generate_active_code_custom_unique_constraint
 CREATE FUNCTION admin.generate_active_code_custom_unique_constraint(table_name regclass)
 RETURNS VOID AS $generate_active_code_custom_unique_constraint$
 -- Construct the SQL constraint for the upsert function
@@ -1284,6 +1341,7 @@ RETURNS VOID AS $generate_active_code_custom_unique_constraint$
 $generate_active_code_custom_unique_constraint$ LANGUAGE plpgsql;
 
 
+\echo admin.generate_code_upsert_function
 CREATE FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_code_upsert_function$
 DECLARE
@@ -1355,6 +1413,7 @@ $generate_code_upsert_function$ LANGUAGE plpgsql;
 
 
 
+\echo admin.generate_path_upsert_function
 CREATE FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_path_upsert_function$
 DECLARE
@@ -1414,6 +1473,7 @@ $generate_path_upsert_function$ LANGUAGE plpgsql;
 
 
 
+\echo admin.generate_delete_function
 CREATE FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_delete_function$
 DECLARE
@@ -1462,6 +1522,7 @@ $generate_delete_function$ LANGUAGE plpgsql;
 
 
 
+\echo admin.generate_view_triggers
 CREATE FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure)
 RETURNS text[] AS $generate_triggers$
 DECLARE
@@ -1516,6 +1577,7 @@ $generate_triggers$ LANGUAGE plpgsql;
 
 CREATE TYPE admin.table_type_enum AS ENUM ('code', 'path');
 
+\echo admin.generate_table_views_for_batch_api
 CREATE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum)
 RETURNS void AS $$
 DECLARE
@@ -1552,6 +1614,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+\echo admin.drop_table_views_for_batch_api
 CREATE OR REPLACE FUNCTION admin.drop_table_views_for_batch_api(table_name regclass)
 RETURNS void AS $$
 DECLARE
@@ -1590,6 +1653,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+\echo public.region_role
 CREATE TABLE public.region_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
@@ -1617,6 +1681,7 @@ CREATE TYPE public.stat_frequency AS ENUM(
   'yearly'
 );
 --
+\echo public.stat_definition
 CREATE TABLE public.stat_definition(
   id serial PRIMARY KEY,
   code varchar NOT NULL UNIQUE,
@@ -1635,6 +1700,7 @@ INSERT INTO public.stat_definition(code, stat_type, frequency, name, description
   ('employees','int','yearly','Number of people employed','The number of people receiving an official salary with government reporting.',2),
   ('turnover','int','yearly','Turnover','The amount (EUR)',3);
 
+\echo public.stat_for_unit
 CREATE TABLE public.stat_for_unit (
     id SERIAL NOT NULL,
     stat_definition_id integer NOT NULL REFERENCES public.stat_definition(id) ON DELETE RESTRICT,
@@ -1654,6 +1720,7 @@ CREATE TABLE public.stat_for_unit (
 );
 
 
+\echo admin.check_stat_for_unit_values
 CREATE OR REPLACE FUNCTION admin.check_stat_for_unit_values()
 RETURNS trigger AS $$
 DECLARE
@@ -1695,6 +1762,7 @@ BEFORE INSERT OR UPDATE ON public.stat_for_unit
 FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values();
 
 
+\echo admin.prevent_id_update
 CREATE OR REPLACE FUNCTION admin.prevent_id_update()
   RETURNS TRIGGER
   AS $$
@@ -1708,6 +1776,7 @@ $$
 LANGUAGE plpgsql;
 
 
+\echo admin.prevent_id_update_on_public_tables
 CREATE OR REPLACE FUNCTION admin.prevent_id_update_on_public_tables()
 RETURNS void AS $$
 DECLARE
@@ -1783,6 +1852,7 @@ SET LOCAL client_min_messages TO INFO;
 
 CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','enterprise','enterprise_group');
 
+\echo public.statistical_unit
 CREATE MATERIALIZED VIEW public.statistical_unit
     ( valid_from
     , valid_to
@@ -2883,6 +2953,7 @@ CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_
 CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
 
 
+\echo public.activity_category_used
 CREATE MATERIALIZED VIEW public.activity_category_used AS
 SELECT acs.code AS standard_code
      , ac.id
@@ -2904,6 +2975,7 @@ CREATE UNIQUE INDEX "activity_category_used_key"
     ON public.activity_category_used (path);
 
 
+\echo public.region_used
 CREATE MATERIALIZED VIEW public.region_used AS
 SELECT r.id
      , r.path
@@ -2919,6 +2991,7 @@ CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
 
 
+\echo public.statistical_unit_facet
 CREATE MATERIALIZED VIEW public.statistical_unit_facet AS
 SELECT valid_from
      , valid_to
@@ -2946,6 +3019,7 @@ CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON publ
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
 
 
+\echo public.statistical_unit_facet_drilldown
 CREATE FUNCTION public.statistical_unit_facet_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
     region_path public.ltree DEFAULT NULL,
@@ -2953,10 +3027,6 @@ CREATE FUNCTION public.statistical_unit_facet_drilldown(
     valid_on date DEFAULT current_date
 )
 RETURNS jsonb AS $$
-#variable_conflict use_variable
-DECLARE
-    result_json jsonb := '{}'::jsonb;
-BEGIN
     WITH settings_activity_category_standard AS (
         SELECT activity_category_standard_id AS id FROM public.settings
     ),
@@ -2973,11 +3043,11 @@ BEGIN
             AND suf.unit_type = unit_type
             AND (
                 region_path IS NULL
-                OR suf.physical_region_path <@ region_path
+                OR suf.physical_region_path OPERATOR(public.<@) region_path
             )
             AND (
                 activity_category_path IS NULL
-                OR suf.primary_activity_category_path <@ activity_category_path
+                OR suf.primary_activity_category_path OPERATOR(public.<@) activity_category_path
             )
     ),
     breadcrumb_region AS (
@@ -2988,7 +3058,7 @@ BEGIN
         FROM public.region AS r
         WHERE
             (   region_path IS NOT NULL
-            AND r.path @> (region_path)
+            AND r.path OPERATOR(public.@>) (region_path)
             )
         ORDER BY path
     ),
@@ -3000,9 +3070,9 @@ BEGIN
         FROM public.region AS r
         WHERE
             (
-                (region_path IS NULL AND r.path ~ '*{1}'::lquery)
+                (region_path IS NULL AND r.path OPERATOR(public.~) '*{1}'::public.lquery)
             OR
-                (region_path IS NOT NULL AND r.path ~ (region_path::text || '.*{1}')::lquery)
+                (region_path IS NOT NULL AND r.path OPERATOR(public.~) (region_path::text || '.*{1}')::public.lquery)
             )
         ORDER BY r.path
     ), aggregated_region_counts AS (
@@ -3012,9 +3082,9 @@ BEGIN
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path <> ar.path), false) AS has_children
+             , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
-        LEFT JOIN available_facet AS suf ON suf.physical_region_path <@ ar.path
+        LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
         GROUP BY ar.path
                , ar.label
                , ar.code
@@ -3031,7 +3101,7 @@ BEGIN
            AND ac.activity_category_standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
             (     activity_category_path IS NOT NULL
-              AND ac.path @> activity_category_path
+              AND ac.path OPERATOR(public.@>) activity_category_path
             )
         ORDER BY path
     ),
@@ -3046,9 +3116,9 @@ BEGIN
            AND ac.activity_category_standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
             (
-                (activity_category_path IS NULL AND ac.path ~ '*{1}'::lquery)
+                (activity_category_path IS NULL AND ac.path OPERATOR(public.~) '*{1}'::public.lquery)
             OR
-                (activity_category_path IS NOT NULL AND ac.path ~ (activity_category_path::text || '.*{1}')::lquery)
+                (activity_category_path IS NOT NULL AND ac.path OPERATOR(public.~) (activity_category_path::text || '.*{1}')::public.lquery)
             )
         ORDER BY ac.path
     ),
@@ -3059,10 +3129,10 @@ BEGIN
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path <> aac.path), false) AS has_children
+             , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
-        LEFT JOIN available_facet AS suf ON suf.primary_activity_category_path <@ aac.path
+        LEFT JOIN available_facet AS suf ON suf.primary_activity_category_path OPERATOR(public.<@) aac.path
         GROUP BY aac.path
                , aac.label
                , aac.code
@@ -3079,215 +3149,272 @@ BEGIN
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0)
           )
-        ) INTO result_json;
-
-    RETURN result_json;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+        );
+$$ LANGUAGE sql SECURITY DEFINER;
 
 
+\echo public.stat_for_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
   parent_establishment_id INTEGER,
   valid_on DATE DEFAULT current_date
 ) RETURNS JSONB AS $$
-  SELECT jsonb_agg(
-              to_jsonb(sfu.*)
-                     - 'value_int'
-                     - 'value_float'
-                     - 'value_string'
-                     - 'value_bool'
-              || jsonb_build_object('stat_definition', to_jsonb(sd.*))
-              || CASE sd.stat_type
-                 WHEN 'int' THEN jsonb_build_object(sd.code,value_int)
-                 WHEN 'float' THEN jsonb_build_object(sd.code,value_float)
-                 WHEN 'string' THEN jsonb_build_object(sd.code,value_string)
-                 WHEN 'bool' THEN jsonb_build_object(sd.code,value_bool)
-                 END
-         )
+    WITH ordered_data AS (
+    SELECT
+        to_jsonb(sfu.*)
+        - 'value_int' - 'value_float' - 'value_string' - 'value_bool'
+        || jsonb_build_object('stat_definition', to_jsonb(sd.*))
+        || CASE sd.stat_type
+            WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
+            WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
+            WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
+            WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
+           END AS data
     FROM public.stat_for_unit AS sfu
-    JOIN public.stat_definition AS sd
-      ON sd.id = sfu.stat_definition_id
-   WHERE sfu.establishment_id = parent_establishment_id
-     AND sfu.valid_from <= valid_on AND valid_on <= sfu.valid_to
-   ;
+    JOIN public.stat_definition AS sd ON sd.id = sfu.stat_definition_id
+    WHERE sfu.establishment_id = parent_establishment_id
+      AND sfu.valid_from <= valid_on AND valid_on <= sfu.valid_to
+    ORDER BY sd.code
+), data_list AS (
+    SELECT jsonb_agg(data) AS data FROM ordered_data
+)
+SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('stat_for_unit',data)
+    END
+  FROM data_list;
+$$ LANGUAGE sql IMMUTABLE;
+
+\echo public.region_hierarchy
+CREATE OR REPLACE FUNCTION public.region_hierarchy(region_id INTEGER)
+RETURNS JSONB AS $$
+    WITH data AS (
+        SELECT jsonb_build_object('region', to_jsonb(s.*)) AS data
+          FROM public.region AS s
+         WHERE s.id = region_id
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+$$ LANGUAGE sql IMMUTABLE;
+
+\echo public.country_hierarchy
+CREATE OR REPLACE FUNCTION public.country_hierarchy(country_id INTEGER)
+RETURNS JSONB AS $$
+    WITH data AS (
+        SELECT jsonb_build_object('country', to_jsonb(s.*)) AS data
+          FROM public.country AS s
+         WHERE s.id = country_id
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
 $$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.location_hierarchy
 CREATE OR REPLACE FUNCTION public.location_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
 ) RETURNS JSONB AS $$
-  SELECT jsonb_agg(
-             to_jsonb(l.*)
-             || jsonb_build_object(
-                'region',
-                  (SELECT to_jsonb(r.*)
-                     FROM public.region AS r
-                    WHERE r.id = l.region_id
-                  )
-             )
-             || jsonb_build_object(
-                'country',
-                  (SELECT to_jsonb(c.*)
-                     FROM public.country AS c
-                    WHERE c.id = l.country_id
-                  )
-             )
-        )
-    FROM public.location AS l
-   WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
-     AND (  l.establishment_id = parent_establishment_id
-         OR l.legal_unit_id = parent_legal_unit_id
-         )
-   ;
+  WITH ordered_data AS (
+    SELECT to_jsonb(l.*)
+        || (SELECT public.region_hierarchy(l.region_id))
+        || (SELECT public.country_hierarchy(l.country_id))
+        AS data
+      FROM public.location AS l
+     WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
+       AND (  l.establishment_id = parent_establishment_id
+           OR l.legal_unit_id = parent_legal_unit_id
+           )
+       ORDER BY l.location_type
+  ), data_list AS (
+      SELECT jsonb_agg(data) AS data FROM ordered_data
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('location',data)
+    END
+  FROM data_list;
+  ;
 $$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.activity_category_standard_hierarchy
+CREATE OR REPLACE FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id INTEGER)
+RETURNS JSONB AS $$
+    WITH data AS (
+        SELECT jsonb_build_object(
+                'activity_category_standard',
+                    to_jsonb(acs.*)
+                ) AS data
+          FROM public.activity_category_standard AS acs
+         WHERE acs.id = activity_category_standard_id
+         ORDER BY acs.code
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+\echo public.activity_category_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER)
 RETURNS JSONB AS $$
-  SELECT to_jsonb(ac.*)
-       ||  jsonb_build_object(
-            'activity_category_standard',
-              (SELECT to_jsonb(acs.*)
-                 FROM public.activity_category_standard AS acs
-                WHERE acs.id = ac.activity_category_standard_id
-              )
-         )
-    FROM public.activity_category AS ac
-   WHERE ac.id = activity_category_id
-   ;
+    WITH data AS (
+        SELECT jsonb_build_object(
+            'activity_category',
+                to_jsonb(ac.*)
+                || (SELECT public.activity_category_standard_hierarchy(ac.activity_category_standard_id))
+            )
+            AS data
+         FROM public.activity_category AS ac
+         WHERE ac.id = activity_category_id
+         ORDER BY ac.path
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
 $$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.activity_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
 ) RETURNS JSONB AS $$
-  SELECT jsonb_agg(
-           to_jsonb(a.*)
-           || jsonb_build_object(
-                'activity_category',
-                (SELECT public.activity_category_hierarchy(ac.id)
-                   FROM public.activity_category AS ac
-                  WHERE ac.id = a.activity_category_id
-                )
-           )
-         )
-    FROM public.activity AS a
-   WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
-     AND (  a.establishment_id = parent_establishment_id
-         OR a.legal_unit_id = parent_legal_unit_id
-         )
-   ;
+    WITH ordered_data AS (
+        SELECT to_jsonb(a.*)
+               || (SELECT public.activity_category_hierarchy(a.activity_category_id))
+               AS data
+          FROM public.activity AS a
+         WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
+           AND (  a.establishment_id = parent_establishment_id
+               OR a.legal_unit_id = parent_legal_unit_id
+               )
+           ORDER BY a.activity_type
+  ), data_list AS (
+      SELECT jsonb_agg(data) AS data FROM ordered_data
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('activity',data)
+    END
+  FROM data_list;
+  ;
 $$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.sector_hierarchy
 CREATE OR REPLACE FUNCTION public.sector_hierarchy(sector_id INTEGER)
 RETURNS JSONB AS $$
-BEGIN
-    RETURN (
-        SELECT COALESCE(
-            (SELECT jsonb_build_object('sector', to_jsonb(s.*))
-             FROM public.sector AS s
-             WHERE s.id = sector_id),
-            '{}'::JSONB
-        )
-    );
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
+    WITH data AS (
+        SELECT jsonb_build_object('sector', to_jsonb(s.*)) AS data
+          FROM public.sector AS s
+         WHERE s.id = sector_id
+         ORDER BY s.code
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+$$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.legal_form_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER)
 RETURNS JSONB AS $$
-BEGIN
-    RETURN (
-        SELECT COALESCE(
-            (SELECT jsonb_build_object('legal_form', to_jsonb(lf.*))
-             FROM public.legal_form AS lf
-             WHERE lf.id = legal_form_id),
-            '{}'::JSONB
-        )
-    );
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
+    WITH data AS (
+        SELECT jsonb_build_object('legal_form', to_jsonb(lf.*)) AS data
+          FROM public.legal_form AS lf
+         WHERE lf.id = legal_form_id
+         ORDER BY lf.code
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+$$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.establishment_hierarchy
 CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
     parent_enterprise_id INTEGER DEFAULT NULL,
     valid_on DATE DEFAULT current_date
 ) RETURNS JSONB AS $$
-  SELECT jsonb_agg(
-             to_jsonb(es.*)
-             || jsonb_build_object(
-                'primary', es.primary_for_legal_unit,
-                'activity',
-                  (SELECT public.activity_hierarchy(es.id,NULL,valid_on)),
-                'location',
-                  (SELECT public.location_hierarchy(es.id,NULL,valid_on)),
-                'stat_for_unit',
-                  (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
-             )
-           || (SELECT public.sector_hierarchy(es.sector_id))
-         )
+  WITH ordered_data AS (
+    SELECT to_jsonb(es.*)
+        || jsonb_build_object('primary', es.primary_for_legal_unit)
+        || (SELECT public.activity_hierarchy(es.id,NULL,valid_on))
+        || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
+        || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
+        || (SELECT public.sector_hierarchy(es.sector_id))
+        AS data
     FROM public.establishment AS es
-   WHERE es.legal_unit_id = parent_legal_unit_id
-      OR es.enterprise_id = parent_enterprise_id
+   WHERE (  (parent_legal_unit_id IS NOT NULL AND es.legal_unit_id = parent_legal_unit_id)
+         OR (parent_enterprise_id IS NOT NULL AND es.enterprise_id = parent_enterprise_id)
+         )
      AND es.valid_from <= valid_on AND valid_on <= es.valid_to
-   ;
+   ORDER BY es.primary_for_legal_unit, es.name
+  ), data_list AS (
+      SELECT jsonb_agg(data) AS data FROM ordered_data
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('establishment',data)
+    END
+  FROM data_list;
 $$ LANGUAGE sql IMMUTABLE;
 
+\echo public.legal_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB AS $$
-  SELECT jsonb_agg(
-          to_jsonb(lu.*)
-           || jsonb_build_object(
-              'primary', lu.primary_for_enterprise,
-              'establishment',
-                (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on)),
-              'activity',
-                (SELECT public.activity_hierarchy(NULL,lu.id,valid_on)),
-              'location',
-                (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
-           )
-           || (SELECT public.sector_hierarchy(lu.sector_id))
-           || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
-        )
+  WITH ordered_data AS (
+    SELECT to_jsonb(lu.*)
+        || jsonb_build_object('primary', lu.primary_for_enterprise)
+        || (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on))
+        || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
+        || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
+        || (SELECT public.sector_hierarchy(lu.sector_id))
+        || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
+        AS data
     FROM public.legal_unit AS lu
    WHERE lu.enterprise_id = parent_enterprise_id
      AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
-   ;
+   ORDER BY lu.primary_for_enterprise, lu.name
+  ), data_list AS (
+      SELECT jsonb_agg(data) AS data FROM ordered_data
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('legal_unit',data)
+    END
+  FROM data_list;
 $$ LANGUAGE sql IMMUTABLE;
 
+\echo public.enterprise_hierarchy
 CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB AS $$
-  SELECT to_jsonb(en.*)
-         || jsonb_build_object(
-            'legal_unit',
-              (SELECT public.legal_unit_hierarchy(en.id, valid_on)),
-            'establishment',
-              (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
-         )
-
-    FROM public.enterprise AS en
-   WHERE en.id = enterprise_id
-   ;
+    WITH data AS (
+        SELECT jsonb_build_object(
+                'enterprise',
+                 to_jsonb(en.*)
+                 || (SELECT public.legal_unit_hierarchy(en.id, valid_on))
+                 || (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
+                ) AS data
+          FROM public.enterprise AS en
+         WHERE en.id = enterprise_id
+         ORDER BY en.short_name
+    )
+    SELECT COALESCE(data,'{}'::JSONB) FROM data;
 $$ LANGUAGE sql IMMUTABLE;
 
 
-CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
+\echo public.statistical_unit_enterprise_id
+CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS INTEGER AS $$
   SELECT CASE unit_type
          WHEN 'establishment' THEN (
-            SELECT COALESCE(lu.enterprise_id, es.enterprise_id)
-              FROM public.establishment AS es
-              LEFT JOIN public.legal_unit AS lu
-                ON es.legal_unit_id = lu.id
-             WHERE es.id = unit_id
-               AND es.valid_from <= valid_on AND valid_on <= es.valid_to
-               AND (lu IS NULL OR lu.valid_from <= valid_on AND valid_on <= lu.valid_to)
+            WITH selected_establishment AS (
+                SELECT es.id, es.enterprise_id, es.legal_unit_id, es.valid_from, es.valid_to
+                FROM public.establishment AS es
+                WHERE es.id = unit_id
+                  AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+            )
+            SELECT enterprise_id FROM selected_establishment WHERE enterprise_id IS NOT NULL
+            UNION ALL
+            SELECT lu.enterprise_id
+            FROM selected_establishment AS es
+            JOIN public.legal_unit AS lu ON es.legal_unit_id = lu.id
+            WHERE lu.valid_from <= valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'legal_unit' THEN (
              SELECT lu.enterprise_id
@@ -3306,21 +3433,18 @@ RETURNS INTEGER AS $$
 $$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.statistical_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB AS $$
-  SELECT jsonb_build_object(
-            'enterprise',
-              (SELECT
-                public.enterprise_hierarchy(
-                  public.statistical_unit_enterprise(unit_type, unit_id, valid_on)
-                , valid_on)
-              )
-         )
-   ;
+  SELECT public.enterprise_hierarchy(
+              public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
+              , valid_on
+          )
+;
 $$ LANGUAGE sql IMMUTABLE;
 
 
-
+\echo public.statistical_unit_refresh_now
 CREATE OR REPLACE FUNCTION public.statistical_unit_refresh_now()
 RETURNS TABLE(view_name text, refresh_time_ms numeric) AS $$
 DECLARE
@@ -3350,6 +3474,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 SELECT public.statistical_unit_refresh_now();
 
+\echo public.statistical_unit_refreshed_at
 CREATE FUNCTION public.statistical_unit_refreshed_at()
 RETURNS TABLE(view_name text, modified_at timestamp) AS $$
 DECLARE
@@ -3385,6 +3510,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- Ref https://stackoverflow.com/a/76356252/1023558
+\echo public.websearch_to_wildcard_tsquery
 CREATE FUNCTION public.websearch_to_wildcard_tsquery(query text)
 RETURNS tsquery AS $$
     DECLARE
@@ -3405,6 +3531,7 @@ $$ LANGUAGE plpgsql;
 
 
 --
+\echo public.custom_view_def_target_table
 CREATE TABLE public.custom_view_def_target_table(
     id serial PRIMARY KEY,
     schema_name text NOT NULL,
@@ -3422,6 +3549,7 @@ VALUES
    ,('public','enterprise_group', 'Enterprise Group')
    ;
 
+\echo public.custom_view_def_target_column
 CREATE TABLE public.custom_view_def_target_column(
     id serial PRIMARY KEY,
     target_table_id int REFERENCES public.custom_view_def_target_table(id),
@@ -3447,6 +3575,7 @@ WITH cols AS (
   FROM cols
   ;
 
+\echo public.custom_view_def
 CREATE TABLE public.custom_view_def(
     id serial PRIMARY KEY,
     target_table_id int REFERENCES public.custom_view_def_target_table(id),
@@ -3457,6 +3586,7 @@ CREATE TABLE public.custom_view_def(
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
 
+\echo public.custom_view_def_source_column
 CREATE TABLE public.custom_view_def_source_column(
     id serial PRIMARY KEY,
     custom_view_def_id int REFERENCES public.custom_view_def(id),
@@ -3466,6 +3596,7 @@ CREATE TABLE public.custom_view_def_source_column(
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
 
+\echo public.custom_view_def_mapping
 CREATE TABLE public.custom_view_def_mapping(
     custom_view_def_id int REFERENCES public.custom_view_def(id),
     source_column_id int REFERENCES public.custom_view_def_source_column(id),
@@ -3477,6 +3608,7 @@ CREATE TABLE public.custom_view_def_mapping(
 );
 
 
+\echo admin.custom_view_def_expanded
 CREATE VIEW admin.custom_view_def_expanded AS
     SELECT cvd.id AS view_def_id,
            cvd.slug AS view_def_slug,
@@ -3510,6 +3642,7 @@ CREATE TYPE admin.custom_view_def_names AS (
     delete_trigger_name text
 );
 
+\echo admin.custom_view_def_generate_names
 CREATE FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def)
 RETURNS admin.custom_view_def_names AS $$
 DECLARE
@@ -3536,6 +3669,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+\echo admin.custom_view_def_generate
 CREATE OR REPLACE FUNCTION admin.custom_view_def_generate(record public.custom_view_def)
 RETURNS void AS $custom_view_def_generate$
 DECLARE
@@ -3811,6 +3945,7 @@ $$ LANGUAGE plpgsql;';
 END;
 $custom_view_def_generate$ LANGUAGE plpgsql;
 
+\echo admin.custom_view_def_destroy
 CREATE OR REPLACE FUNCTION admin.custom_view_def_destroy(record public.custom_view_def)
 RETURNS void AS $custom_view_def_destroy$
 DECLARE
@@ -3838,6 +3973,7 @@ END;
 $custom_view_def_destroy$ LANGUAGE plpgsql;
 
 -- Before trigger for custom_view_def
+\echo admin.custom_view_def_before
 CREATE OR REPLACE FUNCTION admin.custom_view_def_before()
 RETURNS trigger AS $$
 BEGIN
@@ -3851,6 +3987,7 @@ BEFORE UPDATE OR DELETE ON public.custom_view_def
 FOR EACH ROW EXECUTE FUNCTION admin.custom_view_def_before();
 
 -- After trigger for custom_view_def
+\echo admin.custom_view_def_after
 CREATE OR REPLACE FUNCTION admin.custom_view_def_after()
 RETURNS trigger AS $$
 BEGIN
@@ -3982,6 +4119,7 @@ SELECT * FROM mapping;
 --
 
 
+\echo public.generate_mermaid_er_diagram
 CREATE OR REPLACE FUNCTION public.generate_mermaid_er_diagram()
 RETURNS text AS $$
 DECLARE
@@ -4025,6 +4163,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+\echo public.sector_custom_only
 CREATE VIEW public.sector_custom_only(path, name, description)
 WITH (security_invoker=on) AS
 SELECT ac.path
@@ -4035,6 +4174,7 @@ WHERE ac.active
   AND ac.custom
 ORDER BY path;
 
+\echo admin.sector_custom_only_upsert
 CREATE FUNCTION admin.sector_custom_only_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -4096,6 +4236,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.sector_custom_only_upsert();
 
 
+\echo admin.sector_custom_only_prepare
 CREATE OR REPLACE FUNCTION admin.sector_custom_only_prepare()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -4114,6 +4255,7 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.sector_custom_only_prepare();
 
 
+\echo public.legal_form_custom_only
 CREATE VIEW public.legal_form_custom_only(code, name)
 WITH (security_invoker=on) AS
 SELECT ac.code
@@ -4123,6 +4265,7 @@ WHERE ac.active
   AND ac.custom
 ORDER BY code;
 
+\echo admin.legal_form_custom_only_upsert
 CREATE FUNCTION admin.legal_form_custom_only_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -4164,6 +4307,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.legal_form_custom_only_upsert();
 
 
+\echo admin.legal_form_custom_only_prepare
 CREATE OR REPLACE FUNCTION admin.legal_form_custom_only_prepare()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -4298,6 +4442,8 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     );
 -- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
 
+\echo admin.upsert_generic_valid_time_table
+    
 CREATE FUNCTION admin.upsert_generic_valid_time_table
     ( schema_name text
     , table_name text
@@ -4549,12 +4695,14 @@ $upsert_generic_valid_time_table$ LANGUAGE plpgsql;
 
 
 -- View for current information about a legal unit.
+\echo public.legal_unit_era
 CREATE VIEW public.legal_unit_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.legal_unit
   ;
 
+\echo admin.legal_unit_era_upsert
 CREATE FUNCTION admin.legal_unit_era_upsert()
 RETURNS TRIGGER AS $legal_unit_era_upsert$
 DECLARE
@@ -4595,12 +4743,14 @@ EXECUTE FUNCTION admin.legal_unit_era_upsert();
 
 
 -- View for current information about a legal unit.
+\echo public.establishment_era
 CREATE VIEW public.establishment_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.establishment
   ;
 
+\echo admin.establishment_era_upsert
 CREATE FUNCTION admin.establishment_era_upsert()
 RETURNS TRIGGER AS $establishment_era_upsert$
 DECLARE
@@ -4641,11 +4791,13 @@ EXECUTE FUNCTION admin.establishment_era_upsert();
 
 
 -- View for current information about a location.
+\echo public.location_era
 CREATE VIEW public.location_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.location;
 
+\echo admin.location_era_upsert
 CREATE FUNCTION admin.location_era_upsert()
 RETURNS TRIGGER AS $location_era_upsert$
 DECLARE
@@ -4678,11 +4830,13 @@ EXECUTE FUNCTION admin.location_era_upsert();
 
 
 -- View for current information about a activity.
+\echo public.activity_era
 CREATE VIEW public.activity_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.activity;
 
+\echo admin.activity_era_upsert
 CREATE FUNCTION admin.activity_era_upsert()
 RETURNS TRIGGER AS $activity_era_upsert$
 DECLARE
@@ -4714,11 +4868,13 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.activity_era_upsert();
 
 
+\echo public.stat_for_unit_era
 CREATE VIEW public.stat_for_unit_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.stat_for_unit;
 
+\echo admin.stat_for_unit_era_upsert
 CREATE FUNCTION admin.stat_for_unit_era_upsert()
 RETURNS TRIGGER AS $stat_for_unit_era_upsert$
 DECLARE
@@ -4765,6 +4921,7 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
 
+\echo public.legal_unit_region_activity_category_current
 CREATE VIEW public.legal_unit_region_activity_category_current
 WITH (security_invoker=on) AS
 SELECT lu.tax_reg_ident
@@ -4817,6 +4974,7 @@ WHERE lu.active
   AND pol.valid_from >= current_date AND current_date <= pol.valid_to
 ;
 
+\echo admin.upsert_legal_unit_region_activity_category_current
 CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_current()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -5170,10 +5328,12 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_current();
 
 
+\echo public.legal_unit_region_activity_category_current_with_delete
 CREATE VIEW public.legal_unit_region_activity_category_current_with_delete
 WITH (security_invoker=on) AS
 SELECT * FROM public.legal_unit_region_activity_category_current;
 
+\echo admin.delete_stale_legal_unit_region_activity_category_current_with_delete
 CREATE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -5204,6 +5364,7 @@ EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_
 -- \i samples/100BREGUnits.sql
 
 
+\echo public.establishment_region_activity_category_stats_current
 CREATE VIEW public.establishment_region_activity_category_stats_current
 WITH (security_invoker=on) AS
 SELECT es.tax_reg_ident
@@ -5265,6 +5426,7 @@ WHERE es.active
   AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
 ;
 
+\echo admin.upsert_establishment_region_activity_category_stats_current
 CREATE FUNCTION admin.upsert_establishment_region_activity_category_stats_current()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -5695,6 +5857,7 @@ EXECUTE FUNCTION admin.upsert_establishment_region_activity_category_stats_curre
 
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
+\echo public.legal_unit_brreg_view
 CREATE VIEW public.legal_unit_brreg_view
 WITH (security_invoker=on) AS
 SELECT '' AS "organisasjonsnummer"
@@ -5753,6 +5916,7 @@ SELECT '' AS "organisasjonsnummer"
      , '' AS "aktivitet"
      ;
 
+\echo admin.upsert_legal_unit_brreg_view
 CREATE FUNCTION admin.upsert_legal_unit_brreg_view()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -5831,6 +5995,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+\echo admin.delete_stale_legal_unit_brreg_view
 CREATE FUNCTION admin.delete_stale_legal_unit_brreg_view()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -5869,6 +6034,7 @@ EXECUTE FUNCTION admin.delete_stale_legal_unit_brreg_view();
 
 
 -- View for insert of Norwegian Establishment (Underenhet)
+\echo public.establishment_brreg_view
 CREATE VIEW public.establishment_brreg_view
 WITH (security_invoker=on) AS
 SELECT '' AS "organisasjonsnummer"
@@ -5910,6 +6076,7 @@ SELECT '' AS "organisasjonsnummer"
      ;
 
 -- Create function for upsert operation on country
+\echo admin.upsert_establishment_brreg_view
 CREATE FUNCTION admin.upsert_establishment_brreg_view()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -5989,6 +6156,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function for deleting stale countries
+\echo admin.delete_stale_establishment_brreg_view
 CREATE FUNCTION admin.delete_stale_establishment_brreg_view()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -6025,6 +6193,7 @@ EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
 -- Add security.
 
+\echo auth.has_statbus_role
 CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
 RETURNS BOOL
 LANGUAGE SQL
@@ -6041,6 +6210,7 @@ $$
 $$;
 
 -- Add security functions
+\echo auth.has_one_of_statbus_roles 
 CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.statbus_role_type[])
 RETURNS BOOL
 LANGUAGE SQL
@@ -6057,6 +6227,7 @@ $$
 $$;
 
 
+\echo auth.has_activity_category_access 
 CREATE OR REPLACE FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer)
 RETURNS BOOL
 LANGUAGE SQL
@@ -6089,6 +6260,7 @@ $$
 $$;
 
 
+\echo admin.apply_rls_and_policies
 CREATE OR REPLACE FUNCTION admin.apply_rls_and_policies(table_regclass regclass)
 RETURNS void AS $$
 DECLARE
@@ -6135,6 +6307,7 @@ $$ LANGUAGE plpgsql;
 
 
 
+\echo admin.enable_rls_on_public_tables
 CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
 RETURNS void AS $$
 DECLARE
@@ -6163,6 +6336,7 @@ SET LOCAL client_min_messages TO INFO;
 GRANT USAGE ON SCHEMA admin TO authenticated;
 
 
+\echo admin.grant_type_and_function_access_to_authenticated
 CREATE OR REPLACE FUNCTION admin.grant_type_and_function_access_to_authenticated()
 RETURNS void AS $$
 DECLARE
