@@ -33,7 +33,7 @@ export function TopologyItem({unit, type, active, primary, children}: TopologyIt
                             <StatisticalUnitIcon type={type} className="w-4"/>
                         </div>
                     </CardHeader>
-                    <CardContent className="pb-2 pt-2 px-3 space-y-3">
+                    <CardContent className="topology-item-content pb-2 pt-2 px-3 space-y-3">
                         <div className="flex justify-between text-center">
                             <TopologyItemInfo title="Region" value={location?.region?.name}/>
                             <TopologyItemInfo title="Country" value={location?.country?.name}/>
@@ -57,7 +57,7 @@ interface TopologyItemInfoProps {
 
 const TopologyItemInfo = ({title, value, fallbackValue = '-', className}: TopologyItemInfoProps) => (
     <div className={cn("space-y-0 flex flex-col text-left", className)}>
-        <label className="text-xs uppercase font-medium text-gray-500">{title}</label>
+        <span className="text-xs uppercase font-medium text-gray-500">{title}</span>
         <span className="text-sm">{value ?? fallbackValue}</span>
     </div>
 )
