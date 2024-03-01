@@ -1,5 +1,4 @@
 import {createClient} from "@/lib/supabase/server";
-import {StatisticalUnitHierarchy} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
 
 export async function getEnterpriseById(id: string) {
   const {data: enterprises, error} = await createClient()

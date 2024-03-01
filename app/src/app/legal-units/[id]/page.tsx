@@ -23,6 +23,7 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
 
   return (
     <DetailsPage title="General Info" subtitle="General information such as name, id, sector and primary activity">
+      <GeneralInfoForm values={legalUnit} id={id}/>
       {
         legalUnit.primary_for_enterprise && (
           <InfoBox>
@@ -36,7 +37,6 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
           </InfoBox>
         )
       }
-      <GeneralInfoForm values={legalUnit} id={id}/>
     </DetailsPage>
   )
 }

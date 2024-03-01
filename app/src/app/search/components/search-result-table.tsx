@@ -46,7 +46,7 @@ export default function SearchResultTable() {
                     <div className="flex flex-col space-y-1.5 flex-1">
                       {
                         unit_type && unit_id && name ? (
-                          <StatisticalUnitDetailsLink id={unit_id} type={unit_type} name={name}/>
+                          <StatisticalUnitDetailsLink id={unit_id} type={unit_type}>{name}</StatisticalUnitDetailsLink>
                         ) : (
                           <span className="font-medium">{name}</span>
                         )

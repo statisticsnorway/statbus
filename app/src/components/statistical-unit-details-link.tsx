@@ -1,15 +1,16 @@
 import Link from "next/link";
 import {cn} from "@/lib/utils";
+import {ReactNode} from "react";
 
 export interface StatisticalUnitDetailsLinkProps {
     readonly id: number;
     readonly type: 'enterprise_group' | 'enterprise' | 'legal_unit' | 'establishment';
-    readonly name: string;
+    readonly children?: ReactNode;
     readonly className?: string;
     readonly sub_path?: string;
 }
 
-export function StatisticalUnitDetailsLink({id, type, name, className, sub_path}: StatisticalUnitDetailsLinkProps) {
+export function StatisticalUnitDetailsLink({id, type, children, className, sub_path}: StatisticalUnitDetailsLinkProps) {
     const href = {
         enterprise_group: `/enterprise-groups/${id}`,
         enterprise: `/enterprises/${id}`,
@@ -19,7 +20,7 @@ export function StatisticalUnitDetailsLink({id, type, name, className, sub_path}
 
     return (
         <Link href={sub_path ? `${href}/${sub_path}` : href} className={cn("font-medium", className)}>
-            {name}
+            {children}
         </Link>
     )
 }
