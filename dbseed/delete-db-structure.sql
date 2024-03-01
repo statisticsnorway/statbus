@@ -25,6 +25,7 @@ SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activ
 SELECT sql_saga.drop_unique_key('public.activity', 'activity_id_valid');
 SELECT sql_saga.drop_era('public.activity');
 
+SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');

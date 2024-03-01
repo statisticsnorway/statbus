@@ -6472,6 +6472,7 @@ SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
 -- TODO: Extend sql_saga with support for predicates by using unique indices instead of constraints.
 --SELECT sql_saga.add_unique_key('public.establishment', ARRAY['legal_unit_id'], WHERE 'primary_for_legal_unit');
+SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
 
 SELECT sql_saga.add_era('public.activity', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
