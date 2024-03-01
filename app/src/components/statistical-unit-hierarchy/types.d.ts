@@ -146,6 +146,7 @@ declare interface LegalUnit extends StatisticalUnit {
     legal_form_id: string | null;
     primary_for_enterprise: boolean;
     foreign_participation_id: string | null;
+    stat_for_unit?: StatForUnit[];
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -156,6 +157,7 @@ declare interface Establishment extends StatisticalUnit {
     enterprise_id: string | null;
     legal_unit_id: number;
     primary_for_legal_unit: boolean;
+    stat_for_unit?: StatForUnit[];
 }
 
 declare interface StatisticalUnitHierarchy {

@@ -14,6 +14,8 @@ interface TopologyItemProps {
 }
 
 export function TopologyItem({unit, type, active, primary, children}: TopologyItemProps) {
+    const primaryActivityCategory = unit.activity?.[0]
+    const primaryLocation = unit.location?.[0];
     return (
         <>
             <StatisticalUnitDetailsLinkWithSubPath
@@ -32,11 +34,30 @@ export function TopologyItem({unit, type, active, primary, children}: TopologyIt
                             <StatisticalUnitIcon type={type} className="w-4"/>
                         </div>
                     </CardHeader>
-                    <CardContent className="py-5 px-5">
-                        <div className="space-y-1 flex flex-col">
-                            <label className="text-xs uppercase font-medium leading-none text-gray-500">Tax ID</label>
-                            <span className="text-sm text-muted-foreground">{unit.tax_reg_ident}</span>
+                    <CardContent className="py-5 px-5 space-y-8">
+                        <div className="flex justify-between text-center">
+                            <div className="space-y-1.5 flex flex-col">
+                                <label className="text-xs uppercase font-medium leading-none text-gray-500">Employees</label>
+                                <span className="text-sm text-muted-foreground text-center">{unit.stat_for_unit?.[0].employees ?? '-'}</span>
+                            </div>
+                            <div className="space-y-1.5 flex flex-col">
+                                <label className="text-xs uppercase font-medium leading-none text-gray-500">Region</label>
+                                <span className="text-sm text-muted-foreground">{primaryLocation?.region?.name ?? '-'}</span>
+                            </div>
+                            <div className="space-y-1.5 flex flex-col">
+                                <label
+                                    className="text-xs uppercase font-medium leading-none text-gray-500">Country</label>
+                                <span className="text-sm text-muted-foreground">{primaryLocation?.country?.name ?? '-'}</span>
+                            </div>
                         </div>
+                        {
+                            primaryActivityCategory && (
+                                <div className="space-y-1.5 flex flex-col">
+                                    <label className="text-xs uppercase font-medium leading-none text-gray-500">Category</label>
+                                    <span className="text-sm text-muted-foreground">{primaryActivityCategory.activity_category.name ?? '-'}</span>
+                                </div>
+                            )
+                        }
                     </CardContent>
                 </Card>
             </StatisticalUnitDetailsLinkWithSubPath>
