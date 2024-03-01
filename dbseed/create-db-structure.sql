@@ -1800,6 +1800,7 @@ SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.prevent_id_update_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
 
+
 -- TODO: Create a view to see an establishment with statistics
 -- TODO: allow upsert on statistics view according to stat_definition
 
@@ -3436,10 +3437,12 @@ $$ LANGUAGE sql IMMUTABLE;
 \echo public.statistical_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB AS $$
-  SELECT public.enterprise_hierarchy(
+  SELECT --jsonb_strip_nulls(
+            public.enterprise_hierarchy(
               public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
               , valid_on
-          )
+            )
+        --)
 ;
 $$ LANGUAGE sql IMMUTABLE;
 
