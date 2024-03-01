@@ -14,54 +14,50 @@ interface TopologyItemProps {
 }
 
 export function TopologyItem({unit, type, active, primary, children}: TopologyItemProps) {
-    const primaryActivityCategory = unit.activity?.[0]
-    const primaryLocation = unit.location?.[0];
+    const activity = unit.activity?.[0]
+    const location = unit.location?.[0];
     return (
         <>
             <StatisticalUnitDetailsLinkWithSubPath
                 id={unit.id}
                 type={type}
-                className={cn("mb-4 block")}
+                className={cn("mb-2 block")}
             >
                 <Card className="overflow-hidden">
                     <CardHeader
-                        className={cn("flex flex-row items-center justify-between space-y-0 py-3 px-5 bg-gray-100", active && 'bg-gray-300')}>
-                        <CardTitle className="text-xs text-gray-700 font-medium flex items-center space-x-2">
-                            <span className="leading-normal">{unit.name}</span>
-                        </CardTitle>
+                        className={cn("flex flex-row items-center justify-between space-y-0 py-1 px-3 bg-gray-100", active && 'bg-gray-300')}
+                    >
+                        <CardTitle className="text-xs font-medium">{unit.name}</CardTitle>
                         <div className="flex items-center space-x-1">
                             {primary && <div title="This is a primary unit"><Asterisk className="h-4"/></div>}
                             <StatisticalUnitIcon type={type} className="w-4"/>
                         </div>
                     </CardHeader>
-                    <CardContent className="py-5 px-5 space-y-8">
+                    <CardContent className="pb-2 pt-2 px-3 space-y-3">
                         <div className="flex justify-between text-center">
-                            <div className="space-y-1.5 flex flex-col">
-                                <label className="text-xs uppercase font-medium leading-none text-gray-500">Employees</label>
-                                <span className="text-sm text-muted-foreground text-center">{unit.stat_for_unit?.[0].employees ?? '-'}</span>
-                            </div>
-                            <div className="space-y-1.5 flex flex-col">
-                                <label className="text-xs uppercase font-medium leading-none text-gray-500">Region</label>
-                                <span className="text-sm text-muted-foreground">{primaryLocation?.region?.name ?? '-'}</span>
-                            </div>
-                            <div className="space-y-1.5 flex flex-col">
-                                <label
-                                    className="text-xs uppercase font-medium leading-none text-gray-500">Country</label>
-                                <span className="text-sm text-muted-foreground">{primaryLocation?.country?.name ?? '-'}</span>
-                            </div>
+                            <TopologyItemInfo title="Region" value={location?.region?.name}/>
+                            <TopologyItemInfo title="Country" value={location?.country?.name}/>
+                            <TopologyItemInfo title="Employees" value={unit.stat_for_unit?.[0].employees}/>
                         </div>
-                        {
-                            primaryActivityCategory && (
-                                <div className="space-y-1.5 flex flex-col">
-                                    <label className="text-xs uppercase font-medium leading-none text-gray-500">Category</label>
-                                    <span className="text-sm text-muted-foreground">{primaryActivityCategory.activity_category.name ?? '-'}</span>
-                                </div>
-                            )
-                        }
+                        <TopologyItemInfo title="Activity" value={activity?.activity_category?.name}/>
                     </CardContent>
                 </Card>
             </StatisticalUnitDetailsLinkWithSubPath>
-            {children && <ul>{children}</ul>}
+            <ul>{children}</ul>
         </>
     )
 }
+
+interface TopologyItemInfoProps {
+    title: string;
+    value?: string | number;
+    fallbackValue?: string;
+    className?: string;
+}
+
+const TopologyItemInfo = ({title, value, fallbackValue = '-', className}: TopologyItemInfoProps) => (
+    <div className={cn("space-y-0 flex flex-col text-left", className)}>
+        <label className="text-xs uppercase font-medium text-gray-500">{title}</label>
+        <span className="text-sm">{value ?? fallbackValue}</span>
+    </div>
+)
