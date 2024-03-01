@@ -1,5 +1,4 @@
 import {TopologyItem} from "@/components/statistical-unit-hierarchy/topology-item";
-import {StatisticalUnitHierarchy} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
 
 interface TopologyProps {
     readonly hierarchy: StatisticalUnitHierarchy;

@@ -4,14 +4,13 @@ import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
 import {StatisticalUnitDetailsLinkWithSubPath} from "@/components/statistical-unit-details-link-with-sub-path";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Asterisk} from "lucide-react";
-import type {StatisticalUnit} from "@/components/statistical-unit-hierarchy/statistical-unit-hierarchy-types";
 
 interface TopologyItemProps {
     readonly active?: boolean;
     readonly children?: ReactNode;
     readonly type: 'legal_unit' | 'establishment' | 'enterprise' | 'enterprise_group';
     readonly primary?: boolean;
-    readonly unit: StatisticalUnit
+    readonly unit: LegalUnit | Establishment;
 }
 
 export function TopologyItem({unit, type, active, primary, children}: TopologyItemProps) {
