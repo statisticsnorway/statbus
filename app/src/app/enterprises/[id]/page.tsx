@@ -29,18 +29,6 @@ export default async function EnterpriseDetailsPage({params: {id}}: { readonly p
 
   return (
     <DetailsPage title="General Info" subtitle="General information such as name, sector">
-
-      <InfoBox>
-        <p>
-          The following information is derived from the primary legal unit
-          &nbsp;<Link className="underline" href={`/legal-units/${primaryLegalUnit.id}`}>{primaryLegalUnit.name}</Link>.
-        </p>
-        <p>
-          If you need to update this information, update the primary legal unit or change the primary legal unit
-          altogether.
-        </p>
-      </InfoBox>
-
       <form className="space-y-8">
         <FormField
           readonly
@@ -58,6 +46,17 @@ export default async function EnterpriseDetailsPage({params: {id}}: { readonly p
           response={null}
         />
       </form>
+
+      <InfoBox>
+        <p>
+          The information above is derived from the primary legal unit
+          &nbsp;<Link className="underline" href={`/legal-units/${primaryLegalUnit.id}`}>{primaryLegalUnit.name}</Link>.
+        </p>
+        <p>
+          If you need to update this information, update the primary legal unit or change the primary legal unit
+          altogether.
+        </p>
+      </InfoBox>
     </DetailsPage>
   )
 }

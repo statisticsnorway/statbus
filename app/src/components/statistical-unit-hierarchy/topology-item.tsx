@@ -25,9 +25,9 @@ export function TopologyItem({unit, type, active, primary, children}: TopologyIt
             >
                 <Card className="overflow-hidden">
                     <CardHeader
-                        className={cn("flex flex-row items-center justify-between space-y-0 py-3 px-5 bg-gray-100", active && 'bg-amber-200')}>
+                        className={cn("flex flex-row items-center justify-between space-y-0 py-3 px-5 bg-gray-100", active && 'bg-gray-300')}>
                         <CardTitle className="text-xs text-gray-700 font-medium flex items-center space-x-2">
-                            <span className="leading-none">{unit.name}</span>
+                            <span className="leading-normal">{unit.name}</span>
                         </CardTitle>
                         <div className="flex items-center space-x-1">
                             {primary && <div title="This is a primary unit"><Asterisk className="h-4"/></div>}

@@ -15,7 +15,7 @@ export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
     }
 
     return (
-        <ul className="text-xs">
+        <ul>
             <TopologyItem
                 type="enterprise"
                 unit={primaryLegalUnit}
