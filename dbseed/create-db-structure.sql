@@ -3171,7 +3171,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
            END AS data
     FROM public.stat_for_unit AS sfu
     JOIN public.stat_definition AS sd ON sd.id = sfu.stat_definition_id
-    WHERE sfu.establishment_id = parent_establishment_id
+    WHERE parent_establishment_id IS NOT NULL AND sfu.establishment_id = parent_establishment_id
       AND sfu.valid_from <= valid_on AND valid_on <= sfu.valid_to
     ORDER BY sd.code
 ), data_list AS (
@@ -3190,9 +3190,9 @@ RETURNS JSONB AS $$
     WITH data AS (
         SELECT jsonb_build_object('region', to_jsonb(s.*)) AS data
           FROM public.region AS s
-         WHERE s.id = region_id
+         WHERE region_id IS NOT NULL AND s.id = region_id
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 \echo public.country_hierarchy
@@ -3201,9 +3201,9 @@ RETURNS JSONB AS $$
     WITH data AS (
         SELECT jsonb_build_object('country', to_jsonb(s.*)) AS data
           FROM public.country AS s
-         WHERE s.id = country_id
+         WHERE country_id IS NOT NULL AND s.id = country_id
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 
@@ -3220,8 +3220,8 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
         AS data
       FROM public.location AS l
      WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
-       AND (  l.establishment_id = parent_establishment_id
-           OR l.legal_unit_id = parent_legal_unit_id
+       AND (  parent_establishment_id IS NOT NULL AND l.establishment_id = parent_establishment_id
+           OR parent_legal_unit_id    IS NOT NULL AND l.legal_unit_id    = parent_legal_unit_id
            )
        ORDER BY l.location_type
   ), data_list AS (
@@ -3245,10 +3245,10 @@ RETURNS JSONB AS $$
                     to_jsonb(acs.*)
                 ) AS data
           FROM public.activity_category_standard AS acs
-         WHERE acs.id = activity_category_standard_id
+         WHERE activity_category_standard_id IS NOT NULL AND acs.id = activity_category_standard_id
          ORDER BY acs.code
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 
@@ -3263,10 +3263,10 @@ RETURNS JSONB AS $$
             )
             AS data
          FROM public.activity_category AS ac
-         WHERE ac.id = activity_category_id
+         WHERE activity_category_id IS NOT NULL AND ac.id = activity_category_id
          ORDER BY ac.path
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 
@@ -3282,8 +3282,8 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
                AS data
           FROM public.activity AS a
          WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
-           AND (  a.establishment_id = parent_establishment_id
-               OR a.legal_unit_id = parent_legal_unit_id
+           AND (  parent_establishment_id IS NOT NULL AND a.establishment_id = parent_establishment_id
+               OR parent_legal_unit_id    IS NOT NULL AND a.legal_unit_id    = parent_legal_unit_id
                )
            ORDER BY a.activity_type
   ), data_list AS (
@@ -3304,10 +3304,10 @@ RETURNS JSONB AS $$
     WITH data AS (
         SELECT jsonb_build_object('sector', to_jsonb(s.*)) AS data
           FROM public.sector AS s
-         WHERE s.id = sector_id
+         WHERE sector_id IS NOT NULL AND s.id = sector_id
          ORDER BY s.code
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 
@@ -3317,10 +3317,10 @@ RETURNS JSONB AS $$
     WITH data AS (
         SELECT jsonb_build_object('legal_form', to_jsonb(lf.*)) AS data
           FROM public.legal_form AS lf
-         WHERE lf.id = legal_form_id
+         WHERE legal_form_id IS NOT NULL AND lf.id = legal_form_id
          ORDER BY lf.code
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 
@@ -3367,7 +3367,7 @@ RETURNS JSONB AS $$
         || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
         AS data
     FROM public.legal_unit AS lu
-   WHERE lu.enterprise_id = parent_enterprise_id
+   WHERE parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id
      AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
    ORDER BY lu.primary_for_enterprise, lu.name
   ), data_list AS (
@@ -3391,10 +3391,10 @@ RETURNS JSONB AS $$
                  || (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
                 ) AS data
           FROM public.enterprise AS en
-         WHERE en.id = enterprise_id
+         WHERE enterprise_id IS NOT NULL AND en.id = enterprise_id
          ORDER BY en.short_name
     )
-    SELECT COALESCE(data,'{}'::JSONB) FROM data;
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$ LANGUAGE sql IMMUTABLE;
 
 
