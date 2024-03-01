@@ -74,6 +74,8 @@ SELECT "organisasjonsnummer" AS tax_reg_ident
      , "postadresse.landkode" AS postal_country_code_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
+     , "institusjonellSektorkode.kode" AS sector_code
+     , "organisasjonsform.kode" AS legal_form_code
 FROM tmp.enhet;
 
 
