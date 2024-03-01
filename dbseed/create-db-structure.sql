@@ -3344,7 +3344,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
          OR (parent_enterprise_id IS NOT NULL AND es.enterprise_id = parent_enterprise_id)
          )
      AND es.valid_from <= valid_on AND valid_on <= es.valid_to
-   ORDER BY es.primary_for_legal_unit, es.name
+   ORDER BY es.primary_for_legal_unit DESC, es.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
   )
@@ -3370,7 +3370,7 @@ RETURNS JSONB AS $$
     FROM public.legal_unit AS lu
    WHERE parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id
      AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
-   ORDER BY lu.primary_for_enterprise, lu.name
+   ORDER BY lu.primary_for_enterprise DESC, lu.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
   )
