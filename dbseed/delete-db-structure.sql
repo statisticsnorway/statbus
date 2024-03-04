@@ -266,6 +266,23 @@ DROP FUNCTION admin.enterprise_group_id_exists(integer);
 DROP FUNCTION admin.legal_unit_id_exists(integer);
 DROP FUNCTION admin.establishment_id_exists(integer);
 
+DROP FUNCTION public.set_primary_legal_unit_for_enterprise(
+    legal_unit_id integer,
+    valid_from date,
+    valid_to date
+    );
+DROP FUNCTION public.set_primary_establishment_for_legal_unit(
+    establishment_id integer,
+    valid_from date,
+    valid_to date
+    );
+DROP FUNCTION public.connect_legal_unit_to_enterprise(
+    legal_unit_id integer,
+    enterprise_id integer,
+    valid_from date,
+    valid_to date
+    );
+
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
 

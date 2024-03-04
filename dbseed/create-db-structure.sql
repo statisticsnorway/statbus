@@ -1806,6 +1806,167 @@ SELECT admin.prevent_id_update_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
 
 
+-- Functions to manage connections between enterprise <-> legal_unit <-> establishment
+CREATE OR REPLACE FUNCTION public.set_primary_legal_unit_for_enterprise(
+    legal_unit_id integer,
+    valid_from date DEFAULT current_date,
+    valid_to date DEFAULT 'infinity'
+)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE
+    v_enterprise_id integer;
+    v_unset_ids jsonb := '[]';
+    v_set_id jsonb := 'null';
+BEGIN
+    SELECT enterprise_id INTO v_enterprise_id FROM public.legal_unit WHERE id = legal_unit_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Legal unit does not exist.';
+    END IF;
+
+    -- Unset all legal units of the enterprise from being primary and capture their ids and table name
+    WITH updated_rows AS (
+        UPDATE public.legal_unit
+        SET primary_for_enterprise = false
+        WHERE primary_for_enterprise
+          AND enterprise_id = v_enterprise_id
+        RETURNING id
+    )
+    SELECT jsonb_agg(jsonb_build_object('table', 'legal_unit', 'id', id)) INTO v_unset_ids FROM updated_rows;
+
+    -- Set the specified legal unit as primary, capture its id and table name
+    WITH updated_row AS (
+        UPDATE public.legal_unit
+        SET primary_for_enterprise = true
+        WHERE id = legal_unit_id
+        RETURNING id
+    )
+    SELECT jsonb_build_object('table', 'legal_unit', 'id', id) INTO v_set_id FROM updated_row;
+
+    -- Return a jsonb summary of changes including table and ids of changed legal units
+    RETURN jsonb_build_object(
+        'unset_primary', v_unset_ids,
+        'set_primary', v_set_id
+    );
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.set_primary_establishment_for_legal_unit(
+    establishment_id integer,
+    valid_from date DEFAULT current_date,
+    valid_to date DEFAULT 'infinity'
+)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE
+    v_legal_unit_id integer;
+    v_unset_ids jsonb := '[]';
+    v_set_id jsonb := 'null';
+BEGIN
+    SELECT legal_unit_id INTO v_legal_unit_id FROM public.establishment WHERE id = establishment_id;
+    IF v_legal_unit_id IS NULL THEN
+        RAISE EXCEPTION 'Establishment does not exist or is not linked to a legal unit.';
+    END IF;
+
+    -- Unset all establishments of the legal unit from being primary and capture their ids and table name
+    WITH updated_rows AS (
+        UPDATE public.establishment
+        SET primary_for_legal_unit = false
+        WHERE primary_for_legal_unit
+          AND legal_unit_id = v_legal_unit_id
+        RETURNING id
+    )
+    SELECT jsonb_agg(jsonb_build_object('table', 'establishment', 'id', id)) INTO v_unset_ids FROM updated_rows;
+
+    -- Set the specified establishment as primary, capture its id and table name
+    WITH updated_row AS (
+        UPDATE public.establishment
+        SET primary_for_legal_unit = true
+        WHERE id = establishment_id
+        RETURNING id
+    )
+    SELECT jsonb_build_object('table', 'establishment', 'id', id) INTO v_set_id FROM updated_row;
+
+    -- Return a jsonb summary of changes including table and ids of changed establishments
+    RETURN jsonb_build_object(
+        'unset_primary', v_unset_ids,
+        'set_primary', v_set_id
+    );
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.connect_legal_unit_to_enterprise(
+    legal_unit_id integer,
+    enterprise_id integer,
+    valid_from date DEFAULT current_date,
+    valid_to date DEFAULT 'infinity'
+)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+#variable_conflict use_variable
+DECLARE
+    old_enterprise_id integer;
+    updated_legal_unit_ids integer[];
+    deleted_enterprise_id integer := NULL;
+    is_primary BOOLEAN;
+    other_legal_units_count INTEGER;
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM public.enterprise WHERE id = enterprise_id) THEN
+        RAISE EXCEPTION 'Enterprise does not exist.';
+    END IF;
+
+    SELECT lu.enterprise_id, lu.primary_for_enterprise INTO old_enterprise_id, is_primary
+    FROM public.legal_unit AS lu
+    WHERE lu.id = legal_unit_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Legal Unit does not exist.';
+    END IF;
+
+    -- Check if there are other legal units and none of them are primary
+    IF is_primary THEN
+        SELECT COUNT(*) INTO other_legal_units_count
+        FROM public.legal_unit
+        WHERE legal_unit.enterprise_id = old_enterprise_id
+        AND legal_unit.id <> legal_unit_id;
+
+        IF other_legal_units_count > 0 THEN
+            RAISE EXCEPTION 'Assign another primary legal_unit to existing enterprise first';
+        END IF;
+    END IF;
+
+    -- Connect the legal unit to the enterprise and track the updated id
+    WITH updated AS (
+        UPDATE public.legal_unit AS lu
+        SET enterprise_id = enterprise_id
+          , primary_for_enterprise = false
+        WHERE lu.id = legal_unit_id
+        RETURNING lu.id
+    )
+    SELECT array_agg(id) INTO updated_legal_unit_ids FROM updated;
+
+    -- Remove possibly stale enterprise and capture its id if deleted
+    WITH deleted AS (
+        DELETE FROM public.enterprise AS en
+        WHERE en.id = old_enterprise_id
+        AND NOT EXISTS(
+            SELECT 1
+            FROM public.legal_unit AS lu
+            WHERE lu.enterprise_id = old_enterprise_id
+        )
+        RETURNING id
+    )
+    SELECT id INTO deleted_enterprise_id FROM deleted;
+
+    -- Return a jsonb summary of changes including the updated legal unit ids, old and new enterprise_ids, and deleted enterprise id if applicable
+    RETURN jsonb_build_object(
+        'updated_legal_unit', updated_legal_unit_ids,
+        'old_enterprise', old_enterprise_id,
+        'new_enterprise', enterprise_id,
+        'deleted_enterprise', deleted_enterprise_id
+    );
+END;
+$$;
+
+
 -- TODO: Create a view to see an establishment with statistics
 -- TODO: allow upsert on statistics view according to stat_definition
 
