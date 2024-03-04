@@ -1,5 +1,3 @@
-import type {SearchFilter, SearchFilterAction} from "@/app/search/search.types";
-
 export function searchFilterReducer(state: SearchFilter[], action: SearchFilterAction): SearchFilter[] {
   switch (action.type) {
     case "toggle_option": {

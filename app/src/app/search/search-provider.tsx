@@ -1,7 +1,6 @@
 import {createContext, Dispatch, ReactNode, useContext, useMemo, useReducer} from "react";
 import {searchFilterReducer} from "@/app/search/search-filter-reducer";
 import useSearch from "@/app/search/hooks/use-search";
-import {SearchFilter, SearchFilterAction, SearchOrder, SearchResult, SetOrderAction} from "@/app/search/search.types";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
 import {Tables} from "@/lib/database.types";
 import {searchOrderReducer} from "@/app/search/search-order-reducer";

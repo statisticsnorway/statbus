@@ -1,6 +1,4 @@
 import useSWR, {Fetcher} from "swr";
-import type {SearchFilter, SearchResult} from "@/app/search/search.types";
-import {SearchOrder} from "@/app/search/search.types";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
 

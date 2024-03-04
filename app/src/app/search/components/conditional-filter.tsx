@@ -8,7 +8,6 @@ import {Separator} from "@/components/ui/separator";
 import {Input} from "@/components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {ConditionalValueBadge} from "@/app/search/components/conditional-value-badge";
-import type {ConditionalValue, SearchFilterCondition} from "@/app/search/search.types";
 
 interface ITableFilterCustomProps {
     title: string,

@@ -1,5 +1,3 @@
-import {FilterOptions, SearchFilter, SearchFilterCondition, SearchFilterName} from "@/app/search/search.types";
-
 export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchParams): SearchFilter[] {
   const unit_type: SearchFilterName = 'unit_type'
   const physical_region_path: SearchFilterName = 'physical_region_path'
@@ -59,12 +57,12 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           className: "bg-orange-200"
         },
         ...opts.regions.map(({code, path, name}) => (
-        {
-          label: `${code} ${name}`,
-          value: path as string,
-          humanReadableValue: `${code} ${name}`
-        }
-      ))],
+          {
+            label: `${code} ${name}`,
+            value: path as string,
+            humanReadableValue: `${code} ${name}`
+          }
+        ))],
       selected: urlSearchParams?.has(physical_region_path)
         ? [urlSearchParams?.get(physical_region_path)?.toString() || null]
         : [],

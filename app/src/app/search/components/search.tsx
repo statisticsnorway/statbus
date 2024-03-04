@@ -3,7 +3,6 @@ import TableToolbar from "@/app/search/components/table-toolbar";
 import {Tables} from "@/lib/database.types";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
-import {SearchFilter, SearchOrder} from "@/app/search/search.types";
 import {SearchProvider} from "@/app/search/search-provider";
 import {SearchResultCount} from "@/app/search/components/search-result-count";
 
