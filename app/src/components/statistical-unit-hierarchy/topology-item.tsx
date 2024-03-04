@@ -34,10 +34,10 @@ export function TopologyItem({unit, type, active, primary, children}: TopologyIt
                         </div>
                     </CardHeader>
                     <CardContent className="topology-item-content pb-2 pt-2 px-3 space-y-3">
-                        <div className="flex justify-between text-center">
-                            <TopologyItemInfo title="Region" value={location?.region?.name}/>
-                            <TopologyItemInfo title="Country" value={location?.country?.name}/>
-                            <TopologyItemInfo title="Employees" value={unit.stat_for_unit?.[0].employees}/>
+                        <div className="flex justify-between text-center space-x-3">
+                            <TopologyItemInfo className="flex-1" title="Region" value={location?.region?.name}/>
+                            <TopologyItemInfo className="flex-1" title="Country" value={location?.country?.name}/>
+                            <TopologyItemInfo className="flex-1" title="Employees" value={unit.stat_for_unit?.[0].employees}/>
                         </div>
                         <TopologyItemInfo title="Activity" value={activity?.activity_category?.name}/>
                     </CardContent>

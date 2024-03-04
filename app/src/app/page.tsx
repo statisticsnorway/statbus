@@ -71,12 +71,12 @@ export default async function Dashboard() {
 
   return (
     <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto">
-      <h1 className="font-medium text-xl text-center mb-12">StatBus Dashboard</h1>
+      <h1 className="font-medium text-xl text-center mb-12">StatBus Status Dashboard</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Link href="/search">
           <DashboardCard
             title="Statistical Units"
-            icon={<Building size={18}/>}
+            icon={<Building className="h-4"/>}
             text={unitsCount?.toString() ?? '-'}
             failed={!!unitsError}
           />
@@ -84,7 +84,7 @@ export default async function Dashboard() {
 
         <DashboardCard
           title="Regions"
-          icon={<Globe2 size={18}/>}
+          icon={<Globe2 className="h-4"/>}
           text={regionsCount?.toString() ?? '-'}
           failed={!!regionsError}
         />
@@ -92,7 +92,7 @@ export default async function Dashboard() {
         <Link href="/getting-started/activity-standard">
           <DashboardCard
             title="Activity Category Standard"
-            icon={<ScrollText size={18}/>}
+            icon={<ScrollText className="h-4"/>}
             text={settings?.[0]?.activity_category_standard?.name ?? '-'}
             failed={!!settingsError}
           />
@@ -100,7 +100,7 @@ export default async function Dashboard() {
 
         <DashboardCard
           title="Statistical Variables"
-          icon={<BarChart3 size={18}/>}
+          icon={<BarChart3 className="h-4"/>}
           text={statisticalVariablesCount?.toString() ?? '-'}
           failed={!!statisticalVariablesError}
         />
@@ -108,7 +108,7 @@ export default async function Dashboard() {
         <Link href="/getting-started/upload-custom-activity-standard-codes">
           <DashboardCard
             title="Custom Activity Category Codes"
-            icon={<Settings size={18}/>}
+            icon={<Settings className="h-4"/>}
             text={customActivityCategoryCodesCount?.toString() ?? '-'}
             failed={!!customActivityCategoryCodesError}
           />
@@ -117,7 +117,7 @@ export default async function Dashboard() {
         <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=">
           <DashboardCard
             title="Units Missing Region"
-            icon={<AlertTriangle size={18}/>}
+            icon={<AlertTriangle className="h-4"/>}
             text={unitsMissingRegionCount?.toString() ?? '-'}
             failed={unitsMissingRegionCount !== null && unitsMissingRegionCount > 0 || !!unitsMissingRegionError}
           />
@@ -126,21 +126,15 @@ export default async function Dashboard() {
         <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=">
           <DashboardCard
             title="Units Missing Activity Category"
-            icon={<AlertTriangle size={18}/>}
+            icon={<AlertTriangle className="h-4"/>}
             text={unitsMissingActivityCategoryCount?.toString() ?? '-'}
             failed={unitsMissingActivityCategoryCount !== null && unitsMissingActivityCategoryCount > 0 || !!unitsMissingActivityCategoryError}
           />
         </Link>
-
-        <DashboardCardPlaceholder/>
       </div>
     </main>
   )
 }
-
-const DashboardCardPlaceholder = () => (
-  <div className="col-span-1 bg-gray-50 text-center p-12 text-gray-500 rounded"></div>
-)
 
 const DashboardCard = ({title, icon, text, failed}: {
   readonly title: string,
@@ -149,15 +143,15 @@ const DashboardCard = ({title, icon, text, failed}: {
   readonly failed: boolean
 }) => {
   return (
-    <Card className={cn("tracking-tight overflow-hidden", failed ? "bg-orange-100 border-orange-400" : "")}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xs text-gray-700 font-medium">
-          {title}
-        </CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader
+        className={cn("flex flex-row items-center justify-between space-y-0 py-2 px-3 bg-gray-100", failed ? "bg-orange-100 border-orange-400" : "")}
+      >
+        <CardTitle className="text-xs font-medium">{title}</CardTitle>
         {icon}
       </CardHeader>
-      <CardContent>
-        <div className="text-xl font-semibold">{text}</div>
+      <CardContent className="py-3 px-3 space-y-3">
+        <div className="text-xl font-semibold text-right">{text}</div>
       </CardContent>
     </Card>
   )
