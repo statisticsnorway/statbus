@@ -24,6 +24,11 @@ SET default_table_access_method = heap;
 --ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
 SET datestyle TO 'ISO, DMY';
 
+-- We need longer timeout for larger loads.
+-- Ref. https://supabase.com/docs/guides/database/postgres/configuration
+-- For API users
+ALTER ROLE authenticator SET statement_timeout = '30s';
+
 -- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
 CREATE SCHEMA admin;
 
