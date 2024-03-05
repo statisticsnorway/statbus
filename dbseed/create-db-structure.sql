@@ -4632,7 +4632,6 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
 -- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
 
 \echo admin.upsert_generic_valid_time_table
-    
 CREATE FUNCTION admin.upsert_generic_valid_time_table
     ( schema_name text
     , table_name text
@@ -4714,7 +4713,7 @@ BEGIN
       , table_name
       , identifying_clause
     );
-  --RAISE DEBUG 'identifying_query %', identifying_query;
+  RAISE DEBUG 'identifying_query %', identifying_query;
 
   EXECUTE identifying_query INTO existing_id USING NEW;
   RAISE DEBUG 'existing_id %', existing_id;
@@ -4994,8 +4993,8 @@ DECLARE
   table_name text := 'location';
   unique_columns jsonb := jsonb_build_array(
     'id',
-    jsonb_build_array('region_id', 'location_type', 'establishment_id'),
-    jsonb_build_array('region_id', 'location_type', 'legal_unit_id')
+    jsonb_build_array('location_type', 'establishment_id'),
+    jsonb_build_array('location_type', 'legal_unit_id')
     );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY[]::text[];
