@@ -2064,6 +2064,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
     , postal_region_path
     , postal_country_id
     , postal_country_code_2
+    , invalid_codes
     , aggregated_establishment_ids
     , aggregated_legal_unit_ids
     , aggregated_enterprise_ids
@@ -2155,6 +2156,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , postal_country_id
          , postal_country_code_2
          --
+         , invalid_codes
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2224,6 +2227,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
            , poc.code_2     AS postal_country_code_2
+           --
+           , es.invalid_codes AS invalid_codes
            --
            , sfu1.value_int AS employees
            , sfu2.value_int AS turnover
@@ -2329,6 +2334,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , postal_country_id
            , postal_country_code_2
            --
+           , invalid_codes
+           --
            , employees
            , turnover
     UNION ALL
@@ -2395,6 +2402,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , postal_country_id
          , postal_country_code_2
          --
+         , invalid_codes
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -2458,6 +2467,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , por.path                AS postal_region_path
              , pol.country_id AS postal_country_id
              , poc.code_2     AS postal_country_code_2
+             --
+             , lu.invalid_codes AS invalid_codes
              --
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
@@ -2568,6 +2579,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , postal_region_path
            , postal_country_id
            , postal_country_code_2
+           , invalid_codes
     UNION ALL
     -- Enterprise with legal_unit with establishment
     SELECT valid_from
@@ -2631,6 +2643,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , postal_region_path
          , postal_country_id
          , postal_country_code_2
+         --
+         , NULL::JSONB AS invalid_codes
          --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
@@ -2874,6 +2888,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , postal_country_id
          , postal_country_code_2
          --
+         , NULL::JSONB AS invalid_codes
+         --
          , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
          , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
          , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
@@ -3091,6 +3107,8 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::INTEGER AS postal_country_id
          , NULL::TEXT AS postal_country_code_2
          --
+         , NULL::JSONB AS invalid_codes
+         --
          , NULL::INT[] AS aggregated_establishment_ids
          , NULL::INT[] AS aggregated_legal_unit_ids
          , NULL::INT[] AS aggregated_enterprise_ids
@@ -3114,6 +3132,8 @@ CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit 
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
 CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
+CREATE INDEX idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
+CREATE INDEX idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
 CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
 CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
 CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
