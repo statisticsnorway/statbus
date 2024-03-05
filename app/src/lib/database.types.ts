@@ -1061,7 +1061,7 @@ export type Database = {
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
-          sector_code_id: number | null
+          sector_id: number | null
           seen_in_import_at: string | null
           short_name: string | null
           stat_ident: string | null
@@ -1098,7 +1098,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -1135,7 +1135,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -1199,24 +1199,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "establishment_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code"
+            referencedRelation: "sector"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "establishment_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_custom"
+            referencedRelation: "sector_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "establishment_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_system"
+            referencedRelation: "sector_system"
             referencedColumns: ["id"]
           },
           {
@@ -1322,7 +1322,7 @@ export type Database = {
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
-          sector_code_id: number | null
+          sector_id: number | null
           seen_in_import_at: string | null
           short_name: string | null
           stat_ident: string | null
@@ -1360,7 +1360,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -1398,7 +1398,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -1504,24 +1504,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code"
+            referencedRelation: "sector"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_custom"
+            referencedRelation: "sector_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_system"
+            referencedRelation: "sector_system"
             referencedColumns: ["id"]
           },
           {
@@ -2002,11 +2002,12 @@ export type Database = {
           },
         ]
       }
-      sector_code: {
+      sector: {
         Row: {
           active: boolean
           code: string | null
           custom: boolean
+          description: string | null
           id: number
           label: string
           name: string
@@ -2018,6 +2019,7 @@ export type Database = {
           active: boolean
           code?: string | null
           custom: boolean
+          description?: string | null
           id?: never
           label?: string
           name: string
@@ -2029,6 +2031,7 @@ export type Database = {
           active?: boolean
           code?: string | null
           custom?: boolean
+          description?: string | null
           id?: never
           label?: string
           name?: string
@@ -2715,7 +2718,7 @@ export type Database = {
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
-          sector_code_id: number | null
+          sector_id: number | null
           seen_in_import_at: string | null
           short_name: string | null
           stat_ident: string | null
@@ -2752,7 +2755,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -2789,7 +2792,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -2853,24 +2856,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "establishment_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code"
+            referencedRelation: "sector"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "establishment_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_custom"
+            referencedRelation: "sector_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "establishment_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_system"
+            referencedRelation: "sector_system"
             referencedColumns: ["id"]
           },
           {
@@ -2919,6 +2922,7 @@ export type Database = {
           postal_region_code: string | null
           primary_activity_category_code: string | null
           secondary_activity_category_code: string | null
+          sector_code: string | null
           tax_reg_ident: string | null
           turnover: string | null
         }
@@ -3002,6 +3006,21 @@ export type Database = {
           id?: number | null
           name?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      legal_form_custom_only: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
         }
         Relationships: []
       }
@@ -3125,7 +3144,7 @@ export type Database = {
           reorg_date: string | null
           reorg_references: number | null
           reorg_type_id: number | null
-          sector_code_id: number | null
+          sector_id: number | null
           seen_in_import_at: string | null
           short_name: string | null
           stat_ident: string | null
@@ -3163,7 +3182,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -3201,7 +3220,7 @@ export type Database = {
           reorg_date?: string | null
           reorg_references?: number | null
           reorg_type_id?: number | null
-          sector_code_id?: number | null
+          sector_id?: number | null
           seen_in_import_at?: string | null
           short_name?: string | null
           stat_ident?: string | null
@@ -3307,24 +3326,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code"
+            referencedRelation: "sector"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_custom"
+            referencedRelation: "sector_custom"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_code_id_fkey"
-            columns: ["sector_code_id"]
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_code_system"
+            referencedRelation: "sector_system"
             referencedColumns: ["id"]
           },
           {
@@ -3354,6 +3373,7 @@ export type Database = {
         Row: {
           birth_date: string | null
           death_date: string | null
+          legal_form_code: string | null
           name: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
@@ -3371,6 +3391,7 @@ export type Database = {
           postal_region_code: string | null
           primary_activity_category_code: string | null
           secondary_activity_category_code: string | null
+          sector_code: string | null
           tax_reg_ident: string | null
         }
         Relationships: []
@@ -3379,6 +3400,7 @@ export type Database = {
         Row: {
           birth_date: string | null
           death_date: string | null
+          legal_form_code: string | null
           name: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
@@ -3396,6 +3418,7 @@ export type Database = {
           postal_region_code: string | null
           primary_activity_category_code: string | null
           secondary_activity_category_code: string | null
+          sector_code: string | null
           tax_reg_ident: string | null
         }
         Relationships: []
@@ -3652,11 +3675,12 @@ export type Database = {
         }
         Relationships: []
       }
-      sector_code_custom: {
+      sector_custom: {
         Row: {
           active: boolean | null
           code: string | null
           custom: boolean | null
+          description: string | null
           id: number | null
           label: string | null
           name: string | null
@@ -3668,6 +3692,7 @@ export type Database = {
           active?: boolean | null
           code?: string | null
           custom?: boolean | null
+          description?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -3679,6 +3704,7 @@ export type Database = {
           active?: boolean | null
           code?: string | null
           custom?: boolean | null
+          description?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -3688,11 +3714,30 @@ export type Database = {
         }
         Relationships: []
       }
-      sector_code_system: {
+      sector_custom_only: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: unknown | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
+        }
+        Relationships: []
+      }
+      sector_system: {
         Row: {
           active: boolean | null
           code: string | null
           custom: boolean | null
+          description: string | null
           id: number | null
           label: string | null
           name: string | null
@@ -3704,6 +3749,7 @@ export type Database = {
           active?: boolean | null
           code?: string | null
           custom?: boolean | null
+          description?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -3715,6 +3761,7 @@ export type Database = {
           active?: boolean | null
           code?: string | null
           custom?: boolean | null
+          description?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -3779,6 +3826,10 @@ export type Database = {
           employees: number | null
           external_ident: string | null
           external_ident_type: string | null
+          invalid_codes: Json | null
+          legal_form_code: string | null
+          legal_form_id: number | null
+          legal_form_name: string | null
           name: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
@@ -3805,6 +3856,9 @@ export type Database = {
           search: unknown | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
+          sector_code: string | null
+          sector_id: number | null
+          sector_name: string | null
           stat_ident: string | null
           tax_reg_ident: string | null
           turnover: number | null
@@ -3901,6 +3955,12 @@ export type Database = {
         }
         Returns: Json
       }
+      activity_category_standard_hierarchy: {
+        Args: {
+          activity_category_standard_id: number
+        }
+        Returns: Json
+      }
       activity_hierarchy: {
         Args: {
           parent_establishment_id?: number
@@ -3908,6 +3968,27 @@ export type Database = {
           valid_on?: string
         }
         Returns: Json
+      }
+      connect_legal_unit_to_enterprise: {
+        Args: {
+          legal_unit_id: number
+          enterprise_id: number
+          valid_from?: string
+          valid_to?: string
+        }
+        Returns: Json
+      }
+      country_hierarchy: {
+        Args: {
+          country_id: number
+        }
+        Returns: Json
+      }
+      derive_links: {
+        Args: {
+          selected_table: unknown
+        }
+        Returns: Database["public"]["CompositeTypes"]["link_info"][]
       }
       enterprise_hierarchy: {
         Args: {
@@ -4270,6 +4351,12 @@ export type Database = {
         }
         Returns: unknown
       }
+      legal_form_hierarchy: {
+        Args: {
+          legal_form_id: number
+        }
+        Returns: Json
+      }
       legal_unit_hierarchy: {
         Args: {
           parent_enterprise_id: number
@@ -4399,6 +4486,34 @@ export type Database = {
         }
         Returns: number
       }
+      region_hierarchy: {
+        Args: {
+          region_id: number
+        }
+        Returns: Json
+      }
+      sector_hierarchy: {
+        Args: {
+          sector_id: number
+        }
+        Returns: Json
+      }
+      set_primary_establishment_for_legal_unit: {
+        Args: {
+          establishment_id: number
+          valid_from?: string
+          valid_to?: string
+        }
+        Returns: Json
+      }
+      set_primary_legal_unit_for_enterprise: {
+        Args: {
+          legal_unit_id: number
+          valid_from?: string
+          valid_to?: string
+        }
+        Returns: Json
+      }
       stat_for_unit_hierarchy: {
         Args: {
           parent_establishment_id: number
@@ -4406,7 +4521,7 @@ export type Database = {
         }
         Returns: Json
       }
-      statistical_unit_enterprise: {
+      statistical_unit_enterprise_id: {
         Args: {
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
@@ -4431,6 +4546,18 @@ export type Database = {
         }
         Returns: Json
       }
+      statistical_unit_hierarchy_structure:
+        | {
+            Args: Record<PropertyKey, never>
+            Returns: Json
+          }
+        | {
+            Args: {
+              root_table_regclass: unknown
+              only_schema?: string
+            }
+            Returns: Json
+          }
       statistical_unit_refresh_now: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -4470,6 +4597,7 @@ export type Database = {
         | "data_load_failed"
       data_source_upload_type: "stat_units" | "activities"
       data_uploading_log_status: "done" | "warning" | "error"
+      link_direction: "Self-Referencing" | "Outgoing" | "Incoming"
       location_type: "physical" | "postal"
       person_sex: "Male" | "Female"
       stat_frequency:
@@ -4499,7 +4627,17 @@ export type Database = {
         | "enterprise_group"
     }
     CompositeTypes: {
-      [_ in never]: never
+      link_info: {
+        source_table: unknown
+        source_columns: unknown
+        target_table: unknown
+        target_columns: unknown
+        direction: Database["public"]["Enums"]["link_direction"]
+        source_nullable: boolean
+        self_reference: boolean
+        constraint_name: string
+        source_unique: boolean
+      }
     }
   }
 }
