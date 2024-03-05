@@ -1,4 +1,4 @@
-import {createContext, Dispatch, ReactNode, useContext, useMemo, useReducer} from "react";
+import {createContext, Dispatch, ReactNode, useCallback, useContext, useMemo, useReducer, useState} from "react";
 import {searchFilterReducer} from "@/app/search/search-filter-reducer";
 import useSearch from "@/app/search/hooks/use-search";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
@@ -11,6 +11,8 @@ export interface SearchContextState {
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
+  readonly selected: { id: number, type: UnitType }[]
+  readonly toggle: (id: number, type: UnitType) => void
 }
 
 const SearchContext = createContext<SearchContextState | null>(null)
@@ -37,6 +39,14 @@ export const SearchProvider = (
     order: initialOrder
   })
 
+  const [selected, setSelected] = useState<{ id: number, type: UnitType }[]>([])
+  const toggle = useCallback((id: number, type: UnitType) => {
+    setSelected(prev => {
+      const existing = prev.find(s => s.id === id && s.type === type);
+      return existing ? prev.filter(s => s !== existing) : [...prev, {id, type}]
+    })
+  }, [setSelected])
+
   const {search: {data: searchResult}, searchParams} = useSearch(search)
 
   const ctx: SearchContextState = useMemo(() => ({
@@ -45,8 +55,10 @@ export const SearchProvider = (
     searchResult,
     searchParams,
     regions,
-    activityCategories
-  }), [search, searchResult, searchParams, regions, activityCategories])
+    activityCategories,
+    selected,
+    toggle
+  }), [toggle, selected, search, searchResult, searchParams, regions, activityCategories])
 
   useUpdatedUrlSearchParams(ctx)
 
