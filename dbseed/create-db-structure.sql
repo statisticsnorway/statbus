@@ -2019,8 +2019,8 @@ $$;
 
 CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','enterprise','enterprise_group');
 
-\echo public.statistical_unit
-CREATE MATERIALIZED VIEW public.statistical_unit
+\echo public.statistical_unit_def
+CREATE VIEW public.statistical_unit_def
     ( valid_from
     , valid_to
     , unit_type
@@ -2194,12 +2194,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , sa.activity_category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
            --
-           , CASE
-             WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
-             WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
-             WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
-             WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
-             END AS activity_category_paths
+           , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
            , s.id   AS sector_id
            , s.code AS sector_code
@@ -2434,12 +2429,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , sa.activity_category_id AS secondary_activity_category_id
              , sac.path                AS secondary_activity_category_path
              --
-             , CASE
-               WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
-               WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
-               WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
-               WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
-               END AS activity_category_paths
+             , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
              --
              , s.id   AS sector_id
              , s.code AS sector_code
@@ -2668,7 +2658,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , plu.birth_date AS birth_date
            , plu.death_date AS death_date
            -- Se supported languages with `SELECT * FROM pg_ts_config`
-           , to_tsvector('simple', lu.name) AS search
+           , to_tsvector('simple', plu.name) AS search
            --
            , pa.activity_category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
@@ -2676,12 +2666,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
            , sa.activity_category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
            --
-           , CASE
-             WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
-             WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
-             WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
-             WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
-             END AS activity_category_paths
+           , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
            , s.id   AS sector_id
            , s.code AS sector_code
@@ -2920,12 +2905,7 @@ CREATE MATERIALIZED VIEW public.statistical_unit
              , sa.activity_category_id AS secondary_activity_category_id
              , sac.path                AS secondary_activity_category_path
              --
-             , CASE
-               WHEN pac.path IS     NULL AND sac.path IS     NULL  THEN NULL
-               WHEN pac.path IS NOT NULL AND sac.path IS     NULL  THEN ARRAY[pac.path]
-               WHEN pac.path IS     NULL AND sac.path IS NOT NULL  THEN ARRAY[sac.path]
-               WHEN pac.path IS NOT NULL AND sac.path IS NOT NULL  THEN ARRAY[pac.path,sac.path]
-               END AS activity_category_paths
+             , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
              --
              , s.id   AS sector_id
              , s.code AS sector_code
@@ -3116,6 +3096,11 @@ CREATE MATERIALIZED VIEW public.statistical_unit
          , NULL::int AS turnover
       FROM public.enterprise_group
 ;
+
+\echo public.statistical_unit
+CREATE MATERIALIZED VIEW public.statistical_unit AS
+SELECT * FROM public.statistical_unit_def;
+
 CREATE UNIQUE INDEX "statistical_unit_key"
     ON public.statistical_unit
     (valid_from
