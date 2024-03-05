@@ -3,7 +3,6 @@ import {Input} from "@/components/ui/input";
 import {OptionsFilter} from "@/app/search/components/options-filter";
 import {ResetFilterButton} from "@/app/search/components/reset-filter-button";
 import {ConditionalFilter} from "@/app/search/components/conditional-filter";
-import type {SearchFilter} from "@/app/search/search.types";
 import {useSearchContext} from "@/app/search/search-provider";
 
 export default function TableToolbar() {

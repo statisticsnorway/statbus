@@ -1,6 +1,5 @@
 import {Badge} from "@/components/ui/badge";
 import * as React from "react";
-import type {ConditionalValue, SearchFilterCondition} from "@/app/search/search.types";
 
 export function ConditionalValueBadge({condition, value}: ConditionalValue) {
 

@@ -1,27 +1,25 @@
-import {Tables} from "@/lib/database.types";
+type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
 
-export type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
-
-export type SearchFilterName =
+type SearchFilterName =
   "search"
   | "tax_reg_ident"
   | "unit_type"
   | "physical_region_path"
   | "primary_activity_category_path"
 
-export type SearchFilterOption = {
+type SearchFilterOption = {
   readonly label: string
   readonly value: string | null
   readonly humanReadableValue?: string
   readonly className?: string
 }
 
-export type SearchOrder = {
+type SearchOrder = {
   readonly name: string
   readonly direction: string
 }
 
-export type SearchFilter = {
+type SearchFilter = {
   readonly type: "options" | "radio" | "conditional" | "search"
   readonly name: SearchFilterName
   readonly label: string
@@ -30,12 +28,12 @@ export type SearchFilter = {
   readonly condition?: SearchFilterCondition
 }
 
-export type SearchResult = {
+type SearchResult = {
   statisticalUnits: Tables<"statistical_unit">[]
   count: number
 }
 
-export interface ConditionalValue {
+interface ConditionalValue {
   condition: SearchFilterCondition
   value: string,
 }
@@ -84,12 +82,12 @@ interface ResetAll {
   type: "reset_all"
 }
 
-export type SearchFilterAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll
+type SearchFilterAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll
 
-export interface FilterOptions {
+interface FilterOptions {
   activityCategories: Tables<"activity_category_available">[],
   regions: Tables<"region_used">[]
   statisticalVariables: Tables<"stat_definition">[]
 }
 
-export type SetOrderAction = { type: "set_order", payload: { name: string } }
+type SetOrderAction = { type: "set_order", payload: { name: string } }

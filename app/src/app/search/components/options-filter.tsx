@@ -6,7 +6,6 @@ import {CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from
 import * as React from "react";
 import {Separator} from "@/components/ui/separator";
 import {Badge} from "@/components/ui/badge";
-import type {SearchFilterOption} from "@/app/search/search.types";
 import {cn} from "@/lib/utils";
 
 interface ITableFilterProps {

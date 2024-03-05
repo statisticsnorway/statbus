@@ -1,7 +1,6 @@
 import {DrillDownPoint} from "@/app/reports/types/drill-down";
 import {Button} from "@/components/ui/button";
 import Link from "next/link";
-import {SearchFilterName} from "@/app/search/search.types";
 
 export const SearchLink = ({region, activityCategory}: {
   readonly region: DrillDownPoint | null,

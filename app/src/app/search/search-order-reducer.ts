@@ -1,5 +1,3 @@
-import {SearchOrder, SetOrderAction} from "@/app/search/search.types";
-
 export function searchOrderReducer(state: SearchOrder, action: SetOrderAction): SearchOrder {
   switch (action.type) {
     case "set_order": {
