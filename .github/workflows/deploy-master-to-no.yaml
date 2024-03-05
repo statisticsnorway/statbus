@@ -15,5 +15,5 @@ jobs:
         host: libu.statbus.org
         username: statbus_norway
         key: ${{ secrets.SSH_KEY }}
-        command_timeout: 30m
+        command_timeout: 60m
         script: ./devops/deploy-app-from-master.sh
