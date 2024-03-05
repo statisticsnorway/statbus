@@ -20,6 +20,19 @@ export default function SearchResultTable() {
   const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
     activityCategories.find(({path}) => path === primary_activity_category_path);
 
+  const prettifyUnitType = (type: UnitType): string => {
+    switch (type) {
+      case "enterprise":
+        return "Enterprise";
+      case "enterprise_group":
+        return "Enterprise Group";
+      case "legal_unit":
+        return "Legal Unit";
+      case "establishment":
+        return "Establishment";
+    }
+  }
+
   return (
     <Table>
       <TableHeader className="bg-gray-100">
@@ -67,7 +80,7 @@ export default function SearchResultTable() {
                             <span className="font-medium">{name}</span>
                           )
                         }
-                        <small className="text-gray-700">{tax_reg_ident}</small>
+                        <small className="text-gray-700">{tax_reg_ident} | {prettifyUnitType(unit_type)}</small>
                       </div>
                     </div>
                   </TableCell>
