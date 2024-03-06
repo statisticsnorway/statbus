@@ -2,7 +2,8 @@ import useSWR, {Fetcher} from "swr";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
 
-export default function useSearch(filters: SearchFilter[], order: SearchOrder) {
+export default function useSearch(searchFilterState: SearchState) {
+  const {filters, order} = searchFilterState
   const searchParams = filters
     .map(f => [f.name, generatePostgrestQuery(f)])
     .filter(([, query]) => !!query)

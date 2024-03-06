@@ -19,6 +19,11 @@ type SearchOrder = {
   readonly direction: string
 }
 
+interface SearchState {
+  readonly filters: SearchFilter[];
+  readonly order: SearchOrder;
+}
+
 type SearchFilter = {
   readonly type: "options" | "radio" | "conditional" | "search"
   readonly name: SearchFilterName
@@ -43,6 +48,13 @@ interface ToggleOption {
   payload: {
     name: string,
     value: string | null
+  }
+}
+
+interface SetOrder {
+  type: "set_order",
+  payload: {
+    name: string
   }
 }
 
@@ -82,7 +94,7 @@ interface ResetAll {
   type: "reset_all"
 }
 
-type SearchFilterAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll
+type SearchAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll | SetOrder
 
 interface FilterOptions {
   activityCategories: Tables<"activity_category_available">[],
