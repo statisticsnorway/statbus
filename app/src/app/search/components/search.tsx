@@ -17,8 +17,8 @@ interface SearchProps {
 export default function Search({regions = [], activityCategories, searchFilters, searchOrder}: SearchProps) {
   return (
     <SearchProvider
-      searchFilters={searchFilters}
-      searchOrder={searchOrder}
+      filters={searchFilters}
+      order={searchOrder}
       regions={regions}
       activityCategories={activityCategories}
     >

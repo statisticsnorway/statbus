@@ -3,13 +3,10 @@ import {searchFilterReducer} from "@/app/search/search-filter-reducer";
 import useSearch from "@/app/search/hooks/use-search";
 import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
 import {Tables} from "@/lib/database.types";
-import {searchOrderReducer} from "@/app/search/search-order-reducer";
 
 export interface SearchContextState {
-  readonly searchFilters: SearchFilter[];
-  readonly searchFilterDispatch: Dispatch<SearchFilterAction>;
-  readonly searchOrder: SearchOrder;
-  readonly searchOrderDispatch: Dispatch<SetOrderAction>;
+  readonly search: SearchState;
+  readonly dispatch: Dispatch<SearchAction>;
   readonly searchResult?: SearchResult;
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<'region_used'>[]
@@ -20,8 +17,8 @@ const SearchContext = createContext<SearchContextState | null>(null)
 
 interface SearchProviderProps {
   readonly children: ReactNode;
-  readonly searchFilters: SearchFilter[];
-  readonly searchOrder: SearchOrder;
+  readonly filters: SearchFilter[];
+  readonly order: SearchOrder;
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
@@ -29,26 +26,27 @@ interface SearchProviderProps {
 export const SearchProvider = (
   {
     children,
-    searchFilters: initialSearchFilters,
-    searchOrder: initialSearchOrder,
+    filters: initialFilters,
+    order: initialOrder,
     regions,
     activityCategories
   }: SearchProviderProps) => {
 
-  const [searchFilters, searchFilterDispatch] = useReducer(searchFilterReducer, initialSearchFilters)
-  const [searchOrder, searchOrderDispatch] = useReducer(searchOrderReducer, initialSearchOrder)
-  const {search: {data: searchResult}, searchParams} = useSearch(searchFilters, searchOrder)
+  const [search, dispatch] = useReducer(searchFilterReducer, {
+    filters: initialFilters,
+    order: initialOrder
+  })
 
-  const ctx = useMemo(() => ({
-    searchFilters,
-    searchFilterDispatch,
-    searchOrder,
-    searchOrderDispatch,
+  const {search: {data: searchResult}, searchParams} = useSearch(search)
+
+  const ctx: SearchContextState = useMemo(() => ({
+    search,
+    dispatch,
     searchResult,
     searchParams,
     regions,
     activityCategories
-  }), [searchFilters, searchOrder, searchResult, searchParams, regions, activityCategories])
+  }), [search, searchResult, searchParams, regions, activityCategories])
 
   useUpdatedUrlSearchParams(ctx)
 
