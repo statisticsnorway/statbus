@@ -5,6 +5,7 @@ import SearchResultTable from "@/app/search/components/search-result-table";
 import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import {SearchProvider} from "@/app/search/search-provider";
 import {SearchResultCount} from "@/app/search/components/search-result-count";
+import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
 
 interface SearchProps {
   readonly regions: Tables<"region_used">[]
@@ -30,6 +31,7 @@ export default function Search({regions = [], activityCategories, searchFilters,
         <div className="flex justify-between text-xs text-gray-500 items-center">
           <SearchResultCount/>
           <div className="space-x-3 hidden lg:flex">
+            <SearchBulkActionButton />
             <ExportCSVLink/>
           </div>
         </div>

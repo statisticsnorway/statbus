@@ -12,6 +12,7 @@ export interface SearchContextState {
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
   readonly selected: { id: number, type: UnitType }[]
+  readonly clearSelected: () => void
   readonly toggle: (id: number, type: UnitType) => void
 }
 
@@ -57,7 +58,8 @@ export const SearchProvider = (
     regions,
     activityCategories,
     selected,
-    toggle
+    toggle,
+    clearSelected: () => setSelected([])
   }), [toggle, selected, search, searchResult, searchParams, regions, activityCategories])
 
   useUpdatedUrlSearchParams(ctx)
