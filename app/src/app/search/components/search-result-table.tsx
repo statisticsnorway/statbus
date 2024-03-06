@@ -4,6 +4,7 @@ import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
 import {useSearchContext} from "../search-provider";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
 import {Checkbox} from "@/components/ui/checkbox";
+import {Tables} from "@/lib/database.types";
 
 export default function SearchResultTable() {
   const {
@@ -20,7 +21,7 @@ export default function SearchResultTable() {
   const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
     activityCategories.find(({path}) => path === primary_activity_category_path);
 
-  const prettifyUnitType = (type: UnitType): string => {
+  const prettifyUnitType = (type: UnitType | null): string => {
     switch (type) {
       case "enterprise":
         return "Enterprise";
@@ -30,8 +31,18 @@ export default function SearchResultTable() {
         return "Legal Unit";
       case "establishment":
         return "Establishment";
+      default:
+        return "Unknown";
     }
   }
+
+  const selectedWithoutSearchResult: (Tables<"statistical_unit"> & { isSelectedInPreviousSearch: boolean })[] = selected
+      .filter(s =>
+        !searchResult?.statisticalUnits?.find(u => u.unit_id === s.unit_id && u.unit_type === s.unit_type)
+      )
+      .map(s => ({...s, isSelectedInPreviousSearch: true}));
+
+  const statisticalUnits: (Tables<"statistical_unit"> & { isSelectedInPreviousSearch: boolean })[] = [...selectedWithoutSearchResult, ...searchResult?.statisticalUnits ?? []]
 
   return (
     <Table>
@@ -47,8 +58,9 @@ export default function SearchResultTable() {
       </TableHeader>
       <TableBody>
         {
-          searchResult?.statisticalUnits?.map((unit) => {
+          statisticalUnits.map((unit) => {
               const {
+                isSelectedInPreviousSearch,
                 unit_type,
                 unit_id,
                 tax_reg_ident,
@@ -60,13 +72,13 @@ export default function SearchResultTable() {
 
               const activityCategory = getActivityCategoryByPath(primary_activity_category_path);
               const region = getRegionByPath(physical_region_path);
-              const isSelected = selected.find(s => s.id === unit_id && s.type === unit_type);
+              const isSelected = selected.find(s => s.unit_id === unit_id && s.unit_type === unit_type);
 
               return (
-                <TableRow key={`${unit_type}_${unit_id}`}>
+                <TableRow key={`${unit_type}_${unit_id}`} className={isSelectedInPreviousSearch ? 'bg-yellow-100' : ''}>
                   <TableCell className="py-2">
                     <div className="flex items-center">
-                      <Checkbox checked={!!isSelected} onCheckedChange={() => toggle(unit_id, unit_type)}/>
+                      <Checkbox checked={!!isSelected} onCheckedChange={() => toggle(unit)}/>
                     </div>
                   </TableCell>
                   <TableCell className="py-2">

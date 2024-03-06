@@ -11,9 +11,9 @@ export interface SearchContextState {
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
-  readonly selected: { id: number, type: UnitType }[]
+  readonly selected: Tables<"statistical_unit">[]
   readonly clearSelected: () => void
-  readonly toggle: (id: number, type: UnitType) => void
+  readonly toggle: (unit: Tables<"statistical_unit">) => void
 }
 
 const SearchContext = createContext<SearchContextState | null>(null)
@@ -40,11 +40,11 @@ export const SearchProvider = (
     order: initialOrder
   })
 
-  const [selected, setSelected] = useState<{ id: number, type: UnitType }[]>([])
-  const toggle = useCallback((id: number, type: UnitType) => {
+  const [selected, setSelected] = useState<Tables<"statistical_unit">[]>([])
+  const toggle = useCallback((unit: Tables<"statistical_unit">) => {
     setSelected(prev => {
-      const existing = prev.find(s => s.id === id && s.type === type);
-      return existing ? prev.filter(s => s !== existing) : [...prev, {id, type}]
+      const existing = prev.find(s => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type);
+      return existing ? prev.filter(s => s !== existing) : [...prev, unit]
     })
   }, [setSelected])
 

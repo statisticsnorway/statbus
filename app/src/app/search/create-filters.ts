@@ -4,7 +4,6 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
   const primary_activity_category_path: SearchFilterName = 'primary_activity_category_path'
   const tax_reg_ident: SearchFilterName = 'tax_reg_ident'
   const search: SearchFilterName = 'search'
-  const defaultUnitTypeFilterValue = 'enterprise'
   const standardFilters: SearchFilter[] = [
     {
       type: "search",
@@ -43,7 +42,7 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           className: "bg-enterprise-100"
         }
       ],
-      selected: urlSearchParams?.get(unit_type)?.split(',') ?? [defaultUnitTypeFilterValue],
+      selected: urlSearchParams?.get(unit_type)?.split(',') ?? [],
     },
     {
       type: "radio",

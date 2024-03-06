@@ -6,17 +6,19 @@ import {Command} from "cmdk";
 import {CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from "@/components/ui/command";
 import * as React from "react";
 import {cn} from "@/lib/utils";
+import {useRouter} from "next/navigation";
 
 export default function SearchBulkActionButton() {
+  const router = useRouter()
   const {selected, clearSelected} = useSearchContext();
 
   const isEligibleForCombination = selected.length === 2
-    && selected.find((unit) => unit.type === 'enterprise')
-    && selected.find((unit) => unit.type === 'legal_unit');
+    && selected.find((unit) => unit.unit_type === 'enterprise')
+    && selected.find((unit) => unit.unit_type === 'legal_unit');
 
   const setPrimaryLegalUnitForEnterprise = async () => {
-    const legalUnit = selected.find((unit) => unit.type === 'legal_unit');
-    const enterprise = selected.find((unit) => unit.type === 'enterprise');
+    const legalUnit = selected.find((unit) => unit.unit_type === 'legal_unit');
+    const enterprise = selected.find((unit) => unit.unit_type === 'enterprise');
 
     if (!legalUnit || !enterprise) {
       console.error('failed to set primary legal unit for enterprise due to missing legal unit or enterprise');
@@ -24,21 +26,21 @@ export default function SearchBulkActionButton() {
     }
 
     try {
-      const response = await fetch(`/api/legal-units/${legalUnit.id}/primary`, {
+      const response = await fetch(`/api/legal-units/${legalUnit.unit_id}/primary`, {
         method: 'POST',
         body: JSON.stringify(enterprise),
       })
 
       if (!response.ok) {
         console.error('failed to set primary legal unit for enterprise');
+        return;
       }
+
+      router.push(`/enterprises/${enterprise.unit_id}`);
 
     } catch (e) {
       console.error('failed to set primary legal unit for enterprise', e);
-    } finally {
-      clearSelected();
     }
-
   }
 
   return (
