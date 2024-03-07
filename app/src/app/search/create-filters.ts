@@ -42,7 +42,7 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
           className: "bg-enterprise-100"
         }
       ],
-      selected: urlSearchParams?.get(unit_type)?.split(',') ?? [],
+      selected: urlSearchParams?.get(unit_type)?.split(',') ?? ['enterprise', 'legal_unit', 'establishment'],
     },
     {
       type: "radio",
