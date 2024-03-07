@@ -43,7 +43,7 @@ export function TopologyItem({unit, type, active, primary, children}: TopologyIt
                     </CardContent>
                 </Card>
             </StatisticalUnitDetailsLinkWithSubPath>
-            <ul>{children}</ul>
+            <ul className="pl-4">{children}</ul>
         </>
     )
 }

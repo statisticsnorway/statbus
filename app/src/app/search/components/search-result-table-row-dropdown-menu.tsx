@@ -28,7 +28,7 @@ export default function SearchResultTableRowDropdownMenu({unit}: { readonly unit
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => toggle(unit)}>
             <ShoppingBasket className="mr-2 h-4 w-4"/>
-            <span>{isInBasket ? 'Remove from basket' : 'Add to basket'}</span>
+            <span>{isInBasket ? 'Remove from selection' : 'Add to selection'}</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
