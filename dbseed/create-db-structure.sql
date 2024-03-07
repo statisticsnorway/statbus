@@ -174,7 +174,7 @@ BEGIN
     standardCode := TG_ARGV[0];
     SELECT id INTO standardId FROM public.activity_category_standard WHERE code = standardCode;
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Unknown activity_category_standard.code %s', standardCode;
+      RAISE EXCEPTION 'Unknown activity_category_standard.code %', standardCode;
     END IF;
 
     WITH parent AS (
