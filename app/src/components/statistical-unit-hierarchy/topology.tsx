@@ -33,7 +33,7 @@ export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
                     active={hierarchy.enterprise.id == unitId && unitType === 'enterprise'}
                 >
                     {
-                        hierarchy.enterprise?.legal_unit.map((legalUnit) => (
+                        hierarchy.enterprise.legal_unit.map((legalUnit) => (
                             <TopologyItem
                                 key={legalUnit.id}
                                 unit={legalUnit}
@@ -41,7 +41,7 @@ export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
                                 active={legalUnit.id === unitId && unitType === 'legal_unit'}
                                 primary={legalUnit.primary}
                             >
-                                {legalUnit.establishment.map((establishment) =>
+                                {legalUnit.establishment?.map((establishment) =>
                                     <TopologyItem
                                         key={establishment.id}
                                         unit={establishment}
