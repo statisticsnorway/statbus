@@ -45,7 +45,7 @@ export const SearchProvider = (
     searchResult,
     searchParams,
     regions,
-    activityCategories
+    activityCategories,
   }), [search, searchResult, searchParams, regions, activityCategories])
 
   useUpdatedUrlSearchParams(ctx)
