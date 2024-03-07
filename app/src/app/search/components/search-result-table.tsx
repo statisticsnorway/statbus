@@ -1,4 +1,4 @@
-import {Table, TableBody, TableCell, TableHeader, TableRow} from "@/components/ui/table";
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {useSearchContext} from "../search-provider";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
 import {SearchResultTableRow} from "@/app/search/components/search-result-table-row";
@@ -13,8 +13,8 @@ export default function SearchResultTable() {
                     <SortableTableHead name="name">Name</SortableTableHead>
                     <SortableTableHead className="text-left" name="physical_region_path">Region</SortableTableHead>
                     <SortableTableHead className="text-right" name="employees">Employees</SortableTableHead>
-                    <SortableTableHead className="text-left" name="primary_activity_category_path">Activity
-                        Category</SortableTableHead>
+                    <SortableTableHead className="text-left" name="primary_activity_category_path">Activity Category</SortableTableHead>
+                    <TableHead />
                 </TableRow>
             </TableHeader>
             <TableBody>
