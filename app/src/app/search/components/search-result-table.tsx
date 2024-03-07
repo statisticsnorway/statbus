@@ -4,13 +4,11 @@ import SortableTableHead from "@/app/search/components/sortable-table-head";
 import {Checkbox} from "@/components/ui/checkbox";
 import {Tables} from "@/lib/database.types";
 import {SearchResultTableRow} from "@/app/search/components/search-result-table-row";
+import {useCartContext} from "@/app/search/cart-provider";
 
 export default function SearchResultTable() {
-    const {
-        selected,
-        searchResult
-    } = useSearchContext();
-
+    const {searchResult} = useSearchContext();
+    const {selected} = useCartContext();
 
     const selectedInPreviousSearch: Tables<"statistical_unit">[] = selected
         .filter(s => !searchResult?.statisticalUnits?.find(u => u.unit_id === s.unit_id && u.unit_type === s.unit_type));

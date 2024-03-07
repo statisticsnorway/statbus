@@ -5,6 +5,7 @@ import {cn} from "@/lib/utils";
 import {Checkbox} from "@/components/ui/checkbox";
 import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
 import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-link";
+import {useCartContext} from "@/app/search/cart-provider";
 
 interface SearchResultTableRowProps {
     unit: Tables<"statistical_unit">;
@@ -12,7 +13,8 @@ interface SearchResultTableRowProps {
 }
 
 export const SearchResultTableRow = ({unit, className}: SearchResultTableRowProps) => {
-    const {selected, toggle, regions, activityCategories} = useSearchContext();
+    const {regions, activityCategories} = useSearchContext();
+    const {selected, toggle} = useCartContext();
     const {
         unit_type: type,
         unit_id: id,

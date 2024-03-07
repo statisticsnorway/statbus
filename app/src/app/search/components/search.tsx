@@ -6,6 +6,7 @@ import {ExportCSVLink} from "@/app/search/components/search-export-csv-link";
 import {SearchProvider} from "@/app/search/search-provider";
 import {SearchResultCount} from "@/app/search/components/search-result-count";
 import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
+import {CartProvider} from "@/app/search/cart-provider";
 
 interface SearchProps {
   readonly regions: Tables<"region_used">[]
@@ -17,26 +18,28 @@ interface SearchProps {
 
 export default function Search({regions = [], activityCategories, searchFilters, searchOrder}: SearchProps) {
   return (
-    <SearchProvider
-      filters={searchFilters}
-      order={searchOrder}
-      regions={regions}
-      activityCategories={activityCategories}
-    >
-      <section className="space-y-3">
-        <TableToolbar/>
-        <div className="rounded-md border">
-          <SearchResultTable/>
-        </div>
-        <div className="flex justify-between text-xs text-gray-500 items-center">
-          <SearchResultCount/>
-          <div className="space-x-3 hidden lg:flex">
-            <SearchBulkActionButton />
-            <ExportCSVLink/>
+    <CartProvider>
+      <SearchProvider
+        filters={searchFilters}
+        order={searchOrder}
+        regions={regions}
+        activityCategories={activityCategories}
+      >
+        <section className="space-y-3">
+          <TableToolbar/>
+          <div className="rounded-md border">
+            <SearchResultTable/>
           </div>
-        </div>
-      </section>
-    </SearchProvider>
+          <div className="flex justify-between text-xs text-gray-500 items-center">
+            <SearchResultCount/>
+            <div className="space-x-3 hidden lg:flex">
+              <SearchBulkActionButton/>
+              <ExportCSVLink/>
+            </div>
+          </div>
+        </section>
+      </SearchProvider>
+    </CartProvider>
   )
 }
 

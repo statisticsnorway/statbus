@@ -1,5 +1,4 @@
 import {Button} from "@/components/ui/button";
-import {useSearchContext} from "@/app/search/search-provider";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 import {Combine, ShoppingBasket, Trash} from "lucide-react";
 import {Command} from "cmdk";
@@ -7,10 +6,11 @@ import {CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from
 import * as React from "react";
 import {cn} from "@/lib/utils";
 import {useRouter} from "next/navigation";
+import {useCartContext} from "@/app/search/cart-provider";
 
 export default function SearchBulkActionButton() {
   const router = useRouter()
-  const {selected, clearSelected} = useSearchContext();
+  const {selected, clearSelected} = useCartContext();
 
   const isEligibleForCombination = selected.length === 2
     && selected.find((unit) => unit.unit_type === 'enterprise')
