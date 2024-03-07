@@ -2,10 +2,8 @@ import {Tables} from "@/lib/database.types";
 import {useSearchContext} from "@/app/search/search-provider";
 import {TableCell, TableRow} from "@/components/ui/table";
 import {cn} from "@/lib/utils";
-import {Checkbox} from "@/components/ui/checkbox";
 import {StatisticalUnitIcon} from "@/components/statistical-unit-icon";
 import {StatisticalUnitDetailsLink} from "@/components/statistical-unit-details-link";
-import {useCartContext} from "@/app/search/cart-provider";
 
 interface SearchResultTableRowProps {
     unit: Tables<"statistical_unit">;
@@ -14,7 +12,6 @@ interface SearchResultTableRowProps {
 
 export const SearchResultTableRow = ({unit, className}: SearchResultTableRowProps) => {
     const {regions, activityCategories} = useSearchContext();
-    const {selected, toggle} = useCartContext();
     const {
         unit_type: type,
         unit_id: id,
@@ -33,7 +30,6 @@ export const SearchResultTableRow = ({unit, className}: SearchResultTableRowProp
 
     const activityCategory = getActivityCategoryByPath(primary_activity_category_path);
     const region = getRegionByPath(physical_region_path);
-    const isSelected = selected.find(s => s.unit_id === id && s.unit_type === type);
 
     const prettifyUnitType = (type: UnitType | null): string => {
         switch (type) {
@@ -52,11 +48,6 @@ export const SearchResultTableRow = ({unit, className}: SearchResultTableRowProp
 
     return (
         <TableRow key={`${type}_${id}`} className={cn('', className)}>
-            <TableCell className="py-2">
-                <div className="flex items-center">
-                    <Checkbox checked={!!isSelected} onCheckedChange={() => toggle(unit)}/>
-                </div>
-            </TableCell>
             <TableCell className="py-2">
                 <div className="flex items-center space-x-3 leading-none">
                     <StatisticalUnitIcon type={type} className="w-5"/>
