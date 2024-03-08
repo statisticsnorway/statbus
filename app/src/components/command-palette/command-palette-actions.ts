@@ -7,9 +7,15 @@ export async function refreshStatisticalUnits() {
     const client = createClient()
 
     try {
-        const {status, statusText, data} = await client.rpc('statistical_unit_refresh_now')
+        const {status, statusText, data, error} = await client.rpc('statistical_unit_refresh_now')
+
+        if (error) {
+            console.error(`statistical units refresh returned status ${statusText} and error ${error.message}`)
+            return {error: error.message}
+        }
 
         if (status >= 400) {
+            console.error(`statistical units refresh returned status ${statusText}`)
             return {error: statusText}
         }
 
