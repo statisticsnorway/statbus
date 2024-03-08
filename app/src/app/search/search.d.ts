@@ -6,6 +6,7 @@ type SearchFilterName =
   | "unit_type"
   | "physical_region_path"
   | "primary_activity_category_path"
+  | "sector_code"
 
 type SearchFilterOption = {
   readonly label: string
@@ -110,9 +111,10 @@ interface SetPage {
 type SearchAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll | SetOrder | SetPage
 
 interface FilterOptions {
-  activityCategories: Tables<"activity_category_available">[],
+  activityCategories: Tables<"activity_category_available">[]
   regions: Tables<"region_used">[]
   statisticalVariables: Tables<"stat_definition">[]
+  sectors: Tables<"sector">[]
 }
 
 type SetOrderAction = { type: "set_order", payload: { name: string } }

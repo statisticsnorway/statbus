@@ -67,6 +67,19 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
         : [],
     },
     {
+      type: "options",
+      name: 'sector_code',
+      label: "Sector",
+      options: [
+        ...opts.sectors.map(({code, path, name}) => (
+          {
+            label: `${code} ${name}`,
+            value: code as string
+          }
+        ))],
+      selected: urlSearchParams?.has('sector_code') ? urlSearchParams.get('sector_code')?.split(',') || [] : [],
+    },
+    {
       type: "radio",
       name: primary_activity_category_path,
       label: "Activity Category",

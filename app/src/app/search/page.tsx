@@ -10,6 +10,12 @@ export const metadata: Metadata = {
 export default async function SearchPage({ searchParams }: { readonly searchParams: URLSearchParams }) {
     const client = createClient();
 
+    const sectorPromise = client
+      .from('sector')
+      .select()
+      .not('code', 'is', null)
+      .eq('active', true)
+
     const regionPromise = client
         .from('region_used')
         .select()
@@ -24,14 +30,20 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
         .order('priority', {ascending: true});
 
     const [
+        {data: sectors, error: sectorsError},
         {data: regions, error: regionsError},
         {data: activityCategories, error: activityCategoriesError},
         {data: statisticalVariables}
     ] = await Promise.all([
+        sectorPromise,
         regionPromise,
         activityCategoryPromise,
         statDefinitionPromise
     ]);
+
+    if (sectorsError) {
+        console.error('⚠️failed to fetch sectors', sectorsError);
+    }
 
     if (regionsError) {
         console.error('⚠️failed to fetch regions', regionsError);
@@ -41,12 +53,13 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
         console.error('⚠️failed to fetch activity categories', activityCategoriesError);
     }
 
-  const urlSearchParams = new URLSearchParams(searchParams);
+    const urlSearchParams = new URLSearchParams(searchParams);
 
     const searchFilters = createFilters({
         activityCategories: activityCategories ?? [],
         regions: regions ?? [],
-        statisticalVariables: statisticalVariables ?? []
+        statisticalVariables: statisticalVariables ?? [],
+        sectors: sectors ?? []
     }, urlSearchParams);
 
     const [orderBy, ...orderDirections] = urlSearchParams.get('order')?.split('.') ?? ['name', 'asc'];
