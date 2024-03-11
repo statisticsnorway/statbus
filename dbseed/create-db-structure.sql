@@ -3155,7 +3155,7 @@ JOIN public.activity_category_standard AS acs ON ac.activity_category_standard_i
 LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
 WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
   AND ac.active
-  AND ac.path OPERATOR(public.@>) (SELECT array_agg(primary_activity_category_path) FROM public.statistical_unit WHERE primary_activity_category_path IS NOT NULL)
+  AND ac.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT primary_activity_category_path) FROM public.statistical_unit WHERE primary_activity_category_path IS NOT NULL)
 ORDER BY path;
 
 CREATE UNIQUE INDEX "activity_category_used_key"
@@ -3171,7 +3171,7 @@ SELECT r.id
      , r.code
      , r.name
 FROM public.region AS r
-WHERE r.path OPERATOR(public.@>) (SELECT array_agg(physical_region_path) FROM public.statistical_unit WHERE physical_region_path IS NOT NULL)
+WHERE r.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT physical_region_path) FROM public.statistical_unit WHERE physical_region_path IS NOT NULL)
 ORDER BY path;
 
 CREATE UNIQUE INDEX "region_used_key"
@@ -3185,7 +3185,7 @@ SELECT s.id
      , s.code
      , s.name
 FROM public.sector AS s
-WHERE s.path OPERATOR(public.@>) (SELECT array_agg(sector_path) FROM public.statistical_unit WHERE sector_path IS NOT NULL)
+WHERE s.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT sector_path) FROM public.statistical_unit WHERE sector_path IS NOT NULL)
   AND s.active
 ORDER BY s.path;
 
@@ -3267,7 +3267,7 @@ CREATE FUNCTION public.statistical_unit_facet_drilldown(
     activity_category_path public.ltree DEFAULT NULL,
     sector_path public.ltree DEFAULT NULL,
     legal_form_id INTEGER DEFAULT NULL,
-    physical_country_id INTEGER DEFAULT NULL,
+    country_id INTEGER DEFAULT NULL,
     valid_on date DEFAULT current_date
 )
 RETURNS jsonb AS $$
@@ -3290,23 +3290,23 @@ RETURNS jsonb AS $$
             AND suf.unit_type = unit_type
             AND (
                 region_path IS NULL
-                OR suf.physical_region_path OPERATOR(public.<@) region_path
+                OR suf.physical_region_path IS NOT NULL AND suf.physical_region_path OPERATOR(public.<@) region_path
             )
             AND (
                 activity_category_path IS NULL
-                OR suf.primary_activity_category_path OPERATOR(public.<@) activity_category_path
+                OR suf.primary_activity_category_path IS NOT NULL AND suf.primary_activity_category_path OPERATOR(public.<@) activity_category_path
             )
             AND (
                 sector_path IS NULL
-                OR suf.sector_path OPERATOR(public.<@) sector_path
+                OR suf.sector_path IS NOT NULL AND suf.sector_path OPERATOR(public.<@) sector_path
             )
             AND (
                 legal_form_id IS NULL
-                OR suf.legal_form_id = legal_form_id
+                OR suf.legal_form_id IS NOT NULL AND suf.legal_form_id = legal_form_id
             )
             AND (
-                physical_country_id IS NULL
-                OR suf.physical_country_id = physical_country_id
+                country_id IS NULL
+                OR suf.physical_country_id IS NOT NULL AND suf.physical_country_id = country_id
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
@@ -3479,8 +3479,8 @@ RETURNS jsonb AS $$
              , pc.name
         FROM public.country AS pc
         WHERE
-            (   physical_country_id IS NOT NULL
-            AND pc.id = physical_country_id
+            (   country_id IS NOT NULL
+            AND pc.id = country_id
             )
         ORDER BY pc.code_2
     ),
@@ -3490,7 +3490,7 @@ RETURNS jsonb AS $$
              , pc.name
         FROM public.country AS pc
         -- Every country is available, unless one is selected.
-        WHERE physical_country_id IS NULL
+        WHERE country_id IS NULL
         ORDER BY pc.code_2
     ), aggregated_physical_country_counts AS (
         SELECT pc.id
@@ -3514,14 +3514,23 @@ RETURNS jsonb AS $$
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
             'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_sector AS source),
             'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_legal_form AS source),
-            'physical_country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
+            'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
           ),
           'available',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0),
             'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_sector_counts AS source WHERE count > 0),
             'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_legal_form_counts AS source WHERE count > 0),
-            'physical_country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
+            'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
+          ),
+          'filter',jsonb_build_object(
+            'unit_type',unit_type,
+            'region_path',region_path,
+            'activity_category_path',activity_category_path,
+            'sector_path',sector_path,
+            'legal_form_id',legal_form_id,
+            'country_id',country_id,
+            'valid_on',valid_on
           )
         );
 $$ LANGUAGE sql SECURITY DEFINER;
