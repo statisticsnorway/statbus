@@ -63,6 +63,7 @@ DROP MATERIALIZED VIEW public.statistical_unit_facet;
 DROP MATERIALIZED VIEW public.region_used;
 DROP MATERIALIZED VIEW public.activity_category_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
+DROP VIEW public.statistical_unit_def;
 DROP TYPE public.statistical_unit_type;
 
 DROP VIEW public.activity_category_isic_v4;
