@@ -64,7 +64,7 @@ DROP MATERIALIZED VIEW public.region_used;
 DROP MATERIALIZED VIEW public.activity_category_used;
 DROP MATERIALIZED VIEW public.sector_used;
 DROP MATERIALIZED VIEW public.legal_form_used;
-DROP MATERIALIZED VIEW public.physical_country_used;
+DROP MATERIALIZED VIEW public.country_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
 DROP VIEW public.statistical_unit_def;
 DROP TYPE public.statistical_unit_type;

@@ -3206,8 +3206,8 @@ CREATE UNIQUE INDEX "legal_form_used_key"
     ON public.legal_form_used (code);
 
 
-\echo public.physical_country_used
-CREATE MATERIALIZED VIEW public.physical_country_used AS
+\echo public.country_used
+CREATE MATERIALIZED VIEW public.country_used AS
 SELECT c.id
      , c.code_2
      , c.name
@@ -3217,7 +3217,7 @@ WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE phy
 ORDER BY c.id;
 
 CREATE UNIQUE INDEX "country_used_key"
-    ON public.physical_country_used (code_2);
+    ON public.country_used (code_2);
 
 
 \echo public.statistical_unit_facet
@@ -3843,7 +3843,7 @@ DECLARE
         , 'region_used'
         , 'sector_used'
         , 'legal_form_used'
-        , 'physical_country_used'
+        , 'country_used'
         , 'statistical_unit_facet'
         ];
 BEGIN
@@ -5485,7 +5485,8 @@ BEGIN
     IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
       SELECT * INTO sector
       FROM public.sector
-      WHERE code = NEW.sector_code;
+      WHERE code = NEW.sector_code
+        AND active;
       IF NOT FOUND THEN
         RAISE WARNING 'Could not find sector_code for row %', to_json(NEW);
         invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
@@ -5495,7 +5496,8 @@ BEGIN
     IF NEW.legal_form_code IS NOT NULL AND NEW.legal_form_code <> '' THEN
       SELECT * INTO legal_form
       FROM public.legal_form
-      WHERE code = NEW.legal_form_code;
+      WHERE code = NEW.legal_form_code
+        AND active;
       IF NOT FOUND THEN
         RAISE WARNING 'Could not find legal_form_code for row %', to_json(NEW);
         invalid_codes := jsonb_set(invalid_codes, '{legal_form_code}', to_jsonb(NEW.legal_form_code), true);
@@ -5979,7 +5981,8 @@ BEGIN
     IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
       SELECT * INTO sector
       FROM public.sector
-      WHERE code = NEW.sector_code;
+      WHERE code = NEW.sector_code
+        AND active;
       IF NOT FOUND THEN
         RAISE WARNING 'Could not find sector_code for row %', to_json(NEW);
         invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
