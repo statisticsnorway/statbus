@@ -4,12 +4,7 @@ import {useEffect, useState} from "react";
 import {useToast} from "@/components/ui/use-toast";
 import {useRouter} from "next/navigation";
 import {BarChartHorizontal, Footprints, Home, ListRestart, Pilcrow, Search, Trash, Upload, User} from "lucide-react"
-import {
-  refreshStatisticalUnits,
-  resetRegions,
-  resetSettings,
-  resetUnits
-} from "@/components/command-palette/command-palette-actions";
+import {refreshStatisticalUnits, resetAll} from "@/components/command-palette/command-palette-actions";
 
 import {
   CommandDialog,
@@ -49,27 +44,9 @@ export function CommandPalette() {
     }
   }, [])
 
-  const handleSettingsReset = async () => {
+  const handleResetAll = async () => {
     setOpen(false)
-    const response = await resetSettings()
-    toast({
-      title: response?.error ? "Settings Reset Failed" : "Settings Reset OK",
-      description: response?.error ?? "All settings have been reset to their default values.",
-    })
-  }
-
-  const handleRegionsReset = async () => {
-    setOpen(false)
-    const response = await resetRegions()
-    toast({
-      title: response?.error ? "Regions Reset Failed" : "Regions Reset OK",
-      description: response?.error ?? "All regions have been reset.",
-    })
-  }
-
-  const handleUnitsReset = async () => {
-    setOpen(false)
-    const response = await resetUnits()
+    const response = await resetAll()
     toast({
       title: response?.error ? "Units Reset Failed" : "Units Reset OK",
       description: response?.error ?? "All units have been reset.",
@@ -104,17 +81,9 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Admin tools">
-          <CommandItem onSelect={handleSettingsReset}>
+          <CommandItem onSelect={handleResetAll}>
             <Trash className="mr-2 h-4 w-4"/>
-            <span>Reset Settings</span>
-          </CommandItem>
-          <CommandItem onSelect={handleRegionsReset}>
-            <Trash className="mr-2 h-4 w-4"/>
-            <span>Reset Regions</span>
-          </CommandItem>
-          <CommandItem onSelect={handleUnitsReset}>
-            <Trash className="mr-2 h-4 w-4"/>
-            <span>Reset All units</span>
+            <span>Reset Everything</span>
           </CommandItem>
           <CommandItem onSelect={handleStatisticalUnitsRefresh}>
             <ListRestart className="mr-2 h-4 w-4"/>
