@@ -14,7 +14,7 @@ export type UploadView =
     | "legal_unit_region_activity_category_current"
     | "activity_category_available_custom"
     | "establishment_region_activity_category_stats_current"
-    | "sector_custom";
+    | "sector_custom_only";
 
 export async function uploadFile(filename: string, uploadView: UploadView, _prevState: State, formData: FormData): Promise<State> {
     "use server";
