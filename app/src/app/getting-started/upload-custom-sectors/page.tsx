@@ -31,7 +31,7 @@ export default async function UploadCustomSectorsPage() {
 
             <UploadCSVForm
                 uploadView="sector_custom"
-                nextPage="/getting-started/upload-legal-units"
+                nextPage="/getting-started/upload-custom-activity-standard-codes"
             />
 
             <Accordion type="single" collapsible>

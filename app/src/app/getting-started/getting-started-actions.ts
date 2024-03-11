@@ -77,5 +77,5 @@ export async function setCategoryStandard(formData: FormData) {
         return {error: "Error setting category standard"}
     }
 
-    redirect('/getting-started/upload-custom-activity-standard-codes', RedirectType.push)
+    redirect('/getting-started/upload-regions', RedirectType.push)
 }

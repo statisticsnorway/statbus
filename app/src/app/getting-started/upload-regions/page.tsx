@@ -28,7 +28,7 @@ export default async function UploadRegionsPage() {
 
             <UploadCSVForm
                 uploadView="region_upload"
-                nextPage="/getting-started/upload-custom-activity-standard-codes"
+                nextPage="/getting-started/upload-custom-sectors"
             />
 
             <Accordion type="single" collapsible>
