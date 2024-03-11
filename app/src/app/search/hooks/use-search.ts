@@ -55,11 +55,13 @@ export function generateFTSQuery(prompt: string = ""): string | null {
   return tsQuery ? `fts(simple).${tsQuery}` : null;
 }
 
-const generatePostgrestQuery = (f: SearchFilter) => {
-  const {selected, type, name, condition} = f;
+const generatePostgrestQuery = ({name, type, selected, condition}: SearchFilter) => {
+  if (selected.length === 1 && selected[0] === null) {
+    return 'is.null'
+  }
 
   if (type === 'conditional') {
-    return condition && selected.length ? `${condition}.${selected[0]}` : null
+    return condition && selected.length === 1 ? `${condition}.${selected[0]}` : null
   }
 
   switch (name) {
@@ -67,15 +69,12 @@ const generatePostgrestQuery = (f: SearchFilter) => {
       return selected[0] ? generateFTSQuery(selected[0]) : null
     case 'tax_reg_ident':
       return selected[0] ? `eq.${selected[0]}` : null
+    case "sector_code":
     case 'unit_type':
-      return selected.length ? `in.(${selected.join(',')})` : null
+      return selected.length > 0 ? `in.(${selected.join(',')})` : null
     case 'physical_region_path':
-    case 'primary_activity_category_path': {
-      if (selected.length) {
-        return selected[0] === null ? `is.null` : `cd.${selected[0]}`
-      }
-      return null
-    }
+    case 'primary_activity_category_path':
+      return selected.length > 0 ? `cd.${selected[0]}` : null
     default:
       return null
   }

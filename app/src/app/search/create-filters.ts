@@ -71,7 +71,7 @@ export function createFilters(opts: FilterOptions, urlSearchParams: URLSearchPar
       name: 'sector_code',
       label: "Sector",
       options: [
-        ...opts.sectors.map(({code, path, name}) => (
+        ...opts.sectors.map(({code, name}) => (
           {
             label: `${code} ${name}`,
             value: code as string
