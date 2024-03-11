@@ -51,6 +51,12 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
 
     const [orderBy, ...orderDirections] = urlSearchParams.get('order')?.split('.') ?? ['name', 'asc'];
 
+    const defaultCurrentPage = 1
+    const defaultPageSize = 10
+
+    const currentPage = Number(urlSearchParams.get('page')) || defaultCurrentPage
+    
+
     return (
         <main className="flex flex-col py-8 px-2 md:py-24 mx-auto w-full max-w-5xl">
             <h1 className="font-medium text-xl text-center mb-12">Search for statistical units</h1>
@@ -60,6 +66,7 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
                 statisticalVariables={statisticalVariables ?? []}
                 searchFilters={searchFilters}
                 searchOrder={{name: orderBy, direction: orderDirections.join('.')}}
+                searchPage={{value: currentPage, size: defaultPageSize}}
             />
         </main>
     )

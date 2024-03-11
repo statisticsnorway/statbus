@@ -19,6 +19,7 @@ interface SearchProviderProps {
   readonly children: ReactNode;
   readonly filters: SearchFilter[];
   readonly order: SearchOrder;
+  readonly page: SearchPage;
   readonly regions: Tables<'region_used'>[]
   readonly activityCategories: Tables<'activity_category_available'>[]
 }
@@ -28,13 +29,15 @@ export const SearchProvider = (
     children,
     filters: initialFilters,
     order: initialOrder,
+    page,
     regions,
     activityCategories
   }: SearchProviderProps) => {
 
   const [search, dispatch] = useReducer(searchFilterReducer, {
     filters: initialFilters,
-    order: initialOrder
+    order: initialOrder,
+    page
   })
 
   const {search: {data: searchResult}, searchParams} = useSearch(search)

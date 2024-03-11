@@ -19,9 +19,15 @@ type SearchOrder = {
   readonly direction: string
 }
 
+type SearchPage = {
+  readonly size: number
+  readonly value: number
+}
+
 interface SearchState {
   readonly filters: SearchFilter[];
   readonly order: SearchOrder;
+  readonly page: SearchPage;
 }
 
 type SearchFilter = {
@@ -94,7 +100,14 @@ interface ResetAll {
   type: "reset_all"
 }
 
-type SearchAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll | SetOrder
+interface SetPage {
+  type: 'set_page'
+  payload: {
+    value: number
+  }
+}
+
+type SearchAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll | SetOrder | SetPage
 
 interface FilterOptions {
   activityCategories: Tables<"activity_category_available">[],
