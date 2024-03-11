@@ -31,9 +31,15 @@ export async function resetAll() {
     const client = createClient()
 
     try {
-        // TODO: update ts definitions for supabase to include rpc - then remove ts-ignore
-        // @ts-ignore
-      await client.rpc('reset_all_data', { confirmed: true})
+      const {data, error } = await client.rpc('reset_all_data', { confirmed: true})
+
+      if (error) {
+          console.error(`reset all returned error ${error.message}`)
+          return {error: error.message}
+      }
+
+      return {error: null, data}
+
     } catch (error) {
         return {error: "Error resetting establishments"}
     }

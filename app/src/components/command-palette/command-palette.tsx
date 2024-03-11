@@ -48,17 +48,15 @@ export function CommandPalette() {
     setOpen(false)
     const response = await resetAll()
     toast({
-      title: response?.error ? "Units Reset Failed" : "Units Reset OK",
-      description: response?.error ?? "All units have been reset.",
+      title: response?.error ? "System Reset Failed" : "System Reset OK",
+      description: response?.error ?? "All data has been reset.",
     })
 
-    /*
-     * Refresh materialized view after resetting all units
-     */
-
-    setTimeout(async () => {
-      await handleStatisticalUnitsRefresh()
-    }, 2500)
+    // @ts-ignore
+    if (response.data?.statistical_unit_refresh_now) {
+      // @ts-ignore
+      console.table(response.data?.statistical_unit_refresh_now, ['view_name', 'refresh_time_ms'])
+    }
   }
 
   const handleStatisticalUnitsRefresh = async () => {
