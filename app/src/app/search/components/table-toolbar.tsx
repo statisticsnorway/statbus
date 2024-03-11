@@ -9,7 +9,7 @@ export default function TableToolbar() {
   const {search: {filters}, dispatch} = useSearchContext()
   const hasAnyFilterSelected = filters.some(({selected}) => selected?.[0]?.toString().length)
 
-  const createFilterComponent = useCallback(({type, name, label, options, selected, condition}: SearchFilter) => {
+  const createFilterComponent = useCallback(({type, name, label, options, selected, operator}: SearchFilter) => {
     switch (type) {
       case "radio":
         return (
@@ -38,8 +38,8 @@ export default function TableToolbar() {
           <ConditionalFilter
             key={name}
             title={label}
-            selected={{condition, value: selected[0]}}
-            onChange={({condition, value}) => dispatch({type: "set_condition", payload: {name, value, condition}})}
+            selected={{operator, value: selected[0]}}
+            onChange={({operator, value}) => dispatch({type: "set_condition", payload: {name, value, operator}})}
             onReset={() => dispatch({type: "reset", payload: {name}})}
           />
         );

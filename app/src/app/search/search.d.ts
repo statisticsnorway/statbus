@@ -1,4 +1,4 @@
-type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
+type PostgrestOperator = "eq" | "gt" | "lt" | "in" | "cd" | "fts"
 
 type SearchFilterName =
   "search"
@@ -37,7 +37,7 @@ type SearchFilter = {
   readonly label: string
   readonly options?: SearchFilterOption[]
   readonly selected: (string | null)[]
-  readonly condition?: SearchFilterCondition
+  readonly operator: PostgrestOperator
 }
 
 type SearchResult = {
@@ -46,7 +46,7 @@ type SearchResult = {
 }
 
 interface ConditionalValue {
-  condition: SearchFilterCondition
+  operator: PostgrestOperator
   value: string,
 }
 
@@ -78,7 +78,7 @@ interface SetCondition {
   payload: {
     name: string,
     value: string,
-    condition: SearchFilterCondition
+    operator: PostgrestOperator
   }
 }
 

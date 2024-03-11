@@ -1,9 +1,9 @@
 import {Badge} from "@/components/ui/badge";
 import * as React from "react";
 
-export function ConditionalValueBadge({condition, value}: ConditionalValue) {
+export function ConditionalValueBadge({operator, value}: ConditionalValue) {
 
-    function resolveSymbol(condition: SearchFilterCondition) {
+    function resolveSymbol(condition: PostgrestOperator) {
         switch (condition) {
             case "eq":
                 return ""
@@ -13,10 +13,12 @@ export function ConditionalValueBadge({condition, value}: ConditionalValue) {
                 return "<"
             case "in":
                 return "in"
+            default:
+                return ""
         }
     }
 
-    const prefix = resolveSymbol(condition)
+    const prefix = resolveSymbol(operator)
 
     return (
         <Badge variant="secondary" className="rounded-sm px-2 font-normal">

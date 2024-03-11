@@ -17,9 +17,9 @@ export function searchFilterReducer(state: SearchState, action: SearchAction): S
       return {...state, filters, pagination: { ...state.pagination, pageNumber: 1 }}
     }
     case "set_condition": {
-      const {name, value, condition} = action.payload
-      const filters = state.filters.map(f => f.name === name ? {...f, selected: [value], condition} : f)
-      return {...state, filters, pagination: { ...state.pagination, pageNumber: 1 }}
+      const {name, value, operator} = action.payload
+      const filters = state.filters.map(f => f.name === name ? {...f, selected: [value], operator} : f)
+      return {...state, pagination: { ...state.pagination, pageNumber: 1 }}
     }
     case "set_search": {
       const {name, value} = action.payload
