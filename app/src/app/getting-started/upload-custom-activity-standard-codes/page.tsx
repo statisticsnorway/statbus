@@ -31,7 +31,7 @@ export default async function UploadCustomActivityCategoryCodesPage() {
 
             <UploadCSVForm
                 uploadView="activity_category_available_custom"
-                nextPage="/getting-started/upload-legal-units"
+                nextPage="/getting-started/upload-custom-sectors"
             />
 
             <Accordion type="single" collapsible>

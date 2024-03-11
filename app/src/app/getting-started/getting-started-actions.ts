@@ -5,14 +5,16 @@ import {createClient} from "@/lib/supabase/server";
 import {revalidatePath} from "next/cache";
 
 interface State {
-    error: string | null
+    readonly error: string | null
+    readonly success?: boolean
 }
 
 export type UploadView =
     "region_upload"
     | "legal_unit_region_activity_category_current"
     | "activity_category_available_custom"
-    | "establishment_region_activity_category_stats_current";
+    | "establishment_region_activity_category_stats_current"
+    | "sector_custom";
 
 export async function uploadFile(filename: string, uploadView: UploadView, _prevState: State, formData: FormData): Promise<State> {
     "use server";
@@ -35,19 +37,10 @@ export async function uploadFile(filename: string, uploadView: UploadView, _prev
             return {error: data.message.replace(/,/g, ', ').replace(/;/g, '; ')}
         }
 
+        return {error: null, success: true}
+
     } catch (e) {
         return {error: `failed to upload in view ${uploadView}`}
-    }
-
-    switch (uploadView) {
-        case "activity_category_available_custom":
-            return redirect('/getting-started/upload-regions', RedirectType.push)
-        case "region_upload":
-            return redirect('/getting-started/upload-legal-units', RedirectType.push)
-        case "legal_unit_region_activity_category_current":
-            return redirect('/getting-started/upload-establishments', RedirectType.push)
-        case "establishment_region_activity_category_stats_current":
-            return redirect('/getting-started/summary', RedirectType.push)
     }
 }
 

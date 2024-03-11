@@ -5,10 +5,11 @@ import {Button, buttonVariants} from "@/components/ui/button";
 import {Label} from "@/components/ui/label";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
-import React from "react";
+import React, {useEffect} from "react";
 import {ErrorBox} from "@/components/error-box";
 import {uploadFile} from "@/app/getting-started/getting-started-actions";
 import type {UploadView} from "@/app/getting-started/getting-started-actions";
+import {useRouter} from "next/navigation";
 
 const UploadFormButtons = ({error, nextPage}: { error: string | null, nextPage: string }) => {
     const {pending} = useFormStatus();
@@ -32,6 +33,13 @@ const UploadFormButtons = ({error, nextPage}: { error: string | null, nextPage: 
 export const UploadCSVForm = ({uploadView, nextPage}: { uploadView: UploadView, nextPage: string }) => {
     const filename = "upload-file"
     const [state, formAction] = useFormState(uploadFile.bind(null, filename, uploadView), {error: null})
+    const router = useRouter()
+
+    useEffect(() => {
+      if (state.success) {
+        router.push(nextPage)
+      }
+    }, [state.success, router, nextPage])
 
     return (
         <form action={formAction} className="space-y-6 bg-green-100 p-6">
