@@ -5,6 +5,9 @@ import {DetailsPage} from "@/components/statistical-unit-details/details-page";
 import {getLegalUnitById} from "@/components/statistical-unit-details/requests";
 import {InfoBox} from "@/components/info-box";
 import Link from "next/link";
+import {createClient} from "@/lib/supabase/server";
+import {revalidatePath} from "next/cache";
+import {Button} from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info"
@@ -21,6 +24,19 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
     notFound()
   }
 
+  async function setPrimary(id: number) {
+    'use server';
+    const client = createClient();
+    const {error} = await client.rpc('set_primary_legal_unit_for_enterprise', {legal_unit_id: id})
+
+    if (error) {
+      console.error('failed to set primary legal unit', error)
+      return
+    }
+
+    return revalidatePath("/legal-units/[id]", "page")
+  }
+
   return (
     <DetailsPage title="General Info" subtitle="General information such as name, id, sector and primary activity">
       <GeneralInfoForm values={legalUnit} id={id}/>
@@ -35,6 +51,15 @@ export default async function LegalUnitGeneralInfoPage({params: {id}}: { readonl
               Changes you make to this legal unit will affect the enterprise.
             </p>
           </InfoBox>
+        )
+      }
+      {
+        !legalUnit.primary_for_enterprise && (
+          <form action={setPrimary.bind(null, legalUnit.id)} className="p-2 bg-gray-100">
+            <Button type="submit" variant="outline">
+              Set as primary legal unit
+            </Button>
+          </form>
         )
       }
     </DetailsPage>

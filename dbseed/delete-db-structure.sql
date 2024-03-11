@@ -58,11 +58,15 @@ DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,val
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
 DROP FUNCTION public.statistical_unit_refresh_now();
 DROP FUNCTION public.statistical_unit_refreshed_at();
-DROP FUNCTION public.statistical_unit_facet_drilldown(public.statistical_unit_type,ltree,ltree,date);
+DROP FUNCTION public.statistical_unit_facet_drilldown(public.statistical_unit_type,ltree,ltree,ltree,integer,integer,date);
 DROP MATERIALIZED VIEW public.statistical_unit_facet;
 DROP MATERIALIZED VIEW public.region_used;
 DROP MATERIALIZED VIEW public.activity_category_used;
+DROP MATERIALIZED VIEW public.sector_used;
+DROP MATERIALIZED VIEW public.legal_form_used;
+DROP MATERIALIZED VIEW public.physical_country_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
+DROP VIEW public.statistical_unit_def;
 DROP TYPE public.statistical_unit_type;
 
 DROP VIEW public.activity_category_isic_v4;
@@ -282,6 +286,8 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
     valid_from date,
     valid_to date
     );
+
+DROP FUNCTION public.reset_all_data (confirmed boolean);
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();

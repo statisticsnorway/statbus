@@ -29,24 +29,27 @@ export function Topology({hierarchy, unitId, unitType}: TopologyProps) {
             <ul className={cn('hierarchy', compact && '[&_.topology-item-content]:hidden')}>
                 <TopologyItem
                     type="enterprise"
+                    id={hierarchy.enterprise.id}
                     unit={primaryLegalUnit}
                     active={hierarchy.enterprise.id == unitId && unitType === 'enterprise'}
                 >
                     {
-                        hierarchy.enterprise?.legal_unit.map((legalUnit) => (
+                        hierarchy.enterprise.legal_unit.map((legalUnit) => (
                             <TopologyItem
                                 key={legalUnit.id}
-                                unit={legalUnit}
                                 type="legal_unit"
+                                id={legalUnit.id}
+                                unit={legalUnit}
                                 active={legalUnit.id === unitId && unitType === 'legal_unit'}
                                 primary={legalUnit.primary}
                             >
-                                {legalUnit.establishment.map((establishment) =>
+                                {legalUnit.establishment?.map((establishment) =>
                                     <TopologyItem
                                         key={establishment.id}
+                                        type="establishment"
+                                        id={establishment.id}
                                         unit={establishment}
                                         active={establishment.id === unitId && unitType === 'establishment'}
-                                        type="establishment"
                                         primary={establishment.primary}
                                     />
                                 )}

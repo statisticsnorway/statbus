@@ -27,7 +27,7 @@ SET datestyle TO 'ISO, DMY';
 -- We need longer timeout for larger loads.
 -- Ref. https://supabase.com/docs/guides/database/postgres/configuration
 -- For API users
-ALTER ROLE authenticated SET statement_timeout = '30s';
+ALTER ROLE authenticated SET statement_timeout = '120s';
 
 -- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
 CREATE SCHEMA admin;
@@ -174,7 +174,7 @@ BEGIN
     standardCode := TG_ARGV[0];
     SELECT id INTO standardId FROM public.activity_category_standard WHERE code = standardCode;
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Unknown activity_category_standard.code %s', standardCode;
+      RAISE EXCEPTION 'Unknown activity_category_standard.code %', standardCode;
     END IF;
 
     WITH parent AS (
@@ -2039,6 +2039,7 @@ CREATE VIEW public.statistical_unit_def
     , secondary_activity_category_path
     , activity_category_paths
     , sector_id
+    , sector_path
     , sector_code
     , sector_name
     , legal_form_id
@@ -2116,6 +2117,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2197,6 +2199,7 @@ CREATE VIEW public.statistical_unit_def
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
            , s.id   AS sector_id
+           , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
            , NULL::INTEGER AS legal_form_id
@@ -2303,6 +2306,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -2357,6 +2361,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2432,6 +2437,7 @@ CREATE VIEW public.statistical_unit_def
              , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
              --
              , s.id   AS sector_id
+             , s.path AS sector_path
              , s.code AS sector_code
              , s.name AS sector_name
              , lf.id   AS legal_form_id
@@ -2544,6 +2550,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -2594,6 +2601,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2669,6 +2677,7 @@ CREATE VIEW public.statistical_unit_def
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
            , s.id   AS sector_id
+           , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
            , lf.id   AS legal_form_id
@@ -2784,6 +2793,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -2833,6 +2843,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2908,6 +2919,7 @@ CREATE VIEW public.statistical_unit_def
              , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
              --
              , s.id   AS sector_id
+             , s.path AS sector_path
              , s.code AS sector_code
              , s.name AS sector_name
              , NULL::INTEGER AS legal_form_id
@@ -3013,6 +3025,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -3059,6 +3072,7 @@ CREATE VIEW public.statistical_unit_def
          , NULL::public.ltree[] AS activity_category_paths
          --
          , NULL::INTEGER AS sector_id
+         , NULL::public.ltree AS sector_path
          , NULL::TEXT    AS sector_code
          , NULL::TEXT    AS sector_name
          , NULL::INTEGER AS legal_unit_id
@@ -3116,6 +3130,7 @@ CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.stati
 CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
+CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
 CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
 CREATE INDEX idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
 CREATE INDEX idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
@@ -3162,6 +3177,48 @@ ORDER BY path;
 CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
 
+\echo public.sector_used
+CREATE MATERIALIZED VIEW public.sector_used AS
+SELECT s.id
+     , s.path
+     , s.label
+     , s.code
+     , s.name
+FROM public.sector AS s
+WHERE s.path OPERATOR(public.@>) (SELECT array_agg(sector_path) FROM public.statistical_unit WHERE sector_path IS NOT NULL)
+  AND s.active
+ORDER BY s.path;
+
+CREATE UNIQUE INDEX "sector_used_key"
+    ON public.sector_used (path);
+
+\echo public.legal_form_used
+CREATE MATERIALIZED VIEW public.legal_form_used AS
+SELECT lf.id
+     , lf.code
+     , lf.name
+FROM public.legal_form AS lf
+WHERE lf.id IN (SELECT legal_form_id FROM public.statistical_unit WHERE legal_form_id IS NOT NULL)
+  AND lf.active
+ORDER BY lf.id;
+
+CREATE UNIQUE INDEX "legal_form_used_key"
+    ON public.legal_form_used (code);
+
+
+\echo public.physical_country_used
+CREATE MATERIALIZED VIEW public.physical_country_used AS
+SELECT c.id
+     , c.code_2
+     , c.name
+FROM public.country AS c
+WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE physical_country_id IS NOT NULL)
+  AND c.active
+ORDER BY c.id;
+
+CREATE UNIQUE INDEX "country_used_key"
+    ON public.physical_country_used (code_2);
+
 
 \echo public.statistical_unit_facet
 CREATE MATERIALIZED VIEW public.statistical_unit_facet AS
@@ -3170,25 +3227,37 @@ SELECT valid_from
      , unit_type
      , physical_region_path
      , primary_activity_category_path
+     , sector_path
+     , legal_form_id
+     , physical_country_id
      , count(*) AS count
      , sum(employees) AS employees
 FROM public.statistical_unit
-WHERE physical_region_path IS NOT NULL
-  AND primary_activity_category_path IS NOT NULL
 GROUP BY valid_from
        , valid_to
        , unit_type
        , physical_region_path
        , primary_activity_category_path
+       , sector_path
+       , legal_form_id
+       , physical_country_id
 ;
 
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
 CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
 CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
+
 CREATE INDEX statistical_unit_facet_physical_region_path_btree ON public.statistical_unit_facet USING BTREE (physical_region_path);
 CREATE INDEX statistical_unit_facet_physical_region_path_gist ON public.statistical_unit_facet USING GIST (physical_region_path);
+
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON public.statistical_unit_facet USING BTREE (primary_activity_category_path);
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
+
+CREATE INDEX statistical_unit_facet_sector_path_btree ON public.statistical_unit_facet USING BTREE (sector_path);
+CREATE INDEX statistical_unit_facet_sector_path_gist ON public.statistical_unit_facet USING GIST (sector_path);
+
+CREATE INDEX statistical_unit_facet_legal_form_id_btree ON public.statistical_unit_facet USING BTREE (legal_form_id);
+CREATE INDEX statistical_unit_facet_physical_country_id_btree ON public.statistical_unit_facet USING BTREE (physical_country_id);
 
 
 \echo public.statistical_unit_facet_drilldown
@@ -3196,6 +3265,9 @@ CREATE FUNCTION public.statistical_unit_facet_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
+    sector_path public.ltree DEFAULT NULL,
+    legal_form_id INTEGER DEFAULT NULL,
+    physical_country_id INTEGER DEFAULT NULL,
     valid_on date DEFAULT current_date
 )
 RETURNS jsonb AS $$
@@ -3206,6 +3278,9 @@ RETURNS jsonb AS $$
         SELECT
             suf.physical_region_path,
             suf.primary_activity_category_path,
+            suf.sector_path,
+            suf.legal_form_id,
+            suf.physical_country_id,
             count,
             employees
         FROM
@@ -3221,6 +3296,22 @@ RETURNS jsonb AS $$
                 activity_category_path IS NULL
                 OR suf.primary_activity_category_path OPERATOR(public.<@) activity_category_path
             )
+            AND (
+                sector_path IS NULL
+                OR suf.sector_path OPERATOR(public.<@) sector_path
+            )
+            AND (
+                legal_form_id IS NULL
+                OR suf.legal_form_id = legal_form_id
+            )
+            AND (
+                physical_country_id IS NULL
+                OR suf.physical_country_id = physical_country_id
+            )
+    ), available_facet_stats AS (
+        SELECT COALESCE(SUM(af.count), 0) AS count
+             , COALESCE(SUM(af.employees), 0) AS employees
+        FROM available_facet AS af
     ),
     breadcrumb_region AS (
         SELECT r.path
@@ -3309,17 +3400,128 @@ RETURNS jsonb AS $$
                , aac.label
                , aac.code
                , aac.name
+    ),
+    breadcrumb_sector AS (
+        SELECT s.path
+             , s.label
+             , s.code
+             , s.name
+        FROM public.sector AS s
+        WHERE
+            (   sector_path IS NOT NULL
+            AND s.path OPERATOR(public.@>) (sector_path)
+            )
+        ORDER BY s.path
+    ),
+    available_sector AS (
+        SELECT "as".path
+             , "as".label
+             , "as".code
+             , "as".name
+        FROM public.sector AS "as"
+        WHERE
+            (
+                (sector_path IS NULL AND "as".path OPERATOR(public.~) '*{1}'::public.lquery)
+            OR
+                (sector_path IS NOT NULL AND "as".path OPERATOR(public.~) (sector_path::text || '.*{1}')::public.lquery)
+            )
+        ORDER BY "as".path
+    ), aggregated_sector_counts AS (
+        SELECT "as".path
+             , "as".label
+             , "as".code
+             , "as".name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
+        FROM available_sector AS "as"
+        LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
+        GROUP BY "as".path
+               , "as".label
+               , "as".code
+               , "as".name
+    ),
+    breadcrumb_legal_form AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+        FROM public.legal_form AS lf
+        WHERE
+            (   legal_form_id IS NOT NULL
+            AND lf.id = legal_form_id
+            )
+        ORDER BY lf.id
+    ),
+    available_legal_form AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+        FROM public.legal_form AS lf
+        -- Every sector is available, unless one is selected.
+        WHERE legal_form_id IS NULL
+        ORDER BY lf.id
+    ), aggregated_legal_form_counts AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
+             , false AS has_children
+        FROM available_legal_form AS lf
+        LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
+        GROUP BY lf.id
+               , lf.code
+               , lf.name
+    ),
+    breadcrumb_physical_country AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+        FROM public.country AS pc
+        WHERE
+            (   physical_country_id IS NOT NULL
+            AND pc.id = physical_country_id
+            )
+        ORDER BY pc.code_2
+    ),
+    available_physical_country AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+        FROM public.country AS pc
+        -- Every country is available, unless one is selected.
+        WHERE physical_country_id IS NULL
+        ORDER BY pc.code_2
+    ), aggregated_physical_country_counts AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
+             , false AS has_children
+        FROM available_physical_country AS pc
+        LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
+        GROUP BY pc.id
+               , pc.code_2
+               , pc.name
     )
     SELECT
         jsonb_build_object(
           'unit_type', unit_type,
+          'stats', (SELECT jsonb_agg(to_jsonb(source.*)) FROM available_facet_stats AS source),
           'breadcrumb',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
-            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source)
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
+            'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_sector AS source),
+            'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_legal_form AS source),
+            'physical_country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
           ),
           'available',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
-            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0)
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0),
+            'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_sector_counts AS source WHERE count > 0),
+            'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_legal_form_counts AS source WHERE count > 0),
+            'physical_country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           )
         );
 $$ LANGUAGE sql SECURITY DEFINER;
@@ -3626,7 +3828,15 @@ DECLARE
     start_at TIMESTAMPTZ;
     stop_at TIMESTAMPTZ;
     duration_ms numeric(18,3);
-    materialized_views text[] := ARRAY['statistical_unit', 'activity_category_used', 'region_used', 'statistical_unit_facet'];
+    materialized_views text[] := ARRAY
+        [ 'statistical_unit'
+        , 'activity_category_used'
+        , 'region_used'
+        , 'sector_used'
+        , 'legal_form_used'
+        , 'physical_country_used'
+        , 'statistical_unit_facet'
+        ];
 BEGIN
     FOREACH name IN ARRAY materialized_views LOOP
         SELECT clock_timestamp() INTO start_at;
@@ -6360,6 +6570,197 @@ AFTER INSERT ON public.establishment_brreg_view
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
+
+\echo public.reset_all_data(boolean confirmed)
+CREATE FUNCTION public.reset_all_data (confirmed boolean)
+RETURNS JSONB
+LANGUAGE plpgsql AS $$
+DECLARE
+    result JSONB := '{}'::JSONB;
+    changed JSONB;
+BEGIN
+    IF NOT confirmed THEN
+        RAISE EXCEPTION 'Action not confirmed.';
+    END IF;
+
+    -- Initial pattern application for 'activity'
+    WITH deleted AS (
+        DELETE FROM public.activity WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'activity', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted)
+            )
+        ) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'location'
+    WITH deleted_location AS (
+        DELETE FROM public.location WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'location', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_location)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'stat_for_unit'
+    WITH deleted_stat_for_unit AS (
+        DELETE FROM public.stat_for_unit WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'stat_for_unit', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_stat_for_unit)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Repeating the pattern for each remaining table...
+
+    WITH deleted_establishment AS (
+        DELETE FROM public.establishment WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'establishment', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_establishment)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_legal_unit AS (
+        DELETE FROM public.legal_unit WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'legal_unit', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_legal_unit)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_enterprise AS (
+        DELETE FROM public.enterprise WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'enterprise', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_enterprise)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_region AS (
+        DELETE FROM public.region WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'region', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_region)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_settings AS (
+        DELETE FROM public.settings WHERE only_one_setting = TRUE RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'settings', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_settings)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Special handling for tables with 'custom' attribute
+
+    -- Change any children with `parent_id` pointing to an `id` of a row to be deleted,
+    -- to point to a NOT custom row instead.
+    WITH activity_category_to_delete AS (
+        SELECT to_delete.id AS id_to_delete
+             , replacement.id AS replacement_id
+        FROM public.activity_category AS to_delete
+        LEFT JOIN public.activity_category AS replacement
+          ON to_delete.path = replacement.path
+         AND NOT replacement.custom
+        WHERE to_delete.custom
+          AND to_delete.active
+        ORDER BY to_delete.path
+    ), updated_child AS (
+        UPDATE public.activity_category AS child
+           SET parent_id = to_delete.replacement_id
+          FROM activity_category_to_delete AS to_delete
+           WHERE to_delete.replacement_id IS NOT NULL
+             AND NOT child.custom
+             AND parent_id = to_delete.id_to_delete
+        RETURNING *
+    ), deleted_activity_category AS (
+        DELETE FROM public.activity_category
+         WHERE id in (SELECT id_to_delete FROM activity_category_to_delete)
+        RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'deleted_count', (SELECT COUNT(*) FROM deleted_activity_category),
+        'changed_children_count', (SELECT COUNT(*) FROM updated_child)
+    ) INTO changed;
+
+    WITH changed_activity_category AS (
+        UPDATE public.activity_category
+        SET active = TRUE
+        WHERE NOT custom
+          AND NOT active
+          -- How to ensure updated_child runs before this query?
+        RETURNING *
+    )
+    SELECT changed || jsonb_build_object(
+        'changed_count', (SELECT COUNT(*) FROM changed_activity_category)
+    ) INTO changed;
+    SELECT jsonb_build_object('activity_category', changed) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'sector'
+    WITH deleted_sector AS (
+        DELETE FROM public.sector WHERE custom RETURNING *
+    ), changed_sector AS (
+        UPDATE public.sector
+           SET active = TRUE
+         WHERE NOT custom
+           AND NOT active
+         RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'sector', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_sector),
+            'changed_count', (SELECT COUNT(*) FROM changed_sector)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'legal_form'
+    WITH deleted_legal_form AS (
+        DELETE FROM public.legal_form WHERE custom RETURNING *
+    ), changed_legal_form AS (
+        UPDATE public.legal_form
+           SET active = TRUE
+         WHERE NOT custom
+           AND NOT active
+         RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'legal_form', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_legal_form),
+            'changed_count', (SELECT COUNT(*) FROM changed_legal_form)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    SELECT jsonb_build_object(
+        'statistical_unit_refresh_now',jsonb_agg(data.*)
+      ) INTO changed
+      FROM public.statistical_unit_refresh_now() AS data;
+    result := result || changed;
+
+    RETURN result;
+END;
+$$;
+
+
 -- time psql <<EOS
 -- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
@@ -6548,69 +6949,6 @@ $$ LANGUAGE plpgsql;
 --SELECT admin.grant_type_and_function_access_to_authenticated();
 --SET LOCAL client_min_messages TO INFO;
 
---GRANT USAGE ON SCHEMA admin TO authenticated;
--- admin.existing_upsert_case
--- admin.upsert_generic_valid_time_table
---GRANT USAGE ON TYPE admin.existing_upsert_case TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_generic_valid_time_table TO authenticated;
-
-
---GRANT USAGE ON TYPE admin.view_type_enum TO authenticated;
---GRANT USAGE ON TYPE admin.table_type_enum TO authenticated;
---GRANT USAGE ON TYPE admin.custom_view_def_names TO authenticated;
---GRANT USAGE ON TYPE admin.existing_upsert_case TO authenticated;
---
---GRANT EXECUTE ON FUNCTION admin.upsert_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_custom_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region_7_levels() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_generic_valid_time_table TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_current() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_establishment_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_establishment_brreg_view() TO authenticated;
---
---
---GRANT EXECUTE ON FUNCTION admin.check_stat_for_unit_values() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.create_new_statbus_user() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_custom_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region_7_levels() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.prevent_id_update() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_current() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_establishment_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_establishment_brreg_view() TO authenticated;
-
---GRANT SELECT ON ALL TYPES IN SCHEMA admin TO authenticated;
 
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
