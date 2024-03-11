@@ -6750,6 +6750,12 @@ BEGIN
     ) INTO changed;
     result := result || changed;
 
+    SELECT jsonb_build_object(
+        'statistical_unit_refresh_now',jsonb_agg(data.*)
+      ) INTO changed
+      FROM public.statistical_unit_refresh_now() AS data;
+    result := result || changed;
+
     RETURN result;
 END;
 $$;
