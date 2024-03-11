@@ -2039,6 +2039,7 @@ CREATE VIEW public.statistical_unit_def
     , secondary_activity_category_path
     , activity_category_paths
     , sector_id
+    , sector_path
     , sector_code
     , sector_name
     , legal_form_id
@@ -2116,6 +2117,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2197,6 +2199,7 @@ CREATE VIEW public.statistical_unit_def
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
            , s.id   AS sector_id
+           , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
            , NULL::INTEGER AS legal_form_id
@@ -2303,6 +2306,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -2357,6 +2361,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2432,6 +2437,7 @@ CREATE VIEW public.statistical_unit_def
              , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
              --
              , s.id   AS sector_id
+             , s.path AS sector_path
              , s.code AS sector_code
              , s.name AS sector_name
              , lf.id   AS legal_form_id
@@ -2544,6 +2550,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -2594,6 +2601,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2669,6 +2677,7 @@ CREATE VIEW public.statistical_unit_def
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
            , s.id   AS sector_id
+           , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
            , lf.id   AS legal_form_id
@@ -2784,6 +2793,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -2833,6 +2843,7 @@ CREATE VIEW public.statistical_unit_def
          , activity_category_paths
          --
          , sector_id
+         , sector_path
          , sector_code
          , sector_name
          , legal_form_id
@@ -2908,6 +2919,7 @@ CREATE VIEW public.statistical_unit_def
              , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
              --
              , s.id   AS sector_id
+             , s.path AS sector_path
              , s.code AS sector_code
              , s.name AS sector_name
              , NULL::INTEGER AS legal_form_id
@@ -3013,6 +3025,7 @@ CREATE VIEW public.statistical_unit_def
            , activity_category_paths
            --
            , sector_id
+           , sector_path
            , sector_code
            , sector_name
            , legal_form_id
@@ -3059,6 +3072,7 @@ CREATE VIEW public.statistical_unit_def
          , NULL::public.ltree[] AS activity_category_paths
          --
          , NULL::INTEGER AS sector_id
+         , NULL::public.ltree AS sector_path
          , NULL::TEXT    AS sector_code
          , NULL::TEXT    AS sector_name
          , NULL::INTEGER AS legal_unit_id
@@ -3116,6 +3130,7 @@ CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.stati
 CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
+CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
 CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
 CREATE INDEX idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
 CREATE INDEX idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
@@ -3162,6 +3177,48 @@ ORDER BY path;
 CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
 
+\echo public.sector_used
+CREATE MATERIALIZED VIEW public.sector_used AS
+SELECT s.id
+     , s.path
+     , s.label
+     , s.code
+     , s.name
+FROM public.sector AS s
+WHERE s.path OPERATOR(public.@>) (SELECT array_agg(sector_path) FROM public.statistical_unit WHERE sector_path IS NOT NULL)
+  AND s.active
+ORDER BY s.path;
+
+CREATE UNIQUE INDEX "sector_used_key"
+    ON public.sector_used (path);
+
+\echo public.legal_form_used
+CREATE MATERIALIZED VIEW public.legal_form_used AS
+SELECT lf.id
+     , lf.code
+     , lf.name
+FROM public.legal_form AS lf
+WHERE lf.id IN (SELECT legal_form_id FROM public.statistical_unit WHERE legal_form_id IS NOT NULL)
+  AND lf.active
+ORDER BY lf.id;
+
+CREATE UNIQUE INDEX "legal_form_used_key"
+    ON public.legal_form_used (code);
+
+
+\echo public.physical_country_used
+CREATE MATERIALIZED VIEW public.physical_country_used AS
+SELECT c.id
+     , c.code_2
+     , c.name
+FROM public.country AS c
+WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE physical_country_id IS NOT NULL)
+  AND c.active
+ORDER BY c.id;
+
+CREATE UNIQUE INDEX "country_used_key"
+    ON public.physical_country_used (code_2);
+
 
 \echo public.statistical_unit_facet
 CREATE MATERIALIZED VIEW public.statistical_unit_facet AS
@@ -3170,25 +3227,37 @@ SELECT valid_from
      , unit_type
      , physical_region_path
      , primary_activity_category_path
+     , sector_path
+     , legal_form_id
+     , physical_country_id
      , count(*) AS count
      , sum(employees) AS employees
 FROM public.statistical_unit
-WHERE physical_region_path IS NOT NULL
-  AND primary_activity_category_path IS NOT NULL
 GROUP BY valid_from
        , valid_to
        , unit_type
        , physical_region_path
        , primary_activity_category_path
+       , sector_path
+       , legal_form_id
+       , physical_country_id
 ;
 
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
 CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
 CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
+
 CREATE INDEX statistical_unit_facet_physical_region_path_btree ON public.statistical_unit_facet USING BTREE (physical_region_path);
 CREATE INDEX statistical_unit_facet_physical_region_path_gist ON public.statistical_unit_facet USING GIST (physical_region_path);
+
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON public.statistical_unit_facet USING BTREE (primary_activity_category_path);
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
+
+CREATE INDEX statistical_unit_facet_sector_path_btree ON public.statistical_unit_facet USING BTREE (sector_path);
+CREATE INDEX statistical_unit_facet_sector_path_gist ON public.statistical_unit_facet USING GIST (sector_path);
+
+CREATE INDEX statistical_unit_facet_legal_form_id_btree ON public.statistical_unit_facet USING BTREE (legal_form_id);
+CREATE INDEX statistical_unit_facet_physical_country_id_btree ON public.statistical_unit_facet USING BTREE (physical_country_id);
 
 
 \echo public.statistical_unit_facet_drilldown
@@ -3196,6 +3265,9 @@ CREATE FUNCTION public.statistical_unit_facet_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
+    sector_path public.ltree DEFAULT NULL,
+    legal_form_id INTEGER DEFAULT NULL,
+    physical_country_id INTEGER DEFAULT NULL,
     valid_on date DEFAULT current_date
 )
 RETURNS jsonb AS $$
@@ -3206,6 +3278,9 @@ RETURNS jsonb AS $$
         SELECT
             suf.physical_region_path,
             suf.primary_activity_category_path,
+            suf.sector_path,
+            suf.legal_form_id,
+            suf.physical_country_id,
             count,
             employees
         FROM
@@ -3220,6 +3295,18 @@ RETURNS jsonb AS $$
             AND (
                 activity_category_path IS NULL
                 OR suf.primary_activity_category_path OPERATOR(public.<@) activity_category_path
+            )
+            AND (
+                sector_path IS NULL
+                OR suf.sector_path OPERATOR(public.<@) sector_path
+            )
+            AND (
+                legal_form_id IS NULL
+                OR suf.legal_form_id = legal_form_id
+            )
+            AND (
+                physical_country_id IS NULL
+                OR suf.physical_country_id = physical_country_id
             )
     ),
     breadcrumb_region AS (
@@ -3309,17 +3396,127 @@ RETURNS jsonb AS $$
                , aac.label
                , aac.code
                , aac.name
+    ),
+    breadcrumb_sector AS (
+        SELECT s.path
+             , s.label
+             , s.code
+             , s.name
+        FROM public.sector AS s
+        WHERE
+            (   sector_path IS NOT NULL
+            AND s.path OPERATOR(public.@>) (sector_path)
+            )
+        ORDER BY s.path
+    ),
+    available_sector AS (
+        SELECT "as".path
+             , "as".label
+             , "as".code
+             , "as".name
+        FROM public.sector AS "as"
+        WHERE
+            (
+                (sector_path IS NULL AND "as".path OPERATOR(public.~) '*{1}'::public.lquery)
+            OR
+                (sector_path IS NOT NULL AND "as".path OPERATOR(public.~) (sector_path::text || '.*{1}')::public.lquery)
+            )
+        ORDER BY "as".path
+    ), aggregated_sector_counts AS (
+        SELECT "as".path
+             , "as".label
+             , "as".code
+             , "as".name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
+        FROM available_sector AS "as"
+        LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
+        GROUP BY "as".path
+               , "as".label
+               , "as".code
+               , "as".name
+    ),
+    breadcrumb_legal_form AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+        FROM public.legal_form AS lf
+        WHERE
+            (   legal_form_id IS NOT NULL
+            AND lf.id = legal_form_id
+            )
+        ORDER BY lf.id
+    ),
+    available_legal_form AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+        FROM public.legal_form AS lf
+        -- Every sector is available, unless one is selected.
+        WHERE legal_form_id IS NULL
+        ORDER BY lf.id
+    ), aggregated_legal_form_counts AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
+             , false AS has_children
+        FROM available_legal_form AS lf
+        LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
+        GROUP BY lf.id
+               , lf.code
+               , lf.name
+    ),
+    breadcrumb_physical_country AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+        FROM public.country AS pc
+        WHERE
+            (   physical_country_id IS NOT NULL
+            AND pc.id = physical_country_id
+            )
+        ORDER BY pc.code_2
+    ),
+    available_physical_country AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+        FROM public.country AS pc
+        -- Every country is available, unless one is selected.
+        WHERE physical_country_id IS NULL
+        ORDER BY pc.code_2
+    ), aggregated_physical_country_counts AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , COALESCE(SUM(suf.employees), 0) AS employees
+             , false AS has_children
+        FROM available_physical_country AS pc
+        LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
+        GROUP BY pc.id
+               , pc.code_2
+               , pc.name
     )
     SELECT
         jsonb_build_object(
           'unit_type', unit_type,
           'breadcrumb',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
-            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source)
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
+            'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_sector AS source),
+            'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_legal_form AS source),
+            'physical_country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
           ),
           'available',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
-            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0)
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0),
+            'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_sector_counts AS source WHERE count > 0),
+            'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_legal_form_counts AS source WHERE count > 0),
+            'physical_country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           )
         );
 $$ LANGUAGE sql SECURITY DEFINER;
@@ -3626,7 +3823,15 @@ DECLARE
     start_at TIMESTAMPTZ;
     stop_at TIMESTAMPTZ;
     duration_ms numeric(18,3);
-    materialized_views text[] := ARRAY['statistical_unit', 'activity_category_used', 'region_used', 'statistical_unit_facet'];
+    materialized_views text[] := ARRAY
+        [ 'statistical_unit'
+        , 'activity_category_used'
+        , 'region_used'
+        , 'sector_used'
+        , 'legal_form_used'
+        , 'physical_country_used'
+        , 'statistical_unit_facet'
+        ];
 BEGIN
     FOREACH name IN ARRAY materialized_views LOOP
         SELECT clock_timestamp() INTO start_at;
