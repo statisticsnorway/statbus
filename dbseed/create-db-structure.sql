@@ -6360,6 +6360,191 @@ AFTER INSERT ON public.establishment_brreg_view
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
+
+\echo public.reset_all_data(boolean confirmed)
+CREATE FUNCTION public.reset_all_data (confirmed boolean)
+RETURNS JSONB
+LANGUAGE plpgsql AS $$
+DECLARE
+    result JSONB := '{}'::JSONB;
+    changed JSONB;
+BEGIN
+    IF NOT confirmed THEN
+        RAISE EXCEPTION 'Action not confirmed.';
+    END IF;
+
+    -- Initial pattern application for 'activity'
+    WITH deleted AS (
+        DELETE FROM public.activity WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'activity', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted)
+            )
+        ) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'location'
+    WITH deleted_location AS (
+        DELETE FROM public.location WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'location', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_location)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'stat_for_unit'
+    WITH deleted_stat_for_unit AS (
+        DELETE FROM public.stat_for_unit WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'stat_for_unit', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_stat_for_unit)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Repeating the pattern for each remaining table...
+
+    WITH deleted_establishment AS (
+        DELETE FROM public.establishment WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'establishment', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_establishment)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_legal_unit AS (
+        DELETE FROM public.legal_unit WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'legal_unit', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_legal_unit)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_enterprise AS (
+        DELETE FROM public.enterprise WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'enterprise', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_enterprise)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_region AS (
+        DELETE FROM public.region WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'region', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_region)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    WITH deleted_settings AS (
+        DELETE FROM public.settings WHERE only_one_setting = TRUE RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'settings', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_settings)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Special handling for tables with 'custom' attribute
+
+    -- Change any children with `parent_id` pointing to an `id` of a row to be deleted,
+    -- to point to a NOT custom row instead.
+    WITH activity_category_to_delete AS (
+        SELECT to_delete.id AS id_to_delete
+             , replacement.id AS replacement_id
+        FROM public.activity_category AS to_delete
+        LEFT JOIN public.activity_category AS replacement
+          ON to_delete.path = replacement.path
+         AND NOT replacement.custom
+        WHERE to_delete.custom
+          AND to_delete.active
+        ORDER BY to_delete.path
+    ), updated_child AS (
+        UPDATE public.activity_category AS child
+           SET parent_id = to_delete.replacement_id
+          FROM activity_category_to_delete AS to_delete
+           WHERE to_delete.replacement_id IS NOT NULL
+             AND NOT child.custom
+             AND parent_id = to_delete.id_to_delete
+        RETURNING *
+    ), deleted_activity_category AS (
+        DELETE FROM public.activity_category
+         WHERE id in (SELECT id_to_delete FROM activity_category_to_delete)
+        RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'deleted_count', (SELECT COUNT(*) FROM deleted_activity_category),
+        'changed_children_count', (SELECT COUNT(*) FROM updated_child)
+    ) INTO changed;
+
+    WITH changed_activity_category AS (
+        UPDATE public.activity_category
+        SET active = TRUE
+        WHERE NOT custom
+          AND NOT active
+          -- How to ensure updated_child runs before this query?
+        RETURNING *
+    )
+    SELECT changed || jsonb_build_object(
+        'changed_count', (SELECT COUNT(*) FROM changed_activity_category)
+    ) INTO changed;
+    SELECT jsonb_build_object('activity_category', changed) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'sector'
+    WITH deleted_sector AS (
+        DELETE FROM public.sector WHERE custom RETURNING *
+    ), changed_sector AS (
+        UPDATE public.sector
+           SET active = TRUE
+         WHERE NOT custom
+           AND NOT active
+         RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'sector', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_sector),
+            'changed_count', (SELECT COUNT(*) FROM changed_sector)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Apply pattern for 'legal_form'
+    WITH deleted_legal_form AS (
+        DELETE FROM public.legal_form WHERE custom RETURNING *
+    ), changed_legal_form AS (
+        UPDATE public.legal_form
+           SET active = TRUE
+         WHERE NOT custom
+           AND NOT active
+         RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'legal_form', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_legal_form),
+            'changed_count', (SELECT COUNT(*) FROM changed_legal_form)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    RETURN result;
+END;
+$$;
+
+
 -- time psql <<EOS
 -- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
@@ -6548,69 +6733,6 @@ $$ LANGUAGE plpgsql;
 --SELECT admin.grant_type_and_function_access_to_authenticated();
 --SET LOCAL client_min_messages TO INFO;
 
---GRANT USAGE ON SCHEMA admin TO authenticated;
--- admin.existing_upsert_case
--- admin.upsert_generic_valid_time_table
---GRANT USAGE ON TYPE admin.existing_upsert_case TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_generic_valid_time_table TO authenticated;
-
-
---GRANT USAGE ON TYPE admin.view_type_enum TO authenticated;
---GRANT USAGE ON TYPE admin.table_type_enum TO authenticated;
---GRANT USAGE ON TYPE admin.custom_view_def_names TO authenticated;
---GRANT USAGE ON TYPE admin.existing_upsert_case TO authenticated;
---
---GRANT EXECUTE ON FUNCTION admin.upsert_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_custom_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region_7_levels() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_delete_function(table_name regclass, view_type admin.view_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, delete_function_name regprocedure) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def) TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_generic_valid_time_table TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_current() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_establishment_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_establishment_brreg_view() TO authenticated;
---
---
---GRANT EXECUTE ON FUNCTION admin.check_stat_for_unit_values() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.create_new_statbus_user() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_activity_category() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_category_available_custom_upsert_custom() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_region() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_region_7_levels() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_country() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.prevent_id_update() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.legal_unit_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.location_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.activity_era_upsert() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_region_activity_category_current() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_legal_unit_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.upsert_establishment_brreg_view() TO authenticated;
---GRANT EXECUTE ON FUNCTION admin.delete_stale_establishment_brreg_view() TO authenticated;
-
---GRANT SELECT ON ALL TYPES IN SCHEMA admin TO authenticated;
 
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated

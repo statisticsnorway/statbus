@@ -283,6 +283,8 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
     valid_to date
     );
 
+DROP FUNCTION public.reset_all_data (confirmed boolean);
+
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
 
