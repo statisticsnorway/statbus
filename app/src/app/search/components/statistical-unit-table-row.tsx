@@ -55,12 +55,18 @@ export const StatisticalUnitTableRow = ({unit, className}: SearchResultTableRowP
     return (
         <TableRow key={`${type}_${id}`} className={cn('', className, isInBasket ? 'bg-gray-100' : '')}>
             <TableCell className="py-2">
-                <div className="flex items-center space-x-3 leading-tight">
+                <div className="flex items-center space-x-3 leading-tight" title={name ?? ''}>
                     <StatisticalUnitIcon type={type} className="w-5"/>
-                    <div className="flex flex-col space-y-0.5 flex-1">
+                    <div className="flex flex-col space-y-0.5 flex-1 max-w-32 lg:max-w-56">
                         {
                             type && id && name ? (
-                                <StatisticalUnitDetailsLink id={id} type={type}>{name}</StatisticalUnitDetailsLink>
+                                <StatisticalUnitDetailsLink
+                                  className="whitespace-nowrap overflow-hidden overflow-ellipsis"
+                                  id={id}
+                                  type={type}
+                                >
+                                  {name}
+                                </StatisticalUnitDetailsLink>
                             ) : (
                                 <span className="font-medium">{name}</span>
                             )
