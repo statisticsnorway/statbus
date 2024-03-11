@@ -84,10 +84,10 @@ export function createFilters(opts: FilterOptions, params: URLSearchParams): Sea
         ...opts.sectors.map(({code, name}) => (
           {
             label: `${code} ${name}`,
-            value: code as string
+            value: code
           }
         ))],
-      selected: sectorCodeUrlParamValue ? [sectorCodeUrlParamValue] : [],
+      selected: sectorCodeUrlParamValue?.split(',') ?? [],
     },
     {
       type: "radio",

@@ -11,10 +11,9 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
     const client = createClient();
 
     const sectorPromise = client
-      .from('sector')
+      .from('sector_used')
       .select()
       .not('code', 'is', null)
-      .eq('active', true)
 
     const regionPromise = client
         .from('region_used')
