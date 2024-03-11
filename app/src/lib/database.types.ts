@@ -1220,6 +1220,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sector_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
@@ -1483,6 +1490,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
+            columns: ["legal_form_id"]
+            isOneToOne: false
+            referencedRelation: "legal_form_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
@@ -1522,6 +1536,13 @@ export type Database = {
             columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "sector_system"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sector_used"
             referencedColumns: ["id"]
           },
           {
@@ -1618,6 +1639,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "physical_country_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
@@ -1696,6 +1724,13 @@ export type Database = {
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "physical_country_used"
             referencedColumns: ["id"]
           },
         ]
@@ -2877,6 +2912,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sector_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
@@ -3048,6 +3090,14 @@ export type Database = {
           id?: number | null
           name?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      legal_form_used: {
+        Row: {
+          code: string | null
+          id: number | null
+          name: string | null
         }
         Relationships: []
       }
@@ -3305,6 +3355,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
+            columns: ["legal_form_id"]
+            isOneToOne: false
+            referencedRelation: "legal_form_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
@@ -3344,6 +3401,13 @@ export type Database = {
             columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "sector_system"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sector_used"
             referencedColumns: ["id"]
           },
           {
@@ -3494,6 +3558,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "physical_country_used"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
@@ -3567,6 +3638,14 @@ export type Database = {
           id?: number | null
           name?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      physical_country_used: {
+        Row: {
+          code_2: string | null
+          id: number | null
+          name: string | null
         }
         Relationships: []
       }
@@ -3771,6 +3850,16 @@ export type Database = {
         }
         Relationships: []
       }
+      sector_used: {
+        Row: {
+          code: string | null
+          id: number | null
+          label: string | null
+          name: string | null
+          path: unknown | null
+        }
+        Relationships: []
+      }
       stat_for_unit_era: {
         Row: {
           establishment_id: number | null
@@ -3859,6 +3948,62 @@ export type Database = {
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
+          sector_path: unknown | null
+          stat_ident: string | null
+          tax_reg_ident: string | null
+          turnover: number | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
+      statistical_unit_def: {
+        Row: {
+          activity_category_paths: unknown[] | null
+          aggregated_enterprise_ids: number[] | null
+          aggregated_establishment_ids: number[] | null
+          aggregated_legal_unit_ids: number[] | null
+          birth_date: string | null
+          death_date: string | null
+          employees: number | null
+          external_ident: string | null
+          external_ident_type: string | null
+          invalid_codes: Json | null
+          legal_form_code: string | null
+          legal_form_id: number | null
+          legal_form_name: string | null
+          name: string | null
+          physical_address_part1: string | null
+          physical_address_part2: string | null
+          physical_address_part3: string | null
+          physical_country_code_2: string | null
+          physical_country_id: number | null
+          physical_formatted_address: string | null
+          physical_postal_code: string | null
+          physical_postal_place: string | null
+          physical_region_id: number | null
+          physical_region_path: unknown | null
+          postal_address_part1: string | null
+          postal_address_part2: string | null
+          postal_address_part3: string | null
+          postal_country_code_2: string | null
+          postal_country_id: number | null
+          postal_formatted_address: string | null
+          postal_postal_code: string | null
+          postal_postal_place: string | null
+          postal_region_id: number | null
+          postal_region_path: unknown | null
+          primary_activity_category_id: number | null
+          primary_activity_category_path: unknown | null
+          search: unknown | null
+          secondary_activity_category_id: number | null
+          secondary_activity_category_path: unknown | null
+          sector_code: string | null
+          sector_id: number | null
+          sector_name: string | null
+          sector_path: unknown | null
           stat_ident: string | null
           tax_reg_ident: string | null
           turnover: number | null
@@ -3873,8 +4018,11 @@ export type Database = {
         Row: {
           count: number | null
           employees: number | null
+          legal_form_id: number | null
+          physical_country_id: number | null
           physical_region_path: unknown | null
           primary_activity_category_path: unknown | null
+          sector_path: unknown | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from: string | null
           valid_to: string | null
@@ -3969,6 +4117,19 @@ export type Database = {
         }
         Returns: Json
       }
+      add_prefix_to_each_line: {
+        Args: {
+          original_text: string
+          line_prefix: string
+        }
+        Returns: string
+      }
+      build_nested_json: {
+        Args: {
+          organisasjonsnummer_root: string
+        }
+        Returns: Json
+      }
       connect_legal_unit_to_enterprise: {
         Args: {
           legal_unit_id: number
@@ -3987,6 +4148,7 @@ export type Database = {
       derive_links: {
         Args: {
           selected_table: unknown
+          only_schema?: string
         }
         Returns: Database["public"]["CompositeTypes"]["link_info"][]
       }
@@ -3996,6 +4158,12 @@ export type Database = {
           valid_on?: string
         }
         Returns: Json
+      }
+      enum_to_typescript_union: {
+        Args: {
+          enum_values: Json
+        }
+        Returns: string
       }
       establishment_hierarchy: {
         Args: {
@@ -4345,6 +4513,21 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      jsonb_to_typescript_interface: {
+        Args: {
+          obj: Json
+          parent_name?: string
+          line_prefix?: string
+        }
+        Returns: string
+      }
+      jsonb_types_to_typescript: {
+        Args: {
+          data: Json
+          line_prefix?: string
+        }
+        Returns: string
+      }
       lca: {
         Args: {
           "": unknown[]
@@ -4492,6 +4675,12 @@ export type Database = {
         }
         Returns: Json
       }
+      reset_all_data: {
+        Args: {
+          confirmed: boolean
+        }
+        Returns: Json
+      }
       sector_hierarchy: {
         Args: {
           sector_id: number
@@ -4534,6 +4723,9 @@ export type Database = {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           region_path?: unknown
           activity_category_path?: unknown
+          sector_path?: unknown
+          legal_form_id?: number
+          physical_country_id?: number
           valid_on?: string
         }
         Returns: Json
@@ -4558,6 +4750,10 @@ export type Database = {
             }
             Returns: Json
           }
+      statistical_unit_hierarchy_typescript_for_jsonb: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       statistical_unit_refresh_now: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -4577,6 +4773,12 @@ export type Database = {
           "": string
         }
         Returns: unknown
+      }
+      topascalcase: {
+        Args: {
+          text_name: string
+        }
+        Returns: string
       }
       websearch_to_wildcard_tsquery: {
         Args: {
