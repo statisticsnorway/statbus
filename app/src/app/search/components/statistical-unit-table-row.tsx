@@ -23,7 +23,9 @@ export const StatisticalUnitTableRow = ({unit, className}: SearchResultTableRowP
         primary_activity_category_path,
         physical_region_path,
         tax_reg_ident,
-        employees
+        employees,
+        sector_name,
+        sector_code
     } = unit;
 
     const getRegionByPath = (physical_region_path: unknown) =>
@@ -53,9 +55,9 @@ export const StatisticalUnitTableRow = ({unit, className}: SearchResultTableRowP
     return (
         <TableRow key={`${type}_${id}`} className={cn('', className, isInBasket ? 'bg-gray-100' : '')}>
             <TableCell className="py-2">
-                <div className="flex items-center space-x-3 leading-none">
+                <div className="flex items-center space-x-3 leading-tight">
                     <StatisticalUnitIcon type={type} className="w-5"/>
-                    <div className="flex flex-col space-y-1.5 flex-1">
+                    <div className="flex flex-col space-y-0.5 flex-1">
                         {
                             type && id && name ? (
                                 <StatisticalUnitDetailsLink id={id} type={type}>{name}</StatisticalUnitDetailsLink>
@@ -68,16 +70,22 @@ export const StatisticalUnitTableRow = ({unit, className}: SearchResultTableRowP
                 </div>
             </TableCell>
             <TableCell className="text-left py-2">
-                {region?.name}
+              <div className="flex flex-col leading-tight space-y-0.5">
+                <span className="whitespace-nowrap max-w-32 overflow-hidden overflow-ellipsis">{region?.name}</span>
+                <small className="text-gray-700">{region?.code}</small>
+              </div>
             </TableCell>
             <TableCell className="text-right py-2">
                 {employees ?? '-'}
             </TableCell>
-            <TableCell
-                title={activityCategory?.name ?? ''}
-                className="text-left py-2 pl-4 pr-2 max-w-36 lg:max-w-72 overflow-hidden overflow-ellipsis whitespace-nowrap"
-            >
-                {activityCategory?.name ?? '-'}
+            <TableCell className="text-right py-2" title={sector_name ?? ''}>
+              {sector_code}
+            </TableCell>
+            <TableCell title={activityCategory?.name ?? ''} className="text-left py-2 pl-4 pr-2">
+              <div className="flex flex-col leading-tight space-y-0.5">
+                <span className="whitespace-nowrap max-w-32 lg:max-w-56 overflow-hidden overflow-ellipsis">{activityCategory?.name ?? '-'}</span>
+                <small className="text-gray-700">{activityCategory?.code}</small>
+              </div>
             </TableCell>
             <TableCell className="p-1 text-right">
                 <SearchResultTableRowDropdownMenu unit={unit}/>
