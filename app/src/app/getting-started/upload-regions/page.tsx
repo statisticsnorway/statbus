@@ -6,7 +6,11 @@ import {UploadCSVForm} from "@/app/getting-started/upload-csv-form";
 
 export default async function UploadRegionsPage() {
     const client = createClient()
-    const {count} = await client.from('region').select('*', {count: 'exact', head: true})
+    const {count} = await client
+      .from('region')
+      .select('*', {count: 'exact', head: true})
+      .limit(0)
+
     return (
         <section className="space-y-8">
             <h1 className="text-xl text-center">Upload Regions</h1>
@@ -24,7 +28,7 @@ export default async function UploadRegionsPage() {
 
             <UploadCSVForm
                 uploadView="region_upload"
-                nextPage="/getting-started/upload-custom-activity-standard-codes"
+                nextPage="/getting-started/upload-custom-sectors"
             />
 
             <Accordion type="single" collapsible>

@@ -6,7 +6,11 @@ import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/co
 
 export default async function UploadCustomActivityCategoryCodesPage() {
     const client = createClient()
-    const {count} = await client.from('activity_category_available_custom').select('*', {count: 'exact', head: true})
+    const {count} = await client
+      .from('activity_category_available_custom')
+      .select('*', {count: 'exact', head: true})
+      .limit(0)
+
     return (
         <section className="space-y-8">
             <h1 className="text-xl text-center">Upload Custom Activity Category Standard Codes</h1>

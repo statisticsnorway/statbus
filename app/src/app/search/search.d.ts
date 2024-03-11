@@ -1,4 +1,4 @@
-type SearchFilterCondition = "eq" | "gt" | "lt" | "in" | "ilike"
+type PostgrestOperator = "eq" | "gt" | "lt" | "in" | "cd" | "fts"
 
 type SearchFilterName =
   "search"
@@ -6,6 +6,7 @@ type SearchFilterName =
   | "unit_type"
   | "physical_region_path"
   | "primary_activity_category_path"
+  | "sector_code"
 
 type SearchFilterOption = {
   readonly label: string
@@ -36,7 +37,7 @@ type SearchFilter = {
   readonly label: string
   readonly options?: SearchFilterOption[]
   readonly selected: (string | null)[]
-  readonly condition?: SearchFilterCondition
+  readonly operator: PostgrestOperator
 }
 
 type SearchResult = {
@@ -45,7 +46,7 @@ type SearchResult = {
 }
 
 interface ConditionalValue {
-  condition: SearchFilterCondition
+  operator: PostgrestOperator
   value: string,
 }
 
@@ -77,7 +78,7 @@ interface SetCondition {
   payload: {
     name: string,
     value: string,
-    condition: SearchFilterCondition
+    operator: PostgrestOperator
   }
 }
 
@@ -110,9 +111,10 @@ interface SetPage {
 type SearchAction = ToggleOption | ToggleRadioOption | SetCondition | SetSearch | Reset | ResetAll | SetOrder | SetPage
 
 interface FilterOptions {
-  activityCategories: Tables<"activity_category_available">[],
+  activityCategories: Tables<"activity_category_available">[]
   regions: Tables<"region_used">[]
   statisticalVariables: Tables<"stat_definition">[]
+  sectors: Tables<"sector">[]
 }
 
 type SetOrderAction = { type: "set_order", payload: { name: string } }

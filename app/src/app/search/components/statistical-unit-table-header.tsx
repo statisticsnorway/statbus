@@ -8,6 +8,7 @@ export const StatisticalUnitTableHeader = () => {
                 <SortableTableHead name="name">Name</SortableTableHead>
                 <SortableTableHead className="text-left" name="physical_region_path">Region</SortableTableHead>
                 <SortableTableHead className="text-right" name="employees">Employees</SortableTableHead>
+                <SortableTableHead className="text-right" name="sector_code">Sector</SortableTableHead>
                 <SortableTableHead className="text-left" name="primary_activity_category_path">
                     Activity Category
                 </SortableTableHead>

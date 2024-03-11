@@ -26,72 +26,21 @@ export async function refreshStatisticalUnits() {
     }
 }
 
-export async function resetUnits() {
+export async function resetAll() {
     "use server";
     const client = createClient()
 
     try {
-        await client.from('activity')
-            .delete()
-            .gt('id', 0)
+      const {data, error } = await client.rpc('reset_all_data', { confirmed: true})
 
-        await client.from('location')
-            .delete()
-            .gt('id', 0)
+      if (error) {
+          console.error(`reset all returned error ${error.message}`)
+          return {error: error.message}
+      }
 
-        await client.from('stat_for_unit')
-            .delete()
-            .gt('id', 0)
-
-        await client
-            .from('legal_unit')
-            .delete()
-            .gt('id', 0)
-
-        await client
-            .from('establishment')
-            .delete()
-            .gt('id', 0)
+      return {error: null, data}
 
     } catch (error) {
         return {error: "Error resetting establishments"}
-    }
-}
-
-export async function resetRegions() {
-    "use server";
-    const client = createClient()
-
-    try {
-        const response = await client
-            .from('region')
-            .delete()
-            .gt('id', 0)
-
-        if (response.status >= 400) {
-            return {error: response.statusText}
-        }
-
-    } catch (error) {
-        return {error: "Error resetting regions"}
-    }
-}
-
-export async function resetSettings() {
-    "use server";
-    const client = createClient()
-
-    try {
-        const response = await client
-            .from('settings')
-            .delete()
-            .eq('only_one_setting', true)
-
-        if (response.status >= 400) {
-            return {error: response.statusText}
-        }
-
-    } catch (error) {
-        return {error: "Error resetting settings"}
     }
 }

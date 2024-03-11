@@ -44,37 +44,32 @@ try {
   wordBoundaryRegex = /\b\w+\b/g
 }
 
-export function generateFTSQuery(prompt: string = ""): string | null {
+export function generateFTSQuery(prompt: string | null): string | null {
+  if (!prompt) return null
   const cleanedPrompt = prompt.trim().toLowerCase();
   const isNegated = (word: string) => new RegExp(`\\-\\b(${word})\\b`).test(cleanedPrompt)
   const uniqueWordsInPrompt = new Set(cleanedPrompt.match(wordBoundaryRegex) ?? []);
-  const tsQuery = [...uniqueWordsInPrompt]
+  return [...uniqueWordsInPrompt]
     .map(word => isNegated(word) ? `!'${word}':*` : `'${word}':*`)
     .join(' & ');
-
-  return tsQuery ? `fts(simple).${tsQuery}` : null;
 }
 
-const generatePostgrestQuery = (f: SearchFilter) => {
-  const {selected, type, name, condition} = f;
-
-  if (type === 'conditional') {
-    return condition && selected.length ? `${condition}.${selected[0]}` : null
+const generatePostgrestQuery = ({selected, operator}: SearchFilter) => {
+  if (selected.length === 1 && selected[0] === null) {
+    return 'is.null'
   }
 
-  switch (name) {
-    case 'search':
-      return selected[0] ? generateFTSQuery(selected[0]) : null
-    case 'tax_reg_ident':
-      return selected[0] ? `eq.${selected[0]}` : null
-    case 'unit_type':
-      return selected.length ? `in.(${selected.join(',')})` : null
-    case 'physical_region_path':
-    case 'primary_activity_category_path': {
-      if (selected.length) {
-        return selected[0] === null ? `is.null` : `cd.${selected[0]}`
-      }
-      return null
+  switch (operator) {
+    case "eq":
+    case "gt":
+    case "lt":
+    case "cd":
+      return selected[0] ? `${operator}.${selected[0]}` : null
+    case "in":
+      return selected.length > 0 ? `in.(${selected.join(',')})` : null
+    case "fts": {
+      const query = generateFTSQuery(selected[0])
+      return query ? `fts(simple).${query}` : null
     }
     default:
       return null
