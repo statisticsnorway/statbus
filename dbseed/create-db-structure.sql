@@ -3308,6 +3308,10 @@ RETURNS jsonb AS $$
                 physical_country_id IS NULL
                 OR suf.physical_country_id = physical_country_id
             )
+    ), available_facet_stats AS (
+        SELECT COALESCE(SUM(af.count), 0) AS count
+             , COALESCE(SUM(af.employees), 0) AS employees
+        FROM available_facet AS af
     ),
     breadcrumb_region AS (
         SELECT r.path
@@ -3504,6 +3508,7 @@ RETURNS jsonb AS $$
     SELECT
         jsonb_build_object(
           'unit_type', unit_type,
+          'stats', (SELECT jsonb_agg(to_jsonb(source.*)) FROM available_facet_stats AS source),
           'breadcrumb',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
