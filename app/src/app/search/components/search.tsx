@@ -7,6 +7,7 @@ import {SearchProvider} from "@/app/search/search-provider";
 import {SearchResultCount} from "@/app/search/components/search-result-count";
 import {CartProvider} from "@/app/search/cart-provider";
 import {Cart} from "@/app/search/components/cart";
+import SearchResultPagination from "./search-result-pagination";
 
 interface SearchProps {
     readonly regions: Tables<"region_used">[]
@@ -14,14 +15,16 @@ interface SearchProps {
     readonly statisticalVariables: Tables<"stat_definition">[]
     readonly searchFilters: SearchFilter[]
     readonly searchOrder: SearchOrder
+    readonly searchPagination: SearchPagination
 }
 
-export default function Search({regions = [], activityCategories, searchFilters, searchOrder}: SearchProps) {
+export default function Search({regions = [], activityCategories, searchFilters, searchOrder, searchPagination}: SearchProps) {
     return (
         <CartProvider>
             <SearchProvider
                 filters={searchFilters}
                 order={searchOrder}
+                pagination={searchPagination}
                 regions={regions}
                 activityCategories={activityCategories}
             >
@@ -32,6 +35,7 @@ export default function Search({regions = [], activityCategories, searchFilters,
                     </div>
                     <div className="flex justify-between text-xs text-gray-500 items-center">
                         <SearchResultCount/>
+                        <SearchResultPagination/>
                         <div className="space-x-3 hidden lg:flex">
                             <ExportCSVLink/>
                         </div>
