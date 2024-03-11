@@ -1,7 +1,7 @@
 import {useEffect} from "react";
 import type {SearchContextState} from "@/app/search/search-provider";
 
-export default function useUpdatedUrlSearchParams({search: {filters, order, page}}: SearchContextState) {
+export default function useUpdatedUrlSearchParams({search: {filters, order, pagination}}: SearchContextState) {
   useEffect(() => {
     const urlSearchParams = filters
       .filter(f => f.selected?.length > 0 && f.selected[0] !== '')
@@ -14,8 +14,8 @@ export default function useUpdatedUrlSearchParams({search: {filters, order, page
       urlSearchParams.set('order', `${order.name}.${order.direction}`);
     }
 
-    if (page.value) {
-      urlSearchParams.set('page', `${page.value}`)
+    if (pagination.pageNumber) {
+      urlSearchParams.set('page', `${pagination.pageNumber}`)
     }
     
     window.history.replaceState(
@@ -23,5 +23,5 @@ export default function useUpdatedUrlSearchParams({search: {filters, order, page
       '',
       urlSearchParams.size > 0 ? `?${urlSearchParams}` : window.location.pathname
     );
-  }, [filters, order, page]);
+  }, [filters, order, pagination]);
 }

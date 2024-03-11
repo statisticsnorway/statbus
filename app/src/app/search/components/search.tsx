@@ -13,15 +13,15 @@ interface SearchProps {
   readonly statisticalVariables: Tables<"stat_definition">[]
   readonly searchFilters: SearchFilter[]
   readonly searchOrder: SearchOrder
-  readonly searchPage: SearchPage
+  readonly searchPagination: SearchPagination
 }
 
-export default function Search({regions = [], activityCategories, searchFilters, searchOrder, searchPage}: SearchProps) {
+export default function Search({regions = [], activityCategories, searchFilters, searchOrder, searchPagination}: SearchProps) {
   return (
     <SearchProvider
       filters={searchFilters}
       order={searchOrder}
-      page={searchPage}
+      pagination={searchPagination}
       regions={regions}
       activityCategories={activityCategories}
     >

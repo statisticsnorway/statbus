@@ -19,15 +19,15 @@ type SearchOrder = {
   readonly direction: string
 }
 
-type SearchPage = {
-  readonly size: number
-  readonly value: number
+type SearchPagination = {
+  readonly pageSize: number
+  readonly pageNumber: number
 }
 
 interface SearchState {
   readonly filters: SearchFilter[];
   readonly order: SearchOrder;
-  readonly page: SearchPage;
+  readonly pagination: SearchPagination;
 }
 
 type SearchFilter = {
@@ -103,7 +103,7 @@ interface ResetAll {
 interface SetPage {
   type: 'set_page'
   payload: {
-    value: number
+    pageNumber: number
   }
 }
 

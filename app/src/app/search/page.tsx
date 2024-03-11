@@ -66,7 +66,7 @@ export default async function SearchPage({ searchParams }: { readonly searchPara
                 statisticalVariables={statisticalVariables ?? []}
                 searchFilters={searchFilters}
                 searchOrder={{name: orderBy, direction: orderDirections.join('.')}}
-                searchPage={{value: currentPage, size: defaultPageSize}}
+                searchPagination={{pageNumber: currentPage, pageSize: defaultPageSize}}
             />
         </main>
     )

@@ -6,12 +6,12 @@ import { useSearchContext } from "../search-provider";
 
 
 export default function SearchResultPagination() {
-    const { search: {page}, dispatch, searchResult } = useSearchContext();
+    const { search: {pagination}, dispatch, searchResult } = useSearchContext();
     const totalResults = searchResult?.count || 0
-    const totalPages = Math.ceil(totalResults / page.size)
+    const totalPages = Math.ceil(totalResults / pagination.pageSize)
 
     const handlePageChange = (newPage : number) => {
-      dispatch({ type: 'set_page', payload: { value: newPage } });
+      dispatch({ type: 'set_page', payload: { pageNumber: newPage } });
     };
 
     if(!totalResults) return null;
@@ -21,27 +21,27 @@ export default function SearchResultPagination() {
       <PaginationContent>
         <PaginationItem>
           <PaginationFirst 
-            disabled={page.value == 1}  
+            disabled={pagination.pageNumber == 1}  
             onClick={() => handlePageChange(1)}/>
         </PaginationItem>
         <PaginationItem>
           <PaginationPrevious
-            disabled={page.value == 1}
-            onClick={() => handlePageChange(page.value - 1)}
+            disabled={pagination.pageNumber == 1}
+            onClick={() => handlePageChange(pagination.pageNumber - 1)}
           />
         </PaginationItem>
         <span className="px-1">
-            Page {page.value} of {totalPages}
+            Page {pagination.pageNumber} of {totalPages}
         </span>
         <PaginationItem>
           <PaginationNext
-            disabled={page.value == totalPages}
-            onClick={() => handlePageChange(page.value + 1)}
+            disabled={pagination.pageNumber == totalPages}
+            onClick={() => handlePageChange(pagination.pageNumber + 1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationLast 
-            disabled={page.value == totalPages}  
+            disabled={pagination.pageNumber == totalPages}  
             onClick={() => handlePageChange(totalPages)}/>
         </PaginationItem>
       </PaginationContent>

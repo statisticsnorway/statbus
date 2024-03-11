@@ -3,7 +3,7 @@ import useSWR, {Fetcher} from "swr";
 const fetcher: Fetcher<SearchResult, string> = (...args) => fetch(...args).then(res => res.json())
 
 export default function useSearch(searchFilterState: SearchState) {
-  const {filters, order, page} = searchFilterState
+  const {filters, order, pagination} = searchFilterState
   const searchParams = filters
     .map(f => [f.name, generatePostgrestQuery(f)])
     .filter(([, query]) => !!query)
@@ -16,9 +16,9 @@ export default function useSearch(searchFilterState: SearchState) {
     searchParams.set('order', `${order.name}.${order.direction}`)
   }
 
-  if (page.value && page.size) {
-    const offset = (page.value - 1) * page.size;
-    searchParams.set('limit', `${page.size}`);
+  if (pagination.pageNumber && pagination.pageSize) {
+    const offset = (pagination.pageNumber - 1) * pagination.pageSize;
+    searchParams.set('limit', `${pagination.pageSize}`);
     searchParams.set('offset', `${offset}`);
   }
 
