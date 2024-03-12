@@ -42,7 +42,11 @@ export function searchFilterReducer(
       const filters = state.filters.map((f) =>
         f.name === name ? { ...f, selected: [value], operator } : f
       );
-      return { ...state, pagination: { ...state.pagination, pageNumber: 1 } };
+      return {
+        ...state,
+        filters,
+        pagination: { ...state.pagination, pageNumber: 1 },
+      };
     }
     case "set_search": {
       const { name, value } = action.payload;
