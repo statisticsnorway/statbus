@@ -87,6 +87,9 @@ export default async function SetupStatus() {
             subtitle={`${numberOfEstablishments} establishments uploaded`}
           />
         </li>
+        <li className="mb-6">
+          <NavItem title="7. Summary" href="/getting-started/summary" />
+        </li>
       </ul>
     </nav>
   );
