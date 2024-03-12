@@ -1,8 +1,14 @@
-import React, {ReactNode} from "react";
-import {cn} from "@/lib/utils";
+import React, { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-export const InfoBox = ({children, className}: { readonly children: ReactNode, readonly className?: string }) => (
-    <div className={cn("p-6 bg-amber-100 leading-loose space-y-6", className)}>
-        {children}
-    </div>
-)
+export const InfoBox = ({
+  children,
+  className,
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+}) => (
+  <div className={cn("space-y-6 bg-amber-100 p-6 leading-loose", className)}>
+    {children}
+  </div>
+);

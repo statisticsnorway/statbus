@@ -1,6 +1,5 @@
 {
   "trailingComma": "es5",
   "semi": true,
-  "tabWidth": 2,
-  "plugins": ["prettier-plugin-tailwindcss"]
+  "tabWidth": 2
 }

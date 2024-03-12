@@ -1,30 +1,39 @@
-import {Metadata} from "next";
+import { Metadata } from "next";
 import StatBusChart from "@/app/reports/statbus-chart";
-import {createClient} from "@/lib/supabase/server";
-import {DrillDown} from "@/app/reports/types/drill-down";
+import { createClient } from "@/lib/supabase/server";
+import { DrillDown } from "@/app/reports/types/drill-down";
 
 export const metadata: Metadata = {
-    title: "StatBus | Reports"
-}
+  title: "StatBus | Reports",
+};
 
 export default async function ReportsPage() {
-    const client = createClient();
-    const {data: drillDown, error} = await client.rpc('statistical_unit_facet_drilldown').returns<DrillDown>()
+  const client = createClient();
+  const { data: drillDown, error } = await client
+    .rpc("statistical_unit_facet_drilldown")
+    .returns<DrillDown>();
 
-    if (error) {
-        console.error('⚠️failed to fetch statistical unit facet drill down data', error);
-        return (
-            <p className="p-24 text-center">
-                Sorry! We failed to fetch statistical unit facet drill down data.
-            </p>
-        )
-    }
-
+  if (error) {
+    console.error(
+      "⚠️failed to fetch statistical unit facet drill down data",
+      error
+    );
     return (
-        <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto w-full">
-            <h1 className="font-medium text-xl text-center mb-3">StatBus Data Drilldown</h1>
-            <p className="text-center mb-12">Gain data insights by drilling through the bar charts below</p>
-            <StatBusChart drillDown={drillDown}/>
-        </main>
-    )
+      <p className="p-24 text-center">
+        Sorry! We failed to fetch statistical unit facet drill down data.
+      </p>
+    );
+  }
+
+  return (
+    <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-24">
+      <h1 className="mb-3 text-center text-xl font-medium">
+        StatBus Data Drilldown
+      </h1>
+      <p className="mb-12 text-center">
+        Gain data insights by drilling through the bar charts below
+      </p>
+      <StatBusChart drillDown={drillDown} />
+    </main>
+  );
 }
