@@ -29,7 +29,7 @@ export default async function UploadCustomActivityCategoryCodesPage() {
       {count && count > 0 ? (
         <InfoBox>
           <p>
-            There are already {count} custom activity category codes defined.
+            There are already {count} custom activity category codes defined
           </p>
         </InfoBox>
       ) : null}

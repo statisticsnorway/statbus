@@ -26,7 +26,7 @@ export default async function UploadLegalUnitsPage() {
 
       {count && count > 0 ? (
         <InfoBox>
-          <p>There are already {count} legal units defined.</p>
+          <p>There are already {count} legal units defined</p>
         </InfoBox>
       ) : null}
 

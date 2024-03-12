@@ -26,7 +26,7 @@ export default async function UploadRegionsPage() {
 
       {count && count > 0 ? (
         <InfoBox>
-          <p>There are already {count} regions defined.</p>
+          <p>There are already {count} regions defined</p>
         </InfoBox>
       ) : null}
 
