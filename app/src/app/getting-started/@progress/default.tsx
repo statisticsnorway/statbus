@@ -3,9 +3,9 @@ import { NavItem } from "@/app/getting-started/@progress/nav-item";
 
 export default async function SetupStatus() {
   const client = createClient();
-  const { data: settings, count: numberOfSettings } = await client
+  const { data: settings } = await client
     .from("settings")
-    .select("activity_category_standard(id,name)", { count: "exact" })
+    .select("activity_category_standard(id,name)")
     .limit(1);
 
   const { count: numberOfRegions } = await client
@@ -35,18 +35,21 @@ export default async function SetupStatus() {
 
   return (
     <nav>
+      <h2 className="text-lg font-medium mb-8 text-center">
+        Steps to get started
+      </h2>
       <ul className="text-sm">
         <li className="mb-6">
           <NavItem
-            done={settings != null}
+            done={!!settings?.[0]?.activity_category_standard}
             title="1. Set Activity Category Standard"
             href="/getting-started/activity-standard"
-            subtitle={settings?.[0].activity_category_standard?.name}
+            subtitle={settings?.[0]?.activity_category_standard?.name}
           />
         </li>
         <li className="mb-6">
           <NavItem
-            done={numberOfRegions != null && numberOfRegions > 0}
+            done={!!numberOfRegions}
             title="2. Upload Regions"
             href="/getting-started/upload-regions"
             subtitle={`${numberOfRegions} regions uploaded`}
@@ -54,7 +57,7 @@ export default async function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
-            done={numberOfCustomSectors != null}
+            done={!!numberOfCustomSectors}
             title="3. Upload Custom Sectors (optional)"
             href="/getting-started/upload-custom-sectors"
             subtitle={`${numberOfCustomSectors} custom sectors uploaded`}
@@ -62,7 +65,7 @@ export default async function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
-            done={numberOfCustomActivityCategoryCodes != null}
+            done={!!numberOfCustomActivityCategoryCodes}
             title="4. Upload Custom Activity Category Standard Codes (optional)"
             href="/getting-started/upload-custom-activity-standard-codes"
             subtitle={`${numberOfCustomActivityCategoryCodes} custom activity category codes uploaded`}
@@ -70,7 +73,7 @@ export default async function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
-            done={numberOfLegalUnits != null && numberOfLegalUnits > 0}
+            done={!!numberOfLegalUnits}
             title="5. Upload Legal Units"
             href="/getting-started/upload-legal-units"
             subtitle={`${numberOfLegalUnits} legal units uploaded`}
@@ -78,7 +81,7 @@ export default async function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
-            done={numberOfEstablishments != null && numberOfEstablishments > 0}
+            done={!!numberOfEstablishments}
             title="6. Upload Establishments"
             href="/getting-started/upload-establishments"
             subtitle={`${numberOfEstablishments} establishments uploaded`}
