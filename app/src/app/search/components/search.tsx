@@ -40,9 +40,9 @@ export default function Search({
             <SearchResultTable />
           </div>
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <SearchResultCount />
+            <SearchResultCount className="flex-1" />
             <SearchResultPagination />
-            <div className="hidden space-x-3 lg:flex">
+            <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
               <ExportCSVLink />
             </div>
           </div>

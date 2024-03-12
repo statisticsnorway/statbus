@@ -1,6 +1,11 @@
 import { useSearchContext } from "@/app/search/search-provider";
+import { cn } from "@/lib/utils";
 
-export const SearchResultCount = () => {
+export const SearchResultCount = ({
+  className,
+}: {
+  readonly className?: string;
+}) => {
   const {
     search: { pagination },
     searchResult,
@@ -13,7 +18,7 @@ export const SearchResultCount = () => {
     ? Math.min(pagination.pageNumber * pagination.pageSize, searchResult.count)
     : 0;
   return (
-    <span className="indent-2.5">
+    <span className={cn("indent-2.5", className)}>
       Showing {startIndex}-{endIndex} of total {searchResult?.count} results
     </span>
   );
