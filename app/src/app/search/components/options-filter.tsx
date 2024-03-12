@@ -76,6 +76,7 @@ export function OptionsFilter({
               {options.map((option) => (
                 <CommandItem
                   key={`${option.value}_${option.label}`}
+                  value={option.label}
                   onSelect={() => onToggle(option)}
                   className="space-x-2"
                 >
