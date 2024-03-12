@@ -1,6 +1,6 @@
 "use server";
-import {type CookieOptions, createServerClient} from "@supabase/ssr";
-import {NextRequest, NextResponse} from "next/server";
+import { type CookieOptions, createServerClient } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
 
 // This approach is inspired by supabase docs:
 // https://supabase.com/docs/guides/auth/server-side/creating-a-client?environment=middleware
@@ -9,7 +9,7 @@ export const createClient = (request: NextRequest) => {
     request: {
       headers: request.headers,
     },
-  })
+  });
 
   const client = createServerClient(
     process.env.SUPABASE_URL!,
@@ -17,45 +17,45 @@ export const createClient = (request: NextRequest) => {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
           request.cookies.set({
             name,
             value,
             ...options,
-          })
+          });
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
-          })
+          });
           response.cookies.set({
             name,
             value,
             ...options,
-          })
+          });
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({
             name,
-            value: '',
+            value: "",
             ...options,
-          })
+          });
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
-          })
+          });
           response.cookies.set({
             name,
-            value: '',
+            value: "",
             ...options,
-          })
+          });
         },
       },
     }
-  )
+  );
 
-  return {client, response}
-}
+  return { client, response };
+};

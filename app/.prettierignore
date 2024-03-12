@@ -1,0 +1,4 @@
+# Ignore generated shadcn component files
+
+src/components/ui
+

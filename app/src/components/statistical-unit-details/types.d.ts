@@ -1,1 +1,5 @@
-type UnitType = "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+type UnitType =
+  | "enterprise"
+  | "enterprise_group"
+  | "legal_unit"
+  | "establishment";

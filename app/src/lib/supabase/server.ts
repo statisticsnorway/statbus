@@ -1,9 +1,9 @@
-import {cookies} from "next/headers";
-import {CookieOptions, createServerClient} from "@supabase/ssr";
-import {Database} from "@/lib/database.types";
+import { cookies } from "next/headers";
+import { CookieOptions, createServerClient } from "@supabase/ssr";
+import { Database } from "@/lib/database.types";
 
 export const createClient = () => {
-  const cookie = cookies()
+  const cookie = cookies();
 
   return createServerClient<Database>(
     process.env.SUPABASE_URL!,
@@ -11,11 +11,11 @@ export const createClient = () => {
     {
       cookies: {
         get(name: string) {
-          return cookie.get(name)?.value
+          return cookie.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
           try {
-            cookie.set({name, value, ...options})
+            cookie.set({ name, value, ...options });
           } catch (e) {
             // The `set` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing user sessions.
@@ -24,7 +24,7 @@ export const createClient = () => {
         },
         remove(name: string, options: CookieOptions) {
           try {
-            cookie.set({name, value: '', ...options})
+            cookie.set({ name, value: "", ...options });
           } catch (e) {
             // The `set` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing user sessions.
@@ -33,5 +33,5 @@ export const createClient = () => {
         },
       },
     }
-  )
-}
+  );
+};

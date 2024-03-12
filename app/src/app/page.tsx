@@ -1,63 +1,76 @@
-import {Metadata} from "next";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {AlertTriangle, BarChart3, Building, Globe2, ScrollText, Settings} from "lucide-react";
-import {createClient} from "@/lib/supabase/server";
-import {ReactNode} from "react";
-import {cn} from "@/lib/utils";
+import { Metadata } from "next";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertTriangle,
+  BarChart3,
+  Building,
+  Globe2,
+  ScrollText,
+  Settings,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "StatBus | Dashboard"
-}
+  title: "StatBus | Dashboard",
+};
 
 export default async function Dashboard() {
   const client = createClient();
 
   const unitsPromise = client
-    .from('statistical_unit')
-    .select('name', {count: 'exact'})
+    .from("statistical_unit")
+    .select("name", { count: "exact" })
     .limit(0);
 
   const unitsMissingRegionPromise = client
-    .from('statistical_unit')
-    .select('name', {count: 'exact'})
-    .is('physical_region_path', null)
-    .limit(0)
+    .from("statistical_unit")
+    .select("name", { count: "exact" })
+    .is("physical_region_path", null)
+    .limit(0);
 
   const unitsMissingActivityCategoryPromise = client
-    .from('statistical_unit')
-    .select('name', {count: 'exact'})
-    .is('primary_activity_category_path', null)
-    .limit(0)
+    .from("statistical_unit")
+    .select("name", { count: "exact" })
+    .is("primary_activity_category_path", null)
+    .limit(0);
 
   const regionsPromise = client
-    .from('region')
-    .select('name', {count: 'exact'})
-    .limit(0)
+    .from("region")
+    .select("name", { count: "exact" })
+    .limit(0);
 
   const settingsPromise = client
-    .from('settings')
-    .select('activity_category_standard(id,name)')
-    .limit(1)
+    .from("settings")
+    .select("activity_category_standard(id,name)")
+    .limit(1);
 
   const statDefinitionPromise = client
-    .from('stat_definition')
-    .select('id', {count: 'exact'})
-    .limit(0)
+    .from("stat_definition")
+    .select("id", { count: "exact" })
+    .limit(0);
 
   const customActivityCategoryCodesPromise = await client
-    .from('activity_category_available_custom')
-    .select('path', {count: 'exact'})
-    .limit(0)
+    .from("activity_category_available_custom")
+    .select("path", { count: "exact" })
+    .limit(0);
 
   const [
-    {count: unitsCount, error: unitsError},
-    {count: unitsMissingRegionCount, error: unitsMissingRegionError},
-    {count: unitsMissingActivityCategoryCount, error: unitsMissingActivityCategoryError},
-    {count: regionsCount, error: regionsError},
-    {count: statisticalVariablesCount, error: statisticalVariablesError},
-    {count: customActivityCategoryCodesCount, error: customActivityCategoryCodesError},
-    {data: settings, error: settingsError}
+    { count: unitsCount, error: unitsError },
+    { count: unitsMissingRegionCount, error: unitsMissingRegionError },
+    {
+      count: unitsMissingActivityCategoryCount,
+      error: unitsMissingActivityCategoryError,
+    },
+    { count: regionsCount, error: regionsError },
+    { count: statisticalVariablesCount, error: statisticalVariablesError },
+    {
+      count: customActivityCategoryCodesCount,
+      error: customActivityCategoryCodesError,
+    },
+    { data: settings, error: settingsError },
   ] = await Promise.all([
     unitsPromise,
     unitsMissingRegionPromise,
@@ -65,51 +78,52 @@ export default async function Dashboard() {
     regionsPromise,
     statDefinitionPromise,
     customActivityCategoryCodesPromise,
-    settingsPromise
+    settingsPromise,
   ]);
 
-
   return (
-    <main className="flex flex-col py-8 px-2 md:py-24 max-w-5xl mx-auto">
-      <h1 className="font-medium text-xl text-center mb-12">StatBus Status Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24">
+      <h1 className="mb-12 text-center text-xl font-medium">
+        StatBus Status Dashboard
+      </h1>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/search">
           <DashboardCard
             title="Statistical Units"
-            icon={<Building className="h-4"/>}
-            text={unitsCount?.toString() ?? '-'}
+            icon={<Building className="h-4" />}
+            text={unitsCount?.toString() ?? "-"}
             failed={!!unitsError}
           />
         </Link>
 
         <DashboardCard
           title="Regions"
-          icon={<Globe2 className="h-4"/>}
-          text={regionsCount?.toString() ?? '-'}
+          icon={<Globe2 className="h-4" />}
+          text={regionsCount?.toString() ?? "-"}
           failed={!!regionsError}
         />
 
         <Link href="/getting-started/activity-standard">
           <DashboardCard
             title="Activity Category Standard"
-            icon={<ScrollText className="h-4"/>}
-            text={settings?.[0]?.activity_category_standard?.name ?? '-'}
+            icon={<ScrollText className="h-4" />}
+            text={settings?.[0]?.activity_category_standard?.name ?? "-"}
             failed={!!settingsError}
           />
         </Link>
 
         <DashboardCard
           title="Statistical Variables"
-          icon={<BarChart3 className="h-4"/>}
-          text={statisticalVariablesCount?.toString() ?? '-'}
+          icon={<BarChart3 className="h-4" />}
+          text={statisticalVariablesCount?.toString() ?? "-"}
           failed={!!statisticalVariablesError}
         />
 
         <Link href="/getting-started/upload-custom-activity-standard-codes">
           <DashboardCard
             title="Custom Activity Category Codes"
-            icon={<Settings className="h-4"/>}
-            text={customActivityCategoryCodesCount?.toString() ?? '-'}
+            icon={<Settings className="h-4" />}
+            text={customActivityCategoryCodesCount?.toString() ?? "-"}
             failed={!!customActivityCategoryCodesError}
           />
         </Link>
@@ -117,42 +131,58 @@ export default async function Dashboard() {
         <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=">
           <DashboardCard
             title="Units Missing Region"
-            icon={<AlertTriangle className="h-4"/>}
-            text={unitsMissingRegionCount?.toString() ?? '-'}
-            failed={unitsMissingRegionCount !== null && unitsMissingRegionCount > 0 || !!unitsMissingRegionError}
+            icon={<AlertTriangle className="h-4" />}
+            text={unitsMissingRegionCount?.toString() ?? "-"}
+            failed={
+              (unitsMissingRegionCount !== null &&
+                unitsMissingRegionCount > 0) ||
+              !!unitsMissingRegionError
+            }
           />
         </Link>
 
         <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=">
           <DashboardCard
             title="Units Missing Activity Category"
-            icon={<AlertTriangle className="h-4"/>}
-            text={unitsMissingActivityCategoryCount?.toString() ?? '-'}
-            failed={unitsMissingActivityCategoryCount !== null && unitsMissingActivityCategoryCount > 0 || !!unitsMissingActivityCategoryError}
+            icon={<AlertTriangle className="h-4" />}
+            text={unitsMissingActivityCategoryCount?.toString() ?? "-"}
+            failed={
+              (unitsMissingActivityCategoryCount !== null &&
+                unitsMissingActivityCategoryCount > 0) ||
+              !!unitsMissingActivityCategoryError
+            }
           />
         </Link>
       </div>
     </main>
-  )
+  );
 }
 
-const DashboardCard = ({title, icon, text, failed}: {
-  readonly title: string,
-  readonly icon: ReactNode,
-  readonly text: string,
-  readonly failed: boolean
+const DashboardCard = ({
+  title,
+  icon,
+  text,
+  failed,
+}: {
+  readonly title: string;
+  readonly icon: ReactNode;
+  readonly text: string;
+  readonly failed: boolean;
 }) => {
   return (
     <Card className="overflow-hidden">
       <CardHeader
-        className={cn("flex flex-row items-center justify-between space-y-0 py-2 px-3 bg-gray-100", failed ? "bg-orange-100 border-orange-400" : "")}
+        className={cn(
+          "flex flex-row items-center justify-between space-y-0 bg-gray-100 px-3 py-2",
+          failed ? "border-orange-400 bg-orange-100" : ""
+        )}
       >
         <CardTitle className="text-xs font-medium">{title}</CardTitle>
         {icon}
       </CardHeader>
-      <CardContent className="py-3 px-3 space-y-3">
-        <div className="text-xl font-semibold text-right">{text}</div>
+      <CardContent className="space-y-3 px-3 py-3">
+        <div className="text-right text-xl font-semibold">{text}</div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
