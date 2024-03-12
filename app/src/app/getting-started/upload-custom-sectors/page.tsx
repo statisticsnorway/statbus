@@ -26,7 +26,7 @@ export default async function UploadCustomSectorsPage() {
 
       {count && count > 0 ? (
         <InfoBox>
-          <p>There are already {count} custom sectors defined.</p>
+          <p>There are already {count} custom sectors defined</p>
         </InfoBox>
       ) : null}
 

@@ -8,7 +8,12 @@ export const InfoBox = ({
   readonly children: ReactNode;
   readonly className?: string;
 }) => (
-  <div className={cn("space-y-6 bg-amber-100 p-6 leading-loose", className)}>
+  <div
+    className={cn(
+      "space-y-6 bg-amber-50 border-2 p-4 border-amber-100 leading-loose",
+      className
+    )}
+  >
     {children}
   </div>
 );

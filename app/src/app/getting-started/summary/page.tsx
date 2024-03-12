@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function OnboardingCompletedPage() {
   const client = createClient();
-  const { data: settings, count: numberOfSettings } = await client
+  const { data: settings } = await client
     .from("settings")
-    .select("activity_category_standard(id,name)", { count: "exact" })
+    .select("activity_category_standard(id,name)")
     .limit(1);
 
   const { count: numberOfRegions } = await client
@@ -25,55 +25,50 @@ export default async function OnboardingCompletedPage() {
     .select("id", { count: "exact" })
     .limit(0);
 
-  const { count: numberOfCustomActivityCategoryCodes } = await client
-    .from("activity_category_available_custom")
-    .select("path", { count: "exact" })
-    .limit(0);
-
   return (
-    <div className="space-y-12">
-      <h1 className="text-center text-lg font-medium">Summary</h1>
+    <div className="space-y-8">
+      <h1 className="text-center text-xl">Summary</h1>
+      <p className="leading-loose">
+        The following steps needs to be complete in order to have a fully
+        functional StatBus. If you have not completed some of the steps, you can
+        click the links to complete the steps.
+      </p>
 
       <div className="space-y-6">
         <SummaryBlock
-          success={!!numberOfSettings}
+          success={!!settings?.[0]?.activity_category_standard}
           successText={`You have configured StatBus to use the activity category standard ${settings?.[0]?.activity_category_standard?.name}.`}
           failureText={
-            "You have not configured StatBus to use an activity category standard."
+            "You have not configured StatBus to use an activity category standard"
           }
           failureLink={"/getting-started/activity-standard"}
         />
 
         <SummaryBlock
-          success={!!numberOfCustomActivityCategoryCodes}
-          successText={`You have configured StatBus to use ${numberOfCustomActivityCategoryCodes} custom activity category codes.`}
-          failureText="You have not configured StatBus to use any custom activity category codes."
-          failureLink={"/getting-started/upload-custom-activity-standard-codes"}
-        />
-
-        <SummaryBlock
           success={!!numberOfRegions}
           successText={`You have uploaded ${numberOfRegions} regions.`}
-          failureText="You have not uploaded any regions."
+          failureText="You have not uploaded any regions"
           failureLink={"/getting-started/upload-regions"}
         />
 
         <SummaryBlock
           success={!!numberOfLegalUnits}
           successText={`You have uploaded ${numberOfLegalUnits} legal units.`}
-          failureText="You have not uploaded any legal units."
+          failureText="You have not uploaded any legal units"
           failureLink={"/getting-started/upload-legal-units"}
         />
 
         <SummaryBlock
           success={!!numberOfEstablishments}
           successText={`You have uploaded ${numberOfEstablishments} establishments.`}
-          failureText="You have not uploaded any establishments."
+          failureText="You have not uploaded any establishments"
           failureLink={"/getting-started/upload-establishments"}
         />
       </div>
 
-      {numberOfSettings && numberOfRegions && numberOfLegalUnits ? (
+      {!!settings?.[0]?.activity_category_standard &&
+      numberOfRegions &&
+      numberOfLegalUnits ? (
         <div className="text-center">
           <Link className="underline" href="/">
             Start using StatBus

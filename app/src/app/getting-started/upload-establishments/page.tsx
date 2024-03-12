@@ -26,7 +26,7 @@ export default async function UploadEstablishmentsPage() {
 
       {count && count > 0 ? (
         <InfoBox>
-          <p>There are already {count} establishments defined.</p>
+          <p>There are already {count} establishments defined</p>
         </InfoBox>
       ) : null}
 
