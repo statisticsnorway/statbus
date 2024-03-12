@@ -62,11 +62,20 @@ export const UploadCSVForm = ({
   }, [state.success, router, nextPage]);
 
   return (
-    <form action={formAction} className="space-y-6 bg-green-100 p-6">
-      <Label className="block" htmlFor={filename}>
-        Select file:
+    <form action={formAction} className="bg-green-100 p-6">
+      <Label
+        className="block mb-4 ml-1 text-sm font-semibold"
+        htmlFor={filename}
+      >
+        Select file
       </Label>
-      <Input required id={filename} type="file" name={filename} />
+      <Input
+        required
+        id={filename}
+        type="file"
+        name={filename}
+        className="mb-4"
+      />
       <UploadFormButtons error={state.error} nextPage={nextPage} />
     </form>
   );
