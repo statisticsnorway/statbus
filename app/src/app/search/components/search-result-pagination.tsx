@@ -39,7 +39,7 @@ export default function SearchResultPagination() {
             onClick={() => handlePageChange(pagination.pageNumber - 1)}
           />
         </PaginationItem>
-        <span className="px-1">
+        <span className="mx-2">
           Page {pagination.pageNumber} of {totalPages}
         </span>
         <PaginationItem>
