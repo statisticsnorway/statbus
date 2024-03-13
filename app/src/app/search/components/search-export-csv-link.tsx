@@ -4,15 +4,12 @@ import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchContext } from "@/app/search/search-provider";
 
-const MAX_LIMIT_STATISTICAL_UNITS_EXPORT = 10000;
-
 export function ExportCSVLink() {
   const { searchResult, searchParams } = useSearchContext();
-  if (
-    !searchResult?.count ||
-    searchResult.count > MAX_LIMIT_STATISTICAL_UNITS_EXPORT
-  )
+
+  if (!searchResult?.count) {
     return null;
+  }
 
   return (
     <Link

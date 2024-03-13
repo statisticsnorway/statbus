@@ -14,9 +14,12 @@ export async function GET(request: Request) {
     searchParams.set("select", "*");
   }
 
-  if (!searchParams.has("limit")) {
-    searchParams.set("limit", "10000");
-  }
+  searchParams.set("limit", "100000");
+
+  searchParams.set(
+    "select",
+    "tax_reg_ident, name, unit_type, primary_activity_category_id, physical_region_id, employees, physical_country_code_2, sector_code, sector_name, legal_form_code, legal_form_name"
+  );
 
   const statisticalUnitsResponse = await getStatisticalUnits(searchParams);
 
