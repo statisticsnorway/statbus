@@ -1,14 +1,16 @@
+const unit_type: SearchFilterName = "unit_type";
+const physical_region_path: SearchFilterName = "physical_region_path";
+const primary_activity_category_path: SearchFilterName =
+  "primary_activity_category_path";
+const tax_reg_ident: SearchFilterName = "tax_reg_ident";
+const search: SearchFilterName = "search";
+const sector_code: SearchFilterName = "sector_code";
+const legal_form_code: SearchFilterName = "legal_form_code";
+
 export function createFilters(
   opts: FilterOptions,
   params: URLSearchParams
 ): SearchFilter[] {
-  const unit_type: SearchFilterName = "unit_type";
-  const physical_region_path: SearchFilterName = "physical_region_path";
-  const primary_activity_category_path: SearchFilterName =
-    "primary_activity_category_path";
-  const tax_reg_ident: SearchFilterName = "tax_reg_ident";
-  const search: SearchFilterName = "search";
-  const sector_code: SearchFilterName = "sector_code";
   const unitTypeUrlParamValue = getURLSearchParamValue(params, unit_type);
   const searchUrlParamValue = getURLSearchParamValue(params, search);
   const taxRegIdentUrlParamValue = getURLSearchParamValue(
@@ -20,6 +22,10 @@ export function createFilters(
     physical_region_path
   );
   const sectorCodeUrlParamValue = getURLSearchParamValue(params, sector_code);
+  const legalFormCodeUrlParamValue = getURLSearchParamValue(
+    params,
+    legal_form_code
+  );
   const activityCategoryCodeUrlParamValue = getURLSearchParamValue(
     params,
     primary_activity_category_path
@@ -103,6 +109,19 @@ export function createFilters(
         })),
       ],
       selected: sectorCodeUrlParamValue?.split(",") ?? [],
+    },
+    {
+      type: "options",
+      name: "legal_form_code",
+      label: "Legal Form",
+      operator: "in",
+      options: [
+        ...opts.legalForms.map(({ code, name }) => ({
+          label: `${code} ${name}`,
+          value: code,
+        })),
+      ],
+      selected: legalFormCodeUrlParamValue?.split(",") ?? [],
     },
     {
       type: "radio",

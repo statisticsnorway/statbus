@@ -19,6 +19,11 @@ export default async function SearchPage({
     .select()
     .not("code", "is", null);
 
+  const legalFormPromise = client
+    .from("legal_form_used")
+    .select()
+    .not("code", "is", null);
+
   const regionPromise = client.from("region_used").select();
 
   const activityCategoryPromise = client
@@ -32,11 +37,13 @@ export default async function SearchPage({
 
   const [
     { data: sectors, error: sectorsError },
+    { data: legalForms, error: legalFormsError },
     { data: regions, error: regionsError },
     { data: activityCategories, error: activityCategoriesError },
     { data: statisticalVariables },
   ] = await Promise.all([
     sectorPromise,
+    legalFormPromise,
     regionPromise,
     activityCategoryPromise,
     statDefinitionPromise,
@@ -44,6 +51,10 @@ export default async function SearchPage({
 
   if (sectorsError) {
     console.error("⚠️failed to fetch sectors", sectorsError);
+  }
+
+  if (legalFormsError) {
+    console.error("⚠️failed to fetch legal forms", legalFormsError);
   }
 
   if (regionsError) {
@@ -65,6 +76,7 @@ export default async function SearchPage({
       regions: regions ?? [],
       statisticalVariables: statisticalVariables ?? [],
       sectors: sectors ?? [],
+      legalForms: legalForms ?? [],
     },
     urlSearchParams
   );
