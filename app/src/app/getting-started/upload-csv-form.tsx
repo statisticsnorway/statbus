@@ -20,7 +20,7 @@ const UploadFormButtons = ({
 }) => {
   const { pending } = useFormStatus();
   return (
-    <>
+    <div className="space-y-3">
       {!pending && error ? (
         <ErrorBox>
           <span className="text-sm">Failed to upload file: {error}</span>
@@ -37,7 +37,7 @@ const UploadFormButtons = ({
           Skip
         </Link>
       </div>
-    </>
+    </div>
   );
 };
 
