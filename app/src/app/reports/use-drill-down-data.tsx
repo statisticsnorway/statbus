@@ -20,7 +20,7 @@ export const useDrillDownData = (initialDrillDown: DrillDown) => {
       }
 
       try {
-        const res = await fetch(`/reports/api?${params}`);
+        const res = await fetch(`/api/reports?${params}`);
         setDrillDown(await res.json());
       } catch (e) {
         console.error(

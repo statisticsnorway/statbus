@@ -23,7 +23,7 @@ export default function useSearch(searchFilterState: SearchState) {
     searchParams.set("offset", `${offset}`);
   }
 
-  const search = useSWR<SearchResult>(`/search/api?${searchParams}`, fetcher, {
+  const search = useSWR<SearchResult>(`/api/search?${searchParams}`, fetcher, {
     keepPreviousData: true,
     revalidateOnFocus: false,
   });

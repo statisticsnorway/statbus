@@ -18,7 +18,7 @@ export function ExportCSVLink() {
     <Link
       target="_blank"
       prefetch={false}
-      href={`/search/export?${searchParams}`}
+      href={`/api/search/export?${searchParams}`}
       className={cn(
         buttonVariants({ variant: "secondary", size: "sm" }),
         "flex items-center space-x-2"
