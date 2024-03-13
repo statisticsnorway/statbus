@@ -8,8 +8,8 @@ import { buttonVariants } from "@/components/ui/button";
 
 export default function Navbar() {
   return (
-    <nav className="border-b-2 border-gray-100 bg-gray-50">
-      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-4">
+    <header>
+      <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 p-4 border-b border-ssb-dark">
         <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <Image
             src={logo}
@@ -18,9 +18,6 @@ export default function Navbar() {
             height={32}
             className="h-8"
           />
-          <span className="self-center whitespace-nowrap text-2xl font-semibold dark:text-white">
-            StatBus
-          </span>
         </a>
         <div className="flex flex-1 items-center justify-end gap-8">
           <div className="hidden space-x-3 lg:flex">
@@ -28,7 +25,7 @@ export default function Navbar() {
               href="/reports"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
-                "space-x-2 font-normal"
+                "space-x-2"
               )}
             >
               <BarChartHorizontal size={16} />
@@ -38,7 +35,7 @@ export default function Navbar() {
               href="/search"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
-                "space-x-2 font-normal"
+                "space-x-2"
               )}
             >
               <Search size={16} />
@@ -57,6 +54,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }
