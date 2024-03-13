@@ -36,7 +36,7 @@ export default function Search({
       >
         <section className="space-y-3">
           <TableToolbar />
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-hidden">
             <SearchResultTable />
           </div>
           <div className="flex items-center justify-between text-xs text-gray-500">
