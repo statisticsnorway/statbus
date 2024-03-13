@@ -62,7 +62,7 @@ export const UploadCSVForm = ({
   }, [state.success, router, nextPage]);
 
   return (
-    <form action={formAction} className="bg-gray-50 p-6">
+    <form action={formAction} className="bg-ssb-light p-6">
       <Label
         className="block mb-4 ml-1 text-sm font-semibold"
         htmlFor={filename}
