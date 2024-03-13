@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 export default function Navbar() {
   return (
     <header>
-      <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 p-4 border-b border-ssb-dark">
+      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-4 border-b border-ssb-dark">
         <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <Image
             src={logo}
