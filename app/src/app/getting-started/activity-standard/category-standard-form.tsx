@@ -55,7 +55,7 @@ export default function CategoryStandardForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-6 bg-gray-50 p-6"
+        className="space-y-6 bg-ssb-light p-6"
       >
         <FormField
           control={form.control}

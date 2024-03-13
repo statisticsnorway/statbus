@@ -39,6 +39,7 @@ const config: Config = {
         establishment: colors.indigo,
         ssb: {
           dark: "#274247",
+          light: "#f0f8f9",
           neon: "#b6e8b8",
         },
       },

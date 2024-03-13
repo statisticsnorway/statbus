@@ -9,7 +9,7 @@ export default function GettingStartedLayout({
 }) {
   return (
     <main className="w-full mx-auto max-w-screen-2xl px-2 py-8 md:py-24 grid xl:grid-cols-12 gap-8">
-      <aside className="p-6 col-span-12 xl:col-span-4 xl:bg-gray-50">
+      <aside className="p-6 col-span-12 xl:col-span-4 bg-ssb-light">
         {progress}
       </aside>
       <div className="flex-1 col-span-12 xl:col-span-8">

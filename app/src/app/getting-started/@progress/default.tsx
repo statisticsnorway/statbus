@@ -40,7 +40,7 @@ export default async function SetupStatus() {
 
   return (
     <nav>
-      <h2 className="text-lg font-medium mb-8 text-center">
+      <h2 className="text-2xl font-normal mb-12 text-center">
         Steps to get started
       </h2>
       <ul className="text-sm">
@@ -100,7 +100,7 @@ export default async function SetupStatus() {
             subtitle={`${numberOfEstablishments} establishments uploaded`}
           />
         </li>
-        <li className="mb-6">
+        <li>
           <NavItem title="8. Summary" href="/getting-started/summary" />
         </li>
       </ul>
