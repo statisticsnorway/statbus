@@ -33,6 +33,10 @@ export function OptionsFilter({
   onToggle,
   onReset,
 }: ITableFilterProps) {
+  if (options.length === 0) {
+    return null;
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>

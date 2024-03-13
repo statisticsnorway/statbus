@@ -33,6 +33,11 @@ export default async function SetupStatus() {
     .select("*", { count: "exact" })
     .limit(0);
 
+  const { count: numberOfCustomLegalForms } = await client
+    .from("legal_form_custom")
+    .select("*", { count: "exact" })
+    .limit(0);
+
   return (
     <nav>
       <h2 className="text-lg font-medium mb-8 text-center">
@@ -65,8 +70,16 @@ export default async function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
+            done={!!numberOfCustomLegalForms}
+            title="4. Upload Custom Legal Forms (optional)"
+            href="/getting-started/upload-custom-legal-forms"
+            subtitle={`${numberOfCustomLegalForms} custom legal forms codes uploaded`}
+          />
+        </li>
+        <li className="mb-6">
+          <NavItem
             done={!!numberOfCustomActivityCategoryCodes}
-            title="4. Upload Custom Activity Category Standard Codes (optional)"
+            title="5. Upload Custom Activity Category Standard Codes (optional)"
             href="/getting-started/upload-custom-activity-standard-codes"
             subtitle={`${numberOfCustomActivityCategoryCodes} custom activity category codes uploaded`}
           />
@@ -74,7 +87,7 @@ export default async function SetupStatus() {
         <li className="mb-6">
           <NavItem
             done={!!numberOfLegalUnits}
-            title="5. Upload Legal Units"
+            title="6. Upload Legal Units"
             href="/getting-started/upload-legal-units"
             subtitle={`${numberOfLegalUnits} legal units uploaded`}
           />
@@ -82,13 +95,13 @@ export default async function SetupStatus() {
         <li className="mb-6">
           <NavItem
             done={!!numberOfEstablishments}
-            title="6. Upload Establishments"
+            title="7. Upload Establishments"
             href="/getting-started/upload-establishments"
             subtitle={`${numberOfEstablishments} establishments uploaded`}
           />
         </li>
         <li className="mb-6">
-          <NavItem title="7. Summary" href="/getting-started/summary" />
+          <NavItem title="8. Summary" href="/getting-started/summary" />
         </li>
       </ul>
     </nav>

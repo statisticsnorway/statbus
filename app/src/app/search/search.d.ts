@@ -6,7 +6,8 @@ type SearchFilterName =
   | "unit_type"
   | "physical_region_path"
   | "primary_activity_category_path"
-  | "sector_code";
+  | "sector_code"
+  | "legal_form_code";
 
 type SearchFilterOption = {
   readonly label: string;
@@ -123,6 +124,7 @@ interface FilterOptions {
   regions: Tables<"region_used">[];
   statisticalVariables: Tables<"stat_definition">[];
   sectors: Tables<"sector">[];
+  legalForms: Tables<"legal_form">[];
 }
 
 type SetOrderAction = { type: "set_order"; payload: { name: string } };

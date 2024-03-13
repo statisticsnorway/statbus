@@ -98,7 +98,7 @@ export const StatisticalUnitTableRow = ({
           <small className="text-gray-700">{region?.code}</small>
         </div>
       </TableCell>
-      <TableCell className="py-2 text-right">{employees ?? "-"}</TableCell>
+      <TableCell className="py-2 text-right">{employees}</TableCell>
       <TableCell className="py-2 text-right" title={sector_name ?? ""}>
         {sector_code}
       </TableCell>
@@ -108,7 +108,7 @@ export const StatisticalUnitTableRow = ({
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span className="max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
-            {activityCategory?.name ?? "-"}
+            {activityCategory?.name}
           </span>
           <small className="text-gray-700">{activityCategory?.code}</small>
         </div>

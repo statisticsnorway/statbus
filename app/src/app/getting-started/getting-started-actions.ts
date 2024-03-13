@@ -14,7 +14,8 @@ export type UploadView =
   | "legal_unit_region_activity_category_current"
   | "activity_category_available_custom"
   | "establishment_region_activity_category_stats_current"
-  | "sector_custom_only";
+  | "sector_custom_only"
+  | "legal_form_custom_only";
 
 export async function uploadFile(
   filename: string,

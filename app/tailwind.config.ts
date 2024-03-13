@@ -1,13 +1,13 @@
-import type {Config} from "tailwindcss"
+import type { Config } from "tailwindcss";
 import colors from "tailwindcss/colors";
 
 const config: Config = {
   darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
   prefix: "",
   theme: {
@@ -21,12 +21,12 @@ const config: Config = {
     extend: {
       keyframes: {
         "accordion-down": {
-          from: {height: "0"},
-          to: {height: "var(--radix-accordion-content-height)"},
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {height: "var(--radix-accordion-content-height)"},
-          to: {height: "0"},
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
@@ -37,10 +37,14 @@ const config: Config = {
         enterprise: colors.pink,
         legal_unit: colors.lime,
         establishment: colors.indigo,
-      }
+        ssb: {
+          dark: "#274247",
+          neon: "#b6e8b8",
+        },
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
-}
+};
 
-export default config
+export default config;
