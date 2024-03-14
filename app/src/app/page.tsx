@@ -134,7 +134,7 @@ export default async function Dashboard() {
           />
         </Link>
 
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=">
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=is.null">
           <DashboardCard
             title="Units Missing Region"
             icon={<AlertTriangle className="h-4" />}
@@ -147,7 +147,7 @@ export default async function Dashboard() {
           />
         </Link>
 
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=">
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=is.null">
           <DashboardCard
             title="Units Missing Activity Category"
             icon={<AlertTriangle className="h-4" />}

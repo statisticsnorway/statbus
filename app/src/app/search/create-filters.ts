@@ -1,55 +1,54 @@
-const unit_type: SearchFilterName = "unit_type";
-const physical_region_path: SearchFilterName = "physical_region_path";
-const primary_activity_category_path: SearchFilterName =
-  "primary_activity_category_path";
-const tax_reg_ident: SearchFilterName = "tax_reg_ident";
-const search: SearchFilterName = "search";
-const sector_code: SearchFilterName = "sector_code";
-const legal_form_code: SearchFilterName = "legal_form_code";
+const UNIT_TYPE: SearchFilterName = "unit_type";
+const PHYSICAL_REGION_PATH: SearchFilterName = "physical_region_path";
+const ACTIVITY_CATEGORY: SearchFilterName = "primary_activity_category_path";
+const TAX_REG_IDENT: SearchFilterName = "tax_reg_ident";
+const SEARCH: SearchFilterName = "search";
+const SECTOR_CODE: SearchFilterName = "sector_code";
+const LEGAL_FORM_CODE: SearchFilterName = "legal_form_code";
+
+const createURLParamsResolver =
+  (params: URLSearchParams) =>
+  (name: string): [string | null, string | null] => {
+    const param = params.get(name);
+    if (!param) return [null, null];
+    const dotIndex = param.indexOf(".");
+    const operator = param.substring(0, dotIndex);
+    const value = param.substring(dotIndex + 1);
+    return [value, operator];
+  };
 
 export function createFilters(
   opts: FilterOptions,
   params: URLSearchParams
 ): SearchFilter[] {
-  const unitTypeUrlParamValue = getURLSearchParamValue(params, unit_type);
-  const searchUrlParamValue = getURLSearchParamValue(params, search);
-  const taxRegIdentUrlParamValue = getURLSearchParamValue(
-    params,
-    tax_reg_ident
-  );
-  const regionUrlParamValue = getURLSearchParamValue(
-    params,
-    physical_region_path
-  );
-  const sectorCodeUrlParamValue = getURLSearchParamValue(params, sector_code);
-  const legalFormCodeUrlParamValue = getURLSearchParamValue(
-    params,
-    legal_form_code
-  );
-  const activityCategoryCodeUrlParamValue = getURLSearchParamValue(
-    params,
-    primary_activity_category_path
-  );
+  const resolve = createURLParamsResolver(params);
+  const [unitType] = resolve(UNIT_TYPE);
+  const [search] = resolve(SEARCH);
+  const [taxRegIdent] = resolve(TAX_REG_IDENT);
+  const [region] = resolve(PHYSICAL_REGION_PATH);
+  const [sectorCode] = resolve(SECTOR_CODE);
+  const [legalFormCode] = resolve(LEGAL_FORM_CODE);
+  const [activityCategory] = resolve(ACTIVITY_CATEGORY);
 
   const standardFilters: SearchFilter[] = [
     {
       type: "search",
       label: "Name",
-      name: search,
+      name: SEARCH,
       operator: "fts",
-      selected: searchUrlParamValue ? [searchUrlParamValue] : [],
+      selected: search ? [search] : [],
     },
     {
       type: "search",
       label: "Tax ID",
-      name: tax_reg_ident,
+      name: TAX_REG_IDENT,
       operator: "eq",
-      selected: taxRegIdentUrlParamValue ? [taxRegIdentUrlParamValue] : [],
+      selected: taxRegIdent ? [taxRegIdent] : [],
     },
     {
       type: "options",
       label: "Type",
-      name: unit_type,
+      name: UNIT_TYPE,
       operator: "in",
       options: [
         {
@@ -71,7 +70,7 @@ export function createFilters(
           className: "bg-enterprise-100",
         },
       ],
-      selected: unitTypeUrlParamValue?.split(",") ?? [
+      selected: unitType?.split(",") ?? [
         "legal_unit",
         "establishment",
         "enterprise",
@@ -79,12 +78,12 @@ export function createFilters(
     },
     {
       type: "radio",
-      name: physical_region_path,
+      name: PHYSICAL_REGION_PATH,
       label: "Region",
       operator: "cd",
       options: [
         {
-          label: "Not Set",
+          label: "Missing",
           value: null,
           humanReadableValue: "Missing",
           className: "bg-orange-200",
@@ -95,7 +94,7 @@ export function createFilters(
           humanReadableValue: `${code} ${name}`,
         })),
       ],
-      selected: regionUrlParamValue ? [regionUrlParamValue] : [],
+      selected: region ? [region === "null" ? null : region] : [],
     },
     {
       type: "options",
@@ -108,7 +107,7 @@ export function createFilters(
           value: code,
         })),
       ],
-      selected: sectorCodeUrlParamValue?.split(",") ?? [],
+      selected: sectorCode?.split(",") ?? [],
     },
     {
       type: "options",
@@ -121,16 +120,16 @@ export function createFilters(
           value: code,
         })),
       ],
-      selected: legalFormCodeUrlParamValue?.split(",") ?? [],
+      selected: legalFormCode?.split(",") ?? [],
     },
     {
       type: "radio",
-      name: primary_activity_category_path,
+      name: ACTIVITY_CATEGORY,
       label: "Activity Category",
       operator: "cd",
       options: [
         {
-          label: "Not Set",
+          label: "Missing",
           value: null,
           humanReadableValue: "Missing",
           className: "bg-orange-200",
@@ -141,8 +140,8 @@ export function createFilters(
           humanReadableValue: `${code} ${name}`,
         })),
       ],
-      selected: activityCategoryCodeUrlParamValue
-        ? [activityCategoryCodeUrlParamValue]
+      selected: activityCategory
+        ? [activityCategory === "null" ? null : activityCategory]
         : [],
     },
   ];
@@ -150,29 +149,15 @@ export function createFilters(
   // @ts-ignore - we do not know what will be the statistical variable names
   const statisticalVariableFilters: SearchFilter[] =
     opts.statisticalVariables.map((variable) => {
-      const param = params?.get(variable.code);
-      const [operator, value] = param?.split(".") ?? [];
+      const [value, operator] = resolve(variable.code);
       return {
         type: "conditional",
         name: variable.code,
         label: variable.name,
         selected: value ? [value] : [],
-        operator,
+        operator: operator,
       };
     });
 
   return [...standardFilters, ...statisticalVariableFilters];
 }
-
-const getURLSearchParamValue = (
-  params: URLSearchParams,
-  name: SearchFilterName
-): string | null => {
-  const searchFilterURLParam = params.get(name);
-  if (!searchFilterURLParam) {
-    return null;
-  }
-
-  const dotIndex = searchFilterURLParam.indexOf(".");
-  return dotIndex > -1 ? searchFilterURLParam.substring(dotIndex + 1) : null;
-};
