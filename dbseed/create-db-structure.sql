@@ -3197,6 +3197,8 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     );
 CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
 CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (unit_id);
+CREATE INDEX idx_statistical_unit_scoped_tag_id ON public.statistical_unit (scoped_tag_id);
+CREATE INDEX idx_statistical_unit_scoped_tag_ident ON public.statistical_unit (scoped_tag_ident);
 CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
 CREATE INDEX idx_statistical_unit_primary_activity_category_id ON public.statistical_unit (primary_activity_category_id);
 CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.statistical_unit (secondary_activity_category_id);
@@ -3211,6 +3213,7 @@ CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.stati
 CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
 CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
 CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
+CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
 
 \echo public.activity_category_used
