@@ -57,8 +57,15 @@ export default async function Dashboard() {
     .select("path", { count: "exact" })
     .limit(0);
 
+  const unitsWithInvalidCodesPromise = await client
+    .from("statistical_unit")
+    .select("*", { count: "exact" })
+    .not("invalid_codes", "is", null)
+    .limit(0);
+
   const [
     { count: unitsCount, error: unitsError },
+    { count: unitsWithInvalidCodes, error: unitsWithInvalidCodesError },
     { count: unitsMissingRegionCount, error: unitsMissingRegionError },
     {
       count: unitsMissingActivityCategoryCount,
@@ -73,6 +80,7 @@ export default async function Dashboard() {
     { data: settings, error: settingsError },
   ] = await Promise.all([
     unitsPromise,
+    unitsWithInvalidCodesPromise,
     unitsMissingRegionPromise,
     unitsMissingActivityCategoryPromise,
     regionsPromise,
@@ -153,6 +161,16 @@ export default async function Dashboard() {
             }
           />
         </Link>
+
+        <DashboardCard
+          title="Units With Import Issues"
+          icon={<AlertTriangle className="h-4" />}
+          text={unitsWithInvalidCodes?.toString() ?? "-"}
+          failed={
+            (unitsWithInvalidCodes !== null && unitsWithInvalidCodes > 0) ||
+            !!unitsWithInvalidCodesError
+          }
+        />
       </div>
     </main>
   );
