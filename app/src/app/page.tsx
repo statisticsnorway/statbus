@@ -91,9 +91,7 @@ export default async function Dashboard() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24">
-      <h1 className="mb-12 text-center text-xl font-medium">
-        StatBus Status Dashboard
-      </h1>
+      <h1 className="mb-12 text-center text-2xl">StatBus Status Dashboard</h1>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/search">
           <DashboardCard

@@ -27,7 +27,7 @@ export default async function OnboardingCompletedPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-center text-xl">Summary</h1>
+      <h1 className="text-center text-2xl">Summary</h1>
       <p className="leading-loose">
         The following steps needs to be complete in order to have a fully
         functional StatBus. If you have not completed some of the steps, you can

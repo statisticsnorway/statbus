@@ -27,9 +27,7 @@ export default async function ReportsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-24">
-      <h1 className="mb-3 text-center text-xl font-medium">
-        StatBus Data Drilldown
-      </h1>
+      <h1 className="mb-3 text-center text-2xl">StatBus Data Drilldown</h1>
       <p className="mb-12 text-center">
         Gain data insights by drilling through the bar charts below
       </p>

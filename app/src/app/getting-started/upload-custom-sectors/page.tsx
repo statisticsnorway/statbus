@@ -18,7 +18,7 @@ export default async function UploadCustomSectorsPage() {
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-xl">Upload Sectors</h1>
+      <h1 className="text-center text-2xl">Upload Sectors</h1>
       <p>
         Upload a CSV file containing the custom sectors you want to use in your
         analysis.

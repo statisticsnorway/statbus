@@ -18,7 +18,7 @@ export default async function UploadEstablishmentsPage() {
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-xl">Upload Establishments</h1>
+      <h1 className="text-center text-2xl">Upload Establishments</h1>
       <p>
         Upload a CSV file containing the establishments you want to use in your
         analysis.

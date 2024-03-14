@@ -19,7 +19,9 @@ export default async function ActivityStandardPage() {
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-xl">Select Activity Category Standard</h1>
+      <h1 className="text-center text-2xl">
+        Select Activity Category Standard
+      </h1>
       <p>
         Select the activity category standard that best fit you location. If
         you&apos;re not sure which standard is the best fit, you can read more
