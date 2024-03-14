@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "tcc.statbus.org<-master"
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: executing remote ssh commands
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: libu.statbus.org
+        username: statbus_tcc
+        key: ${{ secrets.SSH_KEY }}
+        command_timeout: 60m
+        script: ./devops/deploy-app-from-master.sh
