@@ -221,6 +221,9 @@ DROP TABLE public.data_source_classification;
 DROP TABLE public.data_source_queue;
 DROP TABLE public.data_source;
 
+DROP VIEW public.relative_period_with_time;
+DROP TABLE public.relative_period;
+DROP TYPE public.relative_period_type;
 
 DROP TABLE public.tag;
 DROP TYPE public.tag_type;

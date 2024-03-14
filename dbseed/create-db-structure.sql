@@ -675,6 +675,162 @@ CREATE TABLE public.tag (
 );
 
 
+\echo public.relative_period_type
+CREATE TYPE public.relative_period_type AS ENUM (
+    -- For data entry with context_valid_from and context_valid_to. context_valid_on should be context_valid_from when infinity, else context_valid_to
+    'today',
+    'year_prev_until_infinity',
+    'year_prev_only',
+    'year_curr_until_infinity',
+    'year_curr_only',
+
+    -- For data search with context_valid_on only, no context_valid_from and context_valid_to
+    'start_of_week_curr',
+    'stop_of_week_prev',
+    'start_of_week_prev',
+
+    'start_of_month_curr',
+    'stop_of_month_prev',
+    'start_of_month_prev',
+
+    'start_of_quarter_curr',
+    'stop_of_quarter_prev',
+    'start_of_quarter_prev',
+
+    'start_of_semester_curr',
+    'stop_of_semester_prev',
+    'start_of_semester_prev',
+
+    'start_of_year_curr',
+    'stop_of_year_prev',
+    'start_of_year_prev',
+
+    'start_of_quinquennial_curr',
+    'stop_of_quinquennial_prev',
+    'start_of_quinquennial_prev',
+
+    'start_of_decade_curr',
+    'stop_of_decade_prev',
+    'start_of_decade_prev'
+);
+
+CREATE TABLE public.relative_period (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name character varying(256) NOT NULL,
+    period public.relative_period_type UNIQUE,
+    active boolean NOT NULL DEFAULT true
+);
+
+\echo public.relative_period_with_time
+CREATE VIEW public.relative_period_with_time AS
+SELECT *,
+       CASE period -- context_valid_on
+           WHEN 'today' THEN current_date
+           --
+           WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date - interval '1 year')
+           WHEN 'year_prev_only'           THEN date_trunc('year', current_date - interval '1 year')
+           WHEN 'year_curr_until_infinity' THEN date_trunc('year', current_date)
+           WHEN 'year_curr_only'           THEN date_trunc('year', current_date)
+            --
+           WHEN 'start_of_week_curr'     THEN date_trunc('week', current_date)
+           WHEN 'stop_of_week_prev'      THEN date_trunc('week', current_date) - interval '1 day'
+           WHEN 'start_of_week_prev'     THEN date_trunc('week', current_date - interval '1 week')
+           WHEN 'start_of_month_curr'    THEN date_trunc('month', current_date)
+           WHEN 'stop_of_month_prev'     THEN (date_trunc('month', current_date) - interval '1 day')
+           WHEN 'start_of_month_prev'    THEN date_trunc('month', current_date - interval '1 month')
+           WHEN 'start_of_quarter_curr'  THEN date_trunc('quarter', current_date)
+           WHEN 'stop_of_quarter_prev'   THEN (date_trunc('quarter', current_date) - interval '1 day')
+           WHEN 'start_of_quarter_prev'  THEN date_trunc('quarter', current_date - interval '3 months')
+           WHEN 'start_of_semester_curr' THEN
+               CASE
+                   WHEN EXTRACT(month FROM current_date) <= 6
+                   THEN date_trunc('year', current_date)
+                   ELSE date_trunc('year', current_date) + interval '6 months'
+               END
+            WHEN 'stop_of_semester_prev' THEN
+                CASE
+                    WHEN EXTRACT(month FROM current_date) <= 6
+                    THEN date_trunc('year', current_date) - interval '1 day' -- End of December last year
+                    ELSE date_trunc('year', current_date) + interval '6 months' - interval '1 day' -- End of June current year
+                END
+           WHEN 'start_of_semester_prev' THEN
+               CASE
+                   WHEN EXTRACT(month FROM current_date) <= 6 THEN date_trunc('year', current_date) - interval '6 months'
+                   ELSE date_trunc('year', current_date)
+               END
+           WHEN 'start_of_year_curr'         THEN  date_trunc('year', current_date)
+           WHEN 'stop_of_year_prev'          THEN (date_trunc('year', current_date) - interval '1 day')
+           WHEN 'start_of_year_prev'         THEN  date_trunc('year', current_date - interval '1 year')
+
+           WHEN 'start_of_quinquennial_curr' THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 5))
+           WHEN 'stop_of_quinquennial_prev'  THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 5)) - interval '1 day'
+           WHEN 'start_of_quinquennial_prev' THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 5)) - interval '5 years'
+
+           WHEN 'start_of_decade_curr' THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 10))
+           WHEN 'stop_of_decade_prev'  THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 10)) - interval '1 day'
+           WHEN 'start_of_decade_prev' THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 10)) - interval '10 years'
+           ELSE NULL
+       END::DATE AS valid_on,
+       CASE period
+           WHEN 'today' THEN current_date
+           --
+           WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date - interval '1 year')::DATE
+           WHEN 'year_prev_only'           THEN date_trunc('year', current_date - interval '1 year')::DATE
+           WHEN 'year_curr_until_infinity' THEN date_trunc('year', current_date)::DATE
+           WHEN 'year_curr_only'           THEN date_trunc('year', current_date)::DATE
+           --
+           ELSE NULL
+       END::DATE AS valid_from,
+       CASE period
+           WHEN 'today'                    THEN 'infinity'::DATE
+           WHEN 'year_prev_until_infinity' THEN 'infinity'::DATE
+           WHEN 'year_curr_until_infinity' THEN 'infinity'::DATE
+           WHEN 'year_prev_only' THEN date_trunc('year', current_date)::DATE - interval '1 day'
+           WHEN 'year_curr_only' THEN date_trunc('year', current_date + interval '1 year')::DATE - interval '1 day'
+           ELSE NULL
+       END::DATE as valid_to
+FROM public.relative_period;
+
+
+DO $$
+DECLARE
+    parent_id integer;
+BEGIN
+    INSERT INTO public.relative_period (name, period, active)
+    VALUES
+        ('Today', 'today', true),
+        --
+        ('Previous Year until Infinity', 'year_prev_until_infinity', true),
+        ('Only Previous Year', 'year_prev_only', true),
+        ('Current Year until Infinity', 'year_curr_until_infinity', true),
+        ('Only Current Year', 'year_curr_only', true),
+        --
+        ('Start of Current Week', 'start_of_week_curr', true),
+        ('End of Previous Week', 'stop_of_week_prev', true),
+        ('Start of Previous Week', 'start_of_week_prev', true),
+        ('Start of Current Month', 'start_of_month_curr', true),
+        ('End of Previous Month', 'stop_of_month_prev', true),
+        ('Start of Previous Month', 'start_of_month_prev', true),
+        ('Start of Current Quarter', 'start_of_quarter_curr', true),
+        ('End of Previous Quarter', 'stop_of_quarter_prev', true),
+        ('Start of Previous Quarter', 'start_of_quarter_prev', true),
+        ('Start of Current Semester', 'start_of_semester_curr', true),
+        ('End of Previous Semester', 'stop_of_semester_prev', true),
+        ('Start of Previous Semester', 'start_of_semester_prev', true),
+        ('Start of Current Year', 'start_of_year_curr', true),
+        ('End of Previous Year', 'stop_of_year_prev', true),
+        ('Start of Previous Year', 'start_of_year_prev', true),
+        ('Start of Current Five-Year Period', 'start_of_quinquennial_curr', true),
+        ('End of Previous Five-Year Period', 'stop_of_quinquennial_prev', true),
+        ('Start of Previous Five-Year Period', 'start_of_quinquennial_prev', true),
+        ('Start of Current Decade', 'start_of_decade_curr', true),
+        ('End of Previous Decade', 'stop_of_decade_prev', true),
+        ('Start of Previous Decade', 'start_of_decade_prev', true)
+    ;
+END $$;
+
+
+
 \echo public.unit_size
 CREATE TABLE public.unit_size (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
