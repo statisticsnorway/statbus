@@ -2101,6 +2101,7 @@ CREATE VIEW public.statistical_unit_def
     , aggregated_enterprise_ids
     , employees
     , turnover
+    , tag_paths
     -- TODO: Generate SQL to provide these columns:
     -- legal_form_id integer,
     -- sector_ids integer[],
@@ -2124,6 +2125,7 @@ CREATE VIEW public.statistical_unit_def
     -- active boolean,
     )
     AS
+    WITH data AS (
     -- Establishment
     SELECT valid_from
          , valid_to
@@ -3165,6 +3167,21 @@ CREATE VIEW public.statistical_unit_def
          , NULL::int AS employees
          , NULL::int AS turnover
       FROM public.enterprise_group
+    )
+    SELECT data.*
+         , (
+          SELECT array_agg(t.path)
+          FROM public.tag_for_unit AS tfu
+          JOIN public.tag AS t ON t.id = tfu.tag_id
+          WHERE
+            CASE data.unit_type
+            WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
+            WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
+            WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
+            WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
+            END
+          ) AS tag_paths
+    FROM data;
 ;
 
 \echo public.statistical_unit
