@@ -645,6 +645,9 @@ CREATE TABLE public.data_uploading_log (
 CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading_log USING btree (data_source_queue_id);
 
 
+\echo public.tag_type
+CREATE TYPE public.tag_type AS ENUM ('custom', 'system');
+
 \echo public.tag
 CREATE TABLE public.tag (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -655,9 +658,20 @@ CREATE TABLE public.tag (
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name character varying(256) NOT NULL,
     description text,
-    custom bool NOT NULL,
-    updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    archived boolean NOT NULL DEFAULT false
+    active boolean NOT NULL DEFAULT true,
+    type public.tag_type NOT NULL,
+    context_valid_from date,
+    context_valid_to date,
+    context_valid_on date,
+    is_scoped_tag bool NOT NULL DEFAULT false,
+    updated_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
+    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
+    CONSTRAINT "context_valid_from leq context_valid_to"
+    CHECK(context_valid_from <= context_valid_to),
+    CONSTRAINT "context_valid_dates_same_nullability"
+    CHECK(  context_valid_from IS NULL AND context_valid_to IS NULL
+         OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL
+         )
 );
 
 
@@ -820,6 +834,8 @@ CREATE TABLE public.legal_unit (
     external_ident character varying(50),
     external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
+    scoped_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
+    scoped_tag_ident varchar(64),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256),
@@ -845,9 +861,14 @@ CREATE TABLE public.legal_unit (
     enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     primary_for_enterprise boolean NOT NULL,
     invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
+    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
+    CONSTRAINT "scoped_tag_id and scoped_tag_ident are all or nothing"
+    CHECK( scoped_tag_id IS     NULL AND scoped_tag_ident IS     NULL
+        OR scoped_tag_id IS NOT NULL AND scoped_tag_ident IS NOT NULL
+         )
 );
 
+-- TODO: Use a scoped sql_saga unique key for enterprise_id below.
 CREATE UNIQUE INDEX "Only one primary legal_unit per enterprise" ON public.legal_unit(enterprise_id) WHERE primary_for_enterprise;
 CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
@@ -880,6 +901,8 @@ CREATE TABLE public.establishment (
     external_ident character varying(50),
     external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
+    scoped_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
+    scoped_tag_ident varchar(64),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256),
@@ -914,7 +937,12 @@ CREATE TABLE public.establishment (
         OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
         ),
     CONSTRAINT "enterprise_id enables sector_id"
-    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
+    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END),
+    CONSTRAINT "scoped_tag_id and scoped_tag_ident are all or nothing"
+    CHECK( scoped_tag_id IS     NULL AND scoped_tag_ident IS     NULL
+        OR scoped_tag_id IS NOT NULL AND scoped_tag_ident IS NOT NULL
+         )
+
 );
 
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
@@ -2029,6 +2057,8 @@ CREATE VIEW public.statistical_unit_def
     , tax_reg_ident
     , external_ident
     , external_ident_type
+    , scoped_tag_id
+    , scoped_tag_ident
     , name
     , birth_date
     , death_date
@@ -2103,6 +2133,8 @@ CREATE VIEW public.statistical_unit_def
          , tax_reg_ident
          , external_ident
          , external_ident_type
+         , scoped_tag_id
+         , scoped_tag_ident
          , name
          , birth_date
          , death_date
@@ -2178,6 +2210,8 @@ CREATE VIEW public.statistical_unit_def
            , es.tax_reg_ident AS tax_reg_ident
            , es.external_ident AS external_ident
            , es.external_ident_type AS external_ident_type
+           , es.scoped_tag_id    AS scoped_tag_id
+           , es.scoped_tag_ident AS scoped_tag_ident
            , es.name AS name
            , es.birth_date AS birth_date
            , es.death_date AS death_date
@@ -2295,6 +2329,8 @@ CREATE VIEW public.statistical_unit_def
            , tax_reg_ident
            , external_ident
            , external_ident_type
+           , scoped_tag_id
+           , scoped_tag_ident
            , name
            , birth_date
            , death_date
@@ -2347,6 +2383,8 @@ CREATE VIEW public.statistical_unit_def
          , tax_reg_ident
          , external_ident
          , external_ident_type
+         , scoped_tag_id
+         , scoped_tag_ident
          , name
          , birth_date
          , death_date
@@ -2422,6 +2460,8 @@ CREATE VIEW public.statistical_unit_def
              , lu.tax_reg_ident AS tax_reg_ident
              , lu.external_ident AS external_ident
              , lu.external_ident_type AS external_ident_type
+             , lu.scoped_tag_id    AS scoped_tag_id
+             , lu.scoped_tag_ident AS scoped_tag_ident
              , lu.name AS name
              , lu.birth_date AS birth_date
              , lu.death_date AS death_date
@@ -2539,6 +2579,8 @@ CREATE VIEW public.statistical_unit_def
            , tax_reg_ident
            , external_ident
            , external_ident_type
+           , scoped_tag_id
+           , scoped_tag_ident
            , name
            , birth_date
            , death_date
@@ -2587,6 +2629,8 @@ CREATE VIEW public.statistical_unit_def
          , tax_reg_ident
          , external_ident
          , external_ident_type
+         , scoped_tag_id
+         , scoped_tag_ident
          , name
          , birth_date
          , death_date
@@ -2662,6 +2706,8 @@ CREATE VIEW public.statistical_unit_def
            , plu.tax_reg_ident AS tax_reg_ident
            , plu.external_ident AS external_ident
            , plu.external_ident_type AS external_ident_type
+           , plu.scoped_tag_id    AS scoped_tag_id
+           , plu.scoped_tag_ident AS scoped_tag_ident
            , plu.name AS name
            , plu.birth_date AS birth_date
            , plu.death_date AS death_date
@@ -2782,6 +2828,8 @@ CREATE VIEW public.statistical_unit_def
            , tax_reg_ident
            , external_ident
            , external_ident_type
+           , scoped_tag_id
+           , scoped_tag_ident
            , name
            , birth_date
            , death_date
@@ -2829,6 +2877,8 @@ CREATE VIEW public.statistical_unit_def
          , tax_reg_ident
          , external_ident
          , external_ident_type
+         , scoped_tag_id
+         , scoped_tag_ident
          , name
          , birth_date
          , death_date
@@ -2904,6 +2954,8 @@ CREATE VIEW public.statistical_unit_def
              , es.tax_reg_ident AS tax_reg_ident
              , es.external_ident AS external_ident
              , es.external_ident_type AS external_ident_type
+             , es.scoped_tag_id    AS scoped_tag_id
+             , es.scoped_tag_ident AS scoped_tag_ident
              , es.name AS name
              , es.birth_date AS birth_date
              , es.death_date AS death_date
@@ -3014,6 +3066,8 @@ CREATE VIEW public.statistical_unit_def
            , tax_reg_ident
            , external_ident
            , external_ident_type
+           , scoped_tag_id
+           , scoped_tag_ident
            , name
            , birth_date
            , death_date
@@ -3061,6 +3115,8 @@ CREATE VIEW public.statistical_unit_def
          , NULL::TEXT AS tax_reg_ident
          , NULL::TEXT AS external_ident
          , NULL::TEXT AS external_ident_type
+         , NULL::INTEGER AS scoped_tag_id
+         , NULL::TEXT    AS scoped_tag_ident
          , NULL::TEXT AS name
          , NULL::DATE AS birth_date
          , NULL::DATE AS death_date
@@ -6984,12 +7040,16 @@ SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_reg_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['external_ident', 'external_ident_type']);
+SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['scoped_tag_id', 'scoped_tag_ident']);
+-- TODO: Use a scoped sql_saga unique key for enterprise_id below.
+-- SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['enterprise_id'], WHERE 'primary_for_enterprise');
 
 SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
+SELECT sql_saga.add_unique_key('public.establishment', ARRAY['scoped_tag_id', 'scoped_tag_ident']);
 -- TODO: Extend sql_saga with support for predicates by using unique indices instead of constraints.
 --SELECT sql_saga.add_unique_key('public.establishment', ARRAY['legal_unit_id'], WHERE 'primary_for_legal_unit');
 SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');

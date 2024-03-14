@@ -187,8 +187,6 @@ DROP TABLE public.activity_category;
 DROP TABLE public.activity_category_standard;
 
 DROP TABLE public.tag_for_unit;
-DROP TABLE public.tag;
-
 DROP TABLE public.person_for_unit;
 
 DROP TABLE public.analysis_log;
@@ -222,6 +220,10 @@ DROP TABLE public.data_uploading_log;
 DROP TABLE public.data_source_classification;
 DROP TABLE public.data_source_queue;
 DROP TABLE public.data_source;
+
+
+DROP TABLE public.tag;
+DROP TYPE public.tag_type;
 
 DROP TABLE public.foreign_participation;
 
