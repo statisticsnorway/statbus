@@ -218,11 +218,12 @@ DROP TABLE public.location;
 
 DROP TABLE public.custom_analysis_check;
 
-DROP TABLE public.data_source;
-
 DROP TABLE public.import_log;
 DROP TABLE public.import_job;
+DROP TABLE public.import_mapping;
 DROP TABLE public.import_definition;
+
+DROP TABLE public.data_source;
 
 DROP VIEW public.relative_period_with_time;
 DROP TABLE public.relative_period;
@@ -261,9 +262,7 @@ DROP FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.s
 DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer);
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
-DROP TYPE public.import_priority;
 DROP TYPE public.import_strategy;
-DROP TYPE public.import_unit_type;
 DROP TYPE public.import_upload_type;
 
 DROP TYPE public.statbus_role_type;

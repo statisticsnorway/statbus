@@ -570,68 +570,7 @@ CREATE TABLE public.custom_analysis_check (
 );
 
 
--- import structures
-CREATE TYPE public.import_priority AS ENUM ('trusted','ok','not_trusted');
-CREATE TYPE public.import_strategy AS ENUM ('create','alter','create_and_alter');
-CREATE TYPE public.import_unit_type AS ENUM ('local_unit','legal_unit','enterprise_unit','enterprise_group');
-CREATE TYPE public.import_upload_type AS ENUM ('stat_units','activities');
-
-CREATE TABLE public.import_definition (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL,
-    description text,
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
-    priority public.import_priority NOT NULL,
-    strategy public.import_strategy NOT NULL,
-    attributes_to_check text,
-    original_csv_attributes text,
-    stat_unit_type public.import_unit_type NOT NULL,
-    restrictions text,
-    variables_mapping text,
-    csv_delimiter text,
-    csv_skip_count integer NOT NULL,
-    data_source_upload_type public.import_upload_type NOT NULL
-);
-CREATE UNIQUE INDEX ix_import_definition_name ON public.import_definition USING btree (name);
-CREATE INDEX ix_import_definition_user_id ON public.import_definition USING btree (user_id);
-
-
-CREATE TYPE public.import_job_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
-CREATE TABLE public.import_job (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    start_at timestamp with time zone,
-    stop_at timestamp with time zone,
-    data_source_path text NOT NULL,
-    data_source_file_name text NOT NULL,
-    description text,
-    status public.import_job_status NOT NULL,
-    note text,
-    import_definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
-    skip_lines_count integer NOT NULL
-);
-CREATE INDEX ix_import_job_import_definition_id ON public.import_job USING btree (import_definition_id);
-CREATE INDEX ix_import_job_user_id ON public.import_job USING btree (user_id);
-
-
-CREATE TYPE public.import_log_status AS ENUM ('done', 'warning', 'error');
-CREATE TABLE public.import_log (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    start_at timestamp with time zone,
-    stop_at timestamp with time zone,
-    target_stat_ident text,
-    stat_unit_name text,
-    serialized_unit text,
-    serialized_raw_unit text,
-    import_job_id integer NOT NULL REFERENCES public.import_job(id) ON DELETE CASCADE,
-    status public.import_log_status NOT NULL,
-    note text,
-    errors text,
-    summary text
-);
-CREATE INDEX ix_import_log_import_job_id ON public.import_log USING btree (import_job_id);
-
-
+\echo public.data_source
 CREATE TABLE public.data_source (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -643,6 +582,81 @@ CREATE TABLE public.data_source (
 CREATE UNIQUE INDEX ix_data_source_code ON public.data_source USING btree (code) WHERE active;
 
 
+-- import structures
+\echo public.import_strategy
+CREATE TYPE public.import_strategy AS ENUM ('create_or_replace','update_existing');
+\echo public.import_upload_type
+CREATE TYPE public.import_upload_type AS ENUM ('establishment','legal_unit','enterprise','enterprise_group','activities');
+
+\echo public.import_definition
+CREATE TABLE public.import_definition (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    upload_type public.import_upload_type NOT NULL,
+    name text NOT NULL,
+    description text,
+    strategy public.import_strategy NOT NULL,
+    delete_missing BOOL,
+    source_column_names text[],
+    csv_delimiter text,
+    csv_skip_count integer CHECK(csv_skip_count >= 0),
+    data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
+    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
+    CHECK(CASE strategy
+        WHEN 'create_or_replace' THEN delete_missing IS NOT NULL
+        WHEN 'update_existing' THEN delete_missing IS NULL
+        END
+        )
+);
+CREATE UNIQUE INDEX ix_import_definition_name ON public.import_definition USING btree (name);
+CREATE INDEX ix_import_definition_user_id ON public.import_definition USING btree (user_id);
+
+\echo public.import_mapping
+CREATE TABLE public.import_mapping (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    import_definition_id integer REFERENCES public.import_definition(id) ON DELETE CASCADE,
+    source_name TEXT,
+    source_value TEXT,
+    target_name TEXT NOT NULL,
+    CHECK( source_name IS NOT NULL AND source_value IS NULL
+        OR source_name IS NULL AND source_value IS NOT NULL
+        )
+);
+
+\echo public.import_job_status
+CREATE TYPE public.import_job_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
+\echo public.import_job
+CREATE TABLE public.import_job (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    start_at timestamp with time zone,
+    stop_at timestamp with time zone,
+    import_file_path_and_name text NOT NULL,
+    description text,
+    status public.import_job_status NOT NULL,
+    note text,
+    import_definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
+    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
+    skip_lines_count integer NOT NULL
+);
+CREATE INDEX ix_import_job_import_definition_id ON public.import_job USING btree (import_definition_id);
+CREATE INDEX ix_import_job_user_id ON public.import_job USING btree (user_id);
+
+\echo public.import_log_status
+CREATE TYPE public.import_log_status AS ENUM ('done', 'warning', 'error');
+\echo public.import_log
+CREATE TABLE public.import_log (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    start_at timestamp with time zone,
+    stop_at timestamp with time zone,
+    target_stat_ident text,
+    stat_unit_name text,
+    serialized_unit JSONB, -- Uses system names.
+    import_job_id integer NOT NULL REFERENCES public.import_job(id) ON DELETE CASCADE,
+    status public.import_log_status NOT NULL,
+    note text,
+    errors text,
+    summary text
+);
+CREATE INDEX ix_import_log_import_job_id ON public.import_log USING btree (import_job_id);
 
 
 \echo public.tag_type
