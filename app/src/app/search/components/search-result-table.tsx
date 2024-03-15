@@ -10,14 +10,14 @@ export default function SearchResultTable() {
     <Table>
       <StatisticalUnitTableHeader />
       <TableBody>
-        {!searchResult?.statisticalUnits.length && (
+        {!searchResult?.statisticalUnits?.length && (
           <TableRow>
             <TableCell colSpan={5} className="py-8 text-center">
               No results found
             </TableCell>
           </TableRow>
         )}
-        {searchResult?.statisticalUnits.map((unit) => {
+        {searchResult?.statisticalUnits?.map((unit) => {
           return (
             <StatisticalUnitTableRow
               key={`${unit.unit_id}-${unit.unit_type}`}

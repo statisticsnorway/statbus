@@ -6,6 +6,7 @@ import { createSectorFilter } from "@/app/search/filters/sector-filter";
 import { creatLegalFormFilter } from "@/app/search/filters/legal-form-filter";
 import { createActivityCategoryFilter } from "@/app/search/filters/activity-category-filter";
 import { createStatisticalVariableFilters } from "@/app/search/filters/statistical-variable-filters";
+import { createInvalidCodesFilter } from "@/app/search/filters/invalid-codes-filter";
 
 export function createFilters(
   opts: FilterOptions,
@@ -19,6 +20,7 @@ export function createFilters(
     createSectorFilter(params, opts.sectors),
     creatLegalFormFilter(params, opts.legalForms),
     createActivityCategoryFilter(params, opts.activityCategories),
+    createInvalidCodesFilter(params),
     ...createStatisticalVariableFilters(params, opts.statisticalVariables),
   ];
 }

@@ -63,22 +63,30 @@ export function generateFTSQuery(prompt: string | null): string | null {
     .join(" & ");
 }
 
-const generatePostgrestQuery = ({ selected, operator }: SearchFilter) => {
+const generatePostgrestQuery = ({ selected, name }: SearchFilter) => {
   if (selected.length === 1 && selected[0] === null) {
     return "is.null";
   }
 
-  switch (operator) {
-    case "eq":
-    case "gt":
-    case "lt":
-    case "cd":
-      return selected[0] ? `${operator}.${selected[0]}` : null;
-    case "in":
-      return selected.length > 0 ? `in.(${selected.join(",")})` : null;
-    case "fts": {
+  switch (name) {
+    case "search": {
       const query = generateFTSQuery(selected[0]);
       return query ? `fts(simple).${query}` : null;
+    }
+    case "tax_reg_ident":
+      return selected[0] ? `eq.${selected[0]}` : null;
+    case "unit_type":
+      return selected.length > 0 ? `in.(${selected.join(",")})` : null;
+    case "physical_region_path":
+      return selected[0] ? `cd.${selected[0]}` : null;
+    case "primary_activity_category_path":
+      return selected[0] ? `cd.${selected[0]}` : null;
+    case "sector_code":
+      return selected.length > 0 ? `in.(${selected.join(",")})` : null;
+    case "legal_form_code":
+      return selected.length > 0 ? `in.(${selected.join(",")})` : null;
+    case "invalid_codes": {
+      return selected[0] === "yes" ? "not.is.null" : "is.null";
     }
     default:
       return null;

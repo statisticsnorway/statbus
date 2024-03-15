@@ -87,11 +87,7 @@ export function OptionsFilter({
                   {selectedValues.includes(option.value) ? (
                     <Check size={14} />
                   ) : null}
-                  <span
-                    className={option.value === null ? "font-semibold" : ""}
-                  >
-                    {option.label}
-                  </span>
+                  <span>{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

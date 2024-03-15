@@ -11,7 +11,7 @@ export default function useUpdatedUrlSearchParams({
         if (f.selected[0] === null) {
           acc.set(f.name, "is.null");
         } else {
-          acc.set(f.name, `${f.operator}.${f.selected.join(",")}`);
+          acc.set(f.name, `${f.selected.join(",")}`);
         }
         return acc;
       }, new URLSearchParams());

@@ -1,4 +1,4 @@
-type PostgrestOperator = "eq" | "gt" | "lt" | "in" | "cd" | "fts";
+type PostgrestOperator = "eq" | "gt" | "lt" | "in" | "cd" | "fts" | "is";
 
 type SearchFilterName =
   | "search"
@@ -7,7 +7,8 @@ type SearchFilterName =
   | "physical_region_path"
   | "primary_activity_category_path"
   | "sector_code"
-  | "legal_form_code";
+  | "legal_form_code"
+  | "invalid_codes";
 
 type SearchFilterOption = {
   readonly label: string;
@@ -38,7 +39,6 @@ type SearchFilter = {
   readonly label: string;
   readonly options?: SearchFilterOption[];
   readonly selected: (string | null)[];
-  readonly operator: PostgrestOperator;
 };
 
 type SearchResult = {
