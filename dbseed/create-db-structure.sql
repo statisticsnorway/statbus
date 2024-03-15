@@ -569,34 +569,70 @@ CREATE TABLE public.custom_analysis_check (
     target_unit_types character varying(16)
 );
 
-CREATE TYPE public.data_source_priority AS ENUM ('trusted','ok','not_trusted');
-CREATE TYPE public.allowed_operations AS ENUM ('create','alter','create_and_alter');
-CREATE TYPE public.stat_unit_type AS ENUM ('local_unit','legal_unit','enterprise_unit','enterprise_group');
-CREATE TYPE public.data_source_upload_type AS ENUM ('stat_units','activities');
 
-\echo public.data_source
-CREATE TABLE public.data_source (
+-- import structures
+CREATE TYPE public.import_priority AS ENUM ('trusted','ok','not_trusted');
+CREATE TYPE public.import_strategy AS ENUM ('create','alter','create_and_alter');
+CREATE TYPE public.import_unit_type AS ENUM ('local_unit','legal_unit','enterprise_unit','enterprise_group');
+CREATE TYPE public.import_upload_type AS ENUM ('stat_units','activities');
+
+CREATE TABLE public.import_definition (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text NOT NULL,
     description text,
     user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
-    priority public.data_source_priority NOT NULL,
-    allowed_operations public.allowed_operations NOT NULL,
+    priority public.import_priority NOT NULL,
+    strategy public.import_strategy NOT NULL,
     attributes_to_check text,
     original_csv_attributes text,
-    stat_unit_type public.stat_unit_type NOT NULL,
+    stat_unit_type public.import_unit_type NOT NULL,
     restrictions text,
     variables_mapping text,
     csv_delimiter text,
     csv_skip_count integer NOT NULL,
-    data_source_upload_type public.data_source_upload_type NOT NULL
+    data_source_upload_type public.import_upload_type NOT NULL
 );
-CREATE UNIQUE INDEX ix_data_source_name ON public.data_source USING btree (name);
-CREATE INDEX ix_data_source_user_id ON public.data_source USING btree (user_id);
+CREATE UNIQUE INDEX ix_import_definition_name ON public.import_definition USING btree (name);
+CREATE INDEX ix_import_definition_user_id ON public.import_definition USING btree (user_id);
 
 
-\echo public.data_source_classification
-CREATE TABLE public.data_source_classification (
+CREATE TYPE public.import_job_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
+CREATE TABLE public.import_job (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    start_at timestamp with time zone,
+    stop_at timestamp with time zone,
+    data_source_path text NOT NULL,
+    data_source_file_name text NOT NULL,
+    description text,
+    status public.import_job_status NOT NULL,
+    note text,
+    import_definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
+    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
+    skip_lines_count integer NOT NULL
+);
+CREATE INDEX ix_import_job_import_definition_id ON public.import_job USING btree (import_definition_id);
+CREATE INDEX ix_import_job_user_id ON public.import_job USING btree (user_id);
+
+
+CREATE TYPE public.import_log_status AS ENUM ('done', 'warning', 'error');
+CREATE TABLE public.import_log (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    start_at timestamp with time zone,
+    stop_at timestamp with time zone,
+    target_stat_ident text,
+    stat_unit_name text,
+    serialized_unit text,
+    serialized_raw_unit text,
+    import_job_id integer NOT NULL REFERENCES public.import_job(id) ON DELETE CASCADE,
+    status public.import_log_status NOT NULL,
+    note text,
+    errors text,
+    summary text
+);
+CREATE INDEX ix_import_log_import_job_id ON public.import_log USING btree (import_job_id);
+
+
+CREATE TABLE public.data_source (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
     name text NOT NULL,
@@ -604,45 +640,9 @@ CREATE TABLE public.data_source_classification (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
-CREATE UNIQUE INDEX ix_data_source_classification_code ON public.data_source_classification USING btree (code) WHERE active;
+CREATE UNIQUE INDEX ix_data_source_code ON public.data_source USING btree (code) WHERE active;
 
 
-CREATE TYPE public.data_source_queue_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
-\echo public.data_source_queue
-CREATE TABLE public.data_source_queue (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    start_import_date timestamp with time zone,
-    end_import_date timestamp with time zone,
-    data_source_path text NOT NULL,
-    data_source_file_name text NOT NULL,
-    description text,
-    status public.data_source_queue_status NOT NULL,
-    note text,
-    data_source_id integer NOT NULL REFERENCES public.data_source(id) ON DELETE CASCADE,
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
-    skip_lines_count integer NOT NULL
-);
-CREATE INDEX ix_data_source_queue_data_source_id ON public.data_source_queue USING btree (data_source_id);
-CREATE INDEX ix_data_source_queue_user_id ON public.data_source_queue USING btree (user_id);
-
-
-CREATE TYPE public.data_uploading_log_status AS ENUM ('done', 'warning', 'error');
-\echo public.data_uploading_log
-CREATE TABLE public.data_uploading_log (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    start_import_date timestamp with time zone,
-    end_import_date timestamp with time zone,
-    target_stat_ident text,
-    stat_unit_name text,
-    serialized_unit text,
-    serialized_raw_unit text,
-    data_source_queue_id integer NOT NULL REFERENCES public.data_source_queue(id) ON DELETE CASCADE,
-    status public.data_uploading_log_status NOT NULL,
-    note text,
-    errors text,
-    summary text
-);
-CREATE INDEX ix_data_uploading_log_data_source_queue_id ON public.data_uploading_log USING btree (data_source_queue_id);
 
 
 \echo public.tag_type
@@ -893,7 +893,6 @@ CREATE TABLE public.enterprise_group (
     active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
-    data_source text,
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
     telephone_no text,
@@ -904,13 +903,13 @@ CREATE TABLE public.enterprise_group (
     edit_by_user_id integer NOT NULL,
     edit_comment text,
     unit_size_id integer REFERENCES public.unit_size(id),
-    data_source_classification_id integer REFERENCES public.data_source_classification(id),
+    data_source_id integer REFERENCES public.data_source(id),
     reorg_references text,
     reorg_date timestamp with time zone,
     reorg_type_id integer REFERENCES public.reorg_type(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id)
 );
-CREATE INDEX ix_enterprise_group_data_source_classification_id ON public.enterprise_group USING btree (data_source_classification_id);
+CREATE INDEX ix_enterprise_group_data_source_id ON public.enterprise_group USING btree (data_source_id);
 CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
 CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);
 CREATE INDEX ix_enterprise_group_name ON public.enterprise_group USING btree (name);
@@ -1013,7 +1012,7 @@ CREATE TABLE public.legal_unit (
     edit_comment character varying(500),
     unit_size_id integer REFERENCES public.unit_size(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id),
-    data_source_classification_id integer REFERENCES public.data_source_classification(id),
+    data_source_id integer REFERENCES public.data_source(id),
     enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     primary_for_enterprise boolean NOT NULL,
     invalid_codes jsonb,
@@ -1028,7 +1027,7 @@ CREATE TABLE public.legal_unit (
 CREATE UNIQUE INDEX "Only one primary legal_unit per enterprise" ON public.legal_unit(enterprise_id) WHERE primary_for_enterprise;
 CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
-CREATE INDEX ix_legal_unit_data_source_classification_id ON public.legal_unit USING btree (data_source_classification_id);
+CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
 CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
 CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id);
@@ -1078,7 +1077,7 @@ CREATE TABLE public.establishment (
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
     unit_size_id integer REFERENCES public.unit_size(id),
-    data_source_classification_id integer REFERENCES public.data_source_classification(id),
+    data_source_id integer REFERENCES public.data_source(id),
     enterprise_id integer REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     legal_unit_id integer,
     primary_for_legal_unit boolean,
@@ -1103,7 +1102,7 @@ CREATE TABLE public.establishment (
 
 CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
-CREATE INDEX ix_establishment_data_source_classification_id ON public.establishment USING btree (data_source_classification_id);
+CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
@@ -2276,7 +2275,7 @@ CREATE VIEW public.statistical_unit_def
     -- liq_reason character varying(200),
     -- user_id character varying(100) NOT NULL,
     -- edit_comment character varying(500),
-    -- data_source_classification_id integer REFERENCES public.data_source_classification(id),
+    -- data_source_id integer REFERENCES public.data_source(id),
     -- reorg_type_id integer REFERENCES public.reorg_type(id),
     -- active boolean,
     )
@@ -4981,10 +4980,10 @@ SET LOCAL client_min_messages TO INFO;
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.data_source_classification', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.data_source', 'code');
 SET LOCAL client_min_messages TO INFO;
 
-\copy public.data_source_classification_system(code, name) FROM 'dbseed/data_source_classification.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.data_source_system(code, name) FROM 'dbseed/data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;

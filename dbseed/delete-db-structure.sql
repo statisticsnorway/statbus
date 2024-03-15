@@ -158,7 +158,7 @@ SELECT admin.drop_table_views_for_batch_api('public.sector');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
-SELECT admin.drop_table_views_for_batch_api('public.data_source_classification');
+SELECT admin.drop_table_views_for_batch_api('public.data_source');
 SELECT admin.drop_table_views_for_batch_api('public.unit_size');
 SELECT admin.drop_table_views_for_batch_api('public.person_type');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
@@ -218,10 +218,11 @@ DROP TABLE public.location;
 
 DROP TABLE public.custom_analysis_check;
 
-DROP TABLE public.data_uploading_log;
-DROP TABLE public.data_source_classification;
-DROP TABLE public.data_source_queue;
 DROP TABLE public.data_source;
+
+DROP TABLE public.import_log;
+DROP TABLE public.import_job;
+DROP TABLE public.import_definition;
 
 DROP VIEW public.relative_period_with_time;
 DROP TABLE public.relative_period;
@@ -260,14 +261,14 @@ DROP FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.s
 DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer);
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
-DROP TYPE public.data_source_priority;
-DROP TYPE public.allowed_operations;
-DROP TYPE public.stat_unit_type;
-DROP TYPE public.data_source_upload_type;
+DROP TYPE public.import_priority;
+DROP TYPE public.import_strategy;
+DROP TYPE public.import_unit_type;
+DROP TYPE public.import_upload_type;
 
 DROP TYPE public.statbus_role_type;
-DROP TYPE public.data_source_queue_status;
-DROP TYPE public.data_uploading_log_status;
+DROP TYPE public.import_job_status;
+DROP TYPE public.import_log_status;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
 DROP TYPE admin.existing_upsert_case;
