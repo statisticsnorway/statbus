@@ -13,6 +13,7 @@ export const createInvalidCodesFilter = (
         label: "Yes",
         value: "yes",
         humanReadableValue: "Yes",
+        className: "bg-orange-200",
       },
     ],
     selected: value ? [value === "null" ? null : value] : [],
