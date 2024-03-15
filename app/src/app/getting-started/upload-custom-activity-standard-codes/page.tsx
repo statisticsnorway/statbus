@@ -18,7 +18,7 @@ export default async function UploadCustomActivityCategoryCodesPage() {
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-xl">
+      <h1 className="text-center text-2xl">
         Upload Custom Activity Category Standard Codes
       </h1>
       <p>

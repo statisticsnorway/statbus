@@ -6,9 +6,13 @@ export default function useUpdatedUrlSearchParams({
 }: SearchContextState) {
   useEffect(() => {
     const params = filters
-      .filter((f) => f.selected?.[0]!!)
-      .reduce((acc, f) => {
-        acc.set(f.name, `${f.operator}.${f.selected.join(",")}`);
+      .filter((f) => f.selected.length > 0 && f.selected[0] !== "")
+      .reduce((acc, { name, selected, operator: op }) => {
+        if (selected[0] === null) {
+          acc.set(name, "null");
+        } else {
+          acc.set(name, `${op ? `${op}.` : ""}${selected.join(",")}`);
+        }
         return acc;
       }, new URLSearchParams());
 

@@ -50,8 +50,7 @@ try {
   wordBoundaryRegex = /\b\w+\b/g;
 }
 
-export function generateFTSQuery(prompt: string | null): string | null {
-  if (!prompt) return null;
+export function generateFTSQuery(prompt: string): string {
   const cleanedPrompt = prompt.trim().toLowerCase();
   const isNegated = (word: string) =>
     new RegExp(`\\-\\b(${word})\\b`).test(cleanedPrompt);
@@ -63,24 +62,31 @@ export function generateFTSQuery(prompt: string | null): string | null {
     .join(" & ");
 }
 
-const generatePostgrestQuery = ({ selected, operator }: SearchFilter) => {
+const generatePostgrestQuery = ({ selected, name, operator }: SearchFilter) => {
+  if (!selected.some((value) => value != "")) return null;
+
   if (selected.length === 1 && selected[0] === null) {
     return "is.null";
   }
 
-  switch (operator) {
-    case "eq":
-    case "gt":
-    case "lt":
-    case "cd":
-      return selected[0] ? `${operator}.${selected[0]}` : null;
-    case "in":
-      return selected.length > 0 ? `in.(${selected.join(",")})` : null;
-    case "fts": {
-      const query = generateFTSQuery(selected[0]);
-      return query ? `fts(simple).${query}` : null;
-    }
+  switch (name) {
+    case "search":
+      return `fts(simple).${generateFTSQuery(selected[0]!!)}`;
+    case "tax_reg_ident":
+      return `eq.${selected[0]}`;
+    case "unit_type":
+      return `in.(${selected.join(",")})`;
+    case "physical_region_path":
+      return `cd.${selected[0]}`;
+    case "primary_activity_category_path":
+      return `cd.${selected[0]}`;
+    case "sector_code":
+      return `in.(${selected.join(",")})`;
+    case "legal_form_code":
+      return `in.(${selected.join(",")})`;
+    case "invalid_codes":
+      return selected[0] === "yes" ? "not.is.null" : null;
     default:
-      return null;
+      return `${operator ? `${operator}.` : ""}${selected.join(",")}`;
   }
 };

@@ -57,8 +57,15 @@ export default async function Dashboard() {
     .select("path", { count: "exact" })
     .limit(0);
 
+  const unitsWithInvalidCodesPromise = await client
+    .from("statistical_unit")
+    .select("*", { count: "exact" })
+    .not("invalid_codes", "is", null)
+    .limit(0);
+
   const [
     { count: unitsCount, error: unitsError },
+    { count: unitsWithInvalidCodes, error: unitsWithInvalidCodesError },
     { count: unitsMissingRegionCount, error: unitsMissingRegionError },
     {
       count: unitsMissingActivityCategoryCount,
@@ -73,6 +80,7 @@ export default async function Dashboard() {
     { data: settings, error: settingsError },
   ] = await Promise.all([
     unitsPromise,
+    unitsWithInvalidCodesPromise,
     unitsMissingRegionPromise,
     unitsMissingActivityCategoryPromise,
     regionsPromise,
@@ -83,9 +91,7 @@ export default async function Dashboard() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24">
-      <h1 className="mb-12 text-center text-xl font-medium">
-        StatBus Status Dashboard
-      </h1>
+      <h1 className="mb-12 text-center text-2xl">StatBus Status Dashboard</h1>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/search">
           <DashboardCard
@@ -128,7 +134,7 @@ export default async function Dashboard() {
           />
         </Link>
 
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=">
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=null">
           <DashboardCard
             title="Units Missing Region"
             icon={<AlertTriangle className="h-4" />}
@@ -141,7 +147,7 @@ export default async function Dashboard() {
           />
         </Link>
 
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=">
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=null">
           <DashboardCard
             title="Units Missing Activity Category"
             icon={<AlertTriangle className="h-4" />}
@@ -150,6 +156,18 @@ export default async function Dashboard() {
               (unitsMissingActivityCategoryCount !== null &&
                 unitsMissingActivityCategoryCount > 0) ||
               !!unitsMissingActivityCategoryError
+            }
+          />
+        </Link>
+
+        <Link href="/search?unit_type=enterprise,legal_unit,establishment&invalid_codes=yes">
+          <DashboardCard
+            title="Units With Import Issues"
+            icon={<AlertTriangle className="h-4" />}
+            text={unitsWithInvalidCodes?.toString() ?? "-"}
+            failed={
+              (unitsWithInvalidCodes !== null && unitsWithInvalidCodes > 0) ||
+              !!unitsWithInvalidCodesError
             }
           />
         </Link>

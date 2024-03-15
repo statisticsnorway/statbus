@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import { Metadata } from "next";
-import { createFilters } from "@/app/search/create-filters";
+import { createFilters } from "@/app/search/filters";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -92,7 +92,7 @@ export default async function SearchPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-24">
-      <h1 className="mb-12 text-center text-xl font-medium">
+      <h1 className="mb-12 text-center text-2xl">
         Search for statistical units
       </h1>
       <Search

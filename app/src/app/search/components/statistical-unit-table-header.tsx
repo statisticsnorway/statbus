@@ -3,7 +3,7 @@ import SortableTableHead from "@/app/search/components/sortable-table-head";
 
 export const StatisticalUnitTableHeader = () => {
   return (
-    <TableHeader className="bg-gray-100">
+    <TableHeader className="bg-gray-50">
       <TableRow>
         <SortableTableHead name="name">Name</SortableTableHead>
         <SortableTableHead className="text-left" name="physical_region_path">

@@ -18,7 +18,7 @@ export default async function UploadLegalUnitsPage() {
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-xl">Upload Legal Units</h1>
+      <h1 className="text-center text-2xl">Upload Legal Units</h1>
       <p>
         Upload a CSV file containing Legal Units you want to use in your
         analysis.
