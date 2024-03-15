@@ -5014,10 +5014,15 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     --    [----n----]
     -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to
     --    [----n--------]
+    -- ELSE IF NOT n.active
+    --    [----n----]
     -- ELSE e.valid_from = n.valid_to + '1 day'
     --               [-e-]
     --    [----n----]
     );
+-- The n.active dependent logic is not implemented, because It's not clear to me
+-- that that you insert should modify things outside the specified timeline.
+
 -- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
 
 \echo admin.upsert_generic_valid_time_table
