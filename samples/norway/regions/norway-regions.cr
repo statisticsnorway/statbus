@@ -7,6 +7,7 @@ require "option_parser"
 enum FileType
   Fylker
   Kommuner
+  Spesialkoder
 end
 
 struct FileData
@@ -19,7 +20,7 @@ end
 
 def download_file_if_not_exist(url : String, filepath : Path) : Path
   return filepath if File.exists?(filepath)
-
+  puts "Downloading #{url} to #{filepath}"
   HTTP::Client.get(url) do |response|
     File.open(filepath, "w") do |file|
       # Instead of using IO#copy, then iterate over each line,
@@ -50,6 +51,7 @@ rescue ex
 end
 
 def process_csv(filepath : Path, file_type : FileType, csv_builder : CSV::Builder)
+  puts "Processing #{filepath}"
   file_content = File.read(filepath)
   csv_content = CSV.parse(file_content, ';')
 
@@ -66,6 +68,15 @@ def process_csv(filepath : Path, file_type : FileType, csv_builder : CSV::Builde
              [row[0], row[3]]
            when FileType::Kommuner
              [row[0].insert(2, '.'), row[3]]
+           when FileType::Spesialkoder
+             begin
+               path = row[0]
+               if path.size == 4
+                 path = path.insert(2, '.')
+               end
+               name = row[3]
+               [path, name]
+             end
            else
              raise "Unknown file type for file #{filepath}"
            end
@@ -76,15 +87,17 @@ rescue ex
   puts "Error processing file #{filepath}: #{ex.message}"
 end
 
-selected_year = 2023 # Default year
+selected_year = 2024 # Default year
 files_by_year = {
   2023 => [
     FileData.new(url: "https://data.ssb.no/api/klass/v1/versions/2108.csv?language=nb", file_type: FileType::Fylker),
     FileData.new(url: "https://data.ssb.no/api/klass/v1/versions/1847.csv?language=nb", file_type: FileType::Kommuner),
+    FileData.new(url: "https://data.ssb.no/api/klass/v1/versions/480.csv?language=nb", file_type: FileType::Spesialkoder),
   ],
   2024 => [
     FileData.new(url: "https://data.ssb.no/api/klass/v1//versions/1709.csv?language=nb", file_type: FileType::Fylker),
     FileData.new(url: "https://data.ssb.no/api/klass/v1//versions/1710.csv?language=nb", file_type: FileType::Kommuner),
+    FileData.new(url: "https://data.ssb.no/api/klass/v1/versions/480.csv?language=nb", file_type: FileType::Spesialkoder),
   ],
 }
 
@@ -119,12 +132,10 @@ csv_data = CSV.build do |csv_builder|
     filepath = Path.new(File.join(temp_dir, filename))
 
     downloaded_filename = download_file_if_not_exist(f.url, filepath)
-    if downloaded_filename
-      begin
-        process_csv(downloaded_filename, f.file_type, csv_builder)
-      rescue ex
-        puts "Error during CSV processing: #{ex.message}"
-      end
+    begin
+      process_csv(downloaded_filename, f.file_type, csv_builder)
+    rescue ex
+      puts "Error during CSV processing: #{ex.message}"
     end
   end
 end
