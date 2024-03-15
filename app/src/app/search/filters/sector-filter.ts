@@ -1,5 +1,4 @@
 import { Tables } from "@/lib/database.types";
-import { createURLParamsResolver } from "@/app/search/filters/url-params-resolver";
 
 export const SECTOR_CODE: SearchFilterName = "sector_code";
 
@@ -7,7 +6,7 @@ export const createSectorFilter = (
   params: URLSearchParams,
   sectors: Tables<"sector">[]
 ): SearchFilter => {
-  const [sectorCode] = createURLParamsResolver(params)(SECTOR_CODE);
+  const sectorCode = params.get(SECTOR_CODE);
   return {
     type: "options",
     name: SECTOR_CODE,

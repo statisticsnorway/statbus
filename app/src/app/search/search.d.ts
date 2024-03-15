@@ -39,6 +39,7 @@ type SearchFilter = {
   readonly label: string;
   readonly options?: SearchFilterOption[];
   readonly selected: (string | null)[];
+  readonly operator?: PostgrestOperator;
 };
 
 type SearchResult = {

@@ -1,5 +1,4 @@
 import { Tables } from "@/lib/database.types";
-import { createURLParamsResolver } from "@/app/search/filters/url-params-resolver";
 
 export const PHYSICAL_REGION_PATH: SearchFilterName = "physical_region_path";
 
@@ -7,7 +6,7 @@ export const createRegionFilter = (
   params: URLSearchParams,
   regions: Tables<"region_used">[]
 ): SearchFilter => {
-  const [region] = createURLParamsResolver(params)(PHYSICAL_REGION_PATH);
+  const region = params.get(PHYSICAL_REGION_PATH);
   return {
     type: "radio",
     name: PHYSICAL_REGION_PATH,

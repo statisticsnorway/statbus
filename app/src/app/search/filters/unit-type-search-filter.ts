@@ -1,11 +1,9 @@
-import { createURLParamsResolver } from "@/app/search/filters/url-params-resolver";
-
 export const UNIT_TYPE: SearchFilterName = "unit_type";
 
 export const createUnitTypeSearchFilter = (
   params: URLSearchParams
 ): SearchFilter => {
-  const [unitType] = createURLParamsResolver(params)(UNIT_TYPE);
+  const unitType = params.get(UNIT_TYPE);
   return {
     type: "options",
     label: "Type",

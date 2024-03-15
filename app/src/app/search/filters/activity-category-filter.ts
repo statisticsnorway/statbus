@@ -1,5 +1,4 @@
 import { Tables } from "@/lib/database.types";
-import { createURLParamsResolver } from "@/app/search/filters/url-params-resolver";
 
 export const ACTIVITY_CATEGORY: SearchFilterName =
   "primary_activity_category_path";
@@ -8,7 +7,7 @@ export const createActivityCategoryFilter = (
   params: URLSearchParams,
   activityCategories: Tables<"activity_category_used">[]
 ): SearchFilter => {
-  const [activityCategory] = createURLParamsResolver(params)(ACTIVITY_CATEGORY);
+  const activityCategory = params.get(ACTIVITY_CATEGORY);
   return {
     type: "radio",
     name: ACTIVITY_CATEGORY,

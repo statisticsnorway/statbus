@@ -1,5 +1,4 @@
 import { Tables } from "@/lib/database.types";
-import { createURLParamsResolver } from "@/app/search/filters/url-params-resolver";
 
 export const LEGAL_FORM_CODE: SearchFilterName = "legal_form_code";
 
@@ -7,7 +6,7 @@ export const creatLegalFormFilter = (
   params: URLSearchParams,
   legalForms: Tables<"legal_form">[]
 ): SearchFilter => {
-  const [legalFormCode] = createURLParamsResolver(params)(LEGAL_FORM_CODE);
+  const legalFormCode = params.get(LEGAL_FORM_CODE);
   return {
     type: "options",
     name: LEGAL_FORM_CODE,

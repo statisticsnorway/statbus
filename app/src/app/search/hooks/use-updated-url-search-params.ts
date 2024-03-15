@@ -7,11 +7,11 @@ export default function useUpdatedUrlSearchParams({
   useEffect(() => {
     const params = filters
       .filter((f) => f.selected.length > 0 && f.selected[0] !== "")
-      .reduce((acc, f) => {
-        if (f.selected[0] === null) {
-          acc.set(f.name, "is.null");
+      .reduce((acc, { name, selected, operator: op }) => {
+        if (selected[0] === null) {
+          acc.set(name, "null");
         } else {
-          acc.set(f.name, `${f.selected.join(",")}`);
+          acc.set(name, `${op ? `${op}.` : ""}${selected.join(",")}`);
         }
         return acc;
       }, new URLSearchParams());

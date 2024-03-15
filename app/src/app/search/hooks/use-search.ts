@@ -63,7 +63,7 @@ export function generateFTSQuery(prompt: string | null): string | null {
     .join(" & ");
 }
 
-const generatePostgrestQuery = ({ selected, name }: SearchFilter) => {
+const generatePostgrestQuery = ({ selected, name, operator }: SearchFilter) => {
   if (selected.length === 1 && selected[0] === null) {
     return "is.null";
   }
@@ -86,9 +86,11 @@ const generatePostgrestQuery = ({ selected, name }: SearchFilter) => {
     case "legal_form_code":
       return selected.length > 0 ? `in.(${selected.join(",")})` : null;
     case "invalid_codes": {
-      return selected[0] === "yes" ? "not.is.null" : "is.null";
+      return selected[0] === "yes" ? "not.is.null" : null;
     }
     default:
-      return null;
+      return selected.length > 0
+        ? `${operator ? `${operator}.` : ""}${selected.join(",")}`
+        : null;
   }
 };
