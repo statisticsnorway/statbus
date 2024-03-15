@@ -435,7 +435,6 @@ class StatBus
       parser.on("install", "Install StatBus") do
         @mode = Mode::Install
         parser.banner = "Usage: #{@name} install [arguments]"
-        parser.on("-t NAME", "--to=NAME", "Specify the name to salute") { |name| @name = name }
       end
       parser.on("manage", "Manage installed StatBus") do
         @mode = Mode::Manage
@@ -449,7 +448,6 @@ class StatBus
         parser.on("status", "Status on StatBus") do
           @manage_mode = ManageMode::Status
         end
-        parser.on("-t NAME", "--to=NAME", "Specify the name to salute") { |name| @name = name }
       end
       parser.on("import", "Import into installed StatBus") do
         @mode = Mode::Import
