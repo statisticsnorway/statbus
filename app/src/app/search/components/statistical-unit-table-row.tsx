@@ -18,9 +18,11 @@ export const StatisticalUnitTableRow = ({
 }: SearchResultTableRowProps) => {
   const { regions, activityCategories } = useSearchContext();
   const { selected } = useCartContext();
+
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );
+
   const {
     unit_type: type,
     unit_id: id,
@@ -31,6 +33,7 @@ export const StatisticalUnitTableRow = ({
     employees,
     sector_name,
     sector_code,
+    invalid_codes,
   } = unit;
 
   const getRegionByPath = (physical_region_path: unknown) =>
@@ -44,6 +47,7 @@ export const StatisticalUnitTableRow = ({
   const activityCategory = getActivityCategoryByPath(
     primary_activity_category_path
   );
+
   const region = getRegionByPath(physical_region_path);
 
   const prettifyUnitType = (type: UnitType | null): string => {
@@ -62,10 +66,7 @@ export const StatisticalUnitTableRow = ({
   };
 
   return (
-    <TableRow
-      key={`${type}_${id}`}
-      className={cn("", className, isInBasket ? "bg-gray-100" : "")}
-    >
+    <TableRow className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
       <TableCell className="py-2">
         <div
           className="flex items-center space-x-3 leading-tight"
@@ -87,6 +88,22 @@ export const StatisticalUnitTableRow = ({
             <small className="text-gray-700">
               {tax_reg_ident} | {prettifyUnitType(type)}
             </small>
+            {invalid_codes && (
+              <div className="text-xs">
+                <ul>
+                  {Object.keys(invalid_codes).map((k) => (
+                    <li
+                      key={k}
+                      title="This unit has import issues."
+                      className="text-orange-700 inline-block"
+                    >
+                      {/* @ts-ignore */}
+                      {k}: {invalid_codes[k]}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </TableCell>
