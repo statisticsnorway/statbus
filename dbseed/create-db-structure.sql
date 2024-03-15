@@ -5295,7 +5295,8 @@ DECLARE
             'id',
             'stat_ident',
             'tax_reg_ident',
-            jsonb_build_array('external_ident', 'external_ident_type')
+            jsonb_build_array('external_ident', 'external_ident_type'),
+            jsonb_build_array('scoped_tag_id', 'scoped_tag_ident')
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   -- The tax_reg_date is just set to the current date, unless provided,
@@ -5343,7 +5344,8 @@ DECLARE
             'id',
             'stat_ident',
             'tax_reg_ident',
-            jsonb_build_array('external_ident', 'external_ident_type')
+            jsonb_build_array('external_ident', 'external_ident_type'),
+            jsonb_build_array('scoped_tag_id', 'scoped_tag_ident')
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   -- The tax_reg_date is just set to the current date, unless provided,
