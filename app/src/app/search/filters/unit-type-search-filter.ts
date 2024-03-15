@@ -10,7 +10,6 @@ export const createUnitTypeSearchFilter = (
     type: "options",
     label: "Type",
     name: UNIT_TYPE,
-    operator: "in",
     options: [
       {
         label: "Legal Unit",

@@ -12,7 +12,6 @@ export const createSectorFilter = (
     type: "options",
     name: SECTOR_CODE,
     label: "Sector",
-    operator: "in",
     options: [
       ...sectors.map(({ code, name }) => ({
         label: `${code} ${name}`,

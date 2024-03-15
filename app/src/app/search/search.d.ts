@@ -1,4 +1,4 @@
-type PostgrestOperator = "eq" | "gt" | "lt" | "in" | "cd" | "fts" | "is";
+type PostgrestOperator = "eq" | "gt" | "lt" | "in";
 
 type SearchFilterName =
   | "search"

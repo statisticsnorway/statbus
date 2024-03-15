@@ -10,7 +10,6 @@ export const createFullTextSearchFilter = (
     type: "search",
     label: "Name",
     name: SEARCH,
-    operator: "fts",
     selected: search ? [search] : [],
   };
 };

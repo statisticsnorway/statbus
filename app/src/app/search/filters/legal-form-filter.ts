@@ -12,7 +12,6 @@ export const creatLegalFormFilter = (
     type: "options",
     name: LEGAL_FORM_CODE,
     label: "Legal Form",
-    operator: "in",
     options: [
       ...legalForms.map(({ code, name }) => ({
         label: `${code} ${name}`,

@@ -10,7 +10,6 @@ export const createTaxRegIdentFilter = (
     type: "search",
     label: "Tax ID",
     name: TAX_REG_IDENT,
-    operator: "eq",
     selected: taxRegIdent ? [taxRegIdent] : [],
   };
 };

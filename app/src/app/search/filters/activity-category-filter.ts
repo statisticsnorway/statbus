@@ -13,7 +13,6 @@ export const createActivityCategoryFilter = (
     type: "radio",
     name: ACTIVITY_CATEGORY,
     label: "Activity Category",
-    operator: "cd",
     options: [
       {
         label: "Missing",

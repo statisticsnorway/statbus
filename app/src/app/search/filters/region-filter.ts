@@ -12,7 +12,6 @@ export const createRegionFilter = (
     type: "radio",
     name: PHYSICAL_REGION_PATH,
     label: "Region",
-    operator: "cd",
     options: [
       {
         label: "Missing",
