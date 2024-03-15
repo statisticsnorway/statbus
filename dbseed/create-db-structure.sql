@@ -2235,7 +2235,6 @@ CREATE VIEW public.statistical_unit_def
     , physical_address_part3
     , physical_postal_code
     , physical_postal_place
-    , physical_formatted_address
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -2245,7 +2244,6 @@ CREATE VIEW public.statistical_unit_def
     , postal_address_part3
     , postal_postal_code
     , postal_postal_place
-    , postal_formatted_address
     , postal_region_id
     , postal_region_path
     , postal_country_id
@@ -2318,13 +2316,6 @@ CREATE VIEW public.statistical_unit_def
          , physical_address_part3
          , physical_postal_code
          , physical_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(physical_address_part1, ''),
-             NULLIF(physical_address_part2, ''),
-             NULLIF(physical_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(physical_postal_code, ''), NULLIF(physical_postal_place, '')))
-         )) AS physical_formatted_address
          , physical_region_id
          , physical_region_path
          , physical_country_id
@@ -2335,13 +2326,6 @@ CREATE VIEW public.statistical_unit_def
          , postal_address_part3
          , postal_postal_code
          , postal_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(postal_address_part1, ''),
-             NULLIF(postal_address_part2, ''),
-             NULLIF(postal_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
-         )) AS postal_formatted_address
          , postal_region_id
          , postal_region_path
          , postal_country_id
@@ -2568,13 +2552,6 @@ CREATE VIEW public.statistical_unit_def
          , physical_address_part3
          , physical_postal_code
          , physical_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(physical_address_part1, ''),
-             NULLIF(physical_address_part2, ''),
-             NULLIF(physical_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(physical_postal_code, ''), NULLIF(physical_postal_place, '')))
-         )) AS physical_formatted_address
          , physical_region_id
          , physical_region_path
          , physical_country_id
@@ -2585,13 +2562,6 @@ CREATE VIEW public.statistical_unit_def
          , postal_address_part3
          , postal_postal_code
          , postal_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(postal_address_part1, ''),
-             NULLIF(postal_address_part2, ''),
-             NULLIF(postal_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
-         )) AS postal_formatted_address
          , postal_region_id
          , postal_region_path
          , postal_country_id
@@ -2814,13 +2784,6 @@ CREATE VIEW public.statistical_unit_def
          , physical_address_part3
          , physical_postal_code
          , physical_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(physical_address_part1, ''),
-             NULLIF(physical_address_part2, ''),
-             NULLIF(physical_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(physical_postal_code, ''), NULLIF(physical_postal_place, '')))
-         )) AS physical_formatted_address
          , physical_region_id
          , physical_region_path
          , physical_country_id
@@ -2831,13 +2794,6 @@ CREATE VIEW public.statistical_unit_def
          , postal_address_part3
          , postal_postal_code
          , postal_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(postal_address_part1, ''),
-             NULLIF(postal_address_part2, ''),
-             NULLIF(postal_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
-         )) AS postal_formatted_address
          , postal_region_id
          , postal_region_path
          , postal_country_id
@@ -3062,13 +3018,6 @@ CREATE VIEW public.statistical_unit_def
          , physical_address_part3
          , physical_postal_code
          , physical_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(physical_address_part1, ''),
-             NULLIF(physical_address_part2, ''),
-             NULLIF(physical_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(physical_postal_code, ''), NULLIF(physical_postal_place, '')))
-         )) AS physical_formatted_address
          , physical_region_id
          , physical_region_path
          , physical_country_id
@@ -3079,13 +3028,6 @@ CREATE VIEW public.statistical_unit_def
          , postal_address_part3
          , postal_postal_code
          , postal_postal_place
-         , TRIM(CONCAT_WS(
-             E'\n',
-             NULLIF(postal_address_part1, ''),
-             NULLIF(postal_address_part2, ''),
-             NULLIF(postal_address_part3, ''),
-             TRIM(CONCAT_WS(' ', NULLIF(postal_postal_code, ''), NULLIF(postal_postal_place, '')))
-         )) AS postal_formatted_address
          , postal_region_id
          , postal_region_path
          , postal_country_id
@@ -3297,7 +3239,6 @@ CREATE VIEW public.statistical_unit_def
          , NULL::TEXT AS physical_address_part3
          , NULL::TEXT AS physical_postal_code
          , NULL::TEXT AS physical_postal_place
-         , NULL::TEXT AS physical_formatted_address
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
          , NULL::INTEGER AS physical_country_id
@@ -3308,7 +3249,6 @@ CREATE VIEW public.statistical_unit_def
          , NULL::TEXT AS postal_address_part3
          , NULL::TEXT AS postal_postal_code
          , NULL::TEXT AS postal_postal_place
-         , NULL::TEXT AS postal_formatted_address
          , NULL::INTEGER AS postal_region_id
          , NULL::public.ltree AS postal_region_path
          , NULL::INTEGER AS postal_country_id
