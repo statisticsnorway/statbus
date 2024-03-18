@@ -6,6 +6,7 @@ import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
 import { useCartContext } from "@/app/search/cart-provider";
+import { Bug } from "lucide-react";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -85,49 +86,48 @@ export const StatisticalUnitTableRow = ({
             ) : (
               <span className="font-medium">{name}</span>
             )}
-            <small className="text-gray-700">
-              {tax_reg_ident} | {prettifyUnitType(type)}
+            <small className="text-gray-700 flex items-center space-x-1">
+              <span>{tax_reg_ident}</span>
+              <span>|</span>
+              <span>{prettifyUnitType(type)}</span>
+              {invalid_codes && (
+                <>
+                  <span>|</span>
+                  <div title={JSON.stringify(invalid_codes)}>
+                    <Bug className="h-3 w-3 stroke-gray-600" />
+                  </div>
+                </>
+              )}
             </small>
-            {invalid_codes && (
-              <div className="text-xs">
-                <ul>
-                  {Object.keys(invalid_codes).map((k) => (
-                    <li
-                      key={k}
-                      title="This unit has import issues."
-                      className="text-orange-700 inline-block"
-                    >
-                      {/* @ts-ignore */}
-                      {k}: {invalid_codes[k]}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       </TableCell>
       <TableCell className="py-2 text-left">
         <div className="flex flex-col space-y-0.5 leading-tight">
-          <span className="max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
+          <span>{region?.code}</span>
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
             {region?.name}
-          </span>
-          <small className="text-gray-700">{region?.code}</small>
+          </small>
         </div>
       </TableCell>
       <TableCell className="py-2 text-right">{employees}</TableCell>
-      <TableCell className="py-2 text-right" title={sector_name ?? ""}>
-        {sector_code}
+      <TableCell className="py-2 text-left" title={sector_name ?? ""}>
+        <div className="flex flex-col space-y-0.5 leading-tight">
+          <span>{sector_code}</span>
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
+            {sector_name}
+          </small>
+        </div>
       </TableCell>
       <TableCell
         title={activityCategory?.name ?? ""}
         className="py-2 pl-4 pr-2 text-left"
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
-          <span className="max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
+          <span>{activityCategory?.code}</span>
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
             {activityCategory?.name}
-          </span>
-          <small className="text-gray-700">{activityCategory?.code}</small>
+          </small>
         </div>
       </TableCell>
       <TableCell className="p-1 text-right">
