@@ -5,10 +5,15 @@ import { chart } from "highcharts";
 
 interface DrillDownChartProps {
   readonly points: DrillDownPoint[];
+  readonly variable: keyof DrillDownPoint;
   readonly onSelect: (p: DrillDownPoint) => void;
 }
 
-export const DrillDownChart = ({ points, onSelect }: DrillDownChartProps) => {
+export const DrillDownChart = ({
+  points,
+  variable,
+  onSelect,
+}: DrillDownChartProps) => {
   const _ref = useRef<HTMLDivElement>(null);
   const _chart = useRef<Chart | null>(null);
 
@@ -42,6 +47,9 @@ export const DrillDownChart = ({ points, onSelect }: DrillDownChartProps) => {
         yAxis: {
           visible: false,
         },
+        credits: {
+          href: "",
+        },
         drilldown: {
           activeAxisLabelStyle: {
             color: "black",
@@ -63,7 +71,9 @@ export const DrillDownChart = ({ points, onSelect }: DrillDownChartProps) => {
           {
             type: "bar",
             showInLegend: false,
-            data: points?.map(toPointOptionObject),
+            data: points
+              ?.filter((point) => point[variable] !== 0)
+              .map((point) => toPointOptionObject(point, variable)),
             groupPadding: 0.05,
           },
         ],
@@ -74,9 +84,12 @@ export const DrillDownChart = ({ points, onSelect }: DrillDownChartProps) => {
   return <div ref={_ref} />;
 };
 
-const toPointOptionObject = (point: DrillDownPoint) => ({
+const toPointOptionObject = (
+  point: DrillDownPoint,
+  variable: keyof DrillDownPoint
+) => ({
   name: point.name,
-  y: point.count,
+  y: point[variable] as number,
   drilldown: point.has_children ? "1" : "",
   custom: point,
   color: "#00719c",
