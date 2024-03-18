@@ -12,7 +12,7 @@ export const StatisticalUnitTableHeader = () => {
         <SortableTableHead className="text-right" name="employees">
           Employees
         </SortableTableHead>
-        <SortableTableHead className="text-right" name="sector_code">
+        <SortableTableHead className="text-left" name="sector_code">
           Sector
         </SortableTableHead>
         <SortableTableHead

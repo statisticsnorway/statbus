@@ -109,25 +109,30 @@ export const StatisticalUnitTableRow = ({
       </TableCell>
       <TableCell className="py-2 text-left">
         <div className="flex flex-col space-y-0.5 leading-tight">
-          <span className="max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
+          <span>{region?.code}</span>
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
             {region?.name}
-          </span>
-          <small className="text-gray-700">{region?.code}</small>
+          </small>
         </div>
       </TableCell>
       <TableCell className="py-2 text-right">{employees}</TableCell>
-      <TableCell className="py-2 text-right" title={sector_name ?? ""}>
-        {sector_code}
+      <TableCell className="py-2 text-left" title={sector_name ?? ""}>
+        <div className="flex flex-col space-y-0.5 leading-tight">
+          <span>{sector_code}</span>
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
+            {sector_name}
+          </small>
+        </div>
       </TableCell>
       <TableCell
         title={activityCategory?.name ?? ""}
         className="py-2 pl-4 pr-2 text-left"
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
-          <span className="max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
+          <span>{activityCategory?.code}</span>
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
             {activityCategory?.name}
-          </span>
-          <small className="text-gray-700">{activityCategory?.code}</small>
+          </small>
         </div>
       </TableCell>
       <TableCell className="p-1 text-right">
