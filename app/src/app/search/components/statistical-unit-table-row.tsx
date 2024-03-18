@@ -74,7 +74,7 @@ export const StatisticalUnitTableRow = ({
           title={name ?? ""}
         >
           <StatisticalUnitIcon type={type} className="w-5" />
-          <div className="flex max-w-32 flex-1 flex-col space-y-0.5 lg:max-w-56">
+          <div className="flex max-w-32 flex-1 flex-col space-y-0.5 lg:max-w-48">
             {type && id && name ? (
               <StatisticalUnitDetailsLink
                 className="overflow-hidden overflow-ellipsis whitespace-nowrap"
@@ -114,7 +114,7 @@ export const StatisticalUnitTableRow = ({
       <TableCell className="py-2 text-left" title={sector_name ?? ""}>
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{sector_code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-48">
             {sector_name}
           </small>
         </div>
