@@ -93,10 +93,9 @@ DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
 
 DROP VIEW public.legal_unit_brreg_view;
-DROP FUNCTION admin.upsert_legal_unit_brreg_view();
-DROP FUNCTION admin.delete_stale_legal_unit_brreg_view();
+DROP FUNCTION admin.legal_unit_brreg_view_upsert();
+DROP FUNCTION admin.legal_unit_brreg_view_delete_stale();
 
---DROP VIEW public.establishment_current;
 DROP VIEW public.establishment_brreg_view;
 DROP FUNCTION admin.upsert_establishment_brreg_view();
 DROP FUNCTION admin.delete_stale_establishment_brreg_view();
@@ -120,9 +119,17 @@ DROP TRIGGER import_legal_unit_current_upsert_trigger ON public.import_legal_uni
 DROP FUNCTION admin.import_legal_unit_current_upsert();
 DROP VIEW public.import_legal_unit_current;
 
+DROP TRIGGER import_legal_unit_era_upsert_trigger ON public.import_legal_unit_era;
+DROP FUNCTION admin.import_legal_unit_era_upsert();
+DROP VIEW public.import_legal_unit_era;
+
 DROP TRIGGER import_establishment_current_upsert_trigger ON public.import_establishment_current;
 DROP FUNCTION admin.import_establishment_current_upsert();
 DROP VIEW public.import_establishment_current;
+
+DROP TRIGGER import_establishment_era_upsert_trigger ON public.import_establishment_era;
+DROP FUNCTION admin.import_establishment_era_upsert();
+DROP VIEW public.import_establishment_era;
 
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();

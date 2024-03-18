@@ -5504,11 +5504,12 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
-
-\echo public.import_legal_unit_current
-CREATE VIEW public.import_legal_unit_current
+\echo public.import_legal_unit_era
+CREATE VIEW public.import_legal_unit_era
 WITH (security_invoker=on) AS
-SELECT '' AS tax_reg_ident
+SELECT '' AS valid_from
+     , '' AS valid_to
+     , '' AS tax_reg_ident
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -5532,9 +5533,9 @@ SELECT '' AS tax_reg_ident
      , '' AS legal_form_code
 ;
 
-\echo admin.import_legal_unit_current_upsert
-CREATE FUNCTION admin.import_legal_unit_current_upsert()
-RETURNS TRIGGER AS $$
+\echo admin.import_legal_unit_era_upsert
+CREATE FUNCTION admin.import_legal_unit_era_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
@@ -5554,8 +5555,6 @@ DECLARE
     inserted_activity RECORD;
     invalid_codes JSONB := '{}'::jsonb;
     statbus_constraints_already_deferred BOOLEAN;
-    new_valid_from DATE := current_date;
-    new_valid_to DATE := 'infinity'::date;
 BEGIN
     SELECT COALESCE(NULLIF(current_setting('statbus.constraints_already_deferred', true),'')::boolean,false) INTO statbus_constraints_already_deferred;
 
@@ -5567,6 +5566,8 @@ BEGIN
     --
     SELECT NULL::DATE AS birth_date
          , NULL::DATE AS death_date
+         , NULL::DATE AS valid_from
+         , NULL::DATE AS valid_to
         INTO new_typed;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
@@ -5686,6 +5687,18 @@ BEGIN
         END;
     END IF;
 
+    BEGIN
+        new_typed.valid_from := NEW.valid_from::DATE;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid valid_from for row %', to_json(NEW);
+    END;
+
+    BEGIN
+        new_typed.valid_to := NEW.valid_to::DATE;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
+    END;
+
     SELECT NEW.tax_reg_ident AS tax_reg_ident
          , statement_timestamp() AS tax_reg_date
          , NEW.name AS name
@@ -5695,7 +5708,7 @@ BEGIN
          , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
-     INTO upsert_data;
+      INTO upsert_data;
 
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL DEFERRED;
@@ -5711,167 +5724,165 @@ BEGIN
         ( active
         , edit_by_user_id
         , edit_comment
-        ) VALUES
+        )
+    VALUES
         ( true
         , edited_by_user.id
         , 'Batch import'
         ) RETURNING *
-        INTO enterprise;
+     INTO enterprise;
     is_primary_for_enterprise := true;
 
     INSERT INTO public.legal_unit_era
-    ( tax_reg_ident
-    , tax_reg_date
-    , valid_from
-    , valid_to
-    , name
-    , birth_date
-    , death_date
-    , active
-    , seen_in_import_at
-    , edit_comment
-    , sector_id
-    , legal_form_id
-    , invalid_codes
-    , enterprise_id
-    , primary_for_enterprise
-    , edit_by_user_id
-    )
+        ( tax_reg_ident
+        , tax_reg_date
+        , valid_from
+        , valid_to
+        , name
+        , birth_date
+        , death_date
+        , active
+        , seen_in_import_at
+        , edit_comment
+        , sector_id
+        , legal_form_id
+        , invalid_codes
+        , enterprise_id
+        , primary_for_enterprise
+        , edit_by_user_id
+        )
     VALUES
-    ( upsert_data.tax_reg_ident
-    , upsert_data.tax_reg_date
-    , new_valid_from
-    , new_valid_to
-    , upsert_data.name
-    , upsert_data.birth_date
-    , upsert_data.death_date
-    , upsert_data.active
-    , upsert_data.seen_in_import_at
-    , upsert_data.edit_comment
-    , sector.id
-    , legal_form.id
-    , upsert_data.invalid_codes
-    , enterprise.id
-    , is_primary_for_enterprise
-    , edited_by_user.id
-    )
-    RETURNING * INTO inserted_legal_unit;
+        ( upsert_data.tax_reg_ident
+        , upsert_data.tax_reg_date
+        , new_typed.valid_from
+        , new_typed.valid_to
+        , upsert_data.name
+        , upsert_data.birth_date
+        , upsert_data.death_date
+        , upsert_data.active
+        , upsert_data.seen_in_import_at
+        , upsert_data.edit_comment
+        , sector.id
+        , legal_form.id
+        , upsert_data.invalid_codes
+        , enterprise.id
+        , is_primary_for_enterprise
+        , edited_by_user.id
+        )
+     RETURNING *
+     INTO inserted_legal_unit;
     RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
-        (
-            valid_from,
-            valid_to,
-            legal_unit_id,
-            location_type,
-            address_part1,
-            address_part2,
-            address_part3,
-            postal_code,
-            postal_place,
-            region_id,
-            country_id,
-            updated_by_user_id
-        )
+            ( valid_from
+            , valid_to
+            , legal_unit_id
+            , location_type
+            , address_part1
+            , address_part2
+            , address_part3
+            , postal_code
+            , postal_place
+            , region_id
+            , country_id
+            , updated_by_user_id
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_legal_unit.id,
-            'physical',
-            NULLIF(NEW.physical_address_part1,''),
-            NULLIF(NEW.physical_address_part2,''),
-            NULLIF(NEW.physical_address_part3,''),
-            NULLIF(NEW.physical_postal_code,''),
-            NULLIF(NEW.physical_postal_place,''),
-            physical_region.id,
-            physical_country.id,
-            edited_by_user.id
-        )
-        RETURNING * INTO inserted_location;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_legal_unit.id
+            , 'physical'
+            , NULLIF(NEW.physical_address_part1,'')
+            , NULLIF(NEW.physical_address_part2,'')
+            , NULLIF(NEW.physical_address_part3,'')
+            , NULLIF(NEW.physical_postal_code,'')
+            , NULLIF(NEW.physical_postal_place,'')
+            , physical_region.id
+            , physical_country.id
+            , edited_by_user.id
+            )
+        RETURNING *
+        INTO inserted_location;
     END IF;
 
     IF postal_region.id IS NOT NULL OR postal_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
-        (
-            valid_from,
-            valid_to,
-            legal_unit_id,
-            location_type,
-            address_part1,
-            address_part2,
-            address_part3,
-            postal_code,
-            postal_place,
-            region_id,
-            country_id,
-            updated_by_user_id
-        )
+            ( valid_from
+            , valid_to
+            , legal_unit_id
+            , location_type
+            , address_part1
+            , address_part2
+            , address_part3
+            , postal_code
+            , postal_place
+            , region_id
+            , country_id
+            , updated_by_user_id
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_legal_unit.id,
-            'postal',
-            NULLIF(NEW.postal_address_part1,''),
-            NULLIF(NEW.postal_address_part2,''),
-            NULLIF(NEW.postal_address_part3,''),
-            NULLIF(NEW.postal_postal_code,''),
-            NULLIF(NEW.postal_postal_place,''),
-            postal_region.id,
-            postal_country.id,
-            edited_by_user.id
-        )
-        RETURNING * INTO inserted_location;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_legal_unit.id
+            , 'postal'
+            , NULLIF(NEW.postal_address_part1,'')
+            , NULLIF(NEW.postal_address_part2,'')
+            , NULLIF(NEW.postal_address_part3,'')
+            , NULLIF(NEW.postal_postal_code,'')
+            , NULLIF(NEW.postal_postal_place,'')
+            , postal_region.id
+            , postal_country.id
+            , edited_by_user.id
+            )
+        RETURNING *
+        INTO inserted_location;
     END IF;
 
     IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
-        (
-            valid_from,
-            valid_to,
-            legal_unit_id,
-            activity_type,
-            activity_category_id,
-            updated_by_user_id,
-            updated_at
-        )
+            ( valid_from
+            , valid_to
+            , legal_unit_id
+            , activity_type
+            , activity_category_id
+            , updated_by_user_id
+            , updated_at
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_legal_unit.id,
-            'primary',
-            primary_activity_category.id,
-            edited_by_user.id,
-            statement_timestamp()
-        )
-        RETURNING * INTO inserted_activity;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_legal_unit.id
+            , 'primary'
+            , primary_activity_category.id
+            , edited_by_user.id
+            , statement_timestamp()
+            )
+        RETURNING *
+        INTO inserted_activity;
     END IF;
 
     IF secondary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
-        (
-            valid_from,
-            valid_to,
-            legal_unit_id,
-            activity_type,
-            activity_category_id,
-            updated_by_user_id,
-            updated_at
-        )
+            ( valid_from
+            , valid_to
+            , legal_unit_id
+            , activity_type
+            , activity_category_id
+            , updated_by_user_id
+            , updated_at
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_legal_unit.id,
-            'secondary',
-            secondary_activity_category.id,
-            edited_by_user.id,
-            statement_timestamp()
-        )
-        RETURNING * INTO inserted_activity;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_legal_unit.id
+            , 'secondary'
+            , secondary_activity_category.id
+            , edited_by_user.id
+            , statement_timestamp()
+            )
+        RETURNING *
+        INTO inserted_activity;
     END IF;
 
     IF NOT statbus_constraints_already_deferred THEN
@@ -5880,7 +5891,105 @@ BEGIN
 
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
+CREATE TRIGGER import_legal_unit_era_upsert_trigger
+INSTEAD OF INSERT ON public.import_legal_unit_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.import_legal_unit_era_upsert();
+
+
+
+\echo public.import_legal_unit_current
+CREATE VIEW public.import_legal_unit_current
+WITH (security_invoker=on) AS
+SELECT tax_reg_ident
+     , name
+     , birth_date
+     , death_date
+     , physical_address_part1
+     , physical_address_part2
+     , physical_address_part3
+     , physical_postal_code
+     , physical_postal_place
+     , physical_region_code
+     , physical_country_code_2
+     , postal_address_part1
+     , postal_address_part2
+     , postal_address_part3
+     , postal_postal_code
+     , postal_postal_place
+     , postal_region_code
+     , postal_country_code_2
+     , primary_activity_category_code
+     , secondary_activity_category_code
+     , sector_code
+     , legal_form_code
+FROM public.import_legal_unit_era;
+
+\echo admin.import_legal_unit_current_upsert
+CREATE FUNCTION admin.import_legal_unit_current_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_legal_unit_current_upsert$
+DECLARE
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
+BEGIN
+    INSERT INTO public.import_legal_unit_era
+        ( valid_from
+        , valid_to
+        , tax_reg_ident
+        , name
+        , birth_date
+        , death_date
+        , physical_address_part1
+        , physical_address_part2
+        , physical_address_part3
+        , physical_postal_code
+        , physical_postal_place
+        , physical_region_code
+        , physical_country_code_2
+        , postal_address_part1
+        , postal_address_part2
+        , postal_address_part3
+        , postal_postal_code
+        , postal_postal_place
+        , postal_region_code
+        , postal_country_code_2
+        , primary_activity_category_code
+        , secondary_activity_category_code
+        , sector_code
+        , legal_form_code
+        )
+    VALUES
+        ( new_valid_from
+        , new_valid_to
+        , NEW.tax_reg_ident
+        , NEW.name
+        , NEW.birth_date
+        , NEW.death_date
+        , NEW.physical_address_part1
+        , NEW.physical_address_part2
+        , NEW.physical_address_part3
+        , NEW.physical_postal_code
+        , NEW.physical_postal_place
+        , NEW.physical_region_code
+        , NEW.physical_country_code_2
+        , NEW.postal_address_part1
+        , NEW.postal_address_part2
+        , NEW.postal_address_part3
+        , NEW.postal_postal_code
+        , NEW.postal_postal_place
+        , NEW.postal_region_code
+        , NEW.postal_country_code_2
+        , NEW.primary_activity_category_code
+        , NEW.secondary_activity_category_code
+        , NEW.sector_code
+        , NEW.legal_form_code
+        );
+    RETURN NULL;
+END;
+$import_legal_unit_current_upsert$;
+
 
 CREATE TRIGGER import_legal_unit_current_upsert_trigger
 INSTEAD OF INSERT ON public.import_legal_unit_current
@@ -5922,11 +6031,12 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.import_legal_unit_with_delete_current();
 
 
-
-\echo public.import_establishment_current
-CREATE VIEW public.import_establishment_current
+\echo public.import_establishment_era
+CREATE VIEW public.import_establishment_era
 WITH (security_invoker=on) AS
-SELECT '' AS tax_reg_ident
+SELECT '' AS valid_from
+     , '' AS valid_to
+     , '' AS tax_reg_ident
      , '' AS legal_unit_tax_reg_ident
      , '' AS name
      , '' AS birth_date
@@ -5952,9 +6062,10 @@ SELECT '' AS tax_reg_ident
      , '' AS turnover
 ;
 
-\echo admin.import_establishment_current_upsert
-CREATE FUNCTION admin.import_establishment_current_upsert()
-RETURNS TRIGGER AS $$
+
+\echo admin.import_establishment_era_upsert
+CREATE FUNCTION admin.import_establishment_era_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     edited_by_user RECORD;
     physical_region RECORD;
@@ -5976,8 +6087,6 @@ DECLARE
     inserted_stat_for_unit RECORD;
     invalid_codes JSONB := '{}'::jsonb;
     statbus_constraints_already_deferred BOOLEAN;
-    new_valid_from DATE := current_date;
-    new_valid_to DATE := 'infinity'::date;
     stats RECORD;
 BEGIN
     SELECT COALESCE(NULLIF(current_setting('statbus.constraints_already_deferred', true),'')::boolean,false) INTO statbus_constraints_already_deferred;
@@ -5990,6 +6099,8 @@ BEGIN
     --
     SELECT NULL::DATE AS birth_date
          , NULL::DATE AS death_date
+         , NULL::DATE AS valid_from
+         , NULL::DATE AS valid_to
         INTO new_typed;
     SELECT NULL::int AS id INTO legal_unit;
     SELECT NULL::int AS id INTO enterprise;
@@ -6010,6 +6121,34 @@ BEGIN
     -- WHERE uuid = auth.uid()
     LIMIT 1;
 
+    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
+        BEGIN
+            new_typed.birth_date := NEW.birth_date::DATE;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
+        END;
+    END IF;
+
+    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
+        BEGIN
+            new_typed.death_date := NEW.death_date::DATE;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
+        END;
+    END IF;
+
+    BEGIN
+        new_typed.valid_from := NEW.valid_from::DATE;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid valid_from for row %', to_json(NEW);
+    END;
+
+    BEGIN
+        new_typed.valid_to := NEW.valid_to::DATE;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
+    END;
+
     IF NEW.legal_unit_tax_reg_ident IS NULL THEN
         -- TODO: Reuse any existing enterprise connection.
         -- Create an enterprise and connect to it.
@@ -6028,7 +6167,7 @@ BEGIN
         FROM public.legal_unit AS lu
         WHERE lu.tax_reg_ident = NEW.legal_unit_tax_reg_ident
           AND daterange(lu.valid_from, lu.valid_to, '[]')
-            && daterange(new_valid_from, new_valid_to, '[]')
+            && daterange(new_typed.valid_from, new_typed.valid_to, '[]')
         ;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find legal_unit_tax_reg_ident for row %', to_json(NEW);
@@ -6037,7 +6176,7 @@ BEGIN
         FROM public.establishment AS es
         WHERE es.legal_unit_id = legal_unit.id
           AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(new_valid_from, new_valid_to, '[]')
+            && daterange(new_typed.valid_from, new_typed.valid_to, '[]')
         LIMIT 1;
         IF NOT FOUND THEN
             is_primary_for_legal_unit := true;
@@ -6121,22 +6260,6 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
-        BEGIN
-            new_typed.birth_date := NEW.birth_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
-        END;
-    END IF;
-
-    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
-        BEGIN
-            new_typed.death_date := NEW.death_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
-        END;
-    END IF;
-
     SELECT NEW.tax_reg_ident AS tax_reg_ident
          , statement_timestamp() AS tax_reg_date
          , NEW.name AS name
@@ -6149,165 +6272,161 @@ BEGIN
          , enterprise.id AS enterprise_id
          , legal_unit.id AS legal_unit_id
          , is_primary_for_legal_unit AS primary_for_legal_unit
-     INTO upsert_data;
+      INTO upsert_data;
 
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
     INSERT INTO public.establishment_era
-    ( tax_reg_ident
-    , tax_reg_date
-    , valid_from
-    , valid_to
-    , name
-    , birth_date
-    , death_date
-    , active
-    , seen_in_import_at
-    , edit_comment
-    , sector_id
-    , invalid_codes
-    , enterprise_id
-    , legal_unit_id
-    , primary_for_legal_unit
-    , edit_by_user_id
-    )
+        ( tax_reg_ident
+        , tax_reg_date
+        , valid_from
+        , valid_to
+        , name
+        , birth_date
+        , death_date
+        , active
+        , seen_in_import_at
+        , edit_comment
+        , sector_id
+        , invalid_codes
+        , enterprise_id
+        , legal_unit_id
+        , primary_for_legal_unit
+        , edit_by_user_id
+        )
     VALUES
-    ( upsert_data.tax_reg_ident
-    , upsert_data.tax_reg_date
-    , new_valid_from
-    , new_valid_to
-    , upsert_data.name
-    , upsert_data.birth_date
-    , upsert_data.death_date
-    , upsert_data.active
-    , upsert_data.seen_in_import_at
-    , upsert_data.edit_comment
-    , sector.id
-    , upsert_data.invalid_codes
-    , upsert_data.enterprise_id
-    , upsert_data.legal_unit_id
-    , upsert_data.primary_for_legal_unit
-    , edited_by_user.id
-    )
-    RETURNING * INTO inserted_establishment;
+        ( upsert_data.tax_reg_ident
+        , upsert_data.tax_reg_date
+        , new_typed.valid_from
+        , new_typed.valid_to
+        , upsert_data.name
+        , upsert_data.birth_date
+        , upsert_data.death_date
+        , upsert_data.active
+        , upsert_data.seen_in_import_at
+        , upsert_data.edit_comment
+        , sector.id
+        , upsert_data.invalid_codes
+        , upsert_data.enterprise_id
+        , upsert_data.legal_unit_id
+        , upsert_data.primary_for_legal_unit
+        , edited_by_user.id
+        )
+     RETURNING *
+     INTO inserted_establishment;
     RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
-        (
-            valid_from,
-            valid_to,
-            establishment_id,
-            location_type,
-            address_part1,
-            address_part2,
-            address_part3,
-            postal_code,
-            postal_place,
-            region_id,
-            country_id,
-            updated_by_user_id
-        )
+            ( valid_from
+            , valid_to
+            , establishment_id
+            , location_type
+            , address_part1
+            , address_part2
+            , address_part3
+            , postal_code
+            , postal_place
+            , region_id
+            , country_id
+            , updated_by_user_id
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_establishment.id,
-            'physical',
-            NULLIF(NEW.physical_address_part1,''),
-            NULLIF(NEW.physical_address_part2,''),
-            NULLIF(NEW.physical_address_part3,''),
-            NULLIF(NEW.physical_postal_code,''),
-            NULLIF(NEW.physical_postal_place,''),
-            physical_region.id,
-            physical_country.id,
-            edited_by_user.id
-        )
-        RETURNING * INTO inserted_location;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_establishment.id
+            , 'physical'
+            , NULLIF(NEW.physical_address_part1,'')
+            , NULLIF(NEW.physical_address_part2,'')
+            , NULLIF(NEW.physical_address_part3,'')
+            , NULLIF(NEW.physical_postal_code,'')
+            , NULLIF(NEW.physical_postal_place,'')
+            , physical_region.id
+            , physical_country.id
+            , edited_by_user.id
+            )
+        RETURNING *
+        INTO inserted_location;
     END IF;
 
     IF postal_region.id IS NOT NULL OR postal_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
-        (
-            valid_from,
-            valid_to,
-            establishment_id,
-            location_type,
-            address_part1,
-            address_part2,
-            address_part3,
-            postal_code,
-            postal_place,
-            region_id,
-            country_id,
-            updated_by_user_id
-        )
+            ( valid_from
+            , valid_to
+            , establishment_id
+            , location_type
+            , address_part1
+            , address_part2
+            , address_part3
+            , postal_code
+            , postal_place
+            , region_id
+            , country_id
+            , updated_by_user_id
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_establishment.id,
-            'postal',
-            NULLIF(NEW.postal_address_part1,''),
-            NULLIF(NEW.postal_address_part2,''),
-            NULLIF(NEW.postal_address_part3,''),
-            NULLIF(NEW.postal_postal_code,''),
-            NULLIF(NEW.postal_postal_place,''),
-            postal_region.id,
-            postal_country.id,
-            edited_by_user.id
-        )
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_establishment.id
+            , 'postal'
+            , NULLIF(NEW.postal_address_part1,'')
+            , NULLIF(NEW.postal_address_part2,'')
+            , NULLIF(NEW.postal_address_part3,'')
+            , NULLIF(NEW.postal_postal_code,'')
+            , NULLIF(NEW.postal_postal_place,'')
+            , postal_region.id
+            , postal_country.id
+            , edited_by_user.id
+            )
         RETURNING * INTO inserted_location;
     END IF;
 
     IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
-        (
-            valid_from,
-            valid_to,
-            establishment_id,
-            activity_type,
-            activity_category_id,
-            updated_by_user_id,
-            updated_at
-        )
+            ( valid_from
+            , valid_to
+            , establishment_id
+            , activity_type
+            , activity_category_id
+            , updated_by_user_id
+            , updated_at
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_establishment.id,
-            'primary',
-            primary_activity_category.id,
-            edited_by_user.id,
-            statement_timestamp()
-        )
-        RETURNING * INTO inserted_activity;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_establishment.id
+            , 'primary'
+            , primary_activity_category.id
+            , edited_by_user.id
+            , statement_timestamp()
+            )
+        RETURNING *
+        INTO inserted_activity;
     END IF;
 
     IF secondary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
-        (
-            valid_from,
-            valid_to,
-            establishment_id,
-            activity_type,
-            activity_category_id,
-            updated_by_user_id,
-            updated_at
-        )
+            ( valid_from
+            , valid_to
+            , establishment_id
+            , activity_type
+            , activity_category_id
+            , updated_by_user_id
+            , updated_at
+            )
         VALUES
-        (
-            new_valid_from,
-            new_valid_to,
-            inserted_establishment.id,
-            'secondary',
-            secondary_activity_category.id,
-            edited_by_user.id,
-            statement_timestamp()
-        )
-        RETURNING * INTO inserted_activity;
+            ( new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_establishment.id
+            , 'secondary'
+            , secondary_activity_category.id
+            , edited_by_user.id
+            , statement_timestamp()
+            )
+        RETURNING *
+        INTO inserted_activity;
     END IF;
 
     IF NEW.employees IS NOT NULL AND NEW.employees <> '' THEN
@@ -6322,22 +6441,21 @@ BEGIN
         WHERE code = 'employees';
 
         INSERT INTO public.stat_for_unit_era
-        (
-            stat_definition_id,
-            valid_from,
-            valid_to,
-            establishment_id,
-            value_int
-        )
+            ( stat_definition_id
+            , valid_from
+            , valid_to
+            , establishment_id
+            , value_int
+            )
         VALUES
-        (
-            stat_def.id,
-            new_valid_from,
-            new_valid_to,
-            inserted_establishment.id,
-            stats.employees
-        )
-        RETURNING * INTO inserted_stat_for_unit;
+            ( stat_def.id
+            , new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_establishment.id
+            , stats.employees
+            )
+        RETURNING *
+        INTO inserted_stat_for_unit;
     END IF;
 
     IF NEW.turnover IS NOT NULL AND NEW.turnover <> '' THEN
@@ -6352,19 +6470,19 @@ BEGIN
         WHERE code = 'turnover';
 
         INSERT INTO public.stat_for_unit_era
-        ( stat_definition_id
-        , valid_from
-        , valid_to
-        , establishment_id
-        , value_int
-        )
+            ( stat_definition_id
+            , valid_from
+            , valid_to
+            , establishment_id
+            , value_int
+            )
         VALUES
-        ( stat_def.id
-        , new_valid_from
-        , new_valid_to
-        , inserted_establishment.id
-        , stats.turnover
-        )
+            ( stat_def.id
+            , new_typed.valid_from
+            , new_typed.valid_to
+            , inserted_establishment.id
+            , stats.turnover
+            )
         RETURNING * INTO inserted_stat_for_unit;
     END IF;
 
@@ -6374,13 +6492,114 @@ BEGIN
 
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
+CREATE TRIGGER import_establishment_era_upsert_trigger
+INSTEAD OF INSERT ON public.import_establishment_era
+FOR EACH ROW
+EXECUTE FUNCTION admin.import_establishment_era_upsert();
+
+
+
+\echo public.import_establishment_current
+CREATE VIEW public.import_establishment_current
+WITH (security_invoker=on) AS
+SELECT tax_reg_ident
+     , legal_unit_tax_reg_ident
+     , name
+     , birth_date
+     , death_date
+     , physical_address_part1
+     , physical_address_part2
+     , physical_address_part3
+     , physical_postal_code
+     , physical_postal_place
+     , physical_region_code
+     , physical_country_code_2
+     , postal_address_part1
+     , postal_address_part2
+     , postal_address_part3
+     , postal_postal_code
+     , postal_postal_place
+     , postal_region_code
+     , postal_country_code_2
+     , primary_activity_category_code
+     , secondary_activity_category_code
+     , sector_code
+     , employees
+     , turnover
+FROM public.import_establishment_era;
+
+
+\echo admin.import_establishment_current_upsert
+CREATE FUNCTION admin.import_establishment_current_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
+BEGIN
+    INSERT INTO public.import_establishment_era
+        ( valid_from
+        , valid_to
+        , tax_reg_ident
+        , name
+        , birth_date
+        , death_date
+        , physical_address_part1
+        , physical_address_part2
+        , physical_address_part3
+        , physical_postal_code
+        , physical_postal_place
+        , physical_region_code
+        , physical_country_code_2
+        , postal_address_part1
+        , postal_address_part2
+        , postal_address_part3
+        , postal_postal_code
+        , postal_postal_place
+        , postal_region_code
+        , postal_country_code_2
+        , primary_activity_category_code
+        , secondary_activity_category_code
+        , sector_code
+        , employees
+        , turnover
+        )
+    VALUES
+        ( new_valid_from
+        , new_valid_to
+        , NEW.tax_reg_ident
+        , NEW.name
+        , NEW.birth_date
+        , NEW.death_date
+        , NEW.physical_address_part1
+        , NEW.physical_address_part2
+        , NEW.physical_address_part3
+        , NEW.physical_postal_code
+        , NEW.physical_postal_place
+        , NEW.physical_region_code
+        , NEW.physical_country_code_2
+        , NEW.postal_address_part1
+        , NEW.postal_address_part2
+        , NEW.postal_address_part3
+        , NEW.postal_postal_code
+        , NEW.postal_postal_place
+        , NEW.postal_region_code
+        , NEW.postal_country_code_2
+        , NEW.primary_activity_category_code
+        , NEW.secondary_activity_category_code
+        , NEW.sector_code
+        , NEW.employees
+        , NEW.turnover
+        );
+    RETURN NULL;
+END;
+$$;
 
 CREATE TRIGGER import_establishment_current_upsert_trigger
 INSTEAD OF INSERT ON public.import_establishment_current
 FOR EACH ROW
 EXECUTE FUNCTION admin.import_establishment_current_upsert();
-
 
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
@@ -6443,8 +6662,8 @@ SELECT '' AS "organisasjonsnummer"
      , '' AS "aktivitet"
      ;
 
-\echo admin.upsert_legal_unit_brreg_view
-CREATE FUNCTION admin.upsert_legal_unit_brreg_view()
+\echo admin.legal_unit_brreg_view_upsert
+CREATE FUNCTION admin.legal_unit_brreg_view_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
   result RECORD;
@@ -6522,9 +6741,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-\echo admin.delete_stale_legal_unit_brreg_view
-CREATE FUNCTION admin.delete_stale_legal_unit_brreg_view()
-RETURNS TRIGGER AS $$
+\echo admin.legal_unit_brreg_view_delete_stale
+CREATE FUNCTION admin.legal_unit_brreg_view_delete_stale()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
     WITH su AS (
         SELECT *
@@ -6540,18 +6759,18 @@ BEGIN
     WHERE seen_in_import_at < statement_timestamp();
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Create triggers for the view
-CREATE TRIGGER upsert_legal_unit_brreg_view
+CREATE TRIGGER legal_unit_brreg_view_upsert
 INSTEAD OF INSERT ON public.legal_unit_brreg_view
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_brreg_view();
+EXECUTE FUNCTION admin.legal_unit_brreg_view_upsert();
 
-CREATE TRIGGER delete_stale_legal_unit_brreg_view
+CREATE TRIGGER legal_unit_brreg_view_delete_stale
 AFTER INSERT ON public.legal_unit_brreg_view
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_legal_unit_brreg_view();
+EXECUTE FUNCTION admin.legal_unit_brreg_view_delete_stale();
 
 
 -- time psql <<EOS
@@ -6602,7 +6821,7 @@ SELECT '' AS "organisasjonsnummer"
      , '' AS "nedleggelsesdato"
      ;
 
--- Create function for upsert operation on country
+
 \echo admin.upsert_establishment_brreg_view
 CREATE FUNCTION admin.upsert_establishment_brreg_view()
 RETURNS TRIGGER AS $$
@@ -6685,7 +6904,7 @@ $$ LANGUAGE plpgsql;
 -- Create function for deleting stale countries
 \echo admin.delete_stale_establishment_brreg_view
 CREATE FUNCTION admin.delete_stale_establishment_brreg_view()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
     WITH su AS (
         SELECT *
@@ -6701,7 +6920,7 @@ BEGIN
     WHERE seen_in_import_at < statement_timestamp();
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Create triggers for the view
 CREATE TRIGGER upsert_establishment_brreg_view
