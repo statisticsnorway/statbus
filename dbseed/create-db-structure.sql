@@ -5505,61 +5505,35 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
 
-\echo public.legal_unit_region_activity_category_current
-CREATE VIEW public.legal_unit_region_activity_category_current
+\echo public.import_legal_unit_current
+CREATE VIEW public.import_legal_unit_current
 WITH (security_invoker=on) AS
-SELECT lu.tax_reg_ident
-     , lu.name AS name
-     , lu.birth_date::TEXT AS birth_date
-     , lu.death_date::TEXT AS death_date
-     , phl.address_part1 AS physical_address_part1
-     , phl.address_part2 AS physical_address_part2
-     , phl.address_part3 AS physical_address_part3
-     , phl.postal_code   AS physical_postal_code
-     , phl.postal_place  AS physical_postal_place
-     , phr.code          AS physical_region_code
-     , phc.code_2        AS physical_country_code_2
-     , pol.address_part1 AS postal_address_part1
-     , pol.address_part2 AS postal_address_part2
-     , pol.address_part3 AS postal_address_part3
-     , pol.postal_code   AS postal_postal_code
-     , pol.postal_place  AS postal_postal_place
-     , por.code          AS postal_region_code
-     , poc.code_2        AS postal_country_code_2
-     , prac.code AS primary_activity_category_code
-     , seac.code AS secondary_activity_category_code
-     , sc.code AS sector_code
-     , lf.code AS legal_form_code
-FROM public.legal_unit AS lu
-
-LEFT JOIN public.activity AS pra ON pra.legal_unit_id = lu.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
-LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
-
-LEFT JOIN public.activity AS sea ON sea.legal_unit_id = lu.id AND sea.activity_type = 'secondary' AND sea.valid_from >= current_date AND current_date <= sea.valid_to
-LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = seac.id
-
-LEFT JOIN public.location AS phl ON phl.legal_unit_id = lu.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
-LEFT JOIN public.region AS phr ON phl.region_id = phr.id
-LEFT JOIN public.country AS phc ON phl.country_id = phc.id
-
-LEFT JOIN public.location AS pol ON pol.legal_unit_id = lu.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
-LEFT JOIN public.region AS por ON pol.region_id = por.id
-LEFT JOIN public.country AS poc ON phl.country_id = poc.id
-
-LEFT JOIN public.sector AS sc ON lu.sector_id = sc.id
-
-LEFT JOIN public.legal_form AS lf ON lu.legal_form_id = lf.id
-
-WHERE lu.active
-  AND lu.valid_from  >= current_date AND current_date <= lu.valid_to
-  AND pra.valid_from >= current_date AND current_date <= pra.valid_to
-  AND sea.valid_from >= current_date AND current_date <= sea.valid_to
-  AND phl.valid_from >= current_date AND current_date <= phl.valid_to
-  AND pol.valid_from >= current_date AND current_date <= pol.valid_to
+SELECT '' AS tax_reg_ident
+     , '' AS name
+     , '' AS birth_date
+     , '' AS death_date
+     , '' AS physical_address_part1
+     , '' AS physical_address_part2
+     , '' AS physical_address_part3
+     , '' AS physical_postal_code
+     , '' AS physical_postal_place
+     , '' AS physical_region_code
+     , '' AS physical_country_code_2
+     , '' AS postal_address_part1
+     , '' AS postal_address_part2
+     , '' AS postal_address_part3
+     , '' AS postal_postal_code
+     , '' AS postal_postal_place
+     , '' AS postal_region_code
+     , '' AS postal_country_code_2
+     , '' AS primary_activity_category_code
+     , '' AS secondary_activity_category_code
+     , '' AS sector_code
+     , '' AS legal_form_code
 ;
 
-\echo admin.upsert_legal_unit_region_activity_category_current
-CREATE FUNCTION admin.upsert_legal_unit_region_activity_category_current()
+\echo admin.import_legal_unit_current_upsert
+CREATE FUNCTION admin.import_legal_unit_current_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
@@ -5908,19 +5882,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER upsert_legal_unit_region_activity_category_current_trigger
-INSTEAD OF INSERT ON public.legal_unit_region_activity_category_current
+CREATE TRIGGER import_legal_unit_current_upsert_trigger
+INSTEAD OF INSERT ON public.import_legal_unit_current
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_legal_unit_region_activity_category_current();
+EXECUTE FUNCTION admin.import_legal_unit_current_upsert();
 
 
-\echo public.legal_unit_region_activity_category_current_with_delete
-CREATE VIEW public.legal_unit_region_activity_category_current_with_delete
+\echo public.import_legal_unit_with_delete_current
+CREATE VIEW public.import_legal_unit_with_delete_current
 WITH (security_invoker=on) AS
-SELECT * FROM public.legal_unit_region_activity_category_current;
+SELECT * FROM public.import_legal_unit_current;
 
-\echo admin.delete_stale_legal_unit_region_activity_category_current_with_delete
-CREATE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete()
+\echo admin.import_legal_unit_with_delete_current
+CREATE FUNCTION admin.import_legal_unit_with_delete_current()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH su AS (
@@ -5942,78 +5916,44 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER delete_stale_legal_unit_region_activity_category_current_with_delete_trigger
-AFTER INSERT ON public.legal_unit_region_activity_category_current_with_delete
+CREATE TRIGGER import_legal_unit_with_delete_current_trigger
+AFTER INSERT ON public.import_legal_unit_with_delete_current
 FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete();
-
--- \i samples/100BREGUnits.sql
+EXECUTE FUNCTION admin.import_legal_unit_with_delete_current();
 
 
-\echo public.establishment_region_activity_category_stats_current
-CREATE VIEW public.establishment_region_activity_category_stats_current
+
+\echo public.import_establishment_current
+CREATE VIEW public.import_establishment_current
 WITH (security_invoker=on) AS
-SELECT es.tax_reg_ident
-     , lu.tax_reg_ident AS legal_unit_tax_reg_ident
-     , es.name AS name
-     , es.birth_date::TEXT AS birth_date
-     , es.death_date::TEXT AS death_date
-     , phl.address_part1 AS physical_address_part1
-     , phl.address_part2 AS physical_address_part2
-     , phl.address_part3 AS physical_address_part3
-     , phl.postal_code   AS physical_postal_code
-     , phl.postal_place  AS physical_postal_place
-     , phr.code          AS physical_region_code
-     , phc.code_2        AS physical_country_code_2
-     , pol.address_part1 AS postal_address_part1
-     , pol.address_part2 AS postal_address_part2
-     , pol.address_part3 AS postal_address_part3
-     , pol.postal_code   AS postal_postal_code
-     , pol.postal_place  AS postal_postal_place
-     , por.code          AS postal_region_code
-     , poc.code_2        AS postal_country_code_2
-     , prac.code AS primary_activity_category_code
-     , seac.code AS secondary_activity_category_code
-     , sc.code AS sector_code
-     , sfu1.value_int::TEXT AS employees
-     , sfu2.value_int::TEXT AS turnover
-FROM public.establishment AS es
-LEFT JOIN public.legal_unit AS lu ON lu.id = es.legal_unit_id AND lu.valid_from >= current_date AND current_date <= lu.valid_to
-
-LEFT JOIN public.activity AS pra ON pra.establishment_id = es.id AND pra.activity_type = 'primary' AND pra.valid_from >= current_date AND current_date <= pra.valid_to
-LEFT JOIN public.activity_category AS prac ON pra.activity_category_id = prac.id
-
-LEFT JOIN public.activity AS sea ON sea.establishment_id = es.id AND sea.activity_type = 'secondary' AND sea.valid_from >= current_date AND current_date <= sea.valid_to
-LEFT JOIN public.activity_category AS seac ON sea.activity_category_id = prac.id
-
-LEFT JOIN public.location AS phl ON phl.establishment_id = es.id AND phl.location_type = 'physical' AND phl.valid_from >= current_date AND current_date <= phl.valid_to
-LEFT JOIN public.region AS phr ON phl.region_id = phr.id
-LEFT JOIN public.country AS phc ON phl.country_id = phc.id
-
-LEFT JOIN public.location AS pol ON pol.establishment_id = es.id AND pol.location_type = 'postal' AND pol.valid_from >= current_date AND current_date <= pol.valid_to
-LEFT JOIN public.region AS por ON pol.region_id = por.id
-LEFT JOIN public.country AS poc ON phl.country_id = poc.id
-
-LEFT JOIN public.sector AS sc ON es.sector_id = sc.id
-
-LEFT JOIN public.stat_definition AS sd1 ON sd1.code = 'employees'
-LEFT JOIN public.stat_for_unit AS sfu1 ON sfu1.establishment_id = es.id AND sfu1.stat_definition_id = sd1.id AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
-
-LEFT JOIN public.stat_definition AS sd2 ON sd2.code = 'turnover'
-LEFT JOIN public.stat_for_unit AS sfu2 ON sfu2.establishment_id = es.id AND sfu2.stat_definition_id = sd2.id AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
-
-WHERE es.active
-  AND es.valid_from   >= current_date AND current_date <= es.valid_to
-  AND pra.valid_from  >= current_date AND current_date <= pra.valid_to
-  AND sea.valid_from  >= current_date AND current_date <= sea.valid_to
-  AND phl.valid_from  >= current_date AND current_date <= phl.valid_to
-  AND pol.valid_from  >= current_date AND current_date <= pol.valid_to
-  AND sfu1.valid_from >= current_date AND current_date <= sfu1.valid_to
-  AND sfu2.valid_from >= current_date AND current_date <= sfu2.valid_to
+SELECT '' AS tax_reg_ident
+     , '' AS legal_unit_tax_reg_ident
+     , '' AS name
+     , '' AS birth_date
+     , '' AS death_date
+     , '' AS physical_address_part1
+     , '' AS physical_address_part2
+     , '' AS physical_address_part3
+     , '' AS physical_postal_code
+     , '' AS physical_postal_place
+     , '' AS physical_region_code
+     , '' AS physical_country_code_2
+     , '' AS postal_address_part1
+     , '' AS postal_address_part2
+     , '' AS postal_address_part3
+     , '' AS postal_postal_code
+     , '' AS postal_postal_place
+     , '' AS postal_region_code
+     , '' AS postal_country_code_2
+     , '' AS primary_activity_category_code
+     , '' AS secondary_activity_category_code
+     , '' AS sector_code
+     , '' AS employees
+     , '' AS turnover
 ;
 
-\echo admin.upsert_establishment_region_activity_category_stats_current
-CREATE FUNCTION admin.upsert_establishment_region_activity_category_stats_current()
+\echo admin.import_establishment_current_upsert
+CREATE FUNCTION admin.import_establishment_current_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
     edited_by_user RECORD;
@@ -6436,10 +6376,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER upsert_establishment_region_activity_category_stats_current_trigger
-INSTEAD OF INSERT ON public.establishment_region_activity_category_stats_current
+CREATE TRIGGER import_establishment_current_upsert_trigger
+INSTEAD OF INSERT ON public.import_establishment_current
 FOR EACH ROW
-EXECUTE FUNCTION admin.upsert_establishment_region_activity_category_stats_current();
+EXECUTE FUNCTION admin.import_establishment_current_upsert();
 
 
 

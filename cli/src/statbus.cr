@@ -180,7 +180,7 @@ class StatBus
       "sector_code",
       "legal_form_code",
     ]
-    upload_view_name = "legal_unit_region_activity_category_current"
+    upload_view_name = "import_legal_unit_current"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
   end
 
@@ -214,7 +214,7 @@ class StatBus
       "employees",
       "turnover",
     ]
-    upload_view_name = "establishment_region_activity_category_stats_current"
+    upload_view_name = "import_establishment_current"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
   end
 

@@ -31,7 +31,7 @@ export default async function UploadLegalUnitsPage() {
       ) : null}
 
       <UploadCSVForm
-        uploadView="legal_unit_region_activity_category_current"
+        uploadView="import_legal_unit_current"
         nextPage="/getting-started/upload-establishments"
       />
 

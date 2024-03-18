@@ -112,17 +112,17 @@ DROP FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def
 DROP VIEW admin.custom_view_def_expanded;
 DROP TYPE admin.custom_view_def_names;
 
-DROP TRIGGER delete_stale_legal_unit_region_activity_category_current_with_delete_trigger ON public.legal_unit_region_activity_category_current_with_delete;
-DROP FUNCTION admin.delete_stale_legal_unit_region_activity_category_current_with_delete();
-DROP VIEW public.legal_unit_region_activity_category_current_with_delete;
+DROP TRIGGER import_legal_unit_with_delete_current_trigger ON public.import_legal_unit_with_delete_current;
+DROP FUNCTION admin.import_legal_unit_with_delete_current();
+DROP VIEW public.import_legal_unit_with_delete_current;
 
-DROP TRIGGER upsert_legal_unit_region_activity_category_current_trigger ON public.legal_unit_region_activity_category_current;
-DROP FUNCTION admin.upsert_legal_unit_region_activity_category_current();
-DROP VIEW public.legal_unit_region_activity_category_current;
+DROP TRIGGER import_legal_unit_current_upsert_trigger ON public.import_legal_unit_current;
+DROP FUNCTION admin.import_legal_unit_current_upsert();
+DROP VIEW public.import_legal_unit_current;
 
-DROP TRIGGER upsert_establishment_region_activity_category_stats_current_trigger ON public.establishment_region_activity_category_stats_current;
-DROP FUNCTION admin.upsert_establishment_region_activity_category_stats_current();
-DROP VIEW public.establishment_region_activity_category_stats_current;
+DROP TRIGGER import_establishment_current_upsert_trigger ON public.import_establishment_current;
+DROP FUNCTION admin.import_establishment_current_upsert();
+DROP VIEW public.import_establishment_current;
 
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();

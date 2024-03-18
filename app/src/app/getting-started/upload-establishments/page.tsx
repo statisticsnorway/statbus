@@ -31,7 +31,7 @@ export default async function UploadEstablishmentsPage() {
       ) : null}
 
       <UploadCSVForm
-        uploadView="establishment_region_activity_category_stats_current"
+        uploadView="import_establishment_current"
         nextPage="/getting-started/summary"
       />
 

@@ -2941,7 +2941,7 @@ export type Database = {
           },
         ];
       };
-      establishment_region_activity_category_stats_current: {
+      import_establishment_current: {
         Row: {
           birth_date: string | null;
           death_date: string | null;
@@ -3433,7 +3433,7 @@ export type Database = {
           },
         ];
       };
-      legal_unit_region_activity_category_current: {
+      import_legal_unit_current: {
         Row: {
           birth_date: string | null;
           death_date: string | null;
@@ -3460,7 +3460,7 @@ export type Database = {
         };
         Relationships: [];
       };
-      legal_unit_region_activity_category_current_with_delete: {
+      import_legal_unit_current_with_delete: {
         Row: {
           birth_date: string | null;
           death_date: string | null;
