@@ -102,7 +102,10 @@ class StatBus
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
   @import_strategy = ImportStrategy::Copy
+  @import_tag : String | Nil = nil
   @offset = 0
+  @valid_from : String = Time.utc.to_s("%Y-%m-%d")
+  @valid_to = "infinity"
 
   def initialize
     begin
@@ -180,7 +183,7 @@ class StatBus
       "sector_code",
       "legal_form_code",
     ]
-    upload_view_name = "import_legal_unit_current"
+    upload_view_name = "import_legal_unit_era"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
   end
 
@@ -214,7 +217,7 @@ class StatBus
       "employees",
       "turnover",
     ]
-    upload_view_name = "import_establishment_current"
+    upload_view_name = "import_establishment_era"
     import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
   end
 
@@ -234,7 +237,8 @@ class StatBus
       postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
       puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}" if @verbose
 
-      sql_fields_list = sql_field_required_list + sql_field_optional_list
+      sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
+      sql_fields_list = sql_cli_provided_fields + sql_field_required_list + sql_field_optional_list
       csv_stream = CSV.new(File.open(import_file_name), headers: true, separator: ',', quote_char: '"')
       csv_fields_list = csv_stream.headers
       # For every equal header, insert a mapping.
@@ -268,7 +272,7 @@ class StatBus
       ignored_csv_field = @config_field_mapping.select { |m| m.sql.nil? }.map(&.csv).to_set
       puts "ignored_csv_field #{ignored_csv_field}" if @verbose
       # Check the fields
-      missing_config_sql_fields = sql_fields - mapped_sql_field - ignored_sql_field
+      missing_config_sql_fields = sql_fields - sql_cli_provided_fields - mapped_sql_field - ignored_sql_field
       puts "missing_config_sql_fields #{missing_config_sql_fields}" if @verbose
 
       if missing_required_sql_fields.any? || missing_config_sql_fields.any?
@@ -299,17 +303,7 @@ class StatBus
         raise ArgumentError.new("Missing sql fields #{missing_config_sql_fields.to_a.to_pretty_json} you need to add a mapping")
       end
 
-      puts "@sql_field_mapping = #{@sql_field_mapping}" if @verbose
       puts "@config_field_mapping = #{@config_field_mapping}" if @verbose
-      # Sort header mappings based on position in sql_fields_list
-      @sql_field_mapping.sort_by! do |mapping|
-        index = sql_fields_list.index(mapping.sql)
-        if index.nil?
-          raise ArgumentError.new("Found mapping for non existing sql field #{mapping.sql}")
-        end
-        # Every field found is order according to its position
-        {1, index.not_nil!, ""}
-      end
 
       Dir.cd(@working_directory) do
         if !@config_file_path.nil?
@@ -325,6 +319,41 @@ class StatBus
       end
 
       DB.connect("postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}") do |db|
+        if !@import_tag.nil?
+          tag = db.query_one?("
+            SELECT id, path::text, name, context_valid_from::text, context_valid_to::text
+            FROM public.tag
+            WHERE path = $1", @import_tag,
+            as: {id: Int32, path: String, name: String, context_valid_from: String?, context_valid_to: String?}
+          )
+          if tag.nil?
+            raise ArgumentError.new("Unknown tag #{@import_tag}")
+          elsif tag[:context_valid_from].nil? || tag[:context_valid_to].nil?
+            raise ArgumentError.new("Tag #{tag[:path]} is missing context dates")
+          end
+          puts "Found tag #{tag}" if @verbose
+          @valid_from = tag[:context_valid_from].not_nil!
+          @valid_to = tag[:context_valid_to].not_nil!
+        end
+
+        @sql_field_mapping = [
+          SqlFieldMapping.new(sql: "valid_from", csv: nil, value: @valid_from),
+          SqlFieldMapping.new(sql: "valid_to", csv: nil, value: @valid_to),
+          SqlFieldMapping.new(sql: "tag_path", csv: nil, value: @import_tag),
+        ] + @sql_field_mapping
+
+        puts "@sql_field_mapping = #{@sql_field_mapping}" if @verbose
+
+        # Sort header mappings based on position in sql_fields_list
+        @sql_field_mapping.sort_by! do |mapping|
+          index = sql_fields_list.index(mapping.sql)
+          if index.nil?
+            raise ArgumentError.new("Found mapping for non existing sql field #{mapping.sql}")
+          end
+          # Every field found is order according to its position
+          {1, index.not_nil!, ""}
+        end
+
         sql_fields_str = @sql_field_mapping.map do |mapping|
           if !mapping.sql.nil?
             db.escape_identifier(mapping.sql.not_nil!)
@@ -479,6 +508,9 @@ class StatBus
             puts parser
             exit(1)
           end
+        end
+        parser.on("-t path.for.tag", "--tag=path.for.tag", "Insert scoped to a tag - limits valid_to, valid_from and adds the tag") do |tag|
+          @import_tag = tag
         end
         parser.on("-c FILENAME", "--config=FILENAME", "A config file with field mappings. Will be written to with an example if the file does not exist.") do |file_name|
           Dir.cd(@working_directory) do

@@ -932,8 +932,8 @@ CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree 
 
 
 \echo admin.enterprise_group_id_exists
-CREATE OR REPLACE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
-    SELECT EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
+CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
+    SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
 
 \echo public.enterprise_group_role
@@ -1054,8 +1054,8 @@ CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ide
 
 
 \echo admin.legal_unit_id_exists
-CREATE OR REPLACE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
-    SELECT EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
+CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
+    SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
 
 \echo public.establishment
@@ -1129,7 +1129,7 @@ CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (st
 
 \echo admin.establishment_id_exists
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
-    SELECT EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
+    SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
 
 
@@ -1162,11 +1162,15 @@ CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (upda
 CREATE TABLE public.tag_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tag_id integer NOT NULL REFERENCES public.tag(id) ON DELETE CASCADE,
-    establishment_id integer check (admin.establishment_id_exists(establishment_id)),
-    legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
+    establishment_id integer CHECK (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id integer CHECK (admin.legal_unit_id_exists(legal_unit_id)),
     enterprise_id integer REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    enterprise_group_id integer check (admin.enterprise_group_id_exists(enterprise_group_id)),
+    enterprise_group_id integer CHECK (admin.enterprise_group_id_exists(enterprise_group_id)),
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    UNIQUE (tag_id, establishment_id),
+    UNIQUE (tag_id, legal_unit_id),
+    UNIQUE (tag_id, enterprise_id),
+    UNIQUE (tag_id, enterprise_group_id),
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
@@ -3279,7 +3283,7 @@ CREATE VIEW public.statistical_unit_def
     )
     SELECT data.*
          , (
-          SELECT array_agg(t.path)
+          SELECT array_agg(DISTINCT t.path)
           FROM public.tag_for_unit AS tfu
           JOIN public.tag AS t ON t.id = tfu.tag_id
           WHERE
@@ -3314,15 +3318,28 @@ CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.stati
 CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
-CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
+
+CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit(sector_path);
+CREATE INDEX idx_gist_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
+
 CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
 CREATE INDEX idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
 CREATE INDEX idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
-CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
-CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
-CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
-CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
-CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
+
+CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit(primary_activity_category_path);
+CREATE INDEX idx_gist_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
+
+CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit(secondary_activity_category_path);
+CREATE INDEX idx_gist_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
+
+CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit(activity_category_paths);
+CREATE INDEX idx_gist_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
+
+CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit(physical_region_path);
+CREATE INDEX idx_gist_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
+
+CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths);
+CREATE INDEX idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
 
 \echo public.activity_category_used
@@ -5531,6 +5548,7 @@ SELECT '' AS valid_from
      , '' AS secondary_activity_category_code
      , '' AS sector_code
      , '' AS legal_form_code
+     , '' AS tag_path
 ;
 
 \echo admin.import_legal_unit_era_upsert
@@ -5538,6 +5556,7 @@ CREATE FUNCTION admin.import_legal_unit_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     edited_by_user RECORD;
+    tag RECORD;
     physical_region RECORD;
     physical_country RECORD;
     postal_region RECORD;
@@ -5569,6 +5588,7 @@ BEGIN
          , NULL::DATE AS valid_from
          , NULL::DATE AS valid_to
         INTO new_typed;
+    SELECT NULL::int AS id INTO tag;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO physical_country;
@@ -5584,6 +5604,16 @@ BEGIN
     -- TODO: Uncomment when going into production
     -- WHERE uuid = auth.uid()
     LIMIT 1;
+
+    IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
+        SELECT * INTO tag
+        FROM public.tag
+        WHERE active
+          AND path = NEW.tag_path::public.ltree;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Invalid tag_path for row %', to_json(NEW);
+        END IF;
+    END IF;
 
     IF NEW.physical_country_code_2 IS NOT NULL AND NEW.physical_country_code_2 <> '' THEN
       SELECT * INTO physical_country
@@ -5885,6 +5915,19 @@ BEGIN
         INTO inserted_activity;
     END IF;
 
+    IF tag.id IS NOT NULL THEN
+        INSERT INTO public.tag_for_unit
+            ( tag_id
+            , legal_unit_id
+            , updated_by_user_id
+            )
+        VALUES
+            ( tag.id
+            , inserted_legal_unit.id
+            , edited_by_user.id
+            );
+    END IF;
+
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL IMMEDIATE;
     END IF;
@@ -5925,6 +5968,7 @@ SELECT tax_reg_ident
      , secondary_activity_category_code
      , sector_code
      , legal_form_code
+     , tag_path
 FROM public.import_legal_unit_era;
 
 \echo admin.import_legal_unit_current_upsert
@@ -5959,6 +6003,7 @@ BEGIN
         , secondary_activity_category_code
         , sector_code
         , legal_form_code
+        , tag_path
         )
     VALUES
         ( new_valid_from
@@ -5985,6 +6030,7 @@ BEGIN
         , NEW.secondary_activity_category_code
         , NEW.sector_code
         , NEW.legal_form_code
+        , NEW.tag_path
         );
     RETURN NULL;
 END;
@@ -6060,6 +6106,7 @@ SELECT '' AS valid_from
      , '' AS sector_code
      , '' AS employees
      , '' AS turnover
+     , '' AS tag_path
 ;
 
 
@@ -6068,6 +6115,7 @@ CREATE FUNCTION admin.import_establishment_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     edited_by_user RECORD;
+    tag RECORD;
     physical_region RECORD;
     physical_country RECORD;
     postal_region RECORD;
@@ -6102,6 +6150,7 @@ BEGIN
          , NULL::DATE AS valid_from
          , NULL::DATE AS valid_to
         INTO new_typed;
+    SELECT NULL::int AS id INTO tag;
     SELECT NULL::int AS id INTO legal_unit;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
@@ -6120,6 +6169,16 @@ BEGIN
     -- TODO: Uncomment when going into production
     -- WHERE uuid = auth.uid()
     LIMIT 1;
+
+    IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
+        SELECT * INTO tag
+        FROM public.tag
+        WHERE active
+          AND path = NEW.tag_path::public.ltree;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Invalid tag_path for row %', to_json(NEW);
+        END IF;
+    END IF;
 
     IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
         BEGIN
@@ -6486,6 +6545,23 @@ BEGIN
         RETURNING * INTO inserted_stat_for_unit;
     END IF;
 
+    IF tag.id IS NOT NULL THEN
+        -- UPSERT to avoid multiple tags for different parts of a timeline.
+        INSERT INTO public.tag_for_unit
+            ( tag_id
+            , establishment_id
+            , updated_by_user_id
+            )
+        VALUES
+            ( tag.id
+            , inserted_establishment.id
+            , edited_by_user.id
+            )
+        ON CONFLICT (tag_id, establishment_id)
+        DO UPDATE SET updated_by_user_id = EXCLUDED.updated_by_user_id
+        ;
+    END IF;
+
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL IMMEDIATE;
     END IF;
@@ -6528,6 +6604,7 @@ SELECT tax_reg_ident
      , sector_code
      , employees
      , turnover
+     , tag_path
 FROM public.import_establishment_era;
 
 
@@ -6564,6 +6641,7 @@ BEGIN
         , sector_code
         , employees
         , turnover
+        , tag_path
         )
     VALUES
         ( new_valid_from
@@ -6591,6 +6669,7 @@ BEGIN
         , NEW.sector_code
         , NEW.employees
         , NEW.turnover
+        , NEW.tag_path
         );
     RETURN NULL;
 END;
