@@ -6,6 +6,7 @@ import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
 import { useCartContext } from "@/app/search/cart-provider";
+import { Bug } from "lucide-react";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -85,25 +86,19 @@ export const StatisticalUnitTableRow = ({
             ) : (
               <span className="font-medium">{name}</span>
             )}
-            <small className="text-gray-700">
-              {tax_reg_ident} | {prettifyUnitType(type)}
+            <small className="text-gray-700 flex items-center space-x-1">
+              <span>{tax_reg_ident}</span>
+              <span>|</span>
+              <span>{prettifyUnitType(type)}</span>
+              {invalid_codes && (
+                <>
+                  <span>|</span>
+                  <div title={JSON.stringify(invalid_codes)}>
+                    <Bug className="h-3 w-3 stroke-gray-600" />
+                  </div>
+                </>
+              )}
             </small>
-            {invalid_codes && (
-              <div className="text-xs">
-                <ul>
-                  {Object.keys(invalid_codes).map((k) => (
-                    <li
-                      key={k}
-                      title="This unit has import issues."
-                      className="text-orange-700 inline-block"
-                    >
-                      {/* @ts-ignore */}
-                      {k}: {invalid_codes[k]}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       </TableCell>
