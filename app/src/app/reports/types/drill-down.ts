@@ -15,6 +15,7 @@ export type DrillDownPoint = {
   name: string;
   path: string;
   count: number;
+  employees: number;
   label: string;
   has_children: boolean;
 };
