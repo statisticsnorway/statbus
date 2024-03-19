@@ -137,7 +137,6 @@ declare interface Enterprise extends StatisticalUnit {
 
 declare interface LegalUnit extends StatisticalUnit {
   name: string;
-  primary: boolean;
   activity: Activity[];
   location: Location[];
   enterprise_id: number;
@@ -150,7 +149,6 @@ declare interface LegalUnit extends StatisticalUnit {
 
 declare interface Establishment extends StatisticalUnit {
   name: string;
-  primary: boolean;
   activity: Activity[];
   location: Location[];
   enterprise_id: string | null;

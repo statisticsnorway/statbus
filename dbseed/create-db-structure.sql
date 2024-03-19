@@ -3928,7 +3928,6 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
 ) RETURNS JSONB AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(es.*)
-        || jsonb_build_object('primary', es.primary_for_legal_unit)
         || (SELECT public.activity_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
@@ -3955,7 +3954,6 @@ CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTE
 RETURNS JSONB AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(lu.*)
-        || jsonb_build_object('primary', lu.primary_for_enterprise)
         || (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on))
         || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
