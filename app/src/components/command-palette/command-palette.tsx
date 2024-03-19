@@ -98,18 +98,15 @@ export function CommandPalette() {
       <CommandInput placeholder="Type a command or search..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Admin tools">
-          <CommandItem onSelect={handleResetAll}>
-            <Trash className="mr-2 h-4 w-4" />
-            <span>Reset Everything</span>
-          </CommandItem>
-          <CommandItem onSelect={handleStatisticalUnitsRefresh}>
-            <ListRestart className="mr-2 h-4 w-4" />
-            <span>Refresh Statistical Units</span>
-          </CommandItem>
-        </CommandGroup>
-        <CommandSeparator />
         <CommandGroup heading="Pages">
+          <CommandItem onSelect={() => navigate("/")}>
+            <Home className="mr-2 h-4 w-4" />
+            <span>Start page</span>
+          </CommandItem>
+          <CommandItem onSelect={() => navigate("/search")}>
+            <Search className="mr-2 h-4 w-4" />
+            <span>Find statistical units</span>
+          </CommandItem>
           <CommandItem onSelect={() => navigate("/getting-started")}>
             <Footprints className="mr-2 h-4 w-4" />
             <span>Getting started</span>
@@ -144,17 +141,20 @@ export function CommandPalette() {
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </CommandItem>
-          <CommandItem onSelect={() => navigate("/")}>
-            <Home className="mr-2 h-4 w-4" />
-            <span>Start page</span>
-          </CommandItem>
-          <CommandItem onSelect={() => navigate("/search")}>
-            <Search className="mr-2 h-4 w-4" />
-            <span>Search</span>
-          </CommandItem>
           <CommandItem onSelect={() => navigate("/reports")}>
             <BarChartHorizontal className="mr-2 h-4 w-4" />
             <span>Reports</span>
+          </CommandItem>
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup heading="Admin tools">
+          <CommandItem onSelect={handleResetAll}>
+            <Trash className="mr-2 h-4 w-4" />
+            <span>Reset Everything</span>
+          </CommandItem>
+          <CommandItem onSelect={handleStatisticalUnitsRefresh}>
+            <ListRestart className="mr-2 h-4 w-4" />
+            <span>Refresh Statistical Units</span>
           </CommandItem>
         </CommandGroup>
       </CommandList>
