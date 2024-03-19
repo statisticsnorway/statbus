@@ -32,7 +32,7 @@ SELECT sql_saga.drop_era('public.activity');
 SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_by_tag_id_by_tag_id_unique_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
@@ -40,7 +40,7 @@ SELECT sql_saga.drop_era('public.establishment');
 \echo public.legal_unit
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_by_tag_id_by_tag_id_unique_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_reg_ident_valid');
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');

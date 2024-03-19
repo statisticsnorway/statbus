@@ -1,6 +1,6 @@
 [
   {
-    "sql": "tax_reg_ident",
+    "sql": "tax_ident",
     "csv": "organisasjonsnummer"
   },
   {
@@ -48,7 +48,7 @@
     "csv": "naeringskode1.kode"
   },
   {
-    "sql": "legal_unit_tax_reg_ident",
+    "sql": "legal_unit_tax_ident",
     "csv": null
   },
   {

@@ -159,7 +159,7 @@ class StatBus
 
   def import_legal_units(import_file_name : String)
     puts "Importing legal units"
-    sql_field_required_list = ["tax_reg_ident"]
+    sql_field_required_list = ["tax_ident"]
     sql_field_optional_list = [
       "name",
       "birth_date",
@@ -190,10 +190,10 @@ class StatBus
   def import_establishments(import_file_name : String)
     puts "Importing establishments"
     sql_field_required_list = [
-      "tax_reg_ident",
+      "tax_ident",
     ]
     sql_field_optional_list = [
-      "legal_unit_tax_reg_ident",
+      "legal_unit_tax_ident",
       "name",
       "birth_date",
       "death_date",

@@ -116,7 +116,7 @@ declare interface StatisticalUnit {
   email_address: string | null;
   invalid_codes: string | null;
   reorg_type_id: string | null;
-  tax_reg_ident: string;
+  tax_ident: string;
   external_ident: string | null;
   free_econ_zone: string | null;
   sector_code_id: string | null;

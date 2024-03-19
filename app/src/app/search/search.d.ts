@@ -2,7 +2,7 @@ type PostgrestOperator = "eq" | "gt" | "lt" | "in";
 
 type SearchFilterName =
   | "search"
-  | "tax_reg_ident"
+  | "tax_ident"
   | "unit_type"
   | "physical_region_path"
   | "primary_activity_category_path"

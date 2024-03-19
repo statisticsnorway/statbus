@@ -30,7 +30,7 @@ export const StatisticalUnitTableRow = ({
     name,
     primary_activity_category_path,
     physical_region_path,
-    tax_reg_ident,
+    tax_ident,
     employees,
     sector_name,
     sector_code,
@@ -87,7 +87,7 @@ export const StatisticalUnitTableRow = ({
               <span className="font-medium">{name}</span>
             )}
             <small className="text-gray-700 flex items-center space-x-1">
-              <span>{tax_reg_ident}</span>
+              <span>{tax_ident}</span>
               <span>|</span>
               <span>{prettifyUnitType(type)}</span>
               {invalid_codes && (

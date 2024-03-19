@@ -54,8 +54,8 @@ export default async function EnterpriseDetailsPage({
         <FormField
           readonly
           label="Tax Register ID"
-          name="tax_reg_ident"
-          value={primaryLegalUnit.tax_reg_ident}
+          name="tax_ident"
+          value={primaryLegalUnit.tax_ident}
           response={null}
         />
       </form>

@@ -72,7 +72,7 @@ const generatePostgrestQuery = ({ selected, name, operator }: SearchFilter) => {
   switch (name) {
     case "search":
       return `fts(simple).${generateFTSQuery(selected[0]!!)}`;
-    case "tax_reg_ident":
+    case "tax_ident":
       return `eq.${selected[0]}`;
     case "unit_type":
       return `in.(${selected.join(",")})`;

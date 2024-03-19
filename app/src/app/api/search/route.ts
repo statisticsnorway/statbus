@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   if (!searchParams.has("order")) {
-    searchParams.set("order", "tax_reg_ident.desc");
+    searchParams.set("order", "tax_ident.desc");
   }
 
   if (!searchParams.has("select")) {

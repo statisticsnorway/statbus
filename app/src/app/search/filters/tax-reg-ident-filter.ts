@@ -1,4 +1,4 @@
-export const TAX_REG_IDENT: SearchFilterName = "tax_reg_ident";
+export const TAX_REG_IDENT: SearchFilterName = "tax_ident";
 
 export const createTaxRegIdentFilter = (
   params: URLSearchParams

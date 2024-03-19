@@ -994,7 +994,7 @@ CREATE TABLE public.legal_unit (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
-    tax_reg_ident character varying(50),
+    tax_ident character varying(50),
     external_ident character varying(50),
     external_ident_type character varying(50),
     by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
@@ -1032,7 +1032,7 @@ CREATE TABLE public.legal_unit (
 
 -- TODO: Use a scoped sql_saga unique key for enterprise_id below.
 CREATE UNIQUE INDEX "Only one primary legal_unit per enterprise" ON public.legal_unit(enterprise_id) WHERE primary_for_enterprise;
-CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_reg_ident) WHERE valid_to = 'infinity';
+CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_ident) WHERE valid_to = 'infinity';
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
@@ -1041,7 +1041,7 @@ CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
 CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
-CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax ON public.legal_unit USING btree (short_name, stat_ident, tax_reg_ident);
+CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax ON public.legal_unit USING btree (short_name, stat_ident, tax_ident);
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
 CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
 
@@ -1057,7 +1057,7 @@ CREATE TABLE public.establishment (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
-    tax_reg_ident character varying(50),
+    tax_ident character varying(50),
     external_ident character varying(50),
     external_ident_type character varying(50),
     by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
@@ -1103,7 +1103,7 @@ CREATE TABLE public.establishment (
 
 );
 
-CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_reg_ident) WHERE valid_to = 'infinity';
+CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_ident) WHERE valid_to = 'infinity';
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
@@ -1111,7 +1111,7 @@ CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree 
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
 CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
-CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_reg_ident);
+CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_ident);
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
 
@@ -2238,7 +2238,7 @@ CREATE VIEW public.statistical_unit_def
     , unit_type
     , unit_id
     , stat_ident
-    , tax_reg_ident
+    , tax_ident
     , external_ident
     , external_ident_type
     , by_tag_id
@@ -2290,7 +2290,7 @@ CREATE VIEW public.statistical_unit_def
     -- activity_category_ids integer[],
     -- unit_size_id integer REFERENCES public.unit_size(id),
     -- short_name character varying(200),
-    -- tax_reg_ident character varying(50),
+    -- tax_ident character varying(50),
     -- external_ident character varying(50),
     -- external_ident_type character varying(50),
     -- data_source character varying(200),
@@ -2314,7 +2314,7 @@ CREATE VIEW public.statistical_unit_def
          , unit_type
          , unit_id
          , stat_ident
-         , tax_reg_ident
+         , tax_ident
          , external_ident
          , external_ident_type
          , by_tag_id
@@ -2377,7 +2377,7 @@ CREATE VIEW public.statistical_unit_def
            , NULL::INTEGER AS enterprise_id
            , NULL::INTEGER AS enterprise_group_id
            , es.stat_ident AS stat_ident
-           , es.tax_reg_ident AS tax_reg_ident
+           , es.tax_ident AS tax_ident
            , es.external_ident AS external_ident
            , es.external_ident_type AS external_ident_type
            , es.by_tag_id    AS by_tag_id
@@ -2496,7 +2496,7 @@ CREATE VIEW public.statistical_unit_def
            , unit_type
            , unit_id
            , stat_ident
-           , tax_reg_ident
+           , tax_ident
            , external_ident
            , external_ident_type
            , by_tag_id
@@ -2550,7 +2550,7 @@ CREATE VIEW public.statistical_unit_def
          , unit_type
          , unit_id
          , stat_ident
-         , tax_reg_ident
+         , tax_ident
          , external_ident
          , external_ident_type
          , by_tag_id
@@ -2613,7 +2613,7 @@ CREATE VIEW public.statistical_unit_def
              , NULL::INTEGER AS enterprise_id
              , NULL::INTEGER AS enterprise_group_id
              , lu.stat_ident AS stat_ident
-             , lu.tax_reg_ident AS tax_reg_ident
+             , lu.tax_ident AS tax_ident
              , lu.external_ident AS external_ident
              , lu.external_ident_type AS external_ident_type
              , lu.by_tag_id    AS by_tag_id
@@ -2732,7 +2732,7 @@ CREATE VIEW public.statistical_unit_def
            , unit_type
            , unit_id
            , stat_ident
-           , tax_reg_ident
+           , tax_ident
            , external_ident
            , external_ident_type
            , by_tag_id
@@ -2782,7 +2782,7 @@ CREATE VIEW public.statistical_unit_def
          , unit_type
          , unit_id
          , stat_ident
-         , tax_reg_ident
+         , tax_ident
          , external_ident
          , external_ident_type
          , by_tag_id
@@ -2845,7 +2845,7 @@ CREATE VIEW public.statistical_unit_def
            , en.id AS enterprise_id
            , NULL::INTEGER AS enterprise_group_id
            , plu.stat_ident AS stat_ident
-           , plu.tax_reg_ident AS tax_reg_ident
+           , plu.tax_ident AS tax_ident
            , plu.external_ident AS external_ident
            , plu.external_ident_type AS external_ident_type
            , plu.by_tag_id    AS by_tag_id
@@ -2967,7 +2967,7 @@ CREATE VIEW public.statistical_unit_def
            , unit_type
            , unit_id
            , stat_ident
-           , tax_reg_ident
+           , tax_ident
            , external_ident
            , external_ident_type
            , by_tag_id
@@ -3016,7 +3016,7 @@ CREATE VIEW public.statistical_unit_def
          , unit_type
          , unit_id
          , stat_ident
-         , tax_reg_ident
+         , tax_ident
          , external_ident
          , external_ident_type
          , by_tag_id
@@ -3079,7 +3079,7 @@ CREATE VIEW public.statistical_unit_def
              , en.id AS enterprise_id
              , NULL::INTEGER AS enterprise_group_id
              , es.stat_ident AS stat_ident
-             , es.tax_reg_ident AS tax_reg_ident
+             , es.tax_ident AS tax_ident
              , es.external_ident AS external_ident
              , es.external_ident_type AS external_ident_type
              , es.by_tag_id    AS by_tag_id
@@ -3191,7 +3191,7 @@ CREATE VIEW public.statistical_unit_def
            , unit_type
            , unit_id
            , stat_ident
-           , tax_reg_ident
+           , tax_ident
            , external_ident
            , external_ident_type
            , by_tag_id
@@ -3240,7 +3240,7 @@ CREATE VIEW public.statistical_unit_def
          , 'enterprise_group'::public.statistical_unit_type AS unit_type
          , id AS unit_id
          , NULL::TEXT AS stat_ident
-         , NULL::TEXT AS tax_reg_ident
+         , NULL::TEXT AS tax_ident
          , NULL::TEXT AS external_ident
          , NULL::TEXT AS external_ident_type
          , NULL::INTEGER AS by_tag_id
@@ -4683,7 +4683,7 @@ VALUES (1, 'organisasjonsnummer')
             )
          , (SELECT id
             FROM public.custom_view_def_target_column
-            WHERE column_name = 'tax_reg_ident'
+            WHERE column_name = 'tax_ident'
               AND target_table_id = def.target_table_id
             )
     FROM def
@@ -5319,7 +5319,7 @@ DECLARE
     jsonb_build_array(
             'id',
             'stat_ident',
-            'tax_reg_ident',
+            'tax_ident',
             jsonb_build_array('external_ident', 'external_ident_type'),
             jsonb_build_array('by_tag_id', 'by_tag_id_unique_ident')
         );
@@ -5362,7 +5362,7 @@ DECLARE
     jsonb_build_array(
             'id',
             'stat_ident',
-            'tax_reg_ident',
+            'tax_ident',
             jsonb_build_array('external_ident', 'external_ident_type'),
             jsonb_build_array('by_tag_id', 'by_tag_id_unique_ident')
         );
@@ -5522,7 +5522,7 @@ CREATE VIEW public.import_legal_unit_era
 WITH (security_invoker=on) AS
 SELECT '' AS valid_from
      , '' AS valid_to
-     , '' AS tax_reg_ident
+     , '' AS tax_ident
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -5725,7 +5725,7 @@ BEGIN
         RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
     END;
 
-    SELECT NEW.tax_reg_ident AS tax_reg_ident
+    SELECT NEW.tax_ident AS tax_ident
          , NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
@@ -5759,7 +5759,7 @@ BEGIN
     is_primary_for_enterprise := true;
 
     INSERT INTO public.legal_unit_era
-        ( tax_reg_ident
+        ( tax_ident
         , valid_from
         , valid_to
         , name
@@ -5776,7 +5776,7 @@ BEGIN
         , edit_by_user_id
         )
     VALUES
-        ( upsert_data.tax_reg_ident
+        ( upsert_data.tax_ident
         , new_typed.valid_from
         , new_typed.valid_to
         , upsert_data.name
@@ -5939,7 +5939,7 @@ EXECUTE FUNCTION admin.import_legal_unit_era_upsert();
 \echo public.import_legal_unit_current
 CREATE VIEW public.import_legal_unit_current
 WITH (security_invoker=on) AS
-SELECT tax_reg_ident
+SELECT tax_ident
      , name
      , birth_date
      , death_date
@@ -5974,7 +5974,7 @@ BEGIN
     INSERT INTO public.import_legal_unit_era
         ( valid_from
         , valid_to
-        , tax_reg_ident
+        , tax_ident
         , name
         , birth_date
         , death_date
@@ -6001,7 +6001,7 @@ BEGIN
     VALUES
         ( new_valid_from
         , new_valid_to
-        , NEW.tax_reg_ident
+        , NEW.tax_ident
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -6075,8 +6075,8 @@ CREATE VIEW public.import_establishment_era
 WITH (security_invoker=on) AS
 SELECT '' AS valid_from
      , '' AS valid_to
-     , '' AS tax_reg_ident
-     , '' AS legal_unit_tax_reg_ident
+     , '' AS tax_ident
+     , '' AS legal_unit_tax_ident
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -6201,7 +6201,7 @@ BEGIN
         RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
     END;
 
-    IF NEW.legal_unit_tax_reg_ident IS NULL THEN
+    IF NEW.legal_unit_tax_ident IS NULL THEN
         -- TODO: Reuse any existing enterprise connection.
         -- Create an enterprise and connect to it.
         INSERT INTO public.enterprise
@@ -6217,12 +6217,12 @@ BEGIN
     ELSE -- Lookup the legal_unit - it must exist.
         SELECT lu.* INTO legal_unit
         FROM public.legal_unit AS lu
-        WHERE lu.tax_reg_ident = NEW.legal_unit_tax_reg_ident
+        WHERE lu.tax_ident = NEW.legal_unit_tax_ident
           AND daterange(lu.valid_from, lu.valid_to, '[]')
             && daterange(new_typed.valid_from, new_typed.valid_to, '[]')
         ;
         IF NOT FOUND THEN
-          RAISE EXCEPTION 'Could not find legal_unit_tax_reg_ident for row %', to_json(NEW);
+          RAISE EXCEPTION 'Could not find legal_unit_tax_ident for row %', to_json(NEW);
         END IF;
         PERFORM *
         FROM public.establishment AS es
@@ -6312,7 +6312,7 @@ BEGIN
       END IF;
     END IF;
 
-    SELECT NEW.tax_reg_ident AS tax_reg_ident
+    SELECT NEW.tax_ident AS tax_ident
          , NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
@@ -6330,7 +6330,7 @@ BEGIN
     END IF;
 
     INSERT INTO public.establishment_era
-        ( tax_reg_ident
+        ( tax_ident
         , valid_from
         , valid_to
         , name
@@ -6347,7 +6347,7 @@ BEGIN
         , edit_by_user_id
         )
     VALUES
-        ( upsert_data.tax_reg_ident
+        ( upsert_data.tax_ident
         , new_typed.valid_from
         , new_typed.valid_to
         , upsert_data.name
@@ -6570,8 +6570,8 @@ EXECUTE FUNCTION admin.import_establishment_era_upsert();
 \echo public.import_establishment_current
 CREATE VIEW public.import_establishment_current
 WITH (security_invoker=on) AS
-SELECT tax_reg_ident
-     , legal_unit_tax_reg_ident
+SELECT tax_ident
+     , legal_unit_tax_ident
      , name
      , birth_date
      , death_date
@@ -6608,7 +6608,7 @@ BEGIN
     INSERT INTO public.import_establishment_era
         ( valid_from
         , valid_to
-        , tax_reg_ident
+        , tax_ident
         , name
         , birth_date
         , death_date
@@ -6636,7 +6636,7 @@ BEGIN
     VALUES
         ( new_valid_from
         , new_valid_to
-        , NEW.tax_reg_ident
+        , NEW.tax_ident
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -6744,7 +6744,7 @@ BEGIN
         LIMIT 1
     ), upsert_data AS (
         SELECT
-          NEW."organisasjonsnummer" AS tax_reg_ident
+          NEW."organisasjonsnummer" AS tax_ident
         , '2023-01-01'::date AS valid_from
         , 'infinity'::date AS valid_to
         , CASE NEW."stiftelsesdato"
@@ -6769,13 +6769,13 @@ BEGIN
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
-        WHERE legal_unit.tax_reg_ident = upsert_data.tax_reg_ident
+        WHERE legal_unit.tax_ident = upsert_data.tax_ident
           AND legal_unit.valid_to = 'infinity'::date
         RETURNING 'update'::text AS action, legal_unit.id
     ),
     insert_outcome AS (
         INSERT INTO public.legal_unit
-          ( tax_reg_ident
+          ( tax_ident
           , valid_from
           , valid_to
           , birth_date
@@ -6786,7 +6786,7 @@ BEGIN
           , edit_by_user_id
           )
         SELECT
-            upsert_data.tax_reg_ident
+            upsert_data.tax_ident
           , upsert_data.valid_from
           , upsert_data.valid_to
           , upsert_data.birth_date
@@ -6900,7 +6900,7 @@ BEGIN
         LIMIT 1
     ), upsert_data AS (
         SELECT
-          NEW."organisasjonsnummer" AS tax_reg_ident
+          NEW."organisasjonsnummer" AS tax_ident
         , '2023-01-01'::date AS valid_from
         , 'infinity'::date AS valid_to
         , CASE NEW."oppstartsdato"
@@ -6925,13 +6925,13 @@ BEGIN
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
-        WHERE establishment.tax_reg_ident = upsert_data.tax_reg_ident
+        WHERE establishment.tax_ident = upsert_data.tax_ident
           AND establishment.valid_to = 'infinity'::date
         RETURNING 'update'::text AS action, establishment.id
     ),
     insert_outcome AS (
         INSERT INTO public.establishment
-          ( tax_reg_ident
+          ( tax_ident
           , valid_from
           , valid_to
           , birth_date
@@ -6942,7 +6942,7 @@ BEGIN
           , edit_by_user_id
           )
         SELECT
-            upsert_data.tax_reg_ident
+            upsert_data.tax_ident
           , upsert_data.valid_from
           , upsert_data.valid_to
           , upsert_data.birth_date
@@ -7394,7 +7394,7 @@ SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['external_ident'
 SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_reg_ident']);
+SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['external_ident', 'external_ident_type']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['by_tag_id', 'by_tag_id_unique_ident']);
 -- TODO: Use a scoped sql_saga unique key for enterprise_id below.
@@ -7403,7 +7403,7 @@ SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['by_tag_id', 'by_tag_i
 SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_reg_ident']);
+SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['by_tag_id', 'by_tag_id_unique_ident']);
 -- TODO: Extend sql_saga with support for predicates by using unique indices instead of constraints.

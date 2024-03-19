@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   if (!searchParams.has("order")) {
-    searchParams.set("order", "tax_reg_ident.desc");
+    searchParams.set("order", "tax_ident.desc");
   }
 
   if (!searchParams.has("select")) {
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   searchParams.set(
     "select",
-    "tax_reg_ident, name, unit_type, primary_activity_category_id, physical_region_id, employees, physical_country_code_2, sector_code, sector_name, legal_form_code, legal_form_name"
+    "tax_ident, name, unit_type, primary_activity_category_id, physical_region_id, employees, physical_country_code_2, sector_code, sector_name, legal_form_code, legal_form_name"
   );
 
   const statisticalUnitsResponse = await getStatisticalUnits(searchParams);

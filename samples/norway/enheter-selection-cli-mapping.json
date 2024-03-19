@@ -1,6 +1,6 @@
 [
   {
-    "sql": "tax_reg_ident",
+    "sql": "tax_ident",
     "csv": "organisasjonsnummer"
   },
   {

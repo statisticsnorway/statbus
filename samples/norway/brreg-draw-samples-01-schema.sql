@@ -57,7 +57,7 @@ CREATE UNLOGGED TABLE tmp.enhet(
 "aktivitet" TEXT);
 
 CREATE VIEW tmp.enhet_for_web_import AS
-SELECT "organisasjonsnummer" AS tax_reg_ident
+SELECT "organisasjonsnummer" AS tax_ident
      , "navn" AS name
      , "stiftelsesdato" AS birth_date
      -- There is no death date, the entry simply vanishes!
@@ -119,8 +119,8 @@ CREATE UNLOGGED TABLE tmp.underenhet(
 
 
 CREATE VIEW tmp.underenhet_for_web_import AS
-SELECT "organisasjonsnummer" AS tax_reg_ident
-     , "overordnetEnhet" AS legal_unit_tax_reg_ident
+SELECT "organisasjonsnummer" AS tax_ident
+     , "overordnetEnhet" AS legal_unit_tax_ident
      , "navn" AS name
      , "oppstartsdato" AS birth_date
      , "nedleggelsesdato" AS death_date

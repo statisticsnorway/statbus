@@ -30,8 +30,8 @@ export default function GeneralInfoForm({
       />
       <FormField
         label="Tax Register ID"
-        name="tax_reg_ident"
-        value={values.tax_reg_ident}
+        name="tax_ident"
+        value={values.tax_ident}
         response={state}
       />
       <SubmissionFeedbackDebugInfo state={state} />
