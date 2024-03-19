@@ -6778,6 +6778,7 @@ BEGIN
         ( new_valid_from
         , new_valid_to
         , NEW.tax_ident
+        , NEW.legal_unit_tax_ident
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
