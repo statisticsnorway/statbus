@@ -20,6 +20,7 @@ export default function TableToolbar() {
         case "radio":
           return (
             <OptionsFilter
+              className="p-2 h-9"
               key={name}
               title={label}
               options={options}
@@ -36,6 +37,7 @@ export default function TableToolbar() {
         case "options":
           return (
             <OptionsFilter
+              className="p-2 h-9"
               key={name}
               title={label}
               options={options}
@@ -49,6 +51,7 @@ export default function TableToolbar() {
         case "conditional":
           return (
             <ConditionalFilter
+              className="p-2 h-9"
               key={name}
               title={label}
               selected={{ operator, value: selected[0] }}
@@ -68,7 +71,7 @@ export default function TableToolbar() {
               type="text"
               id={`search-prompt-${name}`}
               placeholder={label}
-              className="ml-2 h-10 w-[100px]"
+              className="h-9 w-full md:max-w-[200px]"
               value={selected[0] ?? ""}
               onChange={(e) => {
                 dispatch({
@@ -86,11 +89,11 @@ export default function TableToolbar() {
   );
 
   return (
-    <div className="-m-2 flex flex-wrap items-center space-x-2">
+    <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 overflow-hidden w-screen lg:w-full">
       {filters.map(createFilterComponent)}
       {hasAnyFilterSelected && (
         <ResetFilterButton
-          className="m-2 h-10"
+          className="h-9 p-2"
           onReset={() => dispatch({ type: "reset_all" })}
         />
       )}

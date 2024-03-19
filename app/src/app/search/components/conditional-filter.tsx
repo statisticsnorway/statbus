@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConditionalValueBadge } from "@/app/search/components/conditional-value-badge";
+import { cn } from "@/lib/utils";
 
 interface ITableFilterCustomProps {
   title: string;
@@ -27,6 +28,7 @@ interface ITableFilterCustomProps {
   };
   onChange: ({ value, operator }: ConditionalValue) => void;
   onReset: () => void;
+  className?: string;
 }
 
 export function ConditionalFilter({
@@ -34,6 +36,7 @@ export function ConditionalFilter({
   selected,
   onChange,
   onReset,
+  className,
 }: ITableFilterCustomProps) {
   const [operator, setOperator] = useState<PostgrestOperator | null>(
     selected?.operator ?? null
@@ -50,8 +53,7 @@ export function ConditionalFilter({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="m-2 h-10 space-x-2 border-dashed"
+          className={cn("space-x-2 border-dashed", className)}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           {title}

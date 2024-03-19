@@ -14,7 +14,6 @@ export const ResetFilterButton = ({
   <Button
     onClick={onReset}
     type="button"
-    size="sm"
     variant="secondary"
     className={cn("flex items-center space-x-2", className)}
   >
