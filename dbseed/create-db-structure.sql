@@ -3780,6 +3780,37 @@ SELECT CASE
   FROM data_list;
 $$ LANGUAGE sql IMMUTABLE;
 
+
+\echo public.tag_for_unit_hierarchy
+CREATE FUNCTION public.tag_for_unit_hierarchy(
+  parent_establishment_id INTEGER DEFAULT NULL,
+  parent_legal_unit_id INTEGER DEFAULT NULL,
+  parent_enterprise_id INTEGER DEFAULT NULL,
+  parent_enterprise_group_id INTEGER DEFAULT NULL
+) RETURNS JSONB AS $$
+  WITH ordered_data AS (
+    SELECT to_jsonb(t.*)
+        AS data
+      FROM public.tag_for_unit AS tfu
+      JOIN public.tag AS t ON tfu.tag_id = t.id
+     WHERE (  parent_establishment_id    IS NOT NULL AND tfu.establishment_id    = parent_establishment_id
+           OR parent_legal_unit_id       IS NOT NULL AND tfu.legal_unit_id       = parent_legal_unit_id
+           OR parent_enterprise_id       IS NOT NULL AND tfu.enterprise_id       = parent_enterprise_id
+           OR parent_enterprise_group_id IS NOT NULL AND tfu.enterprise_group_id = parent_enterprise_group_id
+           )
+       ORDER BY t.path
+  ), data_list AS (
+      SELECT jsonb_agg(data) AS data FROM ordered_data
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('tag',data)
+    END
+  FROM data_list;
+  ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
 \echo public.region_hierarchy
 CREATE OR REPLACE FUNCTION public.region_hierarchy(region_id INTEGER)
 RETURNS JSONB AS $$
@@ -3932,6 +3963,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
         || (SELECT public.sector_hierarchy(es.sector_id))
+        || (SELECT public.tag_for_unit_hierarchy(es.id,NULL,NULL,NULL))
         AS data
     FROM public.establishment AS es
    WHERE (  (parent_legal_unit_id IS NOT NULL AND es.legal_unit_id = parent_legal_unit_id)
@@ -3959,6 +3991,7 @@ RETURNS JSONB AS $$
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.sector_hierarchy(lu.sector_id))
         || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
+        || (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL))
         AS data
     FROM public.legal_unit AS lu
    WHERE parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id
@@ -3983,6 +4016,7 @@ RETURNS JSONB AS $$
                  to_jsonb(en.*)
                  || (SELECT public.legal_unit_hierarchy(en.id, valid_on))
                  || (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
+                 || (SELECT public.tag_for_unit_hierarchy(NULL,NULL,en.id,NULL))
                 ) AS data
           FROM public.enterprise AS en
          WHERE enterprise_id IS NOT NULL AND en.id = enterprise_id
