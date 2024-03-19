@@ -337,10 +337,12 @@ class StatBus
         end
 
         @sql_field_mapping = [
-          SqlFieldMapping.new(sql: "valid_from", csv: nil, value: @valid_from),
-          SqlFieldMapping.new(sql: "valid_to", csv: nil, value: @valid_to),
-          SqlFieldMapping.new(sql: "tag_path", csv: nil, value: @import_tag),
-        ] + @sql_field_mapping
+          SqlFieldMapping.new(sql: "valid_from", value: @valid_from),
+          SqlFieldMapping.new(sql: "valid_to", value: @valid_to),
+          if !@import_tag.nil?
+            SqlFieldMapping.new(sql: "tag_path", value: @import_tag)
+          end,
+        ].compact + @sql_field_mapping
 
         puts "@sql_field_mapping = #{@sql_field_mapping}" if @verbose
 
