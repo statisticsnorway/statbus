@@ -146,9 +146,21 @@ DROP TRIGGER import_legal_unit_era_upsert_trigger ON public.import_legal_unit_er
 DROP FUNCTION admin.import_legal_unit_era_upsert();
 DROP VIEW public.import_legal_unit_era;
 
-DROP TRIGGER import_establishment_current_upsert_trigger ON public.import_establishment_current;
-DROP FUNCTION admin.import_establishment_current_upsert();
-DROP VIEW public.import_establishment_current;
+DROP TRIGGER import_establishment_current_without_legal_unit_upsert_trigger ON public.import_establishment_current_without_legal_unit;
+DROP FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
+DROP VIEW public.import_establishment_current_without_legal_unit;
+
+DROP TRIGGER import_establishment_era_without_legal_unit_upsert_trigger ON public.import_establishment_era_without_legal_unit;
+DROP FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+DROP VIEW public.import_establishment_era_without_legal_unit;
+
+DROP TRIGGER import_establishment_current_for_legal_unit_upsert_trigger ON public.import_establishment_current_for_legal_unit;
+DROP FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+DROP VIEW public.import_establishment_current_for_legal_unit;
+
+DROP TRIGGER import_establishment_era_for_legal_unit_upsert_trigger ON public.import_establishment_era_for_legal_unit;
+DROP FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+DROP VIEW public.import_establishment_era_for_legal_unit;
 
 DROP TRIGGER import_establishment_era_upsert_trigger ON public.import_establishment_era;
 DROP FUNCTION admin.import_establishment_era_upsert();

@@ -6133,7 +6133,7 @@ SELECT '' AS valid_from
      , '' AS turnover
      , '' AS tag_path
 ;
-
+COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
 
 \echo admin.import_establishment_era_upsert
 CREATE FUNCTION admin.import_establishment_era_upsert()
@@ -6233,7 +6233,7 @@ BEGIN
         RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
     END;
 
-    IF NEW.legal_unit_tax_ident IS NULL THEN
+    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
         -- TODO: Reuse any existing enterprise connection.
         -- Create an enterprise and connect to it.
         INSERT INTO public.enterprise
@@ -6598,9 +6598,114 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.import_establishment_era_upsert();
 
 
+\echo public.import_establishment_era_for_legal_unit
+CREATE VIEW public.import_establishment_era_for_legal_unit
+WITH (security_invoker=on) AS
+SELECT valid_from
+     , valid_to
+     , tax_ident
+     -- Required - it must connect to an existing legal_unit
+     , legal_unit_tax_ident
+     , name
+     , birth_date
+     , death_date
+     , physical_address_part1
+     , physical_address_part2
+     , physical_address_part3
+     , physical_postal_code
+     , physical_postal_place
+     , physical_region_code
+     , physical_country_code_2
+     , postal_address_part1
+     , postal_address_part2
+     , postal_address_part3
+     , postal_postal_code
+     , postal_postal_place
+     , postal_region_code
+     , postal_country_code_2
+     , primary_activity_category_code
+     , secondary_activity_category_code
+     -- sector_code is Disabled because the legal unit provides the sector_code
+     , employees
+     , turnover
+     , tag_path
+FROM public.import_establishment_era;
+COMMENT ON VIEW public.import_establishment_era_for_legal_unit IS 'Upload of establishment era (any timeline) that must connect to a legal_unit';
 
-\echo public.import_establishment_current
-CREATE VIEW public.import_establishment_current
+\echo admin.import_establishment_era_for_legal_unit_upsert
+CREATE FUNCTION admin.import_establishment_era_for_legal_unit_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
+      RAISE EXCEPTION 'Missing legal_unit_tax_ident for row %', to_json(NEW);
+    END IF;
+    INSERT INTO public.import_establishment_era
+        ( valid_from
+        , valid_to
+        , tax_ident
+        , legal_unit_tax_ident
+        , name
+        , birth_date
+        , death_date
+        , physical_address_part1
+        , physical_address_part2
+        , physical_address_part3
+        , physical_postal_code
+        , physical_postal_place
+        , physical_region_code
+        , physical_country_code_2
+        , postal_address_part1
+        , postal_address_part2
+        , postal_address_part3
+        , postal_postal_code
+        , postal_postal_place
+        , postal_region_code
+        , postal_country_code_2
+        , primary_activity_category_code
+        , secondary_activity_category_code
+        , employees
+        , turnover
+        , tag_path
+        )
+    VALUES
+        ( NEW.valid_from
+        , NEW.valid_to
+        , NEW.tax_ident
+        , NEW.legal_unit_tax_ident
+        , NEW.name
+        , NEW.birth_date
+        , NEW.death_date
+        , NEW.physical_address_part1
+        , NEW.physical_address_part2
+        , NEW.physical_address_part3
+        , NEW.physical_postal_code
+        , NEW.physical_postal_place
+        , NEW.physical_region_code
+        , NEW.physical_country_code_2
+        , NEW.postal_address_part1
+        , NEW.postal_address_part2
+        , NEW.postal_address_part3
+        , NEW.postal_postal_code
+        , NEW.postal_postal_place
+        , NEW.postal_region_code
+        , NEW.postal_country_code_2
+        , NEW.primary_activity_category_code
+        , NEW.secondary_activity_category_code
+        , NEW.employees
+        , NEW.turnover
+        , NEW.tag_path
+        );
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER import_establishment_era_for_legal_unit_upsert_trigger
+INSTEAD OF INSERT ON public.import_establishment_era_for_legal_unit
+FOR EACH ROW
+EXECUTE FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+
+\echo public.import_establishment_current_for_legal_unit
+CREATE VIEW public.import_establishment_current_for_legal_unit
 WITH (security_invoker=on) AS
 SELECT tax_ident
      , legal_unit_tax_ident
@@ -6623,15 +6728,224 @@ SELECT tax_ident
      , postal_country_code_2
      , primary_activity_category_code
      , secondary_activity_category_code
-     , sector_code
+     -- sector_code is Disabled because the legal unit provides the sector_code
+     , employees
+     , turnover
+     , tag_path
+FROM public.import_establishment_era;
+COMMENT ON VIEW public.import_establishment_current_for_legal_unit IS 'Upload of establishment from today and forwards that must connect to a legal_unit';
+
+
+\echo admin.import_establishment_current_for_legal_unit_upsert
+CREATE FUNCTION admin.import_establishment_current_for_legal_unit_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
+BEGIN
+    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
+      RAISE EXCEPTION 'Missing legal_unit_tax_ident for row %', to_json(NEW);
+    END IF;
+    INSERT INTO public.import_establishment_era
+        ( valid_from
+        , valid_to
+        , tax_ident
+        , legal_unit_tax_ident
+        , name
+        , birth_date
+        , death_date
+        , physical_address_part1
+        , physical_address_part2
+        , physical_address_part3
+        , physical_postal_code
+        , physical_postal_place
+        , physical_region_code
+        , physical_country_code_2
+        , postal_address_part1
+        , postal_address_part2
+        , postal_address_part3
+        , postal_postal_code
+        , postal_postal_place
+        , postal_region_code
+        , postal_country_code_2
+        , primary_activity_category_code
+        , secondary_activity_category_code
+        , employees
+        , turnover
+        , tag_path
+        )
+    VALUES
+        ( new_valid_from
+        , new_valid_to
+        , NEW.tax_ident
+        , NEW.name
+        , NEW.birth_date
+        , NEW.death_date
+        , NEW.physical_address_part1
+        , NEW.physical_address_part2
+        , NEW.physical_address_part3
+        , NEW.physical_postal_code
+        , NEW.physical_postal_place
+        , NEW.physical_region_code
+        , NEW.physical_country_code_2
+        , NEW.postal_address_part1
+        , NEW.postal_address_part2
+        , NEW.postal_address_part3
+        , NEW.postal_postal_code
+        , NEW.postal_postal_place
+        , NEW.postal_region_code
+        , NEW.postal_country_code_2
+        , NEW.primary_activity_category_code
+        , NEW.secondary_activity_category_code
+        , NEW.employees
+        , NEW.turnover
+        , NEW.tag_path
+        );
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER import_establishment_current_for_legal_unit_upsert_trigger
+INSTEAD OF INSERT ON public.import_establishment_current_for_legal_unit
+FOR EACH ROW
+EXECUTE FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+
+
+\echo public.import_establishment_era_without_legal_unit
+CREATE VIEW public.import_establishment_era_without_legal_unit
+WITH (security_invoker=on) AS
+SELECT valid_from
+     , valid_to
+     , tax_ident
+     -- legal_unit_tax_ident is Disabled because this is an informal sector
+     , name
+     , birth_date
+     , death_date
+     , physical_address_part1
+     , physical_address_part2
+     , physical_address_part3
+     , physical_postal_code
+     , physical_postal_place
+     , physical_region_code
+     , physical_country_code_2
+     , postal_address_part1
+     , postal_address_part2
+     , postal_address_part3
+     , postal_postal_code
+     , postal_postal_place
+     , postal_region_code
+     , postal_country_code_2
+     , primary_activity_category_code
+     , secondary_activity_category_code
+     , sector_code -- Is allowed, since there is no legal unit to provide it.
      , employees
      , turnover
      , tag_path
 FROM public.import_establishment_era;
 
 
-\echo admin.import_establishment_current_upsert
-CREATE FUNCTION admin.import_establishment_current_upsert()
+\echo admin.import_establishment_era_without_legal_unit_upsert
+CREATE FUNCTION admin.import_establishment_era_without_legal_unit_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO public.import_establishment_era
+        ( valid_from
+        , valid_to
+        , tax_ident
+        , name
+        , birth_date
+        , death_date
+        , physical_address_part1
+        , physical_address_part2
+        , physical_address_part3
+        , physical_postal_code
+        , physical_postal_place
+        , physical_region_code
+        , physical_country_code_2
+        , postal_address_part1
+        , postal_address_part2
+        , postal_address_part3
+        , postal_postal_code
+        , postal_postal_place
+        , postal_region_code
+        , postal_country_code_2
+        , primary_activity_category_code
+        , secondary_activity_category_code
+        , sector_code
+        , employees
+        , turnover
+        , tag_path
+        )
+    VALUES
+        ( NEW.valid_from
+        , NEW.valid_to
+        , NEW.tax_ident
+        , NEW.name
+        , NEW.birth_date
+        , NEW.death_date
+        , NEW.physical_address_part1
+        , NEW.physical_address_part2
+        , NEW.physical_address_part3
+        , NEW.physical_postal_code
+        , NEW.physical_postal_place
+        , NEW.physical_region_code
+        , NEW.physical_country_code_2
+        , NEW.postal_address_part1
+        , NEW.postal_address_part2
+        , NEW.postal_address_part3
+        , NEW.postal_postal_code
+        , NEW.postal_postal_place
+        , NEW.postal_region_code
+        , NEW.postal_country_code_2
+        , NEW.primary_activity_category_code
+        , NEW.secondary_activity_category_code
+        , NEW.sector_code
+        , NEW.employees
+        , NEW.turnover
+        , NEW.tag_path
+        );
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER import_establishment_era_without_legal_unit_upsert_trigger
+INSTEAD OF INSERT ON public.import_establishment_era_without_legal_unit
+FOR EACH ROW
+EXECUTE FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+
+\echo public.import_establishment_current_without_legal_unit
+CREATE VIEW public.import_establishment_current_without_legal_unit
+WITH (security_invoker=on) AS
+SELECT tax_ident
+     -- legal_unit_tax_ident is Disabled because this is an informal sector
+     , name
+     , birth_date
+     , death_date
+     , physical_address_part1
+     , physical_address_part2
+     , physical_address_part3
+     , physical_postal_code
+     , physical_postal_place
+     , physical_region_code
+     , physical_country_code_2
+     , postal_address_part1
+     , postal_address_part2
+     , postal_address_part3
+     , postal_postal_code
+     , postal_postal_place
+     , postal_region_code
+     , postal_country_code_2
+     , primary_activity_category_code
+     , secondary_activity_category_code
+     , sector_code -- Is allowed, since there is no legal unit to provide it.
+     , employees
+     , turnover
+     , tag_path
+FROM public.import_establishment_era;
+
+
+\echo admin.import_establishment_current_without_legal_unit_upsert
+CREATE FUNCTION admin.import_establishment_current_without_legal_unit_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     new_valid_from DATE := current_date;
@@ -6697,10 +7011,10 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER import_establishment_current_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_current
+CREATE TRIGGER import_establishment_current_without_legal_unit_upsert_trigger
+INSTEAD OF INSERT ON public.import_establishment_current_without_legal_unit
 FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_current_upsert();
+EXECUTE FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
 
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
