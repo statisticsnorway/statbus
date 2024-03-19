@@ -11,7 +11,7 @@ export default async function Slot({
     "enterprise"
   );
   const primaryLegalUnit = hierarchy?.enterprise?.legal_unit.find(
-    (lu) => lu.primary
+    (lu) => lu.primary_for_enterprise
   );
   return (
     <HeaderSlot
