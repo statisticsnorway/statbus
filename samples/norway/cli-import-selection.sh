@@ -12,5 +12,6 @@ cd $WORKSPACE
 
 pushd cli
 
+shards build
 ./bin/statbus import legal_unit -f ../samples/norway/enheter-selection-cli-with-mapping-import.csv --config ../samples/norway/enheter-selection-cli-mapping.json --strategy insert
 ./bin/statbus import establishment -f ../samples/norway/underenheter-selection-cli-with-mapping-import.csv --config ../samples/norway/underenheter-selection-cli-mapping.json --strategy insert
