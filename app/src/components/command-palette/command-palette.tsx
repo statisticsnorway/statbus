@@ -99,31 +99,40 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Pages">
-          <CommandItem onSelect={() => navigate("/")}>
+          <CommandItem onSelect={() => navigate("/")} value="Start page">
             <Home className="mr-2 h-4 w-4" />
             <span>Start page</span>
           </CommandItem>
-          <CommandItem onSelect={() => navigate("/search")}>
+          <CommandItem
+            onSelect={() => navigate("/search")}
+            value="Search find statistical units"
+          >
             <Search className="mr-2 h-4 w-4" />
             <span>Find statistical units</span>
           </CommandItem>
-          <CommandItem onSelect={() => navigate("/getting-started")}>
+          <CommandItem
+            onSelect={() => navigate("/getting-started")}
+            value="Getting started"
+          >
             <Footprints className="mr-2 h-4 w-4" />
             <span>Getting started</span>
           </CommandItem>
           <CommandItem
             onSelect={() => navigate("/getting-started/activity-standard")}
+            value="Select Activity Category Standard"
           >
             <Pilcrow className="mr-2 h-4 w-4" />
             <span>Select Activity Category Standard</span>
           </CommandItem>
           <CommandItem
             onSelect={() => navigate("/getting-started/upload-regions")}
+            value="Upload Regions"
           >
             <Upload className="mr-2 h-4 w-4" />
             <span>Upload Regions</span>
           </CommandItem>
           <CommandItem
+            value="Upload Custom Activity Category Standards"
             onSelect={() =>
               navigate("/getting-started/upload-custom-activity-standard-codes")
             }
@@ -133,22 +142,29 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             onSelect={() => navigate("/getting-started/upload-legal-units")}
+            value="Upload Legal Units"
           >
             <Upload className="mr-2 h-4 w-4" />
             <span>Upload Legal Units</span>
           </CommandItem>
-          <CommandItem onSelect={() => navigate("/profile")}>
+          <CommandItem onSelect={() => navigate("/profile")} value="Profile">
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </CommandItem>
-          <CommandItem onSelect={() => navigate("/reports")}>
+          <CommandItem
+            onSelect={() => navigate("/reports")}
+            value="Reports drill drilldown"
+          >
             <BarChartHorizontal className="mr-2 h-4 w-4" />
             <span>Reports</span>
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Admin tools">
-          <CommandItem onSelect={handleResetAll}>
+          <CommandItem
+            onSelect={handleResetAll}
+            value="admin reset everything clean"
+          >
             <Trash className="mr-2 h-4 w-4" />
             <span>Reset Everything</span>
           </CommandItem>

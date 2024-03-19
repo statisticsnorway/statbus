@@ -2,15 +2,15 @@ import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
 import Link from "next/link";
-import { BarChartHorizontal, Menu, Search } from "lucide-react";
+import { BarChartHorizontal, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 
 export default function Navbar() {
   return (
     <header className="bg-ssb-dark text-white">
-      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-2 lg:p-4">
+      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-2 lg:px-4">
         <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <Image
             src={logo}
