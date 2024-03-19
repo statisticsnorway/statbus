@@ -24,6 +24,7 @@ interface ITableFilterProps {
   selectedValues: (string | null)[];
   onToggle: (option: SearchFilterOption) => void;
   onReset: () => void;
+  className?: string;
 }
 
 export function OptionsFilter({
@@ -32,6 +33,7 @@ export function OptionsFilter({
   selectedValues,
   onToggle,
   onReset,
+  className,
 }: ITableFilterProps) {
   if (options.length === 0) {
     return null;
@@ -42,8 +44,7 @@ export function OptionsFilter({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="m-2 h-10 space-x-2 border-dashed"
+          className={cn("space-x-2 border-dashed", className)}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           {title}
@@ -56,8 +57,9 @@ export function OptionsFilter({
                   <Badge
                     variant="secondary"
                     key={option.value}
+                    title={option.humanReadableValue ?? option.value ?? ""}
                     className={cn(
-                      "rounded-sm px-2 font-normal",
+                      "rounded-sm px-2 font-normal max-w-32 overflow-auto scrollbar-hide",
                       option.className
                     )}
                   >

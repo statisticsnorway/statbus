@@ -6,7 +6,7 @@ export const createFullTextSearchFilter = (
   const search = params.get(SEARCH);
   return {
     type: "search",
-    label: "Name",
+    label: "Find units by name",
     name: SEARCH,
     selected: search ? [search] : [],
   };

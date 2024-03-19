@@ -91,8 +91,8 @@ export default async function SearchPage({
   const currentPage = Number(urlSearchParams.get("page")) || defaultCurrentPage;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-24">
-      <h1 className="mb-12 text-center text-2xl">
+    <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-24">
+      <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
         Search for statistical units
       </h1>
       <Search
