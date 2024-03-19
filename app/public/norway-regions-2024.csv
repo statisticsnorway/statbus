@@ -12,7 +12,7 @@ path,name
 42,Agder
 46,Vestland
 50,Trøndelag - Trööndelage
-55,Troms - Romsa - Tromssa 
+55,Troms - Romsa - Tromssa
 56,Finnmark - Finnmárku - Finmarkku
 99,Uoppgitt
 03.01,Oslo
@@ -82,7 +82,7 @@ path,name
 18.27,Dønna
 18.28,Nesna
 18.32,Hemnes
-18.33,Rana
+18.33,Rana - Raane
 18.34,Lurøy
 18.35,Træna
 18.36,Rødøy
@@ -91,7 +91,7 @@ path,name
 18.39,Beiarn
 18.40,Saltdal
 18.41,Fauske - Fuossko
-18.45,Sørfold
+18.45,Sørfold - Fuolldá
 18.48,Steigen
 18.51,Lødingen
 18.53,Evenes - Evená??i
@@ -313,7 +313,7 @@ path,name
 50.34,Meråker
 50.35,Stjørdal
 50.36,Frosta
-50.37,Levanger
+50.37,Levanger - Levangke
 50.38,Verdal
 50.41,Snåase - Snåsa
 50.42,Lierne
@@ -338,7 +338,7 @@ path,name
 55.10,Kvæfjord
 55.12,Dielddanuorri - Tjeldsund
 55.14,Ibestad
-55.16,Gratangen
+55.16,Gratangen - Rivtták
 55.18,Loabák - Lavangen
 55.20,Bardu
 55.22,Salangen
@@ -373,3 +373,45 @@ path,name
 56.34,Vardø
 56.36,Unjárga - Nesseby
 99.99,Uoppgitt
+21,Svalbard
+22,Jan Mayen
+23,Kontinentalsokkelen
+24,Luftrommet
+25,Utlandet
+26,Havområder
+27,Norske biland
+28,Ekstrafylke
+21.01,Colesbukta arealplanområde
+21.02,Pyramiden arealplanområde
+21.03,Van Mijenfjorden
+21.04,Nordenskiöld Land nasjonalpark
+21.05,Isfjorden
+21.06,Sassen-Bünsow Land nasjonalpark
+21.07,Nordre Isfjorden nasjonalpark
+21.08,Kongsfjorden
+21.09,Forlandet nasjonalpark
+21.10,Wijdefjorden
+21.11,Longyearbyen arealplanområde
+21.12,Ny-Ålesund arealplanområde
+21.13,Barentsburg arealplanområde
+21.14,Sør-Spitsbergen nasjonalpark
+21.15,Sveagruva arealplanområde
+21.16,Indre Wijdefjorden nasjonalpark
+21.17,Nordvest-Spitsbergen nasjonalpark
+21.18,Nordaust-Svalbard naturreservat
+21.19,Søraust-Svalbard naturreservat
+21.21,Bjørnøya naturreservat
+21.31,Hopen naturreservat
+22.11,Jan Mayen
+23.11,Sokkelen sør for 62 grader N
+23.21,Sokkelen nord for 62 grader N
+23.99,"Sokkelen, uspesifisert"
+24.11,Luftrom under og lik 1000 m.o.h.
+24.12,Luftrom over 1000 m.o.h.
+24.99,Luftrom uspesifisert
+25.11,Norske ambassader i utlandet
+25.99,"Utlandet, uspesifisert"
+26.11,Havområder innenfor sokkelen
+26.12,Havområder utenfor sokkelen
+26.99,"Havområder, uspesifisert"
+27.99,"Norske biland (Bouvetøya, Peter I Øy og Dronning Maud Land)"
