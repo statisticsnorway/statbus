@@ -18,7 +18,7 @@ interface TopologyProps {
 export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   const [compact, setCompact] = useState(true);
   const primaryLegalUnit = hierarchy.enterprise?.legal_unit?.find(
-    (lu) => lu.primary
+    (lu) => lu.primary_for_enterprise
   );
 
   if (!primaryLegalUnit) {

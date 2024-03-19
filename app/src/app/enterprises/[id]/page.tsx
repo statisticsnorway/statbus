@@ -31,7 +31,7 @@ export default async function EnterpriseDetailsPage({
   }
 
   const primaryLegalUnit = hierarchy.enterprise?.legal_unit.find(
-    (lu) => lu.primary
+    (lu) => lu.primary_for_enterprise
   );
   if (!primaryLegalUnit) {
     throw new Error("No primary legal unit found");
