@@ -39,8 +39,8 @@ export default function Search({
           <div className="rounded-md border overflow-hidden">
             <SearchResultTable />
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <SearchResultCount className="flex-1" />
+          <div className="flex items-center justify-center text-xs text-gray-500">
+            <SearchResultCount className="flex-1 hidden lg:inline-block" />
             <SearchResultPagination />
             <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
               <ExportCSVLink />
