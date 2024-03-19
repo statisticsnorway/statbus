@@ -6,6 +6,7 @@ BEGIN;
 
 -- Drop era handling
 
+\echo public.location
 SELECT sql_saga.drop_foreign_key('public.location', 'location_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.location', 'location_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.location', 'location_id_valid');
@@ -13,11 +14,13 @@ SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_estab
 SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.location');
 
+\echo public.stat_for_unit
 SELECT sql_saga.drop_foreign_key('public.stat_for_unit', 'stat_for_unit_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_stat_definition_id_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_id_valid');
 SELECT sql_saga.drop_era('public.stat_for_unit');
 
+\echo public.activity
 SELECT sql_saga.drop_foreign_key('public.activity', 'activity_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.activity', 'activity_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activity_category__legal_unit_id_valid');
@@ -25,41 +28,59 @@ SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activ
 SELECT sql_saga.drop_unique_key('public.activity', 'activity_id_valid');
 SELECT sql_saga.drop_era('public.activity');
 
+\echo public.establishment
 SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_scoped_tag_id_scoped_tag_ident_valid');
+SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_by_tag_id_by_tag_id_unique_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
 
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_scoped_tag_id_scoped_tag_ident_valid');
+\echo public.legal_unit
+SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_by_tag_id_by_tag_id_unique_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_reg_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
 
+\echo public.enterprise_group
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_external_ident_external_ident_type_valid');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
 
+\echo public.statistical_unit_hierarchy
 DROP FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
+\echo public.statistical_unit_enterprise_id
 DROP FUNCTION public.statistical_unit_enterprise_id(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
+\echo public.enterprise_hierarchy
 DROP FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE);
+\echo public.legal_unit_hierarchy
 DROP FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE);
+\echo public.establishment_hierarchy
 DROP FUNCTION public.establishment_hierarchy(parent_legal_unit_id INTEGER,parent_enterprise_id INTEGER,valid_on DATE);
+\echo public.sector_hierarchy
 DROP FUNCTION public.sector_hierarchy(sector_id INTEGER);
+\echo public.legal_form_hierarchy
 DROP FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER);
+\echo public.activity_hierarchy
 DROP FUNCTION public.activity_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
+\echo public.activity_category_hierarchy
 DROP FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER);
+\echo public.location_hierarchy
 DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
+\echo public.stat_for_unit_hierarchy
 DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
 
+\echo public.websearch_to_wildcard_tsquery
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
+\echo public.statistical_unit_refresh_now
 DROP FUNCTION public.statistical_unit_refresh_now();
+\echo public.statistical_unit_refreshed_at
 DROP FUNCTION public.statistical_unit_refreshed_at();
+\echo public.statistical_unit_facet_drilldown
 DROP FUNCTION public.statistical_unit_facet_drilldown(public.statistical_unit_type,ltree,ltree,ltree,integer,integer,date);
 DROP MATERIALIZED VIEW public.statistical_unit_facet;
 DROP MATERIALIZED VIEW public.region_used;
@@ -186,6 +207,7 @@ DROP FUNCTION admin.upsert_activity_category();
 DROP FUNCTION admin.delete_stale_activity_category();
 DROP FUNCTION admin.prevent_id_update_on_public_tables();
 
+\echo public.generate_mermaid_er_diagram
 DROP FUNCTION public.generate_mermaid_er_diagram();
 
 DROP TABLE IF EXISTS public.settings;
@@ -284,16 +306,19 @@ DROP FUNCTION admin.enterprise_group_id_exists(integer);
 DROP FUNCTION admin.legal_unit_id_exists(integer);
 DROP FUNCTION admin.establishment_id_exists(integer);
 
+\echo public.set_primary_legal_unit_for_enterprise
 DROP FUNCTION public.set_primary_legal_unit_for_enterprise(
     legal_unit_id integer,
     valid_from date,
     valid_to date
     );
+\echo public.set_primary_establishment_for_legal_unit
 DROP FUNCTION public.set_primary_establishment_for_legal_unit(
     establishment_id integer,
     valid_from date,
     valid_to date
     );
+\echo public.connect_legal_unit_to_enterprise
 DROP FUNCTION public.connect_legal_unit_to_enterprise(
     legal_unit_id integer,
     enterprise_id integer,
@@ -301,6 +326,7 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
     valid_to date
     );
 
+\echo public.reset_all_data
 DROP FUNCTION public.reset_all_data (confirmed boolean);
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
