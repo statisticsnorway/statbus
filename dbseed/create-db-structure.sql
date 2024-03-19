@@ -900,10 +900,8 @@ CREATE TABLE public.enterprise_group (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident text,
-    stat_ident_date timestamp with time zone,
     external_ident text,
     external_ident_type text,
-    external_ident_date timestamp with time zone,
     active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
@@ -970,7 +968,6 @@ CREATE INDEX ix_sector_parent_id ON public.sector USING btree (parent_id);
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     stat_ident character varying(15) UNIQUE,
-    stat_ident_date timestamp with time zone,
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     notes text,
@@ -997,11 +994,8 @@ CREATE TABLE public.legal_unit (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
-    stat_ident_date timestamp with time zone,
     tax_reg_ident character varying(50),
-    tax_reg_date timestamp with time zone,
     external_ident character varying(50),
-    external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
     by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
     by_tag_id_unique_ident varchar(64),
@@ -1063,11 +1057,8 @@ CREATE TABLE public.establishment (
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
-    stat_ident_date timestamp with time zone,
     tax_reg_ident character varying(50),
-    tax_reg_date timestamp with time zone,
     external_ident character varying(50),
-    external_ident_date timestamp with time zone,
     external_ident_type character varying(50),
     by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
     by_tag_id_unique_ident varchar(64),
@@ -4374,7 +4365,7 @@ BEGIN
             upsert_function_stmt := upsert_function_stmt || ', ';
         END IF;
         -- TODO: Support setting NOW as a source in the mapping, instead of a column.
-        --   , statement_timestamp() AS tax_reg_date
+        --   , statement_timestamp() AS updated_at
         -- TODO: Support setting a value as a source in the mapping, instead of a column.
         --   , '2023-01-01'::date AS valid_from
         --   , 'infinity'::date AS valid_to
@@ -4417,7 +4408,6 @@ BEGIN
             );
         END LOOP;
         -- TODO: Add mapping expression to support
-        --   tax_reg_date = upsert_data.tax_reg_date
         -- , valid_from = upsert_data.valid_from
         -- , valid_to = upsert_data.valid_to
         -- , birth_date = upsert_data.birth_date
@@ -4471,7 +4461,6 @@ BEGIN
                 );
             END LOOP;
             -- TODO: Add mapping expression to support
-            --   , tax_reg_date
             --   , valid_from
             --   , valid_to
             --   , birth_date
@@ -4499,7 +4488,6 @@ BEGIN
                 );
             END LOOP;
             -- TODO: Add mapping expression to support
-            --  , upsert_data.tax_reg_date
             --  , upsert_data.valid_from
             --  , upsert_data.valid_to
             --  , upsert_data.birth_date
@@ -5336,13 +5324,7 @@ DECLARE
             jsonb_build_array('by_tag_id', 'by_tag_id_unique_ident')
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  -- The tax_reg_date is just set to the current date, unless provided,
-  -- and as such is not useful to track changes, as there would be new row
-  -- with a new valid_from when the tax_reg_ident is first set.
-  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
-  -- is it when registered with the tax authority, or when registered in
-  -- this system?
-  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
+  ephemeral_columns text[] := ARRAY['seen_in_import_at'];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
@@ -5385,13 +5367,7 @@ DECLARE
             jsonb_build_array('by_tag_id', 'by_tag_id_unique_ident')
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  -- The tax_reg_date is just set to the current date, unless provided,
-  -- and as such is not useful to track changes, as there would be new row
-  -- with a new valid_from when the tax_reg_ident is first set.
-  -- The field `birth_date` is explicit, the tax_reg_date is unclear,
-  -- is it when registered with the tax authority, or when registered in
-  -- this system?
-  ephemeral_columns text[] := ARRAY['seen_in_import_at','tax_reg_date'];
+  ephemeral_columns text[] := ARRAY['seen_in_import_at'];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
@@ -5750,7 +5726,6 @@ BEGIN
     END;
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
-         , statement_timestamp() AS tax_reg_date
          , NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
@@ -5785,7 +5760,6 @@ BEGIN
 
     INSERT INTO public.legal_unit_era
         ( tax_reg_ident
-        , tax_reg_date
         , valid_from
         , valid_to
         , name
@@ -5803,7 +5777,6 @@ BEGIN
         )
     VALUES
         ( upsert_data.tax_reg_ident
-        , upsert_data.tax_reg_date
         , new_typed.valid_from
         , new_typed.valid_to
         , upsert_data.name
@@ -6340,7 +6313,6 @@ BEGIN
     END IF;
 
     SELECT NEW.tax_reg_ident AS tax_reg_ident
-         , statement_timestamp() AS tax_reg_date
          , NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
@@ -6359,7 +6331,6 @@ BEGIN
 
     INSERT INTO public.establishment_era
         ( tax_reg_ident
-        , tax_reg_date
         , valid_from
         , valid_to
         , name
@@ -6377,7 +6348,6 @@ BEGIN
         )
     VALUES
         ( upsert_data.tax_reg_ident
-        , upsert_data.tax_reg_date
         , new_typed.valid_from
         , new_typed.valid_to
         , upsert_data.name
@@ -6775,7 +6745,6 @@ BEGIN
     ), upsert_data AS (
         SELECT
           NEW."organisasjonsnummer" AS tax_reg_ident
-        , statement_timestamp() AS tax_reg_date
         , '2023-01-01'::date AS valid_from
         , 'infinity'::date AS valid_to
         , CASE NEW."stiftelsesdato"
@@ -6791,8 +6760,7 @@ BEGIN
     ),
     update_outcome AS (
         UPDATE public.legal_unit
-        SET tax_reg_date = upsert_data.tax_reg_date
-          , valid_from = upsert_data.valid_from
+        SET valid_from = upsert_data.valid_from
           , valid_to = upsert_data.valid_to
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
@@ -6808,7 +6776,6 @@ BEGIN
     insert_outcome AS (
         INSERT INTO public.legal_unit
           ( tax_reg_ident
-          , tax_reg_date
           , valid_from
           , valid_to
           , birth_date
@@ -6820,7 +6787,6 @@ BEGIN
           )
         SELECT
             upsert_data.tax_reg_ident
-          , upsert_data.tax_reg_date
           , upsert_data.valid_from
           , upsert_data.valid_to
           , upsert_data.birth_date
@@ -6935,7 +6901,6 @@ BEGIN
     ), upsert_data AS (
         SELECT
           NEW."organisasjonsnummer" AS tax_reg_ident
-        , statement_timestamp() AS tax_reg_date
         , '2023-01-01'::date AS valid_from
         , 'infinity'::date AS valid_to
         , CASE NEW."oppstartsdato"
@@ -6951,8 +6916,7 @@ BEGIN
     ),
     update_outcome AS (
         UPDATE public.establishment
-        SET tax_reg_date = upsert_data.tax_reg_date
-          , valid_from = upsert_data.valid_from
+        SET valid_from = upsert_data.valid_from
           , valid_to = upsert_data.valid_to
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
@@ -6968,7 +6932,6 @@ BEGIN
     insert_outcome AS (
         INSERT INTO public.establishment
           ( tax_reg_ident
-          , tax_reg_date
           , valid_from
           , valid_to
           , birth_date
@@ -6980,7 +6943,6 @@ BEGIN
           )
         SELECT
             upsert_data.tax_reg_ident
-          , upsert_data.tax_reg_date
           , upsert_data.valid_from
           , upsert_data.valid_to
           , upsert_data.birth_date

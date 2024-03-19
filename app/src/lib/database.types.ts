@@ -1066,7 +1066,6 @@ export type Database = {
           short_name: string | null;
           stat_ident: string | null;
           stat_ident_date: string | null;
-          tax_reg_date: string | null;
           tax_reg_ident: string | null;
           telephone_no: string | null;
           unit_size_id: number | null;
@@ -1103,7 +1102,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -1140,7 +1138,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -1334,7 +1331,6 @@ export type Database = {
           short_name: string | null;
           stat_ident: string | null;
           stat_ident_date: string | null;
-          tax_reg_date: string | null;
           tax_reg_ident: string | null;
           telephone_no: string | null;
           unit_size_id: number | null;
@@ -1372,7 +1368,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -1410,7 +1405,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -2758,7 +2752,6 @@ export type Database = {
           short_name: string | null;
           stat_ident: string | null;
           stat_ident_date: string | null;
-          tax_reg_date: string | null;
           tax_reg_ident: string | null;
           telephone_no: string | null;
           unit_size_id: number | null;
@@ -2795,7 +2788,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -2832,7 +2824,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -3199,7 +3190,6 @@ export type Database = {
           short_name: string | null;
           stat_ident: string | null;
           stat_ident_date: string | null;
-          tax_reg_date: string | null;
           tax_reg_ident: string | null;
           telephone_no: string | null;
           unit_size_id: number | null;
@@ -3237,7 +3227,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
@@ -3275,7 +3264,6 @@ export type Database = {
           short_name?: string | null;
           stat_ident?: string | null;
           stat_ident_date?: string | null;
-          tax_reg_date?: string | null;
           tax_reg_ident?: string | null;
           telephone_no?: string | null;
           unit_size_id?: number | null;
