@@ -1,17 +1,17 @@
 "use client";
-import { ArrowBigUp, Command } from "lucide-react";
+import { ArrowBigUp, Command, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+function showCommandPalette() {
+  document.dispatchEvent(new CustomEvent("toggle-command-palette"));
+}
 
 export default function CommandPaletteTriggerButton({
   className,
 }: {
   readonly className?: string;
 }) {
-  function showCommandPalette() {
-    document.dispatchEvent(new CustomEvent("toggle-command-palette"));
-  }
-
   return (
     <Button
       title="Open command palette"
@@ -29,6 +29,24 @@ export default function CommandPaletteTriggerButton({
       <span>+</span>
       <span>K</span>
       <span>)</span>
+    </Button>
+  );
+}
+
+export function CommandPaletteTriggerMobileMenuButton({
+  className,
+}: {
+  readonly className?: string;
+}) {
+  return (
+    <Button
+      title="Open command palette"
+      variant="ghost"
+      type="button"
+      className={cn("h-auto px-0 py-0", className)}
+      onClick={showCommandPalette}
+    >
+      <Menu className="h-7 w-7" />
     </Button>
   );
 }

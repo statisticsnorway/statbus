@@ -2,14 +2,15 @@ import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
 import Link from "next/link";
-import { BarChartHorizontal, Search } from "lucide-react";
+import { BarChartHorizontal, Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 
 export default function Navbar() {
   return (
-    <header>
-      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-4">
+    <header className="bg-ssb-dark text-white">
+      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-2 lg:p-4">
         <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <Image
             src={logo}
@@ -40,7 +41,8 @@ export default function Navbar() {
             <Search size={16} />
             <span>Statistical Units</span>
           </Link>
-          <ProfileAvatar className="w-8 h-8 hidden lg:flex" />
+          <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
+          <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
         </div>
       </div>
     </header>
