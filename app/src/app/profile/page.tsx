@@ -8,7 +8,7 @@ export default async function ProfilePage() {
   } = await client.auth.getSession();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between px-2 py-8 md:py-24">
+    <main className="flex flex-col items-center justify-between px-2 py-8 md:py-24">
       <div className="mx-auto sm:w-full lg:max-w-5xl">
         <div>
           <h3 className="text-base font-semibold leading-7 text-gray-900">
