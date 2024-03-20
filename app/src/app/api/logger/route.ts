@@ -10,7 +10,7 @@ interface LogRequest {
 export async function POST(request: Request) {
   try {
     const { level = "error", event }: LogRequest = await request.json();
-    logger[level]({ event });
+    logger[level](event, "client log event");
     return NextResponse.json({ success: true });
   } catch (e) {
     logger.error({ error: e }, "failed to log event");
