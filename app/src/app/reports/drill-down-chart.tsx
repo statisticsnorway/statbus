@@ -75,6 +75,7 @@ export const DrillDownChart = ({
               ?.filter((point) => point[variable] !== 0)
               .map((point) => toPointOptionObject(point, variable)),
             groupPadding: 0.05,
+            minPointLength: 3,
           },
         ],
       });

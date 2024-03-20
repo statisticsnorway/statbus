@@ -55,12 +55,12 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
             <div className="space-y-6 bg-gray-50 p-4">
               <BreadCrumb
                 topLevelText="All Regions"
-                points={drillDown.breadcrumb.region}
+                points={drillDown?.breadcrumb.region ?? []}
                 selected={region}
                 onSelect={setRegion}
               />
               <DrillDownChart
-                points={drillDown.available.region}
+                points={drillDown?.available.region ?? []}
                 onSelect={setRegion}
                 variable={statisticalVariable.value}
               />
@@ -68,12 +68,12 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
             <div className="bg-gray-50 p-6">
               <BreadCrumb
                 topLevelText="All Activity Categories"
-                points={drillDown.breadcrumb.activity_category}
+                points={drillDown?.breadcrumb.activity_category ?? []}
                 selected={activityCategory}
                 onSelect={setActivityCategory}
               />
               <DrillDownChart
-                points={drillDown.available.activity_category}
+                points={drillDown?.available.activity_category ?? []}
                 onSelect={setActivityCategory}
                 variable={statisticalVariable.value}
               />
