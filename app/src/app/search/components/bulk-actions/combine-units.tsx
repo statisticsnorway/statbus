@@ -5,6 +5,7 @@ import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
 import { useCartContext } from "@/app/search/cart-provider";
 import { useRouter } from "next/navigation";
+import logger from "@/lib/logger";
 
 export default function CombineUnits() {
   const router = useRouter();
@@ -20,7 +21,8 @@ export default function CombineUnits() {
     const enterprise = selected.find((unit) => unit.unit_type === "enterprise");
 
     if (!legalUnit || !enterprise) {
-      console.error(
+      logger.error(
+        { legalUnit, enterprise },
         "failed to set primary legal unit for enterprise due to missing legal unit or enterprise"
       );
       return;
@@ -36,13 +38,19 @@ export default function CombineUnits() {
       );
 
       if (!response.ok) {
-        console.error("failed to set primary legal unit for enterprise");
+        logger.error(
+          { legalUnit, enterprise },
+          "failed to set primary legal unit for enterprise"
+        );
         return;
       }
 
       router.push(`/enterprises/${enterprise.unit_id}`);
     } catch (e) {
-      console.error("failed to set primary legal unit for enterprise", e);
+      logger.error(
+        { error: e },
+        "failed to set primary legal unit for enterprise"
+      );
     }
   };
 
