@@ -3,6 +3,7 @@ import { redirect, RedirectType } from "next/navigation";
 import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import logger from "@/lib/logger";
 
 interface State {
   readonly error: string | null;
@@ -41,10 +42,10 @@ export async function uploadFile(
 
     if (!response.ok) {
       const data = await response.json();
-      console.error(
+      logger.error(
+        { data },
         `upload to ${uploadView} failed with status ${response.status} ${response.statusText}`
       );
-      console.error(data);
       return { error: data.message.replace(/,/g, ", ").replace(/;/g, "; ") };
     }
 
@@ -71,6 +72,7 @@ export async function setCategoryStandard(formData: FormData) {
     activityCategoryStandardIdFormEntry.toString(),
     10
   );
+
   if (isNaN(activityCategoryStandardId)) {
     return { error: "Invalid activity category standard provided" };
   }
@@ -84,8 +86,10 @@ export async function setCategoryStandard(formData: FormData) {
     );
 
     if (response.status >= 400) {
-      console.error("failed to configure activity category standard");
-      console.error(response.error);
+      logger.error(
+        { error: response.error },
+        "failed to configure activity category standard"
+      );
       return { error: response.statusText };
     }
 

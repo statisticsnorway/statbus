@@ -8,6 +8,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/button";
+import logger from "@/lib/logger";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info",
@@ -37,7 +38,7 @@ export default async function LegalUnitGeneralInfoPage({
     );
 
     if (error) {
-      console.error("failed to set primary legal unit", error);
+      logger.error({ error }, "failed to set primary legal unit");
       return;
     }
 

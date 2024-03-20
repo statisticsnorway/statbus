@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import logger from "@/lib/logger";
 
 export async function refreshStatisticalUnits() {
   "use server";
@@ -12,14 +13,15 @@ export async function refreshStatisticalUnits() {
     );
 
     if (error) {
-      console.error(
+      logger.error(
+        { error },
         `statistical units refresh returned status ${statusText} and error ${error.message}`
       );
       return { error: error.message };
     }
 
     if (status >= 400) {
-      console.error(`statistical units refresh returned status ${statusText}`);
+      logger.error(`statistical units refresh returned status ${statusText}`);
       return { error: statusText };
     }
 
@@ -39,7 +41,7 @@ export async function resetAll() {
     });
 
     if (error) {
-      console.error(`reset all returned error ${error.message}`);
+      logger.error(`reset all returned error ${error.message}`);
       return { error: error.message };
     }
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { InfoBox } from "@/components/info-box";
+import logger from "@/lib/logger";
 
 export default async function EstablishmentGeneralInfoPage({
   params: { id },
@@ -30,7 +31,7 @@ export default async function EstablishmentGeneralInfoPage({
     );
 
     if (error) {
-      console.error("failed to set primary establishment", error);
+      logger.error({ error }, "failed to set primary establishment");
       return;
     }
 

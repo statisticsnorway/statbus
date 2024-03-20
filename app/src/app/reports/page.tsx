@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import StatBusChart from "@/app/reports/statbus-chart";
 import { createClient } from "@/lib/supabase/server";
 import { DrillDown } from "@/app/reports/types/drill-down";
+import logger from "@/lib/logger";
 
 export const metadata: Metadata = {
   title: "StatBus | Reports",
@@ -14,9 +15,9 @@ export default async function ReportsPage() {
     .returns<DrillDown>();
 
   if (error) {
-    console.error(
-      "⚠️failed to fetch statistical unit facet drill down data",
-      error
+    logger.info(
+      { error },
+      "failed to fetch statistical unit facet drill down data"
     );
     return (
       <p className="p-24 text-center">

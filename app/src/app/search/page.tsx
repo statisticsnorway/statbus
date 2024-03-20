@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import { Metadata } from "next";
 import { createFilters } from "@/app/search/filters";
+import logger from "@/lib/logger";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -50,21 +51,21 @@ export default async function SearchPage({
   ]);
 
   if (sectorsError) {
-    console.error("⚠️failed to fetch sectors", sectorsError);
+    logger.error({ error: sectorsError }, "failed to fetch sectors");
   }
 
   if (legalFormsError) {
-    console.error("⚠️failed to fetch legal forms", legalFormsError);
+    logger.error({ error: legalFormsError }, "failed to fetch legal forms");
   }
 
   if (regionsError) {
-    console.error("⚠️failed to fetch regions", regionsError);
+    logger.error({ error: regionsError }, "failed to fetch regions");
   }
 
   if (activityCategoriesError) {
-    console.error(
-      "⚠️failed to fetch activity categories",
-      activityCategoriesError
+    logger.error(
+      { error: activityCategoriesError },
+      "failed to fetch activity categories"
     );
   }
 
