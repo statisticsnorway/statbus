@@ -4,6 +4,8 @@ const logger = pino(
   {
     level: "info",
     name: "statbus app",
+    messageKey: "message",
+    errorKey: "error",
     browser: {
       disabled: true,
       transmit: {
@@ -29,4 +31,6 @@ const logger = pino(
     : undefined
 );
 
-export default logger;
+const child = logger.child({ version: process.env.VERSION });
+
+export default child;
