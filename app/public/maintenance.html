@@ -63,72 +63,148 @@
         <div class="container">
             <h1 id="headline">We're Performing Maintenance</h1>
             <p id="message">Our site is currently under maintenance. We're working hard to improve our services and will be back shortly. Thank you for your patience.</p>
+            <p id="countdown">Checking again in <span id="timer">60</span> seconds.</p>
+            <p><button id="checkNowBtn">Check Now</button></p>
         </div>
     </div>
 
     <script>
         (function() {
-            // Function to parse URL query parameters
-            function getQueryParam(param) {
-                var search = window.location.search.substring(1);
-                var variables = search.split('&');
-                for (var i = 0; i < variables.length; i++) {
-                    var pair = variables[i].split('=');
-                    if (pair[0] == param) {
-                        return pair[1];
-                    }
-                }
-                return false;
-            }
-
             // Define translations
             var translations = {
-                'nb': {
-                    'title': 'Vi utfører vedlikehold',
-                    'message': 'Nettstedet vårt er for tiden under vedlikehold. Vi jobber hardt for å forbedre tjenestene våre og vil være tilbake kort tid. Takk for din tålmodighet.'
-                },
                 'en': {
                     'title': 'We\'re Performing Maintenance',
-                    'message': 'Our site is currently under maintenance. We\'re working hard to improve our services and will be back shortly. Thank you for your patience.'
+                    'message': 'Our site is currently under maintenance. We\'re working hard to improve our services and will be back shortly. Thank you for your patience.',
+                    'countdown': 'Checking again in {0} seconds.',
+                    'checkNow': 'Check Now',
+                    'digits': '0123456789'
+                },
+                'nb': {
+                    'title': 'Vi utfører vedlikehold',
+                    'message': 'Nettstedet vårt er for tiden under vedlikehold. Vi jobber hardt for å forbedre tjenestene våre og vil være tilbake kort tid. Takk for din tålmodighet.',
+                    'countdown': 'Sjekker igjen om {0} sekunder.',
+                    'checkNow': 'Sjekk Nå',
+                    'digits': '0123456789'
                 },
                 'fr': {
                     'title': 'Nous effectuons la maintenance',
-                    'message': 'Notre site est actuellement en maintenance. Nous travaillons dur pour améliorer nos services et serons de retour sous peu. Merci de votre patience.'
+                    'message': 'Notre site est actuellement en maintenance. Nous travaillons dur pour améliorer nos services et serons de retour sous peu. Merci de votre patience.',
+                    'countdown': 'Vérification à nouveau dans {0} secondes.',
+                    'checkNow': 'Vérifiez Maintenant',
+                    'digits': '0123456789'
                 },
                 'ru': {
                     'title': 'Мы проводим техническое обслуживание',
-                    'message': 'Наш сайт в настоящее время находится на обслуживании. Мы усердно работаем над улучшением наших услуг и скоро вернемся. Благодарим за ваше терпение.'
+                    'message': 'Наш сайт в настоящее время находится на обслуживании. Мы усердно работаем над улучшением наших услуг и скоро вернемся. Благодарим за ваше терпение.',
+                    'countdown': 'Повторная проверка через {0} секунд.',
+                    'checkNow': 'Проверить Сейчас',
+                    'digits': '0123456789'
                 },
                 'ar': {
                     'title': 'نحن نقوم بأعمال الصيانة',
-                    'message': 'موقعنا تحت الصيانة حالياً. نحن نعمل بجد لتحسين خدماتنا وسنعود قريباً. شكراً لصبركم.'
+                    'message': 'موقعنا تحت الصيانة حالياً. نحن نعمل بجد لتحسين خدماتنا وسنعود قريباً. شكراً لصبركم.',
+                    'countdown': 'التحقق مرة أخرى في {0} ثوان.',
+                    'checkNow': 'تحقق الآن',
+                    'digits': '٠١٢٣٤٥٦٧٨٩'
                 },
                 'tr': {
                     'title': 'Bakım Yapıyoruz',
-                    'message': 'Sitemiz şu anda bakım altında. Hizmetlerimizi iyileştirmek için yoğun bir şekilde çalışıyoruz ve yakında geri döneceğiz. Sabrınız için teşekkür ederiz.'
+                    'message': 'Sitemiz şu anda bakım altında. Hizmetlerimizi iyileştirmek için yoğun bir şekilde çalışıyoruz ve yakında geri döneceğiz. Sabrınız için teşekkür ederiz.',
+                    'countdown': '{0} saniye sonra tekrar kontrol edin.',
+                    'checkNow': 'Şimdi Kontrol Et',
+                    'digits': '0123456789'
                 },
                 'el': {
                     'title': 'Εκτελούμε συντήρηση',
-                    'message': 'Ο ιστότοπός μας είναι αυτή τη στιγμή υπό συντήρηση. Εργαζόμαστε σκληρά για να βελτιώσουμε τις υπηρεσίες μας και θα επιστρέψουμε σύντομα. Σας ευχαριστούμε για την υπομονή σας.'
+                    'message': 'Ο ιστότοπός μας είναι αυτή τη στιγμή υπό συντήρηση. Εργαζόμαστε σκληρά για να βελτιώσουμε τις υπηρεσίες μας και θα επιστρέψουμε σύντομα. Σας ευχαριστούμε για την υπομονή σας.',
+                    'countdown': 'Έλεγχος ξανά σε {0} δευτερόλεπτα.',
+                    'checkNow': 'Ελέγξτε Τώρα',
+                    'digits': '0123456789'
                 }
             };
 
-            // Override detection with URL parameter if present
-            var userLang = getQueryParam('locale') || navigator.language || navigator.userLanguage;
-            var langCode = userLang.toLowerCase().substring(0, 2); // Convert to ISO 639-1 language code
 
-            // Choose translation
-            var translation = translations[langCode] || translations['en']; // Default to English
-
-            // Apply translation
-            document.getElementById('headline').textContent = translation.title;
-            document.getElementById('message').textContent = translation.message;
-
-            // Additional support for Arabic RTL
-            if (langCode === 'ar') {
-                document.body.classList.add('rtl');
+        // Function to parse URL query parameters
+        function getQueryParam(param) {
+            var search = window.location.search.substring(1);
+            var variables = search.split('&');
+            for (var i = 0; i < variables.length; i++) {
+                var pair = variables[i].split('=');
+                if (pair[0] == param) {
+                    return pair[1];
+                }
             }
-        })();
+            return false;
+        }
+
+        function translateDigits(number, langDigits) {
+            return number.toString().split('').map(function(digit) {
+                return langDigits[parseInt(digit, 10)];
+            }).join('');
+        }
+
+        var countdownElement = document.getElementById('timer');
+        var countdownTime = 60;
+        var countdownInterval;
+        var checkNowBtn = document.getElementById('checkNowBtn'); // Get the "Check Now" button
+        var userLang = getQueryParam('locale') || navigator.language || navigator.userLanguage;
+        var langCode = userLang.toLowerCase().substring(0, 2);
+        var translation = translations[langCode] || translations['en'];
+
+        function updateCountdownMessage() {
+            var localizedDigits = translateDigits(countdownTime, translation.digits);
+            countdownElement.textContent = localizedDigits;
+            document.getElementById('countdown').innerHTML = translation.countdown.replace('{0}', `<span id="timer">${localizedDigits}</span>`);
+        }
+
+        function startCountdown() {
+            countdownTime = 60;
+            updateCountdownMessage();
+            var countdownInterval = setInterval(function() {
+                countdownTime--;
+                updateCountdownMessage();
+
+                if (countdownTime <= 0) {
+                    clearInterval(countdownInterval);
+                    checkSiteStatus();
+                }
+            }, 1000);
+        }
+
+        function checkSiteStatus() {
+            fetch('/', { method: 'HEAD' })
+                .then(response => {
+                    if (response.status === 503) {
+                        countdownTime = 60;
+                        startCountdown();
+                    } else {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking site status:', error);
+                    countdownTime = 60;
+                    startCountdown();
+                });
+        }
+
+        // Event listener for the "Check Now" button for an immediate check
+        checkNowBtn.addEventListener('click', function() {
+            clearInterval(countdownInterval); // Stop the current countdown
+            checkSiteStatus(); // Immediately check site status
+        });
+
+        // Apply initial translations and start countdown
+        document.getElementById('headline').textContent = translation.title;
+        document.getElementById('message').textContent = translation.message;
+        checkNowBtn.textContent = translation.checkNow;
+
+        if (langCode === 'ar') {
+            document.body.classList.add('rtl');
+        }
+
+        startCountdown();
+    })();
     </script>
 </body>
 </html>
