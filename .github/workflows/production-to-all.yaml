@@ -1,0 +1,20 @@
+name: Push production -> devops/deploy-to-all
+on:
+  push:
+    branches:
+      - 'devops/deploy-to-production'
+  # Allow manual deployment in github
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: 'devops/deploy-to-production'
+        ssh-key: ${{ secrets.SSH_KEY }}
+    - name: Push for deployment
+      run: |
+        git push --force origin HEAD:devops/deploy-to-no
+        git push --force origin HEAD:devops/deploy-to-tcc

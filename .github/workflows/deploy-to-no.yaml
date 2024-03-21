@@ -1,10 +1,17 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: "no.statbus.org<-master"
+name: "no.statbus.org<-devops/deploy-to-no"
 on:
+  # Allow manual deployment in github
   workflow_dispatch:
   push:
     branches:
-      - master
+      - devops/deploy-to-no
+
+# Deploys are serial for a deploy branch.
+concurrency:
+  group: ${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -13,7 +20,7 @@ jobs:
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: libu.statbus.org
-        username: statbus_norway
+        username: statbus_no
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
-        script: ./devops/deploy-app-from-master.sh
+        script: /usr/local/bin/deploy-statbus.sh

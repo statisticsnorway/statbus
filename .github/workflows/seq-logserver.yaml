@@ -1,5 +1,6 @@
 name: Seq Periodic Update
 on:
+  # Allow manual deployment in github
   workflow_dispatch:
   schedule:
     # Weekly night to Sunday
