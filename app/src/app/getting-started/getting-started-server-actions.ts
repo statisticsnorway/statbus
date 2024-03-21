@@ -3,7 +3,8 @@ import { redirect, RedirectType } from "next/navigation";
 import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 interface State {
   readonly error: string | null;

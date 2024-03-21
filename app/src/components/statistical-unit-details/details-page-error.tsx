@@ -1,6 +1,6 @@
 "use client";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
-import logger from "@/lib/logger";
+import logger from "@/lib/client-logger";
 
 interface ErrorPageParams {
   readonly error: Error & { digest?: string };

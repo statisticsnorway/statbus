@@ -2,7 +2,8 @@ import { Metadata } from "next";
 import StatBusChart from "@/app/reports/statbus-chart";
 import { createClient } from "@/lib/supabase/server";
 import { DrillDown } from "@/app/reports/types/drill-down";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 export const metadata: Metadata = {
   title: "StatBus | Reports",

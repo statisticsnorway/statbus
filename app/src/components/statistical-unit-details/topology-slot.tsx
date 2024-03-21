@@ -1,6 +1,7 @@
 import { Topology } from "@/components/statistical-unit-hierarchy/topology";
 import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 interface TopologySlotProps {
   readonly unitId: number;

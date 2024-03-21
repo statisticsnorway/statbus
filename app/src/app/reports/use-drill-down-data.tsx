@@ -1,6 +1,7 @@
+"use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useEffect, useState } from "react";
-import logger from "@/lib/logger";
+import logger from "@/lib/client-logger";
 
 export const useDrillDownData = (initialDrillDown: DrillDown) => {
   const [drillDown, setDrillDown] = useState<DrillDown>(initialDrillDown);

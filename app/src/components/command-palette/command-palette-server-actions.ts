@@ -1,7 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 export async function refreshStatisticalUnits() {
   "use server";

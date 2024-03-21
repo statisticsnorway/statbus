@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { Level, LogEvent } from "pino";
 import { createClient } from "@/lib/supabase/server";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 interface ClientLogRequest {
   level: Level;

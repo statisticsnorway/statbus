@@ -8,7 +8,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/button";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info",

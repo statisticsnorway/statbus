@@ -5,7 +5,7 @@ import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
 import { useCartContext } from "@/app/search/cart-provider";
 import { useRouter } from "next/navigation";
-import logger from "@/lib/logger";
+import logger from "@/lib/client-logger";
 
 export default function CombineUnits() {
   const router = useRouter();

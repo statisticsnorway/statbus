@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import { Metadata } from "next";
 import { createFilters } from "@/app/search/filters";
-import { createServerLogger } from "@/lib/logger";
+
+import { createServerLogger } from "@/lib/server-logger";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",

@@ -1,6 +1,6 @@
 "use client";
 
-import logger from "@/lib/logger";
+import logger from "@/lib/client-logger";
 import { useEffect } from "react";
 
 export default function ErrorPage({
