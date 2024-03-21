@@ -1,0 +1,23 @@
+name: Seq Periodic Update
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly night to Sunday
+    - cron: '17 2 * * 0'
+
+concurrency: seq
+
+jobs:
+  seq:
+    name: Upgrade Seq Logging Server
+    runs-on: ubuntu-latest
+    steps:
+    - name: Run commands
+      uses: appleboy/ssh-action@master
+      with:
+        host: libu.statbus.org
+        username: devops
+        key: ${{ secrets.SSH_KEY }}
+        script_stop: true
+        script: |
+          ./bin/upgrade-to-latest-seq.sh
