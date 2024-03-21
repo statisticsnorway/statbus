@@ -11,33 +11,33 @@ export type Database = {
     Tables: {
       activity: {
         Row: {
-          activity_category_id: number
-          activity_type: Database["public"]["Enums"]["activity_type"]
+          category_id: number
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
+          type: Database["public"]["Enums"]["activity_type"]
           updated_at: string
           updated_by_user_id: number
           valid_from: string
           valid_to: string
         }
         Insert: {
-          activity_category_id: number
-          activity_type: Database["public"]["Enums"]["activity_type"]
+          category_id: number
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
+          type: Database["public"]["Enums"]["activity_type"]
           updated_at?: string
           updated_by_user_id: number
           valid_from?: string
           valid_to?: string
         }
         Update: {
-          activity_category_id?: number
-          activity_type?: Database["public"]["Enums"]["activity_type"]
+          category_id?: number
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
+          type?: Database["public"]["Enums"]["activity_type"]
           updated_at?: string
           updated_by_user_id?: number
           valid_from?: string
@@ -45,22 +45,22 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "activity_activity_category_id_fkey"
-            columns: ["activity_category_id"]
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "activity_activity_category_id_fkey"
-            columns: ["activity_category_id"]
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_available"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "activity_activity_category_id_fkey"
-            columns: ["activity_category_id"]
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -77,7 +77,6 @@ export type Database = {
       activity_category: {
         Row: {
           active: boolean
-          activity_category_standard_id: number
           code: string | null
           custom: boolean
           description: string | null
@@ -87,11 +86,11 @@ export type Database = {
           name: string
           parent_id: number | null
           path: unknown
+          standard_id: number
           updated_at: string
         }
         Insert: {
           active: boolean
-          activity_category_standard_id: number
           code?: string | null
           custom: boolean
           description?: string | null
@@ -101,11 +100,11 @@ export type Database = {
           name: string
           parent_id?: number | null
           path: unknown
+          standard_id: number
           updated_at?: string
         }
         Update: {
           active?: boolean
-          activity_category_standard_id?: number
           code?: string | null
           custom?: boolean
           description?: string | null
@@ -115,16 +114,10 @@ export type Database = {
           name?: string
           parent_id?: number | null
           path?: unknown
+          standard_id?: number
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "activity_category_activity_category_standard_id_fkey"
-            columns: ["activity_category_standard_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category_standard"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "activity_category_parent_id_fkey"
             columns: ["parent_id"]
@@ -144,6 +137,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_standard"
             referencedColumns: ["id"]
           },
         ]
@@ -1107,7 +1107,7 @@ export type Database = {
           name: string
           source_column_names: string[] | null
           strategy: Database["public"]["Enums"]["import_strategy"]
-          upload_type: Database["public"]["Enums"]["import_upload_type"]
+          type: Database["public"]["Enums"]["import_type"]
           user_id: number | null
         }
         Insert: {
@@ -1120,7 +1120,7 @@ export type Database = {
           name: string
           source_column_names?: string[] | null
           strategy: Database["public"]["Enums"]["import_strategy"]
-          upload_type: Database["public"]["Enums"]["import_upload_type"]
+          type: Database["public"]["Enums"]["import_type"]
           user_id?: number | null
         }
         Update: {
@@ -1133,7 +1133,7 @@ export type Database = {
           name?: string
           source_column_names?: string[] | null
           strategy?: Database["public"]["Enums"]["import_strategy"]
-          upload_type?: Database["public"]["Enums"]["import_upload_type"]
+          type?: Database["public"]["Enums"]["import_type"]
           user_id?: number | null
         }
         Relationships: [
@@ -1606,11 +1606,11 @@ export type Database = {
           id: number
           latitude: number | null
           legal_unit_id: number | null
-          location_type: Database["public"]["Enums"]["location_type"]
           longitude: number | null
           postal_code: string | null
           postal_place: string | null
           region_id: number | null
+          type: Database["public"]["Enums"]["location_type"]
           updated_by_user_id: number
           valid_from: string
           valid_to: string
@@ -1624,11 +1624,11 @@ export type Database = {
           id?: number
           latitude?: number | null
           legal_unit_id?: number | null
-          location_type: Database["public"]["Enums"]["location_type"]
           longitude?: number | null
           postal_code?: string | null
           postal_place?: string | null
           region_id?: number | null
+          type: Database["public"]["Enums"]["location_type"]
           updated_by_user_id: number
           valid_from?: string
           valid_to?: string
@@ -1642,11 +1642,11 @@ export type Database = {
           id?: number
           latitude?: number | null
           legal_unit_id?: number | null
-          location_type?: Database["public"]["Enums"]["location_type"]
           longitude?: number | null
           postal_code?: string | null
           postal_place?: string | null
           region_id?: number | null
+          type?: Database["public"]["Enums"]["location_type"]
           updated_by_user_id?: number
           valid_from?: string
           valid_to?: string
@@ -1957,19 +1957,19 @@ export type Database = {
           active: boolean
           id: number
           name: string
-          period: Database["public"]["Enums"]["relative_period_type"] | null
+          type: Database["public"]["Enums"]["relative_period_type"] | null
         }
         Insert: {
           active?: boolean
           id?: never
           name: string
-          period?: Database["public"]["Enums"]["relative_period_type"] | null
+          type?: Database["public"]["Enums"]["relative_period_type"] | null
         }
         Update: {
           active?: boolean
           id?: never
           name?: string
-          period?: Database["public"]["Enums"]["relative_period_type"] | null
+          type?: Database["public"]["Enums"]["relative_period_type"] | null
         }
         Relationships: []
       }
@@ -2160,7 +2160,7 @@ export type Database = {
           id: number
           name: string
           priority: number | null
-          stat_type: Database["public"]["Enums"]["stat_type"]
+          type: Database["public"]["Enums"]["stat_type"]
         }
         Insert: {
           archived?: boolean
@@ -2170,7 +2170,7 @@ export type Database = {
           id?: number
           name: string
           priority?: number | null
-          stat_type: Database["public"]["Enums"]["stat_type"]
+          type: Database["public"]["Enums"]["stat_type"]
         }
         Update: {
           archived?: boolean
@@ -2180,7 +2180,7 @@ export type Database = {
           id?: number
           name?: string
           priority?: number | null
-          stat_type?: Database["public"]["Enums"]["stat_type"]
+          type?: Database["public"]["Enums"]["stat_type"]
         }
         Relationships: []
       }
@@ -2233,19 +2233,19 @@ export type Database = {
           description: string | null
           id: number
           name: string
-          role_type: Database["public"]["Enums"]["statbus_role_type"]
+          type: Database["public"]["Enums"]["statbus_role_type"]
         }
         Insert: {
           description?: string | null
           id?: never
           name: string
-          role_type: Database["public"]["Enums"]["statbus_role_type"]
+          type: Database["public"]["Enums"]["statbus_role_type"]
         }
         Update: {
           description?: string | null
           id?: never
           name?: string
-          role_type?: Database["public"]["Enums"]["statbus_role_type"]
+          type?: Database["public"]["Enums"]["statbus_role_type"]
         }
         Relationships: []
       }
@@ -2496,33 +2496,33 @@ export type Database = {
       }
       activity_era: {
         Row: {
-          activity_category_id: number | null
-          activity_type: Database["public"]["Enums"]["activity_type"] | null
+          category_id: number | null
           establishment_id: number | null
           id: number | null
           legal_unit_id: number | null
+          type: Database["public"]["Enums"]["activity_type"] | null
           updated_at: string | null
           updated_by_user_id: number | null
           valid_from: string | null
           valid_to: string | null
         }
         Insert: {
-          activity_category_id?: number | null
-          activity_type?: Database["public"]["Enums"]["activity_type"] | null
+          category_id?: number | null
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
+          type?: Database["public"]["Enums"]["activity_type"] | null
           updated_at?: string | null
           updated_by_user_id?: number | null
           valid_from?: string | null
           valid_to?: string | null
         }
         Update: {
-          activity_category_id?: number | null
-          activity_type?: Database["public"]["Enums"]["activity_type"] | null
+          category_id?: number | null
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
+          type?: Database["public"]["Enums"]["activity_type"] | null
           updated_at?: string | null
           updated_by_user_id?: number | null
           valid_from?: string | null
@@ -2530,22 +2530,22 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "activity_activity_category_id_fkey"
-            columns: ["activity_category_id"]
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "activity_activity_category_id_fkey"
-            columns: ["activity_category_id"]
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_available"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "activity_activity_category_id_fkey"
-            columns: ["activity_category_id"]
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -3726,11 +3726,11 @@ export type Database = {
           id: number | null
           latitude: number | null
           legal_unit_id: number | null
-          location_type: Database["public"]["Enums"]["location_type"] | null
           longitude: number | null
           postal_code: string | null
           postal_place: string | null
           region_id: number | null
+          type: Database["public"]["Enums"]["location_type"] | null
           updated_by_user_id: number | null
           valid_from: string | null
           valid_to: string | null
@@ -3744,11 +3744,11 @@ export type Database = {
           id?: number | null
           latitude?: number | null
           legal_unit_id?: number | null
-          location_type?: Database["public"]["Enums"]["location_type"] | null
           longitude?: number | null
           postal_code?: string | null
           postal_place?: string | null
           region_id?: number | null
+          type?: Database["public"]["Enums"]["location_type"] | null
           updated_by_user_id?: number | null
           valid_from?: string | null
           valid_to?: string | null
@@ -3762,11 +3762,11 @@ export type Database = {
           id?: number | null
           latitude?: number | null
           legal_unit_id?: number | null
-          location_type?: Database["public"]["Enums"]["location_type"] | null
           longitude?: number | null
           postal_code?: string | null
           postal_place?: string | null
           region_id?: number | null
+          type?: Database["public"]["Enums"]["location_type"] | null
           updated_by_user_id?: number | null
           valid_from?: string | null
           valid_to?: string | null
@@ -3920,7 +3920,7 @@ export type Database = {
           active: boolean | null
           id: number | null
           name: string | null
-          period: Database["public"]["Enums"]["relative_period_type"] | null
+          type: Database["public"]["Enums"]["relative_period_type"] | null
           valid_from: string | null
           valid_on: string | null
           valid_to: string | null
@@ -3929,7 +3929,7 @@ export type Database = {
           active?: boolean | null
           id?: number | null
           name?: string | null
-          period?: Database["public"]["Enums"]["relative_period_type"] | null
+          type?: Database["public"]["Enums"]["relative_period_type"] | null
           valid_from?: never
           valid_on?: never
           valid_to?: never
@@ -3938,7 +3938,7 @@ export type Database = {
           active?: boolean | null
           id?: number | null
           name?: string | null
-          period?: Database["public"]["Enums"]["relative_period_type"] | null
+          type?: Database["public"]["Enums"]["relative_period_type"] | null
           valid_from?: never
           valid_on?: never
           valid_to?: never
@@ -4358,7 +4358,7 @@ export type Database = {
       }
       activity_category_standard_hierarchy: {
         Args: {
-          activity_category_standard_id: number
+          standard_id: number
         }
         Returns: Json
       }
@@ -5059,7 +5059,7 @@ export type Database = {
         | "data_load_failed"
       import_log_status: "done" | "warning" | "error"
       import_strategy: "create_or_replace" | "update_existing"
-      import_upload_type:
+      import_type:
         | "establishment"
         | "legal_unit"
         | "enterprise"
