@@ -15,7 +15,7 @@ const logger = pino(
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ level, event }),
+              body: JSON.stringify({ level, event, location }),
             });
           } catch (e) {
             console.error("failed to send log to server", e);
