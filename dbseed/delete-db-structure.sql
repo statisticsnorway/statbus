@@ -10,8 +10,8 @@ BEGIN;
 SELECT sql_saga.drop_foreign_key('public.location', 'location_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.location', 'location_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.location', 'location_id_valid');
-SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_establishment_id_valid');
-SELECT sql_saga.drop_unique_key('public.location', 'location_location_type_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_type_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_type_legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.location');
 
 \echo public.stat_for_unit
@@ -23,8 +23,9 @@ SELECT sql_saga.drop_era('public.stat_for_unit');
 \echo public.activity
 SELECT sql_saga.drop_foreign_key('public.activity', 'activity_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.activity', 'activity_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activity_category__legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.activity', 'activity_activity_type_activity_catego_establishment_i_valid');
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_type_category_id_legal_unit_id_valid');
+SELECT key_name FROM sql_saga.unique_keys WHERE table_name = 'public.activity'::regclass;
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_type_category_id_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.activity', 'activity_id_valid');
 SELECT sql_saga.drop_era('public.activity');
 
@@ -75,6 +76,8 @@ DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_l
 DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
 \echo public.tag_for_unit_hierarchy
 DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
+\echo public.activity_category_standard_hierarchy
+DROP FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id integer);
 
 \echo public.websearch_to_wildcard_tsquery
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
@@ -306,7 +309,7 @@ DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_catego
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
 DROP TYPE public.import_strategy;
-DROP TYPE public.import_upload_type;
+DROP TYPE public.import_type;
 
 DROP TYPE public.statbus_role_type;
 DROP TYPE public.import_job_status;

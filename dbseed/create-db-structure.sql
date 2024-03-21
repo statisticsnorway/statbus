@@ -37,13 +37,13 @@ CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restr
 \echo public.statbus_role
 CREATE TABLE public.statbus_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    role_type public.statbus_role_type NOT NULL,
+    type public.statbus_role_type NOT NULL,
     name character varying(256) NOT NULL UNIQUE,
     description text
 );
 -- There can only ever be one role for most role types.
 -- while there can be many different restricted_user roles, depending on the actual restrictions.
-CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(role_type) WHERE role_type = 'super_user' OR role_type = 'regular_user' OR role_type = 'external_user';
+CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(type) WHERE type = 'super_user' OR type = 'regular_user' OR type = 'external_user';
 
 \echo public.statbus_user
 CREATE TABLE public.statbus_user (
@@ -76,14 +76,14 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE admin.create_new_statbus_user();
 
-INSERT INTO public.statbus_role(role_type, name, description) VALUES ('super_user', 'Super User', 'Can manage all metadata and do everything in the Web interface and manage role rights.');
-INSERT INTO public.statbus_role(role_type, name, description) VALUES ('regular_user', 'Regular User', 'Can do everything in the Web interface.');
-INSERT INTO public.statbus_role(role_type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
-INSERT INTO public.statbus_role(role_type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
+INSERT INTO public.statbus_role(type, name, description) VALUES ('super_user', 'Super User', 'Can manage all metadata and do everything in the Web interface and manage role rights.');
+INSERT INTO public.statbus_role(type, name, description) VALUES ('regular_user', 'Regular User', 'Can do everything in the Web interface.');
+INSERT INTO public.statbus_role(type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
+INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
 
 -- Add a super user role for select users
 INSERT INTO public.statbus_user (uuid, role_id)
-SELECT id, (SELECT id FROM public.statbus_role WHERE role_type = 'super_user')
+SELECT id, (SELECT id FROM public.statbus_role WHERE type = 'super_user')
 FROM auth.users
 WHERE email like 'jorgen@veridit.no'
    OR email like 'erik.soberg@ssb.no'
@@ -147,7 +147,7 @@ CREATE EXTENSION ltree SCHEMA public;
 \echo public.activity_category
 CREATE TABLE public.activity_category (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    activity_category_standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
+    standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
     path public.ltree NOT NULL,
     parent_id integer REFERENCES public.activity_category(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
@@ -158,7 +158,7 @@ CREATE TABLE public.activity_category (
     active boolean NOT NULL,
     custom bool NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(activity_category_standard_id, path, active)
+    UNIQUE(standard_id, path, active)
 );
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
 
@@ -180,11 +180,11 @@ BEGIN
     WITH parent AS (
         SELECT activity_category.id
           FROM public.activity_category
-         WHERE activity_category_standard_id = standardId
+         WHERE standard_id = standardId
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
     INSERT INTO public.activity_category
-        ( activity_category_standard_id
+        ( standard_id
         , path
         , parent_id
         , name
@@ -201,7 +201,7 @@ BEGIN
          , statement_timestamp()
          , true
          , false
-    ON CONFLICT (activity_category_standard_id, path, active)
+    ON CONFLICT (standard_id, path, active)
     DO UPDATE SET parent_id = (SELECT id FROM parent)
                 , name = NEW.name
                 , description = NEW.description
@@ -219,15 +219,15 @@ $$ LANGUAGE plpgsql;
 CREATE FUNCTION admin.delete_stale_activity_category()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- All the `activity_category_standard_id` with a recent update must be complete.
+    -- All the `standard_id` with a recent update must be complete.
     WITH changed_activity_category AS (
-      SELECT DISTINCT activity_category_standard_id
+      SELECT DISTINCT standard_id
       FROM public.activity_category
       WHERE updated_at = statement_timestamp()
     )
     -- Delete activities that have a stale updated_at
     DELETE FROM public.activity_category
-    WHERE activity_category_standard_id IN (SELECT activity_category_standard_id FROM changed_activity_category)
+    WHERE standard_id IN (SELECT standard_id FROM changed_activity_category)
     AND updated_at < statement_timestamp();
     RETURN NULL;
 END;
@@ -244,7 +244,7 @@ SELECT acs.code AS standard
      , ac.description
 FROM public.activity_category AS ac
 JOIN public.activity_category_standard AS acs
-ON ac.activity_category_standard_id = acs.id
+ON ac.standard_id = acs.id
 WHERE acs.code = 'isic_v4'
 ORDER BY path;
 
@@ -272,7 +272,7 @@ SELECT acs.code AS standard
      , ac.description
 FROM public.activity_category AS ac
 JOIN public.activity_category_standard AS acs
-ON ac.activity_category_standard_id = acs.id
+ON ac.standard_id = acs.id
 WHERE acs.code = 'nace_v2.1'
 ORDER BY path;
 
@@ -312,7 +312,7 @@ SELECT acs.code AS standard_code
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
-JOIN public.activity_category_standard AS acs ON ac.activity_category_standard_id = acs.id
+JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
 LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
 WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
   AND ac.active
@@ -323,14 +323,14 @@ ORDER BY path;
 CREATE FUNCTION admin.activity_category_available_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE
-    setting_activity_category_standard_id int;
+    setting_standard_id int;
     found_parent_id int;
     existing_category_id int;
 BEGIN
-    -- Retrieve the setting_activity_category_standard_id from public.settings
-    SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
+    -- Retrieve the setting_standard_id from public.settings
+    SELECT standard_id INTO setting_standard_id FROM public.settings;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
+        RAISE EXCEPTION 'Missing public.settings.standard_id';
     END IF;
 
     -- Find parent category based on NEW.parent_code or NEW.path
@@ -339,7 +339,7 @@ BEGIN
         SELECT id INTO found_parent_id
           FROM public.activity_category
          WHERE code = NEW.parent_code
-           AND activity_category_standard_id = setting_activity_category_standard_id;
+           AND standard_id = setting_standard_id;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent_code %', NEW.parent_code;
         END IF;
@@ -347,7 +347,7 @@ BEGIN
         -- If NEW.parent_code is not provided, use NEW.path to find the parent category
         SELECT id INTO found_parent_id
           FROM public.activity_category
-         WHERE activity_category_standard_id = setting_activity_category_standard_id
+         WHERE standard_id = setting_standard_id
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
@@ -357,7 +357,7 @@ BEGIN
     -- Query to see if there is an existing "active AND NOT custom" row
     SELECT id INTO existing_category_id
       FROM public.activity_category
-     WHERE activity_category_standard_id = setting_activity_category_standard_id
+     WHERE standard_id = setting_standard_id
        AND path = NEW.path
        AND active
        AND NOT custom;
@@ -371,7 +371,7 @@ BEGIN
 
     -- Perform an upsert operation on public.activity_category
     INSERT INTO public.activity_category
-        ( activity_category_standard_id
+        ( standard_id
         , path
         , parent_id
         , name
@@ -381,7 +381,7 @@ BEGIN
         , custom
         )
     VALUES
-        ( setting_activity_category_standard_id
+        ( setting_standard_id
         , NEW.path
         , found_parent_id
         , NEW.name
@@ -390,7 +390,7 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (activity_category_standard_id, path)
+    ON CONFLICT (standard_id, path)
     DO UPDATE SET
             parent_id = found_parent_id
           , name = NEW.name
@@ -419,7 +419,7 @@ SELECT ac.path
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
-WHERE ac.activity_category_standard_id = (SELECT activity_category_standard_id FROM public.settings)
+WHERE ac.standard_id = (SELECT activity_category_standard_id FROM public.settings)
   AND ac.active
   AND ac.custom
 ORDER BY path;
@@ -428,14 +428,14 @@ ORDER BY path;
 CREATE FUNCTION admin.activity_category_available_custom_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE
-    setting_activity_category_standard_id int;
+    var_standard_id int;
     found_parent_id int := NULL;
     existing_category_id int;
     existing_category RECORD;
     row RECORD;
 BEGIN
-    -- Retrieve the setting_activity_category_standard_id from public.settings
-    SELECT activity_category_standard_id INTO setting_activity_category_standard_id FROM public.settings;
+    -- Retrieve the activity_category_standard_id from public.settings
+    SELECT activity_category_standard_id INTO var_standard_id FROM public.settings;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
     END IF;
@@ -444,7 +444,7 @@ BEGIN
     IF public.nlevel(NEW.path) > 1 THEN
         SELECT id INTO found_parent_id
           FROM public.activity_category
-         WHERE activity_category_standard_id = setting_activity_category_standard_id
+         WHERE standard_id = var_standard_id
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
            AND active;
         RAISE DEBUG 'found_parent_id %', found_parent_id;
@@ -456,7 +456,7 @@ BEGIN
     -- Query to see if there is an existing "active AND NOT custom" row
     SELECT id INTO existing_category_id
       FROM public.activity_category
-     WHERE activity_category_standard_id = setting_activity_category_standard_id
+     WHERE standard_id = var_standard_id
        AND path = NEW.path
        AND active
        AND NOT custom;
@@ -472,7 +472,7 @@ BEGIN
 
     -- Perform an upsert operation on public.activity_category
     INSERT INTO public.activity_category
-        ( activity_category_standard_id
+        ( standard_id
         , path
         , parent_id
         , name
@@ -482,7 +482,7 @@ BEGIN
         , custom
         )
     VALUES
-        ( setting_activity_category_standard_id
+        ( var_standard_id
         , NEW.path
         , found_parent_id
         , NEW.name
@@ -491,7 +491,7 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (activity_category_standard_id, path, active)
+    ON CONFLICT (standard_id, path, active)
     DO UPDATE SET
             parent_id = found_parent_id
           , name = NEW.name
@@ -585,13 +585,13 @@ CREATE UNIQUE INDEX ix_data_source_code ON public.data_source USING btree (code)
 -- import structures
 \echo public.import_strategy
 CREATE TYPE public.import_strategy AS ENUM ('create_or_replace','update_existing');
-\echo public.import_upload_type
-CREATE TYPE public.import_upload_type AS ENUM ('establishment','legal_unit','enterprise','enterprise_group','activities');
+\echo public.import_type
+CREATE TYPE public.import_type AS ENUM ('establishment','legal_unit','enterprise','enterprise_group','activities');
 
 \echo public.import_definition
 CREATE TABLE public.import_definition (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    upload_type public.import_upload_type NOT NULL,
+    type public.import_type NOT NULL,
     name text NOT NULL,
     description text,
     strategy public.import_strategy NOT NULL,
@@ -731,14 +731,14 @@ CREATE TYPE public.relative_period_type AS ENUM (
 CREATE TABLE public.relative_period (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name character varying(256) NOT NULL,
-    period public.relative_period_type UNIQUE,
+    type public.relative_period_type UNIQUE,
     active boolean NOT NULL DEFAULT true
 );
 
 \echo public.relative_period_with_time
 CREATE VIEW public.relative_period_with_time AS
 SELECT *,
-       CASE period -- context_valid_on
+       CASE type -- context_valid_on
            WHEN 'today' THEN current_date
            --
            WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date - interval '1 year')
@@ -785,7 +785,7 @@ SELECT *,
            WHEN 'start_of_decade_prev' THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 10)) - interval '10 years'
            ELSE NULL
        END::DATE AS valid_on,
-       CASE period
+       CASE type
            WHEN 'today' THEN current_date
            --
            WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date - interval '1 year')::DATE
@@ -795,7 +795,7 @@ SELECT *,
            --
            ELSE NULL
        END::DATE AS valid_from,
-       CASE period
+       CASE type
            WHEN 'today'                    THEN 'infinity'::DATE
            WHEN 'year_prev_until_infinity' THEN 'infinity'::DATE
            WHEN 'year_curr_until_infinity' THEN 'infinity'::DATE
@@ -810,7 +810,7 @@ DO $$
 DECLARE
     parent_id integer;
 BEGIN
-    INSERT INTO public.relative_period (name, period, active)
+    INSERT INTO public.relative_period (name, type, active)
     VALUES
         ('Today', 'today', true),
         --
@@ -1130,8 +1130,8 @@ CREATE TABLE public.activity (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    activity_type public.activity_type NOT NULL,
-    activity_category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
+    type public.activity_type NOT NULL,
+    category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     establishment_id integer,
@@ -1141,7 +1141,7 @@ CREATE TABLE public.activity (
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
         )
 );
-CREATE INDEX ix_activity_activity_category_id ON public.activity USING btree (activity_category_id);
+CREATE INDEX ix_activity_category_id ON public.activity USING btree (category_id);
 CREATE INDEX ix_activity_establishment_id_id ON public.activity USING btree (establishment_id);
 CREATE INDEX ix_activity_legal_unit_id_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
@@ -1276,7 +1276,7 @@ CREATE TABLE public.location (
     id SERIAL NOT NULL,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    location_type public.location_type NOT NULL,
+    type public.location_type NOT NULL,
     address_part1 character varying(200),
     address_part2 character varying(200),
     address_part3 character varying(200),
@@ -1880,7 +1880,7 @@ CREATE TYPE public.stat_frequency AS ENUM(
 CREATE TABLE public.stat_definition(
   id serial PRIMARY KEY,
   code varchar NOT NULL UNIQUE,
-  stat_type public.stat_type NOT NULL,
+  type public.stat_type NOT NULL,
   frequency public.stat_frequency NOT NULL,
   name varchar NOT NULL,
   description text,
@@ -1891,7 +1891,7 @@ CREATE TABLE public.stat_definition(
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
 COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
 --
-INSERT INTO public.stat_definition(code, stat_type, frequency, name, description, priority) VALUES
+INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
   ('employees','int','yearly','Number of people employed','The number of people receiving an official salary with government reporting.',2),
   ('turnover','int','yearly','Turnover','The amount (EUR)',3);
 
@@ -1919,33 +1919,33 @@ CREATE TABLE public.stat_for_unit (
 CREATE OR REPLACE FUNCTION admin.check_stat_for_unit_values()
 RETURNS trigger AS $$
 DECLARE
-  new_stat_type public.stat_type;
+  new_type public.stat_type;
 BEGIN
-  -- Fetch the stat_type for the current stat_definition_id
-  SELECT stat_type INTO new_stat_type
+  -- Fetch the type for the current stat_definition_id
+  SELECT type INTO new_type
   FROM public.stat_definition
   WHERE id = NEW.stat_definition_id;
 
   -- Use CASE statement to simplify the logic
-  CASE new_stat_type
+  CASE new_type
     WHEN 'int' THEN
       IF NEW.value_int IS NULL OR NEW.value_float IS NOT NULL OR NEW.value_string IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
-        RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
+        RAISE EXCEPTION 'Incorrect value columns set for type %s', new_type;
       END IF;
     WHEN 'float' THEN
       IF NEW.value_float IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_string IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
-        RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
+        RAISE EXCEPTION 'Incorrect value columns set for type %s', new_type;
       END IF;
     WHEN 'string' THEN
       IF NEW.value_string IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_float IS NOT NULL OR NEW.value_bool IS NOT NULL THEN
-        RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
+        RAISE EXCEPTION 'Incorrect value columns set for type %s', new_type;
       END IF;
     WHEN 'bool' THEN
       IF NEW.value_bool IS NULL OR NEW.value_int IS NOT NULL OR NEW.value_float IS NOT NULL OR NEW.value_string IS NOT NULL THEN
-        RAISE EXCEPTION 'Incorrect value columns set for stat_type %s', new_stat_type;
+        RAISE EXCEPTION 'Incorrect value columns set for type %s', new_type;
       END IF;
     ELSE
-      RAISE EXCEPTION 'Unknown stat_type: %', new_stat_type;
+      RAISE EXCEPTION 'Unknown type: %', new_type;
   END CASE;
 
   RETURN NEW;
@@ -2394,10 +2394,10 @@ CREATE VIEW public.statistical_unit_def
              -- to_tsvector('french', es.name) ||
              to_tsvector('simple', es.name) AS search
            --
-           , pa.activity_category_id AS primary_activity_category_id
+           , pa.category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
            --
-           , sa.activity_category_id AS secondary_activity_category_id
+           , sa.category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
            --
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
@@ -2438,26 +2438,26 @@ CREATE VIEW public.statistical_unit_def
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.establishment_id = es.id
-             AND pa.activity_type = 'primary'
+             AND pa.type = 'primary'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(pa.valid_from, pa.valid_to, '[]')
       LEFT JOIN public.activity_category AS pac
-              ON pa.activity_category_id = pac.id
+              ON pa.category_id = pac.id
       --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.establishment_id = es.id
-             AND sa.activity_type = 'secondary'
+             AND sa.type = 'secondary'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(sa.valid_from, sa.valid_to, '[]')
       LEFT JOIN public.activity_category AS sac
-              ON sa.activity_category_id = sac.id
+              ON sa.category_id = sac.id
       --
       LEFT OUTER JOIN public.sector AS s
               ON es.sector_id = s.id
       --
       LEFT OUTER JOIN public.location AS phl
               ON phl.establishment_id = es.id
-             AND phl.location_type = 'physical'
+             AND phl.type = 'physical'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(phl.valid_from, phl.valid_to, '[]')
       LEFT JOIN public.region AS phr
@@ -2467,7 +2467,7 @@ CREATE VIEW public.statistical_unit_def
       --
       LEFT OUTER JOIN public.location AS pol
               ON pol.establishment_id = es.id
-             AND pol.location_type = 'postal'
+             AND pol.type = 'postal'
              AND daterange(es.valid_from, es.valid_to, '[]')
               && daterange(pol.valid_from, pol.valid_to, '[]')
       LEFT JOIN public.region AS por
@@ -2624,10 +2624,10 @@ CREATE VIEW public.statistical_unit_def
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', lu.name) AS search
              --
-             , pa.activity_category_id AS primary_activity_category_id
+             , pa.category_id AS primary_activity_category_id
              , pac.path                AS primary_activity_category_path
              --
-             , sa.activity_category_id AS secondary_activity_category_id
+             , sa.category_id AS secondary_activity_category_id
              , sac.path                AS secondary_activity_category_path
              --
              , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
@@ -2668,19 +2668,19 @@ CREATE VIEW public.statistical_unit_def
         --
         LEFT OUTER JOIN public.activity AS pa
                 ON pa.legal_unit_id = lu.id
-               AND pa.activity_type = 'primary'
+               AND pa.type = 'primary'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(pa.valid_from, pa.valid_to, '[]')
         LEFT JOIN public.activity_category AS pac
-                ON pa.activity_category_id = pac.id
+                ON pa.category_id = pac.id
         --
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = lu.id
-               AND sa.activity_type = 'secondary'
+               AND sa.type = 'secondary'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(sa.valid_from, sa.valid_to, '[]')
         LEFT JOIN public.activity_category AS sac
-                ON sa.activity_category_id = sac.id
+                ON sa.category_id = sac.id
         --
         LEFT OUTER JOIN public.sector AS s
                 ON lu.sector_id = s.id
@@ -2690,7 +2690,7 @@ CREATE VIEW public.statistical_unit_def
         --
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = lu.id
-               AND phl.location_type = 'physical'
+               AND phl.type = 'physical'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(phl.valid_from, phl.valid_to, '[]')
         LEFT JOIN public.region AS phr
@@ -2700,7 +2700,7 @@ CREATE VIEW public.statistical_unit_def
         --
         LEFT OUTER JOIN public.location AS pol
                 ON pol.legal_unit_id = lu.id
-               AND pol.location_type = 'postal'
+               AND pol.type = 'postal'
                AND daterange(lu.valid_from, lu.valid_to, '[]')
                 && daterange(pol.valid_from, pol.valid_to, '[]')
         LEFT JOIN public.region AS por
@@ -2856,10 +2856,10 @@ CREATE VIEW public.statistical_unit_def
            -- Se supported languages with `SELECT * FROM pg_ts_config`
            , to_tsvector('simple', plu.name) AS search
            --
-           , pa.activity_category_id AS primary_activity_category_id
+           , pa.category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
            --
-           , sa.activity_category_id AS secondary_activity_category_id
+           , sa.category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
            --
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
@@ -2901,19 +2901,19 @@ CREATE VIEW public.statistical_unit_def
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.legal_unit_id = plu.id
-             AND pa.activity_type = 'primary'
+             AND pa.type = 'primary'
              AND daterange(plu.valid_from, plu.valid_to, '[]')
               && daterange(pa.valid_from, pa.valid_to, '[]')
       LEFT JOIN public.activity_category AS pac
-              ON pa.activity_category_id = pac.id
+              ON pa.category_id = pac.id
       --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.legal_unit_id = plu.id
-             AND sa.activity_type = 'secondary'
+             AND sa.type = 'secondary'
              AND daterange(plu.valid_from, plu.valid_to, '[]')
               && daterange(sa.valid_from, sa.valid_to, '[]')
       LEFT JOIN public.activity_category AS sac
-              ON sa.activity_category_id = sac.id
+              ON sa.category_id = sac.id
       --
       LEFT OUTER JOIN public.sector AS s
               ON plu.sector_id = s.id
@@ -2923,7 +2923,7 @@ CREATE VIEW public.statistical_unit_def
       --
       LEFT OUTER JOIN public.location AS phl
               ON phl.legal_unit_id = plu.id
-             AND phl.location_type = 'physical'
+             AND phl.type = 'physical'
              AND daterange(plu.valid_from, plu.valid_to, '[]')
               && daterange(phl.valid_from, phl.valid_to, '[]')
       LEFT JOIN public.region AS phr
@@ -2933,7 +2933,7 @@ CREATE VIEW public.statistical_unit_def
       --
       LEFT OUTER JOIN public.location AS pol
               ON pol.legal_unit_id = plu.id
-             AND pol.location_type = 'postal'
+             AND pol.type = 'postal'
              AND daterange(plu.valid_from, plu.valid_to, '[]')
               && daterange(pol.valid_from, pol.valid_to, '[]')
       LEFT JOIN public.region AS por
@@ -3090,10 +3090,10 @@ CREATE VIEW public.statistical_unit_def
              -- Se supported languages with `SELECT * FROM pg_ts_config`
              , to_tsvector('simple', es.name) AS search
              --
-             , pa.activity_category_id AS primary_activity_category_id
+             , pa.category_id AS primary_activity_category_id
              , pac.path                AS primary_activity_category_path
              --
-             , sa.activity_category_id AS secondary_activity_category_id
+             , sa.category_id AS secondary_activity_category_id
              , sac.path                AS secondary_activity_category_path
              --
              , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
@@ -3134,26 +3134,26 @@ CREATE VIEW public.statistical_unit_def
         --
         LEFT OUTER JOIN public.activity AS pa
                 ON pa.legal_unit_id = es.id
-               AND pa.activity_type = 'primary'
+               AND pa.type = 'primary'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(pa.valid_from, pa.valid_to, '[]')
         LEFT JOIN public.activity_category AS pac
-                ON pa.activity_category_id = pac.id
+                ON pa.category_id = pac.id
         --
         LEFT OUTER JOIN public.activity AS sa
                 ON sa.legal_unit_id = es.id
-               AND sa.activity_type = 'secondary'
+               AND sa.type = 'secondary'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(sa.valid_from, sa.valid_to, '[]')
         LEFT JOIN public.activity_category AS sac
-                ON sa.activity_category_id = sac.id
+                ON sa.category_id = sac.id
         --
         LEFT OUTER JOIN public.sector AS s
                 ON es.sector_id = s.id
         --
         LEFT OUTER JOIN public.location AS phl
                 ON phl.legal_unit_id = es.id
-               AND phl.location_type = 'physical'
+               AND phl.type = 'physical'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(phl.valid_from, phl.valid_to, '[]')
         LEFT JOIN public.region AS phr
@@ -3163,7 +3163,7 @@ CREATE VIEW public.statistical_unit_def
         --
         LEFT OUTER JOIN public.location AS pol
                 ON pol.legal_unit_id = es.id
-               AND pol.location_type = 'postal'
+               AND pol.type = 'postal'
                AND daterange(es.valid_from, es.valid_to, '[]')
                 && daterange(pol.valid_from, pol.valid_to, '[]')
         LEFT JOIN public.region AS por
@@ -3364,7 +3364,7 @@ SELECT acs.code AS standard_code
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
-JOIN public.activity_category_standard AS acs ON ac.activity_category_standard_id = acs.id
+JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
 LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
 WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
   AND ac.active
@@ -3574,7 +3574,7 @@ RETURNS jsonb AS $$
         FROM
             public.activity_category AS ac
         WHERE ac.active
-           AND ac.activity_category_standard_id = (SELECT id FROM settings_activity_category_standard)
+           AND ac.standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
             (     activity_category_path IS NOT NULL
               AND ac.path OPERATOR(public.@>) activity_category_path
@@ -3589,7 +3589,7 @@ RETURNS jsonb AS $$
         FROM
             public.activity_category AS ac
         WHERE ac.active
-           AND ac.activity_category_standard_id = (SELECT id FROM settings_activity_category_standard)
+           AND ac.standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
             (
                 (activity_category_path IS NULL AND ac.path OPERATOR(public.~) '*{1}'::public.lquery)
@@ -3759,7 +3759,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
         to_jsonb(sfu.*)
         - 'value_int' - 'value_float' - 'value_string' - 'value_bool'
         || jsonb_build_object('stat_definition', to_jsonb(sd.*))
-        || CASE sd.stat_type
+        || CASE sd.type
             WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
             WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
             WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
@@ -3850,7 +3850,7 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
        AND (  parent_establishment_id IS NOT NULL AND l.establishment_id = parent_establishment_id
            OR parent_legal_unit_id    IS NOT NULL AND l.legal_unit_id    = parent_legal_unit_id
            )
-       ORDER BY l.location_type
+       ORDER BY l.type
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
   )
@@ -3864,7 +3864,7 @@ $$ LANGUAGE sql IMMUTABLE;
 
 
 \echo public.activity_category_standard_hierarchy
-CREATE OR REPLACE FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id INTEGER)
+CREATE OR REPLACE FUNCTION public.activity_category_standard_hierarchy(standard_id INTEGER)
 RETURNS JSONB AS $$
     WITH data AS (
         SELECT jsonb_build_object(
@@ -3872,7 +3872,7 @@ RETURNS JSONB AS $$
                     to_jsonb(acs.*)
                 ) AS data
           FROM public.activity_category_standard AS acs
-         WHERE activity_category_standard_id IS NOT NULL AND acs.id = activity_category_standard_id
+         WHERE standard_id IS NOT NULL AND acs.id = standard_id
          ORDER BY acs.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
@@ -3886,7 +3886,7 @@ RETURNS JSONB AS $$
         SELECT jsonb_build_object(
             'activity_category',
                 to_jsonb(ac.*)
-                || (SELECT public.activity_category_standard_hierarchy(ac.activity_category_standard_id))
+                || (SELECT public.activity_category_standard_hierarchy(ac.standard_id))
             )
             AS data
          FROM public.activity_category AS ac
@@ -3905,14 +3905,14 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
 ) RETURNS JSONB AS $$
     WITH ordered_data AS (
         SELECT to_jsonb(a.*)
-               || (SELECT public.activity_category_hierarchy(a.activity_category_id))
+               || (SELECT public.activity_category_hierarchy(a.category_id))
                AS data
           FROM public.activity AS a
          WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
            AND (  parent_establishment_id IS NOT NULL AND a.establishment_id = parent_establishment_id
                OR parent_legal_unit_id    IS NOT NULL AND a.legal_unit_id    = parent_legal_unit_id
                )
-           ORDER BY a.activity_type
+           ORDER BY a.type
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
   )
@@ -5434,8 +5434,8 @@ DECLARE
   table_name text := 'location';
   unique_columns jsonb := jsonb_build_array(
     'id',
-    jsonb_build_array('location_type', 'establishment_id'),
-    jsonb_build_array('location_type', 'legal_unit_id')
+    jsonb_build_array('type', 'establishment_id'),
+    jsonb_build_array('type', 'legal_unit_id')
     );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY[]::text[];
@@ -5473,8 +5473,8 @@ DECLARE
   table_name text := 'activity';
   unique_columns jsonb := jsonb_build_array(
     'id',
-    jsonb_build_array('activity_category_id', 'activity_type', 'establishment_id'),
-    jsonb_build_array('activity_category_id', 'activity_type', 'legal_unit_id')
+    jsonb_build_array('category_id', 'type', 'establishment_id'),
+    jsonb_build_array('category_id', 'type', 'legal_unit_id')
     );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY['updated_at'];
@@ -5829,7 +5829,7 @@ BEGIN
             ( valid_from
             , valid_to
             , legal_unit_id
-            , location_type
+            , type
             , address_part1
             , address_part2
             , address_part3
@@ -5862,7 +5862,7 @@ BEGIN
             ( valid_from
             , valid_to
             , legal_unit_id
-            , location_type
+            , type
             , address_part1
             , address_part2
             , address_part3
@@ -5895,8 +5895,8 @@ BEGIN
             ( valid_from
             , valid_to
             , legal_unit_id
-            , activity_type
-            , activity_category_id
+            , type
+            , category_id
             , updated_by_user_id
             , updated_at
             )
@@ -5918,8 +5918,8 @@ BEGIN
             ( valid_from
             , valid_to
             , legal_unit_id
-            , activity_type
-            , activity_category_id
+            , type
+            , category_id
             , updated_by_user_id
             , updated_at
             )
@@ -6396,7 +6396,7 @@ BEGIN
             ( valid_from
             , valid_to
             , establishment_id
-            , location_type
+            , type
             , address_part1
             , address_part2
             , address_part3
@@ -6429,7 +6429,7 @@ BEGIN
             ( valid_from
             , valid_to
             , establishment_id
-            , location_type
+            , type
             , address_part1
             , address_part2
             , address_part3
@@ -6461,8 +6461,8 @@ BEGIN
             ( valid_from
             , valid_to
             , establishment_id
-            , activity_type
-            , activity_category_id
+            , type
+            , category_id
             , updated_by_user_id
             , updated_at
             )
@@ -6484,8 +6484,8 @@ BEGIN
             ( valid_from
             , valid_to
             , establishment_id
-            , activity_type
-            , activity_category_id
+            , type
+            , category_id
             , updated_by_user_id
             , updated_at
             )
@@ -7531,7 +7531,7 @@ $$;
 -- Add security.
 
 \echo auth.has_statbus_role
-CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, role_type public.statbus_role_type)
+CREATE OR REPLACE FUNCTION auth.has_statbus_role (user_uuid UUID, type public.statbus_role_type)
 RETURNS BOOL
 LANGUAGE SQL
 SECURITY DEFINER
@@ -7542,13 +7542,13 @@ $$
     FROM public.statbus_user AS su
     JOIN public.statbus_role AS sr
       ON su.role_id = sr.id
-    WHERE ((su.uuid = $1) AND (sr.role_type = $2))
+    WHERE ((su.uuid = $1) AND (sr.type = $2))
   );
 $$;
 
 -- Add security functions
 \echo auth.has_one_of_statbus_roles 
-CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.statbus_role_type[])
+CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, types public.statbus_role_type[])
 RETURNS BOOL
 LANGUAGE SQL
 SECURITY DEFINER
@@ -7559,7 +7559,7 @@ $$
     FROM public.statbus_user AS su
     JOIN public.statbus_role AS sr
       ON su.role_id = sr.id
-    WHERE ((su.uuid = $1) AND (sr.role_type = ANY ($2)))
+    WHERE ((su.uuid = $1) AND (sr.type = ANY ($2)))
   );
 $$;
 
@@ -7716,10 +7716,10 @@ $$ LANGUAGE plpgsql;
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
 USING (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_role_type)
-       AND auth.has_activity_category_access(auth.uid(), activity_category_id)
+       AND auth.has_activity_category_access(auth.uid(), category_id)
       )
 WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_role_type)
-       AND auth.has_activity_category_access(auth.uid(), activity_category_id)
+       AND auth.has_activity_category_access(auth.uid(), category_id)
       );
 
 --CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[]));
@@ -7751,8 +7751,8 @@ SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 
 
 SELECT sql_saga.add_era('public.activity', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.activity', ARRAY['activity_type', 'activity_category_id', 'establishment_id']);
-SELECT sql_saga.add_unique_key('public.activity', ARRAY['activity_type', 'activity_category_id', 'legal_unit_id']);
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'category_id', 'establishment_id']);
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'category_id', 'legal_unit_id']);
 SELECT sql_saga.add_foreign_key('public.activity', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 SELECT sql_saga.add_foreign_key('public.activity', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
 
@@ -7763,8 +7763,8 @@ SELECT sql_saga.add_foreign_key('public.stat_for_unit', ARRAY['establishment_id'
 
 SELECT sql_saga.add_era('public.location', 'valid_from', 'valid_to');
 SELECT sql_saga.add_unique_key('public.location', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'establishment_id']);
-SELECT sql_saga.add_unique_key('public.location', ARRAY['location_type', 'legal_unit_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['type', 'establishment_id']);
+SELECT sql_saga.add_unique_key('public.location', ARRAY['type', 'legal_unit_id']);
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
 
