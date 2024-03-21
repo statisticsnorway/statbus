@@ -1,4 +1,4 @@
-import pino from "pino";
+import pino, { Level, LogEvent } from "pino";
 
 const logger = pino(
   {
@@ -7,6 +7,7 @@ const logger = pino(
       disabled: true,
       transmit: {
         level: "error",
+
         send: async function (level, event) {
           try {
             await fetch("/api/logger", {
