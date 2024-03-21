@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import { Metadata } from "next";
 import { createFilters } from "@/app/search/filters";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -14,6 +14,7 @@ export default async function SearchPage({
   readonly searchParams: URLSearchParams;
 }) {
   const client = createClient();
+  const logger = await createServerLogger();
 
   const sectorPromise = client
     .from("sector_used")

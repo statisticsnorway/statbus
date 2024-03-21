@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 export async function POST(
   request: Request,
@@ -9,6 +9,7 @@ export async function POST(
   try {
     const enterprise: { unit_id: number } = await request.json();
     const legalUnitId = parseInt(id, 10);
+    const logger = await createServerLogger();
 
     if (!enterprise?.unit_id || !legalUnitId) {
       logger.error(

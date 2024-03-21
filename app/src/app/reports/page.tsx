@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import StatBusChart from "@/app/reports/statbus-chart";
 import { createClient } from "@/lib/supabase/server";
 import { DrillDown } from "@/app/reports/types/drill-down";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 export const metadata: Metadata = {
   title: "StatBus | Reports",
@@ -10,6 +10,8 @@ export const metadata: Metadata = {
 
 export default async function ReportsPage() {
   const client = createClient();
+  const logger = await createServerLogger();
+
   const { data: drillDown, error } = await client
     .rpc("statistical_unit_facet_drilldown")
     .returns<DrillDown>();

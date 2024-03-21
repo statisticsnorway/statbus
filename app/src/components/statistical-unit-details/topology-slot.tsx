@@ -1,6 +1,6 @@
 import { Topology } from "@/components/statistical-unit-hierarchy/topology";
 import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 interface TopologySlotProps {
   readonly unitId: number;
@@ -15,6 +15,7 @@ export default async function TopologySlot({
   unitId,
   unitType,
 }: TopologySlotProps) {
+  const logger = await createServerLogger();
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
     unitId,
     unitType

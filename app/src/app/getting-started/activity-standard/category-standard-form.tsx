@@ -14,7 +14,7 @@ import {
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { Tables } from "@/lib/database.types";
-import { setCategoryStandard } from "@/app/getting-started/getting-started-actions";
+import { setCategoryStandard } from "@/app/getting-started/getting-started-server-actions";
 
 interface CategoryStandardFormProps {
   readonly standards: Tables<"activity_category_standard">[] | null;

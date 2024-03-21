@@ -1,5 +1,6 @@
 import pino from "pino";
 import { createStream } from "pino-seq";
+import { createClient } from "@/lib/supabase/server";
 
 const logServerUrl = process.env.LOG_SERVER || "http://localhost:5341";
 
@@ -32,9 +33,21 @@ const logger = pino(
     : undefined
 );
 
-const child = logger.child({
-  version: process.env.VERSION,
-  reporter: "server",
-});
+/**
+ * Create a logger for the server that includes the user's email and the app version
+ */
+export async function createServerLogger() {
+  const client = createClient();
 
-export default child;
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  return logger.child({
+    version: process.env.VERSION,
+    user: session?.user.email,
+    reporter: "server",
+  });
+}
+
+export default logger;

@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { InfoBox } from "@/components/info-box";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 export default async function EstablishmentGeneralInfoPage({
   params: { id },
 }: {
   readonly params: { id: string };
 }) {
+  const logger = await createServerLogger();
   const { establishment, error } = await getEstablishmentById(id);
 
   if (error) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import logger from "@/lib/logger";
 import { Level, LogEvent } from "pino";
 import { createClient } from "@/lib/supabase/server";
+import { createServerLogger } from "@/lib/logger";
 
 interface ClientLogRequest {
   level: Level;
@@ -12,6 +12,7 @@ interface ClientLogRequest {
 export async function POST(request: Request) {
   try {
     const client = createClient();
+    const logger = await createServerLogger();
     const {
       data: { session },
     } = await client.auth.getSession();
@@ -22,9 +23,6 @@ export async function POST(request: Request) {
       location,
     }: ClientLogRequest = await request.json();
 
-    /**
-     * The logger may have been called with
-     */
     const payload = event.messages
       ?.filter((message) => typeof message === "object")
       ?.reduce((acc, message) => {
@@ -44,6 +42,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    logger.error(e, "failed to log event");
+    console.error(e, "failed to log event");
   }
 }

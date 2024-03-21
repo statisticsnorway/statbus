@@ -1,11 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 export async function refreshStatisticalUnits() {
   "use server";
   const client = createClient();
+  const logger = await createServerLogger();
 
   try {
     const { status, statusText, data, error } = await client.rpc(
@@ -31,6 +32,7 @@ export async function refreshStatisticalUnits() {
 export async function resetAll() {
   "use server";
   const client = createClient();
+  const logger = await createServerLogger();
 
   try {
     const { data, error } = await client.rpc("reset_all_data", {

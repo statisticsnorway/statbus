@@ -3,7 +3,7 @@ import { redirect, RedirectType } from "next/navigation";
 import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import logger from "@/lib/logger";
+import { createServerLogger } from "@/lib/logger";
 
 interface State {
   readonly error: string | null;
@@ -27,6 +27,7 @@ export async function uploadFile(
   "use server";
 
   try {
+    const logger = await createServerLogger();
     const file = formData.get(filename) as File;
     const authFetch = setupAuthorizedFetchFn();
     const response = await authFetch(
@@ -60,6 +61,7 @@ export async function uploadFile(
 export async function setCategoryStandard(formData: FormData) {
   "use server";
   const client = createClient();
+  const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(
     "activity_category_standard_id"

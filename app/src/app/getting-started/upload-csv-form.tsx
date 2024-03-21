@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import React, { useEffect } from "react";
 import { ErrorBox } from "@/components/error-box";
-import { uploadFile } from "@/app/getting-started/getting-started-actions";
-import type { UploadView } from "@/app/getting-started/getting-started-actions";
+import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
+import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
 import { useRouter } from "next/navigation";
 
 const UploadFormButtons = ({

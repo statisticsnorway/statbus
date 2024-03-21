@@ -17,7 +17,7 @@ import {
 import {
   refreshStatisticalUnits,
   resetAll,
-} from "@/components/command-palette/command-palette-actions";
+} from "@/components/command-palette/command-palette-server-actions";
 
 import {
   CommandDialog,

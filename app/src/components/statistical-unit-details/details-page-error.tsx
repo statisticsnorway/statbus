@@ -1,3 +1,4 @@
+"use client";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import logger from "@/lib/logger";
 
