@@ -3,7 +3,7 @@ import pino from "pino";
 import { createStream } from "pino-seq";
 
 const seqServerUrl = process.env.SEQ_SERVER_URL || "http://localhost:5341";
-const seqApiKey = process.env.SEQ_API_KEY || null;
+const seqApiKey = process.env.SEQ_API_KEY;
 
 /**
  * Create a pino logger for the server that includes the user's email and the app version
