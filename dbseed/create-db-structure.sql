@@ -5683,9 +5683,7 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.primary_activity_category_code IS NOT NULL
-       AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> ''
-    THEN
+    IF NEW.primary_activity_category_code IS NOT NULL AND NEW.primary_activity_category_code <> '' THEN
       SELECT * INTO primary_activity_category
       FROM public.activity_category_available
       WHERE code = NEW.primary_activity_category_code;
@@ -5695,9 +5693,7 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.secondary_activity_category_code IS NOT NULL
-       AND REPLACE(REPLACE(NEW.secondary_activity_category_code, '.', ''), '0', '') <> ''
-    THEN
+    IF NEW.secondary_activity_category_code IS NOT NULL AND NEW.secondary_activity_category_code <> '' THEN
       SELECT * INTO secondary_activity_category
       FROM public.activity_category_available
       WHERE code = NEW.secondary_activity_category_code;
@@ -6309,9 +6305,7 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.primary_activity_category_code IS NOT NULL
-    -- Many places there is a variety of 00.000... to signify null
-    AND REPLACE(REPLACE(NEW.primary_activity_category_code, '.', ''), '0', '') <> '' THEN
+    IF NEW.primary_activity_category_code IS NOT NULL AND NEW.primary_activity_category_code <> '' THEN
       SELECT * INTO primary_activity_category
       FROM public.activity_category_available
       WHERE code = NEW.primary_activity_category_code;
@@ -6321,9 +6315,7 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.secondary_activity_category_code IS NOT NULL
-       AND REPLACE(REPLACE(NEW.secondary_activity_category_code, '.', ''), '0', '') <> ''
-    THEN
+    IF NEW.secondary_activity_category_code IS NOT NULL AND NEW.secondary_activity_category_code <> '' THEN
       SELECT * INTO secondary_activity_category
       FROM public.activity_category_available
       WHERE code = NEW.secondary_activity_category_code;
