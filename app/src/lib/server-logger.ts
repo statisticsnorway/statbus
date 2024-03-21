@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import pino from "pino";
 import { createStream } from "pino-seq";
 
-const logServerUrl = process.env.LOG_SERVER || "http://localhost:5341";
+const seqServerUrl = process.env.SEQ_SERVER_URL || "http://localhost:5341";
+const seqApiKey = process.env.SEQ_API_KEY || null;
 
 /**
  * Create a pino logger for the server that includes the user's email and the app version
@@ -23,6 +24,6 @@ export async function createServerLogger() {
         reporter: "server",
       },
     },
-    createStream({ serverUrl: logServerUrl })
+    createStream({ serverUrl: seqServerUrl, apiKey: seqApiKey})
   );
 }
