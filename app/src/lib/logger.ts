@@ -1,11 +1,12 @@
-import pino, { Level, LogEvent } from "pino";
+import pino from "pino";
+import { createStream } from "pino-seq";
+
+const stream = createStream({ serverUrl: process.env.LOG_SERVER });
 
 const logger = pino(
   {
     level: "info",
     name: "statbus app",
-    messageKey: "message",
-    errorKey: "error",
     browser: {
       disabled: true,
       transmit: {
@@ -26,11 +27,12 @@ const logger = pino(
       },
     },
   },
-  typeof window === "undefined"
-    ? pino.destination("statbus-server.log")
-    : undefined
+  typeof window === "undefined" ? stream : undefined
 );
 
-const child = logger.child({ version: process.env.VERSION });
+const child = logger.child({
+  version: process.env.VERSION,
+  reporter: "server",
+});
 
 export default child;
