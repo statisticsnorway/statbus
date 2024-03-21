@@ -2,7 +2,11 @@ name: CI
 on:
   workflow_dispatch:
   push:
+    branches-ignore:
+      - 'devops/**'  # Ignore any branch prefixed with devops/
   pull_request:
+    branches-ignore:
+      - 'devops/**'  # Ignore any branch prefixed with devops/
 
 jobs:
   build-app:
