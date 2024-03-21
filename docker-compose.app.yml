@@ -4,6 +4,8 @@
 #   PUBLIC_PORT=127.0.0.1:3000
 #   SUPABASE_ANON_KEY=...
 #   SUPABASE_URL=...
+#   SEQ_SERVER_URL=...
+#   SEQ_API_KEY=...
 #
 version: '3.4'
 name: ${COMPOSE_INSTANCE_NAME}
@@ -16,4 +18,6 @@ services:
     environment:
       - SUPABASE_ANON_KEY
       - SUPABASE_URL
+      - SEQ_SERVER_URL
+      - SEQ_API_KEY
     restart: unless-stopped
