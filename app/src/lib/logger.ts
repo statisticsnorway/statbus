@@ -1,7 +1,7 @@
 import pino from "pino";
 import { createStream } from "pino-seq";
 
-const stream = createStream({ serverUrl: process.env.LOG_SERVER });
+const logServerUrl = process.env.LOG_SERVER || "http://localhost:5341";
 
 const logger = pino(
   {
@@ -27,7 +27,9 @@ const logger = pino(
       },
     },
   },
-  typeof window === "undefined" ? stream : undefined
+  typeof window === "undefined"
+    ? createStream({ serverUrl: logServerUrl })
+    : undefined
 );
 
 const child = logger.child({
