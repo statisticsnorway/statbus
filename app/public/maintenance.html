@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STATBUS Maintenance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            background-color: #FFFFFF;
+            color: #333;
+            text-align: center;
+        }
+        body.rtl {
+            direction: rtl;
+        }
+        .header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #FFFFFF;
+            color: black;
+            padding: 10px;
+            font-size: 24px;
+            text-align: center;
+            width: 100%;
+            border-bottom: 1px solid grey;
+        }
+        .logo {
+            font-weight: bold;
+        }
+        .centered-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+        .container {
+            max-width: 600px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1, p {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">STATBUS</div>
+    </div>
+    <div class="centered-container">
+        <div class="container">
+            <h1 id="headline">We're Performing Maintenance</h1>
+            <p id="message">Our site is currently under maintenance. We're working hard to improve our services and will be back shortly. Thank you for your patience.</p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // Function to parse URL query parameters
+            function getQueryParam(param) {
+                var search = window.location.search.substring(1);
+                var variables = search.split('&');
+                for (var i = 0; i < variables.length; i++) {
+                    var pair = variables[i].split('=');
+                    if (pair[0] == param) {
+                        return pair[1];
+                    }
+                }
+                return false;
+            }
+
+            // Define translations
+            var translations = {
+                'nb': {
+                    'title': 'Vi utfører vedlikehold',
+                    'message': 'Nettstedet vårt er for tiden under vedlikehold. Vi jobber hardt for å forbedre tjenestene våre og vil være tilbake kort tid. Takk for din tålmodighet.'
+                },
+                'en': {
+                    'title': 'We\'re Performing Maintenance',
+                    'message': 'Our site is currently under maintenance. We\'re working hard to improve our services and will be back shortly. Thank you for your patience.'
+                },
+                'fr': {
+                    'title': 'Nous effectuons la maintenance',
+                    'message': 'Notre site est actuellement en maintenance. Nous travaillons dur pour améliorer nos services et serons de retour sous peu. Merci de votre patience.'
+                },
+                'ru': {
+                    'title': 'Мы проводим техническое обслуживание',
+                    'message': 'Наш сайт в настоящее время находится на обслуживании. Мы усердно работаем над улучшением наших услуг и скоро вернемся. Благодарим за ваше терпение.'
+                },
+                'ar': {
+                    'title': 'نحن نقوم بأعمال الصيانة',
+                    'message': 'موقعنا تحت الصيانة حالياً. نحن نعمل بجد لتحسين خدماتنا وسنعود قريباً. شكراً لصبركم.'
+                },
+                'tr': {
+                    'title': 'Bakım Yapıyoruz',
+                    'message': 'Sitemiz şu anda bakım altında. Hizmetlerimizi iyileştirmek için yoğun bir şekilde çalışıyoruz ve yakında geri döneceğiz. Sabrınız için teşekkür ederiz.'
+                },
+                'el': {
+                    'title': 'Εκτελούμε συντήρηση',
+                    'message': 'Ο ιστότοπός μας είναι αυτή τη στιγμή υπό συντήρηση. Εργαζόμαστε σκληρά για να βελτιώσουμε τις υπηρεσίες μας και θα επιστρέψουμε σύντομα. Σας ευχαριστούμε για την υπομονή σας.'
+                }
+            };
+
+            // Override detection with URL parameter if present
+            var userLang = getQueryParam('locale') || navigator.language || navigator.userLanguage;
+            var langCode = userLang.toLowerCase().substring(0, 2); // Convert to ISO 639-1 language code
+
+            // Choose translation
+            var translation = translations[langCode] || translations['en']; // Default to English
+
+            // Apply translation
+            document.getElementById('headline').textContent = translation.title;
+            document.getElementById('message').textContent = translation.message;
+
+            // Additional support for Arabic RTL
+            if (langCode === 'ar') {
+                document.body.classList.add('rtl');
+            }
+        })();
+    </script>
+</body>
+</html>
