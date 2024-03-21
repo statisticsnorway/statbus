@@ -38,7 +38,7 @@ export default async function LegalUnitGeneralInfoPage({
     );
 
     if (error) {
-      logger.error({ error }, "failed to set primary legal unit");
+      logger.error(error, "failed to set primary legal unit");
       return;
     }
 

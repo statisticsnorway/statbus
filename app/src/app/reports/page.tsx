@@ -15,10 +15,7 @@ export default async function ReportsPage() {
     .returns<DrillDown>();
 
   if (error) {
-    logger.info(
-      { error },
-      "failed to fetch statistical unit facet drill down data"
-    );
+    logger.error(error, "failed to fetch statistical unit drill down data");
     return (
       <p className="p-24 text-center">
         Sorry! We failed to fetch statistical unit facet drill down data.

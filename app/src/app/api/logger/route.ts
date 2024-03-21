@@ -22,24 +22,28 @@ export async function POST(request: Request) {
       location,
     }: ClientLogRequest = await request.json();
 
-    const messages = event.messages;
-    const data = messages.slice(0, -1)?.reduce((acc, curr) => {
-      return { ...acc, ...curr };
-    }, {});
+    /**
+     * The logger may have been called with
+     */
+    const payload = event.messages
+      ?.filter((message) => typeof message === "object")
+      ?.reduce((acc, message) => {
+        return { ...acc, ...message };
+      }, {});
 
     logger[level](
       {
-        ...data,
+        ...payload,
         location,
         reporter: "browser",
         useragent: request.headers.get("user-agent"),
         user: session?.user.email,
       },
-      messages[messages.length - 1]
+      event.messages[event.messages.length - 1]
     );
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    logger.error({ error: e }, "failed to log event");
+    logger.error(e, "failed to log event");
   }
 }

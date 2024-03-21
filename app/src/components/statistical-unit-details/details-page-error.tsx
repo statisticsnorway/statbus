@@ -6,7 +6,7 @@ interface ErrorPageParams {
 }
 
 export default function DetailsPageError({ error }: ErrorPageParams) {
-  logger.error({ error }, "Statistical unit details page failed");
+  logger.error(error, "Statistical unit details page failed");
 
   return (
     <DetailsPage

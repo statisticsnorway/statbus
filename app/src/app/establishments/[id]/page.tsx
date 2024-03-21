@@ -31,7 +31,7 @@ export default async function EstablishmentGeneralInfoPage({
     );
 
     if (error) {
-      logger.error({ error }, "failed to set primary establishment");
+      logger.error(error, "failed to set primary establishment");
       return;
     }
 

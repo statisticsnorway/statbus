@@ -13,10 +13,7 @@ export async function refreshStatisticalUnits() {
     );
 
     if (error) {
-      logger.error(
-        { error },
-        `statistical units refresh returned status ${statusText} and error ${error.message}`
-      );
+      logger.error(error, `statistical units refresh failed`);
       return { error: error.message };
     }
 

@@ -5,11 +5,7 @@ import logger from "@/lib/logger";
 export default function GlobalErrorReporter() {
   useEffect(() => {
     window.onerror = function (message, source, lineno, colno, error) {
-      logger.error(
-        { error: { message: error?.message, stack: error?.stack } },
-        `${message}`
-      );
-
+      logger.error(error, `${message}`);
       return true;
     };
 

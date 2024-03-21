@@ -87,7 +87,7 @@ export async function setCategoryStandard(formData: FormData) {
 
     if (response.status >= 400) {
       logger.error(
-        { error: response.error },
+        response.error,
         "failed to configure activity category standard"
       );
       return { error: response.statusText };

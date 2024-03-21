@@ -51,20 +51,20 @@ export default async function SearchPage({
   ]);
 
   if (sectorsError) {
-    logger.error({ error: sectorsError }, "failed to fetch sectors");
+    logger.error(sectorsError, "failed to fetch sectors");
   }
 
   if (legalFormsError) {
-    logger.error({ error: legalFormsError }, "failed to fetch legal forms");
+    logger.error(legalFormsError, "failed to fetch legal forms");
   }
 
   if (regionsError) {
-    logger.error({ error: regionsError }, "failed to fetch regions");
+    logger.error(regionsError, "failed to fetch regions");
   }
 
   if (activityCategoriesError) {
     logger.error(
-      { error: activityCategoriesError },
+      activityCategoriesError,
       "failed to fetch activity categories"
     );
   }

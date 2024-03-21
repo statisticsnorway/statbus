@@ -47,10 +47,7 @@ export default function CombineUnits() {
 
       router.push(`/enterprises/${enterprise.unit_id}`);
     } catch (e) {
-      logger.error(
-        { error: e },
-        "failed to set primary legal unit for enterprise"
-      );
+      logger.error(e, "failed to set primary legal unit for enterprise");
     }
   };
 

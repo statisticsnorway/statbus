@@ -9,7 +9,7 @@ export default function ErrorPage({
   readonly error: Error & { digest?: string };
 }) {
   useEffect(() => {
-    logger.error(`Caught by ErrorBoundary ${error.message}`);
+    logger.error(error, error.message);
   }, [error]);
 
   return (

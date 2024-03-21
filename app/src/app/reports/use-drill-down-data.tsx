@@ -24,10 +24,7 @@ export const useDrillDownData = (initialDrillDown: DrillDown) => {
         const res = await fetch(`/api/reports?${params}`);
         setDrillDown(await res.json());
       } catch (e) {
-        logger.error(
-          { error: e },
-          "⚠️failed to fetch statistical unit facet drill down data"
-        );
+        logger.error(e, "failed to fetch statistical unit drill down data");
       }
     })();
   }, [region, activityCategory]);

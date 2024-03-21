@@ -34,7 +34,7 @@ export async function POST(
     );
 
     if (error) {
-      logger.error({ error }, "failed to connect legal unit to enterprise");
+      logger.error(error, "failed to connect legal unit to enterprise");
       return NextResponse.json(
         { error: "failed to connect legal unit to enterprise" },
         { status: 500 }
@@ -43,7 +43,7 @@ export async function POST(
 
     return NextResponse.json(data);
   } catch (e) {
-    logger.error({ error: e }, "failed to connect legal unit to enterprise");
+    logger.error(e, "failed to connect legal unit to enterprise");
     return NextResponse.json(
       { error: "failed to connect legal unit to enterprise" },
       { status: 500 }

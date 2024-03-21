@@ -21,7 +21,7 @@ export default async function TopologySlot({
   );
 
   if (error) {
-    logger.error({ error }, "failed to fetch statistical unit hierarchy");
+    logger.error(error, "failed to fetch statistical unit hierarchy");
     return null;
   }
 
