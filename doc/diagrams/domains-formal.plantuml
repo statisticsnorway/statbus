@@ -1,0 +1,21 @@
+@startuml
+
+title Domain Overview for Formal Economy
+
+cloud "Statistical" {
+  rectangle "Enterprise" AS EN
+}
+
+cloud "Legal" {
+  rectangle "Legal Unit" AS LU
+}
+
+cloud "Physical" {
+  rectangle "Establishment" AS ES
+}
+
+LU -up-> EN : always has one
+ES -left-> LU : has one
+@enduml
+
+

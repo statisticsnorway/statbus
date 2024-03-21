@@ -1,0 +1,16 @@
+@startuml
+
+title Domain Overview for Informal Economy
+
+cloud "Statistical" {
+  rectangle "Enterprise" AS EN
+}
+
+cloud "Physical" {
+  rectangle "Establishment" AS ES
+}
+
+ES -up-> EN : has one
+@enduml
+
+
