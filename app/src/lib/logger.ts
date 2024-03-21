@@ -3,11 +3,11 @@ import pino, { Level, LogEvent } from "pino";
 const logger = pino(
   {
     level: "info",
+    name: "statbus app",
     browser: {
       disabled: true,
       transmit: {
         level: "error",
-
         send: async function (level, event) {
           try {
             await fetch("/api/logger", {
