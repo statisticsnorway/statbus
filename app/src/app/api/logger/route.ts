@@ -15,11 +15,16 @@ export async function POST(request: Request) {
       event,
       location,
     }: ClientLogRequest = await request.json();
+
+    const useragent = request.headers.get("user-agent");
     const messages = event.messages;
     const data = messages.slice(0, -1)?.reduce((acc, curr) => {
       return { ...acc, ...curr };
     }, {});
-    logger[level]({ ...data, location }, messages[messages.length - 1]);
+    logger[level](
+      { ...data, location, reporter: "browser", useragent },
+      messages[messages.length - 1]
+    );
     return NextResponse.json({ success: true });
   } catch (e) {
     logger.error({ error: e }, "failed to log event");
