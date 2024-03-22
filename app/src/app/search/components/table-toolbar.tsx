@@ -89,7 +89,7 @@ export default function TableToolbar() {
   );
 
   return (
-    <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 overflow-hidden w-screen lg:w-full">
+    <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
       {filters.map(createFilterComponent)}
       {hasAnyFilterSelected && (
         <ResetFilterButton
