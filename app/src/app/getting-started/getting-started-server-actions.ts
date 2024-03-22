@@ -4,6 +4,8 @@ import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 interface State {
   readonly error: string | null;
   readonly success?: boolean;
@@ -26,6 +28,7 @@ export async function uploadFile(
   "use server";
 
   try {
+    const logger = await createServerLogger();
     const file = formData.get(filename) as File;
     const authFetch = setupAuthorizedFetchFn();
     const response = await authFetch(
@@ -41,10 +44,10 @@ export async function uploadFile(
 
     if (!response.ok) {
       const data = await response.json();
-      console.error(
+      logger.error(
+        { data },
         `upload to ${uploadView} failed with status ${response.status} ${response.statusText}`
       );
-      console.error(data);
       return { error: data.message.replace(/,/g, ", ").replace(/;/g, "; ") };
     }
 
@@ -59,6 +62,7 @@ export async function uploadFile(
 export async function setCategoryStandard(formData: FormData) {
   "use server";
   const client = createClient();
+  const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(
     "activity_category_standard_id"
@@ -71,6 +75,7 @@ export async function setCategoryStandard(formData: FormData) {
     activityCategoryStandardIdFormEntry.toString(),
     10
   );
+
   if (isNaN(activityCategoryStandardId)) {
     return { error: "Invalid activity category standard provided" };
   }
@@ -84,8 +89,10 @@ export async function setCategoryStandard(formData: FormData) {
     );
 
     if (response.status >= 400) {
-      console.error("failed to configure activity category standard");
-      console.error(response.error);
+      logger.error(
+        response.error,
+        "failed to configure activity category standard"
+      );
       return { error: response.statusText };
     }
 

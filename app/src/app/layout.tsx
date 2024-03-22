@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
 import Footer from "@/components/footer";
+import GlobalErrorReporter from "@/app/global-error-reporter";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -33,6 +34,7 @@ export default function RootLayout({
         <CommandPalette />
         <Toaster />
         <Footer />
+        <GlobalErrorReporter />
       </body>
     </html>
   );

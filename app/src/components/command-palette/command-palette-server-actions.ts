@@ -2,9 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 export async function refreshStatisticalUnits() {
   "use server";
   const client = createClient();
+  const logger = await createServerLogger();
 
   try {
     const { status, statusText, data, error } = await client.rpc(
@@ -12,14 +15,12 @@ export async function refreshStatisticalUnits() {
     );
 
     if (error) {
-      console.error(
-        `statistical units refresh returned status ${statusText} and error ${error.message}`
-      );
+      logger.error(error, `statistical units refresh failed`);
       return { error: error.message };
     }
 
     if (status >= 400) {
-      console.error(`statistical units refresh returned status ${statusText}`);
+      logger.error(`statistical units refresh returned status ${statusText}`);
       return { error: statusText };
     }
 
@@ -32,6 +33,7 @@ export async function refreshStatisticalUnits() {
 export async function resetAll() {
   "use server";
   const client = createClient();
+  const logger = await createServerLogger();
 
   try {
     const { data, error } = await client.rpc("reset_all_data", {
@@ -39,7 +41,7 @@ export async function resetAll() {
     });
 
     if (error) {
-      console.error(`reset all returned error ${error.message}`);
+      logger.error(`reset all returned error ${error.message}`);
       return { error: error.message };
     }
 

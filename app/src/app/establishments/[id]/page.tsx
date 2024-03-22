@@ -6,11 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { InfoBox } from "@/components/info-box";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 export default async function EstablishmentGeneralInfoPage({
   params: { id },
 }: {
   readonly params: { id: string };
 }) {
+  const logger = await createServerLogger();
   const { establishment, error } = await getEstablishmentById(id);
 
   if (error) {
@@ -30,7 +33,7 @@ export default async function EstablishmentGeneralInfoPage({
     );
 
     if (error) {
-      console.error("failed to set primary establishment", error);
+      logger.error(error, "failed to set primary establishment");
       return;
     }
 

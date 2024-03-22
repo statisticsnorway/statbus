@@ -1,6 +1,8 @@
 import { Topology } from "@/components/statistical-unit-hierarchy/topology";
 import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 interface TopologySlotProps {
   readonly unitId: number;
   readonly unitType:
@@ -14,18 +16,19 @@ export default async function TopologySlot({
   unitId,
   unitType,
 }: TopologySlotProps) {
+  const logger = await createServerLogger();
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
     unitId,
     unitType
   );
 
   if (error) {
-    console.error(error);
+    logger.error(error, "failed to fetch statistical unit hierarchy");
     return null;
   }
 
   if (!hierarchy) {
-    console.warn(`no hierarchy found for ${unitType} ${unitId}`);
+    logger.warn(`no hierarchy found for ${unitType} ${unitId}`);
     return null;
   }
 

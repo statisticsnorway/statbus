@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/button";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 export const metadata: Metadata = {
   title: "Legal Unit | General Info",
 };
@@ -19,6 +21,7 @@ export default async function LegalUnitGeneralInfoPage({
   readonly params: { id: string };
 }) {
   const { legalUnit, error } = await getLegalUnitById(id);
+  const logger = await createServerLogger();
 
   if (error) {
     throw new Error(error.message, { cause: error });
@@ -37,7 +40,7 @@ export default async function LegalUnitGeneralInfoPage({
     );
 
     if (error) {
-      console.error("failed to set primary legal unit", error);
+      logger.error(error, "failed to set primary legal unit");
       return;
     }
 

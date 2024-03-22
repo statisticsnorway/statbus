@@ -1,5 +1,7 @@
+"use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useEffect, useState } from "react";
+import logger from "@/lib/client-logger";
 
 export const useDrillDownData = (initialDrillDown: DrillDown) => {
   const [drillDown, setDrillDown] = useState<DrillDown>(initialDrillDown);
@@ -23,10 +25,7 @@ export const useDrillDownData = (initialDrillDown: DrillDown) => {
         const res = await fetch(`/api/reports?${params}`);
         setDrillDown(await res.json());
       } catch (e) {
-        console.error(
-          "⚠️failed to fetch statistical unit facet drill down data",
-          e
-        );
+        logger.error(e, "failed to fetch statistical unit drill down data");
       }
     })();
   }, [region, activityCategory]);

@@ -1,10 +1,14 @@
+"use client";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
+import logger from "@/lib/client-logger";
 
 interface ErrorPageParams {
   readonly error: Error & { digest?: string };
 }
 
 export default function DetailsPageError({ error }: ErrorPageParams) {
+  logger.error(error, "Statistical unit details page failed");
+
   return (
     <DetailsPage
       title="This is what happened"

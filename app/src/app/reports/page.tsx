@@ -3,21 +3,22 @@ import StatBusChart from "@/app/reports/statbus-chart";
 import { createClient } from "@/lib/supabase/server";
 import { DrillDown } from "@/app/reports/types/drill-down";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 export const metadata: Metadata = {
   title: "StatBus | Reports",
 };
 
 export default async function ReportsPage() {
   const client = createClient();
+  const logger = await createServerLogger();
+
   const { data: drillDown, error } = await client
     .rpc("statistical_unit_facet_drilldown")
     .returns<DrillDown>();
 
   if (error) {
-    console.error(
-      "⚠️failed to fetch statistical unit facet drill down data",
-      error
-    );
+    logger.error(error, "failed to fetch statistical unit drill down data");
     return (
       <p className="p-24 text-center">
         Sorry! We failed to fetch statistical unit facet drill down data.

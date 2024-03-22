@@ -3,6 +3,8 @@ import Search from "@/app/search/components/search";
 import { Metadata } from "next";
 import { createFilters } from "@/app/search/filters";
 
+import { createServerLogger } from "@/lib/server-logger";
+
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
 };
@@ -13,6 +15,7 @@ export default async function SearchPage({
   readonly searchParams: URLSearchParams;
 }) {
   const client = createClient();
+  const logger = await createServerLogger();
 
   const sectorPromise = client
     .from("sector_used")
@@ -50,21 +53,21 @@ export default async function SearchPage({
   ]);
 
   if (sectorsError) {
-    console.error("⚠️failed to fetch sectors", sectorsError);
+    logger.error(sectorsError, "failed to fetch sectors");
   }
 
   if (legalFormsError) {
-    console.error("⚠️failed to fetch legal forms", legalFormsError);
+    logger.error(legalFormsError, "failed to fetch legal forms");
   }
 
   if (regionsError) {
-    console.error("⚠️failed to fetch regions", regionsError);
+    logger.error(regionsError, "failed to fetch regions");
   }
 
   if (activityCategoriesError) {
-    console.error(
-      "⚠️failed to fetch activity categories",
-      activityCategoriesError
+    logger.error(
+      activityCategoriesError,
+      "failed to fetch activity categories"
     );
   }
 
