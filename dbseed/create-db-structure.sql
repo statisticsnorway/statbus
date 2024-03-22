@@ -3483,8 +3483,19 @@ CREATE FUNCTION public.statistical_unit_facet_drilldown(
     country_id INTEGER DEFAULT NULL,
     valid_on date DEFAULT current_date
 )
-RETURNS jsonb AS $$
-    WITH settings_activity_category_standard AS (
+RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
+    -- Use a params intermediary to avoid conflicts
+    -- between columns and parameters, leading to tautologies. i.e. 'sh.unit_type = unit_type' is always true.
+    WITH params AS (
+        SELECT
+            unit_type AS param_unit_type,
+            region_path AS param_region_path,
+            activity_category_path AS param_activity_category_path,
+            sector_path AS param_sector_path,
+            legal_form_id AS param_legal_form_id,
+            country_id AS param_country_id,
+            valid_on AS param_valid_on
+    ), settings_activity_category_standard AS (
         SELECT activity_category_standard_id AS id FROM public.settings
     ),
     available_facet AS (
@@ -3496,30 +3507,30 @@ RETURNS jsonb AS $$
             suf.physical_country_id,
             count,
             employees
-        FROM
-            public.statistical_unit_facet AS suf
+        FROM public.statistical_unit_facet AS suf
+           , params
         WHERE
-            suf.valid_from <= valid_on AND valid_on <= suf.valid_to
-            AND suf.unit_type = unit_type
+            suf.valid_from <= param_valid_on AND param_valid_on <= suf.valid_to
+            AND (param_unit_type IS NULL OR suf.unit_type = param_unit_type)
             AND (
-                region_path IS NULL
-                OR suf.physical_region_path IS NOT NULL AND suf.physical_region_path OPERATOR(public.<@) region_path
+                param_region_path IS NULL
+                OR suf.physical_region_path IS NOT NULL AND suf.physical_region_path OPERATOR(public.<@) param_region_path
             )
             AND (
-                activity_category_path IS NULL
-                OR suf.primary_activity_category_path IS NOT NULL AND suf.primary_activity_category_path OPERATOR(public.<@) activity_category_path
+                param_activity_category_path IS NULL
+                OR suf.primary_activity_category_path IS NOT NULL AND suf.primary_activity_category_path OPERATOR(public.<@) param_activity_category_path
             )
             AND (
-                sector_path IS NULL
-                OR suf.sector_path IS NOT NULL AND suf.sector_path OPERATOR(public.<@) sector_path
+                param_sector_path IS NULL
+                OR suf.sector_path IS NOT NULL AND suf.sector_path OPERATOR(public.<@) param_sector_path
             )
             AND (
-                legal_form_id IS NULL
-                OR suf.legal_form_id IS NOT NULL AND suf.legal_form_id = legal_form_id
+                param_legal_form_id IS NULL
+                OR suf.legal_form_id IS NOT NULL AND suf.legal_form_id = param_legal_form_id
             )
             AND (
-                country_id IS NULL
-                OR suf.physical_country_id IS NOT NULL AND suf.physical_country_id = country_id
+                param_country_id IS NULL
+                OR suf.physical_country_id IS NOT NULL AND suf.physical_country_id = param_country_id
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
@@ -3737,16 +3748,802 @@ RETURNS jsonb AS $$
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           ),
           'filter',jsonb_build_object(
-            'unit_type',unit_type,
-            'region_path',region_path,
-            'activity_category_path',activity_category_path,
-            'sector_path',sector_path,
-            'legal_form_id',legal_form_id,
-            'country_id',country_id,
-            'valid_on',valid_on
+            'unit_type',param_unit_type,
+            'region_path',param_region_path,
+            'activity_category_path',param_activity_category_path,
+            'sector_path',param_sector_path,
+            'legal_form_id',param_legal_form_id,
+            'country_id',param_country_id,
+            'valid_on',param_valid_on
           )
-        );
-$$ LANGUAGE sql SECURITY DEFINER;
+        )
+    FROM params;
+$$;
+
+
+
+CREATE TYPE public.statistical_history_type AS ENUM('year','year-month');
+
+
+\echo public.statistical_history_def
+SELECT pg_catalog.set_config('search_path', 'public', false);
+CREATE VIEW public.statistical_history_def AS
+WITH year_range AS (
+  SELECT min(valid_from) AS start_year
+       , least(max(valid_to),current_date) AS stop_year
+  FROM public.statistical_unit
+), year_in_range AS (
+    SELECT generate_series(
+        date_trunc('year', start_year)::date,
+        date_trunc('year', stop_year)::date,
+        '1 year'::interval
+    )::date AS time_start,
+    (date_trunc('year', start_year)::date + '1 year'::interval - '1 day'::interval)::date AS time_stop
+    FROM year_range
+), year_and_month_in_range AS (
+    SELECT generate_series(
+        date_trunc('month', start_year)::date,
+        date_trunc('month', stop_year)::date,
+        '1 month'::interval
+    )::date AS time_start,
+    (date_trunc('month', start_year)::date + '1 month'::interval - '1 day'::interval)::date AS time_stop
+    FROM year_range
+), year_with_unit_basis AS (
+    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
+         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+         --
+         , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
+         , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
+         --
+         , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
+         , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
+         --
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         --
+         , su_start.primary_activity_category_path   AS start_primary_activity_category_path
+         , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
+         , su_start.sector_path                      AS start_sector_path
+         , su_start.legal_form_id                    AS start_legal_form_id
+         , su_start.physical_region_path             AS start_physical_region_path
+         , su_start.physical_country_id              AS start_physical_country_id
+         --
+         , su_stop.primary_activity_category_path    AS stop_primary_activity_category_path
+         , su_stop.secondary_activity_category_path  AS stop_secondary_activity_category_path
+         , su_stop.sector_path                       AS stop_sector_path
+         , su_stop.legal_form_id                     AS stop_legal_form_id
+         , su_stop.physical_region_path              AS stop_physical_region_path
+         , su_stop.physical_country_id               AS stop_physical_country_id
+         --
+         , COALESCE(su_stop.primary_activity_category_path  , su_start.primary_activity_category_path)   AS primary_activity_category_path
+         , COALESCE(su_stop.secondary_activity_category_path, su_start.secondary_activity_category_path) AS secondary_activity_category_path
+         , COALESCE(su_stop.sector_path                     , su_start.sector_path)                      AS sector_path
+         , COALESCE(su_stop.legal_form_id                   , su_start.legal_form_id)                    AS legal_form_id
+         , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
+         , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
+         --
+         , su_start.employees AS start_employees
+         , su_stop.employees  AS stop_employees
+         , su_start.turnover  AS start_turnover
+         , su_stop.turnover   AS stop_turnover
+         --
+         , COALESCE(su_stop.employees , su_start.employees) AS employees
+         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         --
+    FROM year_in_range AS range
+    LEFT JOIN public.statistical_unit AS su_start
+           ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
+    LEFT JOIN public.statistical_unit AS su_stop
+           ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
+    WHERE su_start.unit_type IS NULL
+       OR su_stop.unit_type IS NULL
+       OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+), year_with_unit_derived AS (
+    SELECT basis.*
+         --
+         , track_changes AND NOT born AND not died AND start_primary_activity_category_path   IS DISTINCT FROM stop_primary_activity_category_path   AS primary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_secondary_activity_category_path IS DISTINCT FROM stop_secondary_activity_category_path AS secondary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_sector_path                      IS DISTINCT FROM stop_sector_path                      AS sector_changed
+         , track_changes AND NOT born AND not died AND start_legal_form_id                    IS DISTINCT FROM stop_legal_form_id                    AS legal_form_changed
+         , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
+         , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
+         --
+         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
+         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         --
+    FROM year_with_unit_basis AS basis
+), year_and_month_with_unit_basis AS (
+    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
+         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+         , EXTRACT(MONTH FROM range.time_start)::INT AS month
+         --
+         , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
+         , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
+         --
+         , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
+         , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
+         --
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         --
+         , su_start.primary_activity_category_path   AS start_primary_activity_category_path
+         , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
+         , su_start.sector_path                      AS start_sector_path
+         , su_start.legal_form_id                    AS start_legal_form_id
+         , su_start.physical_region_path             AS start_physical_region_path
+         , su_start.physical_country_id              AS start_physical_country_id
+         --
+         , su_stop.primary_activity_category_path    AS stop_primary_activity_category_path
+         , su_stop.secondary_activity_category_path  AS stop_secondary_activity_category_path
+         , su_stop.sector_path                       AS stop_sector_path
+         , su_stop.legal_form_id                     AS stop_legal_form_id
+         , su_stop.physical_region_path              AS stop_physical_region_path
+         , su_stop.physical_country_id               AS stop_physical_country_id
+         --
+         , COALESCE(su_stop.primary_activity_category_path  , su_start.primary_activity_category_path)   AS primary_activity_category_path
+         , COALESCE(su_stop.secondary_activity_category_path, su_start.secondary_activity_category_path) AS secondary_activity_category_path
+         , COALESCE(su_stop.sector_path                     , su_start.sector_path)                      AS sector_path
+         , COALESCE(su_stop.legal_form_id                   , su_start.legal_form_id)                    AS legal_form_id
+         , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
+         , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
+         --
+         , su_start.employees AS start_employees
+         , su_stop.employees  AS stop_employees
+         , su_start.turnover  AS start_turnover
+         , su_stop.turnover   AS stop_turnover
+         --
+         , COALESCE(su_stop.employees , su_start.employees) AS employees
+         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         --
+    FROM year_in_range AS range
+    LEFT JOIN public.statistical_unit AS su_start
+           ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
+    LEFT JOIN public.statistical_unit AS su_stop
+           ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
+    WHERE su_start.unit_type IS NULL
+       OR su_stop.unit_type IS NULL
+       OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+), year_and_month_with_unit_derived AS (
+    SELECT basis.*
+         --
+         , track_changes AND NOT born AND not died AND start_primary_activity_category_path   IS DISTINCT FROM stop_primary_activity_category_path   AS primary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_secondary_activity_category_path IS DISTINCT FROM stop_secondary_activity_category_path AS secondary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_sector_path                      IS DISTINCT FROM stop_sector_path                      AS sector_changed
+         , track_changes AND NOT born AND not died AND start_legal_form_id                    IS DISTINCT FROM stop_legal_form_id                    AS legal_form_changed
+         , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
+         , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
+         --
+         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
+         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         --
+    FROM year_and_month_with_unit_basis AS basis
+), year_with_unit AS (
+    SELECT 'year'::public.statistical_history_type AS type
+         , source.year                             AS year
+         , NULL::INTEGER                           AS month
+         , source.unit_type                        AS unit_type
+         --
+         , COUNT(source.*)                            AS count
+         --
+         , COUNT(source.*) FILTER (WHERE source.born) AS births
+         , COUNT(source.*) FILTER (WHERE source.died) AS deaths
+         --
+         , COUNT(source.*) FILTER (WHERE source.primary_activity_category_changed)   AS primary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.secondary_activity_category_changed) AS secondary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.sector_changed)                      AS sector_change_count
+         , COUNT(source.*) FILTER (WHERE source.legal_form_changed)                  AS legal_form_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
+         --
+         , SUM(source.employees) AS employees
+         , SUM(source.turnover)  AS turnover
+    FROM year_with_unit_derived AS source
+    GROUP BY year, unit_type
+), year_and_month_with_unit AS (
+    SELECT 'year-month'::public.statistical_history_type AS type
+         , source.year                             AS year
+         , source.month                            AS month
+         , source.unit_type                        AS unit_type
+         --
+         , COUNT(source.*)                         AS count
+         --
+         , COUNT(source.*) FILTER (WHERE source.born) AS births
+         , COUNT(source.*) FILTER (WHERE source.died) AS deaths
+         --
+         , COUNT(source.*) FILTER (WHERE source.primary_activity_category_changed)   AS primary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.secondary_activity_category_changed) AS secondary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.sector_changed)                      AS sector_change_count
+         , COUNT(source.*) FILTER (WHERE source.legal_form_changed)                  AS legal_form_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
+         --
+         , SUM(source.employees) AS employees
+         , SUM(source.turnover)  AS turnover
+    FROM year_and_month_with_unit_derived AS source
+    GROUP BY year, month, unit_type
+)
+SELECT * FROM year_with_unit
+UNION ALL
+SELECT * FROM year_and_month_with_unit
+;
+
+-- Reset the search path such that all things must have an explicit namespace.
+SELECT pg_catalog.set_config('search_path', '', false);
+
+
+\echo public.statistical_history
+CREATE MATERIALIZED VIEW public.statistical_history AS
+SELECT * FROM public.statistical_history_def
+ORDER BY year, month;
+
+CREATE INDEX idx_statistical_history_type ON public.statistical_history (type);
+CREATE INDEX idx_statistical_history_year ON public.statistical_history (year);
+CREATE INDEX idx_statistical_history_month ON public.statistical_history (month);
+CREATE INDEX idx_statistical_history_births ON public.statistical_history (births);
+CREATE INDEX idx_statistical_history_deaths ON public.statistical_history (deaths);
+CREATE INDEX idx_statistical_history_count ON public.statistical_history (count);
+CREATE INDEX idx_statistical_history_employees ON public.statistical_history (employees);
+CREATE INDEX idx_statistical_history_turnover ON public.statistical_history (turnover);
+
+
+\echo public.statistical_history_facet_def
+SELECT pg_catalog.set_config('search_path', 'public', false);
+CREATE VIEW public.statistical_history_facet_def AS
+WITH year_range AS (
+  SELECT min(valid_from) AS start_year
+       , least(max(valid_to),current_date) AS stop_year
+  FROM public.statistical_unit
+), year_in_range AS (
+    SELECT generate_series(
+        date_trunc('year', start_year)::date,
+        date_trunc('year', stop_year)::date,
+        '1 year'::interval
+    )::date AS time_start,
+    (date_trunc('year', start_year)::date + '1 year'::interval - '1 day'::interval)::date AS time_stop
+    FROM year_range
+), year_and_month_in_range AS (
+    SELECT generate_series(
+        date_trunc('month', start_year)::date,
+        date_trunc('month', stop_year)::date,
+        '1 month'::interval
+    )::date AS time_start,
+    (date_trunc('month', start_year)::date + '1 month'::interval - '1 day'::interval)::date AS time_stop
+    FROM year_range
+), year_with_unit_basis AS (
+    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
+         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+         --
+         , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
+         , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
+         --
+         , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
+         , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
+         --
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         --
+         , su_start.primary_activity_category_path   AS start_primary_activity_category_path
+         , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
+         , su_start.sector_path                      AS start_sector_path
+         , su_start.legal_form_id                    AS start_legal_form_id
+         , su_start.physical_region_path             AS start_physical_region_path
+         , su_start.physical_country_id              AS start_physical_country_id
+         --
+         , su_stop.primary_activity_category_path    AS stop_primary_activity_category_path
+         , su_stop.secondary_activity_category_path  AS stop_secondary_activity_category_path
+         , su_stop.sector_path                       AS stop_sector_path
+         , su_stop.legal_form_id                     AS stop_legal_form_id
+         , su_stop.physical_region_path              AS stop_physical_region_path
+         , su_stop.physical_country_id               AS stop_physical_country_id
+         --
+         , COALESCE(su_stop.primary_activity_category_path  , su_start.primary_activity_category_path)   AS primary_activity_category_path
+         , COALESCE(su_stop.secondary_activity_category_path, su_start.secondary_activity_category_path) AS secondary_activity_category_path
+         , COALESCE(su_stop.sector_path                     , su_start.sector_path)                      AS sector_path
+         , COALESCE(su_stop.legal_form_id                   , su_start.legal_form_id)                    AS legal_form_id
+         , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
+         , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
+         --
+         , su_start.employees AS start_employees
+         , su_stop.employees  AS stop_employees
+         , su_start.turnover  AS start_turnover
+         , su_stop.turnover   AS stop_turnover
+         --
+         , COALESCE(su_stop.employees , su_start.employees) AS employees
+         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         --
+    FROM year_in_range AS range
+    LEFT JOIN public.statistical_unit AS su_start
+           ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
+    LEFT JOIN public.statistical_unit AS su_stop
+           ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
+    WHERE su_start.unit_type IS NULL
+       OR su_stop.unit_type IS NULL
+       OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+), year_with_unit_derived AS (
+    SELECT basis.*
+         --
+         , track_changes AND NOT born AND not died AND start_primary_activity_category_path   IS DISTINCT FROM stop_primary_activity_category_path   AS primary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_secondary_activity_category_path IS DISTINCT FROM stop_secondary_activity_category_path AS secondary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_sector_path                      IS DISTINCT FROM stop_sector_path                      AS sector_changed
+         , track_changes AND NOT born AND not died AND start_legal_form_id                    IS DISTINCT FROM stop_legal_form_id                    AS legal_form_changed
+         , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
+         , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
+         --
+         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
+         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         --
+    FROM year_with_unit_basis AS basis
+), year_and_month_with_unit_basis AS (
+    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
+         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+         , EXTRACT(MONTH FROM range.time_start)::INT AS month
+         --
+         , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
+         , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
+         --
+         , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
+         , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
+         --
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         --
+         , su_start.primary_activity_category_path   AS start_primary_activity_category_path
+         , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
+         , su_start.sector_path                      AS start_sector_path
+         , su_start.legal_form_id                    AS start_legal_form_id
+         , su_start.physical_region_path             AS start_physical_region_path
+         , su_start.physical_country_id              AS start_physical_country_id
+         --
+         , su_stop.primary_activity_category_path    AS stop_primary_activity_category_path
+         , su_stop.secondary_activity_category_path  AS stop_secondary_activity_category_path
+         , su_stop.sector_path                       AS stop_sector_path
+         , su_stop.legal_form_id                     AS stop_legal_form_id
+         , su_stop.physical_region_path              AS stop_physical_region_path
+         , su_stop.physical_country_id               AS stop_physical_country_id
+         --
+         , COALESCE(su_stop.primary_activity_category_path  , su_start.primary_activity_category_path)   AS primary_activity_category_path
+         , COALESCE(su_stop.secondary_activity_category_path, su_start.secondary_activity_category_path) AS secondary_activity_category_path
+         , COALESCE(su_stop.sector_path                     , su_start.sector_path)                      AS sector_path
+         , COALESCE(su_stop.legal_form_id                   , su_start.legal_form_id)                    AS legal_form_id
+         , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
+         , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
+         --
+         , su_start.employees AS start_employees
+         , su_stop.employees  AS stop_employees
+         , su_start.turnover  AS start_turnover
+         , su_stop.turnover   AS stop_turnover
+         --
+         , COALESCE(su_stop.employees , su_start.employees) AS employees
+         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         --
+    FROM year_in_range AS range
+    LEFT JOIN public.statistical_unit AS su_start
+           ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
+    LEFT JOIN public.statistical_unit AS su_stop
+           ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
+    WHERE su_start.unit_type IS NULL
+       OR su_stop.unit_type IS NULL
+       OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+), year_and_month_with_unit_derived AS (
+    SELECT basis.*
+         --
+         , track_changes AND NOT born AND not died AND start_primary_activity_category_path   IS DISTINCT FROM stop_primary_activity_category_path   AS primary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_secondary_activity_category_path IS DISTINCT FROM stop_secondary_activity_category_path AS secondary_activity_category_changed
+         , track_changes AND NOT born AND not died AND start_sector_path                      IS DISTINCT FROM stop_sector_path                      AS sector_changed
+         , track_changes AND NOT born AND not died AND start_legal_form_id                    IS DISTINCT FROM stop_legal_form_id                    AS legal_form_changed
+         , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
+         , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
+         --
+         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
+         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         --
+    FROM year_and_month_with_unit_basis AS basis
+), year_with_unit_per_facet AS (
+    SELECT 'year'::public.statistical_history_type AS type
+         , source.year                             AS year
+         , NULL::INTEGER                          AS month
+         , source.unit_type                        AS unit_type
+         --
+         , source.primary_activity_category_path   AS primary_activity_category_path
+         , source.secondary_activity_category_path AS secondary_activity_category_path
+         , source.sector_path                      AS sector_path
+         , source.legal_form_id                    AS legal_form_id
+         , source.physical_region_path             AS physical_region_path
+         , source.physical_country_id              AS physical_country_id
+         --
+         , COUNT(source.*)                         AS count
+         --
+         , COUNT(source.*) FILTER (WHERE source.born) AS births
+         , COUNT(source.*) FILTER (WHERE source.died) AS deaths
+         --
+         , COUNT(source.*) FILTER (WHERE source.primary_activity_category_changed)   AS primary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.secondary_activity_category_changed) AS secondary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.sector_changed)                      AS sector_change_count
+         , COUNT(source.*) FILTER (WHERE source.legal_form_changed)                  AS legal_form_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
+         --
+         , SUM(source.employees) AS employees
+         , SUM(source.turnover) AS turnover
+    FROM year_with_unit_derived AS source
+    GROUP BY year, unit_type
+           , primary_activity_category_path
+           , secondary_activity_category_path
+           , sector_path
+           , legal_form_id
+           , physical_region_path
+           , physical_country_id
+), year_and_month_with_unit_per_facet AS (
+    SELECT 'year-month'::public.statistical_history_type AS type
+         , source.year                             AS year
+         , source.month                            AS month
+         , source.unit_type                        AS unit_type
+         --
+         , source.primary_activity_category_path   AS primary_activity_category_path
+         , source.secondary_activity_category_path AS secondary_activity_category_path
+         , source.sector_path                      AS sector_path
+         , source.legal_form_id                    AS legal_form_id
+         , source.physical_region_path             AS physical_region_path
+         , source.physical_country_id              AS physical_country_id
+         --
+         , COUNT(source.*)                         AS count
+         --
+         , COUNT(source.*) FILTER (WHERE source.born) AS births
+         , COUNT(source.*) FILTER (WHERE source.died) AS deaths
+         --
+         , COUNT(source.*) FILTER (WHERE source.primary_activity_category_changed)   AS primary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.secondary_activity_category_changed) AS secondary_activity_category_change_count
+         , COUNT(source.*) FILTER (WHERE source.sector_changed)                      AS sector_change_count
+         , COUNT(source.*) FILTER (WHERE source.legal_form_changed)                  AS legal_form_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
+         , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
+         --
+         , SUM(source.employees) AS employees
+         , SUM(source.turnover) AS turnover
+    FROM year_and_month_with_unit_derived AS source
+    GROUP BY year, month, unit_type
+           , primary_activity_category_path
+           , secondary_activity_category_path
+           , sector_path
+           , legal_form_id
+           , physical_region_path
+           , physical_country_id
+)
+SELECT * FROM year_with_unit_per_facet
+UNION ALL
+SELECT * FROM year_and_month_with_unit_per_facet
+;
+SELECT pg_catalog.set_config('search_path', '', false);
+
+\echo public.statistical_history_facet
+CREATE MATERIALIZED VIEW public.statistical_history_facet AS
+SELECT * FROM public.statistical_history_facet_def
+ORDER BY year, month;
+
+CREATE INDEX idx_statistical_history_facet_year ON public.statistical_history_facet (year);
+CREATE INDEX idx_statistical_history_facet_month ON public.statistical_history_facet (month);
+CREATE INDEX idx_statistical_history_facet_births ON public.statistical_history_facet (births);
+CREATE INDEX idx_statistical_history_facet_deaths ON public.statistical_history_facet (deaths);
+
+CREATE INDEX idx_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet (primary_activity_category_path);
+CREATE INDEX idx_gist_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet USING GIST (primary_activity_category_path);
+
+CREATE INDEX idx_statistical_history_facet_secondary_activity_category_path ON public.statistical_history_facet (secondary_activity_category_path);
+CREATE INDEX idx_gist_statistical_history_facet_secondary_activity_category_path ON public.statistical_history_facet USING GIST (secondary_activity_category_path);
+
+CREATE INDEX idx_statistical_history_facet_sector_path ON public.statistical_history_facet (sector_path);
+CREATE INDEX idx_gist_statistical_history_facet_sector_path ON public.statistical_history_facet USING GIST (sector_path);
+
+CREATE INDEX idx_statistical_history_facet_legal_form_id ON public.statistical_history_facet (legal_form_id);
+
+CREATE INDEX idx_statistical_history_facet_physical_region_path ON public.statistical_history_facet (physical_region_path);
+CREATE INDEX idx_gist_statistical_history_facet_physical_region_path ON public.statistical_history_facet USING GIST (physical_region_path);
+
+CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statistical_history_facet (physical_country_id);
+CREATE INDEX idx_statistical_history_facet_count ON public.statistical_history_facet (count);
+CREATE INDEX idx_statistical_history_facet_employees ON public.statistical_history_facet (employees);
+CREATE INDEX idx_statistical_history_facet_turnover ON public.statistical_history_facet (turnover);
+
+
+\echo public.statistical_history_drilldown
+CREATE FUNCTION public.statistical_history_drilldown(
+    unit_type public.statistical_unit_type DEFAULT 'enterprise',
+    type public.statistical_history_type DEFAULT 'year',
+    year INTEGER DEFAULT NULL,
+    region_path public.ltree DEFAULT NULL,
+    activity_category_path public.ltree DEFAULT NULL,
+    sector_path public.ltree DEFAULT NULL,
+    legal_form_id INTEGER DEFAULT NULL,
+    country_id INTEGER DEFAULT NULL
+)
+RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
+    -- Use a params intermediary to avoid conflicts
+    -- between columns and parameters, leading to tautologies. i.e. 'sh.type = type' is always true.
+    WITH params AS (
+        SELECT
+            unit_type AS param_unit_type,
+            type AS param_type,
+            year AS param_year,
+            region_path AS param_region_path,
+            activity_category_path AS param_activity_category_path,
+            sector_path AS param_sector_path,
+            legal_form_id AS param_legal_form_id,
+            country_id AS param_country_id
+    ), settings_activity_category_standard AS (
+        SELECT activity_category_standard_id AS id FROM public.settings
+    ),
+    available_history AS (
+        SELECT sh.*
+        FROM public.statistical_history_facet AS sh
+           , params
+        WHERE (param_unit_type IS NULL OR sh.unit_type = param_unit_type)
+          AND (param_type IS NULL OR sh.type = param_type)
+          AND (param_year IS NULL OR sh.year = param_year)
+          AND (
+              param_region_path IS NULL
+              OR sh.physical_region_path IS NOT NULL AND sh.physical_region_path OPERATOR(public.<@) param_region_path
+              )
+          AND (
+              param_activity_category_path IS NULL
+              OR sh.primary_activity_category_path IS NOT NULL AND sh.primary_activity_category_path OPERATOR(public.<@) param_activity_category_path
+              )
+          AND (
+              param_sector_path IS NULL
+              OR sh.sector_path IS NOT NULL AND sh.sector_path OPERATOR(public.<@) param_sector_path
+              )
+          AND (
+              param_legal_form_id IS NULL
+              OR sh.legal_form_id IS NOT NULL AND sh.legal_form_id = param_legal_form_id
+              )
+          AND (
+              param_country_id IS NULL
+              OR sh.physical_country_id IS NOT NULL AND sh.physical_country_id = param_country_id
+              )
+    ), available_history_stats AS (
+        SELECT year, month
+             , COALESCE(SUM(ah.count), 0) AS count
+            --
+             , COALESCE(SUM(ah.employees), 0) AS employees
+             , COALESCE(SUM(ah.turnover) , 0) AS turnover
+             --
+             , COALESCE(SUM(ah.births), 0) AS births
+             , COALESCE(SUM(ah.deaths), 0) AS deaths
+             --
+             , COALESCE(SUM(ah.primary_activity_category_change_count) , 0) AS primary_activity_category_change_count
+             , COALESCE(SUM(ah.sector_change_count)                    , 0) AS sector_change_count
+             , COALESCE(SUM(ah.legal_form_change_count)                , 0) AS legal_form_change_count
+             , COALESCE(SUM(ah.physical_region_change_count)           , 0) AS physical_region_change_count
+             , COALESCE(SUM(ah.physical_country_change_count)          , 0) AS physical_country_change_count
+             --
+        FROM available_history AS ah
+        GROUP BY year, month
+        ORDER BY year ASC, month ASC NULLS FIRST
+    ),
+    breadcrumb_region AS (
+        SELECT r.path
+             , r.label
+             , r.code
+             , r.name
+        FROM public.region AS r
+        WHERE
+            (   region_path IS NOT NULL
+            AND r.path OPERATOR(public.@>) (region_path)
+            )
+        ORDER BY path
+    ),
+    available_region AS (
+        SELECT r.path
+             , r.label
+             , r.code
+             , r.name
+        FROM public.region AS r
+        WHERE
+            (
+                (region_path IS NULL AND r.path OPERATOR(public.~) '*{1}'::public.lquery)
+            OR
+                (region_path IS NOT NULL AND r.path OPERATOR(public.~) (region_path::text || '.*{1}')::public.lquery)
+            )
+        ORDER BY r.path
+    ), aggregated_region_counts AS (
+        SELECT ar.path
+             , ar.label
+             , ar.code
+             , ar.name
+             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(bool_or(true) FILTER (WHERE sh.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
+        FROM available_region AS ar
+        LEFT JOIN available_history AS sh ON sh.physical_region_path OPERATOR(public.<@) ar.path
+        GROUP BY ar.path
+               , ar.label
+               , ar.code
+               , ar.name
+    ),
+    breadcrumb_activity_category AS (
+        SELECT ac.path
+             , ac.label
+             , ac.code
+             , ac.name
+        FROM
+            public.activity_category AS ac
+        WHERE ac.active
+           AND ac.standard_id = (SELECT id FROM settings_activity_category_standard)
+           AND
+            (     activity_category_path IS NOT NULL
+              AND ac.path OPERATOR(public.@>) activity_category_path
+            )
+        ORDER BY path
+    ),
+    available_activity_category AS (
+        SELECT ac.path
+             , ac.label
+             , ac.code
+             , ac.name
+        FROM
+            public.activity_category AS ac
+        WHERE ac.active
+           AND ac.standard_id = (SELECT id FROM settings_activity_category_standard)
+           AND
+            (
+                (activity_category_path IS NULL AND ac.path OPERATOR(public.~) '*{1}'::public.lquery)
+            OR
+                (activity_category_path IS NOT NULL AND ac.path OPERATOR(public.~) (activity_category_path::text || '.*{1}')::public.lquery)
+            )
+        ORDER BY ac.path
+    ),
+    aggregated_activity_counts AS (
+        SELECT aac.path
+             , aac.label
+             , aac.code
+             , aac.name
+             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(bool_or(true) FILTER (WHERE sh.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
+        FROM
+            available_activity_category AS aac
+        LEFT JOIN available_history AS sh ON sh.primary_activity_category_path OPERATOR(public.<@) aac.path
+        GROUP BY aac.path
+               , aac.label
+               , aac.code
+               , aac.name
+    ),
+    breadcrumb_sector AS (
+        SELECT s.path
+             , s.label
+             , s.code
+             , s.name
+        FROM public.sector AS s
+        WHERE
+            (   sector_path IS NOT NULL
+            AND s.path OPERATOR(public.@>) (sector_path)
+            )
+        ORDER BY s.path
+    ),
+    available_sector AS (
+        SELECT "as".path
+             , "as".label
+             , "as".code
+             , "as".name
+        FROM public.sector AS "as"
+        WHERE
+            (
+                (sector_path IS NULL AND "as".path OPERATOR(public.~) '*{1}'::public.lquery)
+            OR
+                (sector_path IS NOT NULL AND "as".path OPERATOR(public.~) (sector_path::text || '.*{1}')::public.lquery)
+            )
+        ORDER BY "as".path
+    ), aggregated_sector_counts AS (
+        SELECT "as".path
+             , "as".label
+             , "as".code
+             , "as".name
+             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(bool_or(true) FILTER (WHERE sh.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
+        FROM available_sector AS "as"
+        LEFT JOIN available_history AS sh ON sh.sector_path OPERATOR(public.<@) "as".path
+        GROUP BY "as".path
+               , "as".label
+               , "as".code
+               , "as".name
+    ),
+    breadcrumb_legal_form AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+        FROM public.legal_form AS lf
+        WHERE
+            (   legal_form_id IS NOT NULL
+            AND lf.id = legal_form_id
+            )
+        ORDER BY lf.id
+    ),
+    available_legal_form AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+        FROM public.legal_form AS lf
+        -- Every sector is available, unless one is selected.
+        WHERE legal_form_id IS NULL
+        ORDER BY lf.id
+    ), aggregated_legal_form_counts AS (
+        SELECT lf.id
+             , lf.code
+             , lf.name
+             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.employees), 0) AS employees
+             , false AS has_children
+        FROM available_legal_form AS lf
+        LEFT JOIN available_history AS sh ON sh.legal_form_id = lf.id
+        GROUP BY lf.id
+               , lf.code
+               , lf.name
+    ),
+    breadcrumb_physical_country AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+        FROM public.country AS pc
+        WHERE
+            (   country_id IS NOT NULL
+            AND pc.id = country_id
+            )
+        ORDER BY pc.code_2
+    ),
+    available_physical_country AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+        FROM public.country AS pc
+        -- Every country is available, unless one is selected.
+        WHERE country_id IS NULL
+        ORDER BY pc.code_2
+    ), aggregated_physical_country_counts AS (
+        SELECT pc.id
+             , pc.code_2
+             , pc.name
+             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.employees), 0) AS employees
+             , false AS has_children
+        FROM available_physical_country AS pc
+        LEFT JOIN available_history AS sh ON sh.physical_country_id = pc.id
+        GROUP BY pc.id
+               , pc.code_2
+               , pc.name
+    )
+    SELECT
+        jsonb_build_object(
+          'unit_type', unit_type,
+          'stats', (SELECT jsonb_agg(to_jsonb(source.*)) FROM available_history_stats AS source),
+          'breadcrumb',jsonb_build_object(
+            'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
+            'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_sector AS source),
+            'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_legal_form AS source),
+            'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
+          ),
+          'available',jsonb_build_object(
+            'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
+            'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0),
+            'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_sector_counts AS source WHERE count > 0),
+            'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_legal_form_counts AS source WHERE count > 0),
+            'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
+          ),
+          'filter',jsonb_build_object(
+            'type',param_type,
+            'year',param_year,
+            'unit_type',param_unit_type,
+            'region_path',param_region_path,
+            'activity_category_path',param_activity_category_path,
+            'sector_path',param_sector_path,
+            'legal_form_id',param_legal_form_id,
+            'country_id',param_country_id
+          )
+        )
+    FROM params;
+$$;
+
+
 
 
 \echo public.stat_for_unit_hierarchy
@@ -4090,6 +4887,8 @@ DECLARE
         , 'legal_form_used'
         , 'country_used'
         , 'statistical_unit_facet'
+        , 'statistical_history'
+        , 'statistical_history_facet'
         ];
 BEGIN
     FOREACH name IN ARRAY materialized_views LOOP
@@ -4118,7 +4917,17 @@ RETURNS TABLE(view_name text, modified_at timestamp) AS $$
 DECLARE
     path_separator char;
     materialized_view_schema text := 'public';
-    materialized_view_names text[] := ARRAY['statistical_unit','activity_category_used','region_used', 'statistical_unit_facet'];
+    materialized_view_names text[] := ARRAY
+        [ 'statistical_unit'
+        , 'activity_category_used'
+        , 'region_used'
+        , 'sector_used'
+        , 'legal_form_used'
+        , 'country_used'
+        , 'statistical_unit_facet'
+        , 'statistical_history'
+        , 'statistical_history_facet'
+        ];
 BEGIN
     SELECT INTO path_separator
     CASE WHEN SUBSTR(setting, 1, 1) = '/' THEN '/' ELSE '\\' END
