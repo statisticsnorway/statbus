@@ -79,6 +79,22 @@ DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
 \echo public.activity_category_standard_hierarchy
 DROP FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id integer);
 
+\echo public.statistical_history
+DROP MATERIALIZED VIEW public.statistical_history;
+\echo public.statistical_history_def
+DROP VIEW public.statistical_history_def;
+
+\echo public.statistical_history_facet
+DROP MATERIALIZED VIEW public.statistical_history_facet;
+\echo public.statistical_history_facet_def
+DROP VIEW public.statistical_history_facet_def;
+
+\echo public.statistical_history_drilldown
+DROP FUNCTION public.statistical_history_drilldown;
+
+\echo public.statistical_history_type
+DROP TYPE public.statistical_history_type;
+
 \echo public.websearch_to_wildcard_tsquery
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
 \echo public.statistical_unit_refresh_now
