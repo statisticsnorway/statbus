@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { Level, LogEvent } from "pino";
-import { createClient } from "@/lib/supabase/server";
 
 import { createServerLogger } from "@/lib/server-logger";
 
@@ -12,18 +11,8 @@ interface ClientLogRequest {
 
 export async function POST(request: Request) {
   try {
-    const client = createClient();
     const logger = await createServerLogger();
-    const {
-      data: { session },
-    } = await client.auth.getSession();
-
-    const {
-      level = "info",
-      event,
-      location,
-    }: ClientLogRequest = await request.json();
-
+    const { level = "info", event }: ClientLogRequest = await request.json();
     const payload = event.messages
       ?.filter((message) => typeof message === "object")
       ?.reduce((acc, message) => {
@@ -33,10 +22,8 @@ export async function POST(request: Request) {
     logger[level](
       {
         ...payload,
-        location,
         reporter: "browser",
         useragent: request.headers.get("user-agent"),
-        user: session?.user.email,
       },
       event.messages[event.messages.length - 1]
     );
