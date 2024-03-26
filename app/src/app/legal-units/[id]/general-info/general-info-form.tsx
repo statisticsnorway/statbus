@@ -1,6 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-actions";
+import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useFormState } from "react-dom";
 import React from "react";
 import { z } from "zod";

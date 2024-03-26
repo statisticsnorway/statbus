@@ -5,7 +5,7 @@ import React from "react";
 import { z } from "zod";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
 import { SubmissionFeedbackDebugInfo } from "@/app/legal-units/components/submission-feedback-debug-info";
-import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-actions";
+import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { FormField } from "@/components/form/form-field";
 
 export default function ContactInfoForm({

@@ -5,11 +5,8 @@ import { DetailsPage } from "@/components/statistical-unit-details/details-page"
 import { getLegalUnitById } from "@/components/statistical-unit-details/requests";
 import { InfoBox } from "@/components/info-box";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/button";
-
-import { createServerLogger } from "@/lib/server-logger";
+import { setPrimaryLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 
 export const metadata: Metadata = {
   title: "Legal Unit | General Info",
@@ -21,7 +18,6 @@ export default async function LegalUnitGeneralInfoPage({
   readonly params: { id: string };
 }) {
   const { legalUnit, error } = await getLegalUnitById(id);
-  const logger = await createServerLogger();
 
   if (error) {
     throw new Error(error.message, { cause: error });
@@ -29,22 +25,6 @@ export default async function LegalUnitGeneralInfoPage({
 
   if (!legalUnit) {
     notFound();
-  }
-
-  async function setPrimary(id: number) {
-    "use server";
-    const client = createClient();
-    const { error } = await client.rpc(
-      "set_primary_legal_unit_for_enterprise",
-      { legal_unit_id: id }
-    );
-
-    if (error) {
-      logger.error(error, "failed to set primary legal unit");
-      return;
-    }
-
-    return revalidatePath("/legal-units/[id]", "page");
   }
 
   return (
@@ -70,7 +50,7 @@ export default async function LegalUnitGeneralInfoPage({
       )}
       {!legalUnit.primary_for_enterprise && (
         <form
-          action={setPrimary.bind(null, legalUnit.id)}
+          action={setPrimaryLegalUnit.bind(null, legalUnit.id)}
           className="bg-gray-100 p-2"
         >
           <Button type="submit" variant="outline">
