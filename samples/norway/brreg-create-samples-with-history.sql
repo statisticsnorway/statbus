@@ -340,7 +340,7 @@ BEGIN
                     SELECT jsonb_array_length(rec.establishments) INTO establishment_count;
 
                     -- Decide how many new establishments to add (from 1 to establishment_count)
-                    new_establishments_count := floor((random()+1) * (establishment_count + 1))::INTEGER;
+                    new_establishments_count := floor((random() + 1) * log(establishment_count + 1 + exp(1)))::INTEGER;
                     RAISE NOTICE 'Adding % establishments', new_establishments_count;
 
                     -- Add new establishments
