@@ -279,10 +279,10 @@ BEGIN
                FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
                LOOP
                    IF random() <= 0.1 THEN
-                       RAISE NOTICE 'Removing establishment %', element->>'organisasjonsnummer';
+                       RAISE NOTICE 'year: % Removing establishment %', next_year, element->>'organisasjonsnummer';
                        new_establishments := new_establishments || jsonb_build_array(element);
                    ELSE
-                       RAISE NOTICE 'Keeping establishment %', element->>'organisasjonsnummer';
+                       RAISE NOTICE 'year: % Keeping establishment %', next_year, element->>'organisasjonsnummer';
                    END IF;
                END LOOP;
                rec.establishments := new_establishments;
@@ -295,7 +295,7 @@ BEGIN
                FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
                LOOP
                    IF random() <= 0.3 THEN
-                     RAISE NOTICE 'Change establishment %', element->>'organisasjonsnummer';
+                     RAISE NOTICE 'year: % Change establishment %', next_year, element->>'organisasjonsnummer';
                      SELECT to_jsonb(u.*)
                            - 'organisasjonsnummer'
                            - 'overordnetEnhet'
@@ -318,7 +318,7 @@ BEGIN
 
                      new_establishments := new_establishments || jsonb_build_array(new_establishment);
                    ELSE
-                     RAISE NOTICE 'Keep establishment %', element->>'organisasjonsnummer';
+                     RAISE NOTICE 'year: % Keep establishment %', next_year, element->>'organisasjonsnummer';
                      new_establishments := new_establishments || jsonb_build_array(element);
                    END IF;
                END LOOP;
@@ -341,7 +341,7 @@ BEGIN
 
                     -- Decide how many new establishments to add (from 1 to establishment_count)
                     new_establishments_count := floor((random() + 1) * log(establishment_count + 1 + exp(1)))::INTEGER;
-                    RAISE NOTICE 'Adding % establishments', new_establishments_count;
+                    RAISE NOTICE 'year: % Adding % establishments', next_year, new_establishments_count;
 
                     -- Add new establishments
                     WHILE i < new_establishments_count LOOP
@@ -368,7 +368,7 @@ BEGIN
                         -- Append the new establishment to the establishments array
                         rec.establishments := rec.establishments || jsonb_build_array(establishment_to_add);
 
-                        RAISE NOTICE 'Added establishment %', used_ident;
+                        RAISE NOTICE 'year: % Added establishment %', next_year, used_ident;
 
                         i := i + 1;
                     END LOOP;
