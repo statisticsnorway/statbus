@@ -1,6 +1,12 @@
 import { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export const metadata: Metadata = {
   title: "StatBus | Activity Category Standard Codes",
@@ -9,47 +15,48 @@ export const metadata: Metadata = {
 export default async function ActivityCategoriesPage() {
   const client = createClient();
 
-  const { data: activityCategories } = await client
-    .from("activity_category_available")
-    .select();
+  const { data: settings, error } = await client
+    .from("settings")
+    .select("activity_category_standard_id")
+    .single();
 
-  const activityCategoryFirstLetters = new Set(
-    activityCategories
-      ?.map((activity) => activity.label?.charAt(0))
-      .filter((char) => char && /^[A-Za-z]$/.test(char))
-  );
+  if (error) {
+    throw new Error("failed to fetch activity category standard id setting", {
+      cause: error,
+    });
+  }
+
+  const { data: categories } = await client
+    .from("activity_category")
+    .select()
+    .eq("level", 1)
+    .eq("standard_id", settings.activity_category_standard_id)
+    .order("path", { ascending: true });
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24">
+    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24 w-full">
       <h1 className="mb-12 text-center text-2xl">
         Activity Category Standard Codes
       </h1>
 
-      <ul className="flex justify-center gap-3 text-xl font-semibold mb-12">
-        {Array.from(activityCategoryFirstLetters).map((letter) => (
-          <li key={letter}>
-            <a href={`#${letter}`}>{letter}</a>
-          </li>
+      <Accordion type="single" collapsible>
+        {categories?.map(({ id, name, active, label, description }) => (
+          <AccordionItem key={id} value={name}>
+            <AccordionTrigger>
+              <div
+                className={cn(
+                  "flex items-center gap-4 text-left",
+                  !active && "text-gray-400"
+                )}
+              >
+                <span className="text-2xl">{label}</span>
+                <span>{name}</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>{description}</AccordionContent>
+          </AccordionItem>
         ))}
-      </ul>
-
-      <ul>
-        {activityCategories?.map((activity) => (
-          <li
-            key={activity.id}
-            id={activity.label ?? undefined}
-            className={cn(
-              "py-2 px-4",
-              activity.parent_code === null ? "bg-ssb-light font-semibold" : ""
-            )}
-          >
-            <div className="flex items-center">
-              <span className="flex-1">{activity.name}</span>
-              <span>{activity.label}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      </Accordion>
     </main>
   );
 }
