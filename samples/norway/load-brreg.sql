@@ -106,4 +106,6 @@ CREATE UNLOGGED TABLE IF NOT EXISTS brreg.underenhet
 \echo Copy tmp/underenheter.csv into brreg.underenhet
 \copy brreg.underenhet FROM 'tmp/underenheter.csv' WITH (HEADER MATCH, FORMAT csv, DELIMITER ',', QUOTE '"');
 
+CREATE INDEX idx_underenhet_overordnetEnhet ON brreg.underenhet("overordnetEnhet");
+
 END;

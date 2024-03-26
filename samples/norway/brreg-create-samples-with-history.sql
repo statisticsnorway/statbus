@@ -294,7 +294,8 @@ BEGIN
                 -- For each establishment, make a 50% chance of selecting a NOT used gh.establishment_info joined with brreg.underenhet on esi.ident = u."organisasjonsnummer"
                FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
                LOOP
-                   IF random() >= 0.7 THEN
+                   IF random() <= 0.3 THEN
+                     RAISE NOTICE 'Change establishment %', element->>'organisasjonsnummer';
                      SELECT to_jsonb(u.*)
                            - 'organisasjonsnummer'
                            - 'overordnetEnhet'
@@ -317,6 +318,7 @@ BEGIN
 
                      new_establishments := new_establishments || jsonb_build_array(new_establishment);
                    ELSE
+                     RAISE NOTICE 'Keep establishment %', element->>'organisasjonsnummer';
                      new_establishments := new_establishments || jsonb_build_array(element);
                    END IF;
                END LOOP;
@@ -365,6 +367,8 @@ BEGIN
 
                         -- Append the new establishment to the establishments array
                         rec.establishments := rec.establishments || jsonb_build_array(establishment_to_add);
+
+                        RAISE NOTICE 'Added establishment %', used_ident;
 
                         i := i + 1;
                     END LOOP;
