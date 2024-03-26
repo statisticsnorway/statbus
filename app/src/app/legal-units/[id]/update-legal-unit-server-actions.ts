@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
+import { createServerLogger } from "@/lib/server-logger";
 
 export async function updateLegalUnit(
   id: string,
@@ -43,6 +44,22 @@ export async function updateLegalUnit(
   }
 
   return { status: "success", message: "Legal unit successfully updated" };
+}
+
+export async function setPrimaryLegalUnit(id: number) {
+  "use server";
+  const logger = await createServerLogger();
+  const client = createClient();
+  const { error } = await client.rpc("set_primary_legal_unit_for_enterprise", {
+    legal_unit_id: id,
+  });
+
+  if (error) {
+    logger.error(error, "failed to set primary legal unit");
+    return;
+  }
+
+  revalidatePath("/legal-units/[id]", "page");
 }
 
 type SchemaType = "general-info" | "contact-info";

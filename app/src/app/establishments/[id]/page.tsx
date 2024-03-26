@@ -2,18 +2,14 @@ import { DetailsPage } from "@/components/statistical-unit-details/details-page"
 import { notFound } from "next/navigation";
 import { getEstablishmentById } from "@/components/statistical-unit-details/requests";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
 import { InfoBox } from "@/components/info-box";
-
-import { createServerLogger } from "@/lib/server-logger";
+import { setPrimaryEstablishment } from "@/app/establishments/[id]/update-establishment-server-actions";
 
 export default async function EstablishmentGeneralInfoPage({
   params: { id },
 }: {
   readonly params: { id: string };
 }) {
-  const logger = await createServerLogger();
   const { establishment, error } = await getEstablishmentById(id);
 
   if (error) {
@@ -22,22 +18,6 @@ export default async function EstablishmentGeneralInfoPage({
 
   if (!establishment) {
     notFound();
-  }
-
-  async function setPrimary(id: number) {
-    "use server";
-    const client = createClient();
-    const { error } = await client.rpc(
-      "set_primary_establishment_for_legal_unit",
-      { establishment_id: id }
-    );
-
-    if (error) {
-      logger.error(error, "failed to set primary establishment");
-      return;
-    }
-
-    return revalidatePath("/establishments/[id]", "page");
   }
 
   return (
@@ -59,7 +39,7 @@ export default async function EstablishmentGeneralInfoPage({
       )}
       {!establishment.primary_for_legal_unit && (
         <form
-          action={setPrimary.bind(null, establishment.id)}
+          action={setPrimaryEstablishment.bind(null, establishment.id)}
           className="bg-gray-100 p-2"
         >
           <Button type="submit" variant="outline">
