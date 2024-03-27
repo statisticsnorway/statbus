@@ -21,6 +21,8 @@ export const SearchLink = ({
     searchParams.set(name, activityCategory.path);
   }
 
+  searchParams.set("unit_type", "enterprise,legal_unit,establishment");
+
   return (
     <Button asChild>
       <Link href={searchParams.size ? `/search?${searchParams}` : "/search"}>

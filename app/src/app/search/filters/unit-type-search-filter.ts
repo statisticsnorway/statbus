@@ -28,10 +28,6 @@ export const createUnitTypeSearchFilter = (
         className: "bg-enterprise-100",
       },
     ],
-    selected: unitType?.split(",") ?? [
-      "legal_unit",
-      "establishment",
-      "enterprise",
-    ],
+    selected: unitType?.split(",") ?? ["enterprise"],
   };
 };

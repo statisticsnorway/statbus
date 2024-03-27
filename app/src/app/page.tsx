@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 export const metadata: Metadata = {
   title: "StatBus | Dashboard",
@@ -20,85 +21,86 @@ export const metadata: Metadata = {
 export default async function Dashboard() {
   const client = createClient();
 
-  const unitsPromise = client
-    .from("statistical_unit")
-    .select("name", { count: "exact" })
-    .limit(0);
-
-  const unitsMissingRegionPromise = client
-    .from("statistical_unit")
-    .select("name", { count: "exact" })
-    .is("physical_region_path", null)
-    .limit(0);
-
-  const unitsMissingActivityCategoryPromise = client
-    .from("statistical_unit")
-    .select("name", { count: "exact" })
-    .is("primary_activity_category_path", null)
-    .limit(0);
-
-  const regionsPromise = client
-    .from("region")
-    .select("name", { count: "exact" })
-    .limit(0);
-
-  const settingsPromise = client
-    .from("settings")
-    .select("activity_category_standard(id,name)")
-    .limit(1);
-
-  const statDefinitionPromise = client
-    .from("stat_definition")
-    .select("id", { count: "exact" })
-    .limit(0);
-
-  const customActivityCategoryCodesPromise = await client
-    .from("activity_category_available_custom")
-    .select("path", { count: "exact" })
-    .limit(0);
-
-  const unitsWithInvalidCodesPromise = await client
-    .from("statistical_unit")
-    .select("*", { count: "exact" })
-    .not("invalid_codes", "is", null)
-    .limit(0);
+  function countByUnitType(
+    unitType: "enterprise" | "legal_unit" | "establishment"
+  ) {
+    return client
+      .from("statistical_unit")
+      .select("", { count: "exact" })
+      .eq("unit_type", unitType)
+      .limit(0);
+  }
 
   const [
-    { count: unitsCount, error: unitsError },
-    { count: unitsWithInvalidCodes, error: unitsWithInvalidCodesError },
-    { count: unitsMissingRegionCount, error: unitsMissingRegionError },
-    {
-      count: unitsMissingActivityCategoryCount,
-      error: unitsMissingActivityCategoryError,
-    },
+    { count: enterpriseCount, error: enterpriseError },
+    { count: legalUnitCount, error: legalUnitError },
+    { count: establishmentCount, error: establishmentError },
+    { count: invalidCodesCount, error: invalidCodesError },
+    { count: missingRegionCount, error: missingRegionError },
+    { count: missingACCount, error: missingACError },
     { count: regionsCount, error: regionsError },
     { count: statisticalVariablesCount, error: statisticalVariablesError },
-    {
-      count: customActivityCategoryCodesCount,
-      error: customActivityCategoryCodesError,
-    },
+    { count: customACCount, error: customACError },
     { data: settings, error: settingsError },
   ] = await Promise.all([
-    unitsPromise,
-    unitsWithInvalidCodesPromise,
-    unitsMissingRegionPromise,
-    unitsMissingActivityCategoryPromise,
-    regionsPromise,
-    statDefinitionPromise,
-    customActivityCategoryCodesPromise,
-    settingsPromise,
+    countByUnitType("enterprise"),
+    countByUnitType("legal_unit"),
+    countByUnitType("establishment"),
+    client
+      .from("statistical_unit")
+      .select("", { count: "exact" })
+      .not("invalid_codes", "is", null)
+      .limit(0),
+    client
+      .from("statistical_unit")
+      .select("", { count: "exact" })
+      .is("physical_region_path", null)
+      .limit(0),
+    client
+      .from("statistical_unit")
+      .select("", { count: "exact" })
+      .is("primary_activity_category_path", null)
+      .limit(0),
+    client.from("region").select("", { count: "exact" }).limit(0),
+    client.from("stat_definition").select("", { count: "exact" }).limit(0),
+    client
+      .from("activity_category_available_custom")
+      .select("", { count: "exact" })
+      .limit(0),
+    client
+      .from("settings")
+      .select("activity_category_standard(id,name)")
+      .single(),
   ]);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24">
       <h1 className="mb-12 text-center text-2xl">StatBus Status Dashboard</h1>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Link href="/search">
+        <Link href="/search?unit_type=enterprise">
           <DashboardCard
-            title="Statistical Units"
-            icon={<Building className="h-4" />}
-            text={unitsCount?.toString() ?? "-"}
-            failed={!!unitsError}
+            title="Enterprises"
+            icon={<StatisticalUnitIcon type="enterprise" className="h-4" />}
+            text={enterpriseCount?.toString() ?? "-"}
+            failed={!!enterpriseError}
+          />
+        </Link>
+
+        <Link href="/search?unit_type=legal_unit">
+          <DashboardCard
+            title="Legal Units"
+            icon={<StatisticalUnitIcon type="legal_unit" className="h-4" />}
+            text={legalUnitCount?.toString() ?? "-"}
+            failed={!!legalUnitError}
+          />
+        </Link>
+
+        <Link href="/search?unit_type=establishment">
+          <DashboardCard
+            title="Establishments"
+            icon={<StatisticalUnitIcon type="establishment" className="h-4" />}
+            text={establishmentCount?.toString() ?? "-"}
+            failed={!!establishmentError}
           />
         </Link>
 
@@ -113,7 +115,7 @@ export default async function Dashboard() {
           <DashboardCard
             title="Activity Category Standard"
             icon={<ScrollText className="h-4" />}
-            text={settings?.[0]?.activity_category_standard?.name ?? "-"}
+            text={settings?.activity_category_standard?.name ?? "-"}
             failed={!!settingsError}
           />
         </Link>
@@ -129,8 +131,8 @@ export default async function Dashboard() {
           <DashboardCard
             title="Custom Activity Category Codes"
             icon={<Settings className="h-4" />}
-            text={customActivityCategoryCodesCount?.toString() ?? "-"}
-            failed={!!customActivityCategoryCodesError}
+            text={customACCount?.toString() ?? "-"}
+            failed={!!customACError}
           />
         </Link>
 
@@ -138,12 +140,8 @@ export default async function Dashboard() {
           <DashboardCard
             title="Units Missing Region"
             icon={<AlertTriangle className="h-4" />}
-            text={unitsMissingRegionCount?.toString() ?? "-"}
-            failed={
-              (unitsMissingRegionCount !== null &&
-                unitsMissingRegionCount > 0) ||
-              !!unitsMissingRegionError
-            }
+            text={missingRegionCount?.toString() ?? "-"}
+            failed={(missingRegionCount ?? 0) > 0 || !!missingRegionError}
           />
         </Link>
 
@@ -151,12 +149,8 @@ export default async function Dashboard() {
           <DashboardCard
             title="Units Missing Activity Category"
             icon={<AlertTriangle className="h-4" />}
-            text={unitsMissingActivityCategoryCount?.toString() ?? "-"}
-            failed={
-              (unitsMissingActivityCategoryCount !== null &&
-                unitsMissingActivityCategoryCount > 0) ||
-              !!unitsMissingActivityCategoryError
-            }
+            text={missingACCount?.toString() ?? "-"}
+            failed={(missingACCount ?? 0) > 0 || !!missingACError}
           />
         </Link>
 
@@ -164,11 +158,8 @@ export default async function Dashboard() {
           <DashboardCard
             title="Units With Import Issues"
             icon={<AlertTriangle className="h-4" />}
-            text={unitsWithInvalidCodes?.toString() ?? "-"}
-            failed={
-              (unitsWithInvalidCodes !== null && unitsWithInvalidCodes > 0) ||
-              !!unitsWithInvalidCodesError
-            }
+            text={invalidCodesCount?.toString() ?? "-"}
+            failed={(invalidCodesCount ?? 0) > 0 || !!invalidCodesError}
           />
         </Link>
       </div>
