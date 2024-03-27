@@ -280,9 +280,9 @@ BEGIN
                LOOP
                    IF random() <= 0.1 THEN
                        RAISE NOTICE 'year: % Removing establishment %', next_year, element->>'organisasjonsnummer';
-                       new_establishments := new_establishments || jsonb_build_array(element);
                    ELSE
                        RAISE NOTICE 'year: % Keeping establishment %', next_year, element->>'organisasjonsnummer';
+                       new_establishments := new_establishments || jsonb_build_array(element);
                    END IF;
                END LOOP;
                rec.establishments := new_establishments;
