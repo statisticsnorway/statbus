@@ -117,7 +117,7 @@ $$;
 DO LANGUAGE plpgsql $$
 DECLARE
   populate_sample BOOL;
-  start_year DATE := '2000-01-01'::DATE;
+  start_year DATE := '2015-01-01'::DATE;
   stop_year  DATE := '2024-01-01'::DATE;
   seed_size  INTEGER := 100;
   current_year DATE;
