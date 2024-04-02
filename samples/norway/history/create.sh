@@ -8,7 +8,7 @@ if test -n "$DEBUG"; then
   set -x # Print all commands before running them - for easy debugging.
 fi
 
-WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 pushd $WORKSPACE/tmp
 if test \! -f "enheter.csv"; then
@@ -48,9 +48,9 @@ else
     echo "Table brreg.enhet exists and is not empty. No action taken."
 fi
 
-psql < samples/norway/brreg-create-samples-with-history.sql
+psql < samples/norway/history/create.sql
 
-OUTPUT_DIR="samples/norway"
+OUTPUT_DIR="samples/norway/history"
 
 # Make sure the output directory exists
 mkdir -p "$OUTPUT_DIR"
@@ -62,9 +62,9 @@ for YEAR in $YEARS; do
     echo "Exporting data for year: $YEAR"
     psql <<EOS
 \echo Writing legal_units from $YEAR
-\copy (SELECT legal_unit.* FROM gh.sample AS sample JOIN LATERAL jsonb_populate_recordset(NULL::brreg.enhet, sample.legal_unit) AS legal_unit ON true WHERE sample.year = $YEAR) TO '$OUTPUT_DIR/${YEAR}-enheter.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '\"', FORCE_QUOTE *);
+\copy (SELECT * FROM gh.get_legal_units_by_year($YEAR)) TO '$OUTPUT_DIR/${YEAR}-enheter.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
 
 \echo Writing establishments from $YEAR
-\copy (SELECT establishment.* FROM gh.sample AS sample, jsonb_array_elements(sample.establishments) AS establishment_element JOIN LATERAL jsonb_populate_recordset(NULL::brreg.underenhet, establishment_element) AS establishment ON true WHERE sample.year = $YEAR) TO '$OUTPUT_DIR/${YEAR}-underenheter.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '\"', FORCE_QUOTE *);
+\copy (SELECT * FROM gh.get_establishments_by_year($YEAR)) TO '$OUTPUT_DIR/${YEAR}-underenheter.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
 EOS
 done

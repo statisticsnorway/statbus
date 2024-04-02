@@ -1,4 +1,5 @@
 --DROP SCHEMA gh CASCADE;
+-- TRUNCATE gh.sample;
 
 -- gh => generated history
 CREATE SCHEMA IF NOT EXISTS gh;
@@ -119,12 +120,11 @@ DECLARE
   populate_sample BOOL;
   start_year DATE := '2015-01-01'::DATE;
   stop_year  DATE := '2024-01-01'::DATE;
-  seed_size  INTEGER := 100;
+  seed_size  INTEGER := 1000;
   current_year DATE;
   next_year DATE;
   rec RECORD; -- Declare a record to hold your query results
   new_establishment JSONB;
-  new_establishments JSONB := '[]'::JSONB;
   used_ident TEXT;
   element JSONB;
 BEGIN
@@ -181,22 +181,30 @@ BEGIN
               SELECT
                   legal_unit_ident,
                   EXTRACT(YEAR FROM next_year) AS year,
-                  random() AS periodic_random,
+                  periodic_random,
                   CASE
-                  WHEN random() < 0.1 THEN 'die'
-                  WHEN random() < 0.2 THEN 'grow'
-                  WHEN random() < 0.3 THEN 'change_legal_unit'
-                  WHEN random() < 0.4 THEN 'shrink_establishments'
-                  WHEN random() < 0.5 THEN 'change_establishments'
-                  WHEN random() < 0.6 THEN 'grow_establishments'
+                  WHEN periodic_random < 0.1 THEN 'die'
+                  WHEN periodic_random < 0.2 THEN 'grow'
+                  WHEN periodic_random < 0.3 THEN 'change_legal_unit'
+                  WHEN periodic_random < 0.4 THEN 'shrink_establishments'
+                  WHEN periodic_random < 0.5 THEN 'change_establishments'
+                  WHEN periodic_random < 0.6 THEN 'grow_establishments'
                   ELSE 'preserve'
                   END AS action,
                   legal_unit,
                   establishments
-              FROM
+              FROM (
+                SELECT
+                  legal_unit_ident,
+                  EXTRACT(YEAR FROM next_year) AS year,
+                  random() AS periodic_random,
+                  legal_unit,
+                  establishments
+                FROM
                   gh.sample
-              WHERE
-                year = EXTRACT(YEAR FROM current_year)
+                WHERE
+                  year = EXTRACT(YEAR FROM current_year)
+              ) AS with_random
             )
             SELECT * FROM basis
         LOOP
@@ -275,57 +283,64 @@ BEGIN
                VALUES (rec.legal_unit_ident, EXTRACT(YEAR FROM next_year), random(), rec.legal_unit, rec.establishments);
 
             ELSIF rec.action = 'shrink_establishments' THEN
-               -- iterate jsonb array of establishments and make a 10% chance of skipping (dropping) each entry.
-               FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
-               LOOP
-                   IF random() <= 0.1 THEN
-                       RAISE NOTICE 'year: % Removing establishment %', next_year, element->>'organisasjonsnummer';
-                   ELSE
-                       RAISE NOTICE 'year: % Keeping establishment %', next_year, element->>'organisasjonsnummer';
-                       new_establishments := new_establishments || jsonb_build_array(element);
-                   END IF;
-               END LOOP;
-               rec.establishments := new_establishments;
+                DECLARE
+                    new_establishments JSONB := '[]'::JSONB;
+                BEGIN
+                    -- iterate jsonb array of establishments and make a 10% chance of skipping (dropping) each entry.
+                    FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
+                    LOOP
+                        IF random() <= 0.1 THEN
+                            RAISE NOTICE 'year: % Removing establishment %', next_year, element->>'organisasjonsnummer';
+                        ELSE
+                            RAISE NOTICE 'year: % Keeping establishment %', next_year, element->>'organisasjonsnummer';
+                            new_establishments := new_establishments || jsonb_build_array(element);
+                        END IF;
+                    END LOOP;
+                    rec.establishments := new_establishments;
 
-               INSERT INTO gh.sample (legal_unit_ident, year, periodic_random, legal_unit, establishments)
-               VALUES (rec.legal_unit_ident, EXTRACT(YEAR FROM next_year), random(), rec.legal_unit, rec.establishments);
-
+                    INSERT INTO gh.sample (legal_unit_ident, year, periodic_random, legal_unit, establishments)
+                    VALUES (rec.legal_unit_ident, EXTRACT(YEAR FROM next_year), random(), rec.legal_unit, rec.establishments);
+                END;
             ELSIF rec.action = 'change_establishments' THEN
-                -- For each establishment, make a 50% chance of selecting a NOT used gh.establishment_info joined with brreg.underenhet on esi.ident = u."organisasjonsnummer"
-               FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
-               LOOP
-                   IF random() <= 0.3 THEN
-                     RAISE NOTICE 'year: % Change establishment %', next_year, element->>'organisasjonsnummer';
-                     SELECT to_jsonb(u.*)
-                           - 'organisasjonsnummer'
-                           - 'overordnetEnhet'
-                          || jsonb_build_object(
-                              'organisasjonsnummer', element ->> 'organisasjonsnummer',
-                              'overordnetEnhet', element ->> 'overordnetEnhet'
-                            ) AS establishment
-                          , esi.ident
-                          INTO new_establishment
-                             , used_ident
-                     FROM gh.establishment_info AS esi
-                     JOIN brreg.underenhet AS u ON u."organisasjonsnummer" = esi.ident
-                     WHERE NOT esi.used
-                     ORDER by esi.periodic_random
-                     LIMIT 1;
+                DECLARE
+                    new_establishments JSONB := '[]'::JSONB;
+                BEGIN
+                    -- For each establishment, make a 50% chance of selecting a NOT used gh.establishment_info joined with brreg.underenhet on esi.ident = u."organisasjonsnummer"
+                    FOR element IN SELECT * FROM jsonb_array_elements(COALESCE(rec.establishments,'[]'::JSONB))
+                    LOOP
+                        IF random() <= 0.3 THEN
+                          RAISE NOTICE 'year: % Change establishment %', next_year, element->>'organisasjonsnummer';
+                          SELECT to_jsonb(u.*)
+                                - 'organisasjonsnummer'
+                                - 'overordnetEnhet'
+                               || jsonb_build_object(
+                                   'organisasjonsnummer', element ->> 'organisasjonsnummer',
+                                   'overordnetEnhet', element ->> 'overordnetEnhet'
+                                 ) AS establishment
+                               , esi.ident
+                               INTO new_establishment
+                                  , used_ident
+                          FROM gh.establishment_info AS esi
+                          JOIN brreg.underenhet AS u ON u."organisasjonsnummer" = esi.ident
+                          WHERE NOT esi.used
+                          ORDER by esi.periodic_random
+                          LIMIT 1;
 
-                     UPDATE gh.establishment_info
-                     SET used = true
-                     WHERE NOT used AND ident = used_ident ;
+                          UPDATE gh.establishment_info
+                          SET used = true
+                          WHERE NOT used AND ident = used_ident ;
 
-                     new_establishments := new_establishments || jsonb_build_array(new_establishment);
-                   ELSE
-                     RAISE NOTICE 'year: % Keep establishment %', next_year, element->>'organisasjonsnummer';
-                     new_establishments := new_establishments || jsonb_build_array(element);
-                   END IF;
-               END LOOP;
-               rec.establishments := new_establishments;
+                          new_establishments := new_establishments || jsonb_build_array(new_establishment);
+                        ELSE
+                          RAISE NOTICE 'year: % Keep establishment %', next_year, element->>'organisasjonsnummer';
+                          new_establishments := new_establishments || jsonb_build_array(element);
+                        END IF;
+                    END LOOP;
+                    rec.establishments := new_establishments;
 
-               INSERT INTO gh.sample (legal_unit_ident, year, periodic_random, legal_unit, establishments)
-               VALUES (rec.legal_unit_ident, EXTRACT(YEAR FROM next_year), random(), rec.legal_unit, rec.establishments);
+                    INSERT INTO gh.sample (legal_unit_ident, year, periodic_random, legal_unit, establishments)
+                    VALUES (rec.legal_unit_ident, EXTRACT(YEAR FROM next_year), random(), rec.legal_unit, rec.establishments);
+                END;
 
             ELSIF rec.action = 'grow_establishments' THEN
                   -- Draw the estbalishemnts from  NOT used gh.establishment_info joined with brreg.underenhet on esi.ident = u."organisasjonsnummer"
@@ -394,18 +409,31 @@ END;
 $$;
 
 
--- Example selection for export to file.
+-- Example selection for export to file.¨
+\echo get_legal_units_by_year
+CREATE OR REPLACE FUNCTION gh.get_legal_units_by_year(target_year INT)
+RETURNS SETOF brreg.enhet LANGUAGE sql AS
+$$
 SELECT legal_unit.*
 FROM gh.sample AS sample
-JOIN LATERAL jsonb_populate_recordset(NULL::brreg.enhet, sample.legal_unit) AS legal_unit ON true
-WHERE sample.year = 2024;
+JOIN LATERAL jsonb_populate_record(NULL::brreg.enhet, sample.legal_unit) AS legal_unit ON true
+WHERE sample.year = target_year;
+$$;
 
 
+\echo get_establishments_by_year
+CREATE OR REPLACE FUNCTION gh.get_establishments_by_year(target_year INT)
+RETURNS SETOF brreg.underenhet LANGUAGE sql AS
+$$
 SELECT establishment.*
 FROM gh.sample AS sample
-CROSS JOIN LATERAL jsonb_array_elements(sample.establishments) AS establishment_element
-JOIN LATERAL jsonb_populate_recordset(NULL::brreg.underenhet, jsonb_build_array(establishment_element)) AS establishment ON true
-WHERE sample.year = 2024;
+JOIN LATERAL jsonb_populate_recordset(NULL::brreg.underenhet, sample.establishments) AS establishment ON true
+WHERE sample.year = target_year;
+$$;
+
+--SELECT * FROM gh.get_legal_units_by_year(2024) limit 1;
+--SELECT * FROM gh.get_establishments_by_year(2024) limit 1;
+
 
 -- \copy (SELECT * FROM brreg.enhet WHERE "organisasjonsnummer" IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 5000)) TO 'samples/norway/enheter-selection-cli-with-mapping-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
 -- \copy (SELECT * FROM brreg.underenhet WHERE "overordnetEnhet" IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 5000)) TO 'samples/norway/underenheter-selection-cli-with-mapping-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
