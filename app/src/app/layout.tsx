@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
 import Footer from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
+import { TimeProvider } from "@/app/time-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -29,12 +30,14 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <Navbar />
-        {children}
-        <CommandPalette />
-        <Toaster />
-        <Footer />
-        <GlobalErrorReporter />
+        <TimeProvider>
+          <Navbar />
+          {children}
+          <CommandPalette />
+          <Toaster />
+          <Footer />
+          <GlobalErrorReporter />
+        </TimeProvider>
       </body>
     </html>
   );

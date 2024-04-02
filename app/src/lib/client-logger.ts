@@ -4,7 +4,7 @@ const logger = pino({
   level: "info",
   browser: {
     transmit: {
-      level: "error",
+      level: "debug",
       send: async function (level, event) {
         try {
           await fetch("/api/logger", {
