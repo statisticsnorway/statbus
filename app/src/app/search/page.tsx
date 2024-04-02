@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import Search from "@/app/search/components/search";
 import { Metadata } from "next";
 import { createFilters } from "@/app/search/filters";
-
 import { createServerLogger } from "@/lib/server-logger";
 
 export const metadata: Metadata = {
@@ -17,56 +16,38 @@ export default async function SearchPage({
   const client = createClient();
   const logger = await createServerLogger();
 
-  const sectorPromise = client
-    .from("sector_used")
-    .select()
-    .not("code", "is", null);
-
-  const legalFormPromise = client
-    .from("legal_form_used")
-    .select()
-    .not("code", "is", null);
-
-  const regionPromise = client.from("region_used").select();
-
-  const activityCategoryPromise = client
-    .from("activity_category_used")
-    .select();
-
-  const statDefinitionPromise = client
-    .from("stat_definition")
-    .select()
-    .order("priority", { ascending: true });
-
   const [
-    { data: sectors, error: sectorsError },
-    { data: legalForms, error: legalFormsError },
-    { data: regions, error: regionsError },
-    { data: activityCategories, error: activityCategoriesError },
-    { data: statisticalVariables },
+    sectors,
+    legalForms,
+    regions,
+    activityCategories,
+    statisticalVariables,
   ] = await Promise.all([
-    sectorPromise,
-    legalFormPromise,
-    regionPromise,
-    activityCategoryPromise,
-    statDefinitionPromise,
+    client.from("sector_used").select().not("code", "is", null),
+    client.from("legal_form_used").select().not("code", "is", null),
+    client.from("region_used").select(),
+    client.from("activity_category_used").select(),
+    client
+      .from("stat_definition")
+      .select()
+      .order("priority", { ascending: true }),
   ]);
 
-  if (sectorsError) {
-    logger.error(sectorsError, "failed to fetch sectors");
+  if (sectors.error) {
+    logger.error(sectors.error, "failed to fetch sectors");
   }
 
-  if (legalFormsError) {
-    logger.error(legalFormsError, "failed to fetch legal forms");
+  if (legalForms.error) {
+    logger.error(legalForms.error, "failed to fetch legal forms");
   }
 
-  if (regionsError) {
-    logger.error(regionsError, "failed to fetch regions");
+  if (regions.error) {
+    logger.error(regions.error, "failed to fetch regions");
   }
 
-  if (activityCategoriesError) {
+  if (activityCategories.error) {
     logger.error(
-      activityCategoriesError,
+      activityCategories.error,
       "failed to fetch activity categories"
     );
   }
@@ -75,11 +56,11 @@ export default async function SearchPage({
 
   const searchFilters = createFilters(
     {
-      activityCategories: activityCategories ?? [],
-      regions: regions ?? [],
-      statisticalVariables: statisticalVariables ?? [],
-      sectors: sectors ?? [],
-      legalForms: legalForms ?? [],
+      activityCategories: activityCategories.data ?? [],
+      regions: regions.data ?? [],
+      statisticalVariables: statisticalVariables.data ?? [],
+      sectors: sectors.data ?? [],
+      legalForms: legalForms.data ?? [],
     },
     urlSearchParams
   );
@@ -99,9 +80,9 @@ export default async function SearchPage({
         Search for statistical units
       </h1>
       <Search
-        regions={regions ?? []}
-        activityCategories={activityCategories ?? []}
-        statisticalVariables={statisticalVariables ?? []}
+        regions={regions.data ?? []}
+        activityCategories={activityCategories.data ?? []}
+        statisticalVariables={statisticalVariables.data ?? []}
         searchFilters={searchFilters}
         searchOrder={{ name: orderBy, direction: orderDirections.join(".") }}
         searchPagination={{
