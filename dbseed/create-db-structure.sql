@@ -6755,7 +6755,10 @@ BEGIN
             ( tag.id
             , inserted_legal_unit.id
             , edited_by_user.id
-            );
+            )
+        ON CONFLICT (tag_id, legal_unit_id)
+        DO UPDATE SET updated_by_user_id = EXCLUDED.updated_by_user_id
+        ;
     END IF;
 
     IF NOT statbus_constraints_already_deferred THEN
