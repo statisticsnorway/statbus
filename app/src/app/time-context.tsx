@@ -1,5 +1,11 @@
 "use client";
-import { createContext, ReactNode, useEffect, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Tables } from "@/lib/database.types";
 import logger from "@/lib/client-logger";
 
@@ -47,4 +53,14 @@ export const TimeProvider = ({
       {children}
     </TimeContext.Provider>
   );
+};
+
+export const useTimeContext = () => {
+  const context = useContext(TimeContext);
+
+  if (!context) {
+    throw new Error("useTimeContext must be used within a TimeProvider");
+  }
+
+  return context;
 };
