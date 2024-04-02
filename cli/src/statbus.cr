@@ -96,6 +96,7 @@ class StatBus
   @name = "statbus"
   @verbose = false
   @delayed_constraint_checking = true
+  @refresh_materialized_views = true
   @import_file_name : String | Nil = nil
   @config_field_mapping = Array(ConfigFieldMapping).new
   @config_file_path : Path | Nil = nil
@@ -398,12 +399,15 @@ class StatBus
             puts "Uploading #{sql_row}" if @verbose
             insert.exec(args: sql_row)
             if (batch_item % batch_size) == 0
-              puts "Commit-ing changes and refreshing statistical_unit"
+              puts "Commit-ing changes"
               if @delayed_constraint_checking
                 db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
               end
               db.exec "END;"
-              db.exec "SELECT statistical_unit_refresh_now();"
+              if @refresh_materialized_views
+                puts "Refreshing statistical_unit and other materialized views"
+                db.exec "SELECT statistical_unit_refresh_now();"
+              end
               db.exec "BEGIN;"
               if @delayed_constraint_checking
                 db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
@@ -412,12 +416,15 @@ class StatBus
               insert = db.build sql_statment
             end
           end
-          puts "Commit-ing changes and refreshing statistical_unit"
+          puts "Commit-ing changes"
           if @delayed_constraint_checking
             db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
           end
           db.exec "END;"
-          db.exec "SELECT statistical_unit_refresh_now();"
+          if @refresh_materialized_views
+            puts "Refreshing statistical_unit and other materialized views"
+            db.exec "SELECT statistical_unit_refresh_now();"
+          end
           db.close
         end
       end
@@ -538,6 +545,9 @@ class StatBus
         end
         parser.on("--immediate-constraint-checking", "Check constraints for each record immediately") do
           @delayed_constraint_checking = false
+        end
+        parser.on("--skip-refresh-of-materialized-views", "Avoid refreshing materialized views during and after load") do
+          @refresh_materialized_views = false
         end
       end
       parser.on("welcome", "Print a greeting message") do
