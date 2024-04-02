@@ -33,7 +33,7 @@ export default function TimeContextSelector({
         <Button
           variant="outline"
           className={cn(
-            "space-x-2 border-dashed transition-opacity duration-500 bg-transparent",
+            "space-x-2 transition-opacity duration-500 bg-transparent",
             className,
             !selectedPeriod ? "opacity-0" : "opacity-100"
           )}

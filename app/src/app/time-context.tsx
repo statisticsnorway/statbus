@@ -19,7 +19,7 @@ interface TimeContextState {
 
 const TimeContext = createContext<TimeContextState | null>(null);
 
-export const TimeProvider = ({
+export const TimeContextProvider = ({
   children,
 }: {
   readonly children: ReactNode;

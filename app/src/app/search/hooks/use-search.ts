@@ -1,9 +1,11 @@
 import useSWR, { Fetcher } from "swr";
+import { useTimeContext } from "@/app/time-context";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) =>
   fetch(...args).then((res) => res.json());
 
 export default function useSearch(searchFilterState: SearchState) {
+  const { selectedPeriod } = useTimeContext();
   const { filters, order, pagination } = searchFilterState;
   const searchParams = filters
     .map((f) => [f.name, generatePostgrestQuery(f)])
@@ -15,6 +17,11 @@ export default function useSearch(searchFilterState: SearchState) {
 
   if (order.name && order.direction) {
     searchParams.set("order", `${order.name}.${order.direction}`);
+  }
+
+  if (selectedPeriod) {
+    searchParams.set("valid_from", `lte.${selectedPeriod.valid_on}`);
+    searchParams.set("valid_to", `gte.${selectedPeriod.valid_on}`);
   }
 
   if (pagination.pageNumber && pagination.pageSize) {
