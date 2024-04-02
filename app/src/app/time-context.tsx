@@ -11,7 +11,10 @@ import logger from "@/lib/client-logger";
 
 interface TimeContextState {
   readonly periods: Tables<"relative_period_with_time">[];
-  readonly selectedPeriod: Tables<"relative_period_with_time">;
+  readonly selectedPeriod: Tables<"relative_period_with_time"> | null;
+  readonly setSelectedPeriod: (
+    period: Tables<"relative_period_with_time">
+  ) => void;
 }
 
 const TimeContext = createContext<TimeContextState | null>(null);
@@ -25,6 +28,9 @@ export const TimeProvider = ({
     []
   );
 
+  const [selectedPeriod, setSelectedPeriod] =
+    useState<Tables<"relative_period_with_time"> | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -36,6 +42,7 @@ export const TimeProvider = ({
         ) {
           const data = await response.json();
           setPeriods(data);
+          setSelectedPeriod(data[0]);
         }
       } catch (e) {
         logger.error(e, "failed to fetch relative periods");
@@ -47,7 +54,8 @@ export const TimeProvider = ({
     <TimeContext.Provider
       value={{
         periods,
-        selectedPeriod: periods[0],
+        selectedPeriod,
+        setSelectedPeriod,
       }}
     >
       {children}
