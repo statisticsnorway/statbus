@@ -1,0 +1,23 @@
+import { createClient } from "@/lib/supabase/server";
+import { DashboardCard } from "@/app/dashboard/dashboard-card";
+import { BarChart3 } from "lucide-react";
+
+export const StatisticalVariableCountCard = async () => {
+  const client = createClient();
+
+  const { count, error } = await client
+    .from("stat_definition")
+    .select("", { count: "exact" })
+    .limit(0);
+
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  return (
+    <DashboardCard
+      title="Statistical Variables"
+      icon={<BarChart3 className="h-4" />}
+      text={count?.toString() ?? "-"}
+      failed={!!error}
+    />
+  );
+};
