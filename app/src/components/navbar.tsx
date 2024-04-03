@@ -6,6 +6,7 @@ import { BarChartHorizontal, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
+import TimeContextSelector from "@/components/time-context-selector";
 
 export default function Navbar() {
   return (
@@ -21,6 +22,7 @@ export default function Navbar() {
           />
         </a>
         <div className="flex-1 space-x-3 flex items-center justify-end">
+          <TimeContextSelector />
           <Link
             href="/reports"
             className={cn(
