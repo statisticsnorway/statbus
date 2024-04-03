@@ -2,15 +2,14 @@ import CommandPaletteTriggerButton from "@/components/command-palette/command-pa
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
-import logo from "@/../public/ssb_logo_white.svg";
-import Image from "next/image";
+import { SSBLogo } from "@/components/ssb-logo";
 
 export default function Footer() {
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
       <div className="mx-auto max-w-screen-xl space-y-10 p-6 lg:p-24">
         <div className="flex items-center justify-between space-x-2">
-          <Image src={logo} alt="SSB Logo" className="h-8 lg:h-12 w-auto" />
+          <SSBLogo className="h-8 lg:h-12 w-auto" />
           <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
         </div>
         <Separator className="bg-gray-200" />
