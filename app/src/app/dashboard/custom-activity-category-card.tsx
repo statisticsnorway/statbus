@@ -10,8 +10,6 @@ export const CustomActivityCategoryCard = async () => {
     .select("", { count: "exact" })
     .limit(0);
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
   return (
     <DashboardCard
       title="Custom Activity Category Codes"

@@ -17,8 +17,6 @@ export const StatisticalUnitCountCard = async ({
     .eq("unit_type", unitType)
     .limit(0);
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
   return (
     <DashboardCard
       title={title}
