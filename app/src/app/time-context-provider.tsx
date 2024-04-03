@@ -1,5 +1,5 @@
 "use client";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import logger from "@/lib/client-logger";
 import { TimeContext } from "@/app/time-context";
 import type { Period } from "@/app/types";
@@ -31,15 +31,12 @@ export default function TimeContextProvider(props: TimeContextProviderProps) {
     })();
   }, []);
 
+  const value = useMemo(
+    () => ({ periods, selectedPeriod, setSelectedPeriod }),
+    [periods, selectedPeriod, setSelectedPeriod]
+  );
+
   return (
-    <TimeContext.Provider
-      value={{
-        periods,
-        selectedPeriod,
-        setSelectedPeriod,
-      }}
-    >
-      {props.children}
-    </TimeContext.Provider>
+    <TimeContext.Provider value={value}>{props.children}</TimeContext.Provider>
   );
 }
