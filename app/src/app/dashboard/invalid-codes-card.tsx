@@ -11,8 +11,6 @@ export const InvalidCodesCard = async () => {
     .not("invalid_codes", "is", null)
     .limit(0);
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
   return (
     <DashboardCard
       title="Units With Import Issues"

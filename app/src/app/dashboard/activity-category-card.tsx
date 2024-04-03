@@ -10,8 +10,6 @@ export const ActivityCategoryCard = async () => {
     .select("activity_category_standard(id,name)")
     .single();
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
   return (
     <DashboardCard
       title="Activity Category Standard"
