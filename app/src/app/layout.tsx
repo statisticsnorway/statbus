@@ -8,7 +8,7 @@ import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
 import Footer from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
-import { TimeContextProvider } from "@/app/time-context";
+import TimeContextProvider from "@/app/time-context-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 

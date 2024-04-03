@@ -1,5 +1,6 @@
 import useSWR, { Fetcher } from "swr";
-import { useTimeContext } from "@/app/time-context";
+
+import { useTimeContext } from "@/app/use-time-context";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) =>
   fetch(...args).then((res) => res.json());

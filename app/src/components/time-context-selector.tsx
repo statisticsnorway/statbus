@@ -1,5 +1,4 @@
 "use client";
-import { useTimeContext } from "@/app/time-context";
 import { CalendarClock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import * as React from "react";
+import { useTimeContext } from "@/app/use-time-context";
 
 export default function TimeContextSelector({
   className,
