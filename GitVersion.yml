@@ -1,5 +1,59 @@
----
-mode: Mainline
+# GitVersion configuration file
+# Note: This configuration was initially provided and explained by ChatGPT.
+# It is tailored to the project's branching strategy as of [Date/Version].
+# Please review and adapt it as necessary to fit the evolving project requirements and GitVersion updates.
+# For more information on Semantic Versioning (SemVer), visit: https://semver.org/
+
+mode: Mainline # Main versioning mode; each commit on master increments the version
+
+# Branch configuration: customizes how different types of branches are handled
+branches:
+  master:
+    regex: master # Identifies the master branch
+    tag: '' # No additional tag for master branch versions
+
+  # Feature branches (e.g., feature/new-cool-feature or feat/new-cool-feature)
+  feature:
+    regex: '^features?[/-]' # Regex to match feature branch names
+    mode: ContinuousDelivery # Continuous Delivery mode for feature branches
+    tag: 'feature' # Tag version numbers with 'feature'
+    increment: Minor # Minor version increments for new features
+    source-branches: ['master', 'develop']  # Specify the branches that can be sources for feature branches
+    prevent-increment-of-merged-branch-version: false
+    track-merge-target: false
+
+  # Fix branches (e.g., fix/bug-fix)
+  fix:
+    regex: '^fix(es)?[/-]' # Regex to match fix branch names
+    mode: ContinuousDelivery # Continuous Delivery mode for fix branches
+    tag: 'fix' # Tag version numbers with 'fix'
+    increment: Patch # Patch version increments for fixes
+    source-branches: ['master', 'develop']  # Specify the branches that can be sources for feature branches
+
+  # DevOps and deployment branches (e.g., devops/deploy-to-prod)
+  devops:
+    regex: '^devops[/-]' # Regex to match DevOps branch names
+    mode: ContinuousDelivery # Continuous Delivery mode for DevOps branches
+    tag: 'devops' # Tag version numbers with 'devops'
+    source-branches: []  # Specify the branches that can be sources for feature branches
+    increment: None # No version increment for DevOps branches
+
+  # Dependabot branches (e.g., dependabot/npm_and_yarn/express-4.17.1)
+  dependabot:
+    regex: '^dependabot[/-]' # Regex to match Dependabot branch names
+    mode: ContinuousDelivery # Continuous Delivery mode for Dependabot branches
+    tag: 'dependabot' # Tag version numbers with 'dependabot'
+    increment: Patch # Patch version increments for dependency updates
+    source-branches: ['master', 'develop']  # Specify the branches that can be sources for feature branches
+
+  # Legacy branches (e.g., legacy/old-system-support)
+  legacy:
+    regex: '^legacy[/-]' # Regex to match legacy branch names
+    mode: ContinuousDelivery # Continuous Delivery mode for legacy branches
+    tag: 'legacy' # Tag version numbers with 'legacy'
+    increment: None # No version increment for legacy branches
+    source-branches: []  # Specify the branches that can be sources for feature branches
+
+# Configuration to ignore specific commits if necessary
 ignore:
-  sha: [ ]
-merge-message-formats: { }
+  sha: [] # List of commit SHAs to ignore in version calculations
