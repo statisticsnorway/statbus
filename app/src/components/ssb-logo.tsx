@@ -1,5 +1,11 @@
 export const SSBLogo = ({ className }: { readonly className?: string }) => (
-  <svg className={className} width="219" height="40" viewBox="0 0 219 40">
+  <svg
+    className={className}
+    width="219"
+    height="40"
+    viewBox="0 0 219 40"
+    aria-label="Statistics Norway Logo"
+  >
     <defs>
       <path id="a" d="M.093.126h154.543v37.637H.093z" />
     </defs>

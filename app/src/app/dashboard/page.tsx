@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react";
+import { ReactNode, Suspense } from "react";
 import Link from "next/link";
 import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count-card";
 import { FallBackCard } from "@/app/dashboard/fallBack-card";
@@ -10,6 +10,7 @@ import { MissingActivityCategoryCard } from "@/app/dashboard/missing-activity-ca
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
 import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variable-count-card";
+import { Database, Gauge } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "StatBus | Dashboard",
@@ -17,9 +18,13 @@ export const metadata: Metadata = {
 
 export default async function Dashboard() {
   return (
-    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24 w-full">
-      <h1 className="mb-12 text-center text-2xl">StatBus Status Dashboard</h1>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24 w-full space-y-8 lg:space-y-12">
+      <h1 className="text-center text-2xl">StatBus Status Dashboard</h1>
+
+      <DashboardSection
+        title="StatBus Data"
+        icon={<Database className="w-4 h-4 stroke-current" />}
+      >
         <Link href="/search?unit_type=enterprise">
           <Suspense fallback={<FallBackCard title="Enterprises" />}>
             <StatisticalUnitCountCard
@@ -70,7 +75,12 @@ export default async function Dashboard() {
             <CustomActivityCategoryCard />
           </Suspense>
         </Link>
+      </DashboardSection>
 
+      <DashboardSection
+        title="StatBus Data quality"
+        icon={<Gauge className="w-4 h-4 stroke-current" />}
+      >
         <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=null">
           <Suspense fallback={<FallBackCard title="Units Missing Region" />}>
             <MissingRegionCard />
@@ -92,7 +102,29 @@ export default async function Dashboard() {
             <InvalidCodesCard />
           </Suspense>
         </Link>
-      </div>
+      </DashboardSection>
     </main>
   );
 }
+
+const DashboardSection = ({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  children?: ReactNode;
+}) => {
+  return (
+    <div>
+      <div className="flex justify-between items-center bg-ssb-dark text-white  py-2 px-4 rounded-t">
+        <h2 className="text-xs uppercase font-semibold">{title}</h2>
+        {icon}
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 p-2 lg:p-4 border border-t-0 bg-gray-50 rounded-b">
+        {children}
+      </div>
+    </div>
+  );
+};
