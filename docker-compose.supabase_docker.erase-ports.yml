@@ -1,0 +1,7 @@
+services:
+  kong:
+    ports: !reset []
+  analytics:
+    ports: !reset []
+  db:
+    ports: !reset []

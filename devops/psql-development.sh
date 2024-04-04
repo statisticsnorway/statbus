@@ -20,7 +20,5 @@ else
     # as required for an interactive psql promp
     args="-ti"
   fi
-  docker exec $args $(docker ps  | awk '/supabase-db/{print $1}') psql -U $PGUSER $PGDATABASE $@
+  docker exec $args $(docker ps  | awk '/statbus-db/{print $1}') psql -U $PGUSER $PGDATABASE $@
 fi
-
-docker exec $args $(docker ps  | awk '/statbus-postgres/{print $1}') psql -U statbus_development statbus_development $@
