@@ -24,7 +24,7 @@ export default function SearchResultTableRowDropdownMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="inline-block">
+        <Button variant="ghost" className="inline-block" title="Select action">
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

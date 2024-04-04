@@ -10,6 +10,7 @@ export default function ProfileAvatar({
   return (
     <a
       href="/profile"
+      aria-label="Profile"
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded-full bg-green-200 uppercase",
         className

@@ -39,9 +39,9 @@ export default function SearchResultPagination() {
             onClick={() => handlePageChange(pagination.pageNumber - 1)}
           />
         </PaginationItem>
-        <span className="mx-2">
+        <li className="mx-2">
           Page {pagination.pageNumber} of {totalPages}
-        </span>
+        </li>
         <PaginationItem>
           <PaginationNext
             disabled={pagination.pageNumber == totalPages}

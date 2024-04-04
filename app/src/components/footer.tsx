@@ -16,10 +16,13 @@ export default function Footer() {
         <div className="flex justify-between text-gray-500">
           <span></span>
           <div className="flex items-center justify-between space-x-3">
-            <Link href="https://github.com/statisticsnorway/statbus/">
+            <Link
+              href="https://github.com/statisticsnorway/statbus/"
+              aria-label="Github Repository"
+            >
               <Github size={22} className="stroke-ssb-neon" />
             </Link>
-            <Link href="https://www.statbus.org">
+            <Link href="https://www.statbus.org" aria-label="SSB homepage">
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
           </div>
