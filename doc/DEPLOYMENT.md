@@ -1,33 +1,52 @@
 # STATBUS GitHub Action Deployments
 
-Development is done on the `master` branch.
+Development primarily occurs on the `master` branch,
+with deployments facilitated through specific `devops/` branches
+to corresponding environments on the libu.statbus.no cloud server,
+running Ubuntu LTS and hosted by Linode.
 
-Deployment is done to the libu.statbus.no cloud server running Ubuntu LTS hosted by Linode.
+## Deployment Environments and Triggers
 
-Deployment is done from specific branches to their corresponding environments.
+Deployments are configured as follows:
+
+- **Development Environment**:
+  - Branch: `devops/deploy-to-dev`
+  - URL: [dev.statbus.org](https://dev.statbus.org/)
+  - Workflow: [Deploy to Dev](https://github.com/statisticsnorway/statbus/actions/workflows/deploy-to-dev.yaml) (Triggered automatically on every commit to `master` and can be manually triggered for PR testing by force pushing into the branch with `git push origin HEAD:devops/deploy-to-dev`).
+  
+- **Production Environment (NO)**:
+  - Branch: `devops/deploy-to-no`
+  - Environment URL: [no.statbus.org](https://no.statbus.org/)
+  - Workflows:
+    - [Master to NO](https://github.com/statisticsnorway/statbus/actions/workflows/deploy-to-no.yaml) (Manually triggered for specific deployments)
+    - Part of [Production to All](https://github.com/statisticsnorway/statbus/actions/workflows/production-to-all.yaml) (Automatic deployment from `devops/deploy-to-production`)
+
+- **Production Environment (TCC)**:
+  - Branch: `devops/deploy-to-tcc`
+  - Environment URL: [tcc.statbus.org](https://tcc.statbus.org/)
+  - Workflows:
+    - [Master to TCC](https://github.com/statisticsnorway/statbus/actions/workflows/deploy-to-tcc.yaml) (Manually triggered for specific deployments)
+    - Part of [Production to All](https://github.com/statisticsnorway/statbus/actions/workflows/production-to-all.yaml) (Automatic deployment from `devops/deploy-to-production`)
+
+- **Production Intermediate**:
+  - Branch: `devops/deploy-to-production`
+  - This branch provides easy deployment to all production environments. It's updated from `master` through:
+    - [Master to Production](https://github.com/statisticsnorway/statbus/actions/workflows/master-to-production.yaml) (Manually triggered for regular releases and specific deployments)
+    - [Weekly Deploy to Production](https://github.com/statisticsnorway/statbus/actions/workflows/master-to-production.yaml) (A scheduled job every Monday morning)
 
 
-*Configured*
+# Deployment Process
 
-* `devops/deploy-to-dev` -> `dev.statbus.org`
-* `devops/deploy-to-no` -> `no.statbus.org`
-* `devops/deploy-to-tcc` -> `tcc.statbus.org`
+- **Development**: All development work merges into the `master` branch.
+	Each commit to `master` automatically triggers a deployment to the development environment (`dev.statbus.org`).
+- **PR Testing**: For testing pull requests, any branch can be manually force-pushed to `devops/deploy-to-dev` for live environment testing.
+- **Production**: Deployments to production (`no.statbus.org`, `tcc.statbus.org`) are managed through manual triggers or automated processes from the `devops/deploy-to-production` branch.
 
-Development is done in the `master` branch.
-Every commit to `master` is pushed to `devops/deploy-to-dev`.
-For testing of PR's it is possible to manually force push any branch to
-`devops/deploy-to-dev` for testing.
 
-A manually triggered job pushes `master` to `devops/deploy-to-production`.
-An automatic job pushes `devops/deploy-to-production` to `devops/deploy-to-no` and `devops/deploy-to-tcc`
-that again triggers deployment.
+# Deployment Diagram
 
-A manually triggered job pushes `master` to `devops/deploy-to-no` for deploy to `no.statbus.org`.
-A manually triggered job pushes `master` to `devops/deploy-to-tcc` for deploy to `tcc.statbus.org`.
+For a visual overview of the deployment process, refer to the diagram below:
 
-A weekly job on Monday morning pushes `master` to `devops/deploy-to-production` for regular releases.
-
-For an overview see
 <img src="./diagrams/deployment.svg" alt="Deployment Diagram" style="max-width:100%; max-height:300px;">
 
 ## Future Plans
