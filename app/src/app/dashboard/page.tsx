@@ -118,11 +118,11 @@ const DashboardSection = ({
 }) => {
   return (
     <div>
-      <div className="flex justify-between items-center bg-ssb-dark text-white  py-2 px-4 rounded-t">
+      <div className="flex justify-between items-center border border-b-0 py-2 px-4 rounded-t bg-gray-100">
         <h2 className="text-xs uppercase font-semibold">{title}</h2>
         {icon}
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 p-2 lg:p-4 border border-t-0 bg-gray-50 rounded-b">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 p-2 lg:p-4 border border-t-0 rounded-b">
         {children}
       </div>
     </div>
