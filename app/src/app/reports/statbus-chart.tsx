@@ -53,30 +53,38 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
             className="space-y-8"
           >
             <div className="space-y-6 bg-gray-50 p-4">
-              <BreadCrumb
-                topLevelText="All Regions"
-                points={drillDown.breadcrumb.region}
-                selected={region}
-                onSelect={setRegion}
-              />
-              <DrillDownChart
-                points={drillDown.available.region}
-                onSelect={setRegion}
-                variable={statisticalVariable.value}
-              />
+              {drillDown && (
+                <>
+                  <BreadCrumb
+                    topLevelText="All Regions"
+                    points={drillDown.breadcrumb.region}
+                    selected={region}
+                    onSelect={setRegion}
+                  />
+                  <DrillDownChart
+                    points={drillDown.available.region}
+                    onSelect={setRegion}
+                    variable={statisticalVariable.value}
+                  />
+                </>
+              )}
             </div>
             <div className="bg-gray-50 p-6">
-              <BreadCrumb
-                topLevelText="All Activity Categories"
-                points={drillDown.breadcrumb.activity_category}
-                selected={activityCategory}
-                onSelect={setActivityCategory}
-              />
-              <DrillDownChart
-                points={drillDown.available.activity_category}
-                onSelect={setActivityCategory}
-                variable={statisticalVariable.value}
-              />
+              {drillDown && (
+                <>
+                  <BreadCrumb
+                    topLevelText="All Activity Categories"
+                    points={drillDown.breadcrumb.activity_category}
+                    selected={activityCategory}
+                    onSelect={setActivityCategory}
+                  />
+                  <DrillDownChart
+                    points={drillDown.available.activity_category}
+                    onSelect={setActivityCategory}
+                    variable={statisticalVariable.value}
+                  />
+                </>
+              )}
             </div>
           </TabsContent>
         ))}
