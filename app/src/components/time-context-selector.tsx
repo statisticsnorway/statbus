@@ -16,6 +16,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useTimeContext } from "@/app/use-time-context";
+import { useEffect, useState } from "react";
 
 export default function TimeContextSelector({
   className,
@@ -24,7 +25,12 @@ export default function TimeContextSelector({
   readonly className?: string;
   readonly title?: string;
 }) {
+  const [visible, setVisible] = useState(false);
   const { selectedPeriod, periods, setSelectedPeriod } = useTimeContext();
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   return (
     <Popover>
@@ -34,11 +40,11 @@ export default function TimeContextSelector({
           className={cn(
             "space-x-2 transition-opacity border-dashed duration-500 bg-transparent",
             className,
-            !selectedPeriod ? "opacity-0" : "opacity-100"
+            visible ? "opacity-100" : "opacity-0"
           )}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
-          {selectedPeriod?.name}
+          {selectedPeriod?.name ?? title}
         </Button>
       </PopoverTrigger>
       <PopoverContent
