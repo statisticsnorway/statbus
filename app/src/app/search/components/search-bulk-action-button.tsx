@@ -6,8 +6,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Settings, Trash } from "lucide-react";
-import { Command } from "cmdk";
 import {
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,

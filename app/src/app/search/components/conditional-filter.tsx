@@ -5,7 +5,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Command } from "cmdk";
 import * as React from "react";
 import { useCallback, useState } from "react";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { ConditionalValueBadge } from "@/app/search/components/conditional-value-badge";
 import { cn } from "@/lib/utils";
+import { Command } from "@/components/ui/command";
 
 interface ITableFilterCustomProps {
   title: string;
