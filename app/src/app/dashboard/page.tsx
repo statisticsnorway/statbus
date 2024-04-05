@@ -22,7 +22,7 @@ export default async function Dashboard() {
       <h1 className="text-center text-2xl">StatBus Status Dashboard</h1>
 
       <DashboardSection
-        title="StatBus Data"
+        title="Data Metrics"
         icon={<Database className="w-4 h-4 stroke-current" />}
       >
         <Link href="/search?unit_type=enterprise">
@@ -78,7 +78,7 @@ export default async function Dashboard() {
       </DashboardSection>
 
       <DashboardSection
-        title="StatBus Data quality"
+        title="Data quality"
         icon={<Gauge className="w-4 h-4 stroke-current" />}
       >
         <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=null">
