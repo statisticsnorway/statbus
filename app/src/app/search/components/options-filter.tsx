@@ -5,8 +5,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Command } from "cmdk";
 import {
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
