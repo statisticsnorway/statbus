@@ -3,14 +3,32 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { SSBLogo } from "@/components/ssb-logo";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Footer() {
+export function FooterSkeleton() {
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
       <div className="mx-auto max-w-screen-xl space-y-10 p-6 lg:p-24">
         <div className="flex items-center justify-between space-x-2">
           <SSBLogo className="h-8 lg:h-12 w-auto" />
-          <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+export default async function Footer() {
+  const supabase = createClient();
+  const session = await supabase.auth.getSession();
+
+  return (
+    <footer className="border-t-2 border-gray-100 bg-ssb-dark">
+      <div className="mx-auto max-w-screen-xl space-y-12 p-6 lg:p-24">
+        <div className="flex items-center justify-between space-x-2">
+          <SSBLogo className="h-8 lg:h-12 w-auto" />
+          {session.data.session?.user && (
+            <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
+          )}
         </div>
         <Separator className="bg-gray-200" />
         <div className="flex justify-between text-gray-500">
