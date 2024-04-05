@@ -1,4 +1,4 @@
-export const INVALID_CODES: SearchFilterName = "invalid_codes";
+import { INVALID_CODES } from "@/app/search/filtersV2/url-search-params";
 
 export const createInvalidCodesFilter = (
   params: URLSearchParams

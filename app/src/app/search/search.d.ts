@@ -28,7 +28,7 @@ type SearchPagination = {
 };
 
 interface SearchState {
-  readonly filters: SearchFilter[];
+  readonly queries: Record<string, string | null>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
 }
@@ -110,7 +110,16 @@ interface SetPage {
   };
 }
 
+interface SetQuery {
+  type: "set_query";
+  payload: {
+    name: string;
+    query: string | null;
+  };
+}
+
 type SearchAction =
+  | SetQuery
   | ToggleOption
   | ToggleRadioOption
   | SetCondition
@@ -121,11 +130,7 @@ type SearchAction =
   | SetPage;
 
 interface FilterOptions {
-  activityCategories: Tables<"activity_category_available">[];
-  regions: Tables<"region_used">[];
   statisticalVariables: Tables<"stat_definition">[];
-  sectors: Tables<"sector">[];
-  legalForms: Tables<"legal_form">[];
 }
 
 type SetOrderAction = { type: "set_order"; payload: { name: string } };

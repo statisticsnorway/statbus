@@ -1,7 +1,8 @@
+"use client";
 import { TableHead } from "@/components/ui/table";
 import { ReactNode, ThHTMLAttributes } from "react";
-import { useSearchContext } from "@/app/search/search-provider";
 import { cn } from "@/lib/utils";
+import { useSearchContext } from "@/app/search/use-search-context";
 
 interface SortableTableHeadProps
   extends ThHTMLAttributes<HTMLTableCellElement> {

@@ -1,18 +1,18 @@
+"use client";
 import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
-import { useSearchContext } from "@/app/search/search-provider";
+import { useSearchContext } from "@/app/search/use-search-context";
 
 export default function TableToolbar() {
   const {
-    search: { filters },
+    search: { queries },
     dispatch,
   } = useSearchContext();
-  const hasAnyFilterSelected = filters.some(
-    ({ selected }) => selected?.[0]?.toString().length
-  );
+
+  const hasAnyFilterSelected = Object.keys(queries).length > 0;
 
   const createFilterComponent = useCallback(
     ({ type, name, label, options, selected, operator }: SearchFilter) => {
@@ -90,7 +90,6 @@ export default function TableToolbar() {
 
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      {filters.map(createFilterComponent)}
       {hasAnyFilterSelected && (
         <ResetFilterButton
           className="h-9 p-2"

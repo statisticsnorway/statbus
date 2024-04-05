@@ -1,19 +1,15 @@
 import { useEffect } from "react";
-import type { SearchContextState } from "@/app/search/search-provider";
+import { SearchContextState } from "@/app/search/search-context";
 
 export default function useUpdatedUrlSearchParams({
-  search: { filters, order, pagination },
+  search: { queries, order, pagination },
 }: SearchContextState) {
   useEffect(() => {
-    const params = filters
-      .filter((f) => f.selected.length > 0 && f.selected[0] !== "")
-      .reduce((acc, { name, selected, operator: op }) => {
-        if (selected[0] === null) {
-          acc.set(name, "null");
-        } else {
-          acc.set(name, `${op ? `${op}.` : ""}${selected.join(",")}`);
-        }
-        return acc;
+    const params = Object.entries(queries ?? {})
+      .filter(([, query]) => !!query)
+      .reduce((params, [name, query]) => {
+        params.set(name, query!);
+        return params;
       }, new URLSearchParams());
 
     if (order.name) {
@@ -29,5 +25,5 @@ export default function useUpdatedUrlSearchParams({
       "",
       params.size > 0 ? `?${params}` : window.location.pathname
     );
-  }, [filters, order, pagination]);
+  }, [queries, order, pagination]);
 }

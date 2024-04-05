@@ -1,7 +1,8 @@
-import { useCartContext } from "@/app/search/cart-provider";
+"use client";
 import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
+import { useCartContext } from "@/app/search/use-cart-context";
 
 export const Cart = () => {
   const { selected } = useCartContext();

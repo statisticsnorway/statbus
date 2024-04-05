@@ -1,4 +1,4 @@
-export const UNIT_TYPE: SearchFilterName = "unit_type";
+import { UNIT_TYPE } from "@/app/search/filtersV2/url-search-params";
 
 export const createUnitTypeSearchFilter = (
   params: URLSearchParams

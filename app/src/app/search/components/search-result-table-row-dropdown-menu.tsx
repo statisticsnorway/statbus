@@ -1,3 +1,4 @@
+"use client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tables } from "@/lib/database.types";
 import { MoreHorizontal, ShoppingBasket } from "lucide-react";
-import { useCartContext } from "@/app/search/cart-provider";
+
+import { useCartContext } from "@/app/search/use-cart-context";
 
 export default function SearchResultTableRowDropdownMenu({
   unit,

@@ -1,7 +1,8 @@
+"use client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { useSearchContext } from "../search-provider";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import { StatisticalUnitTableHeader } from "@/app/search/components/statistical-unit-table-header";
+import { useSearchContext } from "@/app/search/use-search-context";
 
 export default function SearchResultTable() {
   const { searchResult } = useSearchContext();

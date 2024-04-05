@@ -1,20 +1,7 @@
-import {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+"use client";
+import { ReactNode, useCallback, useMemo, useState } from "react";
 import { Tables } from "@/lib/database.types";
-
-interface CartContextData {
-  readonly selected: Tables<"statistical_unit">[];
-  readonly clearSelected: () => void;
-  readonly toggle: (unit: Tables<"statistical_unit">) => void;
-}
-
-const CartContext = createContext<CartContextData | null>(null);
+import { CartContext } from "@/app/search/cart-context";
 
 interface CartProviderProps {
   readonly children: ReactNode;
@@ -35,7 +22,7 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     [setSelected]
   );
 
-  const ctx: CartContextData = useMemo(
+  const ctx = useMemo(
     () => ({
       selected,
       toggle,
@@ -45,12 +32,4 @@ export const CartProvider = ({ children }: CartProviderProps) => {
   );
 
   return <CartContext.Provider value={ctx}>{children}</CartContext.Provider>;
-};
-
-export const useCartContext = () => {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCartContext must be used within a CartProvider");
-  }
-  return context;
 };

@@ -7,12 +7,12 @@ const fetcher: Fetcher<SearchResult, string> = (...args) =>
 
 export default function useSearch(searchFilterState: SearchState) {
   const { selectedPeriod } = useTimeContext();
-  const { filters, order, pagination } = searchFilterState;
-  const searchParams = filters
-    .map((f) => [f.name, generatePostgrestQuery(f)])
+  const { order, pagination, queries } = searchFilterState;
+
+  const searchParams = Object.entries(queries ?? {})
     .filter(([, query]) => !!query)
     .reduce((params, [name, query]) => {
-      params.set(name!, query!);
+      params.set(name, query!);
       return params;
     }, new URLSearchParams());
 

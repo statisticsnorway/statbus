@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import TimeContextProvider from "@/app/time-context-provider";
+import { SearchProvider } from "@/app/search/search-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
