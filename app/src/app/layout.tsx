@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import React from "react";
-import Navbar from "@/components/navbar";
+import React, { Suspense } from "react";
+import Navbar, { NavbarSkeleton } from "@/components/navbar";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,7 +31,9 @@ export default function RootLayout({
         )}
       >
         <TimeContextProvider>
-          <Navbar />
+          <Suspense fallback={<NavbarSkeleton />}>
+            <Navbar />
+          </Suspense>
           {children}
           <CommandPalette />
           <Toaster />
