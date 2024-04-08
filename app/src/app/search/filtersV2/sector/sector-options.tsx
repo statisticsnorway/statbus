@@ -10,18 +10,19 @@ export default function SectorOptions({
   readonly options: SearchFilterOption[];
   readonly selected: (string | null)[];
 }) {
-  const context = useSearchContext();
+  const { dispatch } = useSearchContext();
   const [selected, setSelected] = useState(initialSelected);
 
   useEffect(() => {
-    context.dispatch({
+    dispatch({
       type: "set_query",
       payload: {
         name: "sector_code",
         query: selected.length > 0 ? `in.(${selected.join(",")})` : null,
+        urlValue: selected.join(","),
       },
     });
-  }, [selected]);
+  }, [dispatch, selected]);
 
   return (
     <OptionsFilter

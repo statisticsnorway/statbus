@@ -5,23 +5,24 @@ import { useEffect, useState } from "react";
 import { UNIT_TYPE } from "@/app/search/filtersV2/url-search-params";
 
 interface IProps {
-  value: string | null;
+  param: string | null;
 }
 
-export default function UnitTypeFilter({ value }: IProps) {
-  const context = useSearchContext();
-  const initialValue = value?.split(",") ?? ["enterprise"];
-  const [selected, setSelected] = useState<(string | null)[]>(initialValue);
+export default function UnitTypeFilter({ param }: IProps) {
+  const initialSelected = param ? param.split(",") : [];
+  const { dispatch } = useSearchContext();
+  const [selected, setSelected] = useState<(string | null)[]>(initialSelected);
 
   useEffect(() => {
-    context.dispatch({
+    dispatch({
       type: "set_query",
       payload: {
         name: UNIT_TYPE,
         query: selected.length > 0 ? `in.(${selected.join(",")})` : null,
+        urlValue: selected.join(","),
       },
     });
-  }, [selected]);
+  }, [dispatch, selected]);
 
   return (
     <OptionsFilter

@@ -16,14 +16,14 @@ import ActivityCategoryFilter from "@/app/search/filtersV2/activity-category/act
 import StatisticalVariablesFilter from "@/app/search/filtersV2/statistical-variables/statistical-variables-filter";
 import FullTextSearchFilter from "@/app/search/filtersV2/full-text-search-filter";
 import TaxRegIdentFilter from "@/app/search/filtersV2/tax-reg-ident-filter";
+import UnitTypeFilter from "@/app/search/filtersV2/unit-type-filter";
+import InvalidCodesFilter from "@/app/search/filtersV2/invalid-codes-filter";
 import {
   INVALID_CODES,
   SEARCH,
   TAX_REG_IDENT,
   UNIT_TYPE,
 } from "@/app/search/filtersV2/url-search-params";
-import UnitTypeFilter from "@/app/search/filtersV2/unit-type-filter";
-import InvalidCodesFilter from "@/app/search/filtersV2/invalid-codes-filter";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -57,7 +57,7 @@ export default async function SearchPage({
         <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
           <FullTextSearchFilter value={params.get(SEARCH)} />
           <TaxRegIdentFilter value={params.get(TAX_REG_IDENT)} />
-          <UnitTypeFilter value={params.get(UNIT_TYPE)} />
+          <UnitTypeFilter param={params.get(UNIT_TYPE)} />
           <Suspense fallback={<FilterSkeleton title="Sector" />}>
             <SectorFilter />
           </Suspense>

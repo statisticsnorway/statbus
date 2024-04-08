@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { SearchContextState } from "@/app/search/search-context";
 
 export default function useUpdatedUrlSearchParams({
-  search: { queries, order, pagination },
+  search: { values, order, pagination },
 }: SearchContextState) {
   useEffect(() => {
-    const params = Object.entries(queries ?? {})
+    const params = Object.entries(values ?? {})
       .filter(([, query]) => !!query)
       .reduce((params, [name, query]) => {
         params.set(name, query!);
@@ -25,5 +25,5 @@ export default function useUpdatedUrlSearchParams({
       "",
       params.size > 0 ? `?${params}` : window.location.pathname
     );
-  }, [queries, order, pagination]);
+  }, [values, order, pagination]);
 }

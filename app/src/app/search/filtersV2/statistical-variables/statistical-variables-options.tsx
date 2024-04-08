@@ -12,18 +12,19 @@ export default function StatisticalVariablesOptions({
   readonly code: string;
   readonly selected?: { operator?: PostgrestOperator; value: string | null };
 }) {
-  const context = useSearchContext();
+  const { dispatch } = useSearchContext();
   const [selected, setSelected] = useState(initialSelected);
 
   useEffect(() => {
-    context.dispatch({
+    dispatch({
       type: "set_query",
       payload: {
         name: code,
         query: selected ? `${selected.operator}.${selected.value}` : null,
+        urlValue: selected ? `${selected.operator}.${selected.value}` : null,
       },
     });
-  }, [selected]);
+  }, [code, dispatch, selected]);
 
   return (
     <ConditionalFilter

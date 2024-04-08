@@ -29,6 +29,7 @@ type SearchPagination = {
 
 interface SearchState {
   readonly queries: Record<string, string | null>;
+  readonly values: Record<string, string | null>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
 }
@@ -115,6 +116,7 @@ interface SetQuery {
   payload: {
     name: string;
     query: string | null;
+    urlValue: string | null;
   };
 }
 

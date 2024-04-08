@@ -4,13 +4,18 @@ export function searchFilterReducer(
 ): SearchState {
   switch (action.type) {
     case "set_query": {
-      const { name, query } = action.payload;
-      return { ...state, queries: { ...state.queries, [name]: query } };
+      const { name, query, urlValue } = action.payload;
+      return {
+        ...state,
+        queries: { ...state.queries, [name]: query },
+        values: { ...state.values, [name]: urlValue },
+      };
     }
     case "reset_all":
       return {
         ...state,
         queries: {},
+        values: {},
         pagination: { ...state.pagination, pageNumber: 1 },
       };
     case "set_order": {

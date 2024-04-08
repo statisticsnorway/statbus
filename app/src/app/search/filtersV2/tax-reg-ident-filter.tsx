@@ -18,6 +18,7 @@ export default function TaxRegIdentFilter({ value: initialValue }: IProps) {
       payload: {
         name: TAX_REG_IDENT,
         query: value ? `eq.${value}` : null,
+        urlValue: value || null,
       },
     });
   }, [dispatch, value]);

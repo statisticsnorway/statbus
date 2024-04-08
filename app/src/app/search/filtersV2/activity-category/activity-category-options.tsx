@@ -10,19 +10,20 @@ export default function ActivityCategoryOptions({
   readonly options: SearchFilterOption[];
   readonly selected: (string | null)[];
 }) {
-  const context = useSearchContext();
+  const { dispatch } = useSearchContext();
   const [selected, setSelected] = useState(initialSelected);
 
   useEffect(() => {
     const value = selected[0];
-    context.dispatch({
+    dispatch({
       type: "set_query",
       payload: {
         name: "primary_activity_category_path",
         query: value ? `cd.${value}` : value === null ? "is.null" : null,
+        urlValue: value,
       },
     });
-  }, [selected]);
+  }, [dispatch, selected]);
 
   return (
     <OptionsFilter

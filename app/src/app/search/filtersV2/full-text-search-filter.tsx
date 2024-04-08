@@ -1,9 +1,9 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { generateFTSQuery } from "@/app/search/hooks/use-search";
 import { useEffect, useState } from "react";
 import { SEARCH } from "@/app/search/filtersV2/url-search-params";
+import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
 interface IProps {
   value: string | null;
@@ -19,6 +19,7 @@ export default function FullTextSearchFilter({ value: initialValue }: IProps) {
       payload: {
         name: SEARCH,
         query: value ? `fts.${generateFTSQuery(value)}` : null,
+        urlValue: value || null,
       },
     });
   }, [dispatch, value]);

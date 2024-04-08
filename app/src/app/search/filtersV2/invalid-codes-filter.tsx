@@ -18,6 +18,7 @@ export default function InvalidCodesFilter({ value: initial }: IProps) {
       payload: {
         name: INVALID_CODES,
         query: value === "yes" ? `not.is.null` : null,
+        urlValue: value || null,
       },
     });
   }, [dispatch, value]);

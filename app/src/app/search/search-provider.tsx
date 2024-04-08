@@ -1,8 +1,8 @@
 "use client";
 import { Dispatch, ReactNode, useMemo, useReducer } from "react";
 import { searchFilterReducer } from "@/app/search/search-filter-reducer";
-import useSearch from "@/app/search/hooks/use-search";
-import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
+import useSearch from "@/app/search/use-search";
+import useUpdatedUrlSearchParams from "@/app/search/use-updated-url-search-params";
 import { SearchContext } from "@/app/search/search-context";
 
 export interface SearchContextState {
@@ -27,6 +27,7 @@ export const SearchProvider = ({
     order: initialOrder,
     pagination,
     queries: {},
+    values: {},
   });
 
   const {
