@@ -19,8 +19,12 @@ import TaxRegIdentFilter from "@/app/search/filtersV2/tax-reg-ident-filter";
 import UnitTypeFilter from "@/app/search/filtersV2/unit-type-filter";
 import InvalidCodesFilter from "@/app/search/filtersV2/invalid-codes-filter";
 import {
+  ACTIVITY_CATEGORY_PATH,
   INVALID_CODES,
+  LEGAL_FORM,
+  REGION,
   SEARCH,
+  SECTOR,
   TAX_REG_IDENT,
   UNIT_TYPE,
 } from "@/app/search/filtersV2/url-search-params";
@@ -55,25 +59,25 @@ export default async function SearchPage({
           Search for statistical units
         </h1>
         <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-          <FullTextSearchFilter value={params.get(SEARCH)} />
-          <TaxRegIdentFilter value={params.get(TAX_REG_IDENT)} />
-          <UnitTypeFilter param={params.get(UNIT_TYPE)} />
+          <FullTextSearchFilter urlSearchParam={params.get(SEARCH)} />
+          <TaxRegIdentFilter urlSearchParam={params.get(TAX_REG_IDENT)} />
+          <UnitTypeFilter urlSearchParam={params.get(UNIT_TYPE)} />
           <Suspense fallback={<FilterSkeleton title="Sector" />}>
-            <SectorFilter />
+            <SectorFilter urlSearchParam={params.get(SECTOR)} />
           </Suspense>
           <Suspense fallback={<FilterSkeleton title="Region" />}>
-            <RegionFilter />
+            <RegionFilter urlSearchParam={params.get(REGION)} />
           </Suspense>
           <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-            <LegalFormFilter />
+            <LegalFormFilter urlSearchParam={params.get(LEGAL_FORM)} />
           </Suspense>
           <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-            <ActivityCategoryFilter />
+            <ActivityCategoryFilter
+              urlSearchParam={params.get(ACTIVITY_CATEGORY_PATH)}
+            />
           </Suspense>
-          <Suspense fallback={<FilterSkeleton title="Statistical Variables" />}>
-            <StatisticalVariablesFilter />
-          </Suspense>
-          <InvalidCodesFilter value={params.get(INVALID_CODES)} />
+          <StatisticalVariablesFilter urlSearchParams={params} />
+          <InvalidCodesFilter urlSearchParam={params.get(INVALID_CODES)} />
         </div>
         <CartProvider>
           <section className="space-y-3">

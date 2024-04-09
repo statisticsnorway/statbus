@@ -10,7 +10,7 @@ export default function StatisticalVariablesOptions({
 }: {
   readonly label: string;
   readonly code: string;
-  readonly selected?: { operator?: PostgrestOperator; value: string | null };
+  readonly selected?: { operator?: string; value: string | null };
 }) {
   const { dispatch } = useSearchContext();
   const [selected, setSelected] = useState(initialSelected);

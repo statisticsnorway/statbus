@@ -5,13 +5,15 @@ import { useEffect, useState } from "react";
 import { UNIT_TYPE } from "@/app/search/filtersV2/url-search-params";
 
 interface IProps {
-  param: string | null;
+  urlSearchParam: string | null;
 }
 
-export default function UnitTypeFilter({ param }: IProps) {
-  const initialSelected = param ? param.split(",") : [];
+export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
   const { dispatch } = useSearchContext();
-  const [selected, setSelected] = useState<(string | null)[]>(initialSelected);
+
+  const [selected, setSelected] = useState<(string | null)[]>(
+    param ? param.split(",") : []
+  );
 
   useEffect(() => {
     dispatch({

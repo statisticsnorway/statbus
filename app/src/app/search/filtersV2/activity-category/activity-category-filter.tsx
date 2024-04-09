@@ -1,16 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import ActivityCategoryOptions from "@/app/search/filtersV2/activity-category/activity-category-options";
 
-export default async function ActivityCategoryFilter() {
+export default async function ActivityCategoryFilter({
+  urlSearchParam,
+}: {
+  readonly urlSearchParam: string | null;
+}) {
   const client = createClient();
   const activityCategories = await client
     .from("activity_category_used")
     .select();
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
   // TODO: remove demo delay
-  // TODO: pass url search params to Child Component
+  await new Promise((resolve) => setTimeout(resolve, 1500));
 
   return (
     <ActivityCategoryOptions
@@ -27,7 +29,7 @@ export default async function ActivityCategoryFilter() {
           humanReadableValue: `${code} ${name}`,
         })) ?? []),
       ]}
-      selected={[]}
+      selected={urlSearchParam ? [urlSearchParam] : []}
     />
   );
 }

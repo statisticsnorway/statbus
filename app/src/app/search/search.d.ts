@@ -1,5 +1,3 @@
-type PostgrestOperator = "eq" | "gt" | "lt" | "in";
-
 type SearchFilterName =
   | "search"
   | "tax_ident"

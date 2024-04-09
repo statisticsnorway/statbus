@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { TAX_REG_IDENT } from "@/app/search/filtersV2/url-search-params";
 
 interface IProps {
-  value: string | null;
+  urlSearchParam: string | null;
 }
 
-export default function TaxRegIdentFilter({ value: initialValue }: IProps) {
+export default function TaxRegIdentFilter({ urlSearchParam: param }: IProps) {
   const { dispatch } = useSearchContext();
-  const [value, setValue] = useState(initialValue ?? "");
+  const [value, setValue] = useState(param ?? "");
 
   useEffect(() => {
     dispatch({

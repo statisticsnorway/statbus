@@ -6,19 +6,21 @@ import { SEARCH } from "@/app/search/filtersV2/url-search-params";
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
 interface IProps {
-  value: string | null;
+  urlSearchParam: string | null;
 }
 
-export default function FullTextSearchFilter({ value: initialValue }: IProps) {
+export default function FullTextSearchFilter({
+  urlSearchParam: param,
+}: IProps) {
   const { dispatch } = useSearchContext();
-  const [value, setValue] = useState(initialValue ?? "");
+  const [value, setValue] = useState(param ?? "");
 
   useEffect(() => {
     dispatch({
       type: "set_query",
       payload: {
         name: SEARCH,
-        query: value ? `fts.${generateFTSQuery(value)}` : null,
+        query: value ? `fts(simple).${generateFTSQuery(value)}` : null,
         urlValue: value || null,
       },
     });

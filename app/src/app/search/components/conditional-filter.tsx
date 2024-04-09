@@ -23,7 +23,7 @@ import { Command } from "@/components/ui/command";
 interface ITableFilterCustomProps {
   title: string;
   selected?: {
-    operator?: PostgrestOperator;
+    operator?: string;
     value: string | null;
   };
   onChange: ({ value, operator }: ConditionalValue) => void;
@@ -38,7 +38,7 @@ export function ConditionalFilter({
   onReset,
   className,
 }: ITableFilterCustomProps) {
-  const [operator, setOperator] = useState<PostgrestOperator | null>(
+  const [operator, setOperator] = useState<string | null>(
     selected?.operator ?? null
   );
   const [value, setValue] = useState<string | null>(selected?.value ?? null);
@@ -75,7 +75,7 @@ export function ConditionalFilter({
         <Command className="flex space-x-2 p-2">
           <Select
             value={operator ?? ""}
-            onValueChange={(value) => setOperator(value as PostgrestOperator)}
+            onValueChange={(value) => setOperator(value)}
           >
             <SelectTrigger className="w-auto max-w-[180px] space-x-2">
               <SelectValue placeholder="Condition" />

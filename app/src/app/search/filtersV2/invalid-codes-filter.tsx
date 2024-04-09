@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { INVALID_CODES } from "@/app/search/filtersV2/url-search-params";
 
 interface IProps {
-  value: string | null;
+  urlSearchParam: string | null;
 }
 
-export default function InvalidCodesFilter({ value: initial }: IProps) {
+export default function InvalidCodesFilter({ urlSearchParam: param }: IProps) {
   const { dispatch } = useSearchContext();
-  const [value, setValue] = useState<string | null>(initial);
+  const [value, setValue] = useState<string | null>(param);
 
   useEffect(() => {
     dispatch({
@@ -35,7 +35,7 @@ export default function InvalidCodesFilter({ value: initial }: IProps) {
           className: "bg-orange-200",
         },
       ]}
-      selectedValues={[value]}
+      selectedValues={value ? [value] : []}
       onReset={() => setValue(null)}
       onToggle={({ value }) => {
         setValue(value);
