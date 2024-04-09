@@ -1,8 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react";
-import SectorFilter from "@/app/search/filtersV2/sector/sector-filter";
 import { SearchProvider } from "@/app/search/search-provider";
-import { FilterSkeleton } from "@/app/search/filter-skeleton";
 import TableToolbar from "@/app/search/components/table-toolbar";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
@@ -10,24 +7,6 @@ import SearchResultPagination from "@/app/search/components/search-result-pagina
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Cart } from "@/app/search/components/cart";
 import { CartProvider } from "@/app/search/cart-provider";
-import RegionFilter from "@/app/search/filtersV2/region/region-filter";
-import LegalFormFilter from "@/app/search/filtersV2/legal-form/legal-form-filter";
-import ActivityCategoryFilter from "@/app/search/filtersV2/activity-category/activity-category-filter";
-import StatisticalVariablesFilter from "@/app/search/filtersV2/statistical-variables/statistical-variables-filter";
-import FullTextSearchFilter from "@/app/search/filtersV2/full-text-search-filter";
-import TaxRegIdentFilter from "@/app/search/filtersV2/tax-reg-ident-filter";
-import UnitTypeFilter from "@/app/search/filtersV2/unit-type-filter";
-import InvalidCodesFilter from "@/app/search/filtersV2/invalid-codes-filter";
-import {
-  ACTIVITY_CATEGORY_PATH,
-  INVALID_CODES,
-  LEGAL_FORM,
-  REGION,
-  SEARCH,
-  SECTOR,
-  TAX_REG_IDENT,
-  UNIT_TYPE,
-} from "@/app/search/filtersV2/url-search-params";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -58,30 +37,10 @@ export default async function SearchPage({
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
           Search for statistical units
         </h1>
-        <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-          <FullTextSearchFilter urlSearchParam={params.get(SEARCH)} />
-          <TaxRegIdentFilter urlSearchParam={params.get(TAX_REG_IDENT)} />
-          <UnitTypeFilter urlSearchParam={params.get(UNIT_TYPE)} />
-          <Suspense fallback={<FilterSkeleton title="Sector" />}>
-            <SectorFilter urlSearchParam={params.get(SECTOR)} />
-          </Suspense>
-          <Suspense fallback={<FilterSkeleton title="Region" />}>
-            <RegionFilter urlSearchParam={params.get(REGION)} />
-          </Suspense>
-          <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-            <LegalFormFilter urlSearchParam={params.get(LEGAL_FORM)} />
-          </Suspense>
-          <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-            <ActivityCategoryFilter
-              urlSearchParam={params.get(ACTIVITY_CATEGORY_PATH)}
-            />
-          </Suspense>
-          <StatisticalVariablesFilter urlSearchParams={params} />
-          <InvalidCodesFilter urlSearchParam={params.get(INVALID_CODES)} />
-        </div>
+        <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
         <CartProvider>
           <section className="space-y-3">
-            <TableToolbar />
+            <TableToolbar urlSearchParams={params} />
             <div className="rounded-md border overflow-hidden">
               <SearchResultTable />
             </div>
