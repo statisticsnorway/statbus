@@ -4,11 +4,11 @@ export function searchFilterReducer(
 ): SearchState {
   switch (action.type) {
     case "set_query": {
-      const { name, query, urlValue } = action.payload;
+      const { name, query, values } = action.payload;
       return {
         ...state,
         queries: { ...state.queries, [name]: query },
-        values: { ...state.values, [name]: urlValue },
+        values: { ...state.values, [name]: values },
       };
     }
     case "reset_all":

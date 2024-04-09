@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import StatisticalVariablesOptions from "@/app/search/filtersV2/statistical-variables/statistical-variables-options";
+import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
 
 export default async function StatisticalVariablesFilter({
   urlSearchParams,

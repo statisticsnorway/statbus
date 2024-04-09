@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import RegionOptions from "@/app/search/filtersV2/region/region-options";
+import RegionOptions from "@/app/search/filters/region/region-options";
 
 interface IProps {
   readonly urlSearchParam: string | null;
@@ -8,9 +8,6 @@ interface IProps {
 export default async function RegionFilter({ urlSearchParam: param }: IProps) {
   const client = createClient();
   const regions = await client.from("region_used").select();
-
-  // TODO: remove demo delay
-  await new Promise((resolve) => setTimeout(resolve, 1500));
 
   return (
     <RegionOptions

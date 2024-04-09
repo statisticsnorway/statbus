@@ -6,9 +6,9 @@ export default function useUpdatedUrlSearchParams({
 }: SearchContextState) {
   useEffect(() => {
     const params = Object.entries(values ?? {})
-      .filter(([, query]) => !!query)
-      .reduce((params, [name, query]) => {
-        params.set(name, query!);
+      .filter(([, values]) => values?.length > 0)
+      .reduce((params, [name, values]) => {
+        params.set(name, values.join(","));
         return params;
       }, new URLSearchParams());
 
