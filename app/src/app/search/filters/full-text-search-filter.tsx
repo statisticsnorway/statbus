@@ -13,7 +13,7 @@ export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
   const {
     dispatch,
     search: {
-      values: { [SEARCH]: selected = [] },
+      values: { [SEARCH]: selected = urlSearchParam ? [urlSearchParam] : [] },
     },
   } = useSearchContext();
 

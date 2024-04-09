@@ -7,8 +7,8 @@ export function FilterSkeleton({
   title,
   className,
 }: {
-  title: string;
-  className?: string;
+  readonly title: string;
+  readonly className?: string;
 }) {
   return (
     <Button

@@ -12,7 +12,9 @@ export default function TaxRegIdentFilter({ urlSearchParam }: IProps) {
   const {
     dispatch,
     search: {
-      values: { [TAX_REG_IDENT]: selected = [] },
+      values: {
+        [TAX_REG_IDENT]: selected = urlSearchParam ? [urlSearchParam] : [],
+      },
     },
   } = useSearchContext();
 
