@@ -72,7 +72,7 @@ export function ConditionalFilter({
         className="w-auto max-w-[350px] p-0 md:max-w-[500px]"
         align="start"
       >
-        <Command className="flex space-x-2 p-2">
+        <Command className="flex flex-row justify-between gap-2 p-2">
           <Select
             value={operator ?? ""}
             onValueChange={(value) => setOperator(value)}
@@ -92,12 +92,13 @@ export function ConditionalFilter({
             value={value ?? ""}
             onChange={(e) => setValue(e.target.value.trim())}
           />
+
           <Button onClick={updateFilter} variant="outline">
             OK
           </Button>
         </Command>
         {selected?.value && selected.operator ? (
-          <div className="w-full p-2">
+          <div className="w-full p-2 pt-0">
             <Button onClick={onReset} variant="outline" className="w-full">
               Clear
             </Button>
