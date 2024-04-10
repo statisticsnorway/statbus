@@ -29,11 +29,6 @@ export default function SearchResultTable() {
           <Loader className="animate-spin duration-1000 h-8 w-8 stroke-ssb-dark" />
         </div>
       )}
-      {!isLoading && !searchResult?.statisticalUnits?.length && (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <span>No results found</span>
-        </div>
-      )}
     </div>
   );
 }
