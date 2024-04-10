@@ -30,7 +30,7 @@ export const SearchProvider = ({
   const valuesFromUrlSearchParams = useMemo(() => {
     const params = new URLSearchParams(urlSearchParams);
     return Array.from(params.keys()).reduce(
-      (acc, key) => ({ ...acc, [key]: params.getAll(key) }),
+      (acc, key) => ({ ...acc, [key]: params.get(key)?.split(",") }),
       {}
     );
   }, [urlSearchParams]);
@@ -43,7 +43,7 @@ export const SearchProvider = ({
   });
 
   const {
-    search: { data: searchResult },
+    search: { data: searchResult, isLoading },
     searchParams,
   } = useSearch(search);
 
@@ -55,8 +55,9 @@ export const SearchProvider = ({
       searchParams,
       regions: regions ?? [],
       activityCategories: activityCategories ?? [],
+      isLoading,
     }),
-    [search, searchResult, searchParams, regions, activityCategories]
+    [search, searchResult, searchParams, regions, activityCategories, isLoading]
   );
 
   useUpdatedUrlSearchParams(ctx);
