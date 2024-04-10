@@ -7,6 +7,7 @@ import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-detail
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
 import { Bug } from "lucide-react";
 import { useCartContext } from "@/app/search/use-cart-context";
+import { useSearchContext } from "@/app/search/use-search-context";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -17,7 +18,7 @@ export const StatisticalUnitTableRow = ({
   unit,
   className,
 }: SearchResultTableRowProps) => {
-  // const { regions, activityCategories } = useSearchContext();
+  const { regions, activityCategories } = useSearchContext();
   const { selected } = useCartContext();
 
   const isInBasket = selected.some(
@@ -37,31 +38,28 @@ export const StatisticalUnitTableRow = ({
     invalid_codes,
   } = unit;
 
-  // const getRegionByPath = (physical_region_path: unknown) =>
-  //   regions.find(({ path }) => path === physical_region_path);
-  //
-  // const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
-  //   activityCategories.find(
-  //     ({ path }) => path === primary_activity_category_path
-  //   );
-  //
-  // const activityCategory = getActivityCategoryByPath(
-  //   primary_activity_category_path
-  // );
-  //
-  // const region = getRegionByPath(physical_region_path);
+  const getRegionByPath = (physical_region_path: unknown) =>
+    regions.find(({ path }) => path === physical_region_path);
 
-  // TODO: find a better alternative for resolving activity and region names
+  const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
+    activityCategories.find(
+      ({ path }) => path === primary_activity_category_path
+    );
 
-  const activityCategory = {
-    code: primary_activity_category_path?.toString() ?? "",
-    name: primary_activity_category_path?.toString() ?? "",
-  };
+  /* TODO - Remove this once the search results include the activity category and region names
+   * Until activity category and region names are included in the search results,
+   * we need to provide activity categories and regions via the search provider
+   * so that the names can be displayed in the search results.
+   *
+   * A better solution would be to include the names in the search results
+   * so that we do not need any blocking calls to supabase here.
+   */
 
-  const region = {
-    code: physical_region_path?.toString() ?? "",
-    name: physical_region_path?.toString() ?? "",
-  };
+  const activityCategory = getActivityCategoryByPath(
+    primary_activity_category_path
+  );
+
+  const region = getRegionByPath(physical_region_path);
 
   const prettifyUnitType = (type: UnitType | null): string => {
     switch (type) {

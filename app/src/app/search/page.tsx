@@ -7,6 +7,7 @@ import SearchResultPagination from "@/app/search/components/search-result-pagina
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Cart } from "@/app/search/components/cart";
 import { CartProvider } from "@/app/search/cart-provider";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -24,6 +25,20 @@ export default async function SearchPage({
     "asc",
   ];
 
+  /* TODO - Remove this once the search results include the activity category and region names
+   * Until activity category and region names are included in the search results,
+   * we need to provide activity categories and regions via the search provider
+   * so that the names can be resolved and displayed in the search results.
+   *
+   * A better solution would be to include the names in the search results
+   * so that we do not need any blocking calls to supabase here.
+   */
+  const supabase = createClient();
+  const [activityCategories, regions] = await Promise.all([
+    supabase.from("activity_category_used").select(),
+    supabase.from("region_used").select(),
+  ]);
+
   const defaultCurrentPage = 1;
   const defaultPageSize = 10;
   const currentPage = Number(params.get("page")) || defaultCurrentPage;
@@ -32,6 +47,8 @@ export default async function SearchPage({
     <SearchProvider
       order={{ name: orderBy, direction: orderDirections.join(".") }}
       pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
+      regions={regions.data}
+      activityCategories={activityCategories.data}
     >
       <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-24">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">

@@ -1,27 +1,25 @@
 "use client";
-import { Dispatch, ReactNode, useMemo, useReducer } from "react";
+import { ReactNode, useMemo, useReducer } from "react";
 import { searchFilterReducer } from "@/app/search/search-filter-reducer";
 import useSearch from "@/app/search/use-search";
 import useUpdatedUrlSearchParams from "@/app/search/use-updated-url-search-params";
-import { SearchContext } from "@/app/search/search-context";
-
-export interface SearchContextState {
-  readonly search: SearchState;
-  readonly dispatch: Dispatch<SearchAction>;
-  readonly searchResult?: SearchResult;
-  readonly searchParams: URLSearchParams;
-}
+import { SearchContext, SearchContextState } from "@/app/search/search-context";
+import type { Tables } from "@/lib/database.types";
 
 interface SearchProviderProps {
   readonly children: ReactNode;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
+  readonly regions: Tables<"region_used">[] | null;
+  readonly activityCategories: Tables<"activity_category_used">[] | null;
 }
 
 export const SearchProvider = ({
   children,
   order: initialOrder,
   pagination,
+  regions,
+  activityCategories,
 }: SearchProviderProps) => {
   const [search, dispatch] = useReducer(searchFilterReducer, {
     order: initialOrder,
@@ -41,8 +39,10 @@ export const SearchProvider = ({
       dispatch,
       searchResult,
       searchParams,
+      regions: regions ?? [],
+      activityCategories: activityCategories ?? [],
     }),
-    [search, searchResult, searchParams]
+    [search, searchResult, searchParams, regions, activityCategories]
   );
 
   useUpdatedUrlSearchParams(ctx);
