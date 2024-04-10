@@ -12,13 +12,17 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
   const {
     dispatch,
     search: {
-      values: { [UNIT_TYPE]: selected = param?.split(",") ?? ["enterprise"] },
+      values: { [UNIT_TYPE]: selected = ["enterprise"] },
     },
   } = useSearchContext();
 
+  const buildQuery = (values: (string | null)[]) => {
+    return values.length ? `in.(${values.join(",")})` : null;
+  };
+
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const next = selected.includes(value)
+      const values = selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
@@ -26,8 +30,8 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         type: "set_query",
         payload: {
           name: UNIT_TYPE,
-          query: next.length ? `in.(${next.join(",")})` : null,
-          values: next,
+          query: buildQuery(values),
+          values,
         },
       });
     },
@@ -52,7 +56,7 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         type: "set_query",
         payload: {
           name: UNIT_TYPE,
-          query: `in.(${initialSelected.join(",")})`,
+          query: buildQuery(initialSelected),
           values: initialSelected,
         },
       });
