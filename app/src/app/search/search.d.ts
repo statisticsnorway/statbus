@@ -17,7 +17,7 @@ type SearchPagination = {
 
 interface SearchState {
   readonly queries: Record<string, string | null>;
-  readonly values: Record<string, (string | null)[]>;
+  readonly values: Record<string, (string | null)[] | undefined>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
 }

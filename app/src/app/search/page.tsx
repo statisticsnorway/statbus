@@ -49,6 +49,7 @@ export default async function SearchPage({
       pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
       regions={regions.data}
       activityCategories={activityCategories.data}
+      urlSearchParams={params}
     >
       <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-24">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">

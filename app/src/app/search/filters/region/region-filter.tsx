@@ -5,7 +5,7 @@ interface IProps {
   readonly urlSearchParam: string | null;
 }
 
-export default async function RegionFilter({ urlSearchParam: param }: IProps) {
+export default async function RegionFilter({ urlSearchParam }: IProps) {
   const client = createClient();
   const regions = await client.from("region_used").select();
 
@@ -24,7 +24,11 @@ export default async function RegionFilter({ urlSearchParam: param }: IProps) {
           humanReadableValue: `${code} ${name}`,
         })) ?? []),
       ]}
-      selected={param ? [param] : []}
+      selected={
+        urlSearchParam
+          ?.split(",")
+          .map((value) => (value === "null" ? null : value)) ?? []
+      }
     />
   );
 }

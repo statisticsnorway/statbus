@@ -22,7 +22,7 @@ import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 
 interface ITableToolbarProps {
-  urlSearchParams: URLSearchParams;
+  readonly urlSearchParams: URLSearchParams;
 }
 
 export default function TableToolbar({ urlSearchParams }: ITableToolbarProps) {

@@ -14,7 +14,7 @@ export default function SectorOptions({
   const {
     dispatch,
     search: {
-      values: { [SECTOR]: selected = initialSelected ?? [] },
+      values: { [SECTOR]: selected = [] },
     },
   } = useSearchContext();
 

@@ -14,9 +14,16 @@ export default function ActivityCategoryOptions({
   const {
     dispatch,
     search: {
-      values: { [ACTIVITY_CATEGORY_PATH]: selected = initialSelected ?? [] },
+      values: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
     },
   } = useSearchContext();
+
+  const buildQuery = (values: (string | null)[]) => {
+    const path = values[0];
+    if (path) return `cd.${path}`;
+    if (path === null) return "is.null";
+    return null;
+  };
 
   useEffect(() => {
     if (initialSelected.length > 0) {
@@ -24,7 +31,7 @@ export default function ActivityCategoryOptions({
         type: "set_query",
         payload: {
           name: ACTIVITY_CATEGORY_PATH,
-          query: `cd.${initialSelected[0]}`,
+          query: buildQuery(initialSelected),
           values: initialSelected,
         },
       });
@@ -33,14 +40,13 @@ export default function ActivityCategoryOptions({
 
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const next = selected.includes(value) ? [] : [value];
-      const path = next[0];
+      const values = selected.includes(value) ? [] : [value];
       dispatch({
         type: "set_query",
         payload: {
           name: ACTIVITY_CATEGORY_PATH,
-          query: path ? `cd.${path}` : path === null ? "is.null" : null,
-          values: next,
+          query: buildQuery(values),
+          values,
         },
       });
     },

@@ -14,7 +14,7 @@ export default function LegalFormOptions({
   const {
     dispatch,
     search: {
-      values: { [LEGAL_FORM]: selected = initialSelected ?? [] },
+      values: { [LEGAL_FORM]: selected = [] },
     },
   } = useSearchContext();
 

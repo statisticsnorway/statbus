@@ -26,7 +26,11 @@ export default async function ActivityCategoryFilter({
           humanReadableValue: `${code} ${name}`,
         })) ?? []),
       ]}
-      selected={urlSearchParam ? urlSearchParam.split(",") : []}
+      selected={
+        urlSearchParam
+          ?.split(",")
+          .map((value) => (value === "null" ? null : value)) ?? []
+      }
     />
   );
 }

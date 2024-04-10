@@ -6,14 +6,14 @@ import { SEARCH } from "@/app/search/filters/url-search-params";
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
 interface IProps {
-  urlSearchParam: string | null;
+  readonly urlSearchParam: string | null;
 }
 
 export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
   const {
     dispatch,
     search: {
-      values: { [SEARCH]: selected = urlSearchParam ? [urlSearchParam] : [] },
+      values: { [SEARCH]: selected = [] },
     },
   } = useSearchContext();
 

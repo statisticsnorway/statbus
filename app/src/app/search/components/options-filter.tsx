@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 interface ITableFilterProps {
   title: string;
-  options?: SearchFilterOption[];
+  options: SearchFilterOption[];
   selectedValues: (string | null)[];
   onToggle: (option: SearchFilterOption) => void;
   onReset: () => void;
@@ -29,7 +29,7 @@ interface ITableFilterProps {
 
 export function OptionsFilter({
   title,
-  options = [],
+  options,
   selectedValues,
   onToggle,
   onReset,
@@ -48,7 +48,7 @@ export function OptionsFilter({
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           {title}
-          {selectedValues?.length ? (
+          {selectedValues.length ? (
             <>
               <Separator orientation="vertical" className="h-1/2" />
               {options

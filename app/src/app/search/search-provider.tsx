@@ -12,6 +12,7 @@ interface SearchProviderProps {
   readonly pagination: SearchPagination;
   readonly regions: Tables<"region_used">[] | null;
   readonly activityCategories: Tables<"activity_category_used">[] | null;
+  readonly urlSearchParams: URLSearchParams;
 }
 
 export const SearchProvider = ({
@@ -20,12 +21,25 @@ export const SearchProvider = ({
   pagination,
   regions,
   activityCategories,
+  urlSearchParams,
 }: SearchProviderProps) => {
+  /**
+   * Extract values from URLSearchParams and initialize search state.
+   * This is not strictly necessary, but gives a more responsive UI when the search page filters are loaded
+   */
+  const valuesFromUrlSearchParams = useMemo(() => {
+    const params = new URLSearchParams(urlSearchParams);
+    return Array.from(params.keys()).reduce(
+      (acc, key) => ({ ...acc, [key]: params.getAll(key) }),
+      {}
+    );
+  }, [urlSearchParams]);
+
   const [search, dispatch] = useReducer(searchFilterReducer, {
     order: initialOrder,
     pagination,
     queries: {},
-    values: {},
+    values: valuesFromUrlSearchParams,
   });
 
   const {

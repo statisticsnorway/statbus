@@ -5,7 +5,7 @@ import { useCallback, useEffect } from "react";
 import { INVALID_CODES } from "@/app/search/filters/url-search-params";
 
 interface IProps {
-  urlSearchParam: string | null;
+  readonly urlSearchParam: string | null;
 }
 
 export default function InvalidCodesFilter({ urlSearchParam }: IProps) {
