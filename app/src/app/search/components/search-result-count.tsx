@@ -1,5 +1,6 @@
-import { useSearchContext } from "@/app/search/search-provider";
+"use client";
 import { cn } from "@/lib/utils";
+import { useSearchContext } from "@/app/search/use-search-context";
 
 export const SearchResultCount = ({
   className,

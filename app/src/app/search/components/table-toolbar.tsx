@@ -1,102 +1,59 @@
-import { useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { OptionsFilter } from "@/app/search/components/options-filter";
+import FullTextSearchFilter from "@/app/search/filters/full-text-search-filter";
+import {
+  ACTIVITY_CATEGORY_PATH,
+  INVALID_CODES,
+  LEGAL_FORM,
+  REGION,
+  SEARCH,
+  SECTOR,
+  TAX_REG_IDENT,
+  UNIT_TYPE,
+} from "@/app/search/filters/url-search-params";
+import TaxRegIdentFilter from "@/app/search/filters/tax-reg-ident-filter";
+import UnitTypeFilter from "@/app/search/filters/unit-type-filter";
+import { Suspense } from "react";
+import { FilterSkeleton } from "@/app/search/components/filter-skeleton";
+import SectorFilter from "@/app/search/filters/sector/sector-filter";
+import RegionFilter from "@/app/search/filters/region/region-filter";
+import LegalFormFilter from "@/app/search/filters/legal-form/legal-form-filter";
+import ActivityCategoryFilter from "@/app/search/filters/activity-category/activity-category-filter";
+import StatisticalVariablesFilter from "@/app/search/filters/statistical-variables/statistical-variables-filter";
+import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
-import { ConditionalFilter } from "@/app/search/components/conditional-filter";
-import { useSearchContext } from "@/app/search/search-provider";
 
-export default function TableToolbar() {
-  const {
-    search: { filters },
-    dispatch,
-  } = useSearchContext();
-  const hasAnyFilterSelected = filters.some(
-    ({ selected }) => selected?.[0]?.toString().length
-  );
+interface ITableToolbarProps {
+  readonly urlSearchParams: URLSearchParams;
+}
 
-  const createFilterComponent = useCallback(
-    ({ type, name, label, options, selected, operator }: SearchFilter) => {
-      switch (type) {
-        case "radio":
-          return (
-            <OptionsFilter
-              className="p-2 h-9"
-              key={name}
-              title={label}
-              options={options}
-              selectedValues={selected}
-              onToggle={({ value }) =>
-                dispatch({
-                  type: "toggle_radio_option",
-                  payload: { name, value },
-                })
-              }
-              onReset={() => dispatch({ type: "reset", payload: { name } })}
-            />
-          );
-        case "options":
-          return (
-            <OptionsFilter
-              className="p-2 h-9"
-              key={name}
-              title={label}
-              options={options}
-              selectedValues={selected}
-              onToggle={({ value }) =>
-                dispatch({ type: "toggle_option", payload: { name, value } })
-              }
-              onReset={() => dispatch({ type: "reset", payload: { name } })}
-            />
-          );
-        case "conditional":
-          return (
-            <ConditionalFilter
-              className="p-2 h-9"
-              key={name}
-              title={label}
-              selected={{ operator, value: selected[0] }}
-              onChange={({ operator, value }) =>
-                dispatch({
-                  type: "set_condition",
-                  payload: { name, value, operator },
-                })
-              }
-              onReset={() => dispatch({ type: "reset", payload: { name } })}
-            />
-          );
-        case "search":
-          return (
-            <Input
-              key={name}
-              type="text"
-              id={`search-prompt-${name}`}
-              placeholder={label}
-              className="h-9 w-full md:max-w-[200px]"
-              value={selected[0] ?? ""}
-              onChange={(e) => {
-                dispatch({
-                  type: "set_search",
-                  payload: { name, value: e.target.value },
-                });
-              }}
-            />
-          );
-        default:
-          return null;
-      }
-    },
-    [dispatch]
-  );
-
+export default function TableToolbar({ urlSearchParams }: ITableToolbarProps) {
+  const search = urlSearchParams.get(SEARCH);
+  const taxRegIdent = urlSearchParams.get(TAX_REG_IDENT);
+  const unitType = urlSearchParams.get(UNIT_TYPE);
+  const sector = urlSearchParams.get(SECTOR);
+  const region = urlSearchParams.get(REGION);
+  const legalForm = urlSearchParams.get(LEGAL_FORM);
+  const activityCategoryPath = urlSearchParams.get(ACTIVITY_CATEGORY_PATH);
+  const invalidCodes = urlSearchParams.get(INVALID_CODES);
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      {filters.map(createFilterComponent)}
-      {hasAnyFilterSelected && (
-        <ResetFilterButton
-          className="h-9 p-2"
-          onReset={() => dispatch({ type: "reset_all" })}
-        />
-      )}
+      <FullTextSearchFilter urlSearchParam={search} />
+      <TaxRegIdentFilter urlSearchParam={taxRegIdent} />
+      <UnitTypeFilter urlSearchParam={unitType} />
+      <Suspense fallback={<FilterSkeleton title="Sector" />}>
+        <SectorFilter urlSearchParam={sector} />
+      </Suspense>
+      <Suspense fallback={<FilterSkeleton title="Region" />}>
+        <RegionFilter urlSearchParam={region} />
+      </Suspense>
+      <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
+        <LegalFormFilter urlSearchParam={legalForm} />
+      </Suspense>
+      <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
+        <ActivityCategoryFilter urlSearchParam={activityCategoryPath} />
+      </Suspense>
+      <StatisticalVariablesFilter urlSearchParams={urlSearchParams} />
+      <InvalidCodesFilter urlSearchParam={invalidCodes} />
+      <ResetFilterButton />
     </div>
   );
 }

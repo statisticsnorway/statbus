@@ -1,12 +1,13 @@
+"use client";
 import { Tables } from "@/lib/database.types";
-import { useSearchContext } from "@/app/search/search-provider";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
-import { useCartContext } from "@/app/search/cart-provider";
 import { Bug } from "lucide-react";
+import { useCartContext } from "@/app/search/use-cart-context";
+import { useSearchContext } from "@/app/search/use-search-context";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -44,6 +45,15 @@ export const StatisticalUnitTableRow = ({
     activityCategories.find(
       ({ path }) => path === primary_activity_category_path
     );
+
+  /* TODO - Remove this once the search results include the activity category and region names
+   * Until activity category and region names are included in the search results,
+   * we need to provide activity categories and regions via the search provider
+   * so that the names can be displayed in the search results.
+   *
+   * A better solution would be to include the names in the search results
+   * so that we do not need any blocking calls to supabase here.
+   */
 
   const activityCategory = getActivityCategoryByPath(
     primary_activity_category_path

@@ -15,8 +15,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import * as React from "react";
-import { useCartContext } from "@/app/search/cart-provider";
 import CombineUnits from "@/app/search/components/bulk-actions/combine-units";
+import { useCartContext } from "@/app/search/use-cart-context";
 
 export default function SearchBulkActionButton() {
   const { selected, clearSelected } = useCartContext();

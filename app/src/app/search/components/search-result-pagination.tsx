@@ -1,3 +1,4 @@
+"use client";
 import {
   Pagination,
   PaginationContent,
@@ -7,7 +8,8 @@ import {
   PaginationFirst,
   PaginationLast,
 } from "@/components/ui/pagination";
-import { useSearchContext } from "../search-provider";
+
+import { useSearchContext } from "@/app/search/use-search-context";
 
 export default function SearchResultPagination() {
   const {

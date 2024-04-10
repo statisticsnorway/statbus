@@ -1,48 +1,45 @@
-import {
-  createContext,
-  Dispatch,
-  ReactNode,
-  useContext,
-  useMemo,
-  useReducer,
-} from "react";
+"use client";
+import { ReactNode, useMemo, useReducer } from "react";
 import { searchFilterReducer } from "@/app/search/search-filter-reducer";
-import useSearch from "@/app/search/hooks/use-search";
-import useUpdatedUrlSearchParams from "@/app/search/hooks/use-updated-url-search-params";
-import { Tables } from "@/lib/database.types";
-
-export interface SearchContextState {
-  readonly search: SearchState;
-  readonly dispatch: Dispatch<SearchAction>;
-  readonly searchResult?: SearchResult;
-  readonly searchParams: URLSearchParams;
-  readonly regions: Tables<"region_used">[];
-  readonly activityCategories: Tables<"activity_category_available">[];
-}
-
-const SearchContext = createContext<SearchContextState | null>(null);
+import useSearch from "@/app/search/use-search";
+import useUpdatedUrlSearchParams from "@/app/search/use-updated-url-search-params";
+import { SearchContext, SearchContextState } from "@/app/search/search-context";
+import type { Tables } from "@/lib/database.types";
 
 interface SearchProviderProps {
   readonly children: ReactNode;
-  readonly filters: SearchFilter[];
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
-  readonly regions: Tables<"region_used">[];
-  readonly activityCategories: Tables<"activity_category_available">[];
+  readonly regions: Tables<"region_used">[] | null;
+  readonly activityCategories: Tables<"activity_category_used">[] | null;
+  readonly urlSearchParams: URLSearchParams;
 }
 
 export const SearchProvider = ({
   children,
-  filters: initialFilters,
   order: initialOrder,
   pagination,
   regions,
   activityCategories,
+  urlSearchParams,
 }: SearchProviderProps) => {
+  /**
+   * Extract values from URLSearchParams and initialize search state.
+   * This is not strictly necessary, but gives a more responsive UI when the search page filters are loaded
+   */
+  const valuesFromUrlSearchParams = useMemo(() => {
+    const params = new URLSearchParams(urlSearchParams);
+    return Array.from(params.keys()).reduce(
+      (acc, key) => ({ ...acc, [key]: params.getAll(key) }),
+      {}
+    );
+  }, [urlSearchParams]);
+
   const [search, dispatch] = useReducer(searchFilterReducer, {
-    filters: initialFilters,
     order: initialOrder,
     pagination,
+    queries: {},
+    values: valuesFromUrlSearchParams,
   });
 
   const {
@@ -56,8 +53,8 @@ export const SearchProvider = ({
       dispatch,
       searchResult,
       searchParams,
-      regions,
-      activityCategories,
+      regions: regions ?? [],
+      activityCategories: activityCategories ?? [],
     }),
     [search, searchResult, searchParams, regions, activityCategories]
   );
@@ -67,12 +64,4 @@ export const SearchProvider = ({
   return (
     <SearchContext.Provider value={ctx}>{children}</SearchContext.Provider>
   );
-};
-
-export const useSearchContext = () => {
-  const context = useContext(SearchContext);
-  if (!context) {
-    throw new Error("useSearchContext must be used within a SearchProvider");
-  }
-  return context;
 };

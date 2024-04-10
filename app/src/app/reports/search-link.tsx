@@ -1,6 +1,11 @@
 import { DrillDownPoint } from "@/app/reports/types/drill-down";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import {
+  ACTIVITY_CATEGORY_PATH,
+  REGION,
+  UNIT_TYPE,
+} from "@/app/search/filters/url-search-params";
 
 export const SearchLink = ({
   region,
@@ -12,16 +17,14 @@ export const SearchLink = ({
   const searchParams = new URLSearchParams();
 
   if (region) {
-    const name: SearchFilterName = "physical_region_path";
-    searchParams.set(name, region.path);
+    searchParams.set(REGION, region.path);
   }
 
   if (activityCategory) {
-    const name: SearchFilterName = "primary_activity_category_path";
-    searchParams.set(name, activityCategory.path);
+    searchParams.set(ACTIVITY_CATEGORY_PATH, activityCategory.path);
   }
 
-  searchParams.set("unit_type", "enterprise,legal_unit,establishment");
+  searchParams.set(UNIT_TYPE, "enterprise,legal_unit,establishment");
 
   return (
     <Button asChild>

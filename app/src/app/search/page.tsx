@@ -1,8 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
-import Search from "@/app/search/components/search";
 import { Metadata } from "next";
-import { createFilters } from "@/app/search/filters";
-import { createServerLogger } from "@/lib/server-logger";
+import { SearchProvider } from "@/app/search/search-provider";
+import TableToolbar from "@/app/search/components/table-toolbar";
+import SearchResultTable from "@/app/search/components/search-result-table";
+import { SearchResultCount } from "@/app/search/components/search-result-count";
+import SearchResultPagination from "@/app/search/components/search-result-pagination";
+import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
+import { Cart } from "@/app/search/components/cart";
+import { CartProvider } from "@/app/search/cart-provider";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "StatBus | Search statistical units",
@@ -13,83 +18,63 @@ export default async function SearchPage({
 }: {
   readonly searchParams: URLSearchParams;
 }) {
-  const client = createClient();
-  const logger = await createServerLogger();
+  const params = new URLSearchParams(searchParams);
 
-  const [
-    sectors,
-    legalForms,
-    regions,
-    activityCategories,
-    statisticalVariables,
-  ] = await Promise.all([
-    client.from("sector_used").select().not("code", "is", null),
-    client.from("legal_form_used").select().not("code", "is", null),
-    client.from("region_used").select(),
-    client.from("activity_category_used").select(),
-    client
-      .from("stat_definition")
-      .select()
-      .order("priority", { ascending: true }),
+  const [orderBy, ...orderDirections] = params.get("order")?.split(".") ?? [
+    "name",
+    "asc",
+  ];
+
+  /* TODO - Remove this once the search results include the activity category and region names
+   * Until activity category and region names are included in the search results,
+   * we need to provide activity categories and regions via the search provider
+   * so that the names can be resolved and displayed in the search results.
+   *
+   * A better solution would be to include the names in the search results
+   * so that we do not need any blocking calls to supabase here.
+   */
+  const supabase = createClient();
+  const [activityCategories, regions] = await Promise.all([
+    supabase.from("activity_category_used").select(),
+    supabase.from("region_used").select(),
   ]);
-
-  if (sectors.error) {
-    logger.error(sectors.error, "failed to fetch sectors");
-  }
-
-  if (legalForms.error) {
-    logger.error(legalForms.error, "failed to fetch legal forms");
-  }
-
-  if (regions.error) {
-    logger.error(regions.error, "failed to fetch regions");
-  }
-
-  if (activityCategories.error) {
-    logger.error(
-      activityCategories.error,
-      "failed to fetch activity categories"
-    );
-  }
-
-  const urlSearchParams = new URLSearchParams(searchParams);
-
-  const searchFilters = createFilters(
-    {
-      activityCategories: activityCategories.data ?? [],
-      regions: regions.data ?? [],
-      statisticalVariables: statisticalVariables.data ?? [],
-      sectors: sectors.data ?? [],
-      legalForms: legalForms.data ?? [],
-    },
-    urlSearchParams
-  );
-
-  const [orderBy, ...orderDirections] = urlSearchParams
-    .get("order")
-    ?.split(".") ?? ["name", "asc"];
 
   const defaultCurrentPage = 1;
   const defaultPageSize = 10;
-
-  const currentPage = Number(urlSearchParams.get("page")) || defaultCurrentPage;
+  const currentPage = Number(params.get("page")) || defaultCurrentPage;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-24">
-      <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
-        Search for statistical units
-      </h1>
-      <Search
-        regions={regions.data ?? []}
-        activityCategories={activityCategories.data ?? []}
-        statisticalVariables={statisticalVariables.data ?? []}
-        searchFilters={searchFilters}
-        searchOrder={{ name: orderBy, direction: orderDirections.join(".") }}
-        searchPagination={{
-          pageNumber: currentPage,
-          pageSize: defaultPageSize,
-        }}
-      />
-    </main>
+    <SearchProvider
+      order={{ name: orderBy, direction: orderDirections.join(".") }}
+      pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
+      regions={regions.data}
+      activityCategories={activityCategories.data}
+      urlSearchParams={params}
+    >
+      <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-24">
+        <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
+          Search for statistical units
+        </h1>
+        <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
+        <CartProvider>
+          <section className="space-y-3">
+            <TableToolbar urlSearchParams={params} />
+            <div className="rounded-md border overflow-hidden">
+              <SearchResultTable />
+            </div>
+            <div className="flex items-center justify-center text-xs text-gray-500">
+              <SearchResultCount className="flex-1 hidden lg:inline-block" />
+              <SearchResultPagination />
+              <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
+                <ExportCSVLink />
+              </div>
+            </div>
+          </section>
+          <section className="mt-8">
+            <Cart />
+          </section>
+        </CartProvider>
+      </main>
+    </SearchProvider>
   );
 }

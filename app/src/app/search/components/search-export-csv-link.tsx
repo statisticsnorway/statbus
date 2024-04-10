@@ -1,8 +1,10 @@
+"use client";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSearchContext } from "@/app/search/search-provider";
+
+import { useSearchContext } from "@/app/search/use-search-context";
 
 export function ExportCSVLink() {
   const { searchResult, searchParams } = useSearchContext();

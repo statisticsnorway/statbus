@@ -3,78 +3,19 @@ export function searchFilterReducer(
   action: SearchAction
 ): SearchState {
   switch (action.type) {
-    case "toggle_option": {
-      const { name, value } = action.payload;
-      const filters = state.filters.map((f) =>
-        f.name === name
-          ? {
-              ...f,
-              selected: f.selected.includes(value)
-                ? f.selected.filter((id) => id !== value)
-                : [...f.selected, value],
-            }
-          : f
-      );
+    case "set_query": {
+      const { name, query, values } = action.payload;
       return {
         ...state,
-        filters,
-        pagination: { ...state.pagination, pageNumber: 1 },
-      };
-    }
-    case "toggle_radio_option": {
-      const { name, value } = action.payload;
-      const filters = state.filters.map((f) =>
-        f.name === name
-          ? {
-              ...f,
-              selected: f.selected.find((id) => id == value) ? [] : [value],
-            }
-          : f
-      );
-      return {
-        ...state,
-        filters,
-        pagination: { ...state.pagination, pageNumber: 1 },
-      };
-    }
-    case "set_condition": {
-      const { name, value, operator } = action.payload;
-      const filters = state.filters.map((f) =>
-        f.name === name ? { ...f, selected: [value], operator } : f
-      );
-      return {
-        ...state,
-        filters,
-        pagination: { ...state.pagination, pageNumber: 1 },
-      };
-    }
-    case "set_search": {
-      const { name, value } = action.payload;
-      const filters = state.filters.map((f) =>
-        f.name === name ? { ...f, selected: [value] } : f
-      );
-      return {
-        ...state,
-        filters,
-        pagination: { ...state.pagination, pageNumber: 1 },
-      };
-    }
-    case "reset": {
-      const { name } = action.payload;
-      const filters = state.filters.map((f) =>
-        f.name === name ? { ...f, selected: [] } : f
-      );
-      return {
-        ...state,
-        filters,
-        pagination: { ...state.pagination, pageNumber: 1 },
+        queries: { ...state.queries, [name]: query },
+        values: { ...state.values, [name]: values },
       };
     }
     case "reset_all":
-      const filters = state.filters.map((f) => ({ ...f, selected: [] }));
       return {
         ...state,
-        filters,
+        queries: {},
+        values: {},
         pagination: { ...state.pagination, pageNumber: 1 },
       };
     case "set_order": {

@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 import { Combine } from "lucide-react";
 import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
-import { useCartContext } from "@/app/search/cart-provider";
 import { useRouter } from "next/navigation";
 import logger from "@/lib/client-logger";
+import { useCartContext } from "@/app/search/use-cart-context";
 
 export default function CombineUnits() {
   const router = useRouter();
