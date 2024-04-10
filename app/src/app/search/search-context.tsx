@@ -9,6 +9,10 @@ export interface SearchContextState {
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<"region_used">[];
   readonly activityCategories: Tables<"activity_category_available">[];
+  /**
+   * Indicates whether the search is currently loading new data.
+   */
+  readonly isLoading: boolean;
 }
 
 export const SearchContext = createContext<SearchContextState | null>(null);
