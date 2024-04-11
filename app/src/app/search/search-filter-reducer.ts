@@ -9,6 +9,7 @@ export function searchFilterReducer(
         ...state,
         queries: { ...state.queries, [name]: query },
         values: { ...state.values, [name]: values },
+        pagination: { ...state.pagination, pageNumber: 1 },
       };
     }
     case "reset_all":
