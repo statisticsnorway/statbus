@@ -84,7 +84,7 @@ export const StatisticalUnitTableRow = ({
           title={name ?? ""}
         >
           <StatisticalUnitIcon type={type} className="w-5" />
-          <div className="flex max-w-32 flex-1 flex-col space-y-0.5 lg:max-w-48">
+          <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
             {type && id && name ? (
               <StatisticalUnitDetailsLink
                 className="overflow-hidden overflow-ellipsis whitespace-nowrap"

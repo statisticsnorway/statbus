@@ -35,13 +35,13 @@ export default function RootLayout({
             <Navbar />
           </Suspense>
           {children}
-          <CommandPalette />
-          <Toaster />
-          <Suspense fallback={<FooterSkeleton />}>
-            <Footer />
-          </Suspense>
-          <GlobalErrorReporter />
         </TimeContextProvider>
+        <CommandPalette />
+        <Toaster />
+        <Suspense fallback={<FooterSkeleton />}>
+          <Footer />
+        </Suspense>
+        <GlobalErrorReporter />
       </body>
     </html>
   );
