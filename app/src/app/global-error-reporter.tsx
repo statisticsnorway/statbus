@@ -3,19 +3,24 @@ import { useEffect } from "react";
 import logger from "@/lib/client-logger";
 
 export default function GlobalErrorReporter() {
+  const onError = function (e: ErrorEvent) {
+    logger.error(e.error, `${e.message}`);
+  };
+
+  const onUnhandledRejection = function (e: PromiseRejectionEvent) {
+    e.preventDefault();
+    logger.error(
+      { ...e },
+      `An unhandled promise rejection occurred: ${e.reason}`
+    );
+  };
+
   useEffect(() => {
-    window.onerror = function (message, source, lineno, colno, error) {
-      logger.error(error, `${message}`);
-      return true;
-    };
-
-    window.onunhandledrejection = function (event) {
-      logger.error(
-        { ...event },
-        `An unhandled promise rejection occurred: ${event.reason}`
-      );
-
-      event.preventDefault();
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
     };
   }, []);
 
