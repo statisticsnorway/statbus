@@ -51,11 +51,11 @@ export default async function Dashboard() {
             />
           </Suspense>
         </Link>
-
-        <Suspense fallback={<FallBackCard title="Regions" />}>
-          <RegionCard />
-        </Suspense>
-
+        <Link href="/regions">
+          <Suspense fallback={<FallBackCard title="Regions" />}>
+            <RegionCard />
+          </Suspense>
+        </Link>
         <Link href="/getting-started/activity-standard">
           <Suspense
             fallback={<FallBackCard title="Activity Category Standard" />}
