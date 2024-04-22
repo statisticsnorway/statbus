@@ -28,9 +28,10 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
   const statisticalVariables: {
     value: keyof DrillDownPoint;
     label: string;
+    title: string;
   }[] = [
-    { value: "count", label: "Count" },
-    { value: "employees", label: "Employees" },
+    { value: "count", label: "Count", title: "Number of enterprises" },
+    { value: "employees", label: "Employees", title: "Number of employees" },
   ];
 
   return (
@@ -65,6 +66,7 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
                     points={drillDown.available.region}
                     onSelect={setRegion}
                     variable={statisticalVariable.value}
+                    title={statisticalVariable.title}
                   />
                 </>
               )}
@@ -82,6 +84,7 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
                     points={drillDown.available.activity_category}
                     onSelect={setActivityCategory}
                     variable={statisticalVariable.value}
+                    title={statisticalVariable.title}
                   />
                 </>
               )}
