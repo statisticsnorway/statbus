@@ -58,6 +58,9 @@ export const DrillDownChart = ({
         },
         credits: {
           href: "",
+          style: {
+            cursor: "default",
+          },
         },
         drilldown: {
           activeAxisLabelStyle: {
