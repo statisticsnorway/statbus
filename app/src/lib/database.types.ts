@@ -4155,6 +4155,98 @@ export type Database = {
           },
         ]
       }
+      statistical_history: {
+        Row: {
+          births: number | null
+          count: number | null
+          deaths: number | null
+          employees: number | null
+          legal_form_change_count: number | null
+          month: number | null
+          physical_country_change_count: number | null
+          physical_region_change_count: number | null
+          primary_activity_category_change_count: number | null
+          secondary_activity_category_change_count: number | null
+          sector_change_count: number | null
+          turnover: number | null
+          type: Database["public"]["Enums"]["statistical_history_type"] | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      statistical_history_def: {
+        Row: {
+          births: number | null
+          count: number | null
+          deaths: number | null
+          employees: number | null
+          legal_form_change_count: number | null
+          month: number | null
+          physical_country_change_count: number | null
+          physical_region_change_count: number | null
+          primary_activity_category_change_count: number | null
+          secondary_activity_category_change_count: number | null
+          sector_change_count: number | null
+          turnover: number | null
+          type: Database["public"]["Enums"]["statistical_history_type"] | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      statistical_history_facet: {
+        Row: {
+          births: number | null
+          count: number | null
+          deaths: number | null
+          employees: number | null
+          legal_form_change_count: number | null
+          legal_form_id: number | null
+          month: number | null
+          physical_country_change_count: number | null
+          physical_country_id: number | null
+          physical_region_change_count: number | null
+          physical_region_path: unknown | null
+          primary_activity_category_change_count: number | null
+          primary_activity_category_path: unknown | null
+          secondary_activity_category_change_count: number | null
+          secondary_activity_category_path: unknown | null
+          sector_change_count: number | null
+          sector_path: unknown | null
+          turnover: number | null
+          type: Database["public"]["Enums"]["statistical_history_type"] | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      statistical_history_facet_def: {
+        Row: {
+          births: number | null
+          count: number | null
+          deaths: number | null
+          employees: number | null
+          legal_form_change_count: number | null
+          legal_form_id: number | null
+          month: number | null
+          physical_country_change_count: number | null
+          physical_country_id: number | null
+          physical_region_change_count: number | null
+          physical_region_path: unknown | null
+          primary_activity_category_change_count: number | null
+          primary_activity_category_path: unknown | null
+          secondary_activity_category_change_count: number | null
+          secondary_activity_category_path: unknown | null
+          sector_change_count: number | null
+          sector_path: unknown | null
+          turnover: number | null
+          type: Database["public"]["Enums"]["statistical_history_type"] | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year: number | null
+        }
+        Relationships: []
+      }
       statistical_unit: {
         Row: {
           activity_category_paths: unknown[] | null
@@ -4370,19 +4462,6 @@ export type Database = {
         }
         Returns: Json
       }
-      add_prefix_to_each_line: {
-        Args: {
-          original_text: string
-          line_prefix: string
-        }
-        Returns: string
-      }
-      build_nested_json: {
-        Args: {
-          organisasjonsnummer_root: string
-        }
-        Returns: Json
-      }
       connect_legal_unit_to_enterprise: {
         Args: {
           legal_unit_id: number
@@ -4398,25 +4477,12 @@ export type Database = {
         }
         Returns: Json
       }
-      derive_links: {
-        Args: {
-          selected_table: unknown
-          only_schema?: string
-        }
-        Returns: Database["public"]["CompositeTypes"]["link_info"][]
-      }
       enterprise_hierarchy: {
         Args: {
           enterprise_id: number
           valid_on?: string
         }
         Returns: Json
-      }
-      enum_to_typescript_union: {
-        Args: {
-          enum_values: Json
-        }
-        Returns: string
       }
       establishment_hierarchy: {
         Args: {
@@ -4766,21 +4832,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      jsonb_to_typescript_interface: {
-        Args: {
-          obj: Json
-          parent_name?: string
-          line_prefix?: string
-        }
-        Returns: string
-      }
-      jsonb_types_to_typescript: {
-        Args: {
-          data: Json
-          line_prefix?: string
-        }
-        Returns: string
-      }
       lca: {
         Args: {
           "": unknown[]
@@ -4963,6 +5014,19 @@ export type Database = {
         }
         Returns: Json
       }
+      statistical_history_drilldown: {
+        Args: {
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          type?: Database["public"]["Enums"]["statistical_history_type"]
+          year?: number
+          region_path?: unknown
+          activity_category_path?: unknown
+          sector_path?: unknown
+          legal_form_id?: number
+          country_id?: number
+        }
+        Returns: Json
+      }
       statistical_unit_enterprise_id: {
         Args: {
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
@@ -4990,22 +5054,6 @@ export type Database = {
           valid_on?: string
         }
         Returns: Json
-      }
-      statistical_unit_hierarchy_structure:
-        | {
-            Args: Record<PropertyKey, never>
-            Returns: Json
-          }
-        | {
-            Args: {
-              root_table_regclass: unknown
-              only_schema?: string
-            }
-            Returns: Json
-          }
-      statistical_unit_hierarchy_typescript_for_jsonb: {
-        Args: Record<PropertyKey, never>
-        Returns: string
       }
       statistical_unit_refresh_now: {
         Args: Record<PropertyKey, never>
@@ -5036,12 +5084,6 @@ export type Database = {
         }
         Returns: unknown
       }
-      topascalcase: {
-        Args: {
-          text_name: string
-        }
-        Returns: string
-      }
       websearch_to_wildcard_tsquery: {
         Args: {
           query: string
@@ -5065,7 +5107,6 @@ export type Database = {
         | "enterprise"
         | "enterprise_group"
         | "activities"
-      link_direction: "Self-Referencing" | "Outgoing" | "Incoming"
       location_type: "physical" | "postal"
       person_sex: "Male" | "Female"
       relative_period_type:
@@ -5110,6 +5151,7 @@ export type Database = {
         | "regular_user"
         | "restricted_user"
         | "external_user"
+      statistical_history_type: "year" | "year-month"
       statistical_unit_type:
         | "establishment"
         | "legal_unit"
@@ -5118,17 +5160,7 @@ export type Database = {
       tag_type: "custom" | "system"
     }
     CompositeTypes: {
-      link_info: {
-        source_table: unknown | null
-        source_columns: string[] | null
-        target_table: unknown | null
-        target_columns: string[] | null
-        direction: Database["public"]["Enums"]["link_direction"] | null
-        source_nullable: boolean | null
-        self_reference: boolean | null
-        constraint_name: string | null
-        source_unique: boolean | null
-      }
+      [_ in never]: never
     }
   }
 }
