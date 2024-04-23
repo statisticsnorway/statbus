@@ -6,12 +6,14 @@ import { chart } from "highcharts";
 interface DrillDownChartProps {
   readonly points: DrillDownPoint[];
   readonly variable: keyof DrillDownPoint;
+  readonly title: string;
   readonly onSelect: (p: DrillDownPoint) => void;
 }
 
 export const DrillDownChart = ({
   points,
   variable,
+  title,
   onSelect,
 }: DrillDownChartProps) => {
   const _ref = useRef<HTMLDivElement>(null);
@@ -45,10 +47,20 @@ export const DrillDownChart = ({
           type: "category",
         },
         yAxis: {
-          visible: false,
+          visible: true,
+          gridLineColor: "transparent",
+          title: {
+            text: title,
+          },
+          labels: {
+            enabled: false,
+          },
         },
         credits: {
           href: "",
+          style: {
+            cursor: "default",
+          },
         },
         drilldown: {
           activeAxisLabelStyle: {
@@ -75,6 +87,7 @@ export const DrillDownChart = ({
               ?.filter((point) => point[variable] !== 0)
               .map((point) => toPointOptionObject(point, variable)),
             groupPadding: 0.05,
+            minPointLength: 3,
           },
         ],
       });
