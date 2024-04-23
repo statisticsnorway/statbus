@@ -8,10 +8,10 @@ fi
 
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
-source $WORKSPACE/.env-psql-development.sh
+export $($WORKSPACE/devops/manage-statbus.sh postgres-variables)
 
 if $(which psql > /dev/null); then
-  psql
+  psql "$@"
 else
   # When using scripted input, such as "< some.sql" then interactive TTY is required.
   args="-i"

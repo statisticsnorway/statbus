@@ -471,3 +471,8 @@ key-*.xml
 .env-dev.statbus.org.sh
 # Ignore local configuration for docker compose
 .env
+.env.config
+.env.backup*
+.env.credentials
+.users.yml
+
