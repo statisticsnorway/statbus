@@ -29,6 +29,8 @@ action=$1
 shift || true # move away $1 from $@
 case "$action" in
     'start' )
+        VERSION=$(git describe --always)
+        ./bin/dotenv --file .env set VERSION=$VERSION
         docker compose up --detach
       ;;
     'stop' )

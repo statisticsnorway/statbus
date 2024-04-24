@@ -11,9 +11,9 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 
 echo Recreate the backend with the lastest database structures
-docker compose down
-rm -rf ./supabase_docker/volumes/db/data
-docker compose up -d
+./devops/manage-statbus.sh stop
+./devops/manage-statbus.sh delete-db
+./devops/manage-statbus.sh start
 
 export $(awk -F= '/^[^#]/{output=output" "$1"="$2} END {print output}' .env)
 
