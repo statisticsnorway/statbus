@@ -24,7 +24,7 @@ export const SearchLink = ({
     searchParams.set(ACTIVITY_CATEGORY_PATH, activityCategory.path);
   }
 
-  searchParams.set(UNIT_TYPE, "enterprise,legal_unit,establishment");
+  searchParams.set(UNIT_TYPE, "enterprise");
 
   return (
     <Button asChild>
