@@ -12,7 +12,7 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
   const {
     dispatch,
     search: {
-      values: { [UNIT_TYPE]: selected = ["enterprise"] },
+      values: { [UNIT_TYPE]: selected = [] },
     },
   } = useSearchContext();
 
