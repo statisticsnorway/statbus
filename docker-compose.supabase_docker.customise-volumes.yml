@@ -1,0 +1,31 @@
+services:
+  kong:
+    volumes:
+      # https://github.com/supabase/supabase/issues/12661
+      - ./supabase_docker/volumes/api/kong.yml:/home/kong/temp.yml:ro
+  storage:
+    volumes:
+      - ./supabase_docker/volumes/storage:/var/lib/storage:z
+  imgproxy:
+    volumes:
+      - ./supabase_docker/volumes/storage:/var/lib/storage:z
+  functions:
+    volumes:
+      - ./supabase_docker/volumes/functions:/home/deno/functions:Z
+  db:
+    volumes:
+      - ./supabase_docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      # Must be superuser to create event trigger
+      - ./supabase_docker/volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      # Must be superuser to alter reserved role
+      - ./supabase_docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      # Initialize the database settings with JWT_SECRET and JWT_EXP
+      - ./supabase_docker/volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      # PGDATA directory is persisted between restarts
+      - ./supabase_docker/volumes/db/data:/var/lib/postgresql/data:Z
+      # Changes required for Analytics support
+      - ./supabase_docker/volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+  vector:
+    volumes:
+      - ./supabase_docker/volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro

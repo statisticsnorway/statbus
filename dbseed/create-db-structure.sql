@@ -741,10 +741,10 @@ SELECT *,
        CASE type -- context_valid_on
            WHEN 'today' THEN current_date
            --
-           WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date - interval '1 year')
-           WHEN 'year_prev_only'           THEN date_trunc('year', current_date - interval '1 year')
-           WHEN 'year_curr_until_infinity' THEN date_trunc('year', current_date)
-           WHEN 'year_curr_only'           THEN date_trunc('year', current_date)
+           WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date) - interval '1 day'
+           WHEN 'year_prev_only'           THEN date_trunc('year', current_date) - interval '1 day'
+           WHEN 'year_curr_until_infinity' THEN current_date
+           WHEN 'year_curr_only'           THEN current_date
             --
            WHEN 'start_of_week_curr'     THEN date_trunc('week', current_date)
            WHEN 'stop_of_week_prev'      THEN date_trunc('week', current_date) - interval '1 day'
@@ -6755,7 +6755,10 @@ BEGIN
             ( tag.id
             , inserted_legal_unit.id
             , edited_by_user.id
-            );
+            )
+        ON CONFLICT (tag_id, legal_unit_id)
+        DO UPDATE SET updated_by_user_id = EXCLUDED.updated_by_user_id
+        ;
     END IF;
 
     IF NOT statbus_constraints_already_deferred THEN

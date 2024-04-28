@@ -462,12 +462,17 @@ parcel-trace-*.json
 
 # custom paths
 **/.DS_Store
-src/nscreg.Server/wwwroot/*
+legacy/src/nscreg.Server/wwwroot/*
 uploads
-src/nscreg.Server.DataUploadSvc/appsettings.json
+legacy/src/nscreg.Server.DataUploadSvc/appsettings.json
 key-*.xml
 
 # Environment variables for statbus dev
 .env-dev.statbus.org.sh
 # Ignore local configuration for docker compose
 .env
+.env.config
+.env.backup*
+.env.credentials
+.users.yml
+
