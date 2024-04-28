@@ -73,6 +73,7 @@ case "$action" in
      'generate-config' )
         if ! test -f .users.yml; then
             echo "Copy .users.example to .users.yml and add your admin users"
+            exit 1
         fi
 
         CREDENTIALS_FILE=".env.credentials"
