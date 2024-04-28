@@ -30,7 +30,7 @@ shift || true # move away $1 from $@
 case "$action" in
     'start' )
         VERSION=$(git describe --always)
-        ./bin/dotenv --file .env set VERSION=$VERSION
+        ./devops/dotenv --file .env set VERSION=$VERSION
         docker compose up --detach
       ;;
     'stop' )
@@ -77,20 +77,20 @@ case "$action" in
 
         CREDENTIALS_FILE=".env.credentials"
         echo Using credentials from $CREDENTIALS_FILE
-        POSTGRES_PASSWORD=$(./bin/dotenv --file $CREDENTIALS_FILE generate POSTGRES_PASSWORD pwgen 20)
-        JWT_SECRET=$(./bin/dotenv --file $CREDENTIALS_FILE generate JWT_SECRET pwgen 32)
-        DASHBOARD_USERNAME=$(./bin/dotenv --file $CREDENTIALS_FILE generate DASHBOARD_USERNAME echo admin)
-        DASHBOARD_PASSWORD=$(./bin/dotenv --file $CREDENTIALS_FILE generate DASHBOARD_PASSWORD pwgen 20)
+        POSTGRES_PASSWORD=$(./devops/dotenv --file $CREDENTIALS_FILE generate POSTGRES_PASSWORD pwgen 20)
+        JWT_SECRET=$(./devops/dotenv --file $CREDENTIALS_FILE generate JWT_SECRET pwgen 32)
+        DASHBOARD_USERNAME=$(./devops/dotenv --file $CREDENTIALS_FILE generate DASHBOARD_USERNAME echo admin)
+        DASHBOARD_PASSWORD=$(./devops/dotenv --file $CREDENTIALS_FILE generate DASHBOARD_PASSWORD pwgen 20)
 
         CONFIG_FILE=".env.config"
         echo Using config from $CONFIG_FILE
-        DEPLOYMENT_SLOT_NAME=$(./bin/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_NAME echo "Development")
-        DEPLOYMENT_SLOT_CODE=$(./bin/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_CODE echo "dev")
-        DEPLOYMENT_SLOT_PORT_OFFSET=$(./bin/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_PORT_OFFSET echo "0")
-        STATBUS_URL=$(./bin/dotenv --file $CONFIG_FILE generate STATBUS_URL echo "http://localhost:4080")
-        SUPABASE_URL=$(./bin/dotenv --file $CONFIG_FILE generate SUPABASE_URL echo "http://localhost:4090")
-        SEQ_SERVER_URL=$(./bin/dotenv --file $CONFIG_FILE generate SEQ_SERVER_URL echo "https://log.statbus.org")
-        SEQ_API_KEY=$(./bin/dotenv --file $CONFIG_FILE generate SEQ_API_KEY echo "secret")
+        DEPLOYMENT_SLOT_NAME=$(./devops/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_NAME echo "Development")
+        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_CODE echo "dev")
+        DEPLOYMENT_SLOT_PORT_OFFSET=$(./devops/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_PORT_OFFSET echo "0")
+        STATBUS_URL=$(./devops/dotenv --file $CONFIG_FILE generate STATBUS_URL echo "http://localhost:4080")
+        SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate SUPABASE_URL echo "http://localhost:4090")
+        SEQ_SERVER_URL=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_SERVER_URL echo "https://log.statbus.org")
+        SEQ_API_KEY=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_API_KEY echo "secret")
 
         # Prepare a new environment file
         # Check if the original file exists
@@ -165,33 +165,33 @@ DB_PUBLIC_LOCALHOST_PORT=3432
 STATBUS_USERS_JSON='[]'
 EOS
 
-        ./bin/dotenv --file .env set STATBUS_URL=$STATBUS_URL
-        ./bin/dotenv --file .env set SUPABASE_URL=$SUPABASE_URL
-        ./bin/dotenv --file .env set SEQ_SERVER_URL=$SEQ_SERVER_URL
-        ./bin/dotenv --file .env set SEQ_API_KEY=$SEQ_API_KEY
+        ./devops/dotenv --file .env set STATBUS_URL=$STATBUS_URL
+        ./devops/dotenv --file .env set SUPABASE_URL=$SUPABASE_URL
+        ./devops/dotenv --file .env set SEQ_SERVER_URL=$SEQ_SERVER_URL
+        ./devops/dotenv --file .env set SEQ_API_KEY=$SEQ_API_KEY
 
-        ./bin/dotenv --file .env set POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+        ./devops/dotenv --file .env set POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 
-        ./bin/dotenv --file .env set DEPLOYMENT_SLOT_NAME=Development
-        ./bin/dotenv --file .env set JWT_SECRET=$JWT_SECRET
-        ./bin/dotenv --file .env set DASHBOARD_USERNAME=$DASHBOARD_USERNAME
-        ./bin/dotenv --file .env set DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
+        ./devops/dotenv --file .env set DEPLOYMENT_SLOT_NAME=Development
+        ./devops/dotenv --file .env set JWT_SECRET=$JWT_SECRET
+        ./devops/dotenv --file .env set DASHBOARD_USERNAME=$DASHBOARD_USERNAME
+        ./devops/dotenv --file .env set DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
 
-        ./bin/dotenv --file .env set COMPOSE_INSTANCE_NAME="statbus-$DEPLOYMENT_SLOT_CODE"
+        ./devops/dotenv --file .env set COMPOSE_INSTANCE_NAME="statbus-$DEPLOYMENT_SLOT_CODE"
 
         APP_BIND_ADDRESS="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10 ))"
-        ./bin/dotenv --file .env set APP_BIND_ADDRESS=$APP_BIND_ADDRESS
+        ./devops/dotenv --file .env set APP_BIND_ADDRESS=$APP_BIND_ADDRESS
 
         SUPABASE_BIND_ADDRESS="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10+1 ))"
-        ./bin/dotenv --file .env set SUPABASE_BIND_ADDRESS=$SUPABASE_BIND_ADDRESS
+        ./devops/dotenv --file .env set SUPABASE_BIND_ADDRESS=$SUPABASE_BIND_ADDRESS
 
         DB_PUBLIC_LOCALHOST_PORT="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10+2 ))"
-        ./bin/dotenv --file .env set DB_PUBLIC_LOCALHOST_PORT=$DB_PUBLIC_LOCALHOST_PORT
+        ./devops/dotenv --file .env set DB_PUBLIC_LOCALHOST_PORT=$DB_PUBLIC_LOCALHOST_PORT
 
         export STATBUS_USERS_JSON=$(yq --output-format json --indent 0 --input-format yaml .users.yml)
-        ./bin/dotenv --file .env set STATBUS_USERS_JSON=$STATBUS_USERS_JSON
+        ./devops/dotenv --file .env set STATBUS_USERS_JSON=$STATBUS_USERS_JSON
 
-        ./bin/dotenv --file .env set JWT_SECRET=$JWT_SECRET
+        ./devops/dotenv --file .env set JWT_SECRET=$JWT_SECRET
 
         # Issued At Time: Current timestamp in seconds since the Unix epoch
         iat=$(date +%s)
@@ -219,39 +219,39 @@ EOF
 )
         # brew install mike-engel/jwt-cli/jwt-cli
         export ANON_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_anon_payload")
-        ./bin/dotenv --file .env set ANON_KEY=$ANON_KEY
+        ./devops/dotenv --file .env set ANON_KEY=$ANON_KEY
 
         export SERVICE_ROLE_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_service_role_payload")
-        ./bin/dotenv --file .env set SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+        ./devops/dotenv --file .env set SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 
         export DASHBOARD_USERNAME="admin"
-        ./bin/dotenv --file .env set DASHBOARD_USERNAME=$DASHBOARD_USERNAME
+        ./devops/dotenv --file .env set DASHBOARD_USERNAME=$DASHBOARD_USERNAME
 
         export DASHBOARD_PASSWORD=$(pwgen 20)
-        ./bin/dotenv --file .env set DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
+        ./devops/dotenv --file .env set DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
         ;;
      'postgres-variables' )
-        DB_PUBLIC_LOCALHOST_PORT=$(./bin/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
+        DB_PUBLIC_LOCALHOST_PORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
         # Extract the host part (before the colon) and set it to PGHOST
         PGHOST=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f1)
         # Extract the port part (after the colon) and set it to PGPORT
         PGPORT=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f2)
-        PGDATABASE=$(./bin/dotenv --file .env get POSTGRES_DB)
+        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
         PGUSER=postgres
-        PGPASSWORD=$(./bin/dotenv --file .env get POSTGRES_PASSWORD)
+        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
         cat <<EOS
 export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD
 EOS
       ;;
      'psql' )
-        DB_PUBLIC_LOCALHOST_PORT=$(./bin/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
+        DB_PUBLIC_LOCALHOST_PORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
         # Extract the host part (before the colon) and set it to PGHOST
         export PGHOST=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f1)
         # Extract the port part (after the colon) and set it to PGPORT
         export PGPORT=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f2)
-        export PGDATABASE=$(./bin/dotenv --file .env get POSTGRES_DB)
+        export PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
         export PGUSER=postgres
-        export PGPASSWORD=$(./bin/dotenv --file .env get POSTGRES_PASSWORD)
+        export PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
         if $(which psql > /dev/null); then
           psql "$@"
         else
