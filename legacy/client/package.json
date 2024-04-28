@@ -212,7 +212,7 @@
     "uglifyjs-webpack-plugin": "^2.0.1",
     "webpack": "^4.27.1",
     "webpack-cli": "^3.1.2",
-    "webpack-dev-middleware": "^2.0.6",
+    "webpack-dev-middleware": "^5.3.4",
     "webpack-hot-middleware": "^2.24.3"
   },
   "browserslist": [
