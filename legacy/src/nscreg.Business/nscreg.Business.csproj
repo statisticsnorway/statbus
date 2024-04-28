@@ -7,7 +7,7 @@
   <ItemGroup>
     <PackageReference Include="NLog.Extensions.Logging" Version="5.3.3" />
     <PackageReference Include="ServiceStack.Text.Core" Version="6.10.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
