@@ -15,7 +15,7 @@ case "$action" in
     'start' )
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
-        docker compose up --detach
+        docker compose up --build --detach
       ;;
     'stop' )
         docker compose down
