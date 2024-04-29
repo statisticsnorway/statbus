@@ -1,10 +1,8 @@
 #!/bin/bash
 # devops/manage-statbus.sh
-set -e # Exit on any failure for any command
-set -uo pipefail # Exit on any failure inside a pipeline
+set -euo pipefail # Exit on error, unbound variable, or any failure in a pipeline
 
-
-if test -n "$DEBUG"; then
+if test -n "${DEBUG:-}"; then
   set -x # Print all commands before running them - for easy debugging.
 fi
 
