@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+# devops/manage-statbus.sh
 set -e # Exit on any failure for any command
 
 if test -n "$DEBUG"; then
@@ -8,22 +8,6 @@ fi
 
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
-
-#### TODO: Replace this with a proper .env generator.
-# if ! test -f $WORKSPACE/supabase_docker/.env; then
-#   cp -f $WORKSPACE/.supabase-docker-local-development-env $WORKSPACE/supabase_docker/.env
-# fi
-# if ! test -f $WORKSPACE/.env; then
-#     # TODO: Improve generato
-#   cat > $WORKSPACE/.env <<EOS
-# COMPOSE_FILE=docker-compose.app.yml
-# COMPOSE_INSTANCE_NAME=statbus-dev
-# PUBLIC_PORT=127.0.0.1:3000
-# SUPABASE_ANON_KEY=...
-# SUPABASE_URL=...
-# EOS
-#   echo "Edit .env and adjust the variables as required."
-# fi
 
 action=$1
 shift || true # move away $1 from $@
@@ -42,6 +26,10 @@ case "$action" in
     'ps' )
         docker compose ps
       ;;
+    'activate_sql_saga' )
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
+      ;;
     'create-db-structure' )
         ./devops/psql-development.sh < dbseed/create-db-structure.sql 2>&1
       ;;
@@ -52,7 +40,46 @@ case "$action" in
         ./devops/recreate-database.sh
       ;;
     'delete-db' )
-        rm -rf $WORKSPACE/supabase_docker/volumes/db/data/*
+        # Define the directory path
+        DIRECTORY="$WORKSPACE/supabase_docker/volumes/db/data"
+
+        # Check if the directory is accessible
+        if ! test -r "$DIRECTORY" || ! test -w "$DIRECTORY" || ! test -x "$DIRECTORY"; then
+          echo "Removing with sudo"
+          sudo rm -rf "$DIRECTORY"
+        else
+          rm -rf "$DIRECTORY"
+        fi
+      ;;
+    'create-users' )
+        export $(awk -F= '/^[^#]/{output=output" "$1"="$2} END {print output}' .env)
+        echo "Wait for admin api (gotrue) to start"
+        starting=true
+        while $starting; do
+            sleep 1
+            curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/health" \
+            -H 'accept: application/json' \
+            -H "apikey: $SERVICE_ROLE_KEY" && starting=false
+        done
+
+        echo Create users for the developers
+        echo 'Creating users defined in .users.yml'
+
+        # Read from the YAML file directly and iterate over each object
+        yq -r '.[] | "\(.email) \(.password)"' .users.yml | while read -r user_details; do
+          # Extract user details from the formatted output
+          email=$(echo "${user_details}" | awk '{print $1}')
+          password=$(echo "${user_details}" | awk '{print $2}')
+
+          # Use the official API, since there isn't an SQL route for this! :-(
+          # Run the curl command for each user
+          curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/admin/users" \
+            -H 'accept: application/json' \
+            -H "apikey: $SERVICE_ROLE_KEY" \
+            -H "authorization: Bearer $SERVICE_ROLE_KEY" \
+            -H 'content-type: application/json' \
+            --data-raw "{\"email\":\"$email\", \"password\":\"$password\", \"email_confirm\":true}"
+        done
       ;;
      'upgrade_supabase' )
         git reset supabase_docker
