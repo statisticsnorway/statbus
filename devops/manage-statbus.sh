@@ -9,7 +9,7 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 
-action=$1
+action=${1:-}
 shift || true # move away $1 from $@
 case "$action" in
     'start' )
