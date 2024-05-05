@@ -14,5 +14,6 @@ services:
       SUPABASE_URL: ${SUPABASE_URL:-http://127.0.0.1:3080}
       SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
       SEQ_API_KEY: ${SEQ_API_KEY}
+      DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME}
       VERSION: ${VERSION}
     restart: unless-stopped
