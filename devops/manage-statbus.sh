@@ -219,7 +219,7 @@ EOS
         SUPABASE_BIND_ADDRESS="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10+1 ))"
         ./devops/dotenv --file .env set SUPABASE_BIND_ADDRESS=$SUPABASE_BIND_ADDRESS
 
-        DB_PUBLIC_LOCALHOST_PORT="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10+2 ))"
+        DB_PUBLIC_LOCALHOST_PORT="$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10+2 ))"
         ./devops/dotenv --file .env set DB_PUBLIC_LOCALHOST_PORT=$DB_PUBLIC_LOCALHOST_PORT
 
         echo "Setting Supabase Container Configuration"
@@ -277,11 +277,8 @@ EOF
 
         ;;
      'postgres-variables' )
-        DB_PUBLIC_LOCALHOST_PORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
-        # Extract the host part (before the colon) and set it to PGHOST
-        PGHOST=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f1)
-        # Extract the port part (after the colon) and set it to PGPORT
-        PGPORT=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f2)
+        PGHOST=127.0.0.1
+        PGPORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
         PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
         PGUSER=postgres
         PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
@@ -290,15 +287,8 @@ export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPAS
 EOS
       ;;
      'psql' )
-        DB_PUBLIC_LOCALHOST_PORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
-        # Extract the host part (before the colon) and set it to PGHOST
-        export PGHOST=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f1)
-        # Extract the port part (after the colon) and set it to PGPORT
-        export PGPORT=$(echo $DB_PUBLIC_LOCALHOST_PORT | cut -d':' -f2)
-        export PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
-        export PGUSER=postgres
-        export PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
-        if $(which psql > /dev/null); then
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        if $(which psql > /dev/null && false); then
           psql "$@"
         else
           # When using scripted input, such as "< some.sql" then interactive TTY is required.
@@ -308,7 +298,8 @@ EOS
             # as required for an interactive psql promp
             args="-ti"
           fi
-          docker exec $args $(docker ps  | awk '/statbus-db/{print $1}') psql -U $PGUSER $PGDATABASE "$@"
+          COMPOSE_INSTANCE_NAME=$(./devops/dotenv --file .env get COMPOSE_INSTANCE_NAME)
+          docker exec $args -e PGPASSWORD=$PGPASSWORD $(docker ps  | awk "/$COMPOSE_INSTANCE_NAME-db/{print \$1}") psql -U $PGUSER $PGDATABASE "$@"
         fi
       ;;
      'generate-types' )

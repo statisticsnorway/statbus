@@ -12,14 +12,8 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 pushd $WORKSPACE
 
-source supabase_docker/.env
-export PGHOST=localhost
-export PGPORT=$DB_PUBLIC_LOCALHOST_PORT
-export PGDATABASE=$POSTGRES_DB
-export PGUSER=postgres
-export PGPASSWORD="$POSTGRES_PASSWORD"
 echo "Setting up Statbus for Norway"
-psql < samples/norway/setup.sql
+./devops/manage-statbus.sh psql < samples/norway/setup.sql
 
 
 echo "Adding tags for insert into right part of history"

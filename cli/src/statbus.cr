@@ -224,7 +224,7 @@ class StatBus
 
   private def import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
     # Find .env and load required secrets
-    Dir.cd("../supabase_docker") do
+    Dir.cd("..") do
       ini_data = File.read(".env")
       vars = INI.parse ini_data
       # The variables are all in the global scope, as an ".env" file is not really an ini file,

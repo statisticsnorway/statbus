@@ -19,4 +19,4 @@ services:
     # Prevent the database from using too much memory.
     shm_size: 1g
     ports:
-      - ${DB_PUBLIC_LOCALHOST_PORT}:5432
+      - 127.0.0.1:${DB_PUBLIC_LOCALHOST_PORT}:5432
