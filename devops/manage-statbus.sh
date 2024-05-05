@@ -190,9 +190,6 @@ APP_BIND_ADDRESS=127.0.0.1:3080
 SUPABASE_BIND_ADDRESS=127.0.0.1:3080
 # The publicly exposed address of PostgreSQL inside Supabase
 DB_PUBLIC_LOCALHOST_PORT=3432
-# Users to create on system setup.
-# Read from `.users.yml` see `.users.example` for syntax.
-STATBUS_USERS_JSON='[]'
 # Updated by manage-statbus.sh start
 VERSION=commit_sha_or_version_of_deployed_commit
 EOS
@@ -224,9 +221,6 @@ EOS
 
         DB_PUBLIC_LOCALHOST_PORT="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10+2 ))"
         ./devops/dotenv --file .env set DB_PUBLIC_LOCALHOST_PORT=$DB_PUBLIC_LOCALHOST_PORT
-
-        export STATBUS_USERS_JSON=$(yq --output-format json --indent 0 --input-format yaml .users.yml)
-        ./devops/dotenv --file .env set STATBUS_USERS_JSON=$STATBUS_USERS_JSON
 
         echo "Setting Supabase Container Configuration"
 
