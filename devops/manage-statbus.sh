@@ -209,7 +209,7 @@ EOS
         cat supabase_docker/.env.example >> .env
 
         echo "Setting Statbus Container Configuration"
-        ./devops/dotenv --file .env set DEPLOYMENT_SLOT_NAME=Development
+        ./devops/dotenv --file .env set DEPLOYMENT_SLOT_NAME="$DEPLOYMENT_SLOT_NAME"
         ./devops/dotenv --file .env set COMPOSE_INSTANCE_NAME="statbus-$DEPLOYMENT_SLOT_CODE"
         ./devops/dotenv --file .env set STATBUS_URL=$STATBUS_URL
         ./devops/dotenv --file .env set SUPABASE_URL=$SUPABASE_URL
