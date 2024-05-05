@@ -1,8 +1,5 @@
 name: Push master -> devops/deploy-to-no
 on:
-  push:
-    branches:
-      - 'master'
   # Allow manual deployment in github
   workflow_dispatch:
 
