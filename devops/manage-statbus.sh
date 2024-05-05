@@ -241,8 +241,8 @@ EOS
         ./devops/dotenv --file .env set ENABLE_EMAIL_AUTOCONFIRM=true
         # Disables signup with EMAIL, when ENABLE_EMAIL_SIGNUP=true
         ./devops/dotenv --file .env set DISABLE_SIGNUP=true
-
-
+        # Sets the project name in the Supabase API portal.
+        ./devops/dotenv --file .env set STUDIO_DEFAULT_PROJECT="$DEPLOYMENT_SLOT_NAME"
 
         # Issued At Time: Current timestamp in seconds since the Unix epoch
         iat=$(date +%s)
