@@ -288,7 +288,9 @@ EOS
       ;;
      'psql' )
         eval $(./devops/manage-statbus.sh postgres-variables)
-        if $(which psql > /dev/null && false); then
+        # The local psql is always tried first, as it has access to files
+        # used for copying in data.
+        if $(which psql > /dev/null); then
           psql "$@"
         else
           # When using scripted input, such as "< some.sql" then interactive TTY is required.
@@ -299,7 +301,7 @@ EOS
             args="-ti"
           fi
           COMPOSE_INSTANCE_NAME=$(./devops/dotenv --file .env get COMPOSE_INSTANCE_NAME)
-          docker exec $args -e PGPASSWORD=$PGPASSWORD $(docker ps  | awk "/$COMPOSE_INSTANCE_NAME-db/{print \$1}") psql -U $PGUSER $PGDATABASE "$@"
+          docker exec $args -e PGPASSWORD $(docker ps  | awk "/$COMPOSE_INSTANCE_NAME-db/{print \$1}") psql -U $PGUSER $PGDATABASE "$@"
         fi
       ;;
      'generate-types' )
