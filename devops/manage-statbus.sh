@@ -119,8 +119,8 @@ case "$action" in
         # Offset to calculate ports exposed by docker compose
         DEPLOYMENT_SLOT_PORT_OFFSET=$(./devops/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_PORT_OFFSET echo "0")
         # Urls configured in Caddy and DNS.
-        STATBUS_URL=$(./devops/dotenv --file $CONFIG_FILE generate STATBUS_URL echo "http://localhost:4080")
-        SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate SUPABASE_URL echo "http://localhost:4090")
+        STATBUS_URL=$(./devops/dotenv --file $CONFIG_FILE generate STATBUS_URL echo "http://localhost:3001")
+        SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate SUPABASE_URL echo "http://localhost:3002")
         # Logging server
         SEQ_SERVER_URL=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_SERVER_URL echo "https://log.statbus.org")
         SEQ_API_KEY=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_API_KEY echo "secret")
