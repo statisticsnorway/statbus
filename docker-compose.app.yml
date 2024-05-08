@@ -11,7 +11,7 @@ services:
       - "${APP_BIND_ADDRESS:-127.0.0.1:3010}:3000"
     environment:
       SUPABASE_ANON_KEY: ${ANON_KEY}
-      SUPABASE_URL: ${SUPABASE_URL:-http://127.0.0.1:3080}
+      SUPABASE_URL: http://kong:8000/
       SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
       SEQ_API_KEY: ${SEQ_API_KEY}
       DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME}
