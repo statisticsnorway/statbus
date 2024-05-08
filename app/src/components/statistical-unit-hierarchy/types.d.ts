@@ -91,6 +91,7 @@ declare interface StatForUnit {
   id: number;
   valid_to: string;
   employees: number;
+  turnover: number;
   valid_from: string;
   stat_definition: StatDefinition;
   establishment_id: number;

@@ -69,6 +69,11 @@ export function TopologyItem({
                 title="Employees"
                 value={unit.stat_for_unit?.[0].employees}
               />
+              <TopologyItemInfo
+                className="flex-1"
+                title="Turnover"
+                value={unit.stat_for_unit?.[1]?.turnover}
+              />
             </div>
             <TopologyItemInfo
               title="Activity"

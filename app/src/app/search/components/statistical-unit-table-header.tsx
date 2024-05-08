@@ -19,6 +19,12 @@ export const StatisticalUnitTableHeader = () => {
           Employees
         </SortableTableHead>
         <SortableTableHead
+          className="text-right hidden lg:table-cell"
+          name="turnover"
+        >
+          Turnover
+        </SortableTableHead>
+        <SortableTableHead
           className="text-left hidden lg:table-cell"
           name="sector_code"
         >
