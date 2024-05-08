@@ -1,5 +1,8 @@
 name: ${COMPOSE_INSTANCE_NAME:-statbus}
 include:
+  # Notice that there must be two different path entries,
+  # else the mounts of the second path includes are relative
+  # to the first file loaded.
   - path:
     # Setup STATBUS Next.js app (frontend + backend)
     - "docker-compose.app.yml"
