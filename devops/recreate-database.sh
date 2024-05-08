@@ -15,7 +15,7 @@ echo Recreate the backend with the lastest database structures
 ./devops/manage-statbus.sh delete-db
 ./devops/manage-statbus.sh start
 
-./devops/manage-statbus.sh create-users
 ./devops/manage-statbus.sh activate_sql_saga
-
 ./devops/manage-statbus.sh create-db-structure
+
+./devops/manage-statbus.sh create-users
