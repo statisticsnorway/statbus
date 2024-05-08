@@ -81,14 +81,6 @@ INSERT INTO public.statbus_role(type, name, description) VALUES ('regular_user',
 INSERT INTO public.statbus_role(type, name, description) VALUES ('restricted_user', 'Restricted User', 'Can see everything and edit according to assigned region and/or activity');
 INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user', 'External User', 'Can see selected information');
 
--- Add a super user role for select users
-INSERT INTO public.statbus_user (uuid, role_id)
-SELECT id, (SELECT id FROM public.statbus_role WHERE type = 'super_user')
-FROM auth.users
-WHERE email like 'jorgen@veridit.no'
-   OR email like 'erik.soberg@ssb.no'
-   OR email like 'jonas.lundeland@sonat.no'
-ON CONFLICT DO NOTHING;
 
 -- Helper auth functions are found at the end, after relevant tables are defined.
 

@@ -79,6 +79,14 @@ case "$action" in
             -H "authorization: Bearer $SERVICE_ROLE_KEY" \
             -H 'content-type: application/json' \
             --data-raw "{\"email\":\"$email\", \"password\":\"$password\", \"email_confirm\":true}"
+          ./devops/manage-statbus.sh psql <<EOS
+            INSERT INTO public.statbus_user (uuid, role_id)
+            SELECT id, (SELECT id FROM public.statbus_role WHERE type = 'super_user')
+            FROM auth.users
+            WHERE email like '$email'
+            ON CONFLICT (uuid)
+            DO UPDATE SET role_id = EXCLUDED.role_id;
+EOS
         done
       ;;
      'upgrade_supabase' )
