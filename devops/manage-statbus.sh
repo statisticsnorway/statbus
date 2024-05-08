@@ -31,10 +31,10 @@ case "$action" in
         PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
       ;;
     'create-db-structure' )
-        ./devops/psql-development.sh < dbseed/create-db-structure.sql 2>&1
+        ./devops/manage-statbus.sh psql < dbseed/create-db-structure.sql 2>&1
       ;;
     'delete-db-structure' )
-        ./devops/psql-development.sh < dbseed/delete-db-structure.sql 2>&1
+        ./devops/manage-statbus.sh psql < dbseed/delete-db-structure.sql 2>&1
       ;;
     'recreate-database' )
         ./devops/recreate-database.sh

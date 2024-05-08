@@ -98,7 +98,7 @@ a migration that creates all the tables in the project.
 Then one must import the seed data required for Statbus to operate:
 
 ```sh
-./devops/psql-development.sh < dbseed/InsertPostgresData.sql 2>&1
+./devops/manage-statbus.sh psql < dbseed/InsertPostgresData.sql 2>&1
 ```
 Notice the `2>&1` that ensures error messages are returned, in case
 of problems.
