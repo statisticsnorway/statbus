@@ -116,7 +116,7 @@ export const StatisticalUnitTableRow = ({
       <TableCell className="py-2 text-left hidden lg:table-cell">
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{region?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
+          <small className="text-gray-700 max-w-24 overflow-hidden overflow-ellipsis whitespace-nowrap">
             {region?.name}
           </small>
         </div>
@@ -144,7 +144,7 @@ export const StatisticalUnitTableRow = ({
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{activityCategory?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-48">
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-40">
             {activityCategory?.name}
           </small>
         </div>
