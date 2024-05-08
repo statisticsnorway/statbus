@@ -21,6 +21,7 @@ export function SearchResultTableBodySkeleton() {
             </div>
           </TableCell>
           <TableCell />
+          <TableCell />
           <TableCell className="py-2 hidden lg:table-cell">
             <div className="flex flex-col space-y-1.5">
               <div className="flex w-16 h-4 bg-gray-200" />

@@ -33,6 +33,7 @@ export const StatisticalUnitTableRow = ({
     physical_region_path,
     tax_ident,
     employees,
+    turnover,
     sector_name,
     sector_code,
     invalid_codes,
@@ -123,24 +124,27 @@ export const StatisticalUnitTableRow = ({
       <TableCell className="py-2 text-right hidden lg:table-cell">
         {employees}
       </TableCell>
+      <TableCell className="py-2 text-right hidden lg:table-cell">
+        {turnover}
+      </TableCell>
       <TableCell
         className="py-2 text-left hidden lg:table-cell"
         title={sector_name ?? ""}
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{sector_code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-48">
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
             {sector_name}
           </small>
         </div>
       </TableCell>
       <TableCell
         title={activityCategory?.name ?? ""}
-        className="py-2 pl-4 pr-2 text-left hidden lg:table-cell"
+        className="py-2 pl-4 pr-2 text-left hidden lg:table-cell "
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{activityCategory?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-56">
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-48">
             {activityCategory?.name}
           </small>
         </div>
