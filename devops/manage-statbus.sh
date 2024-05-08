@@ -185,9 +185,9 @@ SEQ_API_KEY=secret_api_key
 # The prefix used for all container names in docker
 COMPOSE_INSTANCE_NAME=statbus
 # The host address connected to the STATBUS app
-APP_BIND_ADDRESS=127.0.0.1:3080
+APP_BIND_ADDRESS=127.0.0.1:3010
 # The host address connected to Supabase
-SUPABASE_BIND_ADDRESS=127.0.0.1:3080
+SUPABASE_BIND_ADDRESS=127.0.0.1:3011
 # The publicly exposed address of PostgreSQL inside Supabase
 DB_PUBLIC_LOCALHOST_PORT=3432
 # Updated by manage-statbus.sh start
