@@ -8,7 +8,7 @@ services:
     build:
       context: ./app
     ports:
-      - "${APP_BIND_ADDRESS:-127.0.0.1:3000}:3000"
+      - "${APP_BIND_ADDRESS:-127.0.0.1:3010}:3000"
     environment:
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_URL: ${SUPABASE_URL:-http://127.0.0.1:3080}
