@@ -3437,6 +3437,7 @@ SELECT valid_from
      , physical_country_id
      , count(*) AS count
      , sum(employees) AS employees
+     , sum(turnover) AS turnover
 FROM public.statistical_unit
 GROUP BY valid_from
        , valid_to
@@ -3479,26 +3480,25 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     -- Use a params intermediary to avoid conflicts
     -- between columns and parameters, leading to tautologies. i.e. 'sh.unit_type = unit_type' is always true.
     WITH params AS (
-        SELECT
-            unit_type AS param_unit_type,
-            region_path AS param_region_path,
-            activity_category_path AS param_activity_category_path,
-            sector_path AS param_sector_path,
-            legal_form_id AS param_legal_form_id,
-            country_id AS param_country_id,
-            valid_on AS param_valid_on
+        SELECT unit_type AS param_unit_type
+             , region_path AS param_region_path
+             , activity_category_path AS param_activity_category_path
+             , sector_path AS param_sector_path
+             , legal_form_id AS param_legal_form_id
+             , country_id AS param_country_id
+             , valid_on AS param_valid_on
     ), settings_activity_category_standard AS (
         SELECT activity_category_standard_id AS id FROM public.settings
     ),
     available_facet AS (
-        SELECT
-            suf.physical_region_path,
-            suf.primary_activity_category_path,
-            suf.sector_path,
-            suf.legal_form_id,
-            suf.physical_country_id,
-            count,
-            employees
+        SELECT suf.physical_region_path
+             , suf.primary_activity_category_path
+             , suf.sector_path
+             , suf.legal_form_id
+             , suf.physical_country_id
+             , count
+             , employees
+             , turnover
         FROM public.statistical_unit_facet AS suf
            , params
         WHERE
@@ -3527,6 +3527,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
              , COALESCE(SUM(af.employees), 0) AS employees
+             , COALESCE(SUM(af.turnover), 0) AS turnover
         FROM available_facet AS af
     ),
     breadcrumb_region AS (
@@ -3561,6 +3562,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(SUM(suf.turnover), 0) AS turnover
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
@@ -3608,6 +3610,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(SUM(suf.turnover), 0) AS turnover
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -3649,6 +3652,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(SUM(suf.turnover), 0) AS turnover
              , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
@@ -3682,6 +3686,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(SUM(suf.turnover), 0) AS turnover
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
@@ -3714,6 +3719,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
+             , COALESCE(SUM(suf.turnover), 0) AS turnover
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
