@@ -32,6 +32,7 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
   }[] = [
     { value: "count", label: "Count", title: "Number of enterprises" },
     { value: "employees", label: "Employees", title: "Number of employees" },
+    { value: "turnover", label: "Turnover", title: "Total turnover" },
   ];
 
   return (
