@@ -240,7 +240,11 @@ class StatBus
 
       sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
       sql_fields_list = sql_cli_provided_fields + sql_field_required_list + sql_field_optional_list
-      csv_stream = CSV.new(File.open(import_file_name), headers: true, separator: ',', quote_char: '"')
+      file_stream =
+        Dir.cd(@working_directory) do
+          File.open(import_file_name)
+        end
+      csv_stream = CSV.new(file_stream, headers: true, separator: ',', quote_char: '"')
       csv_fields_list = csv_stream.headers
       # For every equal header, insert a mapping.
       sql_field_required = sql_field_required_list.to_set
