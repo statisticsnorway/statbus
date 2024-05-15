@@ -6,16 +6,16 @@ export default function RegionTableFilters({
   setPagination,
   queries,
 }: {
-  setQueries: Dispatch<
+  readonly setQueries: Dispatch<
     SetStateAction<{
       name: string;
       code: string;
     }>
   >;
-  setPagination: Dispatch<
+  readonly setPagination: Dispatch<
     SetStateAction<{ pageSize: number; pageNumber: number }>
   >;
-  queries: Record<string, string | null>;
+  readonly queries: Record<string, string | null>;
 }) {
   const handleFilterChange = (filterName: string, value: string) => {
     setQueries((prev) => {
