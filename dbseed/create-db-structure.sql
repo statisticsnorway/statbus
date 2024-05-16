@@ -539,18 +539,18 @@ CREATE INDEX ix_analysis_queue_user_id ON public.analysis_queue USING btree (use
 \echo public.country
 CREATE TABLE public.country (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code_2 text UNIQUE NOT NULL,
-    code_3 text UNIQUE NOT NULL,
-    code_num text UNIQUE NOT NULL,
+    iso_2 text UNIQUE NOT NULL,
+    iso_3 text UNIQUE NOT NULL,
+    iso_num text UNIQUE NOT NULL,
     name text UNIQUE NOT NULL,
     active boolean NOT NULL,
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(code_2, code_3, code_num, name)
+    UNIQUE(iso_2, iso_3, iso_num, name)
 );
-CREATE UNIQUE INDEX ix_country_code_2 ON public.country USING btree (code_2) WHERE active;
-CREATE UNIQUE INDEX ix_country_code_3 ON public.country USING btree (code_3) WHERE active;
-CREATE UNIQUE INDEX ix_country_code_num ON public.country USING btree (code_num) WHERE active;
+CREATE UNIQUE INDEX ix_country_iso_2 ON public.country USING btree (iso_2) WHERE active;
+CREATE UNIQUE INDEX ix_country_iso_3 ON public.country USING btree (iso_3) WHERE active;
+CREATE UNIQUE INDEX ix_country_iso_num ON public.country USING btree (iso_num) WHERE active;
 
 
 \echo public.custom_analysis_check
@@ -1414,9 +1414,9 @@ CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id
 CREATE FUNCTION admin.upsert_country()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.country (code_2, code_3, code_num, name, active, custom, updated_at)
-    VALUES (NEW.code_2, NEW.code_3, NEW.code_num, NEW.name, true, false, statement_timestamp())
-    ON CONFLICT (code_2, code_3, code_num, name)
+    INSERT INTO public.country (iso_2, iso_3, iso_num, name, active, custom, updated_at)
+    VALUES (NEW.iso_2, NEW.iso_3, NEW.iso_num, NEW.name, true, false, statement_timestamp())
+    ON CONFLICT (iso_2, iso_3, iso_num, name)
     DO UPDATE SET
         name = EXCLUDED.name,
         custom = false,
@@ -1441,7 +1441,7 @@ $$ LANGUAGE plpgsql;
 \echo public.country_view
 CREATE VIEW public.country_view
 WITH (security_invoker=on) AS
-SELECT id, code_2, code_3, code_num, name, active, custom
+SELECT id, iso_2, iso_3, iso_num, name, active, custom
 FROM public.country;
 
 -- Create triggers for the view
@@ -1456,7 +1456,7 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_country();
 
 
-\copy public.country_view(name, code_2, code_3, code_num) FROM 'dbseed/country/country_codes.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.country_view(name, iso_2, iso_3, iso_num) FROM 'dbseed/country/country_codes.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 -- Helpers to generate views for bach API handling of all the system provided configuration
@@ -2259,7 +2259,7 @@ CREATE VIEW public.statistical_unit_def
     , physical_region_id
     , physical_region_path
     , physical_country_id
-    , physical_country_code_2
+    , physical_country_iso_2
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -2268,7 +2268,7 @@ CREATE VIEW public.statistical_unit_def
     , postal_region_id
     , postal_region_path
     , postal_country_id
-    , postal_country_code_2
+    , postal_country_iso_2
     , invalid_codes
     , aggregated_establishment_ids
     , aggregated_legal_unit_ids
@@ -2340,7 +2340,7 @@ CREATE VIEW public.statistical_unit_def
          , physical_region_id
          , physical_region_path
          , physical_country_id
-         , physical_country_code_2
+         , physical_country_iso_2
          --
          , postal_address_part1
          , postal_address_part2
@@ -2350,7 +2350,7 @@ CREATE VIEW public.statistical_unit_def
          , postal_region_id
          , postal_region_path
          , postal_country_id
-         , postal_country_code_2
+         , postal_country_iso_2
          --
          , invalid_codes
          --
@@ -2410,7 +2410,7 @@ CREATE VIEW public.statistical_unit_def
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
-           , phc.code_2     AS physical_country_code_2
+           , phc.iso_2     AS physical_country_iso_2
            --
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
@@ -2420,7 +2420,7 @@ CREATE VIEW public.statistical_unit_def
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
-           , poc.code_2     AS postal_country_code_2
+           , poc.iso_2     AS postal_country_iso_2
            --
            , es.invalid_codes AS invalid_codes
            --
@@ -2519,7 +2519,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_id
            , physical_region_path
            , physical_country_id
-           , physical_country_code_2
+           , physical_country_iso_2
            --
            , postal_address_part1
            , postal_address_part2
@@ -2529,7 +2529,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_id
            , postal_region_path
            , postal_country_id
-           , postal_country_code_2
+           , postal_country_iso_2
            --
            , invalid_codes
            --
@@ -2576,7 +2576,7 @@ CREATE VIEW public.statistical_unit_def
          , physical_region_id
          , physical_region_path
          , physical_country_id
-         , physical_country_code_2
+         , physical_country_iso_2
          --
          , postal_address_part1
          , postal_address_part2
@@ -2586,7 +2586,7 @@ CREATE VIEW public.statistical_unit_def
          , postal_region_id
          , postal_region_path
          , postal_country_id
-         , postal_country_code_2
+         , postal_country_iso_2
          --
          , invalid_codes
          --
@@ -2640,7 +2640,7 @@ CREATE VIEW public.statistical_unit_def
              , phl.region_id           AS physical_region_id
              , phr.path                AS physical_region_path
              , phl.country_id AS physical_country_id
-             , phc.code_2     AS physical_country_code_2
+             , phc.iso_2     AS physical_country_iso_2
              --
              , pol.address_part1 AS postal_address_part1
              , pol.address_part2 AS postal_address_part2
@@ -2650,7 +2650,7 @@ CREATE VIEW public.statistical_unit_def
              , pol.region_id           AS postal_region_id
              , por.path                AS postal_region_path
              , pol.country_id AS postal_country_id
-             , poc.code_2     AS postal_country_code_2
+             , poc.iso_2     AS postal_country_iso_2
              --
              , lu.invalid_codes AS invalid_codes
              --
@@ -2755,7 +2755,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_id
            , physical_region_path
            , physical_country_id
-           , physical_country_code_2
+           , physical_country_iso_2
            --
            , postal_address_part1
            , postal_address_part2
@@ -2765,7 +2765,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_id
            , postal_region_path
            , postal_country_id
-           , postal_country_code_2
+           , postal_country_iso_2
            , invalid_codes
     UNION ALL
     -- Enterprise with legal_unit with establishment
@@ -2808,7 +2808,7 @@ CREATE VIEW public.statistical_unit_def
          , physical_region_id
          , physical_region_path
          , physical_country_id
-         , physical_country_code_2
+         , physical_country_iso_2
          --
          , postal_address_part1
          , postal_address_part2
@@ -2818,7 +2818,7 @@ CREATE VIEW public.statistical_unit_def
          , postal_region_id
          , postal_region_path
          , postal_country_id
-         , postal_country_code_2
+         , postal_country_iso_2
          --
          , NULL::JSONB AS invalid_codes
          --
@@ -2872,7 +2872,7 @@ CREATE VIEW public.statistical_unit_def
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
-           , phc.code_2     AS physical_country_code_2
+           , phc.iso_2     AS physical_country_iso_2
            --
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
@@ -2882,7 +2882,7 @@ CREATE VIEW public.statistical_unit_def
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
-           , poc.code_2     AS postal_country_code_2
+           , poc.iso_2     AS postal_country_iso_2
            --
            , sfu1.value_int AS employees
            , sfu2.value_int AS turnover
@@ -2990,7 +2990,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_id
            , physical_region_path
            , physical_country_id
-           , physical_country_code_2
+           , physical_country_iso_2
            --
            , postal_address_part1
            , postal_address_part2
@@ -3000,7 +3000,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_id
            , postal_region_path
            , postal_country_id
-           , postal_country_code_2
+           , postal_country_iso_2
     UNION ALL
     -- Enterprise with establishment
     SELECT valid_from
@@ -3042,7 +3042,7 @@ CREATE VIEW public.statistical_unit_def
          , physical_region_id
          , physical_region_path
          , physical_country_id
-         , physical_country_code_2
+         , physical_country_iso_2
          --
          , postal_address_part1
          , postal_address_part2
@@ -3052,7 +3052,7 @@ CREATE VIEW public.statistical_unit_def
          , postal_region_id
          , postal_region_path
          , postal_country_id
-         , postal_country_code_2
+         , postal_country_iso_2
          --
          , NULL::JSONB AS invalid_codes
          --
@@ -3106,7 +3106,7 @@ CREATE VIEW public.statistical_unit_def
              , phl.region_id           AS physical_region_id
              , phr.path                AS physical_region_path
              , phl.country_id AS physical_country_id
-             , phc.code_2     AS physical_country_code_2
+             , phc.iso_2     AS physical_country_iso_2
              --
              , pol.address_part1 AS postal_address_part1
              , pol.address_part2 AS postal_address_part2
@@ -3116,7 +3116,7 @@ CREATE VIEW public.statistical_unit_def
              , pol.region_id           AS postal_region_id
              , por.path                AS postal_region_path
              , pol.country_id AS postal_country_id
-             , poc.code_2     AS postal_country_code_2
+             , poc.iso_2     AS postal_country_iso_2
              --
              , sfu1.value_int AS employees
              , sfu2.value_int AS turnover
@@ -3214,7 +3214,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_id
            , physical_region_path
            , physical_country_id
-           , physical_country_code_2
+           , physical_country_iso_2
            --
            , postal_address_part1
            , postal_address_part2
@@ -3224,7 +3224,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_id
            , postal_region_path
            , postal_country_id
-           , postal_country_code_2
+           , postal_country_iso_2
     UNION ALL
     -- Enterprise Group
     SELECT valid_from
@@ -3263,7 +3263,7 @@ CREATE VIEW public.statistical_unit_def
          , NULL::INTEGER AS physical_region_id
          , NULL::public.ltree AS physical_region_path
          , NULL::INTEGER AS physical_country_id
-         , NULL::TEXT AS physical_country_code_2
+         , NULL::TEXT AS physical_country_iso_2
          --
          , NULL::TEXT AS postal_address_part1
          , NULL::TEXT AS postal_address_part2
@@ -3273,7 +3273,7 @@ CREATE VIEW public.statistical_unit_def
          , NULL::INTEGER AS postal_region_id
          , NULL::public.ltree AS postal_region_path
          , NULL::INTEGER AS postal_country_id
-         , NULL::TEXT AS postal_country_code_2
+         , NULL::TEXT AS postal_country_iso_2
          --
          , NULL::JSONB AS invalid_codes
          --
@@ -3414,7 +3414,7 @@ CREATE UNIQUE INDEX "legal_form_used_key"
 \echo public.country_used
 CREATE MATERIALIZED VIEW public.country_used AS
 SELECT c.id
-     , c.code_2
+     , c.iso_2
      , c.name
 FROM public.country AS c
 WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE physical_country_id IS NOT NULL)
@@ -3422,7 +3422,7 @@ WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE phy
 ORDER BY c.id;
 
 CREATE UNIQUE INDEX "country_used_key"
-    ON public.country_used (code_2);
+    ON public.country_used (iso_2);
 
 
 \echo public.statistical_unit_facet
@@ -3696,26 +3696,26 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     ),
     breadcrumb_physical_country AS (
         SELECT pc.id
-             , pc.code_2
+             , pc.iso_2
              , pc.name
         FROM public.country AS pc
         WHERE
             (   country_id IS NOT NULL
             AND pc.id = country_id
             )
-        ORDER BY pc.code_2
+        ORDER BY pc.iso_2
     ),
     available_physical_country AS (
         SELECT pc.id
-             , pc.code_2
+             , pc.iso_2
              , pc.name
         FROM public.country AS pc
         -- Every country is available, unless one is selected.
         WHERE country_id IS NULL
-        ORDER BY pc.code_2
+        ORDER BY pc.iso_2
     ), aggregated_physical_country_counts AS (
         SELECT pc.id
-             , pc.code_2
+             , pc.iso_2
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
              , COALESCE(SUM(suf.employees), 0) AS employees
@@ -3724,7 +3724,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
         GROUP BY pc.id
-               , pc.code_2
+               , pc.iso_2
                , pc.name
     )
     SELECT
@@ -4479,26 +4479,26 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     ),
     breadcrumb_physical_country AS (
         SELECT pc.id
-             , pc.code_2
+             , pc.iso_2
              , pc.name
         FROM public.country AS pc
         WHERE
             (   country_id IS NOT NULL
             AND pc.id = country_id
             )
-        ORDER BY pc.code_2
+        ORDER BY pc.iso_2
     ),
     available_physical_country AS (
         SELECT pc.id
-             , pc.code_2
+             , pc.iso_2
              , pc.name
         FROM public.country AS pc
         -- Every country is available, unless one is selected.
         WHERE country_id IS NULL
-        ORDER BY pc.code_2
+        ORDER BY pc.iso_2
     ), aggregated_physical_country_counts AS (
         SELECT pc.id
-             , pc.code_2
+             , pc.iso_2
              , pc.name
              , COALESCE(SUM(sh.count), 0) AS count
              , COALESCE(SUM(sh.employees), 0) AS employees
@@ -4506,7 +4506,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM available_physical_country AS pc
         LEFT JOIN available_history AS sh ON sh.physical_country_id = pc.id
         GROUP BY pc.id
-               , pc.code_2
+               , pc.iso_2
                , pc.name
     )
     SELECT
@@ -6371,14 +6371,14 @@ SELECT '' AS valid_from
      , '' AS physical_postal_code
      , '' AS physical_postal_place
      , '' AS physical_region_code
-     , '' AS physical_country_code_2
+     , '' AS physical_country_iso_2
      , '' AS postal_address_part1
      , '' AS postal_address_part2
      , '' AS postal_address_part3
      , '' AS postal_postal_code
      , '' AS postal_postal_place
      , '' AS postal_region_code
-     , '' AS postal_country_code_2
+     , '' AS postal_country_iso_2
      , '' AS primary_activity_category_code
      , '' AS secondary_activity_category_code
      , '' AS sector_code
@@ -6450,13 +6450,13 @@ BEGIN
         END IF;
     END IF;
 
-    IF NEW.physical_country_code_2 IS NOT NULL AND NEW.physical_country_code_2 <> '' THEN
+    IF NEW.physical_country_iso_2 IS NOT NULL AND NEW.physical_country_iso_2 <> '' THEN
       SELECT * INTO physical_country
       FROM public.country
-      WHERE code_2 = NEW.physical_country_code_2;
+      WHERE iso_2 = NEW.physical_country_iso_2;
       IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_country_code_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{physical_country_code_2}', to_jsonb(NEW.physical_country_code_2), true);
+        RAISE WARNING 'Could not find physical_country_iso_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{physical_country_iso_2}', to_jsonb(NEW.physical_country_iso_2), true);
       END IF;
     END IF;
 
@@ -6470,13 +6470,13 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.postal_country_code_2 IS NOT NULL AND NEW.postal_country_code_2 <> '' THEN
+    IF NEW.postal_country_iso_2 IS NOT NULL AND NEW.postal_country_iso_2 <> '' THEN
       SELECT * INTO postal_country
       FROM public.country
-      WHERE code_2 = NEW.postal_country_code_2;
+      WHERE iso_2 = NEW.postal_country_iso_2;
       IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_country_code_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{postal_country_code_2}', to_jsonb(NEW.postal_country_code_2), true);
+        RAISE WARNING 'Could not find postal_country_iso_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{postal_country_iso_2}', to_jsonb(NEW.postal_country_iso_2), true);
       END IF;
     END IF;
 
@@ -6787,14 +6787,14 @@ SELECT tax_ident
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
-     , physical_country_code_2
+     , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
-     , postal_country_code_2
+     , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
      , sector_code
@@ -6822,14 +6822,14 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
-        , physical_country_code_2
+        , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
         , postal_address_part3
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
-        , postal_country_code_2
+        , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
         , sector_code
@@ -6849,14 +6849,14 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
-        , NEW.physical_country_code_2
+        , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
         , NEW.postal_address_part3
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
-        , NEW.postal_country_code_2
+        , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.sector_code
@@ -6924,14 +6924,14 @@ SELECT '' AS valid_from
      , '' AS physical_postal_code
      , '' AS physical_postal_place
      , '' AS physical_region_code
-     , '' AS physical_country_code_2
+     , '' AS physical_country_iso_2
      , '' AS postal_address_part1
      , '' AS postal_address_part2
      , '' AS postal_address_part3
      , '' AS postal_postal_code
      , '' AS postal_postal_place
      , '' AS postal_region_code
-     , '' AS postal_country_code_2
+     , '' AS postal_country_iso_2
      , '' AS primary_activity_category_code
      , '' AS secondary_activity_category_code
      , '' AS sector_code
@@ -7075,13 +7075,13 @@ BEGIN
         END IF;
     END IF;
 
-    IF NEW.physical_country_code_2 IS NOT NULL AND NEW.physical_country_code_2 <> '' THEN
+    IF NEW.physical_country_iso_2 IS NOT NULL AND NEW.physical_country_iso_2 <> '' THEN
       SELECT * INTO physical_country
       FROM public.country
-      WHERE code_2 = NEW.physical_country_code_2;
+      WHERE iso_2 = NEW.physical_country_iso_2;
       IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_country_code_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{physical_country_code_2}', to_jsonb(NEW.physical_country_code_2), true);
+        RAISE WARNING 'Could not find physical_country_iso_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{physical_country_iso_2}', to_jsonb(NEW.physical_country_iso_2), true);
       END IF;
     END IF;
 
@@ -7095,13 +7095,13 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.postal_country_code_2 IS NOT NULL AND NEW.postal_country_code_2 <> '' THEN
+    IF NEW.postal_country_iso_2 IS NOT NULL AND NEW.postal_country_iso_2 <> '' THEN
       SELECT * INTO postal_country
       FROM public.country
-      WHERE code_2 = NEW.postal_country_code_2;
+      WHERE iso_2 = NEW.postal_country_iso_2;
       IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_country_code_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{postal_country_code_2}', to_jsonb(NEW.postal_country_code_2), true);
+        RAISE WARNING 'Could not find postal_country_iso_2 for row %', to_json(NEW);
+        invalid_codes := jsonb_set(invalid_codes, '{postal_country_iso_2}', to_jsonb(NEW.postal_country_iso_2), true);
       END IF;
     END IF;
 
@@ -7417,14 +7417,14 @@ SELECT valid_from
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
-     , physical_country_code_2
+     , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
-     , postal_country_code_2
+     , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
      -- sector_code is Disabled because the legal unit provides the sector_code
@@ -7455,14 +7455,14 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
-        , physical_country_code_2
+        , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
         , postal_address_part3
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
-        , postal_country_code_2
+        , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
         , employees
@@ -7483,14 +7483,14 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
-        , NEW.physical_country_code_2
+        , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
         , NEW.postal_address_part3
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
-        , NEW.postal_country_code_2
+        , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.employees
@@ -7520,14 +7520,14 @@ SELECT tax_ident
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
-     , physical_country_code_2
+     , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
-     , postal_country_code_2
+     , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
      -- sector_code is Disabled because the legal unit provides the sector_code
@@ -7562,14 +7562,14 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
-        , physical_country_code_2
+        , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
         , postal_address_part3
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
-        , postal_country_code_2
+        , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
         , employees
@@ -7590,14 +7590,14 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
-        , NEW.physical_country_code_2
+        , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
         , NEW.postal_address_part3
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
-        , NEW.postal_country_code_2
+        , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.employees
@@ -7630,14 +7630,14 @@ SELECT valid_from
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
-     , physical_country_code_2
+     , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
-     , postal_country_code_2
+     , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
      , sector_code -- Is allowed, since there is no legal unit to provide it.
@@ -7664,14 +7664,14 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
-        , physical_country_code_2
+        , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
         , postal_address_part3
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
-        , postal_country_code_2
+        , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
         , sector_code
@@ -7692,14 +7692,14 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
-        , NEW.physical_country_code_2
+        , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
         , NEW.postal_address_part3
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
-        , NEW.postal_country_code_2
+        , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.sector_code
@@ -7730,14 +7730,14 @@ SELECT tax_ident
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
-     , physical_country_code_2
+     , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
-     , postal_country_code_2
+     , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
      , sector_code -- Is allowed, since there is no legal unit to provide it.
@@ -7767,14 +7767,14 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
-        , physical_country_code_2
+        , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
         , postal_address_part3
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
-        , postal_country_code_2
+        , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
         , sector_code
@@ -7795,14 +7795,14 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
-        , NEW.physical_country_code_2
+        , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
         , NEW.postal_address_part3
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
-        , NEW.postal_country_code_2
+        , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.sector_code
