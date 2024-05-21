@@ -17,13 +17,13 @@ echo "Setting up Statbus for Norway"
 
 
 echo "Adding tags for insert into right part of history"
-psql < samples/norway/history/add-tags.sql
+./devops/manage-statbus.sh psql < samples/norway/history/add-tags.sql
 
 pushd cli
 echo "Buildig cli"
 shards build
 
-YEARS=$(psql -t -c "SELECT DISTINCT year FROM gh.sample ORDER BY year;")
+YEARS=$(ls $WORKSPACE/samples/norway/history/*-enheter.csv | sed -E 's/.*\/([0-9]{4})-enheter\.csv/\1/' | sort -u)
 
 for YEAR in $YEARS; do
     TAG="census.$YEAR"
