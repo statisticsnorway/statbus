@@ -136,7 +136,7 @@
     "csv": "postadresse.land"
   },
   {
-    "sql": "postal_country_code_2",
+    "sql": "postal_country_iso_2",
     "csv": "postadresse.landkode"
   },
   {
