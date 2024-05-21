@@ -48,10 +48,10 @@ declare interface Country {
   id: number;
   name: string;
   active: boolean;
-  code_2: string;
-  code_3: string;
+  iso_2: string;
+  iso_3: string;
   custom: boolean;
-  code_num: string;
+  iso_num: string;
   updated_at: string;
 }
 

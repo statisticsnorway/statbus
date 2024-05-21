@@ -311,9 +311,9 @@ export type Database = {
       country: {
         Row: {
           active: boolean
-          code_2: string
-          code_3: string
-          code_num: string
+          iso_2: string
+          iso_3: string
+          iso_num: string
           custom: boolean
           id: number
           name: string
@@ -321,9 +321,9 @@ export type Database = {
         }
         Insert: {
           active: boolean
-          code_2: string
-          code_3: string
-          code_num: string
+          iso_2: string
+          iso_3: string
+          iso_num: string
           custom: boolean
           id?: never
           name: string
@@ -331,9 +331,9 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          code_2?: string
-          code_3?: string
-          code_num?: string
+          iso_2?: string
+          iso_3?: string
+          iso_num?: string
           custom?: boolean
           id?: never
           name?: string
@@ -2561,7 +2561,7 @@ export type Database = {
       }
       country_used: {
         Row: {
-          code_2: string | null
+          iso_2: string | null
           id: number | null
           name: string | null
         }
@@ -2570,27 +2570,27 @@ export type Database = {
       country_view: {
         Row: {
           active: boolean | null
-          code_2: string | null
-          code_3: string | null
-          code_num: string | null
+          iso_2: string | null
+          iso_3: string | null
+          iso_num: string | null
           custom: boolean | null
           id: number | null
           name: string | null
         }
         Insert: {
           active?: boolean | null
-          code_2?: string | null
-          code_3?: string | null
-          code_num?: string | null
+          iso_2?: string | null
+          iso_3?: string | null
+          iso_num?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
         }
         Update: {
           active?: boolean | null
-          code_2?: string | null
-          code_3?: string | null
-          code_num?: string | null
+          iso_2?: string | null
+          iso_3?: string | null
+          iso_num?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3078,14 +3078,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3106,14 +3106,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3136,14 +3136,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3168,14 +3168,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3198,14 +3198,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3229,14 +3229,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3257,14 +3257,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -3287,14 +3287,14 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_postal_code: string | null
           physical_postal_place: string | null
           physical_region_code: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_postal_code: string | null
           postal_postal_place: string | null
           postal_region_code: string | null
@@ -4268,7 +4268,7 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_country_id: number | null
           physical_postal_code: string | null
           physical_postal_place: string | null
@@ -4277,7 +4277,7 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_country_id: number | null
           postal_postal_code: string | null
           postal_postal_place: string | null
@@ -4324,7 +4324,7 @@ export type Database = {
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_country_code_2: string | null
+          physical_country_iso_2: string | null
           physical_country_id: number | null
           physical_postal_code: string | null
           physical_postal_place: string | null
@@ -4333,7 +4333,7 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_country_code_2: string | null
+          postal_country_iso_2: string | null
           postal_country_id: number | null
           postal_postal_code: string | null
           postal_postal_place: string | null
