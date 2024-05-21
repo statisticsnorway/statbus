@@ -6038,7 +6038,7 @@ BEGIN
             RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
-            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
+            RAISE DEBUG 'Adjusting existing row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
                 UPDATE %1$I.%2$I
                 SET valid_to = $1
@@ -6065,7 +6065,7 @@ BEGIN
             RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
-            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
+            RAISE DEBUG 'Adjusting existing row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
                 UPDATE %1$I.%2$I
                 SET valid_to = $1
@@ -6104,7 +6104,7 @@ BEGIN
               RAISE DEBUG 'Deleting existing with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
               EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
-            RAISE DEBUG 'Adjusting existinging row %.%(id=%)', schema_name, table_name, existing.id;
+            RAISE DEBUG 'Adjusting existing row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
                 UPDATE %1$I.%2$I
                 SET valid_from = $1
