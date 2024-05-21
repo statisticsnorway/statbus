@@ -102,6 +102,15 @@ class StatBus
   @config_file_path : Path | Nil = nil
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
+  @project_directory =
+    begin
+      executable_path = Process.executable_path
+      if executable_path.nil?
+        Path.new(Dir.current)
+      else
+        Path.new(Path.new(executable_path.not_nil!).dirname).parent.parent
+      end
+    end
   @import_strategy = ImportStrategy::Copy
   @import_tag : String | Nil = nil
   @offset = 0
@@ -122,7 +131,7 @@ class StatBus
   def install
     puts "installing"
     # Download required files.
-    Dir.cd("../supabase_docker") do
+    Dir.cd(@project_directory) do
       if File.exists? ".env"
         puts "The config is already generated"
       elsif File.exists? ".env.example"
@@ -224,7 +233,7 @@ class StatBus
 
   private def import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
     # Find .env and load required secrets
-    Dir.cd("..") do
+    Dir.cd(@project_directory) do
       ini_data = File.read(".env")
       vars = INI.parse ini_data
       # The variables are all in the global scope, as an ".env" file is not really an ini file,
