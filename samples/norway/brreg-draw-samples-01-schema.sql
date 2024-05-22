@@ -66,12 +66,12 @@ SELECT "organisasjonsnummer" AS tax_ident
      , "forretningsadresse.postnummer" AS physical_postal_code
      , "forretningsadresse.poststed"   AS physical_postal_place
      , "forretningsadresse.kommunenummer" AS physical_region_code
-     , "forretningsadresse.landkode" AS physical_country_code_2
+     , "forretningsadresse.landkode" AS physical_country_iso_2
      , "postadresse.adresse" AS postal_address_part1
      , "postadresse.poststed" AS postal_postal_code
      , "postadresse.postnummer" AS postal_postal_place
      , "postadresse.kommunenummer" AS postal_region_code
-     , "postadresse.landkode" AS postal_country_code_2
+     , "postadresse.landkode" AS postal_country_iso_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
      , "institusjonellSektorkode.kode" AS sector_code
@@ -128,12 +128,12 @@ SELECT "organisasjonsnummer" AS tax_ident
      , "beliggenhetsadresse.postnummer" AS physical_postal_code
      , "beliggenhetsadresse.poststed"   AS physical_postal_place
      , "beliggenhetsadresse.kommunenummer" AS physical_region_code
-     , "beliggenhetsadresse.landkode" AS physical_country_code_2
+     , "beliggenhetsadresse.landkode" AS physical_country_iso_2
      , "postadresse.adresse" AS postal_address_part1
      , "postadresse.poststed" AS postal_postal_code
      , "postadresse.postnummer" AS postal_postal_place
      , "postadresse.kommunenummer" AS postal_region_code
-     , "postadresse.landkode" AS postal_country_code_2
+     , "postadresse.landkode" AS postal_country_iso_2
      , "naeringskode1.kode" AS primary_activity_category_code
      , "naeringskode2.kode" AS secondary_activity_category_code
      , "antallAnsatte" AS employees

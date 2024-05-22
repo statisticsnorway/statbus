@@ -1,4 +1,4 @@
-tax_ident,name,birth_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_code_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_code_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code
+tax_ident,name,birth_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code
 "915737250","HÅKON BJØRNHOLT","","Sørbakkvegen 26","2054","MOGREINA","3209","NO","","","","","","01.610","","8200","ENK"
 "991253777","WOENSEL AS","2007-03-20","Gamleveien 120","1475","FINSTADJORDET","3222","NO","v/ Jan Willem van Woensel Kooy/nGamleveien 120","FINSTADJORDET","1475","3222","NO","70.220","","2100","AS"
 "929766792","PERSONALGRUPPE NESBYEN UNGDOMSSKOLE","2022-08-10","Beiavegen 6","3540","NESBYEN","3322","NO","","","","","","94.991","","7000","FLI"
