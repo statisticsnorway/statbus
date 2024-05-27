@@ -10,7 +10,7 @@ import { CartProvider } from "@/app/search/cart-provider";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "StatBus | Search statistical units",
+  title: "Statbus | Search statistical units",
 };
 
 export default async function SearchPage({

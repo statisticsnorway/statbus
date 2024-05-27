@@ -13,13 +13,13 @@ import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variab
 import { Database, Gauge } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "StatBus | Dashboard",
+  title: "Statbus | Dashboard",
 };
 
 export default async function Dashboard() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24 w-full space-y-8 lg:space-y-12">
-      <h1 className="text-center text-2xl">StatBus Status Dashboard</h1>
+      <h1 className="text-center text-2xl">Statbus Status Dashboard</h1>
 
       <DashboardSection
         title="Data Metrics"
