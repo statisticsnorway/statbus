@@ -42,7 +42,11 @@ export function CommandPalette() {
     };
 
     const keydown = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      if (
+        (e.key === "k" || e.key === "K") &&
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey
+      ) {
         e.preventDefault();
         open();
       }
