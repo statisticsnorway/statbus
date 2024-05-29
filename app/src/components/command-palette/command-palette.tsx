@@ -151,6 +151,13 @@ export function CommandPalette() {
             <Upload className="mr-2 h-4 w-4" />
             <span>Upload Legal Units</span>
           </CommandItem>
+          <CommandItem
+            onSelect={() => navigate("/getting-started/upload-establishments")}
+            value="Upload Establishments"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            <span>Upload Establishments</span>
+          </CommandItem>
           <CommandItem onSelect={() => navigate("/profile")} value="Profile">
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
