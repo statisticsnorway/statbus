@@ -6286,8 +6286,8 @@ DECLARE
   table_name text := 'activity';
   unique_columns jsonb := jsonb_build_array(
     'id',
-    jsonb_build_array('category_id', 'type', 'establishment_id'),
-    jsonb_build_array('category_id', 'type', 'legal_unit_id')
+    jsonb_build_array('type', 'establishment_id'),
+    jsonb_build_array('type', 'legal_unit_id')
     );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY['updated_at'];
