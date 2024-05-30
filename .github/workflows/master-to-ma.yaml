@@ -1,8 +1,5 @@
-name: Push production -> devops/deploy-to-all
+name: Push master -> devops/deploy-to-ma
 on:
-  push:
-    branches:
-      - 'devops/deploy-to-production'
   # Allow manual deployment in github
   workflow_dispatch:
 
@@ -12,10 +9,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        ref: 'devops/deploy-to-production'
+        ref: 'master'
         ssh-key: ${{ secrets.SSH_KEY }}
     - name: Push for deployment
       run: |
-        git push --force origin HEAD:devops/deploy-to-no
-        git push --force origin HEAD:devops/deploy-to-tcc
         git push --force origin HEAD:devops/deploy-to-ma
