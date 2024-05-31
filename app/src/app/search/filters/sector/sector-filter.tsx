@@ -7,17 +7,15 @@ interface IProps {
 
 export default async function SectorFilter({ urlSearchParam }: IProps) {
   const client = createClient();
-  const sectors = await client
-    .from("sector_used")
-    .select()
-    .not("code", "is", null);
+  const sectors = await client.from("sector_used").select();
 
   return (
     <SectorOptions
       options={
-        sectors.data?.map(({ code, name }) => ({
-          label: `${code} ${name}`,
-          value: code,
+        sectors.data?.map(({ code, path, name }) => ({
+          label: code ? `${code} ${name}` : `${name}`,
+          value: path as string,
+          humanReadableValue: code ? `${code} ${name}` : `${name}`,
         })) ?? []
       }
       selected={urlSearchParam ? urlSearchParam.split(",") : []}

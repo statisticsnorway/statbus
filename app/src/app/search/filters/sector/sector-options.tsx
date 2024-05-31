@@ -17,19 +17,21 @@ export default function SectorOptions({
       values: { [SECTOR]: selected = [] },
     },
   } = useSearchContext();
-
+  const buildQuery = (values: (string | null)[]) => {
+    const path = values[0];
+    if (path) return `cd.${path}`;
+    if (path === null) return "is.null";
+    return null;
+  };
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const next = selected.includes(value)
-        ? selected.filter((v) => v !== value)
-        : [...selected, value];
-
+      const values = selected.includes(value) ? [] : [value];
       dispatch({
         type: "set_query",
         payload: {
           name: SECTOR,
-          query: next.length ? `in.(${next.join(",")})` : null,
-          values: next,
+          query: buildQuery(values),
+          values,
         },
       });
     },
@@ -53,7 +55,7 @@ export default function SectorOptions({
         type: "set_query",
         payload: {
           name: SECTOR,
-          query: `in.(${initialSelected.join(",")})`,
+          query: buildQuery(initialSelected),
           values: initialSelected,
         },
       });
