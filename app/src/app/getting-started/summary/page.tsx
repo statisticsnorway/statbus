@@ -30,16 +30,16 @@ export default async function OnboardingCompletedPage() {
       <h1 className="text-center text-2xl">Summary</h1>
       <p className="leading-loose">
         The following steps needs to be complete in order to have a fully
-        functional StatBus. If you have not completed some of the steps, you can
+        functional Statbus. If you have not completed some of the steps, you can
         click the links to complete the steps.
       </p>
 
       <div className="space-y-6">
         <SummaryBlock
           success={!!settings?.[0]?.activity_category_standard}
-          successText={`You have configured StatBus to use the activity category standard ${settings?.[0]?.activity_category_standard?.name}.`}
+          successText={`You have configured Statbus to use the activity category standard ${settings?.[0]?.activity_category_standard?.name}.`}
           failureText={
-            "You have not configured StatBus to use an activity category standard"
+            "You have not configured Statbus to use an activity category standard"
           }
           failureLink={"/getting-started/activity-standard"}
         />
@@ -71,7 +71,7 @@ export default async function OnboardingCompletedPage() {
       numberOfLegalUnits ? (
         <div className="text-center">
           <Link className="underline" href="/">
-            Start using StatBus
+            Start using Statbus
           </Link>
         </div>
       ) : null}

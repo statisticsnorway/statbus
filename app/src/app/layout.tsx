@@ -13,7 +13,7 @@ import TimeContextProvider from "@/app/time-context-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "StatBus",
+  title: "Statbus",
   description: "Simple To Use, Simple To Understand, Simply useful!",
 };
 

@@ -18,7 +18,7 @@ export default function LoginPage() {
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <Image
           src={logo}
-          alt="StatBus Logo"
+          alt="Statbus Logo"
           width={32}
           height={32}
           className="mx-auto h-10 w-auto"
