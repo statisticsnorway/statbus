@@ -13,11 +13,11 @@
   },
   {
     "sql": "birth_date",
-    "csv": "nedleggelsesdato"
+    "csv": "oppstartsdato"
   },
   {
     "sql": "death_date",
-    "csv": "oppstartsdato"
+    "csv": "nedleggelsesdato"
   },
   {
     "sql": "sector_code",
