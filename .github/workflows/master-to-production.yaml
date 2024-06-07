@@ -2,9 +2,9 @@ name: Push master -> devops/deploy-to-production
 on:
   # Allow manual deployment in github
   workflow_dispatch:
-  schedule:
-    # Deploy Weekly Monday Morning 8:30
-    - cron: '30 8 * * 1'
+  #schedule:
+  #  # Deploy Weekly Monday Morning 8:30
+  #  - cron: '30 8 * * 1'
 
 jobs:
   build:
