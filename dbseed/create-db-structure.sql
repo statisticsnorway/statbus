@@ -6637,6 +6637,23 @@ BEGIN
      INTO inserted_legal_unit;
     RAISE DEBUG 'inserted_legal_unit %', to_json(inserted_legal_unit);
 
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.legal_unit where id = %', inserted_legal_unit.id;
+                FOR row IN
+                    SELECT * FROM public.legal_unit WHERE id = inserted_legal_unit.id
+                LOOP
+                    RAISE DEBUG 'legal_unit row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
             ( valid_from
@@ -6668,6 +6685,23 @@ BEGIN
             )
         RETURNING *
         INTO inserted_location;
+    END IF;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.location where id = %', inserted_location.id;
+                FOR row IN
+                    SELECT * FROM public.location WHERE id = inserted_location.id
+                LOOP
+                    RAISE DEBUG 'location row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
     IF postal_region.id IS NOT NULL OR postal_country.id IS NOT NULL THEN
@@ -6703,6 +6737,23 @@ BEGIN
         INTO inserted_location;
     END IF;
 
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.location where id = %', inserted_location.id;
+                FOR row IN
+                    SELECT * FROM public.location WHERE id = inserted_location.id
+                LOOP
+                    RAISE DEBUG 'location row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
             ( valid_from
@@ -6726,6 +6777,23 @@ BEGIN
         INTO inserted_activity;
     END IF;
 
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.activity where id = %', inserted_activity.id;
+                FOR row IN
+                    SELECT * FROM public.activity WHERE id = inserted_activity.id
+                LOOP
+                    RAISE DEBUG 'activity row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     IF secondary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
             ( valid_from
@@ -6747,6 +6815,23 @@ BEGIN
             )
         RETURNING *
         INTO inserted_activity;
+    END IF;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.activity where id = %', inserted_activity.id;
+                FOR row IN
+                    SELECT * FROM public.activity WHERE id = inserted_activity.id
+                LOOP
+                    RAISE DEBUG 'activity row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
     IF tag.id IS NOT NULL THEN
@@ -7207,6 +7292,23 @@ BEGIN
      INTO inserted_establishment;
     RAISE DEBUG 'inserted_establishment %', to_json(inserted_establishment);
 
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.establishment where id = %', inserted_establishment.id;
+                FOR row IN
+                    SELECT * FROM public.establishment WHERE id = inserted_establishment.id
+                LOOP
+                    RAISE DEBUG 'establishment row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
             ( valid_from
@@ -7238,6 +7340,23 @@ BEGIN
             )
         RETURNING *
         INTO inserted_location;
+    END IF;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.location where id = %', inserted_location.id;
+                FOR row IN
+                    SELECT * FROM public.location WHERE id = inserted_location.id
+                LOOP
+                    RAISE DEBUG 'location row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
     IF postal_region.id IS NOT NULL OR postal_country.id IS NOT NULL THEN
@@ -7272,6 +7391,23 @@ BEGIN
         RETURNING * INTO inserted_location;
     END IF;
 
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.location where id = %', inserted_location.id;
+                FOR row IN
+                    SELECT * FROM public.location WHERE id = inserted_location.id
+                LOOP
+                    RAISE DEBUG 'location row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     IF primary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
             ( valid_from
@@ -7295,6 +7431,23 @@ BEGIN
         INTO inserted_activity;
     END IF;
 
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.activity where id = %', inserted_activity.id;
+                FOR row IN
+                    SELECT * FROM public.activity WHERE id = inserted_activity.id
+                LOOP
+                    RAISE DEBUG 'activity row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
     IF secondary_activity_category.id IS NOT NULL THEN
         INSERT INTO public.activity_era
             ( valid_from
@@ -7316,6 +7469,23 @@ BEGIN
             )
         RETURNING *
         INTO inserted_activity;
+    END IF;
+
+    IF NOT statbus_constraints_already_deferred THEN
+        IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+            DECLARE
+                row RECORD;
+            BEGIN
+                RAISE DEBUG 'DEBUG: Selecting from public.activity where id = %', inserted_activity.id;
+                FOR row IN
+                    SELECT * FROM public.activity WHERE id = inserted_activity.id
+                LOOP
+                    RAISE DEBUG 'activity row: %', to_json(row);
+                END LOOP;
+            END;
+        END IF;
+        SET CONSTRAINTS ALL IMMEDIATE;
+        SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
     IF NEW.employees IS NOT NULL AND NEW.employees <> '' THEN
@@ -7345,6 +7515,23 @@ BEGIN
             )
         RETURNING *
         INTO inserted_stat_for_unit;
+
+        IF NOT statbus_constraints_already_deferred THEN
+            IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+                DECLARE
+                    row RECORD;
+                BEGIN
+                    RAISE DEBUG 'DEBUG: Selecting from public.stat_for_unit where id = %', inserted_stat_for_unit.id;
+                    FOR row IN
+                        SELECT * FROM public.stat_for_unit WHERE id = inserted_stat_for_unit.id
+                    LOOP
+                        RAISE DEBUG 'stat_for_unit row: %', to_json(row);
+                    END LOOP;
+                END;
+            END IF;
+            SET CONSTRAINTS ALL IMMEDIATE;
+            SET CONSTRAINTS ALL DEFERRED;
+        END IF;
     END IF;
 
     IF NEW.turnover IS NOT NULL AND NEW.turnover <> '' THEN
@@ -7373,6 +7560,23 @@ BEGIN
             , stats.turnover
             )
         RETURNING * INTO inserted_stat_for_unit;
+
+        IF NOT statbus_constraints_already_deferred THEN
+            IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+                DECLARE
+                    row RECORD;
+                BEGIN
+                    RAISE DEBUG 'DEBUG: Selecting from public.stat_for_unit where id = %', inserted_stat_for_unit.id;
+                    FOR row IN
+                        SELECT * FROM public.stat_for_unit WHERE id = inserted_stat_for_unit.id
+                    LOOP
+                        RAISE DEBUG 'stat_for_unit row: %', to_json(row);
+                    END LOOP;
+                END;
+            END IF;
+            SET CONSTRAINTS ALL IMMEDIATE;
+            SET CONSTRAINTS ALL DEFERRED;
+        END IF;
     END IF;
 
     IF tag.id IS NOT NULL THEN
