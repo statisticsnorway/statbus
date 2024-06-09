@@ -666,6 +666,7 @@ CREATE TABLE public.tag (
     description text,
     active boolean NOT NULL DEFAULT true,
     type public.tag_type NOT NULL,
+    context_valid_after date GENERATED ALWAYS AS (context_valid_from - INTERVAL '1 day') STORED,
     context_valid_from date,
     context_valid_to date,
     context_valid_on date,
@@ -889,6 +890,7 @@ CREATE UNIQUE INDEX ix_enterprise_group_type_code ON public.enterprise_group_typ
 \echo public.enterprise_group
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
+    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident text,
@@ -983,6 +985,7 @@ CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) W
 \echo public.legal_unit
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
+    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
@@ -1046,6 +1049,7 @@ $$ LANGUAGE sql IMMUTABLE;
 \echo public.establishment
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
+    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     stat_ident character varying(15),
@@ -1120,6 +1124,7 @@ CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 \echo public.activity
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
+    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     type public.activity_type NOT NULL,
@@ -1266,6 +1271,7 @@ CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 \echo public.location
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
+    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     type public.location_type NOT NULL,
@@ -1891,6 +1897,7 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
 CREATE TABLE public.stat_for_unit (
     id SERIAL NOT NULL,
     stat_definition_id integer NOT NULL REFERENCES public.stat_definition(id) ON DELETE RESTRICT,
+    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
     establishment_id integer NOT NULL,
@@ -8745,12 +8752,12 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
 --CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[]));
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.enterprise_group', 'valid_from', 'valid_to');
+SELECT sql_saga.add_era('public.enterprise_group', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['external_ident', 'external_ident_type']);
 
-SELECT sql_saga.add_era('public.legal_unit', 'valid_from', 'valid_to');
+SELECT sql_saga.add_era('public.legal_unit', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_ident']);
@@ -8759,7 +8766,7 @@ SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['by_tag_id', 'by_tag_i
 -- TODO: Use a scoped sql_saga unique key for enterprise_id below.
 -- SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['enterprise_id'], WHERE 'primary_for_enterprise');
 
-SELECT sql_saga.add_era('public.establishment', 'valid_from', 'valid_to');
+SELECT sql_saga.add_era('public.establishment', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_ident']);
@@ -8769,19 +8776,19 @@ SELECT sql_saga.add_unique_key('public.establishment', ARRAY['by_tag_id', 'by_ta
 --SELECT sql_saga.add_unique_key('public.establishment', ARRAY['legal_unit_id'], WHERE 'primary_for_legal_unit');
 SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
 
-SELECT sql_saga.add_era('public.activity', 'valid_from', 'valid_to');
+SELECT sql_saga.add_era('public.activity', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'category_id', 'establishment_id']);
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'category_id', 'legal_unit_id']);
 SELECT sql_saga.add_foreign_key('public.activity', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 SELECT sql_saga.add_foreign_key('public.activity', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
 
-SELECT sql_saga.add_era('public.stat_for_unit', 'valid_from', 'valid_to');
+SELECT sql_saga.add_era('public.stat_for_unit', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.stat_for_unit', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.stat_for_unit', ARRAY['stat_definition_id', 'establishment_id']);
 SELECT sql_saga.add_foreign_key('public.stat_for_unit', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 
-SELECT sql_saga.add_era('public.location', 'valid_from', 'valid_to');
+SELECT sql_saga.add_era('public.location', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.location', ARRAY['id']);
 SELECT sql_saga.add_unique_key('public.location', ARRAY['type', 'establishment_id']);
 SELECT sql_saga.add_unique_key('public.location', ARRAY['type', 'legal_unit_id']);
