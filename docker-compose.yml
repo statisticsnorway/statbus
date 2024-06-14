@@ -1,3 +1,4 @@
+# docker-compose.yml
 name: ${COMPOSE_INSTANCE_NAME:-statbus}
 include:
   # Notice that there must be two different path entries,
