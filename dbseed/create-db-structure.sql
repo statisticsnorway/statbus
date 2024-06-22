@@ -1900,7 +1900,12 @@ CREATE TABLE public.stat_for_unit (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    establishment_id integer NOT NULL,
+    establishment_id integer,
+    legal_unit_id integer,
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
+        ),
     value_int INTEGER,
     value_float FLOAT,
     value_string VARCHAR,
