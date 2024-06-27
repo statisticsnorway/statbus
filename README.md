@@ -203,14 +203,16 @@ The GitHub workflows can be run locally with [ACT](https://github.com/nektos/act
 
 ### Loading Stabus with data
 Statbus comes with sample datafiles for Norway running on NACE activity categories
+At the bottom rigth corner there is a command palette, Ctrl+shift+K to jump to the different loads.
+
 1) Select Nace as your standard
-2) When Uploading Regions, click what id Region file, and download the csv sample file to upload
+2) When Uploading Regions, click what is Region file, and download the csv sample file to upload
 3) Sectors, What is a sector file, download and upload the csv file
 4) Legal Forms, What is a Legal Forms file, download and upload the csv
 5) Custom Activity Categories, What is, download and upload. This file contains the nowegian names on the already defined codes in english. This file makes Statbus pront the activity codes in norwegian instead of english
 6) Legal Units. sample file contains norwegian region codes, and NACE standard. If you have selected ISIC in step 1, the sample file will cause confusion.
 7) Establishments, sample file contain norwegian regions and NACE standard. This file should currently be the source for the statistical variables.
-8) When loaded 1-7, use command palette to refresh the materialized view: Refresh Statistical Units, a short json status will be visible, then go to the frontpage, and the Dashboard should be visible.
+8) When loaded 1-7, use command palette to refresh the materialized view: Refresh Statistical Units, a short json status will be visible, then go to the frontpage, and the Dashboard should be visible. This functionality is hidden behind the Command Palette, Ctrl+shift+K. From here you can reset everything, which deletes! all your dataloads 1-7, and will guide you to the start again.
 
 ### Uploading tips
 Make sure you get the classifications as good as possible before starting with units. A small unit file is recomended, in order to verify that classifications are matching the data loaded in the unit-loads (7 & 8)
