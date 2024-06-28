@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from "react";
-import TableSearchFilter from "../../components/table/table-text-search-filter";
+import TableTextSearchFilter from "../../components/table/table-text-search-filter";
 import ResetFilterButton from "@/components/table/reset-filter-button";
 export default function RegionTableFilters({
   setQueries,
@@ -29,12 +29,12 @@ export default function RegionTableFilters({
   };
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      <TableSearchFilter
+      <TableTextSearchFilter
         onFilterChange={handleFilterChange}
         queries={queries}
         type="name"
       />
-      <TableSearchFilter
+      <TableTextSearchFilter
         onFilterChange={handleFilterChange}
         queries={queries}
         type="code"
