@@ -23,7 +23,7 @@ export default function RegionPage() {
           <TableResultCount
             pagination={pagination}
             total={data?.count ?? 0}
-            className="flex-1 hidden lg:inline-block"
+            className="hidden lg:inline-block"
           />
           <TablePagination
             pagination={pagination}
