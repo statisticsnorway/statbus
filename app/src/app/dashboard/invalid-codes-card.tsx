@@ -9,6 +9,7 @@ export const InvalidCodesCard = async () => {
     .from("statistical_unit")
     .select("", { count: "exact" })
     .not("invalid_codes", "is", null)
+    .neq("unit_type", "enterprise")
     .limit(0);
 
   return (
