@@ -4,6 +4,7 @@ import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLinkWithSubPath } from "@/components/statistical-unit-details-link-with-sub-path";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Asterisk } from "lucide-react";
+import { thousandSeparator } from "@/lib/number-utils";
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -67,12 +68,12 @@ export function TopologyItem({
               <TopologyItemInfo
                 className="flex-1"
                 title="Employees"
-                value={unit.stat_for_unit?.[0].employees}
+                value={thousandSeparator(unit.stat_for_unit?.[0].employees)}
               />
               <TopologyItemInfo
                 className="flex-1"
                 title="Turnover"
-                value={unit.stat_for_unit?.[1]?.turnover}
+                value={thousandSeparator(unit.stat_for_unit?.[1]?.turnover)}
               />
             </div>
             <TopologyItemInfo
