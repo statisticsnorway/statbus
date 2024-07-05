@@ -101,7 +101,7 @@ const toPointOptionObject = (
   point: DrillDownPoint,
   variable: keyof DrillDownPoint
 ) => ({
-  name: point.name,
+  name: `${point.path} - ${point.name}`,
   y: point[variable] as number,
   drilldown: point.has_children ? "1" : "",
   custom: point,

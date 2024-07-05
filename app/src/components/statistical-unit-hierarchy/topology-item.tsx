@@ -27,7 +27,7 @@ export function TopologyItem({
   primary,
   children,
 }: TopologyItemProps) {
-  const activity = unit.activity?.[0];
+  const activity = unit.activity?.[0]?.activity_category;
   const location = unit.location?.[0];
   return (
     <>
@@ -78,7 +78,7 @@ export function TopologyItem({
             </div>
             <TopologyItemInfo
               title="Activity"
-              value={activity?.activity_category?.name}
+              value={`${activity?.code} - ${activity?.name}`}
             />
           </CardContent>
         </Card>
