@@ -1310,19 +1310,31 @@ COMMENT ON VIEW public.region_upload IS 'Upload of region by path,name that auto
 \echo admin.region_upload_upsert
 CREATE FUNCTION admin.region_upload_upsert()
 RETURNS TRIGGER AS $$
+DECLARE
+    maybe_parent_id int := NULL;
+    row RECORD;
 BEGIN
-    WITH parent AS (
-        SELECT id
-        FROM public.region
-        WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
-    )
+    IF public.nlevel(NEW.path) > 1 THEN
+        SELECT id INTO maybe_parent_id
+          FROM public.region
+         WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
+
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
+        END IF;
+        RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
+    END IF;
+
     INSERT INTO public.region (path, parent_id, name)
-    VALUES (NEW.path, (SELECT id FROM parent), NEW.name)
+    VALUES (NEW.path, maybe_parent_id, NEW.name)
     ON CONFLICT (path)
     DO UPDATE SET
-        parent_id = (SELECT id FROM parent),
+        parent_id = maybe_parent_id,
         name = EXCLUDED.name
-    WHERE region.id = EXCLUDED.id;
+    WHERE region.id = EXCLUDED.id
+    RETURNING * INTO row;
+    RAISE DEBUG 'UPSERTED %', to_json(row);
+
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
