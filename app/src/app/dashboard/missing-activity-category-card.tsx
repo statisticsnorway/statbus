@@ -9,6 +9,7 @@ export const MissingActivityCategoryCard = async () => {
     .from("statistical_unit")
     .select("", { count: "exact" })
     .is("primary_activity_category_path", null)
+    .neq("unit_type", "enterprise")
     .limit(0);
 
   return (

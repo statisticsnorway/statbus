@@ -81,13 +81,13 @@ export default async function Dashboard() {
         title="Data quality"
         icon={<Gauge className="w-4 h-4 stroke-current" />}
       >
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&physical_region_path=null">
+        <Link href="/search?unit_type=legal_unit,establishment&physical_region_path=null">
           <Suspense fallback={<FallBackCard title="Units Missing Region" />}>
             <MissingRegionCard />
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&primary_activity_category_path=null">
+        <Link href="/search?unit_type=legal_unit,establishment&primary_activity_category_path=null">
           <Suspense
             fallback={<FallBackCard title="Units Missing Activity Category" />}
           >
@@ -95,7 +95,7 @@ export default async function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=enterprise,legal_unit,establishment&invalid_codes=yes">
+        <Link href="/search?unit_type=legal_unit,establishment&invalid_codes=yes">
           <Suspense
             fallback={<FallBackCard title="Units With Import Issues" />}
           >

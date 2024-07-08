@@ -34,7 +34,7 @@ export const BreadCrumb = ({
             className={point.path === selected?.path ? "underline" : ""}
             onClick={() => onSelect(point)}
           >
-            {point.name}
+            {`${point.path} - ${point.name}`}
           </Button>
         </div>
       ))}

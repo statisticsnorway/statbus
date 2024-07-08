@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 export function FooterSkeleton() {
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
-      <div className="mx-auto max-w-screen-xl space-y-10 p-6 lg:p-24">
+      <div className="mx-auto max-w-screen-xl p-6 lg:py-12 lg:px-24">
         <div className="flex items-center justify-between space-x-2">
           <SSBLogo className="h-8 lg:h-12 w-auto" />
         </div>
@@ -23,16 +23,10 @@ export default async function Footer() {
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
-      <div className="mx-auto max-w-screen-xl space-y-12 p-6 lg:p-24">
+      <div className="mx-auto max-w-screen-xl p-6 lg:py-12 lg:px-24">
         <div className="flex items-center justify-between space-x-2">
           <SSBLogo className="h-8 lg:h-12 w-auto" />
-          {session.data.session?.user && (
-            <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
-          )}
-        </div>
-        <Separator className="bg-gray-200" />
-        <div className="flex justify-between text-gray-500">
-          <span></span>
+
           <div className="flex items-center justify-between space-x-3">
             <Link
               href="https://github.com/statisticsnorway/statbus/"
@@ -44,6 +38,9 @@ export default async function Footer() {
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
           </div>
+          {session.data.session?.user && (
+            <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
+          )}
         </div>
       </div>
     </footer>

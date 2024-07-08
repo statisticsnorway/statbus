@@ -8,6 +8,7 @@ import SearchResultTableRowDropdownMenu from "@/app/search/components/search-res
 import { Bug } from "lucide-react";
 import { useCartContext } from "@/app/search/use-cart-context";
 import { useSearchContext } from "@/app/search/use-search-context";
+import { thousandSeparator } from "@/lib/number-utils";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -122,10 +123,10 @@ export const StatisticalUnitTableRow = ({
         </div>
       </TableCell>
       <TableCell className="py-2 text-right hidden lg:table-cell">
-        {employees}
+        {thousandSeparator(employees)}
       </TableCell>
       <TableCell className="py-2 text-right hidden lg:table-cell">
-        {turnover}
+        {thousandSeparator(turnover)}
       </TableCell>
       <TableCell
         className="py-2 text-left hidden lg:table-cell"

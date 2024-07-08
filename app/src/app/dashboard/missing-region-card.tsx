@@ -9,6 +9,7 @@ export const MissingRegionCard = async () => {
     .from("statistical_unit")
     .select("", { count: "exact" })
     .is("physical_region_path", null)
+    .neq("unit_type", "enterprise")
     .limit(0);
 
   return (
