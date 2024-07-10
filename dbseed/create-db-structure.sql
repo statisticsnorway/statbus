@@ -2247,12 +2247,274 @@ $$;
 
 CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','enterprise','enterprise_group');
 
-\echo public.statistical_unit_def
-CREATE VIEW public.statistical_unit_def
-    ( valid_from
-    , valid_to
-    , unit_type
+
+\echo public.timepoints
+CREATE VIEW public.timepoints AS
+    WITH es AS (
+        -- establishment
+        SELECT 'establishment'::public.statistical_unit_type AS unit_type
+             , id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.establishment
+        UNION
+        -- activity -> establishment
+        SELECT 'establishment'::public.statistical_unit_type AS unit_type
+             , establishment_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.activity
+         WHERE establishment_id IS NOT NULL
+        UNION
+        -- location -> establishment
+        SELECT 'establishment'::public.statistical_unit_type AS unit_type
+             , establishment_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.location
+         WHERE establishment_id IS NOT NULL
+        UNION
+        -- stat_for_unit -> establishment
+        SELECT 'establishment'::public.statistical_unit_type AS unit_type
+             , establishment_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.stat_for_unit
+         WHERE establishment_id IS NOT NULL
+    ), lu AS (
+        -- legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.legal_unit
+        UNION
+        -- activity -> legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , legal_unit_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.activity
+         WHERE legal_unit_id IS NOT NULL
+        UNION
+        -- location -> legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , legal_unit_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.location
+         WHERE legal_unit_id IS NOT NULL
+        UNION
+        -- stat_for_unit -> legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , legal_unit_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.stat_for_unit
+         WHERE legal_unit_id IS NOT NULL
+         UNION
+        -- establishment -> legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , es.legal_unit_id AS unit_id
+             , es.valid_after
+             , es.valid_to
+         FROM public.establishment AS es
+         WHERE es.legal_unit_id IS NOT NULL
+        UNION
+        -- activity -> establishment -> legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , es.legal_unit_id AS unit_id
+             , a.valid_after
+             , a.valid_to
+         FROM public.activity AS a
+         INNER JOIN public.establishment AS es
+            ON a.establishment_id = es.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         WHERE es.legal_unit_id IS NOT NULL
+        UNION
+        -- stat_for_unit -> establishment -> legal_unit
+        SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+             , es.legal_unit_id AS unit_id
+             , sfu.valid_after
+             , sfu.valid_to
+         FROM public.stat_for_unit AS sfu
+         INNER JOIN public.establishment AS es
+            ON sfu.establishment_id = es.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         WHERE es.legal_unit_id IS NOT NULL
+    ), en AS (
+        -- legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , enterprise_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.legal_unit
+         UNION
+        -- establishment -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , enterprise_id AS unit_id
+             , valid_after
+             , valid_to
+         FROM public.establishment
+         WHERE enterprise_id IS NOT NULL
+        UNION
+        -- establishment -> legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , lu.enterprise_id AS unit_id
+             , es.valid_after
+             , es.valid_to
+         FROM public.establishment AS es
+         INNER JOIN public.legal_unit AS lu
+            ON es.legal_unit_id = lu.id
+           AND daterange(es.valid_after, es.valid_to, '(]')
+            && daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.enterprise_id IS NOT NULL
+        UNION
+        -- activity -> establishment -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , es.enterprise_id AS unit_id
+             , a.valid_after
+             , a.valid_to
+         FROM public.activity AS a
+         INNER JOIN public.establishment AS es
+            ON a.establishment_id = es.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         WHERE es.enterprise_id IS NOT NULL
+        UNION
+        -- activity -> legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , lu.enterprise_id AS unit_id
+             , a.valid_after
+             , a.valid_to
+         FROM public.activity AS a
+         INNER JOIN public.legal_unit AS lu
+            ON a.legal_unit_id = lu.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+            && daterange(lu.valid_after, lu.valid_to, '(]')
+        UNION
+        -- activity -> establishment -> legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , lu.enterprise_id AS unit_id
+             , a.valid_after
+             , a.valid_to
+         FROM public.activity AS a
+         INNER JOIN public.establishment AS es
+            ON a.establishment_id = es.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         INNER JOIN public.legal_unit AS lu
+            ON es.legal_unit_id = lu.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+            && daterange(lu.valid_after, lu.valid_to, '(]')
+        UNION
+        -- location -> establishment -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , es.enterprise_id AS unit_id
+             , l.valid_after
+             , l.valid_to
+         FROM public.location AS l
+         INNER JOIN public.establishment AS es
+            ON l.establishment_id = es.id
+           AND daterange(l.valid_after, l.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         WHERE es.enterprise_id IS NOT NULL
+        UNION
+        -- location -> legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , lu.enterprise_id AS unit_id
+             , l.valid_after
+             , l.valid_to
+         FROM public.location AS l
+         INNER JOIN public.legal_unit AS lu
+            ON l.legal_unit_id = lu.id
+           AND daterange(l.valid_after, l.valid_to, '(]')
+            && daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.primary_for_enterprise
+        UNION
+        -- stat_for_unit -> establishment -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , es.enterprise_id AS unit_id
+             , sfu.valid_after
+             , sfu.valid_to
+         FROM public.stat_for_unit AS sfu
+         INNER JOIN public.establishment AS es
+            ON sfu.establishment_id = es.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         WHERE es.enterprise_id IS NOT NULL
+        UNION
+        -- stat_for_unit -> legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , lu.enterprise_id AS unit_id
+             , sfu.valid_after
+             , sfu.valid_to
+         FROM public.stat_for_unit AS sfu
+         INNER JOIN public.legal_unit AS lu
+            ON sfu.legal_unit_id = lu.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+            && daterange(lu.valid_after, lu.valid_to, '(]')
+        UNION
+        -- stat_for_unit -> establishment -> legal_unit -> enterprise
+        SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+             , lu.enterprise_id AS unit_id
+             , sfu.valid_after
+             , sfu.valid_to
+         FROM public.stat_for_unit AS sfu
+         INNER JOIN public.establishment AS es
+            ON sfu.establishment_id = es.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+            && daterange(es.valid_after, es.valid_to, '(]')
+         INNER JOIN public.legal_unit AS lu
+            ON es.legal_unit_id = lu.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+            && daterange(lu.valid_after, lu.valid_to, '(]')
+    ), base AS (
+          SELECT * FROM es
+          UNION ALL
+          SELECT * FROM lu
+          UNION ALL
+          SELECT * FROM en
+    ), timepoint AS (
+          SELECT unit_type, unit_id, valid_after AS timepoint FROM base
+            UNION
+          SELECT unit_type, unit_id, valid_to AS timepoint FROM base
+    )
+    SELECT *
+    FROM timepoint
+    ORDER BY unit_type, unit_id, timepoint
+;
+
+--SELECT * FROM public.timepoints;
+
+\echo public.timesegments
+CREATE VIEW public.timesegments AS
+  WITH timesegments_with_trailing_point AS (
+      SELECT
+          unit_type,
+          unit_id,
+          timepoint AS valid_after,
+          LEAD(timepoint) OVER (PARTITION BY unit_type, unit_id ORDER BY timepoint) AS valid_to
+      FROM public.timepoints
+  )
+  -- Remove the last lonely started but unfinished segment.
+  SELECT *
+  FROM timesegments_with_trailing_point
+  WHERE valid_to IS NOT NULL
+  ORDER BY unit_type, unit_id, valid_after
+;
+
+--SELECT * FROM public.timesegments;
+
+\echo public.timeline_establishment
+CREATE VIEW public.timeline_establishment
+    ( unit_type
     , unit_id
+    , valid_after
+    , valid_from
+    , valid_to
     , stat_ident
     , tax_ident
     , external_ident
@@ -2294,104 +2556,18 @@ CREATE VIEW public.statistical_unit_def
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
-    , aggregated_establishment_ids
-    , aggregated_legal_unit_ids
-    , aggregated_enterprise_ids
+    , establishment_id
+    , legal_unit_id
+    , enterprise_id
     , employees
     , turnover
-    , tag_paths
-    -- TODO: Generate SQL to provide these columns:
-    -- legal_form_id integer,
-    -- sector_ids integer[],
-    -- activity_category_ids integer[],
-    -- unit_size_id integer REFERENCES public.unit_size(id),
-    -- short_name character varying(200),
-    -- tax_ident character varying(50),
-    -- external_ident character varying(50),
-    -- external_ident_type character varying(50),
-    -- data_source character varying(200),
-    -- web_address character varying(200),
-    -- telephone_no character varying(50),
-    -- email_address character varying(50),
-    -- free_econ_zone boolean NOT NULL,
-    -- liq_date timestamp with time zone,
-    -- liq_reason character varying(200),
-    -- user_id character varying(100) NOT NULL,
-    -- edit_comment character varying(500),
-    -- data_source_id integer REFERENCES public.data_source(id),
-    -- reorg_type_id integer REFERENCES public.reorg_type(id),
-    -- active boolean,
     )
     AS
-    WITH data AS (
-    -- Establishment
-    SELECT valid_from
-         , valid_to
-         , unit_type
-         , unit_id
-         , stat_ident
-         , tax_ident
-         , external_ident
-         , external_ident_type
-         , by_tag_id
-         , by_tag_id_unique_ident
-         , name
-         , birth_date
-         , death_date
-         , search
-         --
-         , primary_activity_category_id
-         , primary_activity_category_path
-         --
-         , secondary_activity_category_id
-         , secondary_activity_category_path
-         --
-         , activity_category_paths
-         --
-         , sector_id
-         , sector_path
-         , sector_code
-         , sector_name
-         , legal_form_id
-         , legal_form_code
-         , legal_form_name
-         --
-         , physical_address_part1
-         , physical_address_part2
-         , physical_address_part3
-         , physical_postal_code
-         , physical_postal_place
-         , physical_region_id
-         , physical_region_path
-         , physical_country_id
-         , physical_country_iso_2
-         --
-         , postal_address_part1
-         , postal_address_part2
-         , postal_address_part3
-         , postal_postal_code
-         , postal_postal_place
-         , postal_region_id
-         , postal_region_path
-         , postal_country_id
-         , postal_country_iso_2
-         --
-         , invalid_codes
-         --
-         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
-         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
-         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
-         , sum(employees) AS employees
-         , sum(turnover) AS turnover
-    FROM (
-      SELECT greatest(es.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
-           , least(es.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
-           , 'establishment'::public.statistical_unit_type AS unit_type
-           , es.id AS unit_id
-           , es.id AS establishment_id
-           , NULL::INTEGER AS legal_unit_id
-           , NULL::INTEGER AS enterprise_id
-           , NULL::INTEGER AS enterprise_group_id
+      SELECT t.unit_type
+           , t.unit_id
+           , t.valid_after
+           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , t.valid_to
            , es.stat_ident AS stat_ident
            , es.tax_ident AS tax_ident
            , es.external_ident AS external_ident
@@ -2402,13 +2578,7 @@ CREATE VIEW public.statistical_unit_def
            , es.birth_date AS birth_date
            , es.death_date AS death_date
            -- Se supported languages with `SELECT * FROM pg_ts_config`
-           , -- to_tsvector('norwegian', es.name) ||
-             -- to_tsvector('english', es.name) ||
-             -- to_tsvector('arabic', es.name) ||
-             -- to_tsvector('greek', es.name) ||
-             -- to_tsvector('russian', es.name) ||
-             -- to_tsvector('french', es.name) ||
-             to_tsvector('simple', es.name) AS search
+           , to_tsvector('simple', es.name) AS search
            --
            , pa.category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
@@ -2448,23 +2618,31 @@ CREATE VIEW public.statistical_unit_def
            --
            , es.invalid_codes AS invalid_codes
            --
+           , es.id AS establishment_id
+           , es.legal_unit_id AS legal_unit_id
+           , es.enterprise_id AS enterprise_id
+           --
            , sfu1.value_int AS employees
            , sfu2.value_int AS turnover
-      FROM public.establishment AS es
+      FROM public.timesegments AS t
+      INNER JOIN public.establishment AS es
+          ON t.unit_type = 'establishment' AND t.unit_id = es.id
+         AND daterange(t.valid_after, t.valid_to, '(]')
+          && daterange(es.valid_after, es.valid_to, '(]')
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.establishment_id = es.id
              AND pa.type = 'primary'
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(pa.valid_from, pa.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pa.valid_after, pa.valid_to, '(]')
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.establishment_id = es.id
              AND sa.type = 'secondary'
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(sa.valid_from, sa.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sa.valid_after, sa.valid_to, '(]')
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
@@ -2474,8 +2652,8 @@ CREATE VIEW public.statistical_unit_def
       LEFT OUTER JOIN public.location AS phl
               ON phl.establishment_id = es.id
              AND phl.type = 'physical'
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(phl.valid_from, phl.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(phl.valid_after, phl.valid_to, '(]')
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
@@ -2484,8 +2662,8 @@ CREATE VIEW public.statistical_unit_def
       LEFT OUTER JOIN public.location AS pol
               ON pol.establishment_id = es.id
              AND pol.type = 'postal'
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(pol.valid_from, pol.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pol.valid_after, pol.valid_to, '(]')
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
@@ -2496,370 +2674,338 @@ CREATE VIEW public.statistical_unit_def
       LEFT OUTER JOIN public.stat_for_unit AS sfu1
               ON sfu1.stat_definition_id = sd1.id
              AND sfu1.establishment_id = es.id
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sfu1.valid_after, sfu1.valid_to, '(]')
       --
       LEFT OUTER JOIN public.stat_definition AS sd2
               ON sd2.code = 'turnover'
       LEFT OUTER JOIN public.stat_for_unit AS sfu2
               ON sfu2.stat_definition_id = sd2.id
              AND sfu2.establishment_id = es.id
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-    ) as source
-    GROUP BY valid_from
-           , valid_to
-           , unit_type
-           , unit_id
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
-           , name
-           , birth_date
-           , death_date
-           , search
-           , primary_activity_category_id
-           , primary_activity_category_path
-           , secondary_activity_category_id
-           , secondary_activity_category_path
-           , activity_category_paths
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sfu2.valid_after, sfu2.valid_to, '(]')
+      ORDER BY t.unit_type, t.unit_id, t.valid_after
+;
+
+--SELECT * FROM public.timeline_establishment;
+
+\echo public.timeline_legal_unit
+CREATE VIEW public.timeline_legal_unit
+    ( unit_type
+    , unit_id
+    , valid_after
+    , valid_from
+    , valid_to
+    , stat_ident
+    , tax_ident
+    , external_ident
+    , external_ident_type
+    , by_tag_id
+    , by_tag_id_unique_ident
+    , name
+    , birth_date
+    , death_date
+    , search
+    , primary_activity_category_id
+    , primary_activity_category_path
+    , secondary_activity_category_id
+    , secondary_activity_category_path
+    , activity_category_paths
+    , sector_id
+    , sector_path
+    , sector_code
+    , sector_name
+    , legal_form_id
+    , legal_form_code
+    , legal_form_name
+    , physical_address_part1
+    , physical_address_part2
+    , physical_address_part3
+    , physical_postal_code
+    , physical_postal_place
+    , physical_region_id
+    , physical_region_path
+    , physical_country_id
+    , physical_country_iso_2
+    , postal_address_part1
+    , postal_address_part2
+    , postal_address_part3
+    , postal_postal_code
+    , postal_postal_place
+    , postal_region_id
+    , postal_region_path
+    , postal_country_id
+    , postal_country_iso_2
+    , invalid_codes
+    , establishment_ids
+    , legal_unit_id
+    , enterprise_id
+    , employees
+    , turnover
+    )
+    AS
+      WITH basis AS (
+      SELECT t.unit_type
+           , t.unit_id
+           , t.valid_after
+           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , t.valid_to
+           , lu.stat_ident AS stat_ident
+           , lu.tax_ident AS tax_ident
+           , lu.external_ident AS external_ident
+           , lu.external_ident_type AS external_ident_type
+           , lu.by_tag_id    AS by_tag_id
+           , lu.by_tag_id_unique_ident AS by_tag_id_unique_ident
+           , lu.name AS name
+           , lu.birth_date AS birth_date
+           , lu.death_date AS death_date
+           -- Se supported languages with `SELECT * FROM pg_ts_config`
+           , to_tsvector('simple', lu.name) AS search
            --
-           , sector_id
-           , sector_path
-           , sector_code
-           , sector_name
-           , legal_form_id
-           , legal_form_code
-           , legal_form_name
+           , pa.category_id AS primary_activity_category_id
+           , pac.path                AS primary_activity_category_path
            --
-           , physical_address_part1
-           , physical_address_part2
-           , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
-           , physical_region_id
-           , physical_region_path
-           , physical_country_id
-           , physical_country_iso_2
+           , sa.category_id AS secondary_activity_category_id
+           , sac.path                AS secondary_activity_category_path
            --
-           , postal_address_part1
-           , postal_address_part2
-           , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
-           , postal_region_id
-           , postal_region_path
-           , postal_country_id
-           , postal_country_iso_2
+           , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
-           , invalid_codes
+           , s.id    AS sector_id
+           , s.path  AS sector_path
+           , s.code  AS sector_code
+           , s.name  AS sector_name
+           , lf.id   AS legal_form_id
+           , lf.code AS legal_form_code
+           , lf.name AS legal_form_name
            --
-           , employees
-           , turnover
-    UNION ALL
-    -- Legal Unit with establishments
-    SELECT valid_from
-         , valid_to
-         , unit_type
-         , unit_id
-         , stat_ident
-         , tax_ident
-         , external_ident
-         , external_ident_type
-         , by_tag_id
-         , by_tag_id_unique_ident
-         , name
-         , birth_date
-         , death_date
-         , search
-         --
-         , primary_activity_category_id
-         , primary_activity_category_path
-         --
-         , secondary_activity_category_id
-         , secondary_activity_category_path
-         --
-         , activity_category_paths
-         --
-         , sector_id
-         , sector_path
-         , sector_code
-         , sector_name
-         , legal_form_id
-         , legal_form_code
-         , legal_form_name
-         --
-         , physical_address_part1
-         , physical_address_part2
-         , physical_address_part3
-         , physical_postal_code
-         , physical_postal_place
-         , physical_region_id
-         , physical_region_path
-         , physical_country_id
-         , physical_country_iso_2
-         --
-         , postal_address_part1
-         , postal_address_part2
-         , postal_address_part3
-         , postal_postal_code
-         , postal_postal_place
-         , postal_region_id
-         , postal_region_path
-         , postal_country_id
-         , postal_country_iso_2
-         --
-         , invalid_codes
-         --
-         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
-         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
-         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
-         , sum(employees) AS employees
-         , sum(turnover) AS turnover
-      FROM (
-        SELECT greatest(lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, es.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
-             , least(lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, es.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
-             , 'legal_unit'::public.statistical_unit_type AS unit_type
-             , lu.id AS unit_id
-             , es.id AS establishment_id
-             , lu.id AS legal_unit_id
-             , NULL::INTEGER AS enterprise_id
-             , NULL::INTEGER AS enterprise_group_id
-             , lu.stat_ident AS stat_ident
-             , lu.tax_ident AS tax_ident
-             , lu.external_ident AS external_ident
-             , lu.external_ident_type AS external_ident_type
-             , lu.by_tag_id    AS by_tag_id
-             , lu.by_tag_id_unique_ident AS by_tag_id_unique_ident
-             , lu.name AS name
-             , lu.birth_date AS birth_date
-             , lu.death_date AS death_date
-             -- Se supported languages with `SELECT * FROM pg_ts_config`
-             , to_tsvector('simple', lu.name) AS search
-             --
-             , pa.category_id AS primary_activity_category_id
-             , pac.path                AS primary_activity_category_path
-             --
-             , sa.category_id AS secondary_activity_category_id
-             , sac.path                AS secondary_activity_category_path
-             --
-             , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
-             --
-             , s.id   AS sector_id
-             , s.path AS sector_path
-             , s.code AS sector_code
-             , s.name AS sector_name
-             , lf.id   AS legal_form_id
-             , lf.code AS legal_form_code
-             , lf.name AS legal_form_name
-             --
-             , phl.address_part1 AS physical_address_part1
-             , phl.address_part2 AS physical_address_part2
-             , phl.address_part3 AS physical_address_part3
-             , phl.postal_code AS physical_postal_code
-             , phl.postal_place AS physical_postal_place
-             , phl.region_id           AS physical_region_id
-             , phr.path                AS physical_region_path
-             , phl.country_id AS physical_country_id
-             , phc.iso_2     AS physical_country_iso_2
-             --
-             , pol.address_part1 AS postal_address_part1
-             , pol.address_part2 AS postal_address_part2
-             , pol.address_part3 AS postal_address_part3
-             , pol.postal_code AS postal_postal_code
-             , pol.postal_place AS postal_postal_place
-             , pol.region_id           AS postal_region_id
-             , por.path                AS postal_region_path
-             , pol.country_id AS postal_country_id
-             , poc.iso_2     AS postal_country_iso_2
-             --
-             , lu.invalid_codes AS invalid_codes
-             --
-             , sfu1.value_int AS employees
-             , sfu2.value_int AS turnover
-        FROM public.legal_unit AS lu
-        --
-        LEFT OUTER JOIN public.activity AS pa
-                ON pa.legal_unit_id = lu.id
-               AND pa.type = 'primary'
-               AND daterange(lu.valid_from, lu.valid_to, '[]')
-                && daterange(pa.valid_from, pa.valid_to, '[]')
-        LEFT JOIN public.activity_category AS pac
-                ON pa.category_id = pac.id
-        --
-        LEFT OUTER JOIN public.activity AS sa
-                ON sa.legal_unit_id = lu.id
-               AND sa.type = 'secondary'
-               AND daterange(lu.valid_from, lu.valid_to, '[]')
-                && daterange(sa.valid_from, sa.valid_to, '[]')
-        LEFT JOIN public.activity_category AS sac
-                ON sa.category_id = sac.id
-        --
-        LEFT OUTER JOIN public.sector AS s
-                ON lu.sector_id = s.id
-        --
-        LEFT OUTER JOIN public.legal_form AS lf
-                ON lu.legal_form_id = lf.id
-        --
-        LEFT OUTER JOIN public.location AS phl
-                ON phl.legal_unit_id = lu.id
-               AND phl.type = 'physical'
-               AND daterange(lu.valid_from, lu.valid_to, '[]')
-                && daterange(phl.valid_from, phl.valid_to, '[]')
-        LEFT JOIN public.region AS phr
-                ON phl.region_id = phr.id
-        LEFT JOIN public.country AS phc
-                ON phl.country_id = phc.id
-        --
-        LEFT OUTER JOIN public.location AS pol
-                ON pol.legal_unit_id = lu.id
-               AND pol.type = 'postal'
-               AND daterange(lu.valid_from, lu.valid_to, '[]')
-                && daterange(pol.valid_from, pol.valid_to, '[]')
-        LEFT JOIN public.region AS por
-                ON pol.region_id = por.id
-        LEFT JOIN public.country AS poc
-                ON pol.country_id = poc.id
-        --
-        LEFT OUTER JOIN public.establishment AS es
-                ON lu.id = es.legal_unit_id
-               AND daterange(lu.valid_from, lu.valid_to, '[]')
-                && daterange(es.valid_from, es.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd1
-                ON sd1.code = 'employees'
-        LEFT OUTER JOIN public.stat_for_unit AS sfu1
-                ON sfu1.stat_definition_id = sd1.id
-               AND sfu1.establishment_id = es.id
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd2
-                ON sd2.code = 'turnover'
-        LEFT OUTER JOIN public.stat_for_unit AS sfu2
-                ON sfu2.stat_definition_id = sd2.id
-               AND sfu2.establishment_id = es.id
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-    ) AS source
-    GROUP BY valid_from
-           , valid_to
-           , unit_type
-           , unit_id
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
-           , name
-           , birth_date
-           , death_date
-           , search
-           , primary_activity_category_id
-           , primary_activity_category_path
-           , secondary_activity_category_id
-           , secondary_activity_category_path
-           , activity_category_paths
+           , phl.address_part1 AS physical_address_part1
+           , phl.address_part2 AS physical_address_part2
+           , phl.address_part3 AS physical_address_part3
+           , phl.postal_code AS physical_postal_code
+           , phl.postal_place AS physical_postal_place
+           , phl.region_id           AS physical_region_id
+           , phr.path                AS physical_region_path
+           , phl.country_id AS physical_country_id
+           , phc.iso_2     AS physical_country_iso_2
            --
-           , sector_id
-           , sector_path
-           , sector_code
-           , sector_name
-           , legal_form_id
-           , legal_form_code
-           , legal_form_name
+           , pol.address_part1 AS postal_address_part1
+           , pol.address_part2 AS postal_address_part2
+           , pol.address_part3 AS postal_address_part3
+           , pol.postal_code AS postal_postal_code
+           , pol.postal_place AS postal_postal_place
+           , pol.region_id           AS postal_region_id
+           , por.path                AS postal_region_path
+           , pol.country_id AS postal_country_id
+           , poc.iso_2     AS postal_country_iso_2
            --
-           , physical_address_part1
-           , physical_address_part2
-           , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
-           , physical_region_id
-           , physical_region_path
-           , physical_country_id
-           , physical_country_iso_2
+           , lu.invalid_codes AS invalid_codes
            --
-           , postal_address_part1
-           , postal_address_part2
-           , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
-           , postal_region_id
-           , postal_region_path
-           , postal_country_id
-           , postal_country_iso_2
-           , invalid_codes
-    UNION ALL
-    -- Enterprise with legal_unit with establishment
-    SELECT valid_from
-         , valid_to
-         , unit_type
-         , unit_id
-         , stat_ident
-         , tax_ident
-         , external_ident
-         , external_ident_type
-         , by_tag_id
-         , by_tag_id_unique_ident
-         , name
-         , birth_date
-         , death_date
-         , search
-         --
-         , primary_activity_category_id
-         , primary_activity_category_path
-         --
-         , secondary_activity_category_id
-         , secondary_activity_category_path
-         --
-         , activity_category_paths
-         --
-         , sector_id
-         , sector_path
-         , sector_code
-         , sector_name
-         , legal_form_id
-         , legal_form_code
-         , legal_form_name
-         --
-         , physical_address_part1
-         , physical_address_part2
-         , physical_address_part3
-         , physical_postal_code
-         , physical_postal_place
-         , physical_region_id
-         , physical_region_path
-         , physical_country_id
-         , physical_country_iso_2
-         --
-         , postal_address_part1
-         , postal_address_part2
-         , postal_address_part3
-         , postal_postal_code
-         , postal_postal_place
-         , postal_region_id
-         , postal_region_path
-         , postal_country_id
-         , postal_country_iso_2
-         --
-         , NULL::JSONB AS invalid_codes
-         --
-         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
-         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
-         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
-         , sum(employees) AS employees
-         , sum(turnover) AS turnover
-    FROM (
-      SELECT greatest(plu.valid_from, lu.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, es.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
-           , least(plu.valid_to, lu.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, es.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
-           , 'enterprise'::public.statistical_unit_type AS unit_type
-           , en.id AS unit_id
-           , es.id AS establishment_id
            , lu.id AS legal_unit_id
-           , en.id AS enterprise_id
-           , NULL::INTEGER AS enterprise_group_id
+           , lu.enterprise_id AS enterprise_id
+           --
+           , sfu1.value_int AS employees
+           , sfu2.value_int AS turnover
+      FROM public.timesegments AS t
+      INNER JOIN public.legal_unit AS lu
+          ON t.unit_type = 'legal_unit' AND t.unit_id = lu.id
+         AND daterange(t.valid_after, t.valid_to, '(]')
+          && daterange(lu.valid_after, lu.valid_to, '(]')
+      --
+      LEFT OUTER JOIN public.activity AS pa
+              ON pa.legal_unit_id = lu.id
+             AND pa.type = 'primary'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pa.valid_after, pa.valid_to, '(]')
+      LEFT JOIN public.activity_category AS pac
+              ON pa.category_id = pac.id
+      --
+      LEFT OUTER JOIN public.activity AS sa
+              ON sa.legal_unit_id = lu.id
+             AND sa.type = 'secondary'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sa.valid_after, sa.valid_to, '(]')
+      LEFT JOIN public.activity_category AS sac
+              ON sa.category_id = sac.id
+      --
+      LEFT OUTER JOIN public.sector AS s
+              ON lu.sector_id = s.id
+      --
+      LEFT OUTER JOIN public.legal_form AS lf
+              ON lu.legal_form_id = lf.id
+      --
+      LEFT OUTER JOIN public.location AS phl
+              ON phl.legal_unit_id = lu.id
+             AND phl.type = 'physical'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(phl.valid_after, phl.valid_to, '(]')
+      LEFT JOIN public.region AS phr
+              ON phl.region_id = phr.id
+      LEFT JOIN public.country AS phc
+              ON phl.country_id = phc.id
+      --
+      LEFT OUTER JOIN public.location AS pol
+              ON pol.legal_unit_id = lu.id
+             AND pol.type = 'postal'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pol.valid_after, pol.valid_to, '(]')
+      LEFT JOIN public.region AS por
+              ON pol.region_id = por.id
+      LEFT JOIN public.country AS poc
+              ON pol.country_id = poc.id
+      --
+      LEFT OUTER JOIN public.stat_definition AS sd1
+              ON sd1.code = 'employees'
+      LEFT OUTER JOIN public.stat_for_unit AS sfu1
+              ON sfu1.stat_definition_id = sd1.id
+             AND sfu1.legal_unit_id = lu.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sfu1.valid_after, sfu1.valid_to, '(]')
+      --
+      LEFT OUTER JOIN public.stat_definition AS sd2
+              ON sd2.code = 'turnover'
+      LEFT OUTER JOIN public.stat_for_unit AS sfu2
+              ON sfu2.stat_definition_id = sd2.id
+             AND sfu2.legal_unit_id = lu.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sfu2.valid_after, sfu2.valid_to, '(]')
+      ), aggregation AS (
+        SELECT tes.legal_unit_id
+             , basis.valid_after
+             , basis.valid_to
+             , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
+             , sum(tes.employees) AS employees
+             , sum(tes.turnover) AS turnover
+          FROM public.timeline_establishment AS tes
+          INNER JOIN basis
+           ON tes.legal_unit_id = basis.legal_unit_id
+          AND daterange(basis.valid_after, basis.valid_to, '(]')
+           && daterange(tes.valid_after, tes.valid_to, '(]')
+        GROUP BY tes.legal_unit_id, basis.valid_after , basis.valid_to
+        )
+      SELECT basis.unit_type
+           , basis.unit_id
+           , basis.valid_after
+           , basis.valid_from
+           , basis.valid_to
+           , basis.stat_ident
+           , basis.tax_ident
+           , basis.external_ident
+           , basis.external_ident_type
+           , basis.by_tag_id
+           , basis.by_tag_id_unique_ident
+           , basis.name
+           , basis.birth_date
+           , basis.death_date
+           , basis.search
+           , basis.primary_activity_category_id
+           , basis.primary_activity_category_path
+           , basis.secondary_activity_category_id
+           , basis.secondary_activity_category_path
+           , basis.activity_category_paths
+           , basis.sector_id
+           , basis.sector_path
+           , basis.sector_code
+           , basis.sector_name
+           , basis.legal_form_id
+           , basis.legal_form_code
+           , basis.legal_form_name
+           , basis.physical_address_part1
+           , basis.physical_address_part2
+           , basis.physical_address_part3
+           , basis.physical_postal_code
+           , basis.physical_postal_place
+           , basis.physical_region_id
+           , basis.physical_region_path
+           , basis.physical_country_id
+           , basis.physical_country_iso_2
+           , basis.postal_address_part1
+           , basis.postal_address_part2
+           , basis.postal_address_part3
+           , basis.postal_postal_code
+           , basis.postal_postal_place
+           , basis.postal_region_id
+           , basis.postal_region_path
+           , basis.postal_country_id
+           , basis.postal_country_iso_2
+           , basis.invalid_codes
+           , aggregation.establishment_ids
+           , basis.legal_unit_id
+           , basis.enterprise_id
+           , basis.employees + aggregation.employees AS employees
+           , basis.turnover + aggregation.turnover AS turnover
+      FROM basis
+      LEFT OUTER JOIN aggregation
+       ON basis.legal_unit_id = aggregation.legal_unit_id
+      AND basis.valid_after = aggregation.valid_after
+      AND basis.valid_to = aggregation.valid_to
+      --
+      ORDER BY unit_type, unit_id, valid_after
+;
+
+--SELECT * FROM public.timeline_legal_unit;
+
+
+\echo public.timeline_enterprise
+CREATE VIEW public.timeline_enterprise
+    ( unit_type
+    , unit_id
+    , valid_after
+    , valid_from
+    , valid_to
+    , stat_ident
+    , tax_ident
+    , external_ident
+    , external_ident_type
+    , by_tag_id
+    , by_tag_id_unique_ident
+    , name
+    , birth_date
+    , death_date
+    , search
+    , primary_activity_category_id
+    , primary_activity_category_path
+    , secondary_activity_category_id
+    , secondary_activity_category_path
+    , activity_category_paths
+    , sector_id
+    , sector_path
+    , sector_code
+    , sector_name
+    , legal_form_id
+    , legal_form_code
+    , legal_form_name
+    , physical_address_part1
+    , physical_address_part2
+    , physical_address_part3
+    , physical_postal_code
+    , physical_postal_place
+    , physical_region_id
+    , physical_region_path
+    , physical_country_id
+    , physical_country_iso_2
+    , postal_address_part1
+    , postal_address_part2
+    , postal_address_part3
+    , postal_postal_code
+    , postal_postal_place
+    , postal_region_id
+    , postal_region_path
+    , postal_country_id
+    , postal_country_iso_2
+    , invalid_codes
+    , establishment_ids
+    , legal_unit_ids
+    , enterprise_id
+    , employees
+    , turnover
+    )
+    AS
+      WITH basis AS (
+      SELECT t.unit_type
+           , t.unit_id
+           , t.valid_after
+           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , t.valid_to
            , plu.stat_ident AS stat_ident
            , plu.tax_ident AS tax_ident
            , plu.external_ident AS external_ident
@@ -2908,26 +3054,31 @@ CREATE VIEW public.statistical_unit_def
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
-           , sfu1.value_int AS employees
-           , sfu2.value_int AS turnover
-      FROM public.enterprise AS en
+           , plu.invalid_codes AS invalid_codes
+           --
+           , en.id AS enterprise_id
+      FROM public.timesegments AS t
+      INNER JOIN public.enterprise AS en
+          ON t.unit_type = 'enterprise' AND t.unit_id = en.id
       INNER JOIN public.legal_unit AS plu
-              ON plu.enterprise_id = en.id
-              AND plu.primary_for_enterprise
+          ON plu.enterprise_id = en.id
+          AND plu.primary_for_enterprise
+          AND daterange(t.valid_after, t.valid_to, '(]')
+           && daterange(plu.valid_after, plu.valid_to, '(]')
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.legal_unit_id = plu.id
              AND pa.type = 'primary'
-             AND daterange(plu.valid_from, plu.valid_to, '[]')
-              && daterange(pa.valid_from, pa.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pa.valid_after, pa.valid_to, '(]')
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.legal_unit_id = plu.id
              AND sa.type = 'secondary'
-             AND daterange(plu.valid_from, plu.valid_to, '[]')
-              && daterange(sa.valid_from, sa.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sa.valid_after, sa.valid_to, '(]')
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
@@ -2940,8 +3091,8 @@ CREATE VIEW public.statistical_unit_def
       LEFT OUTER JOIN public.location AS phl
               ON phl.legal_unit_id = plu.id
              AND phl.type = 'physical'
-             AND daterange(plu.valid_from, plu.valid_to, '[]')
-              && daterange(phl.valid_from, phl.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(phl.valid_after, phl.valid_to, '(]')
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
@@ -2950,38 +3101,168 @@ CREATE VIEW public.statistical_unit_def
       LEFT OUTER JOIN public.location AS pol
               ON pol.legal_unit_id = plu.id
              AND pol.type = 'postal'
-             AND daterange(plu.valid_from, plu.valid_to, '[]')
-              && daterange(pol.valid_from, pol.valid_to, '[]')
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pol.valid_after, pol.valid_to, '(]')
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      --
-      LEFT OUTER JOIN public.legal_unit AS lu
-              ON lu.enterprise_id = en.id
-      LEFT OUTER JOIN public.establishment AS es
-              ON lu.id = es.legal_unit_id
-             AND daterange(lu.valid_from, lu.valid_to, '[]')
-              && daterange(es.valid_from, es.valid_to, '[]')
-      LEFT OUTER JOIN public.stat_definition AS sd1
-              ON sd1.code = 'employees'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu1
-              ON sfu1.stat_definition_id = sd1.id
-             AND sfu1.establishment_id = es.id
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-      LEFT OUTER JOIN public.stat_definition AS sd2
-              ON sd2.code = 'turnover'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu2
-              ON sfu2.stat_definition_id = sd2.id
-             AND sfu2.establishment_id = es.id
-             AND daterange(es.valid_from, es.valid_to, '[]')
-              && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-    ) AS source
-    GROUP BY valid_from
-           , valid_to
-           , unit_type
+      ), establishment_aggregation AS (
+        SELECT tes.enterprise_id
+             , basis.valid_after
+             , basis.valid_to
+             , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
+             , sum(tes.employees) AS employees
+             , sum(tes.turnover) AS turnover
+          FROM public.timeline_establishment AS tes
+          INNER JOIN basis
+           ON tes.enterprise_id = basis.enterprise_id
+          AND daterange(basis.valid_after, basis.valid_to, '(]')
+           && daterange(tes.valid_after, tes.valid_to, '(]')
+        GROUP BY tes.enterprise_id, basis.valid_after , basis.valid_to
+      ), legal_unit_aggregation AS (
+        SELECT tlu.enterprise_id
+             , basis.valid_after
+             , basis.valid_to
+             , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
+             , sum(tlu.employees) AS employees
+             , sum(tlu.turnover) AS turnover
+          FROM public.timeline_legal_unit AS tlu
+          INNER JOIN basis
+           ON tlu.enterprise_id = basis.enterprise_id
+          AND daterange(basis.valid_after, basis.valid_to, '(]')
+           && daterange(tlu.valid_after, tlu.valid_to, '(]')
+        GROUP BY tlu.enterprise_id, basis.valid_after , basis.valid_to
+        )
+          SELECT basis.unit_type
+               , basis.unit_id
+               , basis.valid_after
+               , basis.valid_from
+               , basis.valid_to
+               , basis.stat_ident
+               , basis.tax_ident
+               , basis.external_ident
+               , basis.external_ident_type
+               , basis.by_tag_id
+               , basis.by_tag_id_unique_ident
+               , basis.name
+               , basis.birth_date
+               , basis.death_date
+               , basis.search
+               , basis.primary_activity_category_id
+               , basis.primary_activity_category_path
+               , basis.secondary_activity_category_id
+               , basis.secondary_activity_category_path
+               , basis.activity_category_paths
+               , basis.sector_id
+               , basis.sector_path
+               , basis.sector_code
+               , basis.sector_name
+               , basis.legal_form_id
+               , basis.legal_form_code
+               , basis.legal_form_name
+               , basis.physical_address_part1
+               , basis.physical_address_part2
+               , basis.physical_address_part3
+               , basis.physical_postal_code
+               , basis.physical_postal_place
+               , basis.physical_region_id
+               , basis.physical_region_path
+               , basis.physical_country_id
+               , basis.physical_country_iso_2
+               , basis.postal_address_part1
+               , basis.postal_address_part2
+               , basis.postal_address_part3
+               , basis.postal_postal_code
+               , basis.postal_postal_place
+               , basis.postal_region_id
+               , basis.postal_region_path
+               , basis.postal_country_id
+               , basis.postal_country_iso_2
+               , basis.invalid_codes
+               , esa.establishment_ids
+               , lua.legal_unit_ids
+               , basis.enterprise_id
+               , esa.employees + lua.employees AS employees
+               , esa.turnover + lua.turnover AS turnover
+          FROM basis
+          LEFT OUTER JOIN establishment_aggregation AS esa
+                       ON basis.enterprise_id = esa.enterprise_id
+                      AND basis.valid_after = esa.valid_after
+                      AND basis.valid_to = esa.valid_to
+          LEFT OUTER JOIN legal_unit_aggregation AS lua
+                       ON basis.enterprise_id = lua.enterprise_id
+                      AND basis.valid_after = lua.valid_after
+                      AND basis.valid_to = lua.valid_to
+          --
+          ORDER BY unit_type, unit_id, valid_after
+;
+
+-- SELECT * FROM public.timeline_enterprise;
+
+
+\echo public.statistical_unit_def
+CREATE VIEW public.statistical_unit_def
+    ( unit_type
+    , unit_id
+    , valid_after
+    , valid_from
+    , valid_to
+    , stat_ident
+    , tax_ident
+    , external_ident
+    , external_ident_type
+    , by_tag_id
+    , by_tag_id_unique_ident
+    , name
+    , birth_date
+    , death_date
+    , search
+    , primary_activity_category_id
+    , primary_activity_category_path
+    , secondary_activity_category_id
+    , secondary_activity_category_path
+    , activity_category_paths
+    , sector_id
+    , sector_path
+    , sector_code
+    , sector_name
+    , legal_form_id
+    , legal_form_code
+    , legal_form_name
+    , physical_address_part1
+    , physical_address_part2
+    , physical_address_part3
+    , physical_postal_code
+    , physical_postal_place
+    , physical_region_id
+    , physical_region_path
+    , physical_country_id
+    , physical_country_iso_2
+    , postal_address_part1
+    , postal_address_part2
+    , postal_address_part3
+    , postal_postal_code
+    , postal_postal_place
+    , postal_region_id
+    , postal_region_path
+    , postal_country_id
+    , postal_country_iso_2
+    , invalid_codes
+    , establishment_ids
+    , legal_unit_ids
+    , enterprise_ids
+    , employees
+    , turnover
+    , tag_paths
+    )
+    AS
+    WITH data AS (
+      SELECT unit_type
            , unit_id
+           , valid_after
+           , valid_from
+           , valid_to
            , stat_ident
            , tax_ident
            , external_ident
@@ -2997,7 +3278,6 @@ CREATE VIEW public.statistical_unit_def
            , secondary_activity_category_id
            , secondary_activity_category_path
            , activity_category_paths
-           --
            , sector_id
            , sector_path
            , sector_code
@@ -3005,7 +3285,6 @@ CREATE VIEW public.statistical_unit_def
            , legal_form_id
            , legal_form_code
            , legal_form_name
-           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -3015,7 +3294,6 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_path
            , physical_country_id
            , physical_country_iso_2
-           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -3025,187 +3303,19 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_path
            , postal_country_id
            , postal_country_iso_2
-    UNION ALL
-    -- Enterprise with establishment
-    SELECT valid_from
-         , valid_to
-         , unit_type
-         , unit_id
-         , stat_ident
-         , tax_ident
-         , external_ident
-         , external_ident_type
-         , by_tag_id
-         , by_tag_id_unique_ident
-         , name
-         , birth_date
-         , death_date
-         , search
-         --
-         , primary_activity_category_id
-         , primary_activity_category_path
-         --
-         , secondary_activity_category_id
-         , secondary_activity_category_path
-         --
-         , activity_category_paths
-         --
-         , sector_id
-         , sector_path
-         , sector_code
-         , sector_name
-         , legal_form_id
-         , legal_form_code
-         , legal_form_name
-         --
-         , physical_address_part1
-         , physical_address_part2
-         , physical_address_part3
-         , physical_postal_code
-         , physical_postal_place
-         , physical_region_id
-         , physical_region_path
-         , physical_country_id
-         , physical_country_iso_2
-         --
-         , postal_address_part1
-         , postal_address_part2
-         , postal_address_part3
-         , postal_postal_code
-         , postal_postal_place
-         , postal_region_id
-         , postal_region_path
-         , postal_country_id
-         , postal_country_iso_2
-         --
-         , NULL::JSONB AS invalid_codes
-         --
-         , array_agg(distinct establishment_id) filter (where establishment_id is not null) AS aggregated_establishment_ids
-         , array_agg(distinct legal_unit_id) filter (where legal_unit_id is not null) AS aggregated_legal_unit_ids
-         , array_agg(distinct enterprise_id) filter (where enterprise_id is not null) AS aggregated_enterprise_ids
-         , sum(employees) AS employees
-         , sum(turnover) AS turnover
-      FROM (
-        SELECT greatest(es.valid_from, pa.valid_from, sa.valid_from, phl.valid_from, sfu1.valid_from, sfu2.valid_from) AS valid_from
-             , least(es.valid_to, pa.valid_to, sa.valid_to, phl.valid_to, sfu1.valid_to, sfu2.valid_to) AS valid_to
-             , 'enterprise'::public.statistical_unit_type AS unit_type
-             , en.id AS unit_id
-             , es.id AS establishment_id
-             , NULL::INTEGER AS legal_unit_id
-             , en.id AS enterprise_id
-             , NULL::INTEGER AS enterprise_group_id
-             , es.stat_ident AS stat_ident
-             , es.tax_ident AS tax_ident
-             , es.external_ident AS external_ident
-             , es.external_ident_type AS external_ident_type
-             , es.by_tag_id    AS by_tag_id
-             , es.by_tag_id_unique_ident AS by_tag_id_unique_ident
-             , es.name AS name
-             , es.birth_date AS birth_date
-             , es.death_date AS death_date
-             -- Se supported languages with `SELECT * FROM pg_ts_config`
-             , to_tsvector('simple', es.name) AS search
-             --
-             , pa.category_id AS primary_activity_category_id
-             , pac.path                AS primary_activity_category_path
-             --
-             , sa.category_id AS secondary_activity_category_id
-             , sac.path                AS secondary_activity_category_path
-             --
-             , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
-             --
-             , s.id   AS sector_id
-             , s.path AS sector_path
-             , s.code AS sector_code
-             , s.name AS sector_name
-             , NULL::INTEGER AS legal_form_id
-             , NULL::TEXT    AS legal_form_code
-             , NULL::TEXT    AS legal_form_name
-             --
-             , phl.address_part1 AS physical_address_part1
-             , phl.address_part2 AS physical_address_part2
-             , phl.address_part3 AS physical_address_part3
-             , phl.postal_code AS physical_postal_code
-             , phl.postal_place AS physical_postal_place
-             , phl.region_id           AS physical_region_id
-             , phr.path                AS physical_region_path
-             , phl.country_id AS physical_country_id
-             , phc.iso_2     AS physical_country_iso_2
-             --
-             , pol.address_part1 AS postal_address_part1
-             , pol.address_part2 AS postal_address_part2
-             , pol.address_part3 AS postal_address_part3
-             , pol.postal_code AS postal_postal_code
-             , pol.postal_place AS postal_postal_place
-             , pol.region_id           AS postal_region_id
-             , por.path                AS postal_region_path
-             , pol.country_id AS postal_country_id
-             , poc.iso_2     AS postal_country_iso_2
-             --
-             , sfu1.value_int AS employees
-             , sfu2.value_int AS turnover
-        FROM public.enterprise AS en
-        INNER JOIN public.establishment AS es
-                ON es.enterprise_id = en.id
-        --
-        LEFT OUTER JOIN public.activity AS pa
-                ON pa.legal_unit_id = es.id
-               AND pa.type = 'primary'
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(pa.valid_from, pa.valid_to, '[]')
-        LEFT JOIN public.activity_category AS pac
-                ON pa.category_id = pac.id
-        --
-        LEFT OUTER JOIN public.activity AS sa
-                ON sa.legal_unit_id = es.id
-               AND sa.type = 'secondary'
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(sa.valid_from, sa.valid_to, '[]')
-        LEFT JOIN public.activity_category AS sac
-                ON sa.category_id = sac.id
-        --
-        LEFT OUTER JOIN public.sector AS s
-                ON es.sector_id = s.id
-        --
-        LEFT OUTER JOIN public.location AS phl
-                ON phl.legal_unit_id = es.id
-               AND phl.type = 'physical'
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(phl.valid_from, phl.valid_to, '[]')
-        LEFT JOIN public.region AS phr
-                ON phl.region_id = phr.id
-        LEFT JOIN public.country AS phc
-                ON phl.country_id = phc.id
-        --
-        LEFT OUTER JOIN public.location AS pol
-                ON pol.legal_unit_id = es.id
-               AND pol.type = 'postal'
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(pol.valid_from, pol.valid_to, '[]')
-        LEFT JOIN public.region AS por
-                ON pol.region_id = por.id
-        LEFT JOIN public.country AS poc
-                ON pol.country_id = poc.id
-        --
-        LEFT OUTER JOIN public.stat_definition AS sd1
-                ON sd1.code = 'employees'
-        LEFT OUTER JOIN public.stat_for_unit AS sfu1
-                ON sfu1.stat_definition_id = sd1.id
-               AND sfu1.establishment_id = es.id
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(sfu1.valid_from, sfu1.valid_to, '[]')
-        LEFT OUTER JOIN public.stat_definition AS sd2
-                ON sd2.code = 'turnover'
-        LEFT OUTER JOIN public.stat_for_unit AS sfu2
-                ON sfu2.stat_definition_id = sd2.id
-               AND sfu2.establishment_id = es.id
-               AND daterange(es.valid_from, es.valid_to, '[]')
-                && daterange(sfu2.valid_from, sfu2.valid_to, '[]')
-    ) AS source
-    GROUP BY valid_from
-           , valid_to
-           , unit_type
+           , invalid_codes
+           , ARRAY[establishment_id]::INT[] AS establishment_ids
+           , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
+           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , employees
+           , turnover
+      FROM public.timeline_establishment
+      UNION ALL
+      SELECT unit_type
            , unit_id
+           , valid_after
+           , valid_from
+           , valid_to
            , stat_ident
            , tax_ident
            , external_ident
@@ -3221,7 +3331,6 @@ CREATE VIEW public.statistical_unit_def
            , secondary_activity_category_id
            , secondary_activity_category_path
            , activity_category_paths
-           --
            , sector_id
            , sector_path
            , sector_code
@@ -3229,7 +3338,6 @@ CREATE VIEW public.statistical_unit_def
            , legal_form_id
            , legal_form_code
            , legal_form_name
-           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -3239,7 +3347,6 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_path
            , physical_country_id
            , physical_country_iso_2
-           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -3249,67 +3356,71 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_path
            , postal_country_id
            , postal_country_iso_2
-    UNION ALL
-    -- Enterprise Group
-    SELECT valid_from
-         , valid_to
-         , 'enterprise_group'::public.statistical_unit_type AS unit_type
-         , id AS unit_id
-         , NULL::TEXT AS stat_ident
-         , NULL::TEXT AS tax_ident
-         , NULL::TEXT AS external_ident
-         , NULL::TEXT AS external_ident_type
-         , NULL::INTEGER AS by_tag_id
-         , NULL::TEXT    AS by_tag_id_unique_ident
-         , NULL::TEXT AS name
-         , NULL::DATE AS birth_date
-         , NULL::DATE AS death_date
-         , NULL::TSVECTOR AS search
-         , NULL::INTEGER AS primary_activity_category_id
-         , NULL::public.ltree AS primary_activity_category_path
-         , NULL::INTEGER AS secondary_activity_category_id
-         , NULL::public.ltree AS secondary_activity_category_path
-         , NULL::public.ltree[] AS activity_category_paths
-         --
-         , NULL::INTEGER AS sector_id
-         , NULL::public.ltree AS sector_path
-         , NULL::TEXT    AS sector_code
-         , NULL::TEXT    AS sector_name
-         , NULL::INTEGER AS legal_unit_id
-         , NULL::TEXT    AS legal_unit_code
-         , NULL::TEXT    AS legal_unit_name
-         --
-         , NULL::TEXT AS physical_address_part1
-         , NULL::TEXT AS physical_address_part2
-         , NULL::TEXT AS physical_address_part3
-         , NULL::TEXT AS physical_postal_code
-         , NULL::TEXT AS physical_postal_place
-         , NULL::INTEGER AS physical_region_id
-         , NULL::public.ltree AS physical_region_path
-         , NULL::INTEGER AS physical_country_id
-         , NULL::TEXT AS physical_country_iso_2
-         --
-         , NULL::TEXT AS postal_address_part1
-         , NULL::TEXT AS postal_address_part2
-         , NULL::TEXT AS postal_address_part3
-         , NULL::TEXT AS postal_postal_code
-         , NULL::TEXT AS postal_postal_place
-         , NULL::INTEGER AS postal_region_id
-         , NULL::public.ltree AS postal_region_path
-         , NULL::INTEGER AS postal_country_id
-         , NULL::TEXT AS postal_country_iso_2
-         --
-         , NULL::JSONB AS invalid_codes
-         --
-         , NULL::INT[] AS aggregated_establishment_ids
-         , NULL::INT[] AS aggregated_legal_unit_ids
-         , NULL::INT[] AS aggregated_enterprise_ids
-         , NULL::int AS employees
-         , NULL::int AS turnover
-      FROM public.enterprise_group
+           , invalid_codes
+           , establishment_ids
+           , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
+           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , employees
+           , turnover
+      FROM public.timeline_legal_unit
+      UNION ALL
+      SELECT unit_type
+           , unit_id
+           , valid_after
+           , valid_from
+           , valid_to
+           , stat_ident
+           , tax_ident
+           , external_ident
+           , external_ident_type
+           , by_tag_id
+           , by_tag_id_unique_ident
+           , name
+           , birth_date
+           , death_date
+           , search
+           , primary_activity_category_id
+           , primary_activity_category_path
+           , secondary_activity_category_id
+           , secondary_activity_category_path
+           , activity_category_paths
+           , sector_id
+           , sector_path
+           , sector_code
+           , sector_name
+           , legal_form_id
+           , legal_form_code
+           , legal_form_name
+           , physical_address_part1
+           , physical_address_part2
+           , physical_address_part3
+           , physical_postal_code
+           , physical_postal_place
+           , physical_region_id
+           , physical_region_path
+           , physical_country_id
+           , physical_country_iso_2
+           , postal_address_part1
+           , postal_address_part2
+           , postal_address_part3
+           , postal_postal_code
+           , postal_postal_place
+           , postal_region_id
+           , postal_region_path
+           , postal_country_id
+           , postal_country_iso_2
+           , invalid_codes
+           , establishment_ids
+           , legal_unit_ids
+           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , employees
+           , turnover
+      FROM public.timeline_enterprise
+      --UNION ALL
+      --SELECT * FROM enterprise_group_timeline
     )
     SELECT data.*
-         , (
+             , (
           SELECT array_agg(DISTINCT t.path)
           FROM public.tag_for_unit AS tfu
           JOIN public.tag AS t ON t.id = tfu.tag_id
@@ -3323,6 +3434,7 @@ CREATE VIEW public.statistical_unit_def
           ) AS tag_paths
     FROM data;
 ;
+
 
 \echo public.statistical_unit
 CREATE MATERIALIZED VIEW public.statistical_unit AS
