@@ -11,6 +11,7 @@ import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-cate
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
 import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variable-count-card";
 import { Database, Gauge } from "lucide-react";
+import { TotalActivityCategoryCard } from "./total-activity-category-card";
 
 export const metadata: Metadata = {
   title: "Statbus | Dashboard",
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
 
 export default async function Dashboard() {
   return (
-    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-24 w-full space-y-8 lg:space-y-12">
+    <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-12 w-full space-y-8 lg:space-y-10">
       <h1 className="text-center text-2xl">Statbus Status Dashboard</h1>
 
       <DashboardSection
@@ -56,6 +57,10 @@ export default async function Dashboard() {
           <RegionCard />
         </Suspense>
 
+        <Suspense fallback={<FallBackCard title="Statistical Variables" />}>
+          <StatisticalVariableCountCard />
+        </Suspense>
+
         <Link href="/getting-started/activity-standard">
           <Suspense
             fallback={<FallBackCard title="Activity Category Standard" />}
@@ -64,10 +69,6 @@ export default async function Dashboard() {
           </Suspense>
         </Link>
 
-        <Suspense fallback={<FallBackCard title="Statistical Variables" />}>
-          <StatisticalVariableCountCard />
-        </Suspense>
-
         <Link href="/getting-started/upload-custom-activity-standard-codes">
           <Suspense
             fallback={<FallBackCard title="Custom Activity Category Codes" />}
@@ -75,6 +76,11 @@ export default async function Dashboard() {
             <CustomActivityCategoryCard />
           </Suspense>
         </Link>
+        <Suspense
+          fallback={<FallBackCard title="Total Activity Category Codes" />}
+        >
+          <TotalActivityCategoryCard />
+        </Suspense>
       </DashboardSection>
 
       <DashboardSection
@@ -122,7 +128,7 @@ const DashboardSection = ({
         <h2 className="text-xs uppercase font-semibold">{title}</h2>
         {icon}
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 p-2 lg:p-4 border border-t-0 rounded-b">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 p-2 lg:p-4 border border-t-0 rounded-b">
         {children}
       </div>
     </div>
