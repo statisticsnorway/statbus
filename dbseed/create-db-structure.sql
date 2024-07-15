@@ -2928,7 +2928,7 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_country_id
            , basis.postal_country_iso_2
            , basis.invalid_codes
-           , aggregation.establishment_ids
+           , COALESCE(aggregation.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
            , basis.employees + aggregation.employees AS employees
@@ -3180,8 +3180,8 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
-               , esa.establishment_ids
-               , lua.legal_unit_ids
+               , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
+               , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
                , esa.employees + lua.employees AS employees
                , esa.turnover + lua.turnover AS turnover
@@ -3254,6 +3254,9 @@ CREATE VIEW public.statistical_unit_def
     , enterprise_ids
     , employees
     , turnover
+    , establishment_count
+    , legal_unit_count
+    , enterprise_count
     , tag_paths
     )
     AS
@@ -3305,8 +3308,16 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_iso_2
            , invalid_codes
            , ARRAY[establishment_id]::INT[] AS establishment_ids
-           , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
-           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           -- An establishment may have either a legal_unit or
+           -- an enterprise, so handle that any of them are null gracefully.
+           , CASE WHEN legal_unit_id IS NULL
+                  THEN ARRAY[]::INT[]
+                  ELSE ARRAY[legal_unit_id]::INT[]
+              END AS legal_unit_ids
+           , CASE WHEN enterprise_id IS NULL
+                  THEN ARRAY[]::INT[]
+                  ELSE ARRAY[enterprise_id]::INT[]
+              END AS enterprise_ids
            , employees
            , turnover
       FROM public.timeline_establishment
@@ -3420,6 +3431,9 @@ CREATE VIEW public.statistical_unit_def
       --SELECT * FROM enterprise_group_timeline
     )
     SELECT data.*
+             , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
+             , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
+             , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
              , (
           SELECT array_agg(DISTINCT t.path)
           FROM public.tag_for_unit AS tfu
