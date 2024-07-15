@@ -6,6 +6,9 @@ export async function GET(request: Request) {
   if (!searchParams.has("select")) {
     searchParams.set("select", "*");
   }
+  if (!searchParams.has("order")) {
+    searchParams.set("order", "path");
+  }
   if (!searchParams.has("limit")) {
     searchParams.set("limit", "10");
   }
