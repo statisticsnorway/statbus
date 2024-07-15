@@ -110,7 +110,15 @@ DROP MATERIALIZED VIEW public.sector_used;
 DROP MATERIALIZED VIEW public.legal_form_used;
 DROP MATERIALIZED VIEW public.country_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
+
 DROP VIEW public.statistical_unit_def;
+
+DROP VIEW public.timeline_enterprise;
+DROP VIEW public.timeline_legal_unit;
+DROP VIEW public.timeline_establishment;
+DROP VIEW public.timesegments;
+DROP VIEW public.timepoints;
+
 DROP TYPE public.statistical_unit_type;
 
 DROP VIEW public.activity_category_isic_v4;
