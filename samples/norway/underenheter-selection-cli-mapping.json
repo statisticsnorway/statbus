@@ -48,6 +48,10 @@
     "csv": "beliggenhetsadresse.kommunenummer"
   },
   {
+    "sql": "physical_region_path",
+    "csv": null
+  },
+  {
     "sql": "physical_country_iso_2",
     "csv": "beliggenhetsadresse.landkode"
   },
@@ -134,6 +138,10 @@
   {
     "sql": "postal_region_code",
     "csv": "postadresse.kommunenummer"
+  },
+  {
+    "sql": "postal_region_path",
+    "csv": null
   },
   {
     "sql": null,

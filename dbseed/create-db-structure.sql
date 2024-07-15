@@ -6513,6 +6513,7 @@ SELECT '' AS valid_from
      , '' AS physical_postal_code
      , '' AS physical_postal_place
      , '' AS physical_region_code
+     , '' AS physical_region_path
      , '' AS physical_country_iso_2
      , '' AS postal_address_part1
      , '' AS postal_address_part2
@@ -6520,6 +6521,7 @@ SELECT '' AS valid_from
      , '' AS postal_postal_code
      , '' AS postal_postal_place
      , '' AS postal_region_code
+     , '' AS postal_region_path
      , '' AS postal_country_iso_2
      , '' AS primary_activity_category_code
      , '' AS secondary_activity_category_code
@@ -6602,13 +6604,28 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
-      SELECT * INTO physical_region
-      FROM public.region
-      WHERE code = NEW.physical_region_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' AND
+       NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> ''
+    THEN
+      RAISE EXCEPTION 'Only one of physical_region_code or physical_region_path can be specified for row %', to_json(NEW);
+    ELSE
+      IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
+        SELECT * INTO physical_region
+        FROM public.region
+        WHERE code = NEW.physical_region_code;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+        END IF;
+      END IF;
+      IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
+        SELECT * INTO physical_region
+        FROM public.region
+        WHERE path = NEW.physical_region_path;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
+        END IF;
       END IF;
     END IF;
 
@@ -6622,13 +6639,28 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
-      SELECT * INTO postal_region
-      FROM public.region
-      WHERE code = NEW.postal_region_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
+    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' AND
+       NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> ''
+    THEN
+      RAISE EXCEPTION 'Only one of postal_region_code or postal_region_path can be specified for row %', to_json(NEW);
+    ELSE
+      IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
+        SELECT * INTO postal_region
+        FROM public.region
+        WHERE code = NEW.postal_region_code;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
+        END IF;
+      END IF;
+      IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
+        SELECT * INTO postal_region
+        FROM public.region
+        WHERE path = NEW.postal_region_path;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
+        END IF;
       END IF;
     END IF;
 
@@ -7014,6 +7046,7 @@ SELECT tax_ident
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
+     , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
@@ -7021,6 +7054,7 @@ SELECT tax_ident
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
+     , postal_region_path
      , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
@@ -7049,6 +7083,7 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
+        , physical_region_path
         , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
@@ -7056,6 +7091,7 @@ BEGIN
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
+        , postal_region_path
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
@@ -7076,6 +7112,7 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
+        , NEW.physical_region_path
         , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
@@ -7083,6 +7120,7 @@ BEGIN
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
+        , NEW.postal_region_path
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
@@ -7151,6 +7189,7 @@ SELECT '' AS valid_from
      , '' AS physical_postal_code
      , '' AS physical_postal_place
      , '' AS physical_region_code
+     , '' AS physical_region_path
      , '' AS physical_country_iso_2
      , '' AS postal_address_part1
      , '' AS postal_address_part2
@@ -7158,6 +7197,7 @@ SELECT '' AS valid_from
      , '' AS postal_postal_code
      , '' AS postal_postal_place
      , '' AS postal_region_code
+     , '' AS postal_region_path
      , '' AS postal_country_iso_2
      , '' AS primary_activity_category_code
      , '' AS secondary_activity_category_code
@@ -7312,13 +7352,28 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
-      SELECT * INTO physical_region
-      FROM public.region
-      WHERE code = NEW.physical_region_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' AND
+       NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> ''
+    THEN
+      RAISE EXCEPTION 'Only one of physical_region_code or physical_region_path can be specified for row %', to_json(NEW);
+    ELSE
+      IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
+        SELECT * INTO physical_region
+        FROM public.region
+        WHERE code = NEW.physical_region_code;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
+        END IF;
+      END IF;
+      IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
+        SELECT * INTO physical_region
+        FROM public.region
+        WHERE path = NEW.physical_region_path;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
+        END IF;
       END IF;
     END IF;
 
@@ -7332,13 +7387,28 @@ BEGIN
       END IF;
     END IF;
 
-    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
-      SELECT * INTO postal_region
-      FROM public.region
-      WHERE code = NEW.postal_region_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
+    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' AND
+       NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> ''
+    THEN
+      RAISE EXCEPTION 'Only one of postal_region_code or postal_region_path can be specified for row %', to_json(NEW);
+    ELSE
+      IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
+        SELECT * INTO postal_region
+        FROM public.region
+        WHERE code = NEW.postal_region_code;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
+        END IF;
+      END IF;
+      IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
+        SELECT * INTO postal_region
+        FROM public.region
+        WHERE path = NEW.postal_region_path;
+        IF NOT FOUND THEN
+          RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
+          invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
+        END IF;
       END IF;
     END IF;
 
@@ -7763,6 +7833,7 @@ SELECT valid_from
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
+     , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
@@ -7770,6 +7841,7 @@ SELECT valid_from
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
+     , postal_region_path
      , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
@@ -7801,6 +7873,7 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
+        , physical_region_path
         , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
@@ -7808,6 +7881,7 @@ BEGIN
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
+        , postal_region_path
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
@@ -7829,6 +7903,7 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
+        , NEW.physical_region_path
         , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
@@ -7836,6 +7911,7 @@ BEGIN
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
+        , NEW.postal_region_path
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
@@ -7866,6 +7942,7 @@ SELECT tax_ident
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
+     , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
@@ -7873,6 +7950,7 @@ SELECT tax_ident
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
+     , postal_region_path
      , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
@@ -7908,6 +7986,7 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
+        , physical_region_path
         , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
@@ -7915,6 +7994,7 @@ BEGIN
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
+        , postal_region_path
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
@@ -7936,6 +8016,7 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
+        , NEW.physical_region_path
         , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
@@ -7943,6 +8024,7 @@ BEGIN
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
+        , NEW.postal_region_path
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
@@ -7976,6 +8058,7 @@ SELECT valid_from
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
+     , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
@@ -7983,6 +8066,7 @@ SELECT valid_from
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
+     , postal_region_path
      , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
@@ -8010,6 +8094,7 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
+        , physical_region_path
         , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
@@ -8017,6 +8102,7 @@ BEGIN
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
+        , postal_region_path
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
@@ -8038,6 +8124,7 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
+        , NEW.physical_region_path
         , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
@@ -8045,6 +8132,7 @@ BEGIN
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
+        , NEW.postal_region_path
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
@@ -8076,6 +8164,7 @@ SELECT tax_ident
      , physical_postal_code
      , physical_postal_place
      , physical_region_code
+     , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
@@ -8083,6 +8172,7 @@ SELECT tax_ident
      , postal_postal_code
      , postal_postal_place
      , postal_region_code
+     , postal_region_path
      , postal_country_iso_2
      , primary_activity_category_code
      , secondary_activity_category_code
@@ -8113,6 +8203,7 @@ BEGIN
         , physical_postal_code
         , physical_postal_place
         , physical_region_code
+        , physical_region_path
         , physical_country_iso_2
         , postal_address_part1
         , postal_address_part2
@@ -8120,6 +8211,7 @@ BEGIN
         , postal_postal_code
         , postal_postal_place
         , postal_region_code
+        , postal_region_path
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
@@ -8141,6 +8233,7 @@ BEGIN
         , NEW.physical_postal_code
         , NEW.physical_postal_place
         , NEW.physical_region_code
+        , NEW.physical_region_path
         , NEW.physical_country_iso_2
         , NEW.postal_address_part1
         , NEW.postal_address_part2
@@ -8148,6 +8241,7 @@ BEGIN
         , NEW.postal_postal_code
         , NEW.postal_postal_place
         , NEW.postal_region_code
+        , NEW.postal_region_path
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code

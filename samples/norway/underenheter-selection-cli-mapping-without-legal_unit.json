@@ -44,6 +44,10 @@
     "csv": "beliggenhetsadresse.kommunenummer"
   },
   {
+    "sql": "physical_region_path",
+    "csv": null
+  },
+  {
     "sql": "primary_activity_category_code",
     "csv": "naeringskode1.kode"
   },
@@ -130,6 +134,10 @@
   {
     "sql": "postal_region_code",
     "csv": "postadresse.kommunenummer"
+  },
+  {
+    "sql": "postal_region_path",
+    "csv": null
   },
   {
     "sql": null,
