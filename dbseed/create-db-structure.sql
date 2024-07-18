@@ -2931,8 +2931,8 @@ CREATE VIEW public.timeline_legal_unit
            , COALESCE(aggregation.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
-           , basis.employees + aggregation.employees AS employees
-           , basis.turnover + aggregation.turnover AS turnover
+           , COALESCE(basis.employees + aggregation.employees, basis.employees, aggregation.employees) AS employees
+           , COALESCE(basis.turnover + aggregation.turnover, basis.turnover, aggregation.turnover) AS turnover
       FROM basis
       LEFT OUTER JOIN aggregation
        ON basis.legal_unit_id = aggregation.legal_unit_id
@@ -3183,8 +3183,8 @@ CREATE VIEW public.timeline_enterprise
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
-               , esa.employees + lua.employees AS employees
-               , esa.turnover + lua.turnover AS turnover
+               , COALESCE(esa.employees + lua.employees, esa.employees, lua.employees) AS employees
+               , COALESCE(esa.turnover + lua.turnover, esa.turnover, lua.turnover) AS turnover
           FROM basis
           LEFT OUTER JOIN establishment_aggregation AS esa
                        ON basis.enterprise_id = esa.enterprise_id
