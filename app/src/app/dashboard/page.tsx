@@ -52,10 +52,11 @@ export default async function Dashboard() {
             />
           </Suspense>
         </Link>
-
-        <Suspense fallback={<FallBackCard title="Regions" />}>
-          <RegionCard />
-        </Suspense>
+        <Link href="/regions">
+          <Suspense fallback={<FallBackCard title="Regions" />}>
+            <RegionCard />
+          </Suspense>
+        </Link>
 
         <Suspense fallback={<FallBackCard title="Statistical Variables" />}>
           <StatisticalVariableCountCard />
