@@ -1,6 +1,4 @@
 
-BEGIN;
-
 INSERT INTO settings(activity_category_standard_id,only_one_setting)
 SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
 ON CONFLICT (only_one_setting)
@@ -10,4 +8,3 @@ DO UPDATE SET
 ;
 
 \copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-END;

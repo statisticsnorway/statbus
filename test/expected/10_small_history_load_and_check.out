@@ -1,0 +1,129 @@
+\echo "Setting up Statbus for Norway"
+"Setting up Statbus for Norway"
+\i samples/norway/setup.sql
+\i samples/norway/activity_category/activity_category_norway.sql
+INSERT INTO settings(activity_category_standard_id,only_one_setting)
+SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+   WHERE settings.id = EXCLUDED.id;
+;
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Adding tags for insert into right part of history"
+"Adding tags for insert into right part of history"
+\i samples/norway/small-history/add-tags.sql
+DO $$
+DECLARE
+    census_id integer;
+BEGIN
+
+    -- UPSERT root node "Census"
+    INSERT INTO public.tag (path, name, description, type, context_valid_on, context_valid_from, context_valid_to, is_scoped_tag)
+    VALUES ('census', 'Census', 'Census data collection', 'custom', NULL, NULL, NULL, false)
+    ON CONFLICT (path) DO UPDATE
+    SET name = EXCLUDED.name, description = EXCLUDED.description, type = EXCLUDED.type,
+        context_valid_on = EXCLUDED.context_valid_on, context_valid_from = EXCLUDED.context_valid_from,
+        context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag
+    RETURNING id INTO census_id;
+
+    -- UPSERT child nodes for each year under "Census"
+    INSERT INTO public.tag (path, name, description, parent_id, type, context_valid_on, context_valid_from, context_valid_to, is_scoped_tag)
+    VALUES
+    ('census.2015', '2015', 'Census data for 2015', census_id, 'custom', '2015-12-31', '2015-01-01', 'infinity', false),
+    ('census.2016', '2016', 'Census data for 2016', census_id, 'custom', '2016-12-31', '2016-01-01', 'infinity', false),
+    ('census.2017', '2017', 'Census data for 2017', census_id, 'custom', '2017-12-31', '2017-01-01', 'infinity', false),
+    ('census.2018', '2018', 'Census data for 2018', census_id, 'custom', '2018-12-31', '2018-01-01', 'infinity', false)
+    ON CONFLICT (path) DO UPDATE
+    SET name = EXCLUDED.name, description = EXCLUDED.description, parent_id = EXCLUDED.parent_id, type = EXCLUDED.type,
+        context_valid_on = EXCLUDED.context_valid_on, context_valid_from = EXCLUDED.context_valid_from,
+        context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag;
+
+END $$;
+\echo "Loading historical units"
+"Loading historical units"
+\echo "TODO: Use an import job that supports column mapping."
+"TODO: Use an import job that supports column mapping."
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2015-enheter.csv'
+ERROR:  missing data for column "legal_unit_tax_ident"
+CONTEXT:  COPY import_establishment_current_for_legal_unit, line 1: "organisasjonsnummer,navn,organisasjonsform.kode,organisasjonsform.beskrivelse,naeringskode1.kode,nae..."
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2016-enheter.csv'
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2017-enheter.csv'
+DO UPDATE SET
+   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+   WHERE settings.id = EXCLUDED.id;
+;
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Adding tags for insert into right part of history"
+"Adding tags for insert into right part of history"
+\i samples/norway/small-history/add-tags.sql
+DO $$
+DECLARE
+    census_id integer;
+BEGIN
+
+    -- UPSERT root node "Census"
+    INSERT INTO public.tag (path, name, description, type, context_valid_on, context_valid_from, context_valid_to, is_scoped_tag)
+    VALUES ('census', 'Census', 'Census data collection', 'custom', NULL, NULL, NULL, false)
+    ON CONFLICT (path) DO UPDATE
+    SET name = EXCLUDED.name, description = EXCLUDED.description, type = EXCLUDED.type,
+        context_valid_on = EXCLUDED.context_valid_on, context_valid_from = EXCLUDED.context_valid_from,
+        context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag
+    RETURNING id INTO census_id;
+
+    -- UPSERT child nodes for each year under "Census"
+    INSERT INTO public.tag (path, name, description, parent_id, type, context_valid_on, context_valid_from, context_valid_to, is_scoped_tag)
+    VALUES
+    ('census.2015', '2015', 'Census data for 2015', census_id, 'custom', '2015-12-31', '2015-01-01', 'infinity', false),
+    ('census.2016', '2016', 'Census data for 2016', census_id, 'custom', '2016-12-31', '2016-01-01', 'infinity', false),
+    ('census.2017', '2017', 'Census data for 2017', census_id, 'custom', '2017-12-31', '2017-01-01', 'infinity', false),
+    ('census.2018', '2018', 'Census data for 2018', census_id, 'custom', '2018-12-31', '2018-01-01', 'infinity', false)
+    ON CONFLICT (path) DO UPDATE
+    SET name = EXCLUDED.name, description = EXCLUDED.description, parent_id = EXCLUDED.parent_id, type = EXCLUDED.type,
+        context_valid_on = EXCLUDED.context_valid_on, context_valid_from = EXCLUDED.context_valid_from,
+        context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag;
+
+END $$;
+\echo "Loading historical units"
+"Loading historical units"
+\echo "TODO: Use an import job that supports column mapping."
+"TODO: Use an import job that supports column mapping."
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2015-enheter.csv'
+ERROR:  missing data for column "legal_unit_tax_ident"
+CONTEXT:  COPY import_establishment_current_for_legal_unit, line 1: "organisasjonsnummer,navn,organisasjonsform.kode,organisasjonsform.beskrivelse,naeringskode1.kode,nae..."
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2016-enheter.csv'
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2017-enheter.csv'
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+\copy public.import_establishment_current_for_legal_unit FROM 'samples/norway/small-history/2018-enheter.csv'
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+\echo Refreshing materialized views
+Refreshing materialized views
+SELECT view_name FROM statistical_unit_refresh_now();
+         view_name         
+---------------------------
+ statistical_unit
+ activity_category_used
+ region_used
+ sector_used
+ legal_form_used
+ country_used
+ statistical_unit_facet
+ statistical_history
+ statistical_history_facet
+(9 rows)
+
+END;

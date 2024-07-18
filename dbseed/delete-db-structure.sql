@@ -215,10 +215,12 @@ DROP VIEW public.stat_for_unit_era;
 
 DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 
+DROP VIEW public.sector_available;
 DROP VIEW public.sector_custom_only;
 DROP FUNCTION admin.sector_custom_only_prepare();
 DROP FUNCTION admin.sector_custom_only_upsert();
 
+DROP VIEW public.legal_form_available;
 DROP VIEW public.legal_form_custom_only;
 DROP FUNCTION admin.legal_form_custom_only_prepare();
 DROP FUNCTION admin.legal_form_custom_only_upsert();

@@ -5754,6 +5754,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+\echo public.sector_available
+CREATE VIEW public.sector_available(path, name, custom, description)
+WITH (security_invoker=on) AS
+SELECT ac.path
+     , ac.name
+     , ac.custom
+     , ac.description
+FROM public.sector AS ac
+WHERE ac.active
+ORDER BY path;
 
 \echo public.sector_custom_only
 CREATE VIEW public.sector_custom_only(path, name, description)
@@ -5846,6 +5856,15 @@ BEFORE INSERT ON public.sector_custom_only
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.sector_custom_only_prepare();
 
+\echo public.legal_form_available
+CREATE VIEW public.legal_form_available(code, name, custom)
+WITH (security_invoker=on) AS
+SELECT ac.code
+     , ac.name
+     , ac.custom
+FROM public.legal_form AS ac
+WHERE ac.active
+ORDER BY code;
 
 \echo public.legal_form_custom_only
 CREATE VIEW public.legal_form_custom_only(code, name)
