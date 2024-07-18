@@ -27,7 +27,6 @@ ORDER BY standard_code, path;
 \echo "User uploads the sample regions"
 \copy public.region_upload(path, name) FROM 'app/public/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT path
-     , parent_id
      , level
      , label
      , code

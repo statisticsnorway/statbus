@@ -2250,432 +2250,431 @@ ORDER BY standard_code, path;
 "User uploads the sample regions"
 \copy public.region_upload(path, name) FROM 'app/public/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT path
-     , parent_id
      , level
      , label
      , code
      , name
  FROM public.region
  ORDER BY path;
- path  | parent_id | level | label | code |                            name                             
--------+-----------+-------+-------+------+-------------------------------------------------------------
- 03    |           |     1 | 03    | 03   | Oslo
- 03.01 |         1 |     2 | 0301  | 0301 | Oslo
- 11    |           |     1 | 11    | 11   | Rogaland
- 11.01 |         2 |     2 | 1101  | 1101 | Eigersund
- 11.03 |         2 |     2 | 1103  | 1103 | Stavanger
- 11.06 |         2 |     2 | 1106  | 1106 | Haugesund
- 11.08 |         2 |     2 | 1108  | 1108 | Sandnes
- 11.11 |         2 |     2 | 1111  | 1111 | Sokndal
- 11.12 |         2 |     2 | 1112  | 1112 | Lund
- 11.14 |         2 |     2 | 1114  | 1114 | Bjerkreim
- 11.19 |         2 |     2 | 1119  | 1119 | Hå
- 11.20 |         2 |     2 | 1120  | 1120 | Klepp
- 11.21 |         2 |     2 | 1121  | 1121 | Time
- 11.22 |         2 |     2 | 1122  | 1122 | Gjesdal
- 11.24 |         2 |     2 | 1124  | 1124 | Sola
- 11.27 |         2 |     2 | 1127  | 1127 | Randaberg
- 11.30 |         2 |     2 | 1130  | 1130 | Strand
- 11.33 |         2 |     2 | 1133  | 1133 | Hjelmeland
- 11.34 |         2 |     2 | 1134  | 1134 | Suldal
- 11.35 |         2 |     2 | 1135  | 1135 | Sauda
- 11.44 |         2 |     2 | 1144  | 1144 | Kvitsøy
- 11.45 |         2 |     2 | 1145  | 1145 | Bokn
- 11.46 |         2 |     2 | 1146  | 1146 | Tysvær
- 11.49 |         2 |     2 | 1149  | 1149 | Karmøy
- 11.51 |         2 |     2 | 1151  | 1151 | Utsira
- 11.60 |         2 |     2 | 1160  | 1160 | Vindafjord
- 15    |           |     1 | 15    | 15   | Møre og Romsdal
- 15.05 |         3 |     2 | 1505  | 1505 | Kristiansund
- 15.06 |         3 |     2 | 1506  | 1506 | Molde
- 15.08 |         3 |     2 | 1508  | 1508 | Ålesund
- 15.11 |         3 |     2 | 1511  | 1511 | Vanylven
- 15.14 |         3 |     2 | 1514  | 1514 | Sande
- 15.15 |         3 |     2 | 1515  | 1515 | Herøy (Møre og Romsdal)
- 15.16 |         3 |     2 | 1516  | 1516 | Ulstein
- 15.17 |         3 |     2 | 1517  | 1517 | Hareid
- 15.20 |         3 |     2 | 1520  | 1520 | Ørsta
- 15.25 |         3 |     2 | 1525  | 1525 | Stranda
- 15.28 |         3 |     2 | 1528  | 1528 | Sykkylven
- 15.31 |         3 |     2 | 1531  | 1531 | Sula
- 15.32 |         3 |     2 | 1532  | 1532 | Giske
- 15.35 |         3 |     2 | 1535  | 1535 | Vestnes
- 15.39 |         3 |     2 | 1539  | 1539 | Rauma
- 15.47 |         3 |     2 | 1547  | 1547 | Aukra
- 15.54 |         3 |     2 | 1554  | 1554 | Averøy
- 15.57 |         3 |     2 | 1557  | 1557 | Gjemnes
- 15.60 |         3 |     2 | 1560  | 1560 | Tingvoll
- 15.63 |         3 |     2 | 1563  | 1563 | Sunndal
- 15.66 |         3 |     2 | 1566  | 1566 | Surnadal
- 15.73 |         3 |     2 | 1573  | 1573 | Smøla
- 15.76 |         3 |     2 | 1576  | 1576 | Aure
- 15.77 |         3 |     2 | 1577  | 1577 | Volda
- 15.78 |         3 |     2 | 1578  | 1578 | Fjord
- 15.79 |         3 |     2 | 1579  | 1579 | Hustadvika
- 15.80 |         3 |     2 | 1580  | 1580 | Haram
- 18    |           |     1 | 18    | 18   | Nordland - Nordlánnda
- 18.04 |         4 |     2 | 1804  | 1804 | Bodø
- 18.06 |         4 |     2 | 1806  | 1806 | Narvik
- 18.11 |         4 |     2 | 1811  | 1811 | Bindal
- 18.12 |         4 |     2 | 1812  | 1812 | Sømna
- 18.13 |         4 |     2 | 1813  | 1813 | Brønnøy
- 18.15 |         4 |     2 | 1815  | 1815 | Vega
- 18.16 |         4 |     2 | 1816  | 1816 | Vevelstad
- 18.18 |         4 |     2 | 1818  | 1818 | Herøy (Nordland)
- 18.20 |         4 |     2 | 1820  | 1820 | Alstahaug
- 18.22 |         4 |     2 | 1822  | 1822 | Leirfjord
- 18.24 |         4 |     2 | 1824  | 1824 | Vefsn
- 18.25 |         4 |     2 | 1825  | 1825 | Grane
- 18.26 |         4 |     2 | 1826  | 1826 | Aarborte - Hattfjelldal
- 18.27 |         4 |     2 | 1827  | 1827 | Dønna
- 18.28 |         4 |     2 | 1828  | 1828 | Nesna
- 18.32 |         4 |     2 | 1832  | 1832 | Hemnes
- 18.33 |         4 |     2 | 1833  | 1833 | Rana - Raane
- 18.34 |         4 |     2 | 1834  | 1834 | Lurøy
- 18.35 |         4 |     2 | 1835  | 1835 | Træna
- 18.36 |         4 |     2 | 1836  | 1836 | Rødøy
- 18.37 |         4 |     2 | 1837  | 1837 | Meløy
- 18.38 |         4 |     2 | 1838  | 1838 | Gildeskål
- 18.39 |         4 |     2 | 1839  | 1839 | Beiarn
- 18.40 |         4 |     2 | 1840  | 1840 | Saltdal
- 18.41 |         4 |     2 | 1841  | 1841 | Fauske - Fuossko
- 18.45 |         4 |     2 | 1845  | 1845 | Sørfold - Fuolldá
- 18.48 |         4 |     2 | 1848  | 1848 | Steigen
- 18.51 |         4 |     2 | 1851  | 1851 | Lødingen
- 18.53 |         4 |     2 | 1853  | 1853 | Evenes - Evená??i
- 18.56 |         4 |     2 | 1856  | 1856 | Røst
- 18.57 |         4 |     2 | 1857  | 1857 | Værøy
- 18.59 |         4 |     2 | 1859  | 1859 | Flakstad
- 18.60 |         4 |     2 | 1860  | 1860 | Vestvågøy
- 18.65 |         4 |     2 | 1865  | 1865 | Vågan
- 18.66 |         4 |     2 | 1866  | 1866 | Hadsel
- 18.67 |         4 |     2 | 1867  | 1867 | Bø
- 18.68 |         4 |     2 | 1868  | 1868 | Øksnes
- 18.70 |         4 |     2 | 1870  | 1870 | Sortland - Suortá
- 18.71 |         4 |     2 | 1871  | 1871 | Andøy
- 18.74 |         4 |     2 | 1874  | 1874 | Moskenes
- 18.75 |         4 |     2 | 1875  | 1875 | Hábmer - Hamarøy
- 21    |           |     1 | 21    | 21   | Svalbard
- 21.00 |       375 |     2 | 2100  | 2100 | Svalbardområde
- 21.01 |       375 |     2 | 2101  | 2101 | Colesbukta arealplanområde
- 21.02 |       375 |     2 | 2102  | 2102 | Pyramiden arealplanområde
- 21.03 |       375 |     2 | 2103  | 2103 | Van Mijenfjorden
- 21.04 |       375 |     2 | 2104  | 2104 | Nordenskiöld Land nasjonalpark
- 21.05 |       375 |     2 | 2105  | 2105 | Isfjorden
- 21.06 |       375 |     2 | 2106  | 2106 | Sassen-Bünsow Land nasjonalpark
- 21.07 |       375 |     2 | 2107  | 2107 | Nordre Isfjorden nasjonalpark
- 21.08 |       375 |     2 | 2108  | 2108 | Kongsfjorden
- 21.09 |       375 |     2 | 2109  | 2109 | Forlandet nasjonalpark
- 21.10 |       375 |     2 | 2110  | 2110 | Wijdefjorden
- 21.11 |       375 |     2 | 2111  | 2111 | Longyearbyen arealplanområde
- 21.12 |       375 |     2 | 2112  | 2112 | Ny-Ålesund arealplanområde
- 21.13 |       375 |     2 | 2113  | 2113 | Barentsburg arealplanområde
- 21.14 |       375 |     2 | 2114  | 2114 | Sør-Spitsbergen nasjonalpark
- 21.15 |       375 |     2 | 2115  | 2115 | Sveagruva arealplanområde
- 21.16 |       375 |     2 | 2116  | 2116 | Indre Wijdefjorden nasjonalpark
- 21.17 |       375 |     2 | 2117  | 2117 | Nordvest-Spitsbergen nasjonalpark
- 21.18 |       375 |     2 | 2118  | 2118 | Nordaust-Svalbard naturreservat
- 21.19 |       375 |     2 | 2119  | 2119 | Søraust-Svalbard naturreservat
- 21.21 |       375 |     2 | 2121  | 2121 | Bjørnøya naturreservat
- 21.31 |       375 |     2 | 2131  | 2131 | Hopen naturreservat
- 22    |           |     1 | 22    | 22   | Jan Mayen
- 22.11 |       376 |     2 | 2211  | 2211 | Jan Mayen
- 23    |           |     1 | 23    | 23   | Kontinentalsokkelen
- 23.11 |       377 |     2 | 2311  | 2311 | Sokkelen sør for 62 grader N
- 23.21 |       377 |     2 | 2321  | 2321 | Sokkelen nord for 62 grader N
- 23.99 |       377 |     2 | 2399  | 2399 | Sokkelen, uspesifisert
- 24    |           |     1 | 24    | 24   | Luftrommet
- 24.11 |       378 |     2 | 2411  | 2411 | Luftrom under og lik 1000 m.o.h.
- 24.12 |       378 |     2 | 2412  | 2412 | Luftrom over 1000 m.o.h.
- 24.99 |       378 |     2 | 2499  | 2499 | Luftrom uspesifisert
- 25    |           |     1 | 25    | 25   | Utlandet
- 25.11 |       379 |     2 | 2511  | 2511 | Norske ambassader i utlandet
- 25.99 |       379 |     2 | 2599  | 2599 | Utlandet, uspesifisert
- 26    |           |     1 | 26    | 26   | Havområder
- 26.11 |       380 |     2 | 2611  | 2611 | Havområder innenfor sokkelen
- 26.12 |       380 |     2 | 2612  | 2612 | Havområder utenfor sokkelen
- 26.99 |       380 |     2 | 2699  | 2699 | Havområder, uspesifisert
- 27    |           |     1 | 27    | 27   | Norske biland
- 27.99 |       381 |     2 | 2799  | 2799 | Norske biland (Bouvetøya, Peter I Øy og Dronning Maud Land)
- 28    |           |     1 | 28    | 28   | Ekstrafylke
- 31    |           |     1 | 31    | 31   | Østfold
- 31.01 |         5 |     2 | 3101  | 3101 | Halden
- 31.03 |         5 |     2 | 3103  | 3103 | Moss
- 31.05 |         5 |     2 | 3105  | 3105 | Sarpsborg
- 31.07 |         5 |     2 | 3107  | 3107 | Fredrikstad
- 31.10 |         5 |     2 | 3110  | 3110 | Hvaler
- 31.12 |         5 |     2 | 3112  | 3112 | Råde
- 31.14 |         5 |     2 | 3114  | 3114 | Våler (Østfold)
- 31.16 |         5 |     2 | 3116  | 3116 | Skiptvet
- 31.18 |         5 |     2 | 3118  | 3118 | Indre Østfold
- 31.20 |         5 |     2 | 3120  | 3120 | Rakkestad
- 31.22 |         5 |     2 | 3122  | 3122 | Marker
- 31.24 |         5 |     2 | 3124  | 3124 | Aremark
- 32    |           |     1 | 32    | 32   | Akershus
- 32.01 |         6 |     2 | 3201  | 3201 | Bærum
- 32.03 |         6 |     2 | 3203  | 3203 | Asker
- 32.05 |         6 |     2 | 3205  | 3205 | Lillestrøm
- 32.07 |         6 |     2 | 3207  | 3207 | Nordre Follo
- 32.09 |         6 |     2 | 3209  | 3209 | Ullensaker
- 32.12 |         6 |     2 | 3212  | 3212 | Nesodden
- 32.14 |         6 |     2 | 3214  | 3214 | Frogn
- 32.16 |         6 |     2 | 3216  | 3216 | Vestby
- 32.18 |         6 |     2 | 3218  | 3218 | Ås
- 32.20 |         6 |     2 | 3220  | 3220 | Enebakk
- 32.22 |         6 |     2 | 3222  | 3222 | Lørenskog
- 32.24 |         6 |     2 | 3224  | 3224 | Rælingen
- 32.26 |         6 |     2 | 3226  | 3226 | Aurskog-Høland
- 32.28 |         6 |     2 | 3228  | 3228 | Nes
- 32.30 |         6 |     2 | 3230  | 3230 | Gjerdrum
- 32.32 |         6 |     2 | 3232  | 3232 | Nittedal
- 32.34 |         6 |     2 | 3234  | 3234 | Lunner
- 32.36 |         6 |     2 | 3236  | 3236 | Jevnaker
- 32.38 |         6 |     2 | 3238  | 3238 | Nannestad
- 32.40 |         6 |     2 | 3240  | 3240 | Eidsvoll
- 32.42 |         6 |     2 | 3242  | 3242 | Hurdal
- 33    |           |     1 | 33    | 33   | Buskerud
- 33.01 |         7 |     2 | 3301  | 3301 | Drammen
- 33.03 |         7 |     2 | 3303  | 3303 | Kongsberg
- 33.05 |         7 |     2 | 3305  | 3305 | Ringerike
- 33.10 |         7 |     2 | 3310  | 3310 | Hole
- 33.12 |         7 |     2 | 3312  | 3312 | Lier
- 33.14 |         7 |     2 | 3314  | 3314 | Øvre Eiker
- 33.16 |         7 |     2 | 3316  | 3316 | Modum
- 33.18 |         7 |     2 | 3318  | 3318 | Krødsherad
- 33.20 |         7 |     2 | 3320  | 3320 | Flå
- 33.22 |         7 |     2 | 3322  | 3322 | Nesbyen
- 33.24 |         7 |     2 | 3324  | 3324 | Gol
- 33.26 |         7 |     2 | 3326  | 3326 | Hemsedal
- 33.28 |         7 |     2 | 3328  | 3328 | Ål
- 33.30 |         7 |     2 | 3330  | 3330 | Hol
- 33.32 |         7 |     2 | 3332  | 3332 | Sigdal
- 33.34 |         7 |     2 | 3334  | 3334 | Flesberg
- 33.36 |         7 |     2 | 3336  | 3336 | Rollag
- 33.38 |         7 |     2 | 3338  | 3338 | Nore og Uvdal
- 34    |           |     1 | 34    | 34   | Innlandet
- 34.01 |         8 |     2 | 3401  | 3401 | Kongsvinger
- 34.03 |         8 |     2 | 3403  | 3403 | Hamar
- 34.05 |         8 |     2 | 3405  | 3405 | Lillehammer
- 34.07 |         8 |     2 | 3407  | 3407 | Gjøvik
- 34.11 |         8 |     2 | 3411  | 3411 | Ringsaker
- 34.12 |         8 |     2 | 3412  | 3412 | Løten
- 34.13 |         8 |     2 | 3413  | 3413 | Stange
- 34.14 |         8 |     2 | 3414  | 3414 | Nord-Odal
- 34.15 |         8 |     2 | 3415  | 3415 | Sør-Odal
- 34.16 |         8 |     2 | 3416  | 3416 | Eidskog
- 34.17 |         8 |     2 | 3417  | 3417 | Grue
- 34.18 |         8 |     2 | 3418  | 3418 | Åsnes
- 34.19 |         8 |     2 | 3419  | 3419 | Våler (Innlandet)
- 34.20 |         8 |     2 | 3420  | 3420 | Elverum
- 34.21 |         8 |     2 | 3421  | 3421 | Trysil
- 34.22 |         8 |     2 | 3422  | 3422 | Åmot
- 34.23 |         8 |     2 | 3423  | 3423 | Stor-Elvdal
- 34.24 |         8 |     2 | 3424  | 3424 | Rendalen
- 34.25 |         8 |     2 | 3425  | 3425 | Engerdal
- 34.26 |         8 |     2 | 3426  | 3426 | Tolga
- 34.27 |         8 |     2 | 3427  | 3427 | Tynset
- 34.28 |         8 |     2 | 3428  | 3428 | Alvdal
- 34.29 |         8 |     2 | 3429  | 3429 | Folldal
- 34.30 |         8 |     2 | 3430  | 3430 | Os
- 34.31 |         8 |     2 | 3431  | 3431 | Dovre
- 34.32 |         8 |     2 | 3432  | 3432 | Lesja
- 34.33 |         8 |     2 | 3433  | 3433 | Skjåk
- 34.34 |         8 |     2 | 3434  | 3434 | Lom
- 34.35 |         8 |     2 | 3435  | 3435 | Vågå
- 34.36 |         8 |     2 | 3436  | 3436 | Nord-Fron
- 34.37 |         8 |     2 | 3437  | 3437 | Sel
- 34.38 |         8 |     2 | 3438  | 3438 | Sør-Fron
- 34.39 |         8 |     2 | 3439  | 3439 | Ringebu
- 34.40 |         8 |     2 | 3440  | 3440 | Øyer
- 34.41 |         8 |     2 | 3441  | 3441 | Gausdal
- 34.42 |         8 |     2 | 3442  | 3442 | Østre Toten
- 34.43 |         8 |     2 | 3443  | 3443 | Vestre Toten
- 34.46 |         8 |     2 | 3446  | 3446 | Gran
- 34.47 |         8 |     2 | 3447  | 3447 | Søndre Land
- 34.48 |         8 |     2 | 3448  | 3448 | Nordre Land
- 34.49 |         8 |     2 | 3449  | 3449 | Sør-Aurdal
- 34.50 |         8 |     2 | 3450  | 3450 | Etnedal
- 34.51 |         8 |     2 | 3451  | 3451 | Nord-Aurdal
- 34.52 |         8 |     2 | 3452  | 3452 | Vestre Slidre
- 34.53 |         8 |     2 | 3453  | 3453 | Øystre Slidre
- 34.54 |         8 |     2 | 3454  | 3454 | Vang
- 39    |           |     1 | 39    | 39   | Vestfold
- 39.01 |         9 |     2 | 3901  | 3901 | Horten
- 39.03 |         9 |     2 | 3903  | 3903 | Holmestrand
- 39.05 |         9 |     2 | 3905  | 3905 | Tønsberg
- 39.07 |         9 |     2 | 3907  | 3907 | Sandefjord
- 39.09 |         9 |     2 | 3909  | 3909 | Larvik
- 39.11 |         9 |     2 | 3911  | 3911 | Færder
- 40    |           |     1 | 40    | 40   | Telemark
- 40.01 |        10 |     2 | 4001  | 4001 | Porsgrunn
- 40.03 |        10 |     2 | 4003  | 4003 | Skien
- 40.05 |        10 |     2 | 4005  | 4005 | Notodden
- 40.10 |        10 |     2 | 4010  | 4010 | Siljan
- 40.12 |        10 |     2 | 4012  | 4012 | Bamble
- 40.14 |        10 |     2 | 4014  | 4014 | Kragerø
- 40.16 |        10 |     2 | 4016  | 4016 | Drangedal
- 40.18 |        10 |     2 | 4018  | 4018 | Nome
- 40.20 |        10 |     2 | 4020  | 4020 | Midt-Telemark
- 40.22 |        10 |     2 | 4022  | 4022 | Seljord
- 40.24 |        10 |     2 | 4024  | 4024 | Hjartdal
- 40.26 |        10 |     2 | 4026  | 4026 | Tinn
- 40.28 |        10 |     2 | 4028  | 4028 | Kviteseid
- 40.30 |        10 |     2 | 4030  | 4030 | Nissedal
- 40.32 |        10 |     2 | 4032  | 4032 | Fyresdal
- 40.34 |        10 |     2 | 4034  | 4034 | Tokke
- 40.36 |        10 |     2 | 4036  | 4036 | Vinje
- 42    |           |     1 | 42    | 42   | Agder
- 42.01 |        11 |     2 | 4201  | 4201 | Risør
- 42.02 |        11 |     2 | 4202  | 4202 | Grimstad
- 42.03 |        11 |     2 | 4203  | 4203 | Arendal
- 42.04 |        11 |     2 | 4204  | 4204 | Kristiansand
- 42.05 |        11 |     2 | 4205  | 4205 | Lindesnes
- 42.06 |        11 |     2 | 4206  | 4206 | Farsund
- 42.07 |        11 |     2 | 4207  | 4207 | Flekkefjord
- 42.11 |        11 |     2 | 4211  | 4211 | Gjerstad
- 42.12 |        11 |     2 | 4212  | 4212 | Vegårshei
- 42.13 |        11 |     2 | 4213  | 4213 | Tvedestrand
- 42.14 |        11 |     2 | 4214  | 4214 | Froland
- 42.15 |        11 |     2 | 4215  | 4215 | Lillesand
- 42.16 |        11 |     2 | 4216  | 4216 | Birkenes
- 42.17 |        11 |     2 | 4217  | 4217 | Åmli
- 42.18 |        11 |     2 | 4218  | 4218 | Iveland
- 42.19 |        11 |     2 | 4219  | 4219 | Evje og Hornnes
- 42.20 |        11 |     2 | 4220  | 4220 | Bygland
- 42.21 |        11 |     2 | 4221  | 4221 | Valle
- 42.22 |        11 |     2 | 4222  | 4222 | Bykle
- 42.23 |        11 |     2 | 4223  | 4223 | Vennesla
- 42.24 |        11 |     2 | 4224  | 4224 | Åseral
- 42.25 |        11 |     2 | 4225  | 4225 | Lyngdal
- 42.26 |        11 |     2 | 4226  | 4226 | Hægebostad
- 42.27 |        11 |     2 | 4227  | 4227 | Kvinesdal
- 42.28 |        11 |     2 | 4228  | 4228 | Sirdal
- 46    |           |     1 | 46    | 46   | Vestland
- 46.01 |        12 |     2 | 4601  | 4601 | Bergen
- 46.02 |        12 |     2 | 4602  | 4602 | Kinn
- 46.11 |        12 |     2 | 4611  | 4611 | Etne
- 46.12 |        12 |     2 | 4612  | 4612 | Sveio
- 46.13 |        12 |     2 | 4613  | 4613 | Bømlo
- 46.14 |        12 |     2 | 4614  | 4614 | Stord
- 46.15 |        12 |     2 | 4615  | 4615 | Fitjar
- 46.16 |        12 |     2 | 4616  | 4616 | Tysnes
- 46.17 |        12 |     2 | 4617  | 4617 | Kvinnherad
- 46.18 |        12 |     2 | 4618  | 4618 | Ullensvang
- 46.19 |        12 |     2 | 4619  | 4619 | Eidfjord
- 46.20 |        12 |     2 | 4620  | 4620 | Ulvik
- 46.21 |        12 |     2 | 4621  | 4621 | Voss
- 46.22 |        12 |     2 | 4622  | 4622 | Kvam
- 46.23 |        12 |     2 | 4623  | 4623 | Samnanger
- 46.24 |        12 |     2 | 4624  | 4624 | Bjørnafjorden
- 46.25 |        12 |     2 | 4625  | 4625 | Austevoll
- 46.26 |        12 |     2 | 4626  | 4626 | Øygarden
- 46.27 |        12 |     2 | 4627  | 4627 | Askøy
- 46.28 |        12 |     2 | 4628  | 4628 | Vaksdal
- 46.29 |        12 |     2 | 4629  | 4629 | Modalen
- 46.30 |        12 |     2 | 4630  | 4630 | Osterøy
- 46.31 |        12 |     2 | 4631  | 4631 | Alver
- 46.32 |        12 |     2 | 4632  | 4632 | Austrheim
- 46.33 |        12 |     2 | 4633  | 4633 | Fedje
- 46.34 |        12 |     2 | 4634  | 4634 | Masfjorden
- 46.35 |        12 |     2 | 4635  | 4635 | Gulen
- 46.36 |        12 |     2 | 4636  | 4636 | Solund
- 46.37 |        12 |     2 | 4637  | 4637 | Hyllestad
- 46.38 |        12 |     2 | 4638  | 4638 | Høyanger
- 46.39 |        12 |     2 | 4639  | 4639 | Vik
- 46.40 |        12 |     2 | 4640  | 4640 | Sogndal
- 46.41 |        12 |     2 | 4641  | 4641 | Aurland
- 46.42 |        12 |     2 | 4642  | 4642 | Lærdal
- 46.43 |        12 |     2 | 4643  | 4643 | Årdal
- 46.44 |        12 |     2 | 4644  | 4644 | Luster
- 46.45 |        12 |     2 | 4645  | 4645 | Askvoll
- 46.46 |        12 |     2 | 4646  | 4646 | Fjaler
- 46.47 |        12 |     2 | 4647  | 4647 | Sunnfjord
- 46.48 |        12 |     2 | 4648  | 4648 | Bremanger
- 46.49 |        12 |     2 | 4649  | 4649 | Stad
- 46.50 |        12 |     2 | 4650  | 4650 | Gloppen
- 46.51 |        12 |     2 | 4651  | 4651 | Stryn
- 50    |           |     1 | 50    | 50   | Trøndelag - Trööndelage
- 50.01 |        13 |     2 | 5001  | 5001 | Trondheim - Tråante
- 50.06 |        13 |     2 | 5006  | 5006 | Steinkjer
- 50.07 |        13 |     2 | 5007  | 5007 | Namsos - Nåavmesjenjaelmie
- 50.14 |        13 |     2 | 5014  | 5014 | Frøya
- 50.20 |        13 |     2 | 5020  | 5020 | Osen
- 50.21 |        13 |     2 | 5021  | 5021 | Oppdal
- 50.22 |        13 |     2 | 5022  | 5022 | Rennebu
- 50.25 |        13 |     2 | 5025  | 5025 | Røros - Rossen
- 50.26 |        13 |     2 | 5026  | 5026 | Holtålen
- 50.27 |        13 |     2 | 5027  | 5027 | Midtre Gauldal
- 50.28 |        13 |     2 | 5028  | 5028 | Melhus
- 50.29 |        13 |     2 | 5029  | 5029 | Skaun
- 50.31 |        13 |     2 | 5031  | 5031 | Malvik
- 50.32 |        13 |     2 | 5032  | 5032 | Selbu
- 50.33 |        13 |     2 | 5033  | 5033 | Tydal
- 50.34 |        13 |     2 | 5034  | 5034 | Meråker
- 50.35 |        13 |     2 | 5035  | 5035 | Stjørdal
- 50.36 |        13 |     2 | 5036  | 5036 | Frosta
- 50.37 |        13 |     2 | 5037  | 5037 | Levanger - Levangke
- 50.38 |        13 |     2 | 5038  | 5038 | Verdal
- 50.41 |        13 |     2 | 5041  | 5041 | Snåase - Snåsa
- 50.42 |        13 |     2 | 5042  | 5042 | Lierne
- 50.43 |        13 |     2 | 5043  | 5043 | Raarvihke - Røyrvik
- 50.44 |        13 |     2 | 5044  | 5044 | Namsskogan
- 50.45 |        13 |     2 | 5045  | 5045 | Grong
- 50.46 |        13 |     2 | 5046  | 5046 | Høylandet
- 50.47 |        13 |     2 | 5047  | 5047 | Overhalla
- 50.49 |        13 |     2 | 5049  | 5049 | Flatanger
- 50.52 |        13 |     2 | 5052  | 5052 | Leka
- 50.53 |        13 |     2 | 5053  | 5053 | Inderøy
- 50.54 |        13 |     2 | 5054  | 5054 | Indre Fosen
- 50.55 |        13 |     2 | 5055  | 5055 | Heim
- 50.56 |        13 |     2 | 5056  | 5056 | Hitra
- 50.57 |        13 |     2 | 5057  | 5057 | Ørland
- 50.58 |        13 |     2 | 5058  | 5058 | Åfjord
- 50.59 |        13 |     2 | 5059  | 5059 | Orkland
- 50.60 |        13 |     2 | 5060  | 5060 | Nærøysund
- 50.61 |        13 |     2 | 5061  | 5061 | Rindal
- 55    |           |     1 | 55    | 55   | Troms - Romsa - Tromssa
- 55.01 |        14 |     2 | 5501  | 5501 | Tromsø
- 55.03 |        14 |     2 | 5503  | 5503 | Harstad - Hárstták
- 55.10 |        14 |     2 | 5510  | 5510 | Kvæfjord
- 55.12 |        14 |     2 | 5512  | 5512 | Dielddanuorri - Tjeldsund
- 55.14 |        14 |     2 | 5514  | 5514 | Ibestad
- 55.16 |        14 |     2 | 5516  | 5516 | Gratangen - Rivtták
- 55.18 |        14 |     2 | 5518  | 5518 | Loabák - Lavangen
- 55.20 |        14 |     2 | 5520  | 5520 | Bardu
- 55.22 |        14 |     2 | 5522  | 5522 | Salangen
- 55.24 |        14 |     2 | 5524  | 5524 | Målselv
- 55.26 |        14 |     2 | 5526  | 5526 | Sørreisa
- 55.28 |        14 |     2 | 5528  | 5528 | Dyrøy
- 55.30 |        14 |     2 | 5530  | 5530 | Senja
- 55.32 |        14 |     2 | 5532  | 5532 | Balsfjord
- 55.34 |        14 |     2 | 5534  | 5534 | Karlsøy
- 55.36 |        14 |     2 | 5536  | 5536 | Lyngen
- 55.38 |        14 |     2 | 5538  | 5538 | Storfjord - Omasvuotna - Omasvuono
- 55.40 |        14 |     2 | 5540  | 5540 | Gáivuotna - Kåfjord - Kaivuono
- 55.42 |        14 |     2 | 5542  | 5542 | Skjervøy
- 55.44 |        14 |     2 | 5544  | 5544 | Nordreisa - Ráisa - Raisi
- 55.46 |        14 |     2 | 5546  | 5546 | Kvænangen
- 56    |           |     1 | 56    | 56   | Finnmark - Finnmárku - Finmarkku
- 56.01 |        15 |     2 | 5601  | 5601 | Alta
- 56.03 |        15 |     2 | 5603  | 5603 | Hammerfest - Hámmerfeasta
- 56.05 |        15 |     2 | 5605  | 5605 | Sør-Varanger
- 56.07 |        15 |     2 | 5607  | 5607 | Vadsø
- 56.10 |        15 |     2 | 5610  | 5610 | Kárá?johka - Karasjok
- 56.12 |        15 |     2 | 5612  | 5612 | Guovdageaidnu - Kautokeino
- 56.14 |        15 |     2 | 5614  | 5614 | Loppa
- 56.16 |        15 |     2 | 5616  | 5616 | Hasvik
- 56.18 |        15 |     2 | 5618  | 5618 | Måsøy
- 56.20 |        15 |     2 | 5620  | 5620 | Nordkapp
- 56.22 |        15 |     2 | 5622  | 5622 | Porsanger - Porsángu - Porsanki
- 56.24 |        15 |     2 | 5624  | 5624 | Lebesby
- 56.26 |        15 |     2 | 5626  | 5626 | Gamvik
- 56.28 |        15 |     2 | 5628  | 5628 | Deatnu - Tana
- 56.30 |        15 |     2 | 5630  | 5630 | Berlevåg
- 56.32 |        15 |     2 | 5632  | 5632 | Båtsfjord
- 56.34 |        15 |     2 | 5634  | 5634 | Vardø
- 56.36 |        15 |     2 | 5636  | 5636 | Unjárga - Nesseby
- 99    |           |     1 | 99    | 99   | Uoppgitt
- 99.99 |        16 |     2 | 9999  | 9999 | Uoppgitt
+ path  | level | label | code |                            name                             
+-------+-------+-------+------+-------------------------------------------------------------
+ 03    |     1 | 03    | 03   | Oslo
+ 03.01 |     2 | 0301  | 0301 | Oslo
+ 11    |     1 | 11    | 11   | Rogaland
+ 11.01 |     2 | 1101  | 1101 | Eigersund
+ 11.03 |     2 | 1103  | 1103 | Stavanger
+ 11.06 |     2 | 1106  | 1106 | Haugesund
+ 11.08 |     2 | 1108  | 1108 | Sandnes
+ 11.11 |     2 | 1111  | 1111 | Sokndal
+ 11.12 |     2 | 1112  | 1112 | Lund
+ 11.14 |     2 | 1114  | 1114 | Bjerkreim
+ 11.19 |     2 | 1119  | 1119 | Hå
+ 11.20 |     2 | 1120  | 1120 | Klepp
+ 11.21 |     2 | 1121  | 1121 | Time
+ 11.22 |     2 | 1122  | 1122 | Gjesdal
+ 11.24 |     2 | 1124  | 1124 | Sola
+ 11.27 |     2 | 1127  | 1127 | Randaberg
+ 11.30 |     2 | 1130  | 1130 | Strand
+ 11.33 |     2 | 1133  | 1133 | Hjelmeland
+ 11.34 |     2 | 1134  | 1134 | Suldal
+ 11.35 |     2 | 1135  | 1135 | Sauda
+ 11.44 |     2 | 1144  | 1144 | Kvitsøy
+ 11.45 |     2 | 1145  | 1145 | Bokn
+ 11.46 |     2 | 1146  | 1146 | Tysvær
+ 11.49 |     2 | 1149  | 1149 | Karmøy
+ 11.51 |     2 | 1151  | 1151 | Utsira
+ 11.60 |     2 | 1160  | 1160 | Vindafjord
+ 15    |     1 | 15    | 15   | Møre og Romsdal
+ 15.05 |     2 | 1505  | 1505 | Kristiansund
+ 15.06 |     2 | 1506  | 1506 | Molde
+ 15.08 |     2 | 1508  | 1508 | Ålesund
+ 15.11 |     2 | 1511  | 1511 | Vanylven
+ 15.14 |     2 | 1514  | 1514 | Sande
+ 15.15 |     2 | 1515  | 1515 | Herøy (Møre og Romsdal)
+ 15.16 |     2 | 1516  | 1516 | Ulstein
+ 15.17 |     2 | 1517  | 1517 | Hareid
+ 15.20 |     2 | 1520  | 1520 | Ørsta
+ 15.25 |     2 | 1525  | 1525 | Stranda
+ 15.28 |     2 | 1528  | 1528 | Sykkylven
+ 15.31 |     2 | 1531  | 1531 | Sula
+ 15.32 |     2 | 1532  | 1532 | Giske
+ 15.35 |     2 | 1535  | 1535 | Vestnes
+ 15.39 |     2 | 1539  | 1539 | Rauma
+ 15.47 |     2 | 1547  | 1547 | Aukra
+ 15.54 |     2 | 1554  | 1554 | Averøy
+ 15.57 |     2 | 1557  | 1557 | Gjemnes
+ 15.60 |     2 | 1560  | 1560 | Tingvoll
+ 15.63 |     2 | 1563  | 1563 | Sunndal
+ 15.66 |     2 | 1566  | 1566 | Surnadal
+ 15.73 |     2 | 1573  | 1573 | Smøla
+ 15.76 |     2 | 1576  | 1576 | Aure
+ 15.77 |     2 | 1577  | 1577 | Volda
+ 15.78 |     2 | 1578  | 1578 | Fjord
+ 15.79 |     2 | 1579  | 1579 | Hustadvika
+ 15.80 |     2 | 1580  | 1580 | Haram
+ 18    |     1 | 18    | 18   | Nordland - Nordlánnda
+ 18.04 |     2 | 1804  | 1804 | Bodø
+ 18.06 |     2 | 1806  | 1806 | Narvik
+ 18.11 |     2 | 1811  | 1811 | Bindal
+ 18.12 |     2 | 1812  | 1812 | Sømna
+ 18.13 |     2 | 1813  | 1813 | Brønnøy
+ 18.15 |     2 | 1815  | 1815 | Vega
+ 18.16 |     2 | 1816  | 1816 | Vevelstad
+ 18.18 |     2 | 1818  | 1818 | Herøy (Nordland)
+ 18.20 |     2 | 1820  | 1820 | Alstahaug
+ 18.22 |     2 | 1822  | 1822 | Leirfjord
+ 18.24 |     2 | 1824  | 1824 | Vefsn
+ 18.25 |     2 | 1825  | 1825 | Grane
+ 18.26 |     2 | 1826  | 1826 | Aarborte - Hattfjelldal
+ 18.27 |     2 | 1827  | 1827 | Dønna
+ 18.28 |     2 | 1828  | 1828 | Nesna
+ 18.32 |     2 | 1832  | 1832 | Hemnes
+ 18.33 |     2 | 1833  | 1833 | Rana - Raane
+ 18.34 |     2 | 1834  | 1834 | Lurøy
+ 18.35 |     2 | 1835  | 1835 | Træna
+ 18.36 |     2 | 1836  | 1836 | Rødøy
+ 18.37 |     2 | 1837  | 1837 | Meløy
+ 18.38 |     2 | 1838  | 1838 | Gildeskål
+ 18.39 |     2 | 1839  | 1839 | Beiarn
+ 18.40 |     2 | 1840  | 1840 | Saltdal
+ 18.41 |     2 | 1841  | 1841 | Fauske - Fuossko
+ 18.45 |     2 | 1845  | 1845 | Sørfold - Fuolldá
+ 18.48 |     2 | 1848  | 1848 | Steigen
+ 18.51 |     2 | 1851  | 1851 | Lødingen
+ 18.53 |     2 | 1853  | 1853 | Evenes - Evená??i
+ 18.56 |     2 | 1856  | 1856 | Røst
+ 18.57 |     2 | 1857  | 1857 | Værøy
+ 18.59 |     2 | 1859  | 1859 | Flakstad
+ 18.60 |     2 | 1860  | 1860 | Vestvågøy
+ 18.65 |     2 | 1865  | 1865 | Vågan
+ 18.66 |     2 | 1866  | 1866 | Hadsel
+ 18.67 |     2 | 1867  | 1867 | Bø
+ 18.68 |     2 | 1868  | 1868 | Øksnes
+ 18.70 |     2 | 1870  | 1870 | Sortland - Suortá
+ 18.71 |     2 | 1871  | 1871 | Andøy
+ 18.74 |     2 | 1874  | 1874 | Moskenes
+ 18.75 |     2 | 1875  | 1875 | Hábmer - Hamarøy
+ 21    |     1 | 21    | 21   | Svalbard
+ 21.00 |     2 | 2100  | 2100 | Svalbardområde
+ 21.01 |     2 | 2101  | 2101 | Colesbukta arealplanområde
+ 21.02 |     2 | 2102  | 2102 | Pyramiden arealplanområde
+ 21.03 |     2 | 2103  | 2103 | Van Mijenfjorden
+ 21.04 |     2 | 2104  | 2104 | Nordenskiöld Land nasjonalpark
+ 21.05 |     2 | 2105  | 2105 | Isfjorden
+ 21.06 |     2 | 2106  | 2106 | Sassen-Bünsow Land nasjonalpark
+ 21.07 |     2 | 2107  | 2107 | Nordre Isfjorden nasjonalpark
+ 21.08 |     2 | 2108  | 2108 | Kongsfjorden
+ 21.09 |     2 | 2109  | 2109 | Forlandet nasjonalpark
+ 21.10 |     2 | 2110  | 2110 | Wijdefjorden
+ 21.11 |     2 | 2111  | 2111 | Longyearbyen arealplanområde
+ 21.12 |     2 | 2112  | 2112 | Ny-Ålesund arealplanområde
+ 21.13 |     2 | 2113  | 2113 | Barentsburg arealplanområde
+ 21.14 |     2 | 2114  | 2114 | Sør-Spitsbergen nasjonalpark
+ 21.15 |     2 | 2115  | 2115 | Sveagruva arealplanområde
+ 21.16 |     2 | 2116  | 2116 | Indre Wijdefjorden nasjonalpark
+ 21.17 |     2 | 2117  | 2117 | Nordvest-Spitsbergen nasjonalpark
+ 21.18 |     2 | 2118  | 2118 | Nordaust-Svalbard naturreservat
+ 21.19 |     2 | 2119  | 2119 | Søraust-Svalbard naturreservat
+ 21.21 |     2 | 2121  | 2121 | Bjørnøya naturreservat
+ 21.31 |     2 | 2131  | 2131 | Hopen naturreservat
+ 22    |     1 | 22    | 22   | Jan Mayen
+ 22.11 |     2 | 2211  | 2211 | Jan Mayen
+ 23    |     1 | 23    | 23   | Kontinentalsokkelen
+ 23.11 |     2 | 2311  | 2311 | Sokkelen sør for 62 grader N
+ 23.21 |     2 | 2321  | 2321 | Sokkelen nord for 62 grader N
+ 23.99 |     2 | 2399  | 2399 | Sokkelen, uspesifisert
+ 24    |     1 | 24    | 24   | Luftrommet
+ 24.11 |     2 | 2411  | 2411 | Luftrom under og lik 1000 m.o.h.
+ 24.12 |     2 | 2412  | 2412 | Luftrom over 1000 m.o.h.
+ 24.99 |     2 | 2499  | 2499 | Luftrom uspesifisert
+ 25    |     1 | 25    | 25   | Utlandet
+ 25.11 |     2 | 2511  | 2511 | Norske ambassader i utlandet
+ 25.99 |     2 | 2599  | 2599 | Utlandet, uspesifisert
+ 26    |     1 | 26    | 26   | Havområder
+ 26.11 |     2 | 2611  | 2611 | Havområder innenfor sokkelen
+ 26.12 |     2 | 2612  | 2612 | Havområder utenfor sokkelen
+ 26.99 |     2 | 2699  | 2699 | Havområder, uspesifisert
+ 27    |     1 | 27    | 27   | Norske biland
+ 27.99 |     2 | 2799  | 2799 | Norske biland (Bouvetøya, Peter I Øy og Dronning Maud Land)
+ 28    |     1 | 28    | 28   | Ekstrafylke
+ 31    |     1 | 31    | 31   | Østfold
+ 31.01 |     2 | 3101  | 3101 | Halden
+ 31.03 |     2 | 3103  | 3103 | Moss
+ 31.05 |     2 | 3105  | 3105 | Sarpsborg
+ 31.07 |     2 | 3107  | 3107 | Fredrikstad
+ 31.10 |     2 | 3110  | 3110 | Hvaler
+ 31.12 |     2 | 3112  | 3112 | Råde
+ 31.14 |     2 | 3114  | 3114 | Våler (Østfold)
+ 31.16 |     2 | 3116  | 3116 | Skiptvet
+ 31.18 |     2 | 3118  | 3118 | Indre Østfold
+ 31.20 |     2 | 3120  | 3120 | Rakkestad
+ 31.22 |     2 | 3122  | 3122 | Marker
+ 31.24 |     2 | 3124  | 3124 | Aremark
+ 32    |     1 | 32    | 32   | Akershus
+ 32.01 |     2 | 3201  | 3201 | Bærum
+ 32.03 |     2 | 3203  | 3203 | Asker
+ 32.05 |     2 | 3205  | 3205 | Lillestrøm
+ 32.07 |     2 | 3207  | 3207 | Nordre Follo
+ 32.09 |     2 | 3209  | 3209 | Ullensaker
+ 32.12 |     2 | 3212  | 3212 | Nesodden
+ 32.14 |     2 | 3214  | 3214 | Frogn
+ 32.16 |     2 | 3216  | 3216 | Vestby
+ 32.18 |     2 | 3218  | 3218 | Ås
+ 32.20 |     2 | 3220  | 3220 | Enebakk
+ 32.22 |     2 | 3222  | 3222 | Lørenskog
+ 32.24 |     2 | 3224  | 3224 | Rælingen
+ 32.26 |     2 | 3226  | 3226 | Aurskog-Høland
+ 32.28 |     2 | 3228  | 3228 | Nes
+ 32.30 |     2 | 3230  | 3230 | Gjerdrum
+ 32.32 |     2 | 3232  | 3232 | Nittedal
+ 32.34 |     2 | 3234  | 3234 | Lunner
+ 32.36 |     2 | 3236  | 3236 | Jevnaker
+ 32.38 |     2 | 3238  | 3238 | Nannestad
+ 32.40 |     2 | 3240  | 3240 | Eidsvoll
+ 32.42 |     2 | 3242  | 3242 | Hurdal
+ 33    |     1 | 33    | 33   | Buskerud
+ 33.01 |     2 | 3301  | 3301 | Drammen
+ 33.03 |     2 | 3303  | 3303 | Kongsberg
+ 33.05 |     2 | 3305  | 3305 | Ringerike
+ 33.10 |     2 | 3310  | 3310 | Hole
+ 33.12 |     2 | 3312  | 3312 | Lier
+ 33.14 |     2 | 3314  | 3314 | Øvre Eiker
+ 33.16 |     2 | 3316  | 3316 | Modum
+ 33.18 |     2 | 3318  | 3318 | Krødsherad
+ 33.20 |     2 | 3320  | 3320 | Flå
+ 33.22 |     2 | 3322  | 3322 | Nesbyen
+ 33.24 |     2 | 3324  | 3324 | Gol
+ 33.26 |     2 | 3326  | 3326 | Hemsedal
+ 33.28 |     2 | 3328  | 3328 | Ål
+ 33.30 |     2 | 3330  | 3330 | Hol
+ 33.32 |     2 | 3332  | 3332 | Sigdal
+ 33.34 |     2 | 3334  | 3334 | Flesberg
+ 33.36 |     2 | 3336  | 3336 | Rollag
+ 33.38 |     2 | 3338  | 3338 | Nore og Uvdal
+ 34    |     1 | 34    | 34   | Innlandet
+ 34.01 |     2 | 3401  | 3401 | Kongsvinger
+ 34.03 |     2 | 3403  | 3403 | Hamar
+ 34.05 |     2 | 3405  | 3405 | Lillehammer
+ 34.07 |     2 | 3407  | 3407 | Gjøvik
+ 34.11 |     2 | 3411  | 3411 | Ringsaker
+ 34.12 |     2 | 3412  | 3412 | Løten
+ 34.13 |     2 | 3413  | 3413 | Stange
+ 34.14 |     2 | 3414  | 3414 | Nord-Odal
+ 34.15 |     2 | 3415  | 3415 | Sør-Odal
+ 34.16 |     2 | 3416  | 3416 | Eidskog
+ 34.17 |     2 | 3417  | 3417 | Grue
+ 34.18 |     2 | 3418  | 3418 | Åsnes
+ 34.19 |     2 | 3419  | 3419 | Våler (Innlandet)
+ 34.20 |     2 | 3420  | 3420 | Elverum
+ 34.21 |     2 | 3421  | 3421 | Trysil
+ 34.22 |     2 | 3422  | 3422 | Åmot
+ 34.23 |     2 | 3423  | 3423 | Stor-Elvdal
+ 34.24 |     2 | 3424  | 3424 | Rendalen
+ 34.25 |     2 | 3425  | 3425 | Engerdal
+ 34.26 |     2 | 3426  | 3426 | Tolga
+ 34.27 |     2 | 3427  | 3427 | Tynset
+ 34.28 |     2 | 3428  | 3428 | Alvdal
+ 34.29 |     2 | 3429  | 3429 | Folldal
+ 34.30 |     2 | 3430  | 3430 | Os
+ 34.31 |     2 | 3431  | 3431 | Dovre
+ 34.32 |     2 | 3432  | 3432 | Lesja
+ 34.33 |     2 | 3433  | 3433 | Skjåk
+ 34.34 |     2 | 3434  | 3434 | Lom
+ 34.35 |     2 | 3435  | 3435 | Vågå
+ 34.36 |     2 | 3436  | 3436 | Nord-Fron
+ 34.37 |     2 | 3437  | 3437 | Sel
+ 34.38 |     2 | 3438  | 3438 | Sør-Fron
+ 34.39 |     2 | 3439  | 3439 | Ringebu
+ 34.40 |     2 | 3440  | 3440 | Øyer
+ 34.41 |     2 | 3441  | 3441 | Gausdal
+ 34.42 |     2 | 3442  | 3442 | Østre Toten
+ 34.43 |     2 | 3443  | 3443 | Vestre Toten
+ 34.46 |     2 | 3446  | 3446 | Gran
+ 34.47 |     2 | 3447  | 3447 | Søndre Land
+ 34.48 |     2 | 3448  | 3448 | Nordre Land
+ 34.49 |     2 | 3449  | 3449 | Sør-Aurdal
+ 34.50 |     2 | 3450  | 3450 | Etnedal
+ 34.51 |     2 | 3451  | 3451 | Nord-Aurdal
+ 34.52 |     2 | 3452  | 3452 | Vestre Slidre
+ 34.53 |     2 | 3453  | 3453 | Øystre Slidre
+ 34.54 |     2 | 3454  | 3454 | Vang
+ 39    |     1 | 39    | 39   | Vestfold
+ 39.01 |     2 | 3901  | 3901 | Horten
+ 39.03 |     2 | 3903  | 3903 | Holmestrand
+ 39.05 |     2 | 3905  | 3905 | Tønsberg
+ 39.07 |     2 | 3907  | 3907 | Sandefjord
+ 39.09 |     2 | 3909  | 3909 | Larvik
+ 39.11 |     2 | 3911  | 3911 | Færder
+ 40    |     1 | 40    | 40   | Telemark
+ 40.01 |     2 | 4001  | 4001 | Porsgrunn
+ 40.03 |     2 | 4003  | 4003 | Skien
+ 40.05 |     2 | 4005  | 4005 | Notodden
+ 40.10 |     2 | 4010  | 4010 | Siljan
+ 40.12 |     2 | 4012  | 4012 | Bamble
+ 40.14 |     2 | 4014  | 4014 | Kragerø
+ 40.16 |     2 | 4016  | 4016 | Drangedal
+ 40.18 |     2 | 4018  | 4018 | Nome
+ 40.20 |     2 | 4020  | 4020 | Midt-Telemark
+ 40.22 |     2 | 4022  | 4022 | Seljord
+ 40.24 |     2 | 4024  | 4024 | Hjartdal
+ 40.26 |     2 | 4026  | 4026 | Tinn
+ 40.28 |     2 | 4028  | 4028 | Kviteseid
+ 40.30 |     2 | 4030  | 4030 | Nissedal
+ 40.32 |     2 | 4032  | 4032 | Fyresdal
+ 40.34 |     2 | 4034  | 4034 | Tokke
+ 40.36 |     2 | 4036  | 4036 | Vinje
+ 42    |     1 | 42    | 42   | Agder
+ 42.01 |     2 | 4201  | 4201 | Risør
+ 42.02 |     2 | 4202  | 4202 | Grimstad
+ 42.03 |     2 | 4203  | 4203 | Arendal
+ 42.04 |     2 | 4204  | 4204 | Kristiansand
+ 42.05 |     2 | 4205  | 4205 | Lindesnes
+ 42.06 |     2 | 4206  | 4206 | Farsund
+ 42.07 |     2 | 4207  | 4207 | Flekkefjord
+ 42.11 |     2 | 4211  | 4211 | Gjerstad
+ 42.12 |     2 | 4212  | 4212 | Vegårshei
+ 42.13 |     2 | 4213  | 4213 | Tvedestrand
+ 42.14 |     2 | 4214  | 4214 | Froland
+ 42.15 |     2 | 4215  | 4215 | Lillesand
+ 42.16 |     2 | 4216  | 4216 | Birkenes
+ 42.17 |     2 | 4217  | 4217 | Åmli
+ 42.18 |     2 | 4218  | 4218 | Iveland
+ 42.19 |     2 | 4219  | 4219 | Evje og Hornnes
+ 42.20 |     2 | 4220  | 4220 | Bygland
+ 42.21 |     2 | 4221  | 4221 | Valle
+ 42.22 |     2 | 4222  | 4222 | Bykle
+ 42.23 |     2 | 4223  | 4223 | Vennesla
+ 42.24 |     2 | 4224  | 4224 | Åseral
+ 42.25 |     2 | 4225  | 4225 | Lyngdal
+ 42.26 |     2 | 4226  | 4226 | Hægebostad
+ 42.27 |     2 | 4227  | 4227 | Kvinesdal
+ 42.28 |     2 | 4228  | 4228 | Sirdal
+ 46    |     1 | 46    | 46   | Vestland
+ 46.01 |     2 | 4601  | 4601 | Bergen
+ 46.02 |     2 | 4602  | 4602 | Kinn
+ 46.11 |     2 | 4611  | 4611 | Etne
+ 46.12 |     2 | 4612  | 4612 | Sveio
+ 46.13 |     2 | 4613  | 4613 | Bømlo
+ 46.14 |     2 | 4614  | 4614 | Stord
+ 46.15 |     2 | 4615  | 4615 | Fitjar
+ 46.16 |     2 | 4616  | 4616 | Tysnes
+ 46.17 |     2 | 4617  | 4617 | Kvinnherad
+ 46.18 |     2 | 4618  | 4618 | Ullensvang
+ 46.19 |     2 | 4619  | 4619 | Eidfjord
+ 46.20 |     2 | 4620  | 4620 | Ulvik
+ 46.21 |     2 | 4621  | 4621 | Voss
+ 46.22 |     2 | 4622  | 4622 | Kvam
+ 46.23 |     2 | 4623  | 4623 | Samnanger
+ 46.24 |     2 | 4624  | 4624 | Bjørnafjorden
+ 46.25 |     2 | 4625  | 4625 | Austevoll
+ 46.26 |     2 | 4626  | 4626 | Øygarden
+ 46.27 |     2 | 4627  | 4627 | Askøy
+ 46.28 |     2 | 4628  | 4628 | Vaksdal
+ 46.29 |     2 | 4629  | 4629 | Modalen
+ 46.30 |     2 | 4630  | 4630 | Osterøy
+ 46.31 |     2 | 4631  | 4631 | Alver
+ 46.32 |     2 | 4632  | 4632 | Austrheim
+ 46.33 |     2 | 4633  | 4633 | Fedje
+ 46.34 |     2 | 4634  | 4634 | Masfjorden
+ 46.35 |     2 | 4635  | 4635 | Gulen
+ 46.36 |     2 | 4636  | 4636 | Solund
+ 46.37 |     2 | 4637  | 4637 | Hyllestad
+ 46.38 |     2 | 4638  | 4638 | Høyanger
+ 46.39 |     2 | 4639  | 4639 | Vik
+ 46.40 |     2 | 4640  | 4640 | Sogndal
+ 46.41 |     2 | 4641  | 4641 | Aurland
+ 46.42 |     2 | 4642  | 4642 | Lærdal
+ 46.43 |     2 | 4643  | 4643 | Årdal
+ 46.44 |     2 | 4644  | 4644 | Luster
+ 46.45 |     2 | 4645  | 4645 | Askvoll
+ 46.46 |     2 | 4646  | 4646 | Fjaler
+ 46.47 |     2 | 4647  | 4647 | Sunnfjord
+ 46.48 |     2 | 4648  | 4648 | Bremanger
+ 46.49 |     2 | 4649  | 4649 | Stad
+ 46.50 |     2 | 4650  | 4650 | Gloppen
+ 46.51 |     2 | 4651  | 4651 | Stryn
+ 50    |     1 | 50    | 50   | Trøndelag - Trööndelage
+ 50.01 |     2 | 5001  | 5001 | Trondheim - Tråante
+ 50.06 |     2 | 5006  | 5006 | Steinkjer
+ 50.07 |     2 | 5007  | 5007 | Namsos - Nåavmesjenjaelmie
+ 50.14 |     2 | 5014  | 5014 | Frøya
+ 50.20 |     2 | 5020  | 5020 | Osen
+ 50.21 |     2 | 5021  | 5021 | Oppdal
+ 50.22 |     2 | 5022  | 5022 | Rennebu
+ 50.25 |     2 | 5025  | 5025 | Røros - Rossen
+ 50.26 |     2 | 5026  | 5026 | Holtålen
+ 50.27 |     2 | 5027  | 5027 | Midtre Gauldal
+ 50.28 |     2 | 5028  | 5028 | Melhus
+ 50.29 |     2 | 5029  | 5029 | Skaun
+ 50.31 |     2 | 5031  | 5031 | Malvik
+ 50.32 |     2 | 5032  | 5032 | Selbu
+ 50.33 |     2 | 5033  | 5033 | Tydal
+ 50.34 |     2 | 5034  | 5034 | Meråker
+ 50.35 |     2 | 5035  | 5035 | Stjørdal
+ 50.36 |     2 | 5036  | 5036 | Frosta
+ 50.37 |     2 | 5037  | 5037 | Levanger - Levangke
+ 50.38 |     2 | 5038  | 5038 | Verdal
+ 50.41 |     2 | 5041  | 5041 | Snåase - Snåsa
+ 50.42 |     2 | 5042  | 5042 | Lierne
+ 50.43 |     2 | 5043  | 5043 | Raarvihke - Røyrvik
+ 50.44 |     2 | 5044  | 5044 | Namsskogan
+ 50.45 |     2 | 5045  | 5045 | Grong
+ 50.46 |     2 | 5046  | 5046 | Høylandet
+ 50.47 |     2 | 5047  | 5047 | Overhalla
+ 50.49 |     2 | 5049  | 5049 | Flatanger
+ 50.52 |     2 | 5052  | 5052 | Leka
+ 50.53 |     2 | 5053  | 5053 | Inderøy
+ 50.54 |     2 | 5054  | 5054 | Indre Fosen
+ 50.55 |     2 | 5055  | 5055 | Heim
+ 50.56 |     2 | 5056  | 5056 | Hitra
+ 50.57 |     2 | 5057  | 5057 | Ørland
+ 50.58 |     2 | 5058  | 5058 | Åfjord
+ 50.59 |     2 | 5059  | 5059 | Orkland
+ 50.60 |     2 | 5060  | 5060 | Nærøysund
+ 50.61 |     2 | 5061  | 5061 | Rindal
+ 55    |     1 | 55    | 55   | Troms - Romsa - Tromssa
+ 55.01 |     2 | 5501  | 5501 | Tromsø
+ 55.03 |     2 | 5503  | 5503 | Harstad - Hárstták
+ 55.10 |     2 | 5510  | 5510 | Kvæfjord
+ 55.12 |     2 | 5512  | 5512 | Dielddanuorri - Tjeldsund
+ 55.14 |     2 | 5514  | 5514 | Ibestad
+ 55.16 |     2 | 5516  | 5516 | Gratangen - Rivtták
+ 55.18 |     2 | 5518  | 5518 | Loabák - Lavangen
+ 55.20 |     2 | 5520  | 5520 | Bardu
+ 55.22 |     2 | 5522  | 5522 | Salangen
+ 55.24 |     2 | 5524  | 5524 | Målselv
+ 55.26 |     2 | 5526  | 5526 | Sørreisa
+ 55.28 |     2 | 5528  | 5528 | Dyrøy
+ 55.30 |     2 | 5530  | 5530 | Senja
+ 55.32 |     2 | 5532  | 5532 | Balsfjord
+ 55.34 |     2 | 5534  | 5534 | Karlsøy
+ 55.36 |     2 | 5536  | 5536 | Lyngen
+ 55.38 |     2 | 5538  | 5538 | Storfjord - Omasvuotna - Omasvuono
+ 55.40 |     2 | 5540  | 5540 | Gáivuotna - Kåfjord - Kaivuono
+ 55.42 |     2 | 5542  | 5542 | Skjervøy
+ 55.44 |     2 | 5544  | 5544 | Nordreisa - Ráisa - Raisi
+ 55.46 |     2 | 5546  | 5546 | Kvænangen
+ 56    |     1 | 56    | 56   | Finnmark - Finnmárku - Finmarkku
+ 56.01 |     2 | 5601  | 5601 | Alta
+ 56.03 |     2 | 5603  | 5603 | Hammerfest - Hámmerfeasta
+ 56.05 |     2 | 5605  | 5605 | Sør-Varanger
+ 56.07 |     2 | 5607  | 5607 | Vadsø
+ 56.10 |     2 | 5610  | 5610 | Kárá?johka - Karasjok
+ 56.12 |     2 | 5612  | 5612 | Guovdageaidnu - Kautokeino
+ 56.14 |     2 | 5614  | 5614 | Loppa
+ 56.16 |     2 | 5616  | 5616 | Hasvik
+ 56.18 |     2 | 5618  | 5618 | Måsøy
+ 56.20 |     2 | 5620  | 5620 | Nordkapp
+ 56.22 |     2 | 5622  | 5622 | Porsanger - Porsángu - Porsanki
+ 56.24 |     2 | 5624  | 5624 | Lebesby
+ 56.26 |     2 | 5626  | 5626 | Gamvik
+ 56.28 |     2 | 5628  | 5628 | Deatnu - Tana
+ 56.30 |     2 | 5630  | 5630 | Berlevåg
+ 56.32 |     2 | 5632  | 5632 | Båtsfjord
+ 56.34 |     2 | 5634  | 5634 | Vardø
+ 56.36 |     2 | 5636  | 5636 | Unjárga - Nesseby
+ 99    |     1 | 99    | 99   | Uoppgitt
+ 99.99 |     2 | 9999  | 9999 | Uoppgitt
 (417 rows)
 
 \echo "User uploads the sample legal forms"
