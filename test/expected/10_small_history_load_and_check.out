@@ -1,3 +1,4 @@
+BEGIN;
 \echo "Setting up Statbus for Norway"
 "Setting up Statbus for Norway"
 \i samples/norway/setup.sql
