@@ -36,6 +36,11 @@ case "$action" in
     'delete-db-structure' )
         ./devops/manage-statbus.sh psql < dbseed/delete-db-structure.sql 2>&1
       ;;
+    'reset-db-structure' )
+        ./devops/manage-statbus.sh delete-db-structure
+        ./devops/manage-statbus.sh create-db-structure
+        ./devops/manage-statbus.sh create-users
+      ;;
     'recreate-database' )
         ./devops/recreate-database.sh
       ;;
