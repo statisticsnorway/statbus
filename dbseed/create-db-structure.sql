@@ -576,7 +576,7 @@ CREATE UNIQUE INDEX ix_data_source_code ON public.data_source USING btree (code)
 
 -- import structures
 \echo public.import_strategy
-CREATE TYPE public.import_strategy AS ENUM ('create_or_replace','update_existing');
+CREATE TYPE public.import_strategy AS ENUM ('create_or_update','update');
 \echo public.import_type
 CREATE TYPE public.import_type AS ENUM ('establishment','legal_unit','enterprise','enterprise_group','activities');
 
@@ -594,8 +594,8 @@ CREATE TABLE public.import_definition (
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
     CHECK(CASE strategy
-        WHEN 'create_or_replace' THEN delete_missing IS NOT NULL
-        WHEN 'update_existing' THEN delete_missing IS NULL
+        WHEN 'create_or_update' THEN delete_missing IS NOT NULL
+        WHEN 'update'           THEN delete_missing IS NULL
         END
         )
 );
@@ -608,19 +608,25 @@ CREATE TABLE public.import_mapping (
     import_definition_id integer REFERENCES public.import_definition(id) ON DELETE CASCADE,
     source_name TEXT,
     source_value TEXT,
+    priority integer UNIQUE,
     target_name TEXT NOT NULL,
     CHECK( source_name IS NOT NULL AND source_value IS NULL
         OR source_name IS NULL AND source_value IS NOT NULL
         )
 );
+COMMENT ON COLUMN public.import_mapping.priority IS 'View ordering of the source fields';
 
 \echo public.import_job_status
-CREATE TYPE public.import_job_status AS ENUM ('in_queue', 'loading', 'data_load_completed', 'data_load_completed_partially', 'data_load_failed');
+CREATE TYPE public.import_job_status AS ENUM ('waiting_for_data', 'analysing_data', 'waiting_for_approval', 'importing', 'finished');
+
 \echo public.import_job
 CREATE TABLE public.import_job (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    start_at timestamp with time zone,
-    stop_at timestamp with time zone,
+    analysis_start_at timestamp with time zone,
+    analysis_stop_at timestamp with time zone,
+    changes_approved_at timestamp with time zone,
+    import_start_at timestamp with time zone,
+    import_stop_at timestamp with time zone,
     import_file_path_and_name text NOT NULL,
     description text,
     status public.import_job_status NOT NULL,
@@ -5186,10 +5192,11 @@ CREATE TABLE public.custom_view_def_source_column(
     id serial PRIMARY KEY,
     custom_view_def_id int REFERENCES public.custom_view_def(id),
     column_name text NOT NULL,
-    priority int NOT NULL, -- The ordering of the columns in the CSV file.
+    priority int NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
+COMMENT ON COLUMN public.custom_view_def_source_column.priority IS 'The ordering of the columns in the CSV file.';
 
 \echo public.custom_view_def_mapping
 CREATE TABLE public.custom_view_def_mapping(
@@ -5255,9 +5262,7 @@ BEGIN
     result.upsert_trigger_name := result.view_name || '_upsert_trigger';
     result.delete_trigger_name := result.view_name || '_delete_trigger';
 
-    RAISE NOTICE 'Generated Names for table %: View Name: %, Upsert Function: %, Delete Function: %, Upsert Trigger: %, Delete Trigger: %',
-                 table_name, result.view_name, result.upsert_function_name, result.delete_function_name,
-                 result.upsert_trigger_name, result.delete_trigger_name;
+    RAISE NOTICE 'Generated Names for table %: %', table_name, to_json(result);
 
     RETURN result;
 END;
@@ -5605,106 +5610,85 @@ WITH tt AS (
     SELECT id, 'brreg_hovedenhet', 'Import of BRREG Hovedenhet', 'Easy upload of the CSV file found at brreg.'
     FROM tt
     RETURNING *
-), source(priority, column_name) AS (
-VALUES (1, 'organisasjonsnummer')
-    , ( 2, 'navn')
-    , ( 3, 'organisasjonsform.kode')
-    , ( 4, 'organisasjonsform.beskrivelse')
-    , ( 5, 'naeringskode1.kode')
-    , ( 6, 'naeringskode1.beskrivelse')
-    , ( 7, 'naeringskode2.kode')
-    , ( 8, 'naeringskode2.beskrivelse')
-    , ( 9, 'naeringskode3.kode')
-    , (10, 'naeringskode3.beskrivelse')
-    , (11, 'hjelpeenhetskode.kode')
-    , (12, 'hjelpeenhetskode.beskrivelse')
-    , (13, 'harRegistrertAntallAnsatte')
-    , (14, 'antallAnsatte')
-    , (15, 'hjemmeside')
-    , (16, 'postadresse.adresse')
-    , (17, 'postadresse.poststed')
-    , (18, 'postadresse.postnummer')
-    , (19, 'postadresse.kommune')
-    , (20, 'postadresse.kommunenummer')
-    , (21, 'postadresse.land')
-    , (22, 'postadresse.landkode')
-    , (23, 'forretningsadresse.adresse')
-    , (24, 'forretningsadresse.poststed')
-    , (25, 'forretningsadresse.postnummer')
-    , (26, 'forretningsadresse.kommune')
-    , (27, 'forretningsadresse.kommunenummer')
-    , (28, 'forretningsadresse.land')
-    , (29, 'forretningsadresse.landkode')
-    , (30, 'institusjonellSektorkode.kode')
-    , (31, 'institusjonellSektorkode.beskrivelse')
-    , (32, 'sisteInnsendteAarsregnskap')
-    , (33, 'registreringsdatoenhetsregisteret')
-    , (34, 'stiftelsesdato')
-    , (35, 'registrertIMvaRegisteret')
-    , (36, 'frivilligMvaRegistrertBeskrivelser')
-    , (37, 'registrertIFrivillighetsregisteret')
-    , (38, 'registrertIForetaksregisteret')
-    , (39, 'registrertIStiftelsesregisteret')
-    , (40, 'konkurs')
-    , (41, 'konkursdato')
-    , (42, 'underAvvikling')
-    , (43, 'underAvviklingDato')
-    , (44, 'underTvangsavviklingEllerTvangsopplosning')
-    , (45, 'tvangsopplostPgaManglendeDagligLederDato')
-    , (46, 'tvangsopplostPgaManglendeRevisorDato')
-    , (47, 'tvangsopplostPgaManglendeRegnskapDato')
-    , (48, 'tvangsopplostPgaMangelfulltStyreDato')
-    , (49, 'tvangsavvikletPgaManglendeSlettingDato')
-    , (50, 'overordnetEnhet')
-    , (51, 'maalform')
-    , (52, 'vedtektsdato')
-    , (53, 'vedtektsfestetFormaal')
-    , (54, 'aktivitet')
+), name_mapping(priority, source_column_name, target_column_name) AS (
+VALUES (1, 'organisasjonsnummer', 'tax_ident')
+    , ( 2, 'navn', 'name')
+    , ( 3, 'organisasjonsform.kode', 'legal_form_code')
+    , ( 4, 'organisasjonsform.beskrivelse', NULL)
+    , ( 5, 'naeringskode1.kode', 'primary_activity_category_code')
+    , ( 6, 'naeringskode1.beskrivelse', NULL)
+    , ( 7, 'naeringskode2.kode', 'secondary_activity_category_code')
+    , ( 8, 'naeringskode2.beskrivelse', NULL)
+    , ( 9, 'naeringskode3.kode', NULL)
+    , (10, 'naeringskode3.beskrivelse', NULL)
+    , (11, 'hjelpeenhetskode.kode', NULL)
+    , (12, 'hjelpeenhetskode.beskrivelse', NULL)
+    , (13, 'harRegistrertAntallAnsatte', NULL)
+    , (14, 'antallAnsatte', NULL)
+    , (15, 'hjemmeside', NULL)
+    , (16, 'postadresse.adresse', 'postal_address_part1')
+    , (17, 'postadresse.poststed', 'postal_postal_place')
+    , (18, 'postadresse.postnummer', 'postal_postal_code')
+    , (19, 'postadresse.kommune', NULL)
+    , (20, 'postadresse.kommunenummer', 'postal_region_code')
+    , (21, 'postadresse.land', NULL)
+    , (22, 'postadresse.landkode', 'postal_country_iso_2')
+    , (23, 'forretningsadresse.adresse', 'physical_address_part1')
+    , (24, 'forretningsadresse.poststed', 'physical_postal_place')
+    , (25, 'forretningsadresse.postnummer', 'physical_postal_code')
+    , (26, 'forretningsadresse.kommune', NULL)
+    , (27, 'forretningsadresse.kommunenummer', 'physical_region_code')
+    , (28, 'forretningsadresse.land', NULL)
+    , (29, 'forretningsadresse.landkode', 'physical_country_iso_2')
+    , (30, 'institusjonellSektorkode.kode', 'sector_code')
+    , (31, 'institusjonellSektorkode.beskrivelse', NULL)
+    , (32, 'sisteInnsendteAarsregnskap', NULL)
+    , (33, 'registreringsdatoenhetsregisteret', NULL)
+    , (34, 'stiftelsesdato', 'birth_date')
+    , (35, 'registrertIMvaRegisteret', NULL)
+    , (36, 'frivilligMvaRegistrertBeskrivelser', NULL)
+    , (37, 'registrertIFrivillighetsregisteret', NULL)
+    , (38, 'registrertIForetaksregisteret', NULL)
+    , (39, 'registrertIStiftelsesregisteret', NULL)
+    , (40, 'konkurs', NULL)
+    , (41, 'konkursdato', NULL)
+    , (42, 'underAvvikling', NULL)
+    , (43, 'underAvviklingDato', NULL)
+    , (44, 'underTvangsavviklingEllerTvangsopplosning', NULL)
+    , (45, 'tvangsopplostPgaManglendeDagligLederDato', NULL)
+    , (46, 'tvangsopplostPgaManglendeRevisorDato', NULL)
+    , (47, 'tvangsopplostPgaManglendeRegnskapDato', NULL)
+    , (48, 'tvangsopplostPgaMangelfulltStyreDato', NULL)
+    , (49, 'tvangsavvikletPgaManglendeSlettingDato', NULL)
+    , (50, 'overordnetEnhet', NULL)
+    , (51, 'maalform', NULL)
+    , (52, 'vedtektsdato', NULL)
+    , (53, 'vedtektsfestetFormaal', NULL)
+    , (54, 'aktivitet', NULL)
 ), inserted_source_column AS (
     INSERT INTO public.custom_view_def_source_column (custom_view_def_id,column_name, priority)
-    SELECT def.id, source.column_name, source.priority
-    FROM def, source
+    SELECT def.id, name_mapping.source_column_name, name_mapping.priority
+    FROM def, name_mapping
+    ORDER BY priority
    RETURNING *
 ), mapping AS (
     SELECT def.id
-         , (SELECT id FROM inserted_source_column
-            WHERE column_name = 'organisasjonsnummer'
-            )
-         , (SELECT id
-            FROM public.custom_view_def_target_column
-            WHERE column_name = 'tax_ident'
-              AND target_table_id = def.target_table_id
-            )
+         , isc.id
+         , cvdtc.id
     FROM def
-    UNION ALL
-    SELECT def.id
-         , (SELECT id FROM inserted_source_column
-            WHERE column_name = 'stiftelsesdato'
-            )
-         , (SELECT id
-            FROM public.custom_view_def_target_column
-            WHERE column_name = 'birth_date'
-              AND target_table_id = def.target_table_id
-            )
-    FROM def
-    UNION ALL
-    SELECT def.id
-         , (SELECT id FROM inserted_source_column
-            WHERE column_name = 'navn'
-            )
-         , (SELECT id
-            FROM public.custom_view_def_target_column
-            WHERE column_name = 'name'
-              AND target_table_id = def.target_table_id
-            )
-    FROM def
+       , name_mapping AS nm
+       JOIN inserted_source_column AS isc
+         ON isc.column_name = nm.source_column_name
+       LEFT JOIN public.custom_view_def_target_column AS cvdtc
+         ON cvdtc.column_name = nm.target_column_name
+    WHERE cvdtc.target_table_id = def.target_table_id
 )
 INSERT INTO public.custom_view_def_mapping
     ( custom_view_def_id
     , source_column_id
     , target_column_id
     )
-SELECT * FROM mapping;
+SELECT * FROM mapping
 ;
 
 
