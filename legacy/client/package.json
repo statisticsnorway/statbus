@@ -112,7 +112,7 @@
     "@fortawesome/react-fontawesome": "^0.2.0",
     "antd": "^3.11.0",
     "babel-polyfill": "^6.26.0",
-    "fast-xml-parser": "^3.2.0",
+    "fast-xml-parser": "^4.4.1",
     "file-saver": "^2.0.5",
     "formik": "^1.5.8",
     "isomorphic-fetch": "^2.2.1",
