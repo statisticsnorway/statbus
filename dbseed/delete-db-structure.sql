@@ -150,17 +150,6 @@ DROP VIEW public.establishment_brreg_view;
 DROP FUNCTION admin.upsert_establishment_brreg_view();
 DROP FUNCTION admin.delete_stale_establishment_brreg_view();
 
-DELETE FROM public.custom_view_def;
-DROP TRIGGER custom_view_def_before_trigger ON public.custom_view_def;
-DROP TRIGGER custom_view_def_after_trigger ON public.custom_view_def;
-DROP FUNCTION admin.custom_view_def_before();
-DROP FUNCTION admin.custom_view_def_after();
-DROP FUNCTION admin.custom_view_def_generate(record public.custom_view_def);
-DROP FUNCTION admin.custom_view_def_destroy(record public.custom_view_def);
-DROP FUNCTION admin.custom_view_def_generate_names(record public.custom_view_def);
-DROP VIEW admin.custom_view_def_expanded;
-DROP TYPE admin.custom_view_def_names;
-
 DROP TRIGGER import_legal_unit_with_delete_current_trigger ON public.import_legal_unit_with_delete_current;
 DROP FUNCTION admin.import_legal_unit_with_delete_current();
 DROP VIEW public.import_legal_unit_with_delete_current;
@@ -272,12 +261,6 @@ DROP TYPE public.stat_type;
 DROP TYPE public.stat_frequency;
 DROP FUNCTION admin.check_stat_for_unit_values;
 
-DROP TABLE public.custom_view_def_mapping;
-DROP TABLE public.custom_view_def_source_column;
-DROP TABLE public.custom_view_def;
-DROP TABLE public.custom_view_def_target_column;
-DROP TABLE public.custom_view_def_target_table;
-
 DROP TABLE public.establishment;
 DROP TABLE public.legal_unit;
 
@@ -289,11 +272,6 @@ DROP TABLE public.enterprise_group_type;
 DROP TABLE public.location;
 
 DROP TABLE public.custom_analysis_check;
-
-DROP TABLE public.import_log;
-DROP TABLE public.import_job;
-DROP TABLE public.import_mapping;
-DROP TABLE public.import_definition;
 
 DROP TABLE public.data_source;
 
@@ -334,12 +312,7 @@ DROP FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, role_types public.s
 DROP FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer);
 DROP FUNCTION auth.has_region_access (user_uuid UUID, region_id integer);
 
-DROP TYPE public.import_strategy;
-DROP TYPE public.import_type;
-
 DROP TYPE public.statbus_role_type;
-DROP TYPE public.import_job_status;
-DROP TYPE public.import_log_status;
 DROP TYPE public.activity_type;
 DROP TYPE public.person_sex;
 DROP TYPE admin.existing_upsert_case;
