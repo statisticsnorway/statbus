@@ -121,9 +121,11 @@ DROP VIEW public.timepoints;
 
 DROP TYPE public.statistical_unit_type;
 
-DROP AGGREGATE public.jsonb_stats_agg(jsonb);
-DROP FUNCTION public.jsonb_stats(jsonb,jsonb);
-DROP FUNCTION public.jsonb_stats_round(jsonb);
+DROP AGGREGATE public.jsonb_stats_to_summary_agg(jsonb);
+DROP FUNCTION public.jsonb_stats_to_summary(jsonb,jsonb);
+DROP AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb);
+DROP FUNCTION public.jsonb_stats_summary_merge(jsonb,jsonb);
+DROP FUNCTION public.jsonb_stats_to_summary_round(jsonb);
 
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
