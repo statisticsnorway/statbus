@@ -3313,7 +3313,7 @@ CREATE VIEW public.timeline_legal_unit
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
-             , public.jsonb_stats_agg(tes.stats) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
           INNER JOIN basis
            ON tes.legal_unit_id = basis.legal_unit_id
@@ -3369,7 +3369,7 @@ CREATE VIEW public.timeline_legal_unit
            -- Continue one more aggregation iteration adding the stats for this unit
            -- to the aggregated stats for establishments, by using the internal
            -- aggregation function for one more step.
-           , public.jsonb_stats(aggregation.stats_summary, basis.stats) AS stats_summary
+           , public.jsonb_stats_to_summary(aggregation.stats_summary, basis.stats) AS stats_summary
       FROM basis
       LEFT OUTER JOIN aggregation
        ON basis.legal_unit_id = aggregation.legal_unit_id
@@ -3536,7 +3536,7 @@ CREATE VIEW public.timeline_enterprise
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
-             , public.jsonb_stats_agg(tes.stats) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
           INNER JOIN basis
            ON tes.enterprise_id = basis.enterprise_id
@@ -3548,7 +3548,7 @@ CREATE VIEW public.timeline_enterprise
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
-             , public.jsonb_stats_agg(tlu.stats) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(tlu.stats) AS stats_summary
           FROM public.timeline_legal_unit AS tlu
           INNER JOIN basis
            ON tlu.enterprise_id = basis.enterprise_id
@@ -3599,7 +3599,7 @@ CREATE VIEW public.timeline_enterprise
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
-               , COALESCE(public.jsonb_merge_stats(esa.stats_summary,lua.stats_summary), esa.stats_summary, lua.stats_summary) AS stats_summary
+               , COALESCE(public.jsonb_stats_summary_merge(esa.stats_summary,lua.stats_summary), esa.stats_summary, lua.stats_summary) AS stats_summary
           FROM basis
           LEFT OUTER JOIN establishment_aggregation AS esa
                        ON basis.enterprise_id = esa.enterprise_id
@@ -4010,7 +4010,7 @@ SELECT valid_from
      , legal_form_id
      , physical_country_id
      , count(*) AS count
-     , public.jsonb_stats_agg(stats_summary) AS stats_summary
+     , public.jsonb_stats_to_summary_agg(stats_summary) AS stats_summary
 FROM public.statistical_unit
 GROUP BY valid_from
        , valid_to
@@ -4109,7 +4109,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
-             , public.jsonb_stats_agg(af.stats_summary) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(af.stats_summary) AS stats_summary
         FROM available_facet AS af
     ),
     breadcrumb_region AS (
@@ -4143,7 +4143,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
@@ -4190,7 +4190,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -4231,7 +4231,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
@@ -4264,7 +4264,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.code
              , lf.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
@@ -4296,7 +4296,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
@@ -4397,13 +4397,16 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         -- Notice that `stats` is the stats of this particular unit as recorded,
+         -- while stats_summary is the aggregated stats of multiple contained units.
+         -- For our tracking of changes we will only look at the base `stats` for
+         -- changes, and not at the summaries, as I don't see how it makes sense
+         -- to track changes in statistical summaries, but rather in the reported
+         -- statistical variables, and then possibly summarise the changes.
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
     FROM year_in_range AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -4423,8 +4426,8 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
          --
     FROM year_with_unit_basis AS basis
 ), year_and_month_with_unit_basis AS (
@@ -4462,13 +4465,10 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
     FROM year_in_range AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -4488,8 +4488,8 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
          --
     FROM year_and_month_with_unit_basis AS basis
 ), year_with_unit AS (
@@ -4510,8 +4510,7 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover)  AS turnover
+         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_with_unit_derived AS source
     GROUP BY year, unit_type
 ), year_and_month_with_unit AS (
@@ -4532,8 +4531,7 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover)  AS turnover
+         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
     GROUP BY year, month, unit_type
 )
@@ -4551,14 +4549,20 @@ CREATE MATERIALIZED VIEW public.statistical_history AS
 SELECT * FROM public.statistical_history_def
 ORDER BY year, month;
 
+\echo idx_statistical_history_type
 CREATE INDEX idx_statistical_history_type ON public.statistical_history (type);
+\echo idx_statistical_history_year
 CREATE INDEX idx_statistical_history_year ON public.statistical_history (year);
+\echo idx_statistical_history_month
 CREATE INDEX idx_statistical_history_month ON public.statistical_history (month);
+\echo idx_statistical_history_births
 CREATE INDEX idx_statistical_history_births ON public.statistical_history (births);
+\echo idx_statistical_history_deaths
 CREATE INDEX idx_statistical_history_deaths ON public.statistical_history (deaths);
+\echo idx_statistical_history_count
 CREATE INDEX idx_statistical_history_count ON public.statistical_history (count);
-CREATE INDEX idx_statistical_history_employees ON public.statistical_history (employees);
-CREATE INDEX idx_statistical_history_turnover ON public.statistical_history (turnover);
+\echo idx_statistical_history_stats
+CREATE INDEX idx_statistical_history_stats_summary ON public.statistical_history USING GIN (stats_summary jsonb_path_ops);
 
 
 \echo public.statistical_history_facet_def
@@ -4618,13 +4622,10 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
     FROM year_in_range AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -4644,8 +4645,8 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN stop_stats - start_stats ELSE NULL END AS stats_change
          --
     FROM year_with_unit_basis AS basis
 ), year_and_month_with_unit_basis AS (
@@ -4683,13 +4684,10 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
     FROM year_in_range AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -4709,8 +4707,8 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN stop_stats - start_stats ELSE NULL END AS stats_change
          --
     FROM year_and_month_with_unit_basis AS basis
 ), year_with_unit_per_facet AS (
@@ -4738,8 +4736,7 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover) AS turnover
+         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_with_unit_derived AS source
     GROUP BY year, unit_type
            , primary_activity_category_path
@@ -4773,8 +4770,7 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover) AS turnover
+         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
     GROUP BY year, month, unit_type
            , primary_activity_category_path
@@ -4795,29 +4791,44 @@ CREATE MATERIALIZED VIEW public.statistical_history_facet AS
 SELECT * FROM public.statistical_history_facet_def
 ORDER BY year, month;
 
+\echo idx_statistical_history_facet_year
 CREATE INDEX idx_statistical_history_facet_year ON public.statistical_history_facet (year);
+\echo idx_statistical_history_facet_month
 CREATE INDEX idx_statistical_history_facet_month ON public.statistical_history_facet (month);
+\echo idx_statistical_history_facet_births
 CREATE INDEX idx_statistical_history_facet_births ON public.statistical_history_facet (births);
+\echo idx_statistical_history_facet_deaths
 CREATE INDEX idx_statistical_history_facet_deaths ON public.statistical_history_facet (deaths);
 
+\echo idx_statistical_history_facet_primary_activity_category_path
 CREATE INDEX idx_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet (primary_activity_category_path);
+\echo idx_gist_statistical_history_facet_primary_activity_category_path
 CREATE INDEX idx_gist_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet USING GIST (primary_activity_category_path);
 
+\echo idx_statistical_history_facet_secondary_activity_category_path
 CREATE INDEX idx_statistical_history_facet_secondary_activity_category_path ON public.statistical_history_facet (secondary_activity_category_path);
+\echo idx_gist_statistical_history_facet_secondary_activity_category_path
 CREATE INDEX idx_gist_statistical_history_facet_secondary_activity_category_path ON public.statistical_history_facet USING GIST (secondary_activity_category_path);
 
+\echo idx_statistical_history_facet_sector_path
 CREATE INDEX idx_statistical_history_facet_sector_path ON public.statistical_history_facet (sector_path);
+\echo idx_gist_statistical_history_facet_sector_path
 CREATE INDEX idx_gist_statistical_history_facet_sector_path ON public.statistical_history_facet USING GIST (sector_path);
 
+\echo idx_statistical_history_facet_legal_form_id
 CREATE INDEX idx_statistical_history_facet_legal_form_id ON public.statistical_history_facet (legal_form_id);
 
+\echo idx_statistical_history_facet_physical_region_path
 CREATE INDEX idx_statistical_history_facet_physical_region_path ON public.statistical_history_facet (physical_region_path);
+\echo idx_gist_statistical_history_facet_physical_region_path
 CREATE INDEX idx_gist_statistical_history_facet_physical_region_path ON public.statistical_history_facet USING GIST (physical_region_path);
 
+\echo idx_statistical_history_facet_physical_country_id
 CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statistical_history_facet (physical_country_id);
+\echo idx_statistical_history_facet_count
 CREATE INDEX idx_statistical_history_facet_count ON public.statistical_history_facet (count);
-CREATE INDEX idx_statistical_history_facet_employees ON public.statistical_history_facet (employees);
-CREATE INDEX idx_statistical_history_facet_turnover ON public.statistical_history_facet (turnover);
+\echo idx_statistical_history_facet_stats_summary
+CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
 
 
 \echo public.statistical_history_drilldown
@@ -4876,22 +4887,20 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
               )
     ), available_history_stats AS (
         SELECT year, month
-             , COALESCE(SUM(ah.count), 0) AS count
+             , COALESCE(ah.count, 0) AS count
             --
-             , COALESCE(SUM(ah.employees), 0) AS employees
-             , COALESCE(SUM(ah.turnover) , 0) AS turnover
+             , COALESCE(ah.stats_summary, '{}'::JSONB) AS stats_summary
              --
-             , COALESCE(SUM(ah.births), 0) AS births
-             , COALESCE(SUM(ah.deaths), 0) AS deaths
+             , COALESCE(ah.births, 0) AS births
+             , COALESCE(ah.deaths, 0) AS deaths
              --
-             , COALESCE(SUM(ah.primary_activity_category_change_count) , 0) AS primary_activity_category_change_count
-             , COALESCE(SUM(ah.sector_change_count)                    , 0) AS sector_change_count
-             , COALESCE(SUM(ah.legal_form_change_count)                , 0) AS legal_form_change_count
-             , COALESCE(SUM(ah.physical_region_change_count)           , 0) AS physical_region_change_count
-             , COALESCE(SUM(ah.physical_country_change_count)          , 0) AS physical_country_change_count
+             , COALESCE(ah.primary_activity_category_change_count , 0) AS primary_activity_category_change_count
+             , COALESCE(ah.sector_change_count                    , 0) AS sector_change_count
+             , COALESCE(ah.legal_form_change_count                , 0) AS legal_form_change_count
+             , COALESCE(ah.physical_region_change_count           , 0) AS physical_region_change_count
+             , COALESCE(ah.physical_country_change_count          , 0) AS physical_country_change_count
              --
         FROM available_history AS ah
-        GROUP BY year, month
         ORDER BY year ASC, month ASC NULLS FIRST
     ),
     breadcrumb_region AS (
@@ -4925,7 +4934,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE sh.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_history AS sh ON sh.physical_region_path OPERATOR(public.<@) ar.path
@@ -4972,7 +4981,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE sh.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -5013,7 +5022,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE sh.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_history AS sh ON sh.sector_path OPERATOR(public.<@) "as".path
@@ -5046,7 +5055,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.code
              , lf.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_history AS sh ON sh.legal_form_id = lf.id
@@ -5078,7 +5087,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
+             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_history AS sh ON sh.physical_country_id = pc.id
@@ -8906,24 +8915,14 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['external_ident', 'external_ident_type']);
 
 SELECT sql_saga.add_era('public.legal_unit', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_ident']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['by_tag_id', 'by_tag_id_unique_ident']);
 -- TODO: Use a scoped sql_saga unique key for enterprise_id below.
 -- SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['enterprise_id'], WHERE 'primary_for_enterprise');
 
 SELECT sql_saga.add_era('public.establishment', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_ident']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['by_tag_id', 'by_tag_id_unique_ident']);
 -- TODO: Extend sql_saga with support for predicates by using unique indices instead of constraints.
 --SELECT sql_saga.add_unique_key('public.establishment', ARRAY['legal_unit_id'], WHERE 'primary_for_legal_unit');
 SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
