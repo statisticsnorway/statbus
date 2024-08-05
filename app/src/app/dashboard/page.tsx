@@ -77,11 +77,13 @@ export default async function Dashboard() {
             <CustomActivityCategoryCard />
           </Suspense>
         </Link>
-        <Suspense
-          fallback={<FallBackCard title="Total Activity Category Codes" />}
-        >
-          <TotalActivityCategoryCard />
-        </Suspense>
+        <Link href="/activity-categories">
+          <Suspense
+            fallback={<FallBackCard title="Total Activity Category Codes" />}
+          >
+            <TotalActivityCategoryCard />
+          </Suspense>
+        </Link>
       </DashboardSection>
 
       <DashboardSection
