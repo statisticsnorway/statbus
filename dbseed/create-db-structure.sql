@@ -2566,15 +2566,15 @@ CREATE VIEW public.timesegments AS
 
 --SELECT * FROM public.timesegments;
 
-\echo public.jsonb_stats()
+\echo public.jsonb_stats_to_summary
 /*
  * ======================================================================================
- * Function: jsonb_stats
+ * Function: jsonb_stats_to_summary
  * Purpose: Aggregates and summarizes JSONB data by computing statistics for various data types.
  * 
  * This function accumulates statistics for JSONB objects, including numeric, string, boolean,
  * array, and nested object types. The function is used as the state transition function in
- * the jsonb_stats_agg aggregate, summarizing data across multiple rows.
+ * the jsonb_stats_to_summary_agg aggregate, summarizing data across multiple rows.
  * 
  * Summary by Type:
  * 1. Numeric:
@@ -2614,11 +2614,11 @@ CREATE VIEW public.timesegments AS
  * Note:
  * - The function raises an exception if it encounters a type mismatch for a key across different rows.
  * - Semantically, a single key will always have the same structure across different rows, as it is uniquely defined in a table.
- * - The function should be used in conjunction with the jsonb_stats_agg aggregate to process multiple rows.
+ * - The function should be used in conjunction with the jsonb_stats_to_summary_agg aggregate to process multiple rows.
  * ======================================================================================
  */
 
-CREATE FUNCTION public.jsonb_stats(state jsonb, stats jsonb) RETURNS jsonb AS $$
+CREATE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb) RETURNS jsonb AS $$
 DECLARE
     prev_stat_state jsonb;
     stat_key text;
@@ -2729,7 +2729,7 @@ BEGIN
 
                 -- Handle object (nested JSON)
                 WHEN 'object' THEN
-                    next_stat_state := jsonb_stats(prev_stat_state, stat_value);
+                    next_stat_state := public.jsonb_stats_to_summary(prev_stat_state, stat_value);
                 ELSE
                     RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
             END CASE;
@@ -2774,7 +2774,7 @@ BEGIN
                             )
                         );
                 WHEN 'object' THEN
-                    next_stat_state := jsonb_stats(next_stat_state, stat_value);
+                    next_stat_state := public.jsonb_stats_to_summary(next_stat_state, stat_value);
                 ELSE
                     RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
             END CASE;
@@ -2788,7 +2788,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT;
 
 
-CREATE FUNCTION public.jsonb_stats_round(state jsonb) RETURNS jsonb AS $$
+CREATE FUNCTION public.jsonb_stats_to_summary_round(state jsonb) RETURNS jsonb AS $$
 DECLARE
     key text;
     val jsonb;
@@ -2812,8 +2812,8 @@ BEGIN
                             'variance', round((val->>'variance')::numeric, 2)
                         );
                 ELSE
-                    -- For nested objects that are not numeric statistics, recursively call jsonb_stats_round
-                    rounded_val := jsonb_stats_round(val);
+                    -- For nested objects that are not numeric statistics, recursively call jsonb_stats_to_summary_round
+                    rounded_val := public.jsonb_stats_to_summary_round(val);
                 END IF;
             ELSE
                 -- Other types are kept as is
@@ -2829,16 +2829,17 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT;
 
 
--- Create aggregate jsonb_stats_agg
-CREATE AGGREGATE public.jsonb_stats_agg(jsonb) (
-    sfunc = public.jsonb_stats,
+\echo public.jsonb_stats_to_summary_agg
+CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
+    sfunc = public.jsonb_stats_to_summary,
     stype = jsonb,
     initcond = '{}',
-    finalfunc = public.jsonb_stats_round
+    finalfunc = public.jsonb_stats_to_summary_round
 );
 
 
-CREATE FUNCTION public.jsonb_merge_stats(a jsonb, b jsonb) RETURNS jsonb AS $$
+\echo public.jsonb_stats_summary_merge
+CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb AS $$
 DECLARE
     key_a text;
     key_b text;
@@ -2927,7 +2928,7 @@ BEGIN
                         )
                     );
                 WHEN 'object' THEN
-                    merged_val := jsonb_merge_stats(val_a, val_b);
+                    merged_val := public.jsonb_stats_summary_merge(val_a, val_b);
                 ELSE
                     RAISE EXCEPTION 'Unsupported type "%" for key "%"', type_a, key_a;
             END CASE;
@@ -2941,13 +2942,22 @@ BEGIN
     END LOOP;
 
     -- Add keys only in b
-    FOR key_b, val_b IN SELECT * FROM jsonb_each(b) WHERE NOT (a ? key_b) LOOP
+    FOR key_b, val_b IN SELECT key, value FROM jsonb_each(b) WHERE NOT (a ? key) LOOP
         result := result || jsonb_build_object(key_b, val_b);
     END LOOP;
 
     RETURN result;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT;
+
+
+\echo public.jsonb_stats_summary_merge_agg
+CREATE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
+    sfunc = public.jsonb_stats_summary_merge,
+    stype = jsonb,
+    initcond = '{}',
+    finalfunc = public.jsonb_stats_to_summary_round
+);
 
 
 \echo public.jsonb_concat_agg()
