@@ -44,7 +44,7 @@ export default function TimeContextSelector({
           )}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
-          {selectedPeriod?.name ?? title}
+          {selectedPeriod?.name_when_query ?? title}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -58,13 +58,13 @@ export default function TimeContextSelector({
             <CommandGroup>
               {periods.map((period) => (
                 <CommandItem
-                  key={period.type}
-                  value={period.type!}
+                  key={period.ident}
+                  value={period.ident!}
                   onSelect={() => setSelectedPeriod(period)}
                   className="space-x-2"
                 >
                   {selectedPeriod === period ? <Check size={14} /> : null}
-                  <span>{period.name}</span>
+                  <span>{period.name_when_query}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

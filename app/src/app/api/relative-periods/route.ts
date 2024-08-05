@@ -5,10 +5,9 @@ import { createServerLogger } from "@/lib/server-logger";
 export async function GET(_request: Request) {
   const logger = await createServerLogger();
   const res = await createClient()
-    .from("relative_period_with_time")
+    .from("period_active")
     .select()
-    .not("valid_from", "is", null)
-    .not("valid_to", "is", null);
+    .eq("scope", "input_and_query");
 
   if (res.error) {
     logger.error(
