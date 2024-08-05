@@ -121,6 +121,10 @@ DROP VIEW public.timepoints;
 
 DROP TYPE public.statistical_unit_type;
 
+DROP AGGREGATE public.jsonb_stats_agg(jsonb);
+DROP FUNCTION public.jsonb_stats(jsonb,jsonb);
+DROP FUNCTION public.jsonb_stats_round(jsonb);
+
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
 

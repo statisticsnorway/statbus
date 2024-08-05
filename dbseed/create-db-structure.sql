@@ -898,9 +898,6 @@ CREATE TABLE public.enterprise_group (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident text,
-    external_ident text,
-    external_ident_type text,
     active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
@@ -966,7 +963,6 @@ CREATE INDEX ix_sector_parent_id ON public.sector USING btree (parent_id);
 \echo public.enterprise
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    stat_ident character varying(15) UNIQUE,
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     notes text,
@@ -985,7 +981,9 @@ CREATE TABLE public.legal_form (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(code, active, custom)
 );
+\echo ix_legal_form_code
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
+
 
 \echo public.legal_unit
 CREATE TABLE public.legal_unit (
@@ -993,12 +991,6 @@ CREATE TABLE public.legal_unit (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident character varying(15),
-    tax_ident character varying(50),
-    external_ident character varying(50),
-    external_ident_type character varying(50),
-    by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
-    by_tag_id_unique_ident varchar(64),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256),
@@ -1023,27 +1015,27 @@ CREATE TABLE public.legal_unit (
     enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     primary_for_enterprise boolean NOT NULL,
     invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
-    CONSTRAINT "by_tag_id and by_tag_id_unique_ident are all or nothing"
-    CHECK( by_tag_id IS     NULL AND by_tag_id_unique_ident IS     NULL
-        OR by_tag_id IS NOT NULL AND by_tag_id_unique_ident IS NOT NULL
-         )
+    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
 );
 
--- TODO: Use a scoped sql_saga unique key for enterprise_id below.
-CREATE UNIQUE INDEX "Only one primary legal_unit per enterprise" ON public.legal_unit(enterprise_id) WHERE primary_for_enterprise;
-CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_ident) WHERE valid_to = 'infinity';
+\echo legal_unit_active_idx
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
+\echo ix_legal_unit_data_source_id
 CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
+\echo ix_legal_unit_enterprise_id
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
+\echo ix_legal_unit_foreign_participation_id
 CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
+\echo ix_legal_unit_sector_id
 CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id);
+\echo ix_legal_unit_legal_form_id
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
+\echo ix_legal_unit_name
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
+\echo ix_legal_unit_reorg_type_id
 CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
-CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax ON public.legal_unit USING btree (short_name, stat_ident, tax_ident);
+\echo ix_legal_unit_size_id
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
-CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
 
 
 \echo admin.legal_unit_id_exists
@@ -1057,12 +1049,6 @@ CREATE TABLE public.establishment (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident character varying(15),
-    tax_ident character varying(50),
-    external_ident character varying(50),
-    external_ident_type character varying(50),
-    by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
-    by_tag_id_unique_ident varchar(64),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256),
@@ -1096,31 +1082,98 @@ CREATE TABLE public.establishment (
         OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
         ),
     CONSTRAINT "enterprise_id enables sector_id"
-    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END),
-    CONSTRAINT "by_tag_id and by_tag_id_unique_ident are all or nothing"
-    CHECK( by_tag_id IS     NULL AND by_tag_id_unique_ident IS     NULL
-        OR by_tag_id IS NOT NULL AND by_tag_id_unique_ident IS NOT NULL
-         )
-
+    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
 
-CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_ident) WHERE valid_to = 'infinity';
+\echo establishment_active_idx
 CREATE INDEX establishment_active_idx ON public.establishment(active);
+\echo ix_establishment_data_source_id
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
+\echo ix_establishment_sector_id
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
+\echo ix_establishment_enterprise_id
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
+\echo ix_establishment_legal_unit_id
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
+\echo ix_establishment_name
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
+\echo ix_establishment_reorg_type_id
 CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
-CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_ident);
+\echo ix_establishment_size_id
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
-CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
 
 
 \echo admin.establishment_id_exists
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$ LANGUAGE sql IMMUTABLE;
+
+\echo public.external_ident_type
+CREATE TABLE public.external_ident_type (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code VARCHAR(128) UNIQUE NOT NULL,
+    name VARCHAR(50),
+    by_tag_id INTEGER UNIQUE REFERENCES public.tag(id) ON DELETE RESTRICT
+);
+
+
+\echo public.external_ident_type_derive_code_and_name_from_by_tag_id()
+CREATE OR REPLACE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.by_tag_id IS NOT NULL THEN
+        SELECT tag.path, tag.name INTO NEW.code, NEW.name
+        FROM public.tag
+        WHERE tag.id = NEW.by_tag_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+\echo public.external_ident_type_derive_code_and_name_from_by_tag_id_insert
+CREATE TRIGGER external_ident_type_derive_code_and_name_from_by_tag_id_insert
+BEFORE INSERT ON public.external_ident_type
+FOR EACH ROW
+WHEN (NEW.by_tag_id IS NOT NULL)
+EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
+\echo public.external_ident_type_derive_code_and_name_from_by_tag_id_update
+CREATE TRIGGER external_ident_type_derive_code_and_name_from_by_tag_id_update
+BEFORE UPDATE ON public.external_ident_type
+FOR EACH ROW
+WHEN (NEW.by_tag_id IS NOT NULL AND NEW.by_tag_id IS DISTINCT FROM OLD.by_tag_id)
+EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
+
+\echo INSERT INTO public.external_ident_type
+-- Prepare the per-configured external identifiers.
+INSERT INTO public.external_ident_type (code, name) VALUES
+('stat_ident', 'Statistical Identifier'),
+('tax_ident', 'Tax Identifier');
+
+
+\echo public.external_ident
+CREATE TABLE public.external_ident (
+    id SERIAL NOT NULL,
+    ident VARCHAR(50) NOT NULL,
+    ident_type_id INTEGER NOT NULL REFERENCES public.external_ident_type(id) ON DELETE RESTRICT,
+    establishment_id INTEGER CHECK (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id INTEGER CHECK (admin.legal_unit_id_exists(legal_unit_id)),
+    enterprise_id INTEGER REFERENCES public.enterprise(id) ON DELETE CASCADE,
+    enterprise_group_id INTEGER CHECK (admin.enterprise_group_id_exists(enterprise_group_id)),
+    updated_by_user_id INTEGER NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    UNIQUE (ident, ident_type_id),
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+        )
+);
+CREATE INDEX external_ident_establishment_id_idx ON public.external_ident(establishment_id);
+CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_unit_id);
+CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);
+CREATE INDEX external_ident_enterprise_group_id_idx ON public.external_ident(enterprise_group_id);
 
 
 
@@ -2513,6 +2566,405 @@ CREATE VIEW public.timesegments AS
 
 --SELECT * FROM public.timesegments;
 
+\echo public.jsonb_stats()
+/*
+ * ======================================================================================
+ * Function: jsonb_stats
+ * Purpose: Aggregates and summarizes JSONB data by computing statistics for various data types.
+ * 
+ * This function accumulates statistics for JSONB objects, including numeric, string, boolean,
+ * array, and nested object types. The function is used as the state transition function in
+ * the jsonb_stats_agg aggregate, summarizing data across multiple rows.
+ * 
+ * Summary by Type:
+ * 1. Numeric:
+ *    - Computes the sum, count, mean, maximum, minimum, and variance (via sum_sq_diff).
+ *    - Example:
+ *      Input: {"a": 10}, {"a": 5}, {"a": 20}
+ *      Output: {"a": {"sum": 35, "count": 3, "mean": 11.67, "max": 20, "min": 5, "variance": 58.33}}
+ *    - Calculation References:
+ *      - Mean update: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
+ *      - Variance update: Welford's method
+ * 
+ * 2. String:
+ *    - Counts occurrences of each distinct string value.
+ *    - Example:
+ *      Input: {"b": "apple"}, {"b": "banana"}, {"b": "apple"}
+ *      Output: {"b": {"counts": {"apple": 2, "banana": 1}}}
+ * 
+ * 3. Boolean:
+ *    - Counts the occurrences of true and false values.
+ *    - Example:
+ *      Input: {"c": true}, {"c": false}, {"c": true}
+ *      Output: {"c": {"counts": {"true": 2, "false": 1}}}
+ * 
+ * 4. Array:
+ *    - Aggregates the count of each unique value item across all arrays.
+ *    - Example:
+ *      Input: {"d": [1, 2]}, {"d": [2, 3]}, {"d": [3, 4]}
+ *      Output: {"d": {"counts": {"1": 1, "2": 2, "3": 2, "4": 1}}}
+ *    - Note: An exception is raised if arrays contain mixed types.
+ * 
+ * 5. Object (Nested JSON):
+ *    - Recursively aggregates nested JSON objects.
+ *    - Example:
+ *      Input: {"e": {"f": 1}}, {"e": {"f": 2}}, {"e": {"f": 3}}
+ *      Output: {"e": {"f": {"sum": 6, "count": 3, "max": 3, "min": 1}}}
+ * 
+ * Note:
+ * - The function raises an exception if it encounters a type mismatch for a key across different rows.
+ * - Semantically, a single key will always have the same structure across different rows, as it is uniquely defined in a table.
+ * - The function should be used in conjunction with the jsonb_stats_agg aggregate to process multiple rows.
+ * ======================================================================================
+ */
+
+CREATE FUNCTION public.jsonb_stats(state jsonb, stats jsonb) RETURNS jsonb AS $$
+DECLARE
+    prev_stat_state jsonb;
+    stat_key text;
+    stat_value jsonb;
+    stat_type text;
+    prev_stat_type text;
+    next_stat_state jsonb;
+    state_type text;
+    stats_type text;
+    count integer;
+    mean numeric;
+    sum_sq_diff numeric;
+    delta numeric;
+BEGIN
+    IF state IS NULL OR stats IS NULL THEN
+        RAISE EXCEPTION 'Logic error: STRICT function should never be called with NULL';
+    END IF;
+
+    state_type := jsonb_typeof(state);
+    IF state_type <> 'object' THEN
+        RAISE EXCEPTION 'Type mismatch for state "%": % <> object', state, state_type;
+    END IF;
+
+    stats_type := jsonb_typeof(stats);
+    IF stats_type <> 'object' THEN
+        RAISE EXCEPTION 'Type mismatch for stats "%": % <> object', stats, stats_type;
+    END IF;
+
+    -- Update state with data from `value`
+    FOR stat_key, stat_value IN SELECT * FROM jsonb_each(stats) LOOP
+        stat_type := jsonb_typeof(stat_value);
+
+        IF state ? stat_key THEN
+            prev_stat_state := state->stat_key;
+            prev_stat_type := prev_stat_state->>'type';
+            IF stat_type <> prev_stat_type THEN
+                RAISE EXCEPTION 'Type mismatch between values for key "%" was "%" became "%"', stat_key, prev_stat_type, stat_type;
+            END IF;
+            next_stat_state = jsonb_build_object('type', stat_type);
+
+            CASE stat_type
+                -- Handle numeric values with iterative mean and variance
+                WHEN 'number' THEN
+                    count := (prev_stat_state->'count')::integer + 1;
+                    delta := stat_value::numeric - (prev_stat_state->'mean')::numeric;
+                    mean := (prev_stat_state->'mean')::numeric + delta / count;
+                    sum_sq_diff := (prev_stat_state->'sum_sq_diff')::numeric + delta * (stat_value::numeric - mean);
+
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'sum', (prev_stat_state->'sum')::numeric + stat_value::numeric,
+                            'count', count,
+                            'mean', mean,
+                            'min', LEAST((prev_stat_state->'min')::numeric, stat_value::numeric),
+                            'max', GREATEST((prev_stat_state->'max')::numeric, stat_value::numeric),
+                            'sum_sq_diff', sum_sq_diff,
+                            'variance', CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END
+                        );
+
+                -- Handle string values
+                WHEN 'string' THEN
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'counts',
+                            -- The previous dictionary with count for each key.
+                            (prev_stat_state->'counts')
+                            -- Appending to it
+                            ||
+                            -- The updated count for this particular key.
+                            jsonb_build_object(
+                                -- Notice that `->>0` extracts the non quoted string,
+                                -- otherwise the key would be double quoted.
+                                stat_value->>0,
+                                COALESCE((prev_stat_state->'counts'->(stat_value->>0))::integer, 0) + 1
+                            )
+                        );
+                -- Handle boolean types
+                WHEN 'boolean' THEN
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'counts', jsonb_build_object(
+                                'true', COALESCE((prev_stat_state->'counts'->'true')::integer, 0) + (stat_value::boolean)::integer,
+                                'false', COALESCE((prev_stat_state->'counts'->'false')::integer, 0) + (NOT stat_value::boolean)::integer
+                            )
+                        );
+
+                -- Handle array types
+                WHEN 'array' THEN
+                    DECLARE
+                        element text;
+                        element_count integer;
+                    BEGIN
+                        -- Start with the previous state, to preserve previous counts.
+                        next_stat_state := prev_stat_state;
+
+                        FOR element IN SELECT jsonb_array_elements_text(stat_value) LOOP
+                            -- Retrieve the old count for this element, defaulting to 0 if not present
+                            count := COALESCE((next_stat_state->'counts'->element)::integer, 0) + 1;
+
+                            -- Update the next state with the incremented count
+                            next_stat_state := jsonb_set(
+                                next_stat_state,
+                                ARRAY['counts',element],
+                                to_jsonb(count)
+                            );
+                        END LOOP;
+                    END;
+
+                -- Handle object (nested JSON)
+                WHEN 'object' THEN
+                    next_stat_state := jsonb_stats(prev_stat_state, stat_value);
+                ELSE
+                    RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
+            END CASE;
+        ELSE
+            -- Initialize new entry in state
+            next_stat_state = jsonb_build_object('type', stat_type);
+            CASE stat_type
+                WHEN 'number' THEN
+                    next_stat_state := next_stat_state ||
+                        jsonb_build_object(
+                            'sum', stat_value::numeric,
+                            'count', 1,
+                            'mean', stat_value::numeric,
+                            'min', stat_value::numeric,
+                            'max', stat_value::numeric,
+                            'sum_sq_diff', 0,
+                            'variance', 0
+                        );
+                WHEN 'string' THEN
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            -- Notice that `->>0` extracts the non quoted string,
+                            -- otherwise the key would be double quoted.
+                            'counts', jsonb_build_object(stat_value->>0, 1)
+                        );
+                WHEN 'boolean' THEN
+                    next_stat_state :=  next_stat_state ||
+                            jsonb_build_object(
+                            'counts', jsonb_build_object(
+                                'true', (stat_value::boolean)::integer,
+                                'false', (NOT stat_value::boolean)::integer
+                            )
+                        );
+                WHEN 'array' THEN
+                    -- Initialize array with counts of each unique value
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'counts',
+                            (
+                            SELECT jsonb_object_agg(element,1)
+                            FROM jsonb_array_elements_text(stat_value) AS element
+                            )
+                        );
+                WHEN 'object' THEN
+                    next_stat_state := jsonb_stats(next_stat_state, stat_value);
+                ELSE
+                    RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
+            END CASE;
+        END IF;
+
+        state := state || jsonb_build_object(stat_key, next_stat_state);
+    END LOOP;
+
+    RETURN state;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+
+
+CREATE FUNCTION public.jsonb_stats_round(state jsonb) RETURNS jsonb AS $$
+DECLARE
+    key text;
+    val jsonb;
+    rounded_val jsonb;
+    result jsonb := '{}';
+    type_val text;
+BEGIN
+    -- Iterate through the keys in the state JSONB object
+    FOR key, val IN SELECT * FROM jsonb_each(state) LOOP
+        type_val := jsonb_typeof(val);
+        CASE type_val
+            WHEN 'object' THEN
+                -- Further iterate if the value is an object
+                IF val ? 'mean' OR val ? 'sum_sq_diff' OR val ? 'variance' THEN
+                    -- Numeric statistics rounding for relevant
+                    rounded_val :=
+                        val - 'mean' - 'sum_sq_diff' - 'variance' ||
+                        jsonb_build_object(
+                            'mean', round((val->>'mean')::numeric, 2),
+                            'sum_sq_diff', round((val->>'sum_sq_diff')::numeric, 2),
+                            'variance', round((val->>'variance')::numeric, 2)
+                        );
+                ELSE
+                    -- For nested objects that are not numeric statistics, recursively call jsonb_stats_round
+                    rounded_val := jsonb_stats_round(val);
+                END IF;
+            ELSE
+                -- Other types are kept as is
+                rounded_val := val;
+        END CASE;
+
+        -- Construct the result JSONB object
+        result := result || jsonb_build_object(key, rounded_val);
+    END LOOP;
+
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+
+
+-- Create aggregate jsonb_stats_agg
+CREATE AGGREGATE public.jsonb_stats_agg(jsonb) (
+    sfunc = public.jsonb_stats,
+    stype = jsonb,
+    initcond = '{}',
+    finalfunc = public.jsonb_stats_round
+);
+
+
+CREATE FUNCTION public.jsonb_merge_stats(a jsonb, b jsonb) RETURNS jsonb AS $$
+DECLARE
+    key_a text;
+    key_b text;
+    val_a jsonb;
+    val_b jsonb;
+    merged_val jsonb;
+    type_a text;
+    type_b text;
+    result jsonb := '{}';
+BEGIN
+    -- Ensure both a and b are objects
+    IF jsonb_typeof(a) <> 'object' OR jsonb_typeof(b) <> 'object' THEN
+        RAISE EXCEPTION 'Both arguments must be JSONB objects';
+    END IF;
+
+    -- Iterate over keys in both JSONB objects
+    FOR key_a, val_a IN SELECT * FROM jsonb_each(a) LOOP
+        IF b ? key_a THEN
+            val_b := b->key_a;
+            type_a := val_a->>'type';
+            type_b := val_b->>'type';
+
+            -- Ensure the types are the same for the same key
+            IF type_a <> type_b THEN
+                RAISE EXCEPTION 'Type mismatch for key "%": % vs %', key_a, type_a, type_b;
+            END IF;
+
+            -- Merge the values based on their type
+            CASE type_a
+                WHEN 'number' THEN
+                    DECLARE
+                       count_a integer := (val_a->'count')::integer;
+                       count_b integer := (val_b->'count')::integer;
+                       count integer := count_a + count_b;
+                       mean_a numeric := (val_a->'mean')::numeric;
+                       mean_b numeric := (val_b->'mean')::numeric;
+                       mean numeric := (mean_a * count_a + mean_b * count_b) / count;
+                       sum_sq_diff numeric := (val_a->'sum_sq_diff')::numeric + (val_b->'sum_sq_diff')::numeric + (mean_a - mean_b)^2 * count_a * count_b / count;
+                       variance numeric := CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END;
+                    BEGIN
+                        merged_val := jsonb_build_object(
+                            'sum', (val_a->'sum')::numeric + (val_b->'sum')::numeric,
+                            'count', count,
+                            'mean', mean,
+                            'min', LEAST((val_a->'min')::numeric, (val_b->'min')::numeric),
+                            'max', GREATEST((val_a->'max')::numeric, (val_b->'max')::numeric),
+                            'sum_sq_diff', sum_sq_diff,
+                            'variance', variance
+                        );
+                    END;
+                WHEN 'string' THEN
+                    merged_val := jsonb_build_object(
+                        'counts', (
+                            SELECT jsonb_object_agg(key, value)
+                            FROM (
+                                SELECT key, SUM(value) AS value
+                                FROM (
+                                    SELECT key, value::integer FROM jsonb_each(val_a->'counts')
+                                    UNION ALL
+                                    SELECT key, value::integer FROM jsonb_each(val_b->'counts')
+                                ) AS enumerated
+                                GROUP BY key
+                            ) AS merged_counts
+                        )
+                    );
+                WHEN 'boolean' THEN
+                    merged_val := jsonb_build_object(
+                        'counts', jsonb_build_object(
+                            'true', (val_a->'counts'->>'true')::integer + (val_b->'counts'->>'true')::integer,
+                            'false', (val_a->'counts'->>'false')::integer + (val_b->'counts'->>'false')::integer
+                        )
+                    );
+                WHEN 'array' THEN
+                    merged_val := jsonb_build_object(
+                        'counts', (
+                            SELECT jsonb_object_agg(key, value)
+                            FROM (
+                                SELECT key, SUM(value) AS value
+                                FROM (
+                                    SELECT key, value::integer FROM jsonb_each(val_a->'counts')
+                                    UNION ALL
+                                    SELECT key, value::integer FROM jsonb_each(val_b->'counts')
+                                ) AS enumerated
+                                GROUP BY key
+                            ) AS merged_counts
+                        )
+                    );
+                WHEN 'object' THEN
+                    merged_val := jsonb_merge_stats(val_a, val_b);
+                ELSE
+                    RAISE EXCEPTION 'Unsupported type "%" for key "%"', type_a, key_a;
+            END CASE;
+
+            -- Add the merged value to the result
+            result := result || jsonb_build_object(key_a, jsonb_build_object('type', type_a) || merged_val);
+        ELSE
+            -- Key only in a
+            result := result || jsonb_build_object(key_a, val_a);
+        END IF;
+    END LOOP;
+
+    -- Add keys only in b
+    FOR key_b, val_b IN SELECT * FROM jsonb_each(b) WHERE NOT (a ? key_b) LOOP
+        result := result || jsonb_build_object(key_b, val_b);
+    END LOOP;
+
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+
+
+\echo public.jsonb_concat_agg()
+-- Aggregate: jsonb_concat_agg
+-- Purpose: Aggregate function to concatenate JSONB objects from multiple rows into a single JSONB object.
+-- Example:
+--   SELECT jsonb_concat_agg(column_name) FROM table_name;
+--   Output: A single JSONB object resulting from the concatenation of JSONB objects from all rows.
+-- Notice:
+--   The function `jsonb_concat` is not documented, but named equivalent of `||`.
+CREATE AGGREGATE public.jsonb_concat_agg(jsonb) (
+    sfunc = public.jsonb_concat,
+    stype = jsonb,
+    initcond = '{}'
+);
+
+
 \echo public.timeline_establishment
 CREATE VIEW public.timeline_establishment
     ( unit_type
@@ -2520,12 +2972,6 @@ CREATE VIEW public.timeline_establishment
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -2564,8 +3010,7 @@ CREATE VIEW public.timeline_establishment
     , establishment_id
     , legal_unit_id
     , enterprise_id
-    , employees
-    , turnover
+    , stats
     )
     AS
       SELECT t.unit_type
@@ -2573,12 +3018,6 @@ CREATE VIEW public.timeline_establishment
            , t.valid_after
            , t.valid_after + '1 day'::INTERVAL AS valid_from
            , t.valid_to
-           , es.stat_ident AS stat_ident
-           , es.tax_ident AS tax_ident
-           , es.external_ident AS external_ident
-           , es.external_ident_type AS external_ident_type
-           , es.by_tag_id    AS by_tag_id
-           , es.by_tag_id_unique_ident AS by_tag_id_unique_ident
            , es.name AS name
            , es.birth_date AS birth_date
            , es.death_date AS death_date
@@ -2627,8 +3066,23 @@ CREATE VIEW public.timeline_establishment
            , es.legal_unit_id AS legal_unit_id
            , es.enterprise_id AS enterprise_id
            --
-           , sfu1.value_int AS employees
-           , sfu2.value_int AS turnover
+           , (
+            SELECT public.jsonb_concat_agg(
+                CASE sd.type
+                WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
+                WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
+                WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
+                WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
+                END
+                )
+            FROM public.stat_for_unit AS sfu
+            LEFT JOIN public.stat_definition AS sd
+              ON sfu.stat_definition_id = sd.id
+            WHERE sfu.establishment_id = es.id
+              AND daterange(t.valid_after, t.valid_to, '(]')
+               && daterange(sfu.valid_after, sfu.valid_to, '(]')
+           ) stats
+      --
       FROM public.timesegments AS t
       INNER JOIN public.establishment AS es
           ON t.unit_type = 'establishment' AND t.unit_id = es.id
@@ -2674,21 +3128,6 @@ CREATE VIEW public.timeline_establishment
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       --
-      LEFT OUTER JOIN public.stat_definition AS sd1
-              ON sd1.code = 'employees'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu1
-              ON sfu1.stat_definition_id = sd1.id
-             AND sfu1.establishment_id = es.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu1.valid_after, sfu1.valid_to, '(]')
-      --
-      LEFT OUTER JOIN public.stat_definition AS sd2
-              ON sd2.code = 'turnover'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu2
-              ON sfu2.stat_definition_id = sd2.id
-             AND sfu2.establishment_id = es.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu2.valid_after, sfu2.valid_to, '(]')
       ORDER BY t.unit_type, t.unit_id, t.valid_after
 ;
 
@@ -2701,12 +3140,6 @@ CREATE VIEW public.timeline_legal_unit
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -2745,8 +3178,8 @@ CREATE VIEW public.timeline_legal_unit
     , establishment_ids
     , legal_unit_id
     , enterprise_id
-    , employees
-    , turnover
+    , stats
+    , stats_summary
     )
     AS
       WITH basis AS (
@@ -2755,12 +3188,6 @@ CREATE VIEW public.timeline_legal_unit
            , t.valid_after
            , t.valid_after + '1 day'::INTERVAL AS valid_from
            , t.valid_to
-           , lu.stat_ident AS stat_ident
-           , lu.tax_ident AS tax_ident
-           , lu.external_ident AS external_ident
-           , lu.external_ident_type AS external_ident_type
-           , lu.by_tag_id    AS by_tag_id
-           , lu.by_tag_id_unique_ident AS by_tag_id_unique_ident
            , lu.name AS name
            , lu.birth_date AS birth_date
            , lu.death_date AS death_date
@@ -2807,9 +3234,23 @@ CREATE VIEW public.timeline_legal_unit
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
-           --
-           , sfu1.value_int AS employees
-           , sfu2.value_int AS turnover
+           , (
+            SELECT public.jsonb_concat_agg(
+                CASE sd.type
+                WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
+                WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
+                WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
+                WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
+                END
+                )
+            FROM public.stat_for_unit AS sfu
+            LEFT JOIN public.stat_definition AS sd
+              ON sfu.stat_definition_id = sd.id
+            WHERE sfu.legal_unit_id = lu.id
+              AND daterange(t.valid_after, t.valid_to, '(]')
+               && daterange(sfu.valid_after, sfu.valid_to, '(]')
+           ) stats
+      --
       FROM public.timesegments AS t
       INNER JOIN public.legal_unit AS lu
           ON t.unit_type = 'legal_unit' AND t.unit_id = lu.id
@@ -2857,29 +3298,12 @@ CREATE VIEW public.timeline_legal_unit
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      --
-      LEFT OUTER JOIN public.stat_definition AS sd1
-              ON sd1.code = 'employees'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu1
-              ON sfu1.stat_definition_id = sd1.id
-             AND sfu1.legal_unit_id = lu.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu1.valid_after, sfu1.valid_to, '(]')
-      --
-      LEFT OUTER JOIN public.stat_definition AS sd2
-              ON sd2.code = 'turnover'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu2
-              ON sfu2.stat_definition_id = sd2.id
-             AND sfu2.legal_unit_id = lu.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu2.valid_after, sfu2.valid_to, '(]')
       ), aggregation AS (
         SELECT tes.legal_unit_id
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
-             , sum(tes.employees) AS employees
-             , sum(tes.turnover) AS turnover
+             , public.jsonb_stats_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
           INNER JOIN basis
            ON tes.legal_unit_id = basis.legal_unit_id
@@ -2892,12 +3316,6 @@ CREATE VIEW public.timeline_legal_unit
            , basis.valid_after
            , basis.valid_from
            , basis.valid_to
-           , basis.stat_ident
-           , basis.tax_ident
-           , basis.external_ident
-           , basis.external_ident_type
-           , basis.by_tag_id
-           , basis.by_tag_id_unique_ident
            , basis.name
            , basis.birth_date
            , basis.death_date
@@ -2936,8 +3354,12 @@ CREATE VIEW public.timeline_legal_unit
            , COALESCE(aggregation.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
-           , COALESCE(basis.employees + aggregation.employees, basis.employees, aggregation.employees) AS employees
-           , COALESCE(basis.turnover + aggregation.turnover, basis.turnover, aggregation.turnover) AS turnover
+           -- Expose the stats for just this entry.
+           , basis.stats AS stats
+           -- Continue one more aggregation iteration adding the stats for this unit
+           -- to the aggregated stats for establishments, by using the internal
+           -- aggregation function for one more step.
+           , public.jsonb_stats(aggregation.stats_summary, basis.stats) AS stats_summary
       FROM basis
       LEFT OUTER JOIN aggregation
        ON basis.legal_unit_id = aggregation.legal_unit_id
@@ -2957,12 +3379,6 @@ CREATE VIEW public.timeline_enterprise
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -3001,8 +3417,7 @@ CREATE VIEW public.timeline_enterprise
     , establishment_ids
     , legal_unit_ids
     , enterprise_id
-    , employees
-    , turnover
+    , stats_summary
     )
     AS
       WITH basis AS (
@@ -3011,12 +3426,6 @@ CREATE VIEW public.timeline_enterprise
            , t.valid_after
            , t.valid_after + '1 day'::INTERVAL AS valid_from
            , t.valid_to
-           , plu.stat_ident AS stat_ident
-           , plu.tax_ident AS tax_ident
-           , plu.external_ident AS external_ident
-           , plu.external_ident_type AS external_ident_type
-           , plu.by_tag_id    AS by_tag_id
-           , plu.by_tag_id_unique_ident AS by_tag_id_unique_ident
            , plu.name AS name
            , plu.birth_date AS birth_date
            , plu.death_date AS death_date
@@ -3117,8 +3526,7 @@ CREATE VIEW public.timeline_enterprise
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
-             , sum(tes.employees) AS employees
-             , sum(tes.turnover) AS turnover
+             , public.jsonb_stats_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
           INNER JOIN basis
            ON tes.enterprise_id = basis.enterprise_id
@@ -3130,8 +3538,7 @@ CREATE VIEW public.timeline_enterprise
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
-             , sum(tlu.employees) AS employees
-             , sum(tlu.turnover) AS turnover
+             , public.jsonb_stats_agg(tlu.stats) AS stats_summary
           FROM public.timeline_legal_unit AS tlu
           INNER JOIN basis
            ON tlu.enterprise_id = basis.enterprise_id
@@ -3144,12 +3551,6 @@ CREATE VIEW public.timeline_enterprise
                , basis.valid_after
                , basis.valid_from
                , basis.valid_to
-               , basis.stat_ident
-               , basis.tax_ident
-               , basis.external_ident
-               , basis.external_ident_type
-               , basis.by_tag_id
-               , basis.by_tag_id_unique_ident
                , basis.name
                , basis.birth_date
                , basis.death_date
@@ -3188,8 +3589,7 @@ CREATE VIEW public.timeline_enterprise
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
-               , COALESCE(esa.employees + lua.employees, esa.employees, lua.employees) AS employees
-               , COALESCE(esa.turnover + lua.turnover, esa.turnover, lua.turnover) AS turnover
+               , COALESCE(public.jsonb_merge_stats(esa.stats_summary,lua.stats_summary), esa.stats_summary, lua.stats_summary) AS stats_summary
           FROM basis
           LEFT OUTER JOIN establishment_aggregation AS esa
                        ON basis.enterprise_id = esa.enterprise_id
@@ -3213,12 +3613,6 @@ CREATE VIEW public.statistical_unit_def
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -3257,8 +3651,9 @@ CREATE VIEW public.statistical_unit_def
     , establishment_ids
     , legal_unit_ids
     , enterprise_ids
-    , employees
-    , turnover
+    , stats
+    , stats_summary
+    , external_idents
     , establishment_count
     , legal_unit_count
     , enterprise_count
@@ -3271,12 +3666,6 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
            , name
            , birth_date
            , death_date
@@ -3323,8 +3712,8 @@ CREATE VIEW public.statistical_unit_def
                   THEN ARRAY[]::INT[]
                   ELSE ARRAY[enterprise_id]::INT[]
               END AS enterprise_ids
-           , employees
-           , turnover
+           , stats
+           , NULL::JSONB AS stats_summary
       FROM public.timeline_establishment
       UNION ALL
       SELECT unit_type
@@ -3332,12 +3721,6 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
            , name
            , birth_date
            , death_date
@@ -3376,8 +3759,8 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
-           , employees
-           , turnover
+           , stats
+           , stats_summary
       FROM public.timeline_legal_unit
       UNION ALL
       SELECT unit_type
@@ -3385,12 +3768,6 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
            , name
            , birth_date
            , death_date
@@ -3429,28 +3806,40 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
-           , employees
-           , turnover
+           , NULL::JSONB AS stats
+           , stats_summary
       FROM public.timeline_enterprise
       --UNION ALL
       --SELECT * FROM enterprise_group_timeline
     )
     SELECT data.*
-             , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
-             , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
-             , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
-             , (
-          SELECT array_agg(DISTINCT t.path)
-          FROM public.tag_for_unit AS tfu
-          JOIN public.tag AS t ON t.id = tfu.tag_id
-          WHERE
-            CASE data.unit_type
-            WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
-            WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
-            WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
-            WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
-            END
-          ) AS tag_paths
+         , (
+           SELECT jsonb_agg(jsonb_build_object(eit.code, ei.ident))
+           FROM public.external_ident AS ei
+           JOIN public.external_ident_type AS eit ON eit.id = ei.ident_type_id
+           WHERE
+             CASE data.unit_type
+             WHEN 'enterprise' THEN ei.enterprise_id = data.unit_id
+             WHEN 'legal_unit' THEN ei.legal_unit_id = data.unit_id
+             WHEN 'establishment' THEN ei.establishment_id = data.unit_id
+             WHEN 'enterprise_group' THEN ei.enterprise_group_id = data.unit_id
+             END
+         ) AS external_idents
+         , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
+         , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
+         , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
+         , (
+            SELECT array_agg(DISTINCT t.path)
+            FROM public.tag_for_unit AS tfu
+            JOIN public.tag AS t ON t.id = tfu.tag_id
+            WHERE
+              CASE data.unit_type
+              WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
+              WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
+              WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
+              WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
+              END
+         ) AS tag_paths
     FROM data;
 ;
 
@@ -3459,6 +3848,7 @@ CREATE VIEW public.statistical_unit_def
 CREATE MATERIALIZED VIEW public.statistical_unit AS
 SELECT * FROM public.statistical_unit_def;
 
+\echo statistical_unit_key
 CREATE UNIQUE INDEX "statistical_unit_key"
     ON public.statistical_unit
     (valid_from
@@ -3466,37 +3856,56 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     ,unit_type
     ,unit_id
     );
+\echo idx_statistical_unit_unit_type
 CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
+\echo idx_statistical_unit_establishment_id
 CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (unit_id);
-CREATE INDEX idx_statistical_unit_by_tag_id ON public.statistical_unit (by_tag_id);
-CREATE INDEX idx_statistical_unit_by_tag_id_unique_ident ON public.statistical_unit (by_tag_id_unique_ident);
+\echo idx_statistical_unit_search
 CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
+\echo idx_statistical_unit_primary_activity_category_id
 CREATE INDEX idx_statistical_unit_primary_activity_category_id ON public.statistical_unit (primary_activity_category_id);
+\echo idx_statistical_unit_secondary_activity_category_id
 CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.statistical_unit (secondary_activity_category_id);
+\echo idx_statistical_unit_physical_region_id
 CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
+\echo idx_statistical_unit_physical_country_id
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
+\echo idx_statistical_unit_sector_id
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
 
 CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit(sector_path);
 CREATE INDEX idx_gist_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
 
+\echo idx_statistical_unit_legal_form_id
 CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
+\echo idx_statistical_unit_invalid_codes
 CREATE INDEX idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
+\echo idx_statistical_unit_invalid_codes_exists
 CREATE INDEX idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
 
+\echo idx_statistical_unit_primary_activity_category_path
 CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit(primary_activity_category_path);
+\echo idx_gist_statistical_unit_primary_activity_category_path
 CREATE INDEX idx_gist_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
 
+\echo idx_statistical_unit_secondary_activity_category_path
 CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit(secondary_activity_category_path);
+\echo idx_gist_statistical_unit_secondary_activity_category_path
 CREATE INDEX idx_gist_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
 
+\echo idx_statistical_unit_activity_category_paths
 CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit(activity_category_paths);
+\echo idx_gist_statistical_unit_activity_category_paths
 CREATE INDEX idx_gist_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
 
+\echo idx_statistical_unit_physical_region_path
 CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit(physical_region_path);
+\echo idx_gist_statistical_unit_physical_region_path
 CREATE INDEX idx_gist_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
 
+\echo idx_statistical_unit_tag_paths
 CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths);
+\echo idx_gist_statistical_unit_tag_paths
 CREATE INDEX idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
 
@@ -3591,8 +4000,7 @@ SELECT valid_from
      , legal_form_id
      , physical_country_id
      , count(*) AS count
-     , sum(employees) AS employees
-     , sum(turnover) AS turnover
+     , public.jsonb_stats_agg(stats_summary) AS stats_summary
 FROM public.statistical_unit
 GROUP BY valid_from
        , valid_to
@@ -3604,20 +4012,31 @@ GROUP BY valid_from
        , physical_country_id
 ;
 
+\echo statistical_unit_facet_valid_from
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
+\echo statistical_unit_facet_valid_to
 CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
+\echo statistical_unit_facet_unit_type
 CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
 
+\echo statistical_unit_facet_physical_region_path_btree
 CREATE INDEX statistical_unit_facet_physical_region_path_btree ON public.statistical_unit_facet USING BTREE (physical_region_path);
+\echo statistical_unit_facet_physical_region_path_gist
 CREATE INDEX statistical_unit_facet_physical_region_path_gist ON public.statistical_unit_facet USING GIST (physical_region_path);
 
+\echo statistical_unit_facet_primary_activity_category_path_btree
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON public.statistical_unit_facet USING BTREE (primary_activity_category_path);
+\echo statistical_unit_facet_primary_activity_category_path_gist
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
 
+\echo statistical_unit_facet_sector_path_btree
 CREATE INDEX statistical_unit_facet_sector_path_btree ON public.statistical_unit_facet USING BTREE (sector_path);
+\echo statistical_unit_facet_sector_path_gist
 CREATE INDEX statistical_unit_facet_sector_path_gist ON public.statistical_unit_facet USING GIST (sector_path);
 
+\echo statistical_unit_facet_legal_form_id_btree
 CREATE INDEX statistical_unit_facet_legal_form_id_btree ON public.statistical_unit_facet USING BTREE (legal_form_id);
+\echo statistical_unit_facet_physical_country_id_btree
 CREATE INDEX statistical_unit_facet_physical_country_id_btree ON public.statistical_unit_facet USING BTREE (physical_country_id);
 
 
@@ -3652,8 +4071,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , suf.legal_form_id
              , suf.physical_country_id
              , count
-             , employees
-             , turnover
+             , stats_summary
         FROM public.statistical_unit_facet AS suf
            , params
         WHERE
@@ -3681,8 +4099,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
-             , COALESCE(SUM(af.employees), 0) AS employees
-             , COALESCE(SUM(af.turnover), 0) AS turnover
+             , public.jsonb_stats_agg(af.stats_summary) AS stats_summary
         FROM available_facet AS af
     ),
     breadcrumb_region AS (
@@ -3716,8 +4133,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
@@ -3764,8 +4180,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -3806,8 +4221,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
@@ -3840,8 +4254,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.code
              , lf.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
@@ -3873,8 +4286,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
@@ -3885,7 +4297,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     SELECT
         jsonb_build_object(
           'unit_type', unit_type,
-          'stats', (SELECT jsonb_agg(to_jsonb(source.*)) FROM available_facet_stats AS source),
+          'stats', (SELECT to_jsonb(source.*) FROM available_facet_stats AS source),
           'breadcrumb',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
@@ -3914,7 +4326,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 
-
+\echo public.statistical_history_type
 CREATE TYPE public.statistical_history_type AS ENUM('year','year-month');
 
 
