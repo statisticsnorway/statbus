@@ -31,24 +31,14 @@ SELECT sql_saga.drop_era('public.activity');
 
 \echo public.establishment
 SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_by_tag_id_by_tag_id_unique_ident_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_ident_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
 
 \echo public.legal_unit
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_by_tag_id_by_tag_id_unique_ident_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_ident_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
 
 \echo public.enterprise_group
-SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
 
@@ -121,11 +111,18 @@ DROP VIEW public.timepoints;
 
 DROP TYPE public.statistical_unit_type;
 
+\echo public.external_ident
+DROP TABLE public.external_ident;
+DROP TABLE public.external_ident_type;
+DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
 DROP AGGREGATE public.jsonb_stats_to_summary_agg(jsonb);
 DROP FUNCTION public.jsonb_stats_to_summary(jsonb,jsonb);
 DROP AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb);
 DROP FUNCTION public.jsonb_stats_summary_merge(jsonb,jsonb);
 DROP FUNCTION public.jsonb_stats_to_summary_round(jsonb);
+
+DROP AGGREGATE public.jsonb_concat_agg(jsonb);
 
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
