@@ -605,16 +605,16 @@ CREATE TABLE public.tag (
 );
 
 
-\echo public.relative_period_type
-CREATE TYPE public.relative_period_type AS ENUM (
+\echo public.relative_period_code
+CREATE TYPE public.relative_period_code AS ENUM (
     -- For data entry with context_valid_from and context_valid_to. context_valid_on should be context_valid_from when infinity, else context_valid_to
     'today',
-    'year_prev_until_infinity',
-    'year_prev_only',
-    'year_curr_until_infinity',
+    'year_curr',
+    'year_prev',
     'year_curr_only',
+    'year_prev_only',
 
-    -- For data search with context_valid_on only, no context_valid_from and context_valid_to
+    -- For data query with context_valid_on only, no context_valid_from and context_valid_to
     'start_of_week_curr',
     'stop_of_week_prev',
     'start_of_week_prev',
@@ -644,24 +644,47 @@ CREATE TYPE public.relative_period_type AS ENUM (
     'start_of_decade_prev'
 );
 
+\echo public.relative_period_scope
+CREATE TYPE public.relative_period_scope AS ENUM (
+    'input_and_query',
+    'query',
+    'input'
+);
+
+\echo public.relative_period
 CREATE TABLE public.relative_period (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name character varying(256) NOT NULL,
-    type public.relative_period_type UNIQUE,
-    active boolean NOT NULL DEFAULT true
+    code public.relative_period_code UNIQUE NOT NULL,
+    name_when_query character varying(256),
+    name_when_input character varying(256),
+    scope public.relative_period_scope NOT NULL,
+    active boolean NOT NULL DEFAULT true,
+    CONSTRAINT "scope input_and_query requires name_when_input"
+    CHECK (
+        CASE scope
+        WHEN 'input_and_query' THEN name_when_input IS NOT NULL AND name_when_query IS NOT NULL
+        WHEN 'query'           THEN name_when_input IS     NULL AND name_when_query IS NOT NULL
+        WHEN 'input'           THEN name_when_input IS NOT NULL AND name_when_query IS     NULL
+        END
+    )
 );
 
 \echo public.relative_period_with_time
 CREATE VIEW public.relative_period_with_time AS
+-- Notice that all input types also has a valid_on date for query,
+-- that matches the valid_from if one swiches from input to query
+-- that can be used.
 SELECT *,
-       CASE type -- context_valid_on
-           WHEN 'today' THEN current_date
+       --
+       CASE code
            --
-           WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date) - interval '1 day'
+           WHEN 'today' THEN current_date
+           WHEN 'year_prev' THEN date_trunc('year', current_date) - interval '1 day'
            WHEN 'year_prev_only'           THEN date_trunc('year', current_date) - interval '1 day'
-           WHEN 'year_curr_until_infinity' THEN current_date
+           WHEN 'year_curr' THEN current_date
            WHEN 'year_curr_only'           THEN current_date
-            --
+           --
+           WHEN 'today' THEN current_date
            WHEN 'start_of_week_curr'     THEN date_trunc('week', current_date)
            WHEN 'stop_of_week_prev'      THEN date_trunc('week', current_date) - interval '1 day'
            WHEN 'start_of_week_prev'     THEN date_trunc('week', current_date - interval '1 week')
@@ -701,24 +724,26 @@ SELECT *,
            WHEN 'start_of_decade_prev' THEN date_trunc('year', current_date - interval '1 year' * (EXTRACT(year FROM current_date)::int % 10)) - interval '10 years'
            ELSE NULL
        END::DATE AS valid_on,
-       CASE type
-           WHEN 'today' THEN current_date
-           --
-           WHEN 'year_prev_until_infinity' THEN date_trunc('year', current_date - interval '1 year')::DATE
-           WHEN 'year_prev_only'           THEN date_trunc('year', current_date - interval '1 year')::DATE
-           WHEN 'year_curr_until_infinity' THEN date_trunc('year', current_date)::DATE
-           WHEN 'year_curr_only'           THEN date_trunc('year', current_date)::DATE
+       --
+       CASE code
+           WHEN 'today'          THEN current_date
+           WHEN 'year_prev'      THEN date_trunc('year', current_date - interval '1 year')::DATE
+           WHEN 'year_curr'      THEN date_trunc('year', current_date)::DATE
+           WHEN 'year_prev_only' THEN date_trunc('year', current_date - interval '1 year')::DATE
+           WHEN 'year_curr_only' THEN date_trunc('year', current_date)::DATE
            --
            ELSE NULL
        END::DATE AS valid_from,
-       CASE type
-           WHEN 'today'                    THEN 'infinity'::DATE
-           WHEN 'year_prev_until_infinity' THEN 'infinity'::DATE
-           WHEN 'year_curr_until_infinity' THEN 'infinity'::DATE
+       --
+       CASE code
+           WHEN 'today'          THEN 'infinity'::DATE
+           WHEN 'year_prev'      THEN 'infinity'::DATE
+           WHEN 'year_curr'      THEN 'infinity'::DATE
            WHEN 'year_prev_only' THEN date_trunc('year', current_date)::DATE - interval '1 day'
            WHEN 'year_curr_only' THEN date_trunc('year', current_date + interval '1 year')::DATE - interval '1 day'
            ELSE NULL
        END::DATE as valid_to
+       --
 FROM public.relative_period;
 
 
@@ -726,38 +751,95 @@ DO $$
 DECLARE
     parent_id integer;
 BEGIN
-    INSERT INTO public.relative_period (name, type, active)
+    INSERT INTO public.relative_period
+        (code                         , name_when_query                      , name_when_input                  , scope             , active)
     VALUES
-        ('Today', 'today', true),
+        ('today'                      , 'Today'                              , 'From today and onwards'         , 'input_and_query' , true)   ,
         --
-        ('Previous Year until Infinity', 'year_prev_until_infinity', true),
-        ('Only Previous Year', 'year_prev_only', true),
-        ('Current Year until Infinity', 'year_curr_until_infinity', true),
-        ('Only Current Year', 'year_curr_only', true),
+        ('year_prev'                  , 'Previous Year'                      , 'From previous year and onwards' , 'input_and_query' , true)   ,
+        ('year_curr'                  , 'Current Year'                       , 'Current year and onwards'       , 'input_and_query' , true)   ,
+        ('year_prev_only'             , NULL                                 , 'Previous year only'             , 'input'           , true)   ,
+        ('year_curr_only'             , NULL                                 , 'Current year only'              , 'input'           , true)   ,
         --
-        ('Start of Current Week', 'start_of_week_curr', true),
-        ('End of Previous Week', 'stop_of_week_prev', true),
-        ('Start of Previous Week', 'start_of_week_prev', true),
-        ('Start of Current Month', 'start_of_month_curr', true),
-        ('End of Previous Month', 'stop_of_month_prev', true),
-        ('Start of Previous Month', 'start_of_month_prev', true),
-        ('Start of Current Quarter', 'start_of_quarter_curr', true),
-        ('End of Previous Quarter', 'stop_of_quarter_prev', true),
-        ('Start of Previous Quarter', 'start_of_quarter_prev', true),
-        ('Start of Current Semester', 'start_of_semester_curr', true),
-        ('End of Previous Semester', 'stop_of_semester_prev', true),
-        ('Start of Previous Semester', 'start_of_semester_prev', true),
-        ('Start of Current Year', 'start_of_year_curr', true),
-        ('End of Previous Year', 'stop_of_year_prev', true),
-        ('Start of Previous Year', 'start_of_year_prev', true),
-        ('Start of Current Five-Year Period', 'start_of_quinquennial_curr', true),
-        ('End of Previous Five-Year Period', 'stop_of_quinquennial_prev', true),
-        ('Start of Previous Five-Year Period', 'start_of_quinquennial_prev', true),
-        ('Start of Current Decade', 'start_of_decade_curr', true),
-        ('End of Previous Decade', 'stop_of_decade_prev', true),
-        ('Start of Previous Decade', 'start_of_decade_prev', true)
+        ('start_of_week_curr'         , 'Start of Current Week'              , NULL                             , 'query'           , false)  ,
+        ('stop_of_week_prev'          , 'End of Previous Week'               , NULL                             , 'query'           , false)  ,
+        ('start_of_week_prev'         , 'Start of Previous Week'             , NULL                             , 'query'           , false)  ,
+        ('start_of_month_curr'        , 'Start of Current Month'             , NULL                             , 'query'           , false)  ,
+        ('stop_of_month_prev'         , 'End of Previous Month'              , NULL                             , 'query'           , false)  ,
+        ('start_of_month_prev'        , 'Start of Previous Month'            , NULL                             , 'query'           , false)  ,
+        ('start_of_quarter_curr'      , 'Start of Current Quarter'           , NULL                             , 'query'           , false)  ,
+        ('stop_of_quarter_prev'       , 'End of Previous Quarter'            , NULL                             , 'query'           , false)  ,
+        ('start_of_quarter_prev'      , 'Start of Previous Quarter'          , NULL                             , 'query'           , false)  ,
+        ('start_of_semester_curr'     , 'Start of Current Semester'          , NULL                             , 'query'           , false)  ,
+        ('stop_of_semester_prev'      , 'End of Previous Semester'           , NULL                             , 'query'           , false)  ,
+        ('start_of_semester_prev'     , 'Start of Previous Semester'         , NULL                             , 'query'           , false)  ,
+        ('start_of_year_curr'         , 'Start of Current Year'              , NULL                             , 'query'           , true)   ,
+        ('stop_of_year_prev'          , 'End of Previous Year'               , NULL                             , 'query'           , true)   ,
+        ('start_of_year_prev'         , 'Start of Previous Year'             , NULL                             , 'query'           , true)   ,
+        ('start_of_quinquennial_curr' , 'Start of Current Five-Year Period'  , NULL                             , 'query'           , false)  ,
+        ('stop_of_quinquennial_prev'  , 'End of Previous Five-Year Period'   , NULL                             , 'query'           , false)  ,
+        ('start_of_quinquennial_prev' , 'Start of Previous Five-Year Period' , NULL                             , 'query'           , false)  ,
+        ('start_of_decade_curr'       , 'Start of Current Decade'            , NULL                             , 'query'           , false)  ,
+        ('stop_of_decade_prev'        , 'End of Previous Decade'             , NULL                             , 'query'           , false)  ,
+        ('start_of_decade_prev'       , 'Start of Previous Decade'           , NULL                             , 'query'           , false)
     ;
 END $$;
+
+
+\echo public.period_type
+CREATE TYPE public.period_type AS ENUM (
+    'relative_period',
+    'tag'
+);
+
+\echo public.period_active
+CREATE VIEW public.period_active
+  ( type
+  , ident
+  , name_when_query
+  , name_when_input
+  , scope
+  , valid_on
+  , valid_from
+  , valid_to
+  , code         -- Exposing the code for ordering
+  , path         -- Exposing the path for ordering
+  ) AS
+WITH combined_data AS (
+  SELECT 'relative_period'::public.period_type AS type
+  ,      'r:'||code::VARCHAR                   AS ident
+  ,      name_when_query                       AS name_when_query
+  ,      name_when_input                       AS name_when_input
+  ,      scope                                 AS scope
+  ,      valid_on                              AS valid_on
+  ,      valid_from                            AS valid_from
+  ,      valid_to                              AS valid_to
+  ,      code                                  AS code  -- Specific order column for relative_period
+  ,      NULL::public.LTREE                    AS path  -- Null for path as not applicable here
+  FROM public.relative_period_with_time
+  WHERE active
+
+  UNION ALL
+
+  SELECT 'tag'::public.period_type                       AS type
+  ,      't:'||path::VARCHAR                             AS ident
+  ,      description                                     AS name_when_query
+  ,      description                                     AS name_when_input
+  ,      'input_and_query'::public.relative_period_scope AS scope
+  ,      context_valid_from                              AS valid_from
+  ,      context_valid_to                                AS valid_to
+  ,      context_valid_on                                AS valid_on
+  ,      NULL::public.relative_period_code               AS code  -- Null for code as not applicable here
+  ,      path                                            AS path  -- Specific order column for tag
+  FROM public.tag
+  WHERE active
+    AND context_valid_from IS NOT NULL
+    AND context_valid_to   IS NOT NULL
+    AND context_valid_on   IS NOT NULL
+)
+SELECT *
+FROM combined_data
+ORDER BY type, code, path;
 
 
 

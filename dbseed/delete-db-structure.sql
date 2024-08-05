@@ -275,9 +275,13 @@ DROP TABLE public.custom_analysis_check;
 
 DROP TABLE public.data_source;
 
+DROP VIEW public.period_active;
+DROP TYPE public.period_type;
+
 DROP VIEW public.relative_period_with_time;
 DROP TABLE public.relative_period;
-DROP TYPE public.relative_period_type;
+DROP TYPE public.relative_period_code;
+DROP TYPE public.relative_period_scope;
 
 DROP TABLE public.tag;
 DROP TYPE public.tag_type;
