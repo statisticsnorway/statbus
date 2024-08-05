@@ -5956,13 +5956,22 @@ BEGIN
     LIMIT 1;
 
     IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
-        SELECT * INTO tag
-        FROM public.tag
-        WHERE active
-          AND path = NEW.tag_path::public.ltree;
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'Invalid tag_path for row %', to_json(NEW);
-        END IF;
+        DECLARE
+           tag_path public.LTREE;
+        BEGIN
+          BEGIN
+              tag_path := NEW.tag_path::public.LTREE;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', to_json(NEW), SQLERRM;
+          END;
+          SELECT * INTO tag
+          FROM public.tag
+          WHERE active
+            AND path = tag_path;
+          IF NOT FOUND THEN
+              RAISE EXCEPTION 'Could not find tag_path for row %', to_json(NEW);
+          END IF;
+        END;
     END IF;
 
     IF NEW.physical_country_iso_2 IS NOT NULL AND NEW.physical_country_iso_2 <> '' THEN
@@ -5990,13 +5999,22 @@ BEGIN
         END IF;
       END IF;
       IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
-        SELECT * INTO physical_region
-        FROM public.region
-        WHERE path = NEW.physical_region_path;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
-        END IF;
+        DECLARE
+           physical_region_path public.LTREE;
+        BEGIN
+          BEGIN
+              physical_region_path := NEW.physical_region_path::public.LTREE;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE EXCEPTION 'Invalid physical_region_path for row % with error "%"', to_json(NEW), SQLERRM;
+          END;
+          SELECT * INTO physical_region
+          FROM public.region
+          WHERE path = physical_region_path;
+          IF NOT FOUND THEN
+            RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
+            invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
+          END IF;
+        END;
       END IF;
     END IF;
 
@@ -6025,13 +6043,22 @@ BEGIN
         END IF;
       END IF;
       IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
-        SELECT * INTO postal_region
-        FROM public.region
-        WHERE path = NEW.postal_region_path;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
-        END IF;
+        DECLARE
+           postal_region_path public.LTREE;
+        BEGIN
+          BEGIN
+              postal_region_path := NEW.postal_region_path::public.LTREE;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE EXCEPTION 'Invalid postal_region_path for row % with error "%"', to_json(NEW), SQLERRM;
+          END;
+          SELECT * INTO postal_region
+          FROM public.region
+          WHERE path = postal_region_path;
+          IF NOT FOUND THEN
+            RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
+            invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
+          END IF;
+        END;
       END IF;
     END IF;
 
@@ -6640,13 +6667,22 @@ BEGIN
     LIMIT 1;
 
     IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
-        SELECT * INTO tag
-        FROM public.tag
-        WHERE active
-          AND path = NEW.tag_path::public.ltree;
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'Invalid tag_path for row %', to_json(NEW);
-        END IF;
+        DECLARE
+           tag_path public.LTREE;
+        BEGIN
+          BEGIN
+              tag_path := NEW.tag_path::public.LTREE;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', to_json(NEW), SQLERRM;
+          END;
+          SELECT * INTO tag
+          FROM public.tag
+          WHERE active
+            AND path = tag_path;
+          IF NOT FOUND THEN
+              RAISE EXCEPTION 'Could not find tag_path for row %', to_json(NEW);
+          END IF;
+        END;
     END IF;
 
     IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
@@ -6738,13 +6774,22 @@ BEGIN
         END IF;
       END IF;
       IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
-        SELECT * INTO physical_region
-        FROM public.region
-        WHERE path = NEW.physical_region_path;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
-        END IF;
+        DECLARE
+           query_path public.LTREE;
+        BEGIN
+          BEGIN
+              query_path := NEW.physical_region_path::public.LTREE;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE EXCEPTION 'Invalid physical_region_path for row % with error "%"', to_json(NEW), SQLERRM;
+          END;
+          SELECT * INTO physical_region
+          FROM public.region
+          WHERE path = query_path;
+          IF NOT FOUND THEN
+            RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
+            invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
+          END IF;
+        END;
       END IF;
     END IF;
 
@@ -6773,13 +6818,22 @@ BEGIN
         END IF;
       END IF;
       IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
-        SELECT * INTO postal_region
-        FROM public.region
-        WHERE path = NEW.postal_region_path;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
-        END IF;
+        DECLARE
+           postal_region_path public.LTREE;
+        BEGIN
+          BEGIN
+              postal_region_path := NEW.postal_region_path::public.LTREE;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE EXCEPTION 'Invalid postal_region_path for row % with error "%"', to_json(NEW), SQLERRM;
+          END;
+          SELECT * INTO postal_region
+          FROM public.region
+          WHERE path = postal_region_path;
+          IF NOT FOUND THEN
+            RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
+            invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
+          END IF;
+        END;
       END IF;
     END IF;
 
