@@ -1,0 +1,1184 @@
+\t
+\a
+SELECT '########################################'
+UNION ALL
+SELECT public.generate_mermaid_er_diagram()
+UNION ALL
+SELECT '########################################';
+########################################
+erDiagram
+	%% Entities (derived from tables)
+	_analytics_billing_accounts["_analytics.billing_accounts"] {
+		"boolean" lifetime_plan
+		"character varying(255)" lifetime_plan_invoice
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"jsonb" latest_successful_stripe_session
+		"jsonb" stripe_invoices
+		"jsonb[]" custom_invoice_fields
+		"bigint" id
+		"character varying(255)" default_payment_method
+		"bigint" user_id
+		"jsonb" stripe_subscriptions
+		"character varying(255)" stripe_customer
+		"boolean" lifetime_plan?
+	}
+	_analytics_billing_counts["_analytics.billing_counts"] {
+		"character varying(255)" node
+		"bigint" user_id
+		"bigint" source_id
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"integer" count
+	}
+	_analytics_endpoint_queries["_analytics.endpoint_queries"] {
+		"jsonb" source_mapping
+		"uuid" token
+		"text" query
+		"bigint" user_id
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"character varying(255)" name
+		"integer" proactive_requerying_seconds
+		"boolean" sandboxable
+		"integer" max_limit
+		"boolean" enable_auth
+		"integer" cache_duration_seconds
+		"character varying(255)" language
+		"bigint" sandbox_query_id
+	}
+	_analytics_log_events_086330e0_36c9_4b70_9c13_975521358774["_analytics.log_events_086330e0_36c9_4b70_9c13_975521358774"] {
+		"text" event_message
+		"character varying(255)" id
+		"jsonb" body
+		"timestamp without time zone" timestamp
+	}
+	_analytics_log_events_096356aa_b003_4149_a3dd_267777719f09["_analytics.log_events_096356aa_b003_4149_a3dd_267777719f09"] {
+		"timestamp without time zone" timestamp
+		"jsonb" body
+		"character varying(255)" id
+		"text" event_message
+	}
+	_analytics_log_events_26e71208_a4cc_40f9_8686_3d0108823a94["_analytics.log_events_26e71208_a4cc_40f9_8686_3d0108823a94"] {
+		"jsonb" body
+		"text" event_message
+		"timestamp without time zone" timestamp
+		"character varying(255)" id
+	}
+	_analytics_log_events_2e2b8cfd_b9cc_4ce2_8064_890c18d73147["_analytics.log_events_2e2b8cfd_b9cc_4ce2_8064_890c18d73147"] {
+		"timestamp without time zone" timestamp
+		"character varying(255)" id
+		"jsonb" body
+		"text" event_message
+	}
+	_analytics_log_events_4302c5bf_3d54_4155_818f_39474ee1bb1f["_analytics.log_events_4302c5bf_3d54_4155_818f_39474ee1bb1f"] {
+		"timestamp without time zone" timestamp
+		"jsonb" body
+		"character varying(255)" id
+		"text" event_message
+	}
+	_analytics_log_events_4c731289_139f_4860_81d0_1c37769b78ea["_analytics.log_events_4c731289_139f_4860_81d0_1c37769b78ea"] {
+		"character varying(255)" id
+		"jsonb" body
+		"text" event_message
+		"timestamp without time zone" timestamp
+	}
+	_analytics_log_events_9f93d8b9_cced_4761_ad65_db97d2718770["_analytics.log_events_9f93d8b9_cced_4761_ad65_db97d2718770"] {
+		"timestamp without time zone" timestamp
+		"character varying(255)" id
+		"jsonb" body
+		"text" event_message
+	}
+	_analytics_log_events_de60929f_a525_4a4c_86cb_4912ed95275a["_analytics.log_events_de60929f_a525_4a4c_86cb_4912ed95275a"] {
+		"character varying(255)" id
+		"timestamp without time zone" timestamp
+		"text" event_message
+		"jsonb" body
+	}
+	_analytics_log_events_faffce27_4e91_46fd_af60_28a0c2f5c390["_analytics.log_events_faffce27_4e91_46fd_af60_28a0c2f5c390"] {
+		"timestamp without time zone" timestamp
+		"character varying(255)" id
+		"jsonb" body
+		"text" event_message
+	}
+	_analytics_oauth_access_grants["_analytics.oauth_access_grants"] {
+		"character varying(255)" token
+		"integer" expires_in
+		"timestamp(0) without time zone" revoked_at
+		"character varying(255)" scopes
+		"timestamp(0) without time zone" inserted_at
+		"bigint" id
+		"text" redirect_uri
+		"integer" resource_owner_id
+		"bigint" application_id
+	}
+	_analytics_oauth_access_tokens["_analytics.oauth_access_tokens"] {
+		"bigint" application_id
+		"text" description
+		"character varying(255)" refresh_token
+		"bigint" id
+		"timestamp(0) without time zone" updated_at
+		"timestamp(0) without time zone" inserted_at
+		"character varying(255)" previous_refresh_token
+		"character varying(255)" scopes
+		"timestamp(0) without time zone" revoked_at
+		"integer" resource_owner_id
+		"integer" expires_in
+		"character varying(255)" token
+	}
+	_analytics_oauth_applications["_analytics.oauth_applications"] {
+		"integer" owner_id
+		"character varying(255)" name
+		"character varying(255)" uid
+		"character varying(255)" scopes
+		"character varying(255)" secret
+		"bigint" id
+		"timestamp(0) without time zone" updated_at
+		"timestamp(0) without time zone" inserted_at
+		"character varying(255)" redirect_uri
+	}
+	_analytics_partner_users["_analytics.partner_users"] {
+		"bigint" partner_id
+		"bigint" id
+		"bigint" user_id
+	}
+	_analytics_partners["_analytics.partners"] {
+		"bytea" name
+		"bigint" id
+		"bytea" token
+	}
+	_analytics_payment_methods["_analytics.payment_methods"] {
+		"character varying(255)" price_id
+		"character varying(255)" brand
+		"integer" exp_year
+		"integer" exp_month
+		"character varying(255)" customer_id
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"character varying(255)" stripe_id
+		"character varying(255)" last_four
+	}
+	_analytics_plans["_analytics.plans"] {
+		"timestamp(0) without time zone" updated_at
+		"timestamp(0) without time zone" inserted_at
+		"character varying(255)" stripe_id
+		"character varying(255)" name
+		"integer" price
+		"integer" limit_sources
+		"integer" limit_rate_limit
+		"integer" limit_alert_freq
+		"integer" limit_source_rate_limit
+		"character varying(255)" type
+		"integer" limit_source_fields_limit
+		"integer" limit_team_users_limit
+		"integer" limit_saved_search_limit
+		"bigint" limit_source_ttl
+		"character varying(255)" period
+		"bigint" id
+	}
+	_analytics_rules["_analytics.rules"] {
+		"timestamp(0) without time zone" inserted_at
+		"character varying(255)" regex
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"uuid" sink
+		"bigint" source_id
+		"bytea" lql_filters
+		"bytea" regex_struct
+		"text" lql_string
+	}
+	_analytics_saved_search_counters["_analytics.saved_search_counters"] {
+		"timestamp without time zone" timestamp
+		"integer" non_tailing_count
+		"integer" tailing_count
+		"bigint" id
+		"bigint" saved_search_id
+		"text" granularity
+	}
+	_analytics_saved_searches["_analytics.saved_searches"] {
+		"boolean" saved_by_user
+		"jsonb" lql_charts
+		"boolean" tailing?
+		"text" querystring
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"boolean" tailing
+		"bigint" source_id
+		"bigint" id
+		"jsonb" lql_filters
+	}
+	_analytics_schema_migrations["_analytics.schema_migrations"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_analytics_schema_migrations_086330e0_36c9_4b70_9c13_9755213587["_analytics.schema_migrations_086330e0_36c9_4b70_9c13_9755213587"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_analytics_schema_migrations_096356aa_b003_4149_a3dd_267777719f["_analytics.schema_migrations_096356aa_b003_4149_a3dd_267777719f"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_analytics_schema_migrations_26e71208_a4cc_40f9_8686_3d0108823a["_analytics.schema_migrations_26e71208_a4cc_40f9_8686_3d0108823a"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_analytics_schema_migrations_2e2b8cfd_b9cc_4ce2_8064_890c18d731["_analytics.schema_migrations_2e2b8cfd_b9cc_4ce2_8064_890c18d731"] {
+		"bigint" version
+		"timestamp(0) without time zone" inserted_at
+	}
+	_analytics_schema_migrations_4302c5bf_3d54_4155_818f_39474ee1bb["_analytics.schema_migrations_4302c5bf_3d54_4155_818f_39474ee1bb"] {
+		"bigint" version
+		"timestamp(0) without time zone" inserted_at
+	}
+	_analytics_schema_migrations_4c731289_139f_4860_81d0_1c37769b78["_analytics.schema_migrations_4c731289_139f_4860_81d0_1c37769b78"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_analytics_schema_migrations_9f93d8b9_cced_4761_ad65_db97d27187["_analytics.schema_migrations_9f93d8b9_cced_4761_ad65_db97d27187"] {
+		"bigint" version
+		"timestamp(0) without time zone" inserted_at
+	}
+	_analytics_schema_migrations_de60929f_a525_4a4c_86cb_4912ed9527["_analytics.schema_migrations_de60929f_a525_4a4c_86cb_4912ed9527"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_analytics_schema_migrations_faffce27_4e91_46fd_af60_28a0c2f5c3["_analytics.schema_migrations_faffce27_4e91_46fd_af60_28a0c2f5c3"] {
+		"bigint" version
+		"timestamp(0) without time zone" inserted_at
+	}
+	_analytics_source_backends["_analytics.source_backends"] {
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"bigint" source_id
+		"character varying(255)" type
+		"jsonb" config
+	}
+	_analytics_source_schemas["_analytics.source_schemas"] {
+		"bytea" bigquery_schema
+		"bigint" source_id
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"timestamp(0) without time zone" inserted_at
+		"bytea" schema_flat_map
+	}
+	_analytics_sources["_analytics.sources"] {
+		"integer" notifications_every
+		"character varying(255)" slack_hook_url
+		"character varying(255)" webhook_notification_url
+		"jsonb" notifications
+		"character varying(255)" custom_event_message_keys
+		"integer" api_quota
+		"character varying(255)" suggested_keys
+		"boolean" favorite
+		"boolean" v2_pipeline
+		"integer" bigquery_table_ttl
+		"uuid" token
+		"character varying(255)" public_token
+		"character varying(255)" drop_lql_string
+		"bigint" id
+		"timestamp(0) without time zone" updated_at
+		"timestamp(0) without time zone" inserted_at
+		"character varying(255)" name
+		"integer" user_id
+		"bytea" drop_lql_filters
+		"boolean" validate_schema
+		"timestamp(0) without time zone" log_events_updated_at
+		"boolean" lock_schema
+		"text" bq_table_partition_type
+		"bytea" bigquery_schema
+	}
+	_analytics_system_metrics["_analytics.system_metrics"] {
+		"bigint" all_logs_logged
+		"character varying(255)" node
+		"bigint" id
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+	}
+	_analytics_team_users["_analytics.team_users"] {
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"boolean" email_me_product
+		"boolean" valid_google_account
+		"character varying(255)" image
+		"character varying(255)" name
+		"character varying(255)" email_preferred
+		"jsonb" preferences
+		"character varying(255)" provider
+		"character varying(255)" email
+		"character varying(255)" token
+		"character varying(255)" phone
+		"character varying(255)" provider_uid
+		"bigint" team_id
+		"timestamp(0) without time zone" inserted_at
+	}
+	_analytics_teams["_analytics.teams"] {
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"bigint" user_id
+		"character varying(255)" name
+		"character varying(255)" token
+	}
+	_analytics_users["_analytics.users"] {
+		"character varying(255)" name
+		"character varying(255)" image
+		"boolean" email_me_product
+		"character varying(255)" api_key
+		"boolean" admin
+		"character varying(255)" bigquery_project_id
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"character varying(255)" provider_uid
+		"boolean" valid_google_account
+		"character varying(255)" provider
+		"boolean" billing_enabled
+		"character varying(255)" bigquery_dataset_id
+		"integer" api_quota
+		"character varying(255)" phone
+		"character varying(255)" company
+		"character varying(255)" bigquery_dataset_location
+		"character varying(255)" bigquery_udfs_hash
+		"boolean" endpoints_beta
+		"character varying(255)" email
+		"character varying(255)" token
+		"boolean" billing_enabled?
+		"bigint" id
+		"character varying(255)" old_api_key
+		"jsonb" preferences
+		"bigint" bigquery_processed_bytes_limit
+		"character varying(255)" email_preferred
+	}
+	_analytics_vercel_auths["_analytics.vercel_auths"] {
+		"character varying(255)" team_id
+		"character varying(255)" token_type
+		"character varying(255)" vercel_user_id
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+		"bigint" id
+		"bigint" user_id
+		"character varying(255)" access_token
+		"character varying(255)" installation_id
+	}
+	_realtime_extensions["_realtime.extensions"] {
+		"timestamp(0) without time zone" inserted_at
+		"uuid" id
+		"text" type
+		"timestamp(0) without time zone" updated_at
+		"text" tenant_external_id
+		"jsonb" settings
+	}
+	_realtime_schema_migrations["_realtime.schema_migrations"] {
+		"timestamp(0) without time zone" inserted_at
+		"bigint" version
+	}
+	_realtime_tenants["_realtime.tenants"] {
+		"integer" max_events_per_second
+		"text" external_id
+		"integer" max_joins_per_second
+		"integer" max_channels_per_client
+		"uuid" id
+		"integer" max_bytes_per_second
+		"boolean" suspend
+		"text" postgres_cdc_default
+		"integer" max_concurrent_users
+		"text" jwt_secret
+		"timestamp(0) without time zone" updated_at
+		"timestamp(0) without time zone" inserted_at
+		"text" name
+	}
+	auth_audit_log_entries["auth.audit_log_entries"] {
+		"uuid" instance_id
+		"uuid" id
+		"character varying(64)" ip_address
+		"json" payload
+		"timestamp with time zone" created_at
+	}
+	auth_flow_state["auth.flow_state"] {
+		"text" authentication_method
+		"uuid" id
+		"uuid" user_id
+		"text" auth_code
+		"auth.code_challenge_method" code_challenge_method
+		"text" code_challenge
+		"text" provider_type
+		"text" provider_access_token
+		"text" provider_refresh_token
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
+	auth_identities["auth.identities"] {
+		"uuid" user_id
+		"text" provider
+		"uuid" id
+		"timestamp with time zone" updated_at
+		"timestamp with time zone" created_at
+		"text" email
+		"jsonb" identity_data
+		"timestamp with time zone" last_sign_in_at
+		"text" provider_id
+	}
+	auth_instances["auth.instances"] {
+		"uuid" id
+		"timestamp with time zone" updated_at
+		"timestamp with time zone" created_at
+		"text" raw_base_config
+		"uuid" uuid
+	}
+	auth_mfa_amr_claims["auth.mfa_amr_claims"] {
+		"timestamp with time zone" updated_at
+		"text" authentication_method
+		"uuid" id
+		"timestamp with time zone" created_at
+		"uuid" session_id
+	}
+	auth_mfa_challenges["auth.mfa_challenges"] {
+		"timestamp with time zone" created_at
+		"uuid" id
+		"inet" ip_address
+		"timestamp with time zone" verified_at
+		"uuid" factor_id
+	}
+	auth_mfa_factors["auth.mfa_factors"] {
+		"uuid" id
+		"text" secret
+		"timestamp with time zone" updated_at
+		"timestamp with time zone" created_at
+		"auth.factor_status" status
+		"auth.factor_type" factor_type
+		"text" friendly_name
+		"uuid" user_id
+	}
+	auth_refresh_tokens["auth.refresh_tokens"] {
+		"character varying(255)" user_id
+		"timestamp with time zone" updated_at
+		"uuid" instance_id
+		"bigint" id
+		"boolean" revoked
+		"uuid" session_id
+		"character varying(255)" parent
+		"timestamp with time zone" created_at
+		"character varying(255)" token
+	}
+	auth_saml_providers["auth.saml_providers"] {
+		"timestamp with time zone" updated_at
+		"uuid" id
+		"uuid" sso_provider_id
+		"text" entity_id
+		"text" metadata_xml
+		"text" metadata_url
+		"jsonb" attribute_mapping
+		"timestamp with time zone" created_at
+	}
+	auth_saml_relay_states["auth.saml_relay_states"] {
+		"text" redirect_to
+		"timestamp with time zone" created_at
+		"uuid" id
+		"uuid" sso_provider_id
+		"text" request_id
+		"uuid" flow_state_id
+		"text" for_email
+		"timestamp with time zone" updated_at
+		"inet" from_ip_address
+	}
+	auth_schema_migrations["auth.schema_migrations"] {
+		"character varying(255)" version
+	}
+	auth_sessions["auth.sessions"] {
+		"uuid" id
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+		"auth.aal_level" aal
+		"uuid" factor_id
+		"inet" ip
+		"text" user_agent
+		"timestamp without time zone" refreshed_at
+		"timestamp with time zone" not_after
+		"text" tag
+		"uuid" user_id
+	}
+	auth_sso_domains["auth.sso_domains"] {
+		"text" domain
+		"timestamp with time zone" created_at
+		"uuid" id
+		"timestamp with time zone" updated_at
+		"uuid" sso_provider_id
+	}
+	auth_sso_providers["auth.sso_providers"] {
+		"text" resource_id
+		"timestamp with time zone" updated_at
+		"uuid" id
+		"timestamp with time zone" created_at
+	}
+	auth_users["auth.users"] {
+		"character varying(255)" encrypted_password
+		"timestamp with time zone" phone_confirmed_at
+		"timestamp with time zone" phone_change_sent_at
+		"timestamp with time zone" email_confirmed_at
+		"timestamp with time zone" confirmed_at
+		"character varying(255)" phone_change_token
+		"character varying(255)" email_change_token_current
+		"smallint" email_change_confirm_status
+		"character varying(255)" email_change_token_new
+		"timestamp with time zone" banned_until
+		"character varying(255)" reauthentication_token
+		"timestamp with time zone" reauthentication_sent_at
+		"uuid" instance_id
+		"boolean" is_sso_user
+		"text" phone
+		"text" phone_change
+		"timestamp with time zone" deleted_at
+		"uuid" id
+		"character varying(255)" aud
+		"character varying(255)" role
+		"character varying(255)" email
+		"timestamp with time zone" invited_at
+		"character varying(255)" confirmation_token
+		"timestamp with time zone" confirmation_sent_at
+		"character varying(255)" recovery_token
+		"timestamp with time zone" recovery_sent_at
+		"character varying(255)" email_change
+		"timestamp with time zone" email_change_sent_at
+		"timestamp with time zone" last_sign_in_at
+		"jsonb" raw_app_meta_data
+		"jsonb" raw_user_meta_data
+		"boolean" is_super_admin
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
+	net__http_response["net._http_response"] {
+		"bigint" id
+		"integer" status_code
+		"timestamp with time zone" created
+		"text" error_msg
+		"boolean" timed_out
+		"text" content
+		"jsonb" headers
+		"text" content_type
+	}
+	net_http_request_queue["net.http_request_queue"] {
+		"integer" timeout_milliseconds
+		"bytea" body
+		"net.http_method" method
+		"jsonb" headers
+		"text" url
+		"bigint" id
+	}
+	pgsodium_key["pgsodium.key"] {
+		"pgsodium.key_type" key_type
+		"text" comment
+		"pgsodium.key_status" status
+		"text" name
+		"bytea" raw_key
+		"bytea" raw_key_nonce
+		"uuid" parent_key
+		"text" associated_data
+		"bigint" key_id
+		"bytea" key_context
+		"timestamp with time zone" expires
+		"timestamp with time zone" created
+		"text" user_data
+		"uuid" id
+	}
+	activity["activity"] {
+		"timestamp with time zone" updated_at
+		"date" valid_after
+		"activity_type" type
+		"integer" category_id
+		"integer" updated_by_user_id
+		"integer" establishment_id
+		"integer" legal_unit_id
+		"integer" id
+		"date" valid_from
+		"date" valid_to
+	}
+	activity_category["activity_category"] {
+		"text" description
+		"integer" id
+		"character varying" label
+		"character varying" code
+		"timestamp with time zone" updated_at
+		"character varying(256)" name
+		"boolean" active
+		"integer" standard_id
+		"ltree" path
+		"integer" parent_id
+		"boolean" custom
+		"integer" level
+	}
+	activity_category_role["activity_category_role"] {
+		"integer" role_id
+		"integer" id
+		"integer" activity_category_id
+	}
+	activity_category_standard["activity_category_standard"] {
+		"boolean" obsolete
+		"integer" id
+		"character varying(16)" code
+		"character varying" name
+	}
+	analysis_log["analysis_log"] {
+		"integer" analysis_queue_id
+		"integer" id
+		"timestamp with time zone" resolved_at
+		"text" error_values
+		"text" summary_messages
+		"timestamp with time zone" issued_at
+		"integer" enterprise_group_id
+		"integer" enterprise_id
+		"integer" legal_unit_id
+		"integer" establishment_id
+	}
+	analysis_queue["analysis_queue"] {
+		"integer" id
+		"text" comment
+		"timestamp with time zone" server_end_period
+		"timestamp with time zone" server_start_period
+		"timestamp with time zone" user_end_period
+		"timestamp with time zone" user_start_period
+		"integer" user_id
+	}
+	country["country"] {
+		"timestamp with time zone" updated_at
+		"integer" id
+		"text" iso_2
+		"text" iso_3
+		"text" iso_num
+		"text" name
+		"boolean" active
+		"boolean" custom
+	}
+	custom_analysis_check["custom_analysis_check"] {
+		"integer" id
+		"character varying(16)" target_unit_types
+		"character varying(2048)" query
+		"character varying(64)" name
+	}
+	data_source["data_source"] {
+		"integer" id
+		"boolean" custom
+		"timestamp with time zone" updated_at
+		"boolean" active
+		"text" name
+		"text" code
+	}
+	enterprise["enterprise"] {
+		"character varying(500)" edit_comment
+		"character varying(100)" edit_by_user_id
+		"boolean" active
+		"text" notes
+		"character varying(16)" short_name
+		"integer" id
+	}
+	enterprise_group["enterprise_group"] {
+		"integer" unit_size_id
+		"text" edit_comment
+		"integer" edit_by_user_id
+		"text" notes
+		"text" contact_person
+		"text" web_address
+		"text" email_address
+		"text" telephone_no
+		"integer" enterprise_group_type_id
+		"character varying(256)" name
+		"timestamp with time zone" created_at
+		"date" valid_after
+		"integer" reorg_type_id
+		"integer" id
+		"date" valid_from
+		"date" valid_to
+		"boolean" active
+		"integer" data_source_id
+		"character varying(16)" short_name
+		"text" reorg_references
+		"timestamp with time zone" reorg_date
+		"integer" foreign_participation_id
+	}
+	enterprise_group_role["enterprise_group_role"] {
+		"integer" id
+		"text" code
+		"timestamp with time zone" updated_at
+		"boolean" custom
+		"boolean" active
+		"text" name
+	}
+	enterprise_group_type["enterprise_group_type"] {
+		"text" name
+		"timestamp with time zone" updated_at
+		"boolean" custom
+		"boolean" active
+		"integer" id
+		"text" code
+	}
+	establishment["establishment"] {
+		"date" birth_date
+		"date" valid_after
+		"timestamp with time zone" seen_in_import_at
+		"boolean" active
+		"date" valid_to
+		"date" valid_from
+		"integer" id
+		"jsonb" invalid_codes
+		"boolean" primary_for_legal_unit
+		"integer" legal_unit_id
+		"integer" enterprise_id
+		"integer" data_source_id
+		"integer" unit_size_id
+		"character varying(500)" edit_comment
+		"character varying(100)" edit_by_user_id
+		"integer" reorg_type_id
+		"integer" reorg_references
+		"timestamp with time zone" reorg_date
+		"integer" sector_id
+		"text" notes
+		"boolean" free_econ_zone
+		"character varying(50)" email_address
+		"character varying(50)" telephone_no
+		"character varying(200)" web_address
+		"integer" parent_org_link
+		"date" death_date
+		"character varying(256)" name
+		"character varying(16)" short_name
+	}
+	external_ident["external_ident"] {
+		"integer" updated_by_user_id
+		"integer" enterprise_id
+		"integer" legal_unit_id
+		"integer" establishment_id
+		"character varying(50)" ident
+		"integer" ident_type_id
+		"integer" id
+		"integer" enterprise_group_id
+	}
+	external_ident_type["external_ident_type"] {
+		"character varying(50)" name
+		"integer" by_tag_id
+		"integer" id
+		"character varying(128)" code
+	}
+	foreign_participation["foreign_participation"] {
+		"text" code
+		"boolean" active
+		"boolean" custom
+		"timestamp with time zone" updated_at
+		"integer" id
+		"text" name
+	}
+	legal_form["legal_form"] {
+		"boolean" active
+		"text" name
+		"integer" id
+		"text" code
+		"timestamp with time zone" updated_at
+		"boolean" custom
+	}
+	legal_unit["legal_unit"] {
+		"integer" reorg_type_id
+		"character varying(100)" edit_by_user_id
+		"character varying(500)" edit_comment
+		"integer" unit_size_id
+		"integer" foreign_participation_id
+		"boolean" primary_for_enterprise
+		"character varying(16)" short_name
+		"character varying(256)" name
+		"date" valid_after
+		"date" birth_date
+		"date" death_date
+		"integer" parent_org_link
+		"integer" enterprise_id
+		"character varying(200)" web_address
+		"character varying(50)" telephone_no
+		"character varying(50)" email_address
+		"integer" sector_id
+		"boolean" free_econ_zone
+		"text" notes
+		"timestamp with time zone" seen_in_import_at
+		"boolean" active
+		"date" valid_to
+		"date" valid_from
+		"integer" id
+		"jsonb" invalid_codes
+		"integer" data_source_id
+		"integer" legal_form_id
+		"timestamp with time zone" reorg_date
+		"integer" reorg_references
+	}
+	location["location"] {
+		"integer" updated_by_user_id
+		"date" valid_from
+		"date" valid_to
+		"location_type" type
+		"character varying(200)" address_part1
+		"character varying(200)" address_part2
+		"character varying(200)" address_part3
+		"character varying(200)" postal_code
+		"character varying(200)" postal_place
+		"date" valid_after
+		"integer" region_id
+		"integer" country_id
+		"double precision" latitude
+		"double precision" longitude
+		"integer" establishment_id
+		"integer" legal_unit_id
+		"integer" id
+	}
+	person["person"] {
+		"text" phone_number_1
+		"person_sex" sex
+		"integer" id
+		"text" personal_ident
+		"integer" country_id
+		"character varying(150)" given_name
+		"character varying(150)" middle_name
+		"character varying(150)" family_name
+		"date" birth_date
+		"timestamp with time zone" created_at
+		"text" address
+		"text" phone_number_2
+	}
+	person_for_unit["person_for_unit"] {
+		"integer" legal_unit_id
+		"integer" establishment_id
+		"integer" person_type_id
+		"integer" person_id
+		"integer" id
+	}
+	person_type["person_type"] {
+		"integer" id
+		"text" code
+		"timestamp with time zone" updated_at
+		"boolean" custom
+		"boolean" active
+		"text" name
+	}
+	postal_index["postal_index"] {
+		"text" name_language1
+		"integer" id
+		"boolean" archived
+		"text" name_language2
+		"text" name
+	}
+	region["region"] {
+		"character varying" code
+		"integer" id
+		"ltree" path
+		"integer" parent_id
+		"text" name
+		"integer" level
+		"character varying" label
+	}
+	region_role["region_role"] {
+		"integer" id
+		"integer" role_id
+		"integer" region_id
+	}
+	relative_period["relative_period"] {
+		"character varying(256)" name_when_input
+		"character varying(256)" name_when_query
+		"boolean" active
+		"relative_period_scope" scope
+		"integer" id
+		"relative_period_code" code
+	}
+	reorg_type["reorg_type"] {
+		"text" code
+		"integer" id
+		"boolean" active
+		"boolean" custom
+		"timestamp with time zone" updated_at
+		"text" description
+		"text" name
+	}
+	report_tree["report_tree"] {
+		"integer" parent_node_id
+		"text" type
+		"text" title
+		"integer" id
+		"boolean" archived
+		"text" report_url
+		"text" resource_group
+		"integer" report_id
+	}
+	sample_frame["sample_frame"] {
+		"integer" status
+		"integer" user_id
+		"text" fields
+		"text" predicate
+		"text" description
+		"text" name
+		"integer" id
+		"timestamp with time zone" generated_date_time
+		"timestamp with time zone" creation_date
+		"timestamp with time zone" editing_date
+		"text" file_path
+	}
+	sector["sector"] {
+		"text" name
+		"integer" parent_id
+		"ltree" path
+		"integer" id
+		"timestamp with time zone" updated_at
+		"character varying" code
+		"character varying" label
+		"boolean" custom
+		"boolean" active
+		"text" description
+	}
+	settings["settings"] {
+		"boolean" only_one_setting
+		"integer" id
+		"integer" activity_category_standard_id
+	}
+	stat_definition["stat_definition"] {
+		"stat_frequency" frequency
+		"stat_type" type
+		"character varying" code
+		"integer" priority
+		"text" description
+		"character varying" name
+		"boolean" archived
+		"integer" id
+	}
+	stat_for_unit["stat_for_unit"] {
+		"date" valid_from
+		"integer" id
+		"boolean" value_bool
+		"double precision" value_float
+		"integer" value_int
+		"integer" legal_unit_id
+		"integer" establishment_id
+		"integer" stat_definition_id
+		"date" valid_after
+		"date" valid_to
+		"character varying" value_string
+	}
+	statbus_role["statbus_role"] {
+		"statbus_role_type" type
+		"character varying(256)" name
+		"text" description
+		"integer" id
+	}
+	statbus_user["statbus_user"] {
+		"integer" id
+		"uuid" uuid
+		"integer" role_id
+	}
+	tag["tag"] {
+		"date" context_valid_from
+		"text" description
+		"character varying(256)" name
+		"integer" parent_id
+		"ltree" path
+		"integer" id
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+		"boolean" is_scoped_tag
+		"date" context_valid_after
+		"boolean" active
+		"character varying" code
+		"character varying" label
+		"integer" level
+		"date" context_valid_on
+		"date" context_valid_to
+		"tag_type" type
+	}
+	tag_for_unit["tag_for_unit"] {
+		"integer" establishment_id
+		"integer" id
+		"integer" tag_id
+		"integer" legal_unit_id
+		"integer" enterprise_id
+		"integer" enterprise_group_id
+		"integer" updated_by_user_id
+	}
+	unit_size["unit_size"] {
+		"text" code
+		"boolean" custom
+		"boolean" active
+		"text" name
+		"integer" id
+		"timestamp with time zone" updated_at
+	}
+	sql_saga_api_view["sql_saga.api_view"] {
+		"name" trigger_name
+		"regclass" view_name
+		"name" era_name
+		"regclass" table_name
+	}
+	sql_saga_era["sql_saga.era"] {
+		"name" start_column_name
+		"name" era_name
+		"regclass" audit_table_name
+		"name" bounds_check_constraint
+		"regtype" range_type
+		"name" end_column_name
+		"regclass" table_name
+	}
+	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
+		"name" fk_update_trigger
+		"name" key_name
+		"regclass" table_name
+		"name[]" column_names
+		"name" era_name
+		"name" unique_key
+		"name" fk_insert_trigger
+		"name" uk_update_trigger
+		"name" uk_delete_trigger
+		"sql_saga.fk_match_types" match_type
+		"sql_saga.fk_actions" delete_action
+		"sql_saga.fk_actions" update_action
+	}
+	sql_saga_unique_keys["sql_saga.unique_keys"] {
+		"name" unique_constraint
+		"name" era_name
+		"name" exclude_constraint
+		"name" key_name
+		"regclass" table_name
+		"name[]" column_names
+	}
+	storage_buckets["storage.buckets"] {
+		"bigint" file_size_limit
+		"text" name
+		"text[]" allowed_mime_types
+		"timestamp with time zone" updated_at
+		"boolean" public
+		"uuid" owner
+		"text" id
+		"timestamp with time zone" created_at
+		"text" owner_id
+		"boolean" avif_autodetection
+	}
+	storage_migrations["storage.migrations"] {
+		"timestamp without time zone" executed_at
+		"integer" id
+		"character varying(100)" name
+		"character varying(40)" hash
+	}
+	storage_objects["storage.objects"] {
+		"text[]" path_tokens
+		"uuid" id
+		"timestamp with time zone" last_accessed_at
+		"timestamp with time zone" updated_at
+		"text" name
+		"timestamp with time zone" created_at
+		"text" bucket_id
+		"text" version
+		"text" owner_id
+		"jsonb" metadata
+		"uuid" owner
+	}
+	supabase_functions_hooks["supabase_functions.hooks"] {
+		"bigint" request_id
+		"bigint" id
+		"timestamp with time zone" created_at
+		"integer" hook_table_id
+		"text" hook_name
+	}
+	supabase_functions_migrations["supabase_functions.migrations"] {
+		"timestamp with time zone" inserted_at
+		"text" version
+	}
+	vault_secrets["vault.secrets"] {
+		"text" name
+		"bytea" nonce
+		"uuid" key_id
+		"timestamp with time zone" updated_at
+		"timestamp with time zone" created_at
+		"uuid" id
+		"text" description
+		"text" secret
+	}
+	%% Relationships (derived from foreign keys)
+	_analytics_billing_accounts }o--o| _analytics.users : billing_accounts_user_id_fkey
+	_analytics_billing_counts }o--o| _analytics.users : billing_counts_user_id_fkey
+	_analytics_endpoint_queries }o--o| _analytics.endpoint_queries : endpoint_queries_sandbox_query_id_fkey
+	_analytics_endpoint_queries }o--o| _analytics.users : endpoint_queries_user_id_fkey
+	_analytics_oauth_access_grants }o--o| _analytics.oauth_applications : oauth_access_grants_application_id_fkey
+	_analytics_oauth_access_tokens }o--o| _analytics.oauth_applications : oauth_access_tokens_application_id_fkey
+	_analytics_partner_users }o--o| _analytics.partners : partner_users_partner_id_fkey
+	_analytics_partner_users }o--o| _analytics.users : partner_users_user_id_fkey
+	_analytics_payment_methods }o--o| _analytics.billing_accounts : payment_methods_customer_id_fkey
+	_analytics_rules }o--|| _analytics.sources : rules_sink_fkey
+	_analytics_rules }o--|| _analytics.sources : rules_source_id_fkey
+	_analytics_saved_search_counters }o--|| _analytics.saved_searches : saved_search_counters_saved_search_id_fkey
+	_analytics_saved_searches }o--o| _analytics.sources : saved_searches_source_id_fkey
+	_analytics_source_backends }o--o| _analytics.sources : source_backends_source_id_fkey
+	_analytics_source_schemas }o--o| _analytics.sources : source_schemas_source_id_fkey
+	_analytics_sources }o--|| _analytics.users : sources_user_id_fkey
+	_analytics_team_users }o--o| _analytics.teams : team_users_team_id_fkey
+	_analytics_teams }o--o| _analytics.users : teams_user_id_fkey
+	_analytics_vercel_auths }o--o| _analytics.users : vercel_auths_user_id_fkey
+	_realtime_extensions }o--o| _realtime.tenants : extensions_tenant_external_id_fkey
+	auth_identities }|--|| auth.users : identities_user_id_fkey
+	auth_mfa_amr_claims }|--|| auth.sessions : mfa_amr_claims_session_id_fkey
+	auth_mfa_challenges }o--|| auth.mfa_factors : mfa_challenges_auth_factor_id_fkey
+	auth_mfa_factors }|--|| auth.users : mfa_factors_user_id_fkey
+	auth_refresh_tokens }o--o| auth.sessions : refresh_tokens_session_id_fkey
+	auth_saml_providers }o--|| auth.sso_providers : saml_providers_sso_provider_id_fkey
+	auth_saml_relay_states }o--o| auth.flow_state : saml_relay_states_flow_state_id_fkey
+	auth_saml_relay_states }o--|| auth.sso_providers : saml_relay_states_sso_provider_id_fkey
+	auth_sessions }|--|| auth.users : sessions_user_id_fkey
+	auth_sso_domains }o--|| auth.sso_providers : sso_domains_sso_provider_id_fkey
+	pgsodium_key }o--o| pgsodium.key : key_parent_key_fkey
+	activity }o--|| activity_category : activity_category_id_fkey
+	activity }o--|| statbus_user : activity_updated_by_user_id_fkey
+	activity_category }o--o| activity_category : activity_category_parent_id_fkey
+	activity_category }|--|| activity_category_standard : activity_category_standard_id_fkey
+	activity_category_role }o--|| activity_category : activity_category_role_activity_category_id_fkey
+	activity_category_role }o--|| statbus_role : activity_category_role_role_id_fkey
+	analysis_log }o--|| analysis_queue : analysis_log_analysis_queue_id_fkey
+	analysis_log }o--o| enterprise : analysis_log_enterprise_id_fkey
+	analysis_queue }o--|| statbus_user : analysis_queue_user_id_fkey
+	enterprise_group }o--o| data_source : enterprise_group_data_source_id_fkey
+	enterprise_group }o--o| enterprise_group_type : enterprise_group_enterprise_group_type_id_fkey
+	enterprise_group }o--o| foreign_participation : enterprise_group_foreign_participation_id_fkey
+	enterprise_group }o--o| reorg_type : enterprise_group_reorg_type_id_fkey
+	enterprise_group }o--o| unit_size : enterprise_group_unit_size_id_fkey
+	establishment }o--o| data_source : establishment_data_source_id_fkey
+	establishment }o--o| enterprise : establishment_enterprise_id_fkey
+	establishment }o--o| reorg_type : establishment_reorg_type_id_fkey
+	establishment }o--o| sector : establishment_sector_id_fkey
+	establishment }o--o| unit_size : establishment_unit_size_id_fkey
+	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
+	external_ident }o--|| external_ident_type : external_ident_ident_type_id_fkey
+	external_ident }o--|| statbus_user : external_ident_updated_by_user_id_fkey
+	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
+	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
+	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
+	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
+	legal_unit }o--o| legal_form : legal_unit_legal_form_id_fkey
+	legal_unit }o--o| reorg_type : legal_unit_reorg_type_id_fkey
+	legal_unit }o--o| sector : legal_unit_sector_id_fkey
+	legal_unit }o--o| unit_size : legal_unit_unit_size_id_fkey
+	location }o--|| country : location_country_id_fkey
+	location }o--o| region : location_region_id_fkey
+	location }o--|| statbus_user : location_updated_by_user_id_fkey
+	person }|--o| country : person_country_id_fkey
+	person_for_unit }|--|| person : person_for_unit_person_id_fkey
+	person_for_unit }|--o| person_type : person_for_unit_person_type_id_fkey
+	region }o--o| region : region_parent_id_fkey
+	region_role }o--|| region : region_role_region_id_fkey
+	region_role }o--|| statbus_role : region_role_role_id_fkey
+	sample_frame }o--o| statbus_user : sample_frame_user_id_fkey
+	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
+	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey
+	statbus_user }|--|| auth.users : statbus_user_uuid_fkey
+	statbus_user }|--|| statbus_role : statbus_user_role_id_fkey
+	tag }o--o| tag : tag_parent_id_fkey
+	tag_for_unit }o--o| enterprise : tag_for_unit_enterprise_id_fkey
+	tag_for_unit }o--|| statbus_user : tag_for_unit_updated_by_user_id_fkey
+	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
+	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
+	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga.era : foreign_keys_table_name_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga.era : foreign_keys_table_name_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga.unique_keys : foreign_keys_unique_key_fkey
+	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
+	storage_objects }o--o| storage.buckets : objects_bucketId_fkey
+	vault_secrets }o--o| pgsodium.key : secrets_key_id_fkey
+########################################
