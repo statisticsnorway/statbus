@@ -111,11 +111,6 @@ DROP VIEW public.timepoints;
 
 DROP TYPE public.statistical_unit_type;
 
-\echo public.external_ident
-DROP TABLE public.external_ident;
-DROP TABLE public.external_ident_type;
-DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
-
 DROP AGGREGATE public.jsonb_stats_to_summary_agg(jsonb);
 DROP FUNCTION public.jsonb_stats_to_summary(jsonb,jsonb);
 DROP AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb);
@@ -205,7 +200,7 @@ DROP TRIGGER stat_for_unit_era_upsert ON public.stat_for_unit_era;
 DROP FUNCTION admin.stat_for_unit_era_upsert();
 DROP VIEW public.stat_for_unit_era;
 
-DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
+DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,text[],text[],record);
 
 DROP VIEW public.sector_available;
 DROP VIEW public.sector_custom_only;
@@ -216,6 +211,20 @@ DROP VIEW public.legal_form_available;
 DROP VIEW public.legal_form_custom_only;
 DROP FUNCTION admin.legal_form_custom_only_prepare();
 DROP FUNCTION admin.legal_form_custom_only_upsert();
+
+\echo public.external_ident
+
+SELECT admin.external_ident_type__import_legal_unit_era__cleanup();
+
+DROP TABLE public.external_ident;
+DROP TABLE public.external_ident_type;
+DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
+DROP FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup();
+DROP FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup_trigger();
+DROP FUNCTION admin.external_ident_type__import_legal_unit_era__generate();
+DROP FUNCTION admin.external_ident_type__import_legal_unit_era__generate_trigger();
+
 
 SELECT admin.drop_table_views_for_batch_api('public.sector');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
