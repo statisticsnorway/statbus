@@ -71,4 +71,8 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
+-- TODO: Add tests for
+-- * statistical_history
+-- * statistical_history_facet
+
 END;
