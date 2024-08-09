@@ -6390,6 +6390,7 @@ BEGIN
 END;
 $stat_for_unit_era_upsert$ LANGUAGE plpgsql;
 
+\echo stat_for_unit_era_upsert
 CREATE TRIGGER stat_for_unit_era_upsert
 INSTEAD OF INSERT ON public.stat_for_unit_era
 FOR EACH ROW
@@ -6410,6 +6411,412 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --AFTER INSERT ON public.legal_unit_era
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
+
+-- ========================================================
+--   Helper functions for import
+-- ========================================================
+
+
+\echo admin.import_lookup_tag
+CREATE FUNCTION admin.import_lookup_tag(
+    new_jsonb JSONB,
+    OUT tag_id INTEGER
+) RETURNS INTEGER AS $$
+DECLARE
+    tag_path_str TEXT := new_jsonb ->> 'tag_path';
+    tag_path public.LTREE;
+BEGIN
+    -- Check if tag_path_str is not null and not empty
+    IF tag_path_str IS NOT NULL AND tag_path_str <> '' THEN
+        BEGIN
+            -- Try to cast tag_path_str to public.LTREE
+            tag_path := tag_path_str::public.LTREE;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', new_jsonb, SQLERRM;
+        END;
+
+        SELECT tag.id INTO tag_id
+        FROM public.tag
+        WHERE active
+          AND path = tag_path;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Could not find tag_path for row %', new_jsonb;
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_country
+CREATE FUNCTION admin.import_lookup_country(
+    new_jsonb JSONB,
+    country_type TEXT,
+    OUT country_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    country_iso_2_field TEXT;
+    country_iso_2 TEXT;
+BEGIN
+    -- Check that country_type is valid and determine the fields
+    IF country_type NOT IN ('physical', 'postal') THEN
+        RAISE EXCEPTION 'Invalid country_type: %', country_type;
+    END IF;
+
+    country_iso_2_field := country_type || '_country_iso_2';
+
+    -- Get the value of the country ISO 2 field from the JSONB parameter
+    country_iso_2 := new_jsonb ->> country_iso_2_field;
+
+    -- Check if country_iso_2 is not null and not empty
+    IF country_iso_2 IS NOT NULL AND country_iso_2 <> '' THEN
+        SELECT country.id INTO country_id
+        FROM public.country
+        WHERE iso_2 = country_iso_2;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find % for row %', country_iso_2_field, new_jsonb;
+            updated_invalid_codes := updated_invalid_codes || jsonb_build_object(country_iso_2_field, country_iso_2);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_region
+CREATE FUNCTION admin.import_lookup_region(
+    IN new_jsonb JSONB,
+    IN region_type TEXT,
+    OUT region_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    region_code_field TEXT;
+    region_path_field TEXT;
+    region_code TEXT;
+    region_path_str TEXT;
+    region_path public.LTREE;
+BEGIN
+    -- Check that region_type is valid and determine the fields
+    IF region_type NOT IN ('physical', 'postal') THEN
+        RAISE EXCEPTION 'Invalid region_type: %', region_type;
+    END IF;
+
+    region_code_field := region_type || '_region_code';
+    region_path_field := region_type || '_region_path';
+
+    -- Get the values of the region code and path fields from the JSONB parameter
+    region_code := new_jsonb ->> region_code_field;
+    region_path_str := new_jsonb ->> region_path_field;
+
+    -- Check if both region_code and region_path are specified
+    IF region_code IS NOT NULL AND region_code <> '' AND
+       region_path_str IS NOT NULL AND region_path_str <> '' THEN
+        RAISE EXCEPTION 'Only one of % or % can be specified for row %', region_code_field, region_path_field, new_jsonb;
+    ELSE
+        IF region_code IS NOT NULL AND region_code <> '' THEN
+            SELECT id INTO region_id
+            FROM public.region
+            WHERE code = region_code;
+
+            IF NOT FOUND THEN
+                RAISE WARNING 'Could not find % for row %', region_code_field, new_jsonb;
+                updated_invalid_codes := updated_invalid_codes || jsonb_build_object(region_code_field, region_code);
+            END IF;
+        ELSIF region_path_str IS NOT NULL AND region_path_str <> '' THEN
+            BEGIN
+                region_path := region_path_str::public.LTREE;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE EXCEPTION 'Invalid % for row % with error "%"', region_path_field, new_jsonb, SQLERRM;
+            END;
+
+            SELECT id INTO region_id
+            FROM public.region
+            WHERE path = region_path;
+
+            IF NOT FOUND THEN
+                RAISE WARNING 'Could not find % for row %', region_path_field, new_jsonb;
+                updated_invalid_codes := updated_invalid_codes || jsonb_build_object(region_path_field, region_path);
+            END IF;
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_activity_category
+CREATE FUNCTION admin.import_lookup_activity_category(
+    new_jsonb JSONB,
+    category_type TEXT,
+    OUT activity_category_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    category_code_field TEXT;
+    category_code TEXT;
+BEGIN
+    IF category_type NOT IN ('primary', 'secondary') THEN
+        RAISE EXCEPTION 'Invalid category_type: %', category_type;
+    END IF;
+
+    category_code_field := category_type || '_activity_category_code';
+
+    -- Get the value of the category code field from the JSONB parameter
+    category_code := new_jsonb ->> category_code_field;
+
+    -- Check if category_code is not null and not empty
+    IF category_code IS NOT NULL AND category_code <> '' THEN
+        SELECT id INTO activity_category_id
+        FROM public.activity_category_available
+        WHERE code = category_code;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find % for row %', category_code_field, new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, ARRAY[category_code_field], to_jsonb(category_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_sector
+CREATE FUNCTION admin.import_lookup_sector(
+    new_jsonb JSONB,
+    OUT sector_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    sector_code TEXT;
+BEGIN
+    -- Get the value of the sector_code field from the JSONB parameter
+    sector_code := new_jsonb ->> 'sector_code';
+
+    -- Check if sector_code is not null and not empty
+    IF sector_code IS NOT NULL AND sector_code <> '' THEN
+        SELECT id INTO sector_id
+        FROM public.sector
+        WHERE code = sector_code
+          AND active;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find sector_code for row %', new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, '{sector_code}', to_jsonb(sector_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_legal_form
+CREATE FUNCTION admin.import_lookup_legal_form(
+    new_jsonb JSONB,
+    OUT legal_form_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    legal_form_code TEXT;
+BEGIN
+    -- Get the value of the legal_form_code field from the JSONB parameter
+    legal_form_code := new_jsonb ->> 'legal_form_code';
+
+    -- Check if legal_form_code is not null and not empty
+    IF legal_form_code IS NOT NULL AND legal_form_code <> '' THEN
+        SELECT id INTO legal_form_id
+        FROM public.legal_form
+        WHERE code = legal_form_code
+          AND active;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find legal_form_code for row %', new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, '{legal_form_code}', to_jsonb(legal_form_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.type_date_field
+CREATE FUNCTION admin.type_date_field(
+    IN new_jsonb JSONB,
+    IN field_name TEXT,
+    OUT date_value DATE,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    date_str TEXT;
+    invalid_code JSONB;
+BEGIN
+    date_str := new_jsonb ->> field_name;
+
+    IF date_str IS NOT NULL AND date_str <> '' THEN
+        BEGIN
+            date_value := date_str::DATE;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'Invalid % for row % because of %', field_name, new_jsonb, SQLERRM;
+            invalid_code := jsonb_build_object(field_name, date_str);
+            updated_invalid_codes := updated_invalid_codes || invalid_code;
+        END;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.process_external_identifiers
+CREATE FUNCTION admin.process_external_identifiers(
+    new_jsonb JSONB,
+    unit_type TEXT,
+    OUT external_idents public.external_ident[],
+    OUT prior_id INTEGER
+) RETURNS RECORD AS $$
+DECLARE
+    unit_fk_field TEXT;
+    unit_fk_value INTEGER;
+    ident_code TEXT;
+    ident_value TEXT;
+    ident_row public.external_ident;
+    ident_type_row public.external_ident_type;
+    ident_codes TEXT[] := '{}';
+    -- Helpers to provide error messages to the user, with the ident_type_code
+    -- that would otherwise be lost.
+    ident_jsonb JSONB;
+    prev_ident_jsonb JSONB;
+    unique_ident_specified BOOLEAN := false;
+BEGIN
+    IF unit_type NOT IN ('legal_unit', 'establishment') THEN
+        RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
+    END IF;
+
+    unit_fk_field := unit_type || '_id';
+
+    FOR ident_type_row IN 
+        (SELECT * FROM public.external_ident_type)
+    LOOP
+        ident_code := ident_type_row.code;
+        ident_codes := array_append(ident_codes, ident_code);
+
+        IF new_jsonb ? ident_type_row.code THEN
+            ident_value := new_jsonb ->> ident_code;
+
+            IF ident_value IS NOT NULL AND ident_value <> '' THEN
+                unique_ident_specified := true;
+
+                SELECT to_jsonb(ei.*)
+                     || jsonb_build_object(
+                    'ident_code', eit.code -- For user feedback
+                    ) INTO ident_jsonb
+                FROM public.external_ident AS ei
+                JOIN public.external_ident_type AS eit
+                  ON ei.ident_type_id = eit.id
+                WHERE eit.id = ident_type_row.id
+                  AND ei.ident = ident_value;
+
+                IF NOT FOUND THEN
+                    -- Prepare a row to be added later after the legal_unit is created
+                    -- and the legal_unit_id is known.
+                    ident_jsonb := jsonb_build_object(
+                                'ident_code', ident_type_row.code, -- For user feedback - ignored by jsonb_populate_record
+                                'ident_type_id', ident_type_row.id, -- For jsonb_populate_record
+                                'ident', ident_value
+                        );
+                    -- Initialise the ROW using mandatory positions, however,
+                    -- populate with jsonb_populate_record for avoiding possible mismatch.
+                    ident_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+                    ident_row := jsonb_populate_record(NULL::public.external_ident,ident_jsonb);
+                    external_idents := array_append(external_idents, ident_row);
+                ELSE -- FOUND
+                    unit_fk_value := (ident_jsonb -> unit_fk_field)::INTEGER;
+                    IF unit_fk_value IS NULL THEN
+                        RAISE EXCEPTION 'The external identifier % is not for a % but % for row %'
+                                        , ident_code, unit_type, ident_jsonb, new_jsonb;
+                    END IF;
+                    IF prior_id IS NULL THEN
+                        prior_id := unit_fk_value;
+                    ELSEIF prior_id IS DISTINCT FROM unit_fk_value THEN
+                        -- All matching identifiers must be consistent.
+                        RAISE EXCEPTION 'Inconsistent external identifiers % and % for row %'
+                                        , prev_ident_jsonb, ident_jsonb, new_jsonb;
+                    END IF;
+                END IF; -- FOUND / NOT FOUND
+                prev_ident_jsonb := ident_jsonb;
+            END IF; -- ident_value provided
+        END IF; -- ident_type.code in import
+    END LOOP; -- public.external_ident_type
+
+    IF NOT unique_ident_specified THEN
+        RAISE EXCEPTION 'No external identifier (%) is specified for row %', array_to_string(ident_codes, ','), new_jsonb;
+    END IF;
+END; -- Process external identifiers
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.process_enterprise_connection
+CREATE FUNCTION admin.process_enterprise_connection(
+    IN prior_unit_id INTEGER,
+    IN unit_type TEXT,
+    IN new_valid_from DATE,
+    IN new_valid_to DATE,
+    IN edited_by_user_id INTEGER,
+    OUT enterprise_id INTEGER,
+    OUT is_primary_for_enterprise BOOLEAN
+) RETURNS RECORD AS $$
+DECLARE
+    new_center DATE;
+BEGIN
+    IF unit_type NOT IN ('legal_unit', 'establishment') THEN
+        RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
+    END IF;
+
+    IF prior_unit_id IS NOT NULL THEN
+        -- Calculate the new center date.
+        new_center := new_valid_from + ((new_valid_to - new_valid_from) / 2);
+
+        -- Find the closest enterprise connected to the prior legal unit or establishment.
+        EXECUTE format('
+            SELECT enterprise_id
+            FROM public.%I
+            WHERE id = $1
+            ORDER BY ABS(
+                $2::DATE - (
+                    valid_from + ((valid_to - valid_from) / 2)
+                )::DATE
+            ) ASC
+            LIMIT 1
+        ', unit_type) 
+        INTO enterprise_id
+        USING prior_unit_id, new_center;
+
+        -- Determine if this should be the primary for the enterprise.
+        EXECUTE format('
+            SELECT NOT EXISTS(
+                SELECT 1
+                FROM public.%I
+                WHERE enterprise_id = $1
+                AND is_primary_for_enterprise
+                AND id <> $2
+                AND daterange(valid_from, valid_to, ''[]'')
+                 && daterange($3, $4, ''[]'')
+            )
+        ', unit_type)
+        INTO is_primary_for_enterprise
+        USING enterprise_id, prior_unit_id, new_valid_from, new_valid_to;
+
+    ELSE
+        -- Create a new enterprise and connect to it.
+        INSERT INTO public.enterprise
+            (active, edit_by_user_id, edit_comment)
+        VALUES
+            (true, edited_by_user_id, 'Batch import')
+        RETURNING id INTO enterprise_id;
+
+        -- This will be the primary legal unit or establishment for the enterprise.
+        is_primary_for_enterprise := true;
+    END IF;
+
+    RETURN;
+END;
+$$ LANGUAGE plpgsql;
+
 
 
 -- Cleanup function before update or delete
@@ -6551,7 +6958,7 @@ DECLARE
     legal_form RECORD;
     upsert_data RECORD;
     new_typed RECORD;
-    external_idents public.external_ident[] := ARRAY[]::public.external_ident[];
+    external_idents_to_add public.external_ident[] := ARRAY[]::public.external_ident[];
     nearest_legal_unit RECORD;
     prior_legal_unit_id INTEGER;
     enterprise RECORD;
@@ -6575,7 +6982,6 @@ BEGIN
          , NULL::DATE AS valid_from
          , NULL::DATE AS valid_to
         INTO new_typed;
-    SELECT NULL::int AS id INTO tag;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO physical_country;
@@ -6586,6 +6992,7 @@ BEGIN
     SELECT NULL::int AS id INTO sector;
     SELECT NULL::int AS id INTO legal_form;
     SELECT NULL::int AS id INTO nearest_legal_unit;
+    SELECT NULL::int AS id INTO tag;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -6593,182 +7000,55 @@ BEGIN
     -- WHERE uuid = auth.uid()
     LIMIT 1;
 
-    IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
-        DECLARE
-           tag_path public.LTREE;
-        BEGIN
-          BEGIN
-              tag_path := NEW.tag_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', new_jsonb, SQLERRM;
-          END;
-          SELECT * INTO tag
-          FROM public.tag
-          WHERE active
-            AND path = tag_path;
-          IF NOT FOUND THEN
-              RAISE EXCEPTION 'Could not find tag_path for row %', new_jsonb;
-          END IF;
-        END;
-    END IF;
+    SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);
 
-    IF NEW.physical_country_iso_2 IS NOT NULL AND NEW.physical_country_iso_2 <> '' THEN
-      SELECT * INTO physical_country
-      FROM public.country
-      WHERE iso_2 = NEW.physical_country_iso_2;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_country_iso_2 for row %', new_jsonb;
-        invalid_codes := jsonb_set(invalid_codes, '{physical_country_iso_2}', to_jsonb(NEW.physical_country_iso_2), true);
-      END IF;
-    END IF;
+    SELECT country_id          , updated_invalid_codes
+    INTO   physical_country.id , invalid_codes
+    FROM admin.import_lookup_country(new_jsonb, 'physical', invalid_codes);
 
-    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' AND
-       NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> ''
-    THEN
-      RAISE EXCEPTION 'Only one of physical_region_code or physical_region_path can be specified for row %', new_jsonb;
-    ELSE
-      IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
-        SELECT * INTO physical_region
-        FROM public.region
-        WHERE code = NEW.physical_region_code;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find physical_region_code for row %', new_jsonb;
-          invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
-        END IF;
-      END IF;
-      IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
-        DECLARE
-           physical_region_path public.LTREE;
-        BEGIN
-          BEGIN
-              physical_region_path := NEW.physical_region_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid physical_region_path for row % with error "%"', new_jsonb, SQLERRM;
-          END;
-          SELECT * INTO physical_region
-          FROM public.region
-          WHERE path = physical_region_path;
-          IF NOT FOUND THEN
-            RAISE WARNING 'Could not find physical_region_path for row %', new_jsonb;
-            invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
-          END IF;
-        END;
-      END IF;
-    END IF;
+    SELECT region_id          , updated_invalid_codes
+    INTO   physical_region.id , invalid_codes
+    FROM admin.import_lookup_region(new_jsonb, 'physical', invalid_codes);
 
-    IF NEW.postal_country_iso_2 IS NOT NULL AND NEW.postal_country_iso_2 <> '' THEN
-      SELECT * INTO postal_country
-      FROM public.country
-      WHERE iso_2 = NEW.postal_country_iso_2;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_country_iso_2 for row %', new_jsonb;
-        invalid_codes := jsonb_set(invalid_codes, '{postal_country_iso_2}', to_jsonb(NEW.postal_country_iso_2), true);
-      END IF;
-    END IF;
+    SELECT country_id        , updated_invalid_codes
+    INTO   postal_country.id , invalid_codes
+    FROM admin.import_lookup_country(new_jsonb, 'postal', invalid_codes);
 
-    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' AND
-       NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> ''
-    THEN
-      RAISE EXCEPTION 'Only one of postal_region_code or postal_region_path can be specified for row %', new_jsonb;
-    ELSE
-      IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
-        SELECT * INTO postal_region
-        FROM public.region
-        WHERE code = NEW.postal_region_code;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find postal_region_code for row %', new_jsonb;
-          invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
-        END IF;
-      END IF;
-      IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
-        DECLARE
-           postal_region_path public.LTREE;
-        BEGIN
-          BEGIN
-              postal_region_path := NEW.postal_region_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid postal_region_path for row % with error "%"', new_jsonb, SQLERRM;
-          END;
-          SELECT * INTO postal_region
-          FROM public.region
-          WHERE path = postal_region_path;
-          IF NOT FOUND THEN
-            RAISE WARNING 'Could not find postal_region_path for row %', new_jsonb;
-            invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
-          END IF;
-        END;
-      END IF;
-    END IF;
+    SELECT region_id        , updated_invalid_codes
+    INTO   postal_region.id , invalid_codes
+    FROM admin.import_lookup_region(new_jsonb, 'postal', invalid_codes);
 
-    IF NEW.primary_activity_category_code IS NOT NULL AND NEW.primary_activity_category_code <> '' THEN
-      SELECT * INTO primary_activity_category
-      FROM public.activity_category_available
-      WHERE code = NEW.primary_activity_category_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find primary_activity_category_code for row %', new_jsonb;
-        invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
-      END IF;
-    END IF;
+    SELECT activity_category_id, updated_invalid_codes
+    INTO primary_activity_category.id, invalid_codes
+    FROM admin.import_lookup_activity_category(new_jsonb, 'primary', invalid_codes);
 
-    IF NEW.secondary_activity_category_code IS NOT NULL AND NEW.secondary_activity_category_code <> '' THEN
-      SELECT * INTO secondary_activity_category
-      FROM public.activity_category_available
-      WHERE code = NEW.secondary_activity_category_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find secondary_activity_category_code for row %', new_jsonb;
-        invalid_codes := jsonb_set(invalid_codes, '{secondary_activity_category_code}', to_jsonb(NEW.secondary_activity_category_code), true);
-      END IF;
-    END IF;
+    SELECT activity_category_id, updated_invalid_codes
+    INTO secondary_activity_category.id, invalid_codes
+    FROM admin.import_lookup_activity_category(new_jsonb, 'secondary', invalid_codes);
 
-    IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
-      SELECT * INTO sector
-      FROM public.sector
-      WHERE code = NEW.sector_code
-        AND active;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find sector_code for row %', new_jsonb;
-        invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
-      END IF;
-    END IF;
+    SELECT sector_id , updated_invalid_codes
+    INTO   sector.id , invalid_codes
+    FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
 
-    IF NEW.legal_form_code IS NOT NULL AND NEW.legal_form_code <> '' THEN
-      SELECT * INTO legal_form
-      FROM public.legal_form
-      WHERE code = NEW.legal_form_code
-        AND active;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find legal_form_code for row %', new_jsonb;
-        invalid_codes := jsonb_set(invalid_codes, '{legal_form_code}', to_jsonb(NEW.legal_form_code), true);
-      END IF;
-    END IF;
+    SELECT legal_form_id , updated_invalid_codes
+    INTO   legal_form.id , invalid_codes
+    FROM admin.import_lookup_legal_form(new_jsonb, invalid_codes);
 
-    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
-        BEGIN
-            new_typed.birth_date := NEW.birth_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid birth_date for row %', new_jsonb;
-        END;
-    END IF;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.birth_date , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'birth_date',invalid_codes);
 
-    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
-        BEGIN
-            new_typed.death_date := NEW.death_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid death_date for row %', new_jsonb;
-        END;
-    END IF;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.death_date , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'death_date',invalid_codes);
 
-    BEGIN
-        new_typed.valid_from := NEW.valid_from::DATE;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'Invalid valid_from for row %', new_jsonb;
-    END;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.valid_from , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'valid_from',invalid_codes);
 
-    BEGIN
-        new_typed.valid_to := NEW.valid_to::DATE;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'Invalid valid_to for row %', new_jsonb;
-    END;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.valid_to   , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'valid_to',invalid_codes);
 
     SELECT NEW.tax_ident AS tax_ident
          , NEW.name AS name
@@ -6784,120 +7064,16 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    -- Process external identifiers.
-    DECLARE
-        ident_code TEXT;
-        ident_value TEXT;
-        ident_row public.external_ident;
-        ident_type_row public.external_ident_type;
-        ident_codes TEXT[] := '{}';
-        -- Helpers to provide error messages to the user, with the ident_type_code
-        -- that would otherwise be lost.
-        ident_jsonb JSONB;
-        prev_ident_jsonb JSONB;
-        unique_ident_specified BOOLEAN := false;
-    BEGIN
-        FOR ident_type_row IN SELECT * FROM public.external_ident_type
-        LOOP
-            ident_code := ident_type_row.code;
-            ident_codes := array_append(ident_codes, ident_code);
+    SELECT external_idents        , prior_id
+    INTO   external_idents_to_add , prior_legal_unit_id
+    FROM admin.process_external_identifiers(new_jsonb,'legal_unit') AS r;
 
-            IF new_jsonb ? ident_type_row.code THEN
-                ident_value := new_jsonb ->> ident_code;
-
-                IF ident_value IS NOT NULL AND ident_value <> '' THEN
-                    unique_ident_specified := true;
-
-                    SELECT jsonb_build_object(
-                        'ident_code', eit.code, -- For user feedback
-                        'ident_type_id', ei.id,
-                        'ident', ei.ident
-                    ) INTO ident_jsonb
-                    FROM public.external_ident AS ei
-                    JOIN public.external_ident_type AS eit
-                      ON ei.ident_type_id = eit.id
-                    WHERE eit.id = ident_type_row.id
-                      AND ei.ident = ident_value;
-
-                    IF NOT FOUND THEN
-                        -- Prepare a row to be added later after the legal_unit is created
-                        -- and the legal_unit_id is known.
-                        ident_jsonb := jsonb_build_object(
-                                    'ident_code', ident_type_row.code, -- For user feedback - ignored by jsonb_populate_record
-                                    'ident_type_id', ident_type_row.id, -- For jsonb_populate_record
-                                    'ident', ident_value
-                            );
-                        -- Initialise the ROW using mandatory positions, however,
-                        -- populate with jsonb_populate_record for avoiding possible mismatch.
-                        ident_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-                        ident_row := jsonb_populate_record(NULL::public.external_ident,ident_jsonb);
-                        external_idents := array_append(external_idents, ident_row);
-                    ELSE -- FOUND
-                        IF external_ident.legal_unit_id IS NULL THEN
-                            RAISE EXCEPTION 'The external identifier % is not for a legal_unit but % for row %'
-                                            , ident_code, ident_jsonb, new_jsonb;
-                        END IF;
-                        IF prior_legal_unit_id IS NULL THEN
-                            prior_legal_unit_id := external_ident.legal_unit_id;
-                        ELSE IF prior_legal_unit_id IS DISTINCT FROM external_ident.legal_unit_id THEN
-                        END IF;
-                            -- All matching identifiers must be consistent.
-                            RAISE EXCEPTION 'Inconsistent external identifiers % and % for row %'
-                                            , prev_ident_jsonb, ident_jsonb, new_jsonb;
-                        END IF;
-                    END IF; -- FOUND / NOT FOUND
-                    prev_ident_jsonb := ident_jsonb;
-                END IF; -- ident_value provided
-            END IF; -- ident_type.code in import
-        END LOOP; -- public.external_ident_type
-
-        IF NOT unique_ident_specified THEN
-            RAISE EXCEPTION 'No external identifier (%) is specified for row %', external_ident_codes, new_jsonb;
-        END IF;
-    END; -- Process external identifiers
-
-    IF prior_legal_unit_id IS NOT NULL THEN -- Find and connect to an existing enterprise.
-        -- If there is a prior legal unit, as discovered by lookup in in external_ident
-        -- then find that entry and connect to the same enterprise.
-        DECLARE
-            new_center DATE := new_typed.valid_from + ((new_typed.valid_to - new_typed.valid_from) / 2);
-        BEGIN
-            SELECT enterprise_id INTO enterprise.id
-              FROM public.legal_unit
-             WHERE id = prior_legal_unit_id
-             ORDER BY ABS(
-                new_center::DATE - (
-                    valid_from + ((valid_to - valid_from) / 2)
-                )::DATE
-             ) ASC
-             LIMIT 1;
-
-            -- If there is no other primary legal_unit for the period in question,
-            -- then this will become the primary.
-            SELECT NOT EXISTS(
-                SELECT lu.*
-                FROM public.legal_unit AS lu
-                WHERE lu.enterprise_id = enterprise.id
-                AND is_primary_for_enterprise
-                AND lu.id <> prior_legal_unit_id
-                AND daterange(lu.valid_from, lu.valid_to, '[]')
-                 && daterange(new_typed.valid_from, new_typed.valid_to, '[]')
-            ) INTO is_primary_for_enterprise;
-        END;
-    ELSE -- Create a new enterprise and connect to it.
-        INSERT INTO public.enterprise
-            ( active
-            , edit_by_user_id
-            , edit_comment
-            )
-        VALUES
-            ( true
-            , edited_by_user.id
-            , 'Batch import'
-            ) RETURNING *
-         INTO enterprise;
-        is_primary_for_enterprise := true;
-    END IF;
+    SELECT r.enterprise_id, r.is_primary_for_enterprise
+    INTO     enterprise.id,   is_primary_for_enterprise
+    FROM admin.process_enterprise_connection(
+        prior_legal_unit_id, 'legal_unit',
+        new_typed.valid_from, new_typed.valid_to,
+        edited_by_user.id) AS r;
 
     INSERT INTO public.legal_unit_era
         ( valid_from
@@ -6953,7 +7129,7 @@ BEGIN
     END IF;
 
     -- Store external identifiers
-    IF array_length(external_idents, 1) > 0 THEN
+    IF array_length(external_idents_to_add, 1) > 0 THEN
         INSERT INTO public.external_ident
             ( ident_type_id
             , ident
@@ -6964,7 +7140,7 @@ BEGIN
               , ident
               , inserted_legal_unit.id
               , edited_by_user.id
-         FROM unnest(external_idents);
+         FROM unnest(external_idents_to_add);
     END IF;
 
 
