@@ -121,6 +121,204 @@ INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user'
 --CREATE POLICY "Users can insert their own data." ON "user" FOR INSERT WITH check ( auth.uid() = id );
 --CREATE POLICY "Users can update own data." ON "user" FOR UPDATE USING ( auth.uid() = id );
 
+-- =================================================================
+-- BEGIN: Callbacks for code generation based on naming conventions.
+-- =================================================================
+
+-- Documentation for admin.run_table_lifecycle_callbacks
+--
+-- This trigger function is designed to manage lifecycle callbacks for a given table.
+-- It dynamically finds and executes functions based on a specific naming convention.
+-- 
+-- Naming Convention:
+-- 1. The functions to be executed are named in the following pattern:
+--    `schema.table_name__operation__suffix`.
+--    Example: `admin.external_ident_type__generate__legal_unit_era`
+--
+-- 2. This function searches for matching functions in the schema based on the event type:
+--    - For `INSERT` and `AFTER UPDATE`: It looks for `generate` functions, which are executed in lexical order.
+--    - For `BEFORE UPDATE` and `DELETE`: It looks for `cleanup` functions, which are executed in reverse lexical order.
+--
+-- 3. The function constructs the query to find and execute these callbacks dynamically by querying the information schema.
+--
+-- Usage:
+-- 1. Associate this function as a trigger for table lifecycle events (e.g., insert, update, delete).
+-- 2. Ensure that the lifecycle functions follow the established naming convention.
+-- 3. Triggers created using the procedure 'admin.create_table_lifecycle_triggers' will follow a consistent naming pattern
+--    and use this function to manage callbacks.
+--
+-- Scaffold Implementation Example:
+-- 
+-- Step 1: Define the Lifecycle Functions
+-- --------------------------------------
+-- Create your lifecycle functions following the naming convention:
+-- 
+-- CREATE OR REPLACE FUNCTION admin.external_ident_type__generate__legal_unit_era()
+-- RETURNS void LANGUAGE plpgsql AS $$
+-- BEGIN
+--     -- Your generation logic here
+-- END;
+-- $$;
+--
+-- CREATE OR REPLACE FUNCTION admin.external_ident_type__cleanup__legal_unit_era()
+-- RETURNS void LANGUAGE plpgsql AS $$
+-- BEGIN
+--     -- Your cleanup logic here
+-- END;
+-- $$;
+--
+-- Step 2: Create the Triggers
+-- ---------------------------
+-- Use the admin.create_table_lifecycle_triggers procedure to automatically generate the triggers for a specific table:
+-- 
+-- CALL admin.create_table_lifecycle_triggers('external_ident_type');
+--
+-- This will create the following triggers for the 'external_ident_type' table:
+--
+-- CREATE TRIGGER run_table_lifecycle_cleanup_before_update
+-- BEFORE UPDATE ON public.external_ident_type
+-- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
+--
+-- CREATE TRIGGER run_table_lifecycle_cleanup_before_delete
+-- BEFORE DELETE ON public.external_ident_type
+-- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
+--
+-- CREATE TRIGGER run_table_lifecycle_generate_after_insert
+-- AFTER INSERT ON public.external_ident_type
+-- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
+--
+-- CREATE TRIGGER run_table_lifecycle_generate_after_update
+-- AFTER UPDATE ON public.external_ident_type
+-- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
+--
+-- Step 3: Verify the Setup
+-- ------------------------
+-- Insert, update, or delete records in the 'external_ident_type' table, and observe that the appropriate lifecycle
+-- functions are executed automatically based on the operation type and timing.
+
+CREATE FUNCTION admin.run_table_lifecycle_callbacks()
+RETURNS TRIGGER LANGUAGE plpgsql AS $run_table_lifecycle_callbacks$
+DECLARE
+    operation_name TEXT;
+    schema_name TEXT := TG_TABLE_SCHEMA;
+    table_name TEXT := TG_TABLE_NAME;
+    function_pattern TEXT;
+    function_to_execute TEXT;
+    function_list TEXT[];
+BEGIN
+    -- Determine the operation type based on the triggering event
+    IF TG_OP = 'INSERT' THEN
+        operation_name := 'generate';
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF TG_WHEN = 'BEFORE' THEN
+            operation_name := 'cleanup';
+        ELSE
+            operation_name := 'generate';
+        END IF;
+    ELSIF TG_OP = 'DELETE' THEN
+        operation_name := 'cleanup';
+    ELSE
+        RAISE EXCEPTION 'Unsupported operation %', TG_OP;
+    END IF;
+
+    -- Construct the pattern to find matching functions
+    function_pattern := schema_name || '.' || table_name || '__' || operation_name || '%';
+
+    -- Query the information schema to find matching function names
+    SELECT array_agg(routine_name ORDER BY routine_name)
+    INTO function_list
+    FROM information_schema.routines
+    WHERE specific_schema = schema_name
+    AND routine_name LIKE replace(function_pattern, '.', '_');
+
+    -- If no functions are found, exit
+    IF function_list IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    -- Reverse the order for cleanup functions
+    IF operation_name = 'cleanup' THEN
+        function_list := array_reverse(function_list);
+    END IF;
+
+    -- Execute each function in the list
+    FOREACH function_to_execute IN ARRAY function_list
+    LOOP
+        EXECUTE 'PERFORM ' || schema_name || '.' || function_to_execute || '();';
+    END LOOP;
+
+    -- Reload PostgREST to reflect any table/view changes.
+    NOTIFY pgrst, 'reload config';
+
+    RETURN NULL; -- Statement-level trigger returns NULL
+END;
+$run_table_lifecycle_callbacks$;
+
+
+CREATE PROCEDURE admin.create_table_lifecycle_triggers(table_identifier regclass)
+LANGUAGE plpgsql AS $$
+DECLARE
+    schema_name TEXT;
+    table_name TEXT;
+    cleanup_before_update_trigger_name TEXT;
+    cleanup_before_delete_trigger_name TEXT;
+    generate_after_insert_trigger_name TEXT;
+    generate_after_update_trigger_name TEXT;
+BEGIN
+    -- Extract schema and table name from the table_identifier
+    SELECT nspname, relname INTO schema_name, table_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = table_identifier;
+
+    -- Define trigger names based on the provided table name
+    cleanup_before_update_trigger_name := 'run_table_lifecycle_cleanup_before_update';
+    cleanup_before_delete_trigger_name := 'run_table_lifecycle_cleanup_before_delete';
+    generate_after_insert_trigger_name := 'run_table_lifecycle_generate_after_insert';
+    generate_after_update_trigger_name := 'run_table_lifecycle_generate_after_update';
+
+    -- Create Before Update Trigger
+    EXECUTE format('
+        CREATE TRIGGER %I
+        BEFORE UPDATE ON %I.%I
+        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
+        cleanup_before_update_trigger_name, schema_name, table_name
+    );
+
+    -- Create Before Delete Trigger
+    EXECUTE format('
+        CREATE TRIGGER %I
+        BEFORE DELETE ON %I.%I
+        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
+        cleanup_before_delete_trigger_name, schema_name, table_name
+    );
+
+    -- Create After Insert Trigger
+    EXECUTE format('
+        CREATE TRIGGER %I
+        AFTER INSERT ON %I.%I
+        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
+        generate_after_insert_trigger_name, schema_name, table_name
+    );
+
+    -- Create After Update Trigger
+    EXECUTE format('
+        CREATE TRIGGER %I
+        AFTER UPDATE ON %I.%I
+        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
+        generate_after_update_trigger_name, schema_name, table_name
+    );
+
+    RAISE NOTICE 'Triggers created for table: %', table_name;
+END;
+$$;
+
+
+-- =================================================================
+-- END: Callbacks for code generation based on naming conventions.
+-- =================================================================
+
+
 
 \echo public.activity_category_standard
 CREATE TABLE public.activity_category_standard (
@@ -1117,6 +1315,8 @@ CREATE TABLE public.external_ident_type (
     by_tag_id INTEGER UNIQUE REFERENCES public.tag(id) ON DELETE RESTRICT
 );
 
+\echo admin.create_table_lifecycle_triggers public.external_ident_type
+CALL admin.create_table_lifecycle_triggers('public.external_ident_type');
 
 \echo public.external_ident_type_derive_code_and_name_from_by_tag_id()
 CREATE OR REPLACE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id()
@@ -6413,10 +6613,10 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
--- ========================================================
---   Helper functions for import
--- ========================================================
 
+-- ========================================================
+-- BEGIN:  Helper functions for import
+-- ========================================================
 
 \echo admin.import_lookup_tag
 CREATE FUNCTION admin.import_lookup_tag(
@@ -6818,32 +7018,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ========================================================
+-- END:  Helper functions for import
+-- ========================================================
 
 
 -- Cleanup function before update or delete
-\echo admin.external_ident_type__import_legal_unit_era__cleanup()
-CREATE OR REPLACE FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup()
+\echo admin.external_ident_type__cleanup__import_legal_unit_era()
+CREATE FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup()
 RETURNS void LANGUAGE plpgsql AS $external_ident_type__import_legal_unit_era__cleanup$
 BEGIN
     DROP VIEW IF EXISTS public.import_legal_unit_era;
-    -- Reload PostgREST to expose the new view
-    NOTIFY pgrst, 'reload config';
 END;
 $external_ident_type__import_legal_unit_era__cleanup$;
 
--- Trigger function for cleanup
-\echo admin.external_ident_type__import_legal_unit_era__cleanup_trigger()
-CREATE OR REPLACE FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup_trigger()
-RETURNS TRIGGER LANGUAGE plpgsql AS $external_ident_type__import_legal_unit_era__cleanup_trigger$
-BEGIN
-    PERFORM admin.external_ident_type__import_legal_unit_era__cleanup();
-    RETURN NULL;  -- Statement-level trigger returns NULL
-END;
-$external_ident_type__import_legal_unit_era__cleanup_trigger$;
-
 -- View generation function for insert or update
-\echo admin.external_ident_type__import_legal_unit_era__generate()
-CREATE OR REPLACE FUNCTION admin.external_ident_type__import_legal_unit_era__generate()
+\echo admin.external_ident_type__generate__import_legal_unit_era()
+CREATE FUNCTION admin.external_ident_type__import_legal_unit_era__generate()
 RETURNS TEXT LANGUAGE plpgsql AS $external_ident_type__import_legal_unit_era__generate$
 DECLARE
     result TEXT := '';
@@ -6896,49 +7087,14 @@ BEGIN
     -- Create the view dynamically
     EXECUTE view_template;
     result := 'public.import_legal_unit_era';
-    -- Reload PostgREST to expose the new view
-    NOTIFY pgrst, 'reload config';
     RETURN result;
 END;
 $external_ident_type__import_legal_unit_era__generate$;
 
--- Trigger function for view generation
-\echo admin.external_ident_type__import_legal_unit_era__generate_trigger()
-CREATE OR REPLACE FUNCTION admin.external_ident_type__import_legal_unit_era__generate_trigger()
-RETURNS TRIGGER LANGUAGE plpgsql AS $external_ident_type__import_legal_unit_era__generate_trigger$
-BEGIN
-    PERFORM admin.external_ident_type__import_legal_unit_era__generate();
-    RETURN NULL;  -- Statement-level trigger returns NULL
-END;
-$external_ident_type__import_legal_unit_era__generate_trigger$;
 
--- Setup statement-level triggers
--- Before Update Trigger
-\echo cleanup_view_before_update
-CREATE TRIGGER cleanup_view_before_update
-BEFORE UPDATE ON public.external_ident_type
-EXECUTE FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup_trigger();
-
--- Before Delete Trigger
-\echo cleanup_view_before_delete
-CREATE TRIGGER cleanup_view_before_delete
-BEFORE DELETE ON public.external_ident_type
-EXECUTE FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup_trigger();
-
--- After Insert Trigger
-\echo generate_view_after_insert
-CREATE TRIGGER generate_view_after_insert
-AFTER INSERT ON public.external_ident_type
-EXECUTE FUNCTION admin.external_ident_type__import_legal_unit_era__generate_trigger();
-
--- After Update Trigger
-\echo generate_view_after_update
-CREATE TRIGGER generate_view_after_update
-AFTER UPDATE ON public.external_ident_type
-EXECUTE FUNCTION admin.external_ident_type__import_legal_unit_era__generate_trigger();
-
--- Call the generate function once to generate the view at this point
-\echo public.import_legal_unit_era
+-- Call the generate function once to generate the view with the currently
+-- defined external_ident_type's.
+\echo Generate public.import_legal_unit_era
 SELECT admin.external_ident_type__import_legal_unit_era__generate();
 
 

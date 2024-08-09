@@ -224,18 +224,11 @@ DROP FUNCTION admin.process_external_identifiers;
 DROP FUNCTION admin.process_enterprise_connection;
 
 \echo public.external_ident
-
-SELECT admin.external_ident_type__import_legal_unit_era__cleanup();
-
 DROP TABLE public.external_ident;
+\echo Trigger cleanup of external_ident_type generated code.
+DELETE FROM public.external_ident_type;
 DROP TABLE public.external_ident_type;
 DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
-
-DROP FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup();
-DROP FUNCTION admin.external_ident_type__import_legal_unit_era__cleanup_trigger();
-DROP FUNCTION admin.external_ident_type__import_legal_unit_era__generate();
-DROP FUNCTION admin.external_ident_type__import_legal_unit_era__generate_trigger();
-
 
 SELECT admin.drop_table_views_for_batch_api('public.sector');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
@@ -369,8 +362,11 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
     valid_to date
     );
 
+DROP FUNCTION admin.run_table_lifecycle_callbacks();
+DROP PROCEDURE admin.create_table_lifecycle_triggers(table_identifier regclass);
+
 \echo public.reset_all_data
-DROP FUNCTION public.reset_all_data (confirmed boolean);
+DROP FUNCTION public.reset_all_data(confirmed boolean);
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
