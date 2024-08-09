@@ -127,12 +127,13 @@ CREATE TABLE public.activity_category_standard (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code character varying(16) UNIQUE NOT NULL,
     name character varying UNIQUE NOT NULL,
+    description character varying UNIQUE NOT NULL,
     obsolete boolean NOT NULL DEFAULT false
 );
 
-INSERT INTO public.activity_category_standard(code, name)
-VALUES ('isic_v4','ISIC Version 4')
-     , ('nace_v2.1','NACE Version 2 Revision 1');
+INSERT INTO public.activity_category_standard(code, name, description)
+VALUES ('isic_v4','ISIC 4','ISIC Version 4')
+     , ('nace_v2.1','NACE 2.1','NACE Version 2 Revision 1');
 
 CREATE EXTENSION ltree SCHEMA public;
 
