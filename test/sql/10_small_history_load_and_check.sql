@@ -16,4 +16,9 @@ BEGIN;
 \echo Refreshing materialized views
 SELECT view_name FROM statistical_unit_refresh_now();
 
+-- TODO: Add tests for
+-- * statistical_unit
+-- * statistical_history
+-- * statistical_history_facet
+
 END;
