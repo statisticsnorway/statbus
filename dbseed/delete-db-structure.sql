@@ -365,6 +365,14 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
 DROP FUNCTION admin.run_table_lifecycle_callbacks();
 DROP PROCEDURE admin.create_table_lifecycle_triggers(table_identifier regclass);
 
+\echo admin.external_ident_type__cleanup__import_legal_unit_current()
+DROP PROCEDURE admin.external_ident_type__cleanup__import_legal_unit_current();
+DROP PROCEDURE admin.external_ident_type__generate__import_legal_unit_current();
+
+\echo admin.external_ident_type__cleanup__import_legal_unit_era()
+DROP PROCEDURE admin.external_ident_type__cleanup__import_legal_unit_era();
+DROP PROCEDURE admin.external_ident_type__generate__import_legal_unit_era();
+
 \echo public.reset_all_data
 DROP FUNCTION public.reset_all_data(confirmed boolean);
 
