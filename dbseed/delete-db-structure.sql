@@ -212,6 +212,17 @@ DROP VIEW public.legal_form_custom_only;
 DROP FUNCTION admin.legal_form_custom_only_prepare();
 DROP FUNCTION admin.legal_form_custom_only_upsert();
 
+
+DROP FUNCTION admin.import_lookup_tag;
+DROP FUNCTION admin.import_lookup_country;
+DROP FUNCTION admin.import_lookup_region;
+DROP FUNCTION admin.import_lookup_activity_category;
+DROP FUNCTION admin.import_lookup_sector;
+DROP FUNCTION admin.import_lookup_legal_form;
+DROP FUNCTION admin.type_date_field;
+DROP FUNCTION admin.process_external_identifiers;
+DROP FUNCTION admin.process_enterprise_connection;
+
 \echo public.external_ident
 
 SELECT admin.external_ident_type__import_legal_unit_era__cleanup();
