@@ -222,6 +222,12 @@ DROP FUNCTION admin.import_lookup_legal_form;
 DROP FUNCTION admin.type_date_field;
 DROP FUNCTION admin.process_external_identifiers;
 DROP FUNCTION admin.process_enterprise_connection;
+DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
+DROP FUNCTION admin.process_linked_legal_unit_external_identifiers(jsonb);
+DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
+DROP PROCEDURE admin.external_ident_type__stat_definition__cleanup__import_establish();
+DROP PROCEDURE admin.external_ident_type__stat_definition__generate__import_establis();
+
 
 \echo public.external_ident
 DROP TABLE public.external_ident;
