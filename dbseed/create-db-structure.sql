@@ -201,7 +201,8 @@ CREATE FUNCTION admin.run_table_lifecycle_callbacks()
 RETURNS TRIGGER LANGUAGE plpgsql AS $run_table_lifecycle_callbacks$
 DECLARE
     operation_name TEXT;
-    schema_name TEXT := TG_TABLE_SCHEMA;
+    -- Callbacks are not in TG_TABLE_SCHEMA since they are not exposed by PostgREST.
+    schema_name TEXT := 'admin';
     table_name TEXT := TG_TABLE_NAME;
     function_pattern TEXT;
     procedure_to_execute TEXT;
@@ -223,7 +224,9 @@ BEGIN
     END IF;
 
     -- Construct the pattern to find matching procedures
-    function_pattern := schema_name || '.' || table_name || '__' || operation_name || '%';
+    -- Make the pattern match so that there can be multiple tables listed
+    -- i.e. admin.
+    function_pattern := schema_name || '.%' || table_name || '__%'  || operation_name || '%';
 
     -- Query the information schema to find matching procedure names
     SELECT array_agg(routine_name ORDER BY routine_name)
@@ -7041,13 +7044,13 @@ CREATE PROCEDURE admin.external_ident_type__generate__import_legal_unit_era()
 LANGUAGE plpgsql AS $external_ident_type__generate__import_legal_unit_era$
 DECLARE
     result TEXT := '';
-    code_row RECORD;
-    code_column_definitions TEXT := '';
-    view_template TEXT := $EOS$
+    ident_type_row RECORD;
+    ident_type_columns TEXT := '';
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_legal_unit_era WITH (security_invoker=on) AS
 SELECT '' AS valid_from
      , '' AS valid_to
-$COLUMNS$
+{{ident_type_columns}}
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -7073,19 +7076,19 @@ $COLUMNS$
      , '' AS legal_form_code
      , '' AS tag_path
 ;
-    $EOS$;
+    $view_template$;
 BEGIN
     -- Generate the column definitions from external_ident_type table
-    FOR code_row IN
+    FOR ident_type_row IN
         SELECT code FROM public.external_ident_type ORDER BY code
     LOOP
-        -- Use format for proper name escaping of code_row.code
-        code_column_definitions := code_column_definitions || 
-                                   format(E'     , '''' AS %I\n', code_row.code);
+        -- Use format for proper name escaping of ident_type_row.code
+        ident_type_columns := ident_type_columns || 
+                                   format(E'     , '''' AS %I\n', ident_type_row.code);
     END LOOP;
 
     -- Replace $COLUMNS$ placeholder with actual column definitions
-    view_template := REPLACE(view_template, '$COLUMNS$', code_column_definitions);
+    view_template := REPLACE(view_template, '{{ident_type_columns}}', ident_type_columns);
 
     -- Create the view dynamically
     EXECUTE view_template;
@@ -7527,14 +7530,14 @@ $$;
 CREATE PROCEDURE admin.external_ident_type__generate__import_legal_unit_current()
 LANGUAGE plpgsql AS $external_ident_type__generate__import_legal_unit_current$
 DECLARE
-    code_row RECORD;
+    ident_type_row RECORD;
     view_columns TEXT := '';
     view_column_prefix TEXT := '       ';
 
-    view_template TEXT := $EOS$
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_legal_unit_current WITH (security_invoker=on) AS
 SELECT
-$view_columns$
+{{view_columns}}
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -7560,12 +7563,12 @@ $view_columns$
      , '' AS legal_form_code
      , '' AS tag_path
 FROM public.import_legal_unit_era;
-    $EOS$;
+    $view_template$;
 
     insert_labels TEXT := '';
     value_labels TEXT := '';
 
-    function_template TEXT := $EOS$
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_legal_unit_current_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_legal_unit_current_upsert$
 DECLARE
@@ -7575,8 +7578,7 @@ BEGIN
     INSERT INTO public.import_legal_unit_era
         ( valid_from
         , valid_to
-$insert_labels$
-        , tax_ident
+{{insert_labels}}
         , name
         , birth_date
         , death_date
@@ -7605,8 +7607,7 @@ $insert_labels$
     VALUES
         ( new_valid_from
         , new_valid_to
-$value_labels$
-        , NEW.tax_ident
+{{value_labels}}
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -7635,27 +7636,27 @@ $value_labels$
     RETURN NULL;
 END;
 $import_legal_unit_current_upsert$;
-    $EOS$;
+    $function_template$;
 BEGIN
     -- Generate the column definitions from external_ident_type table
-    FOR code_row IN
+    FOR ident_type_row IN
         SELECT code FROM public.external_ident_type ORDER BY code
     LOOP
         view_columns := view_columns ||
-                        format(E'%s '''' AS %I\n', view_column_prefix, code_row.code);
+                        format(E'%s '''' AS %I\n', view_column_prefix, ident_type_row.code);
         view_column_prefix := '     , ';
 
         insert_labels := insert_labels ||
-                        format(E'         , %I\n', code_row.code);
+                        format(E'         , %I\n', ident_type_row.code);
 
         value_labels := value_labels ||
-                        format(E'         , NEW.%I\n', code_row.code);
+                        format(E'         , NEW.%I\n', ident_type_row.code);
 
     END LOOP;
 
-    view_template := REPLACE(view_template, '$view_columns$', view_columns);
-    function_template := REPLACE(function_template, '$insert_labels$', insert_labels);
-    function_template := REPLACE(function_template, '$value_labels$', value_labels);
+    view_template := REPLACE(view_template, '{{view_columns}}', view_columns);
+    function_template := REPLACE(function_template, '{{insert_labels}}', insert_labels);
+    function_template := REPLACE(function_template, '{{value_labels}}', value_labels);
 
     RAISE NOTICE 'Creating public.import_legal_unit_current';
     EXECUTE view_template;
@@ -7711,13 +7712,28 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.import_legal_unit_with_delete_current();
 
 
-\echo public.import_establishment_era
+\echo admin.external_ident_type__stat_definition__cleanup__import_establishment_era()
+CREATE PROCEDURE admin.external_ident_type__stat_definition__cleanup__import_establishment_era()
+LANGUAGE sql AS $$
+    DROP VIEW IF EXISTS public.import_establishment_era;
+$$;
+
+CREATE PROCEDURE admin.external_ident_type__stat_definition__generate__import_establishment_era()
+LANGUAGE plpgsql AS $external_ident_type__stat_definition__generate__import_establishment_era$
+DECLARE
+    result TEXT := '';
+    ident_type_row RECORD;
+    ident_type_columns TEXT := '';
+    legal_unit_ident_type_columns TEXT := '';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era
 WITH (security_invoker=on) AS
 SELECT '' AS valid_from
      , '' AS valid_to
-     , '' AS tax_ident
-     , '' AS legal_unit_tax_ident
+{{ident_type_columns}}
+{{legal_unit_ident_type_columns}}
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -7740,11 +7756,36 @@ SELECT '' AS valid_from
      , '' AS primary_activity_category_code
      , '' AS secondary_activity_category_code
      , '' AS sector_code
-     , '' AS employees
-     , '' AS turnover
+ {{stat_definition_columns}}
      , '' AS tag_path
 ;
-COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
+    $view_template$;
+BEGIN
+
+    FOR ident_type_row IN SELECT code FROM public.external_ident_type ORDER BY code LOOP
+        ident_type_columns := ident_type_columns ||
+            format(E'     , '''' AS %I\n', ident_type_row.code);
+        legal_unit_ident_type_columns := legal_unit_ident_type_columns ||
+            format(E'     , '''' AS %I\n', 'legal_unit_' || ident_type_row.code);
+    END LOOP;
+
+    FOR stat_definition_row IN SELECT code FROM public.stat_definition ORDER BY code LOOP
+        stat_definition_columns := stat_definition_columns ||
+            format(E'     , '''' AS %I\n', stat_definition_row.code);
+    END LOOP;
+
+    view_template := REPLACE(view_template, '{{ident_type_columns}}', ident_type_columns);
+    view_template := REPLACE(view_template, '{{legal_unit_ident_type_columns}}', legal_unit_ident_type_columns);
+    view_template := REPLACE(view_template, '{{stat_definition_columns}}', stat_definition_columns);
+
+    EXECUTE view_template;
+
+    COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
+END;
+$external_ident_type__stat_definition__generate__import_establishment_era$;
+
+\echo Generate public.import_establishment_era
+CALL admin.external_ident_type__stat_definition__generate__import_establishment_era();
 
 \echo admin.import_establishment_era_upsert
 CREATE FUNCTION admin.import_establishment_era_upsert()
