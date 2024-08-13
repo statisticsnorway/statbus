@@ -65,8 +65,7 @@ SELECT view_name FROM statistical_unit_refresh_now();
 SELECT unit_type
      , count(*)
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
-     , sum(employees) AS sum_employees
-     , sum(turnover) AS sum_turnover
+     , jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;
 \x

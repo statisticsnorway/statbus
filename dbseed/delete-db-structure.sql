@@ -176,6 +176,11 @@ DROP TRIGGER import_establishment_era_for_legal_unit_upsert_trigger ON public.im
 DROP FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
 DROP VIEW public.import_establishment_era_for_legal_unit;
 
+CALL admin.cleanup_import_establishment_current();
+--DROP TRIGGER import_establishment_current_upsert_trigger ON public.import_establishment_current;
+--DROP FUNCTION admin.import_establishment_current_upsert();
+--DROP VIEW public.import_establishment_current;
+
 DROP TRIGGER import_establishment_era_upsert_trigger ON public.import_establishment_era;
 DROP FUNCTION admin.import_establishment_era_upsert();
 DROP VIEW public.import_establishment_era;
@@ -225,8 +230,8 @@ DROP FUNCTION admin.process_enterprise_connection;
 DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
 DROP FUNCTION admin.process_linked_legal_unit_external_identifiers(jsonb);
 DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
-DROP PROCEDURE admin.external_ident_type__stat_definition__cleanup__import_establish();
-DROP PROCEDURE admin.external_ident_type__stat_definition__generate__import_establis();
+DROP PROCEDURE admin.generate_import_establishment_era();
+DROP PROCEDURE admin.cleanup_import_establishment_era();
 
 
 \echo public.external_ident
@@ -368,16 +373,30 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
     valid_to date
     );
 
-DROP FUNCTION admin.run_table_lifecycle_callbacks();
-DROP PROCEDURE admin.create_table_lifecycle_triggers(table_identifier regclass);
+DROP TABLE lifecycle_callbacks.registered_callback;
+DROP TABLE lifecycle_callbacks.supported_table;
+DROP PROCEDURE lifecycle_callbacks.add_table(regclass);
+DROP PROCEDURE lifecycle_callbacks.del_table(regclass);
+DROP PROCEDURE lifecycle_callbacks.add(text,regclass[],regproc,regproc);
+DROP PROCEDURE lifecycle_callbacks.del(text);
+DROP FUNCTION lifecycle_callbacks.run_table_lifecycle_insert();
+DROP FUNCTION lifecycle_callbacks.run_table_lifecycle_update();
+DROP FUNCTION lifecycle_callbacks.run_table_lifecycle_delete();
+DROP PROCEDURE lifecycle_callbacks.generate(regclass);
+DROP PROCEDURE lifecycle_callbacks.clean(regclass);
+DROP SCHEMA lifecycle_callbacks CASCADE;
 
-\echo admin.external_ident_type__cleanup__import_legal_unit_current()
-DROP PROCEDURE admin.external_ident_type__cleanup__import_legal_unit_current();
-DROP PROCEDURE admin.external_ident_type__generate__import_legal_unit_current();
+DROP PROCEDURE admin.generate_import_legal_unit_current();
+DROP PROCEDURE admin.cleanup_import_legal_unit_current();
+DROP PROCEDURE admin.generate_import_legal_unit_era();
+DROP PROCEDURE admin.cleanup_import_legal_unit_era();
 
-\echo admin.external_ident_type__cleanup__import_legal_unit_era()
-DROP PROCEDURE admin.external_ident_type__cleanup__import_legal_unit_era();
-DROP PROCEDURE admin.external_ident_type__generate__import_legal_unit_era();
+--DROP PROCEDURE admin.generate_import_establishment_era();
+--DROP PROCEDURE admin.cleanup_import_establishment_era();
+DROP PROCEDURE admin.generate_import_establishment_current();
+DROP PROCEDURE admin.cleanup_import_establishment_current();
+DROP PROCEDURE admin.generate_import_establishment_era_for_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit();
 
 \echo public.reset_all_data
 DROP FUNCTION public.reset_all_data(confirmed boolean);
