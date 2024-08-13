@@ -115,213 +115,395 @@ INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user'
 -- UPDATE auth.users SET role = 'new_role_1' WHERE id = <some-user-uuid>;
 
 
-
 -- TODO: Formulate RLS for the roles.
 --CREATE POLICY "Public users are viewable by everyone." ON "user" FOR SELECT USING ( true );
 --CREATE POLICY "Users can insert their own data." ON "user" FOR INSERT WITH check ( auth.uid() = id );
 --CREATE POLICY "Users can update own data." ON "user" FOR UPDATE USING ( auth.uid() = id );
 
+
 -- =================================================================
 -- BEGIN: Callbacks for code generation based on naming conventions.
 -- =================================================================
+CREATE SCHEMA lifecycle_callbacks;
 
--- Documentation for admin.run_table_lifecycle_callbacks
+-- Documentation for lifecycle_callbacks.run_table_lifecycle_callbacks
 --
--- This trigger function is designed to manage lifecycle callbacks for a given table.
--- It dynamically finds and executes procedures based on a specific naming convention.
+-- This trigger function is designed to manage lifecycle callbacks for tables.
+-- It dynamically finds and executes procedures based on registered callbacks,
+-- using the generate and clean helper procedures for shared code.
 -- 
--- Naming Convention:
--- 1. The procedures to be executed are named in the following pattern:
---    `schema.table_name__operation__suffix`.
---    Example: `admin.external_ident_type__generate__legal_unit_era`
+-- Table Structure:
+-- 
+-- 1. supported_table:
+--    - Holds the list of tables that are supported by the lifecycle management.
+--    - Columns:
+--      - table_name: The table's name as regclass.
+--      - cleanup_before_update_trigger_name: Name of the before update trigger for cleanup.
+--      - cleanup_before_delete_trigger_name: Name of the before delete trigger for cleanup.
+--      - generate_after_insert_trigger_name: Name of the after insert trigger for generation.
+--      - generate_after_update_trigger_name: Name of the after update trigger for generation.
 --
--- 2. This function searches for matching procedures in the schema based on the event type:
---    - For `INSERT` and `AFTER UPDATE`: It looks for `generate` procedures, which are executed in lexical order.
---    - For `BEFORE UPDATE` and `DELETE`: It looks for `cleanup` procedures, which are executed in reverse lexical order.
---
--- 3. The function constructs the query to find and execute these callbacks dynamically by querying the information schema.
---    It ensures that only procedures (and not functions) are selected by filtering based on the `routine_type`.
---
+-- 2. registered_callback:
+--    - Holds the list of lifecycle callbacks registered for tables.
+--    - Columns:
+--      - label: A unique label for the callback.
+--      - priority: An integer representing the priority of the callback.
+--      - table_name: Array of tables (regclass) this callback applies to.
+--      - generate_procedure: The procedure that generates data for the table.
+--      - cleanup_procedure: The procedure that cleans up data for the table.
+-- 
 -- Usage:
--- 1. Associate this function as a trigger for table lifecycle events (e.g., insert, update, delete).
--- 2. Ensure that the lifecycle procedures follow the established naming convention.
--- 3. Triggers created using the procedure 'admin.create_table_lifecycle_triggers' will follow a consistent naming pattern
---    and use this function to manage callbacks.
+-- 1. Register a table using `lifecycle_callbacks.add_table(...)`.
+-- 2. Register callbacks using `lifecycle_callbacks.add(...)`.
+-- 3. Associate this function as a trigger for table lifecycle events.
+-- 4. Call `lifecycle_callbacks.generate(table_name)` or `lifecycle_callbacks.clean(table_name)` manually if needed.
 --
--- Scaffold Implementation Example:
+-- Example:
 -- 
--- Step 1: Define the Lifecycle Procedures
--- ---------------------------------------
--- Create your lifecycle procedures following the naming convention:
--- 
--- CREATE OR REPLACE PROCEDURE admin.external_ident_type__generate__legal_unit_era()
--- LANGUAGE plpgsql AS $$
--- BEGIN
---     -- Your generation logic here
--- END;
--- $$;
---
--- CREATE OR REPLACE PROCEDURE admin.external_ident_type__cleanup__legal_unit_era()
--- LANGUAGE plpgsql AS $$
--- BEGIN
---     -- Your cleanup logic here
--- END;
--- $$;
---
--- Step 2: Create the Triggers
--- ---------------------------
--- Use the admin.create_table_lifecycle_triggers procedure to automatically generate the triggers for a specific table:
--- 
--- CALL admin.create_table_lifecycle_triggers('external_ident_type');
---
--- This will create the following triggers for the 'external_ident_type' table:
---
--- CREATE TRIGGER run_table_lifecycle_cleanup_before_update
--- BEFORE UPDATE ON public.external_ident_type
--- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
---
--- CREATE TRIGGER run_table_lifecycle_cleanup_before_delete
--- BEFORE DELETE ON public.external_ident_type
--- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
---
--- CREATE TRIGGER run_table_lifecycle_generate_after_insert
--- AFTER INSERT ON public.external_ident_type
--- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
---
--- CREATE TRIGGER run_table_lifecycle_generate_after_update
--- AFTER UPDATE ON public.external_ident_type
--- EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();
---
--- Step 3: Verify the Setup
--- ------------------------
--- Insert, update, or delete records in the 'external_ident_type' table, and observe that the appropriate lifecycle
--- procedures are executed automatically based on the operation type and timing.
+-- CALL lifecycle_callbacks.add_table('external_ident_type');
+-- CALL lifecycle_callbacks.add(
+--     'external_ident_type_generate',
+--     ARRAY['external_ident_type'],
+--     'lifecycle_callbacks.generate_external_ident_type',
+--     'lifecycle_callbacks.clean_external_ident_type'
+-- );
 
-CREATE FUNCTION admin.run_table_lifecycle_callbacks()
-RETURNS TRIGGER LANGUAGE plpgsql AS $run_table_lifecycle_callbacks$
-DECLARE
-    operation_name TEXT;
-    -- Callbacks are not in TG_TABLE_SCHEMA since they are not exposed by PostgREST.
-    schema_name TEXT := 'admin';
-    table_name TEXT := TG_TABLE_NAME;
-    function_pattern TEXT;
-    procedure_to_execute TEXT;
-    procedure_list TEXT[];
-BEGIN
-    -- Determine the operation type based on the triggering event
-    IF TG_OP = 'INSERT' THEN
-        operation_name := 'generate';
-    ELSIF TG_OP = 'UPDATE' THEN
-        IF TG_WHEN = 'BEFORE' THEN
-            operation_name := 'cleanup';
-        ELSE
-            operation_name := 'generate';
-        END IF;
-    ELSIF TG_OP = 'DELETE' THEN
-        operation_name := 'cleanup';
-    ELSE
-        RAISE EXCEPTION 'Unsupported operation %', TG_OP;
-    END IF;
+CREATE TABLE lifecycle_callbacks.supported_table (
+    table_name regclass PRIMARY KEY,
+    cleanup_before_update_trigger_name TEXT,
+    cleanup_before_delete_trigger_name TEXT,
+    generate_after_insert_trigger_name TEXT,
+    generate_after_update_trigger_name TEXT
+);
 
-    -- Construct the pattern to find matching procedures
-    -- Make the pattern match so that there can be multiple tables listed
-    -- i.e. admin.
-    function_pattern := schema_name || '.%' || table_name || '__%'  || operation_name || '%';
+CREATE TABLE lifecycle_callbacks.registered_callback (
+    label TEXT PRIMARY KEY,
+    priority SERIAL NOT NULL,
+    table_names regclass[],
+    generate_procedure regproc NOT NULL,
+    cleanup_procedure regproc NOT NULL
+);
 
-    -- Query the information schema to find matching procedure names
-    SELECT array_agg(routine_name ORDER BY routine_name)
-    INTO procedure_list
-    FROM information_schema.routines
-    WHERE specific_schema = schema_name
-    AND routine_name LIKE replace(function_pattern, '.', '_')
-    AND routine_type = 'PROCEDURE';  -- Only include procedures
-
-    -- If no procedures are found, exit
-    IF procedure_list IS NULL THEN
-        RETURN NULL;
-    END IF;
-
-    -- Reverse the order for cleanup procedures
-    IF operation_name = 'cleanup' THEN
-        procedure_list := array_reverse(procedure_list);
-    END IF;
-
-    -- Execute each procedure in the list
-    FOREACH procedure_to_execute IN ARRAY procedure_list
-    LOOP
-        EXECUTE 'CALL ' || schema_name || '.' || procedure_to_execute || '();';
-    END LOOP;
-
-    -- Reload PostgREST to reflect any table/view changes.
-    NOTIFY pgrst, 'reload config';
-
-    RETURN NULL; -- Statement-level trigger returns NULL
-END;
-$run_table_lifecycle_callbacks$;
-
-
-CREATE PROCEDURE admin.create_table_lifecycle_triggers(table_identifier regclass)
+CREATE PROCEDURE lifecycle_callbacks.add_table(
+    table_name regclass
+)
 LANGUAGE plpgsql AS $$
 DECLARE
     schema_name TEXT;
-    table_name TEXT;
+    table_name_text TEXT;
     cleanup_before_update_trigger_name TEXT;
     cleanup_before_delete_trigger_name TEXT;
     generate_after_insert_trigger_name TEXT;
     generate_after_update_trigger_name TEXT;
 BEGIN
+    -- Ensure that the table exists
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid = table_name) THEN
+        RAISE EXCEPTION 'Table % does not exist.', table_name;
+    END IF;
+
     -- Extract schema and table name from the table_identifier
-    SELECT nspname, relname INTO schema_name, table_name
+    SELECT nspname, relname INTO schema_name, table_name_text
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE c.oid = table_identifier;
+    WHERE c.oid = table_name;
 
     -- Define trigger names based on the provided table name
-    cleanup_before_update_trigger_name := 'run_table_lifecycle_cleanup_before_update';
-    cleanup_before_delete_trigger_name := 'run_table_lifecycle_cleanup_before_delete';
-    generate_after_insert_trigger_name := 'run_table_lifecycle_generate_after_insert';
-    generate_after_update_trigger_name := 'run_table_lifecycle_generate_after_update';
+    cleanup_before_update_trigger_name := format('%I_cleanup_before_update', table_name_text);
+    cleanup_before_delete_trigger_name := format('%I_cleanup_before_delete', table_name_text);
+    generate_after_insert_trigger_name := format('%I_generate_after_insert', table_name_text);
+    generate_after_update_trigger_name := format('%I_generate_after_update', table_name_text);
 
-    -- Create Before Update Trigger
+    -- Insert the table into supported_table with trigger names
+    INSERT INTO lifecycle_callbacks.supported_table (
+        table_name,
+        cleanup_before_update_trigger_name,
+        cleanup_before_delete_trigger_name,
+        generate_after_insert_trigger_name,
+        generate_after_update_trigger_name
+    )
+    VALUES (
+        table_name,
+        cleanup_before_update_trigger_name,
+        cleanup_before_delete_trigger_name,
+        generate_after_insert_trigger_name,
+        generate_after_update_trigger_name
+    )
+    ON CONFLICT DO NOTHING;
+
     EXECUTE format('
         CREATE TRIGGER %I
         BEFORE UPDATE ON %I.%I
-        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
-        cleanup_before_update_trigger_name, schema_name, table_name
+        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_update();',
+        cleanup_before_update_trigger_name, schema_name, table_name_text
     );
 
-    -- Create Before Delete Trigger
     EXECUTE format('
         CREATE TRIGGER %I
         BEFORE DELETE ON %I.%I
-        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
-        cleanup_before_delete_trigger_name, schema_name, table_name
+        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_delete();',
+        cleanup_before_delete_trigger_name, schema_name, table_name_text
     );
 
-    -- Create After Insert Trigger
     EXECUTE format('
         CREATE TRIGGER %I
         AFTER INSERT ON %I.%I
-        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
-        generate_after_insert_trigger_name, schema_name, table_name
+        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_insert();',
+        generate_after_insert_trigger_name, schema_name, table_name_text
     );
 
-    -- Create After Update Trigger
     EXECUTE format('
         CREATE TRIGGER %I
         AFTER UPDATE ON %I.%I
-        EXECUTE FUNCTION admin.run_table_lifecycle_callbacks();',
-        generate_after_update_trigger_name, schema_name, table_name
+        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_update();',
+        generate_after_update_trigger_name, schema_name, table_name_text
     );
 
-    RAISE NOTICE 'Triggers created for table: %', table_name;
+    RAISE NOTICE 'Triggers created for table: %', table_name_text;
 END;
 $$;
 
+CREATE PROCEDURE lifecycle_callbacks.del_table(
+    table_name regclass
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    trigger_info RECORD;
+    table_in_use BOOLEAN;
+BEGIN
+    -- Check if the table is still referenced in registered_callback
+    SELECT EXISTS (
+        SELECT 1 FROM lifecycle_callbacks.registered_callback
+        WHERE table_names @> ARRAY[table_name]
+    ) INTO table_in_use;
+
+    IF table_in_use THEN
+        RAISE EXCEPTION 'Cannot delete table % because it is still referenced in registered_callback.', table_name;
+    END IF;
+
+    -- Fetch trigger names from supported_table
+    SELECT
+        cleanup_before_update_trigger_name,
+        cleanup_before_delete_trigger_name,
+        generate_after_insert_trigger_name,
+        generate_after_update_trigger_name
+    INTO trigger_info
+    FROM lifecycle_callbacks.supported_table
+    WHERE table_name = table_name;
+
+    -- Drop the triggers
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_update_trigger_name, table_name);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_delete_trigger_name, table_name);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_insert_trigger_name, table_name);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_update_trigger_name, table_name);
+
+    -- Delete the table from supported_table
+    DELETE FROM lifecycle_callbacks.supported_table
+    WHERE table_name = table_name;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.add(
+    label TEXT,
+    table_names regclass[],
+    generate_procedure regproc,
+    cleanup_procedure regproc
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    missing_tables regclass[];
+BEGIN
+    IF array_length(table_names, 1) IS NULL THEN
+        RAISE EXCEPTION 'table_names must have one entry';
+    END IF;
+
+    -- Find any tables in table_names that are not in supported_table
+    SELECT ARRAY_AGG(t_name)
+    INTO missing_tables
+    FROM UNNEST(table_names) AS t_name
+    WHERE t_name NOT IN (SELECT table_name FROM lifecycle_callbacks.supported_table);
+
+    IF missing_tables IS NOT NULL THEN
+        RAISE EXCEPTION 'One or more tables in % are not supported: %', table_names, missing_tables;
+    END IF;
+
+    -- Ensure that the procedures exist
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = generate_procedure) THEN
+        RAISE EXCEPTION 'Generate procedure % does not exist.', generate_procedure;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = cleanup_procedure) THEN
+        RAISE EXCEPTION 'Cleanup procedure % does not exist.', cleanup_procedure;
+    END IF;
+
+    -- Insert or update the registered_callback entry
+    INSERT INTO lifecycle_callbacks.registered_callback
+           (label, table_names, generate_procedure, cleanup_procedure)
+    VALUES (label, table_names, generate_procedure, cleanup_procedure)
+    ON CONFLICT DO NOTHING;
+
+    -- Check if the record was inserted; if not, raise an exception
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Callback with label % already exists. Cannot overwrite.', label;
+    END IF;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.del(
+    label TEXT
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM lifecycle_callbacks.registered_callback
+    WHERE label = label;
+END;
+$$;
+
+-- Specific trigger functions for INSERT, UPDATE, and DELETE
+CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_insert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    CALL lifecycle_callbacks.generate(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
+    RETURN NULL; -- Statement-level trigger returns NULL
+END;
+$$;
+
+CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_update()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_WHEN = 'BEFORE' THEN
+        CALL lifecycle_callbacks.clean(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
+    ELSE -- AFTER
+        CALL lifecycle_callbacks.generate(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
+    END IF;
+    RETURN NULL; -- Statement-level trigger returns NULL
+END;
+$$;
+
+CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_delete()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    CALL lifecycle_callbacks.clean(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
+    RETURN NULL; -- Statement-level trigger returns NULL
+END;
+$$;
+
+-- Helper procedures for generating and cleaning up specific tables.
+CREATE PROCEDURE lifecycle_callbacks.generate(table_name regclass)
+LANGUAGE plpgsql AS $$
+DECLARE
+    callback_procedures regproc[];
+    callback_procedure regproc;
+BEGIN
+    SELECT ARRAY_AGG(generate_procedure ORDER BY priority)
+    INTO callback_procedures
+    FROM lifecycle_callbacks.registered_callback
+    WHERE table_names @> ARRAY[table_name];
+
+    IF callback_procedures IS NOT NULL THEN
+        FOREACH callback_procedure IN ARRAY callback_procedures LOOP
+            EXECUTE 'CALL ' || callback_procedure || '();';
+        END LOOP;
+    END IF;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.clean(table_name regclass)
+LANGUAGE plpgsql AS $$
+DECLARE
+    callback_procedures TEXT[];
+    callback_procedure TEXT;
+BEGIN
+    -- Fetch the list of callback procedures
+    SELECT ARRAY_AGG(cleanup_procedure::text ORDER BY priority)
+    INTO callback_procedures
+    FROM lifecycle_callbacks.registered_callback
+    WHERE table_names @> ARRAY[table_name];
+
+    -- Loop through each callback procedure
+    FOREACH callback_procedure IN ARRAY callback_procedures LOOP
+        BEGIN
+            -- Attempt to execute the callback procedure
+            EXECUTE 'CALL ' || callback_procedure || '();';
+        EXCEPTION
+            -- Capture any exception that occurs during the call
+            WHEN OTHERS THEN
+                -- Log the error along with the original call
+                RAISE WARNING 'Error executing callback procedure %: %', callback_procedure, SQLERRM;
+        END;
+    END LOOP;
+END;
+$$;
 
 -- =================================================================
 -- END: Callbacks for code generation based on naming conventions.
 -- =================================================================
+
+
+
+-- =================================================================
+-- BEGIN: Render template with consistency checking.
+-- =================================================================
+CREATE FUNCTION admin.render_template(template TEXT, vars JSONB)
+RETURNS TEXT AS $$
+DECLARE
+    required_variables TEXT[];
+    provided_variables TEXT[];
+    missing_variables TEXT[];
+    excess_variables TEXT[];
+    key TEXT;
+BEGIN
+    -- Extract all placeholders from the template using a capture group
+    SELECT array_agg(DISTINCT match[1])
+    INTO required_variables
+    FROM regexp_matches(template, '\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}', 'g') AS match;
+
+    -- Extract all keys from the provided JSONB object
+    SELECT array_agg(var)
+    INTO provided_variables
+    FROM jsonb_object_keys(vars) AS var;
+
+    -- Check variables.
+    WITH
+    required AS (SELECT unnest(required_variables) AS variable),
+    provided AS (SELECT unnest(provided_variables) AS variable),
+    missing AS (
+        SELECT array_agg(variable) AS variables
+        FROM required
+        WHERE variable NOT IN (SELECT variable FROM provided)
+    ),
+    excess AS (
+        SELECT array_agg(variable) AS variables
+        FROM provided
+        WHERE variable NOT IN (SELECT variable FROM required)
+    )
+    SELECT missing.variables, excess.variables
+    INTO missing_variables, excess_variables
+    FROM missing, excess;
+
+    -- Raise exception if there are missing variables
+    IF array_length(missing_variables, 1) IS NOT NULL THEN
+        RAISE EXCEPTION 'Missing variables: %', array_to_string(missing_variables, ', ');
+    END IF;
+
+    -- Raise exception if there are excess variables
+    IF array_length(excess_variables, 1) IS NOT NULL THEN
+        RAISE EXCEPTION 'Unsupported variables: %', array_to_string(excess_variables, ', ');
+    END IF;
+
+    -- Perform the replacement
+    FOREACH key IN ARRAY provided_variables LOOP
+        template := REPLACE(template, '{{' || key || '}}', vars->>key);
+    END LOOP;
+
+    RETURN template;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =================================================================
+-- END: Render template with consistency checking.
+-- =================================================================
+
+
 
 
 
@@ -1320,8 +1502,8 @@ CREATE TABLE public.external_ident_type (
     by_tag_id INTEGER UNIQUE REFERENCES public.tag(id) ON DELETE RESTRICT
 );
 
-\echo admin.create_table_lifecycle_triggers public.external_ident_type
-CALL admin.create_table_lifecycle_triggers('public.external_ident_type');
+\echo lifecycle_callbacks.add_table('public.external_ident_type');
+CALL lifecycle_callbacks.add_table('public.external_ident_type');
 
 \echo public.external_ident_type_derive_code_and_name_from_by_tag_id()
 CREATE OR REPLACE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id()
@@ -2165,8 +2347,8 @@ CREATE TABLE public.stat_definition(
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
 COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
 --
-\echo admin.create_table_lifecycle_triggers public.stat_definition
-CALL admin.create_table_lifecycle_triggers('public.stat_definition');
+\echo lifecycle_callbacks.add_table('public.stat_definition');
+CALL lifecycle_callbacks.add_table('public.stat_definition');
 --
 INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
   ('employees','int','yearly','Number of people employed','The number of people receiving an official salary with government reporting.',2),
@@ -3001,36 +3183,28 @@ CREATE FUNCTION public.jsonb_stats_to_summary_round(state jsonb) RETURNS jsonb A
 DECLARE
     key text;
     val jsonb;
-    rounded_val jsonb;
     result jsonb := '{}';
-    type_val text;
+    rounding_keys text[] := ARRAY['mean', 'sum_sq_diff', 'variance'];
+    sub_key text;
 BEGIN
     -- Iterate through the keys in the state JSONB object
     FOR key, val IN SELECT * FROM jsonb_each(state) LOOP
-        type_val := jsonb_typeof(val);
-        CASE type_val
+        CASE jsonb_typeof(val)
             WHEN 'object' THEN
-                -- Further iterate if the value is an object
-                IF val ? 'mean' OR val ? 'sum_sq_diff' OR val ? 'variance' THEN
-                    -- Numeric statistics rounding for relevant
-                    rounded_val :=
-                        val - 'mean' - 'sum_sq_diff' - 'variance' ||
-                        jsonb_build_object(
-                            'mean', round((val->>'mean')::numeric, 2),
-                            'sum_sq_diff', round((val->>'sum_sq_diff')::numeric, 2),
-                            'variance', round((val->>'variance')::numeric, 2)
-                        );
-                ELSE
-                    -- For nested objects that are not numeric statistics, recursively call jsonb_stats_to_summary_round
-                    rounded_val := public.jsonb_stats_to_summary_round(val);
-                END IF;
-            ELSE
-                -- Other types are kept as is
-                rounded_val := val;
-        END CASE;
+                -- Iterate over the rounding keys directly and apply rounding if key exists and value is numeric
+                FOR sub_key IN SELECT unnest(rounding_keys) LOOP
+                    IF val ? sub_key AND jsonb_typeof(val->sub_key) = 'number' THEN
+                        val := val || jsonb_build_object(sub_key, round((val->sub_key)::numeric, 2));
+                    END IF;
+                END LOOP;
 
-        -- Construct the result JSONB object
-        result := result || jsonb_build_object(key, rounded_val);
+                -- Recursively process nested objects
+                result := result || jsonb_build_object(key, public.jsonb_stats_to_summary_round(val));
+
+            ELSE
+                -- Non-object types are added to the result as is
+                result := result || jsonb_build_object(key, val);
+        END CASE;
     END LOOP;
 
     RETURN result;
@@ -7039,6 +7213,7 @@ DECLARE
     stat_def_row public.stat_definition;
     stat_code TEXT;
     stat_value TEXT;
+    sql_type_str TEXT;
     stat_type_check TEXT;
 BEGIN
     FOR stat_def_row IN
@@ -7048,7 +7223,14 @@ BEGIN
         IF new_jsonb ? stat_code THEN
             stat_value := new_jsonb ->> stat_code;
             IF stat_value IS NOT NULL AND stat_value <> '' THEN
-                stat_type_check := format('PERFORM %L::%I', stat_value, stat_def_row.type);
+                sql_type_str :=
+                    CASE stat_def_row.type
+                    WHEN 'int' THEN 'INT4'
+                    WHEN 'float' THEN 'FLOAT8'
+                    WHEN 'string' THEN 'TEXT'
+                    WHEN 'bool' THEN 'BOOL'
+                    END;
+                stat_type_check := format('SELECT %L::%s', stat_value, sql_type_str);
                 BEGIN -- Try to cast the stat_value into the correct type.
                     EXECUTE stat_type_check;
                 EXCEPTION WHEN OTHERS THEN
@@ -7092,10 +7274,11 @@ BEGIN
         (SELECT * FROM public.stat_definition ORDER BY priority, code)
     LOOP
         stat_code := stat_def_row.code;
+        stat_type := stat_def_row.type;
         IF new_jsonb ? stat_code THEN
             stat_value := new_jsonb ->> stat_code;
             IF stat_value IS NOT NULL AND stat_value <> '' THEN
-                stat_jsonb = jsonb_build_object(
+                stat_jsonb := jsonb_build_object(
                     'stat_definition_id', stat_def_row.id,
                     'valid_from', valid_from,
                     'valid_to', valid_to,
@@ -7234,17 +7417,9 @@ $$ LANGUAGE plpgsql;
 -- ========================================================
 
 
--- Cleanup function before update or delete
-\echo admin.external_ident_type__cleanup__import_legal_unit_era()
-CREATE PROCEDURE admin.external_ident_type__cleanup__import_legal_unit_era()
-LANGUAGE sql AS $$
-    DROP VIEW IF EXISTS public.import_legal_unit_era;
-$$;
-
--- View generation function for insert or update
-\echo admin.external_ident_type__generate__import_legal_unit_era()
-CREATE PROCEDURE admin.external_ident_type__generate__import_legal_unit_era()
-LANGUAGE plpgsql AS $external_ident_type__generate__import_legal_unit_era$
+\echo admin.generate_import_legal_unit_era()
+CREATE PROCEDURE admin.generate_import_legal_unit_era()
+LANGUAGE plpgsql AS $generate_import_legal_unit_era$
 DECLARE
     result TEXT := '';
     ident_type_row RECORD;
@@ -7296,13 +7471,26 @@ BEGIN
     -- Create the view dynamically
     EXECUTE view_template;
 END;
-$external_ident_type__generate__import_legal_unit_era$;
+$generate_import_legal_unit_era$;
+
+\echo admin.cleanup_import_legal_unit_era()
+CREATE PROCEDURE admin.cleanup_import_legal_unit_era()
+LANGUAGE sql AS $$
+    DROP VIEW IF EXISTS public.import_legal_unit_era;
+$$;
 
 
+\echo Add import_legal_unit_era callbacks
+CALL lifecycle_callbacks.add(
+    'import_legal_unit_era',
+    ARRAY['public.external_ident_type']::regclass[],
+    'admin.generate_import_legal_unit_era',
+    'admin.cleanup_import_legal_unit_era'
+    );
 -- Call the generate function once to generate the view with the currently
 -- defined external_ident_type's.
-\echo Generate public.import_legal_unit_era
-CALL admin.external_ident_type__generate__import_legal_unit_era();
+\echo Generating public.import_legal_unit_era
+CALL admin.generate_import_legal_unit_era();
 
 
 \echo admin.import_legal_unit_era_upsert
@@ -7716,20 +7904,9 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.import_legal_unit_era_upsert();
 
 
-\echo admin.external_ident_type__cleanup__import_legal_unit_current()
-CREATE PROCEDURE admin.external_ident_type__cleanup__import_legal_unit_current()
-LANGUAGE plpgsql AS $$
-BEGIN
-    RAISE NOTICE 'Deleting public.import_legal_unit_current';
-    DROP VIEW IF EXISTS public.import_legal_unit_current;
-    RAISE NOTICE 'Deleting public.import_legal_unit_current_upsert()';
-    DROP FUNCTION IF EXISTS public.import_legal_unit_current_upsert();
-END;
-$$;
-
-\echo admin.external_ident_type__generate__import_legal_unit_current()
-CREATE PROCEDURE admin.external_ident_type__generate__import_legal_unit_current()
-LANGUAGE plpgsql AS $external_ident_type__generate__import_legal_unit_current$
+\echo admin.generate_import_legal_unit_current()
+CREATE PROCEDURE admin.generate_import_legal_unit_current()
+LANGUAGE plpgsql AS $generate_import_legal_unit_current$
 DECLARE
     ident_type_row RECORD;
     view_columns TEXT := '';
@@ -7861,17 +8038,34 @@ BEGIN
 
     RAISE NOTICE 'Creating public.import_legal_unit_current';
     EXECUTE view_template;
-    RAISE DEBUG 'EXCUTED: %', view_template;
+
     RAISE NOTICE 'Creating admin.import_legal_unit_current_upsert()';
     EXECUTE function_template;
-    RAISE DEBUG 'EXCUTED: %', function_template;
 END;
-$external_ident_type__generate__import_legal_unit_current$;
+$generate_import_legal_unit_current$;
 
+\echo admin.cleanup_import_legal_unit_current()
+CREATE PROCEDURE admin.cleanup_import_legal_unit_current()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_legal_unit_current';
+    DROP VIEW IF EXISTS public.import_legal_unit_current;
+    RAISE NOTICE 'Deleting admin.import_legal_unit_current_upsert()';
+    DROP FUNCTION IF EXISTS admin.import_legal_unit_current_upsert();
+END;
+$$;
+
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_legal_unit_current',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_legal_unit_current',
+    'admin.cleanup_import_legal_unit_current'
+    );
 
 \echo Generating public.import_legal_unit_current
 \echo Generating admin.import_legal_unit_current_upsert
-CALL admin.external_ident_type__generate__import_legal_unit_current();
+CALL admin.generate_import_legal_unit_current();
 
 CREATE TRIGGER import_legal_unit_current_upsert_trigger
 INSTEAD OF INSERT ON public.import_legal_unit_current
@@ -7913,14 +8107,8 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.import_legal_unit_with_delete_current();
 
 
-\echo admin.external_ident_type__stat_definition__cleanup__import_establishment_era()
-CREATE PROCEDURE admin.external_ident_type__stat_definition__cleanup__import_establishment_era()
-LANGUAGE sql AS $$
-    DROP VIEW IF EXISTS public.import_establishment_era;
-$$;
-
-CREATE PROCEDURE admin.external_ident_type__stat_definition__generate__import_establishment_era()
-LANGUAGE plpgsql AS $external_ident_type__stat_definition__generate__import_establishment_era$
+CREATE PROCEDURE admin.generate_import_establishment_era()
+LANGUAGE plpgsql AS $generate_import_establishment_era$
 DECLARE
     result TEXT := '';
     ident_type_row RECORD;
@@ -7928,6 +8116,7 @@ DECLARE
     legal_unit_ident_type_columns TEXT := '';
     stat_definition_row RECORD;
     stat_definition_columns TEXT := '';
+
     view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era
 WITH (security_invoker=on) AS
@@ -7957,7 +8146,7 @@ SELECT '' AS valid_from
      , '' AS primary_activity_category_code
      , '' AS secondary_activity_category_code
      , '' AS sector_code
- {{stat_definition_columns}}
+{{stat_definition_columns}}
      , '' AS tag_path
 ;
     $view_template$;
@@ -7965,28 +8154,44 @@ BEGIN
 
     FOR ident_type_row IN SELECT code FROM public.external_ident_type ORDER BY code LOOP
         ident_type_columns := ident_type_columns ||
-            format(E'     , '''' AS %I\n', ident_type_row.code);
+            format(E'     , %L AS %I\n', '', ident_type_row.code);
         legal_unit_ident_type_columns := legal_unit_ident_type_columns ||
-            format(E'     , '''' AS %I\n', 'legal_unit_' || ident_type_row.code);
+            format(E'     , %L AS %I\n', '', 'legal_unit_' || ident_type_row.code);
     END LOOP;
 
     FOR stat_definition_row IN SELECT code FROM public.stat_definition ORDER BY code LOOP
         stat_definition_columns := stat_definition_columns ||
-            format(E'     , '''' AS %I\n', stat_definition_row.code);
+            format(E'     , %L AS %I\n', '', stat_definition_row.code);
     END LOOP;
 
-    view_template := REPLACE(view_template, '{{ident_type_columns}}', ident_type_columns);
-    view_template := REPLACE(view_template, '{{legal_unit_ident_type_columns}}', legal_unit_ident_type_columns);
-    view_template := REPLACE(view_template, '{{stat_definition_columns}}', stat_definition_columns);
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'legal_unit_ident_type_columns', legal_unit_ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
 
     EXECUTE view_template;
 
     COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
 END;
-$external_ident_type__stat_definition__generate__import_establishment_era$;
+$generate_import_establishment_era$;
 
-\echo Generate public.import_establishment_era
-CALL admin.external_ident_type__stat_definition__generate__import_establishment_era();
+\echo admin.cleanup_import_establishment_era()
+CREATE PROCEDURE admin.cleanup_import_establishment_era()
+LANGUAGE sql AS $$
+    DROP VIEW IF EXISTS public.import_establishment_era;
+$$;
+
+\echo Add import_establishment_era callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_era',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_era',
+    'admin.cleanup_import_establishment_era'
+    );
+
+\echo Generating public.generate_import_establishment_era
+CALL admin.generate_import_establishment_era();
 
 \echo admin.import_establishment_era_upsert
 CREATE FUNCTION admin.import_establishment_era_upsert()
@@ -8131,8 +8336,7 @@ BEGIN
         USING legal_unit.id, prior_establishment_id, new_typed.valid_from, new_typed.valid_to;
     END IF;
 
-    SELECT NEW.tax_ident AS tax_ident
-         , NEW.name AS name
+    SELECT NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
          , true AS active
@@ -8149,8 +8353,7 @@ BEGIN
     END IF;
 
     INSERT INTO public.establishment_era
-        ( tax_ident
-        , valid_from
+        ( valid_from
         , valid_to
         , name
         , birth_date
@@ -8166,8 +8369,7 @@ BEGIN
         , edit_by_user_id
         )
     VALUES
-        ( upsert_data.tax_ident
-        , new_typed.valid_from
+        ( new_typed.valid_from
         , new_typed.valid_to
         , upsert_data.name
         , upsert_data.birth_date
@@ -8435,14 +8637,199 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.import_establishment_era_upsert();
 
 
-\echo public.import_establishment_era_for_legal_unit
+\echo admin.generate_import_establishment_current()
+CREATE PROCEDURE admin.generate_import_establishment_current()
+LANGUAGE plpgsql AS $generate_import_establishment_current$
+DECLARE
+    ident_type_row RECORD;
+    view_columns TEXT := '';
+    view_column_prefix TEXT := '       ';
+
+    view_template TEXT := $view_template$
+CREATE VIEW public.import_establishment_current WITH (security_invoker=on) AS
+SELECT
+{{view_columns}}
+     , '' AS name
+     , '' AS birth_date
+     , '' AS death_date
+     , '' AS physical_address_part1
+     , '' AS physical_address_part2
+     , '' AS physical_address_part3
+     , '' AS physical_postal_code
+     , '' AS physical_postal_place
+     , '' AS physical_region_code
+     , '' AS physical_region_path
+     , '' AS physical_country_iso_2
+     , '' AS postal_address_part1
+     , '' AS postal_address_part2
+     , '' AS postal_address_part3
+     , '' AS postal_postal_code
+     , '' AS postal_postal_place
+     , '' AS postal_region_code
+     , '' AS postal_region_path
+     , '' AS postal_country_iso_2
+     , '' AS primary_activity_category_code
+     , '' AS secondary_activity_category_code
+     , '' AS sector_code
+     , '' AS legal_form_code
+     , '' AS tag_path
+FROM public.import_establishment_era;
+    $view_template$;
+
+    insert_labels TEXT := '';
+    value_labels TEXT := '';
+
+    function_template TEXT := $function_template$
+CREATE FUNCTION admin.import_establishment_current_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_current_upsert$
+DECLARE
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
+BEGIN
+    INSERT INTO public.import_establishment_era
+        ( valid_from
+        , valid_to
+{{insert_labels}}
+        , name
+        , birth_date
+        , death_date
+        , physical_address_part1
+        , physical_address_part2
+        , physical_address_part3
+        , physical_postal_code
+        , physical_postal_place
+        , physical_region_code
+        , physical_region_path
+        , physical_country_iso_2
+        , postal_address_part1
+        , postal_address_part2
+        , postal_address_part3
+        , postal_postal_code
+        , postal_postal_place
+        , postal_region_code
+        , postal_region_path
+        , postal_country_iso_2
+        , primary_activity_category_code
+        , secondary_activity_category_code
+        , sector_code
+        , legal_form_code
+        , tag_path
+        )
+    VALUES
+        ( new_valid_from
+        , new_valid_to
+{{value_labels}}
+        , NEW.name
+        , NEW.birth_date
+        , NEW.death_date
+        , NEW.physical_address_part1
+        , NEW.physical_address_part2
+        , NEW.physical_address_part3
+        , NEW.physical_postal_code
+        , NEW.physical_postal_place
+        , NEW.physical_region_code
+        , NEW.physical_region_path
+        , NEW.physical_country_iso_2
+        , NEW.postal_address_part1
+        , NEW.postal_address_part2
+        , NEW.postal_address_part3
+        , NEW.postal_postal_code
+        , NEW.postal_postal_place
+        , NEW.postal_region_code
+        , NEW.postal_region_path
+        , NEW.postal_country_iso_2
+        , NEW.primary_activity_category_code
+        , NEW.secondary_activity_category_code
+        , NEW.sector_code
+        , NEW.legal_form_code
+        , NEW.tag_path
+        );
+    RETURN NULL;
+END;
+$import_establishment_current_upsert$;
+    $function_template$;
+BEGIN
+    -- Generate the column definitions from external_ident_type table
+    FOR ident_type_row IN
+        SELECT code FROM public.external_ident_type ORDER BY code
+    LOOP
+        view_columns := view_columns ||
+                        format(E'%s '''' AS %I\n', view_column_prefix, ident_type_row.code);
+        view_column_prefix := '     , ';
+
+        insert_labels := insert_labels ||
+                        format(E'        , %I\n', ident_type_row.code);
+
+        value_labels := value_labels ||
+                        format(E'        , NEW.%I\n', ident_type_row.code);
+
+    END LOOP;
+
+    view_template := REPLACE(view_template, '{{view_columns}}', view_columns);
+    function_template := REPLACE(function_template, '{{insert_labels}}', insert_labels);
+    function_template := REPLACE(function_template, '{{value_labels}}', value_labels);
+
+    RAISE NOTICE 'Creating public.import_establishment_current';
+    EXECUTE view_template;
+
+    RAISE NOTICE 'Creating admin.import_establishment_current_upsert()';
+    EXECUTE function_template;
+END;
+$generate_import_establishment_current$;
+
+
+\echo admin.cleanup_import_establishment_current()
+CREATE PROCEDURE admin.cleanup_import_establishment_current()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_current';
+    DROP VIEW IF EXISTS public.import_establishment_current;
+
+    RAISE NOTICE 'Deleting admin.import_establishment_current_upsert()';
+    DROP FUNCTION IF EXISTS admin.import_establishment_current_upsert();
+END;
+$$;
+
+\echo Add import_establishment_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_current',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_current',
+    'admin.cleanup_import_establishment_current'
+    );
+
+\echo Generating public.import_establishment_current
+\echo Generating admin.import_establishment_current_upsert
+CALL admin.generate_import_establishment_current();
+
+
+\echo admin.generate_import_establishment_era_for_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_era_for_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_era_for_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    legal_unit_ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    legal_unit_ident_missing_check TEXT := '';
+    ident_insert_labels TEXT := '';
+    legal_unit_ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    legal_unit_ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era_for_legal_unit
 WITH (security_invoker=on) AS
 SELECT valid_from
      , valid_to
-     , tax_ident
-     -- Required - it must connect to an existing legal_unit
-     , legal_unit_tax_ident
+     --
+{{ident_type_columns}}
+     -- One of these are required - it must connect to an existing legal_unit
+{{legal_unit_ident_type_columns}}
+     --
      , name
      , birth_date
      , death_date
@@ -8465,24 +8852,27 @@ SELECT valid_from
      , primary_activity_category_code
      , secondary_activity_category_code
      -- sector_code is Disabled because the legal unit provides the sector_code
-     , employees
-     , turnover
+{{stat_definition_columns}}
      , tag_path
 FROM public.import_establishment_era;
-COMMENT ON VIEW public.import_establishment_era_for_legal_unit IS 'Upload of establishment era (any timeline) that must connect to a legal_unit';
+    $view_template$;
 
-\echo admin.import_establishment_era_for_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_era_for_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_era_for_legal_unit_upsert$
 BEGIN
-    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
-      RAISE EXCEPTION 'Missing legal_unit_tax_ident for row %', to_json(NEW);
+    IF {{legal_unit_ident_missing_check}}
+    THEN
+      RAISE EXCEPTION 'Missing legal_unit identifier for row %', to_json(NEW);
     END IF;
     INSERT INTO public.import_establishment_era
         ( valid_from
         , valid_to
-        , tax_ident
-        , legal_unit_tax_ident
+        --
+{{ident_insert_labels}}
+        --
+{{legal_unit_ident_insert_labels}}
+        --
         , name
         , birth_date
         , death_date
@@ -8504,15 +8894,17 @@ BEGIN
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
-        , employees
-        , turnover
+{{stats_insert_labels}}
         , tag_path
         )
     VALUES
         ( NEW.valid_from
         , NEW.valid_to
-        , NEW.tax_ident
-        , NEW.legal_unit_tax_ident
+        --
+{{ident_value_labels}}
+        --
+{{legal_unit_ident_value_labels}}
+        --
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -8534,18 +8926,111 @@ BEGIN
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
+{{stats_value_labels}}
         , NEW.employees
         , NEW.turnover
         , NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_era_for_legal_unit_upsert$;
+    $function_template$;
+    legal_unit_ident_missing_checks TEXT[] := ARRAY[]::TEXT[];
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    -- Generate the column definitions from external_ident_type table
+    FOR ident_type_row IN
+        SELECT code FROM public.external_ident_type ORDER BY code
+    LOOP
+        legal_unit_ident_missing_checks :=
+            array_append(
+                legal_unit_ident_missing_checks,
+                format('(NEW.%1$I IS NULL OR NEW.%1$I  = %2$L)',
+                    'legal_unit_'||ident_type_row.code,
+                    ''
+                    )
+                );
+
+        ident_type_columns := ident_type_columns ||
+                        format(E'     , %I\n', ident_type_row.code);
+        legal_unit_ident_type_columns := legal_unit_ident_type_columns ||
+                        format(E'     , %I\n', 'legal_unit_'||ident_type_row.code);
+        ident_insert_labels := ident_insert_labels ||
+                        format(E'        , %I\n', ident_type_row.code);
+        legal_unit_ident_insert_labels := legal_unit_ident_insert_labels ||
+                        format(E'        , %I\n', 'legal_unit_'||ident_type_row.code);
+        ident_value_labels := ident_value_labels ||
+                        format(E'        , NEW.%I\n', ident_type_row.code);
+        legal_unit_ident_value_labels := legal_unit_ident_value_labels ||
+                        format(E'        , NEW.%I\n', 'legal_unit_'||ident_type_row.code);
+    END LOOP;
+    SELECT array_to_string(legal_unit_ident_missing_checks, ' AND ')
+    INTO legal_unit_ident_missing_check;
+
+    FOR stat_definition_row IN SELECT code FROM public.stat_definition ORDER BY code LOOP
+        stat_definition_columns := stat_definition_columns ||
+            format(E'     , '''' AS %I\n', stat_definition_row.code);
+        stats_insert_labels := stats_insert_labels ||
+            format(E'        , %I\n', stat_definition_row.code);
+        stats_value_labels := stats_value_labels ||
+                        format(E'        , NEW.%I\n', stat_definition_row.code);
+    END LOOP;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'legal_unit_ident_type_columns', legal_unit_ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'legal_unit_ident_missing_check', legal_unit_ident_missing_check,
+        'ident_insert_labels', ident_insert_labels,
+        'legal_unit_ident_insert_labels', legal_unit_ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'legal_unit_ident_value_labels', legal_unit_ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_era_for_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_era_for_legal_unit IS 'Upload of establishment era (any timeline) that must connect to a legal_unit';
+
+    RAISE NOTICE 'Creating admin.import_establishment_era_for_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_era_for_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_era_for_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+END;
+$generate_import_establishment_era_for_legal_unit$;
+
+\echo admin.cleanup_import_establishment_era_for_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit';
+    DROP VIEW IF EXISTS public.import_establishment_era_for_legal_unit;
+    RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit_upsert';
+    DROP FUNCTION IF EXISTS public.import_establishment_era_for_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_era_for_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_era_for_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_era_for_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_era_for_legal_unit',
+    'admin.cleanup_import_establishment_era_for_legal_unit'
+    );
+
+\echo Generating public.generate_import_establishment_era_for_legal_unit
+CALL admin.generate_import_establishment_era_for_legal_unit();
 
 \echo public.import_establishment_current_for_legal_unit
 CREATE VIEW public.import_establishment_current_for_legal_unit
