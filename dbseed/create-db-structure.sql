@@ -6391,6 +6391,7 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
 CREATE FUNCTION admin.upsert_generic_valid_time_table
     ( schema_name text
     , table_name text
+    , unique_columns jsonb
     , temporal_columns text[]
     , ephemeral_columns text[]
     , NEW RECORD
@@ -6407,6 +6408,7 @@ DECLARE
   adjusted_valid_to date;
   equivalent_data jsonb;
   equivalent_clause text;
+  identifying_clause text;
   existing_query text;
   delete_existing_sql text;
   identifying_query text;
@@ -6445,6 +6447,35 @@ BEGIN
   SELECT string_agg(' '||quote_ident(key)||' IS NOT DISTINCT FROM $1.'||quote_ident(key)||' ', ' AND ')
   INTO equivalent_clause
   FROM jsonb_each_text(equivalent_data);
+
+  IF NEW.id IS NULL THEN
+      SELECT
+        string_agg(
+            CASE jsonb_typeof(unique_column)
+            WHEN 'array' THEN
+                    '(' || (SELECT string_agg(' '||element||'= $1.'||element||' ', ' AND ') FROM jsonb_array_elements_text(unique_column) AS element) || ')'
+            WHEN 'string' THEN ' '||unique_column::text||'= $1.'||unique_column::text||' '
+            ELSE NULL
+            END,
+            ' OR '
+        ) INTO identifying_clause
+      FROM (SELECT jsonb_array_elements(unique_columns) AS unique_column) AS subquery;
+
+      identifying_query := format($$
+          SELECT id
+          FROM %1$I.%2$I
+          WHERE %3$s
+          LIMIT 1;$$
+          , schema_name
+          , table_name
+          , identifying_clause
+        );
+      RAISE DEBUG 'identifying_query %', identifying_query;
+
+      EXECUTE identifying_query INTO existing_id USING NEW;
+      RAISE DEBUG 'existing_id %', existing_id;
+      NEW.id = existing_id;
+  END IF;
 
   existing_query := format($$
       SELECT *
@@ -6627,12 +6658,17 @@ RETURNS TRIGGER AS $legal_unit_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'legal_unit';
+  unique_columns jsonb :=
+    jsonb_build_array(
+            'id'
+        );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY['seen_in_import_at'];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
+    , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
@@ -6661,12 +6697,17 @@ RETURNS TRIGGER AS $establishment_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'establishment';
+  unique_columns jsonb :=
+    jsonb_build_array(
+            'id'
+        );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY['seen_in_import_at'];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
+    , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
@@ -6694,12 +6735,18 @@ RETURNS TRIGGER AS $location_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'location';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('type', 'establishment_id'),
+    jsonb_build_array('type', 'legal_unit_id')
+    );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY[]::text[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
+    , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
@@ -6727,12 +6774,18 @@ RETURNS TRIGGER AS $activity_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'activity';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('type', 'establishment_id'),
+    jsonb_build_array('type', 'legal_unit_id')
+    );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY['updated_at'];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
+    , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
@@ -6759,12 +6812,17 @@ RETURNS TRIGGER AS $stat_for_unit_era_upsert$
 DECLARE
   schema_name text := 'public';
   table_name text := 'stat_for_unit';
+  unique_columns jsonb := jsonb_build_array(
+    'id',
+    jsonb_build_array('stat_definition_id', 'establishment_id')
+    );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY[]::text[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
     , table_name
+    , unique_columns
     , temporal_columns
     , ephemeral_columns
     , NEW
@@ -7636,6 +7694,7 @@ BEGIN
     INSERT INTO public.legal_unit_era
         ( valid_from
         , valid_to
+        , id
         , name
         , birth_date
         , death_date
@@ -7652,6 +7711,7 @@ BEGIN
     VALUES
         ( new_typed.valid_from
         , new_typed.valid_to
+        , prior_legal_unit_id
         , upsert_data.name
         , upsert_data.birth_date
         , upsert_data.death_date
@@ -8363,6 +8423,7 @@ BEGIN
     INSERT INTO public.establishment_era
         ( valid_from
         , valid_to
+        , id
         , name
         , birth_date
         , death_date
@@ -8379,6 +8440,7 @@ BEGIN
     VALUES
         ( new_typed.valid_from
         , new_typed.valid_to
+        , prior_establishment_id
         , upsert_data.name
         , upsert_data.birth_date
         , upsert_data.death_date
