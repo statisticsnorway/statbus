@@ -7531,8 +7531,9 @@ BEGIN
                                    format(E'     , '''' AS %I\n', ident_type_row.code);
     END LOOP;
 
-    -- Replace $COLUMNS$ placeholder with actual column definitions
-    view_template := REPLACE(view_template, '{{ident_type_columns}}', ident_type_columns);
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns
+    ));
 
     -- Create the view dynamically
     EXECUTE view_template;
@@ -8093,16 +8094,21 @@ BEGIN
         view_column_prefix := '     , ';
 
         insert_labels := insert_labels ||
-                        format(E'         , %I\n', ident_type_row.code);
+                        format(E'        , %I\n', ident_type_row.code);
 
         value_labels := value_labels ||
-                        format(E'         , NEW.%I\n', ident_type_row.code);
+                        format(E'        , NEW.%I\n', ident_type_row.code);
 
     END LOOP;
 
-    view_template := REPLACE(view_template, '{{view_columns}}', view_columns);
-    function_template := REPLACE(function_template, '{{insert_labels}}', insert_labels);
-    function_template := REPLACE(function_template, '{{value_labels}}', value_labels);
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'view_columns', view_columns
+    ));
+
+    function_template := admin.render_template(function_template, jsonb_build_object(
+        'insert_labels', insert_labels,
+        'value_labels', value_labels
+    ));
 
     RAISE NOTICE 'Creating public.import_legal_unit_current';
     EXECUTE view_template;
@@ -8835,9 +8841,14 @@ BEGIN
 
     END LOOP;
 
-    view_template := REPLACE(view_template, '{{view_columns}}', view_columns);
-    function_template := REPLACE(function_template, '{{insert_labels}}', insert_labels);
-    function_template := REPLACE(function_template, '{{value_labels}}', value_labels);
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'view_columns', view_columns
+    ));
+
+    function_template := admin.render_template(function_template, jsonb_build_object(
+        'insert_labels', insert_labels,
+        'value_labels', value_labels
+    ));
 
     RAISE NOTICE 'Creating public.import_establishment_current';
     EXECUTE view_template;
