@@ -2969,13 +2969,13 @@ CREATE VIEW public.timesegments AS
  * 
  * Summary by Type:
  * 1. Numeric:
- *    - Computes the sum, count, mean, maximum, minimum, and variance (via sum_sq_diff).
+ *    - Computes the sum, count, mean, maximum, minimum, variance, and standard deviation (via sum_sq_diff).
  *    - Example:
  *      Input: {"a": 10}, {"a": 5}, {"a": 20}
- *      Output: {"a": {"sum": 35, "count": 3, "mean": 11.67, "max": 20, "min": 5, "variance": 58.33}}
+ *      Output: {"a": {"sum": 35, "count": 3, "mean": 11.67, "max": 20, "min": 5, "variance": 58.33, "stddev": 7.64}}
  *    - Calculation References:
  *      - Mean update: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
- *      - Variance update: Welford's method
+ *      - Variance and standard deviation update: Welford's method
  * 
  * 2. String:
  *    - Counts occurrences of each distinct string value.
@@ -3051,7 +3051,7 @@ BEGIN
             next_stat_state = jsonb_build_object('type', stat_type);
 
             CASE stat_type
-                -- Handle numeric values with iterative mean and variance
+                -- Handle numeric values with iterative mean, variance, and standard deviation
                 WHEN 'number' THEN
                     count := (prev_stat_state->'count')::integer + 1;
                     delta := stat_value::numeric - (prev_stat_state->'mean')::numeric;
@@ -3066,7 +3066,8 @@ BEGIN
                             'min', LEAST((prev_stat_state->'min')::numeric, stat_value::numeric),
                             'max', GREATEST((prev_stat_state->'max')::numeric, stat_value::numeric),
                             'sum_sq_diff', sum_sq_diff,
-                            'variance', CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END
+                            'variance', CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END,
+                            'stddev', CASE WHEN count > 1 THEN sqrt(sum_sq_diff / (count - 1)) ELSE NULL END
                         );
 
                 -- Handle string values
@@ -3137,7 +3138,8 @@ BEGIN
                             'min', stat_value::numeric,
                             'max', stat_value::numeric,
                             'sum_sq_diff', 0,
-                            'variance', 0
+                            'variance', 0,
+                            'stddev', 0
                         );
                 WHEN 'string' THEN
                     next_stat_state :=  next_stat_state ||
@@ -3184,7 +3186,7 @@ DECLARE
     key text;
     val jsonb;
     result jsonb := '{}';
-    rounding_keys text[] := ARRAY['mean', 'sum_sq_diff', 'variance'];
+    rounding_keys text[] := ARRAY['mean', 'sum_sq_diff', 'variance', 'stddev'];
     sub_key text;
 BEGIN
     -- Iterate through the keys in the state JSONB object
@@ -3262,6 +3264,7 @@ BEGIN
                        mean numeric := (mean_a * count_a + mean_b * count_b) / count;
                        sum_sq_diff numeric := (val_a->'sum_sq_diff')::numeric + (val_b->'sum_sq_diff')::numeric + (mean_a - mean_b)^2 * count_a * count_b / count;
                        variance numeric := CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END;
+                       stddev numeric := CASE WHEN variance IS NOT NULL THEN sqrt(variance) ELSE NULL END;
                     BEGIN
                         merged_val := jsonb_build_object(
                             'sum', (val_a->'sum')::numeric + (val_b->'sum')::numeric,
@@ -3270,7 +3273,8 @@ BEGIN
                             'min', LEAST((val_a->'min')::numeric, (val_b->'min')::numeric),
                             'max', GREATEST((val_a->'max')::numeric, (val_b->'max')::numeric),
                             'sum_sq_diff', sum_sq_diff,
-                            'variance', variance
+                            'variance', variance,
+                            'stddev', stddev
                         );
                     END;
                 WHEN 'string' THEN
