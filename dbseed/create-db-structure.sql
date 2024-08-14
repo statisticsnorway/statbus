@@ -3463,7 +3463,7 @@ CREATE VIEW public.timeline_establishment
            , es.legal_unit_id AS legal_unit_id
            , es.enterprise_id AS enterprise_id
            --
-           , (
+           , COALESCE((
             SELECT public.jsonb_concat_agg(
                 CASE sd.type
                 WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
@@ -3478,7 +3478,7 @@ CREATE VIEW public.timeline_establishment
             WHERE sfu.establishment_id = es.id
               AND daterange(t.valid_after, t.valid_to, '(]')
                && daterange(sfu.valid_after, sfu.valid_to, '(]')
-           ) stats
+           ), '{}'::JSONB) stats
       --
       FROM public.timesegments AS t
       INNER JOIN public.establishment AS es
@@ -3631,7 +3631,7 @@ CREATE VIEW public.timeline_legal_unit
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
-           , (
+           , COALESCE((
             SELECT public.jsonb_concat_agg(
                 CASE sd.type
                 WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
@@ -3646,7 +3646,7 @@ CREATE VIEW public.timeline_legal_unit
             WHERE sfu.legal_unit_id = lu.id
               AND daterange(t.valid_after, t.valid_to, '(]')
                && daterange(sfu.valid_after, sfu.valid_to, '(]')
-           ) stats
+           ), '{}'::JSONB) stats
       --
       FROM public.timesegments AS t
       INNER JOIN public.legal_unit AS lu
@@ -4110,7 +4110,7 @@ CREATE VIEW public.statistical_unit_def
                   ELSE ARRAY[enterprise_id]::INT[]
               END AS enterprise_ids
            , stats
-           , NULL::JSONB AS stats_summary
+           , '{}'::JSONB AS stats_summary
       FROM public.timeline_establishment
       UNION ALL
       SELECT unit_type
