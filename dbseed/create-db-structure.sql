@@ -7361,32 +7361,40 @@ BEGIN
     END IF;
 
     IF prior_unit_id IS NOT NULL THEN
-        -- Calculate the new center date.
-        new_center := new_valid_from + ((new_valid_to - new_valid_from) / 2);
+        -- Calculate the new center date, handling infinity.
+        IF new_valid_from = '-infinity' THEN
+            new_center := new_valid_to;
+        ELSIF new_valid_to = 'infinity' THEN
+            new_center := new_valid_from;
+        ELSE
+            new_center := new_valid_from + ((new_valid_to - new_valid_from) / 2);
+        END IF;
 
-        -- Find the closest enterprise connected to the prior legal unit or establishment.
+        -- Find the closest enterprise connected to the prior legal unit or establishment, with consistent midpoint logic.
         EXECUTE format('
             SELECT enterprise_id
             FROM public.%I
             WHERE id = $1
-            ORDER BY ABS(
-                $2::DATE - (
-                    valid_from + ((valid_to - valid_from) / 2)
-                )::DATE
+            ORDER BY (
+                CASE
+                    WHEN valid_from = ''-infinity'' THEN ABS($2::DATE - valid_to)
+                    WHEN valid_to = ''infinity'' THEN ABS(valid_from - $2::DATE)
+                    ELSE ABS($2::DATE - (valid_from + ((valid_to - valid_from) / 2))::DATE)
+                END
             ) ASC
             LIMIT 1
-        ', unit_type) 
+        ', unit_type)
         INTO enterprise_id
         USING prior_unit_id, new_center;
 
         -- Determine if this should be the primary for the enterprise.
-        IF unit_type == 'legal_unit' THEN
+        IF unit_type = 'legal_unit' THEN
             EXECUTE format('
                 SELECT NOT EXISTS(
                     SELECT 1
                     FROM public.%I
                     WHERE enterprise_id = $1
-                    AND is_primary_for_enterprise
+                    AND primary_for_enterprise
                     AND id <> $2
                     AND daterange(valid_from, valid_to, ''[]'')
                      && daterange($3, $4, ''[]'')
