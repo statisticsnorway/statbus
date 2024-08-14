@@ -205,7 +205,7 @@ DROP TRIGGER stat_for_unit_era_upsert ON public.stat_for_unit_era;
 DROP FUNCTION admin.stat_for_unit_era_upsert();
 DROP VIEW public.stat_for_unit_era;
 
-DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,text[],text[],record);
+DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 
 DROP VIEW public.sector_available;
 DROP VIEW public.sector_custom_only;
