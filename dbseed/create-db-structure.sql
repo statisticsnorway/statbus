@@ -9161,8 +9161,6 @@ BEGIN
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
 {{stats_value_labels}}
-        , NEW.employees
-        , NEW.turnover
         , NEW.tag_path
         );
     RETURN NULL;
