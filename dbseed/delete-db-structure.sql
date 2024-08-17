@@ -234,6 +234,15 @@ DROP PROCEDURE admin.generate_import_establishment_era();
 DROP PROCEDURE admin.cleanup_import_establishment_era();
 
 
+CALL lifecycle_callbacks.del('import_legal_unit_era');
+CALL lifecycle_callbacks.del('import_legal_unit_current');
+CALL lifecycle_callbacks.del('import_establishment_era');
+CALL lifecycle_callbacks.del('import_establishment_current');
+CALL lifecycle_callbacks.del('import_establishment_era_for_legal_unit');
+
+CALL lifecycle_callbacks.del_table('public.external_ident_type');
+CALL lifecycle_callbacks.del_table('public.stat_definition');
+
 \echo public.external_ident
 DROP TABLE public.external_ident;
 \echo Trigger cleanup of external_ident_type generated code.
@@ -397,6 +406,8 @@ DROP PROCEDURE admin.generate_import_establishment_current();
 DROP PROCEDURE admin.cleanup_import_establishment_current();
 DROP PROCEDURE admin.generate_import_establishment_era_for_legal_unit();
 DROP PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit();
+
+DROP FUNCTION admin.render_template(text,jsonb);
 
 \echo public.reset_all_data
 DROP FUNCTION public.reset_all_data(confirmed boolean);
