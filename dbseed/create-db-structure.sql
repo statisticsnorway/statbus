@@ -3417,7 +3417,7 @@ CREATE VIEW public.timeline_establishment
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
            , es.name AS name
            , es.birth_date AS birth_date
@@ -3587,7 +3587,7 @@ CREATE VIEW public.timeline_legal_unit
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
            , lu.name AS name
            , lu.birth_date AS birth_date
@@ -3825,7 +3825,7 @@ CREATE VIEW public.timeline_enterprise
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
            , plu.name AS name
            , plu.birth_date AS birth_date
@@ -3926,7 +3926,7 @@ CREATE VIEW public.timeline_enterprise
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
            , pes.name AS name
            , pes.birth_date AS birth_date
@@ -4155,6 +4155,53 @@ CREATE VIEW public.timeline_enterprise
 
 -- SELECT * FROM public.timeline_enterprise;
 
+\echo public.get_external_idents
+CREATE FUNCTION public.get_external_idents(
+  unit_type public.statistical_unit_type,
+  unit_id INTEGER
+) RETURNS JSONB AS $$
+  WITH agg_data AS (
+    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
+    FROM public.external_ident AS ei
+    JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+    WHERE
+      CASE unit_type
+        WHEN 'enterprise' THEN ei.enterprise_id = unit_id
+        WHEN 'legal_unit' THEN ei.legal_unit_id = unit_id
+        WHEN 'establishment' THEN ei.establishment_id = unit_id
+        WHEN 'enterprise_group' THEN ei.enterprise_group_id = unit_id
+      END
+  )
+  SELECT COALESCE(data, '{}'::JSONB) AS external_idents
+  FROM agg_data;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+\echo public.get_tag_paths
+CREATE FUNCTION public.get_tag_paths(
+  unit_type public.statistical_unit_type,
+  unit_id INTEGER
+) RETURNS public.ltree[] AS $$
+  WITH ordered_data AS (
+    SELECT DISTINCT t.path
+    FROM public.tag_for_unit AS tfu
+    JOIN public.tag AS t ON t.id = tfu.tag_id
+    WHERE
+      CASE unit_type
+      WHEN 'enterprise' THEN tfu.enterprise_id = unit_id
+      WHEN 'legal_unit' THEN tfu.legal_unit_id = unit_id
+      WHEN 'establishment' THEN tfu.establishment_id = unit_id
+      WHEN 'enterprise_group' THEN tfu.enterprise_group_id = unit_id
+      END
+    ORDER BY t.path
+  ), agg_data AS (
+    SELECT array_agg(path) AS tag_paths FROM ordered_data
+  )
+  SELECT COALESCE(tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
+  FROM agg_data;
+$$ LANGUAGE sql IMMUTABLE;
+
+
 
 \echo public.statistical_unit_def
 CREATE VIEW public.statistical_unit_def
@@ -4363,33 +4410,11 @@ CREATE VIEW public.statistical_unit_def
       --SELECT * FROM enterprise_group_timeline
     )
     SELECT data.*
-         , (
-           SELECT jsonb_agg(jsonb_build_object(eit.code, ei.ident))
-           FROM public.external_ident AS ei
-           JOIN public.external_ident_type AS eit ON eit.id = ei.ident_type_id
-           WHERE
-             CASE data.unit_type
-             WHEN 'enterprise' THEN ei.enterprise_id = data.unit_id
-             WHEN 'legal_unit' THEN ei.legal_unit_id = data.unit_id
-             WHEN 'establishment' THEN ei.establishment_id = data.unit_id
-             WHEN 'enterprise_group' THEN ei.enterprise_group_id = data.unit_id
-             END
-         ) AS external_idents
+         , public.get_external_idents(data.unit_type, data.unit_id) AS external_idents
          , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
          , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
          , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
-         , (
-            SELECT array_agg(DISTINCT t.path)
-            FROM public.tag_for_unit AS tfu
-            JOIN public.tag AS t ON t.id = tfu.tag_id
-            WHERE
-              CASE data.unit_type
-              WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
-              WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
-              WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
-              WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
-              END
-         ) AS tag_paths
+         , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
     FROM data;
 ;
 
@@ -4452,6 +4477,11 @@ CREATE INDEX idx_gist_statistical_unit_activity_category_paths ON public.statist
 CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit(physical_region_path);
 \echo idx_gist_statistical_unit_physical_region_path
 CREATE INDEX idx_gist_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
+
+\echo idx_statistical_unit_external_idents
+CREATE INDEX idx_statistical_unit_external_idents ON public.statistical_unit(external_idents);
+\echo idx_gist_statistical_unit_external_idents
+CREATE INDEX idx_gist_statistical_unit_external_idents ON public.statistical_unit USING GIN (external_idents jsonb_path_ops);
 
 \echo idx_statistical_unit_tag_paths
 CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths);
@@ -5872,6 +5902,32 @@ RETURNS JSONB AS $$
 $$ LANGUAGE sql IMMUTABLE;
 
 
+\echo public.external_ident_hierarchy
+CREATE FUNCTION public.external_ident_hierarchy(
+  parent_establishment_id INTEGER DEFAULT NULL,
+  parent_legal_unit_id INTEGER DEFAULT NULL,
+  parent_enterprise_id INTEGER DEFAULT NULL,
+  parent_enterprise_group_id INTEGER DEFAULT NULL
+) RETURNS JSONB AS $$
+  WITH agg_data AS (
+    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
+     FROM public.external_ident AS ei
+     JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+     WHERE (  parent_establishment_id    IS NOT NULL AND ei.establishment_id    = parent_establishment_id
+           OR parent_legal_unit_id       IS NOT NULL AND ei.legal_unit_id       = parent_legal_unit_id
+           OR parent_enterprise_id       IS NOT NULL AND ei.enterprise_id       = parent_enterprise_id
+           OR parent_enterprise_group_id IS NOT NULL AND ei.enterprise_group_id = parent_enterprise_group_id
+           )
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('external_ident',data)
+    END
+  FROM agg_data;
+  ;
+$$ LANGUAGE sql IMMUTABLE;
+
+
 \echo public.establishment_hierarchy
 CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
@@ -5880,6 +5936,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
 ) RETURNS JSONB AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(es.*)
+        || (SELECT public.external_ident_hierarchy(es.id,NULL,NULL,NULL))
         || (SELECT public.activity_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
@@ -5907,6 +5964,7 @@ CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTE
 RETURNS JSONB AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(lu.*)
+        || (SELECT public.external_ident_hierarchy(NULL,lu.id,NULL,NULL))
         || (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on))
         || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
@@ -5935,6 +5993,7 @@ RETURNS JSONB AS $$
         SELECT jsonb_build_object(
                 'enterprise',
                  to_jsonb(en.*)
+                 || (SELECT public.external_ident_hierarchy(NULL,NULL,en.id,NULL))
                  || (SELECT public.legal_unit_hierarchy(en.id, valid_on))
                  || (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
                  || (SELECT public.tag_for_unit_hierarchy(NULL,NULL,en.id,NULL))
@@ -10117,6 +10176,47 @@ $$;
 -- time psql <<EOS
 -- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
+
+
+-- Add helpers
+CREATE FUNCTION public.remove_ephemeral_data_from_hierarchy(data JSONB) RETURNS JSONB
+LANGUAGE plpgsql AS $$
+DECLARE
+    result JSONB := '{}';
+    key TEXT;
+    value JSONB;
+    new_value JSONB;
+    ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at', 'seen_in_import_at'];
+BEGIN
+    -- Loop through each key-value pair in the JSONB object
+    FOR key, value IN SELECT * FROM jsonb_each(data) LOOP
+        -- If the key is in the ephemeral_keys array or ends with "_id", skip it
+        IF key = ANY(ephemeral_keys) OR key LIKE '%_id' THEN
+            CONTINUE;
+        END IF;
+
+        -- Process the value based on its type using CASE
+        new_value := CASE jsonb_typeof(value)
+            WHEN 'object' THEN
+                public.remove_ephemeral_data_from_hierarchy(value)
+            WHEN 'array' THEN
+                (
+                    SELECT jsonb_agg(public.remove_ephemeral_data_from_hierarchy(elem))
+                    FROM jsonb_array_elements(value) AS elem
+                )
+            ELSE
+                value
+        END;
+
+        -- Add the key and the processed value to the result
+        result := jsonb_set(result, ARRAY[key], new_value, true);
+    END LOOP;
+
+    RETURN result;
+END;
+$$;
+
+
 
 -- Add security.
 

@@ -66,6 +66,8 @@ DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_l
 DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
 \echo public.tag_for_unit_hierarchy
 DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
+\echo public.external_ident_hierarchy
+DROP FUNCTION public.external_ident_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
 \echo public.activity_category_standard_hierarchy
 DROP FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id integer);
 
@@ -102,6 +104,9 @@ DROP MATERIALIZED VIEW public.country_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
 
 DROP VIEW public.statistical_unit_def;
+
+DROP FUNCTION public.get_external_idents;
+DROP FUNCTION public.get_tag_paths;
 
 DROP VIEW public.timeline_enterprise;
 DROP VIEW public.timeline_legal_unit;
@@ -408,6 +413,7 @@ DROP PROCEDURE admin.generate_import_establishment_era_for_legal_unit();
 DROP PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit();
 
 DROP FUNCTION admin.render_template(text,jsonb);
+DROP FUNCTION public.remove_ephemeral_data_from_hierarchy(JSONB);
 
 \echo public.reset_all_data
 DROP FUNCTION public.reset_all_data(confirmed boolean);
