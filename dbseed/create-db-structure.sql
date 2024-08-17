@@ -263,42 +263,41 @@ END;
 $$;
 
 CREATE PROCEDURE lifecycle_callbacks.del_table(
-    table_name regclass
+    table_name_param regclass
 )
 LANGUAGE plpgsql AS $$
 DECLARE
-    trigger_info RECORD;
+    trigger_info lifecycle_callbacks.supported_table;
     table_in_use BOOLEAN;
 BEGIN
     -- Check if the table is still referenced in registered_callback
     SELECT EXISTS (
         SELECT 1 FROM lifecycle_callbacks.registered_callback
-        WHERE table_names @> ARRAY[table_name]
+        WHERE table_names @> ARRAY[table_name_param]
     ) INTO table_in_use;
 
     IF table_in_use THEN
-        RAISE EXCEPTION 'Cannot delete table % because it is still referenced in registered_callback.', table_name;
+        RAISE EXCEPTION 'Cannot delete triggers for table % because it is still referenced in registered_callback.', table_name_param;
     END IF;
 
     -- Fetch trigger names from supported_table
-    SELECT
-        cleanup_before_update_trigger_name,
-        cleanup_before_delete_trigger_name,
-        generate_after_insert_trigger_name,
-        generate_after_update_trigger_name
-    INTO trigger_info
+    SELECT * INTO trigger_info
     FROM lifecycle_callbacks.supported_table
-    WHERE table_name = table_name;
+    WHERE table_name = table_name_param;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Cannot triggers for table % because it is not registered.', table_name_param;
+    END IF;
 
     -- Drop the triggers
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_update_trigger_name, table_name);
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_delete_trigger_name, table_name);
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_insert_trigger_name, table_name);
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_update_trigger_name, table_name);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_update_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_delete_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_insert_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_update_trigger_name, table_name_param);
 
     -- Delete the table from supported_table
     DELETE FROM lifecycle_callbacks.supported_table
-    WHERE table_name = table_name;
+    WHERE table_name = table_name_param;
 END;
 $$;
 
@@ -349,12 +348,12 @@ END;
 $$;
 
 CREATE PROCEDURE lifecycle_callbacks.del(
-    label TEXT
+    label_param TEXT
 )
 LANGUAGE plpgsql AS $$
 BEGIN
     DELETE FROM lifecycle_callbacks.registered_callback
-    WHERE label = label;
+    WHERE label = label_param;
 END;
 $$;
 
@@ -410,25 +409,27 @@ $$;
 CREATE PROCEDURE lifecycle_callbacks.clean(table_name regclass)
 LANGUAGE plpgsql AS $$
 DECLARE
-    callback_procedures TEXT[];
-    callback_procedure TEXT;
+    callback_procedures regproc[] := ARRAY[]::regproc[];
+    callback_procedure regproc;
+    callback_sql TEXT;
 BEGIN
     -- Fetch the list of callback procedures
-    SELECT ARRAY_AGG(cleanup_procedure::text ORDER BY priority)
+    SELECT COALESCE(ARRAY_AGG(cleanup_procedure ORDER BY priority), ARRAY[]::regproc[])
     INTO callback_procedures
     FROM lifecycle_callbacks.registered_callback
     WHERE table_names @> ARRAY[table_name];
 
     -- Loop through each callback procedure
     FOREACH callback_procedure IN ARRAY callback_procedures LOOP
+        callback_sql := format('CALL %I();', callback_procedure);
         BEGIN
             -- Attempt to execute the callback procedure
-            EXECUTE 'CALL ' || callback_procedure || '();';
+            EXECUTE callback_sql;
         EXCEPTION
             -- Capture any exception that occurs during the call
             WHEN OTHERS THEN
                 -- Log the error along with the original call
-                RAISE WARNING 'Error executing callback procedure %: %', callback_procedure, SQLERRM;
+                RAISE WARNING 'Error executing callback procedure %: %', callback_sql, SQLERRM;
         END;
     END LOOP;
 END;
