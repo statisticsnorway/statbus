@@ -21,7 +21,7 @@ SET default_table_access_method = heap;
 
 -- Use international date time parsing, to avoid
 -- confusion with local syntax, where day and month may be reversed.
---ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
+ALTER DATABASE "postgres" SET datestyle TO 'ISO, DMY';
 SET datestyle TO 'ISO, DMY';
 
 -- We need longer timeout for larger loads.
