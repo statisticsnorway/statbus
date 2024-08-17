@@ -1401,8 +1401,7 @@ CREATE TABLE public.legal_unit (
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     primary_for_enterprise boolean NOT NULL,
-    invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp()
+    invalid_codes jsonb
 );
 
 \echo legal_unit_active_idx
@@ -1459,7 +1458,6 @@ CREATE TABLE public.establishment (
     legal_unit_id integer,
     primary_for_legal_unit boolean,
     invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
     CONSTRAINT "Must have either legal_unit_id or enterprise_id"
     CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
         OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
@@ -6879,7 +6877,7 @@ DECLARE
             'id'
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  ephemeral_columns text[] := ARRAY['seen_in_import_at'];
+  ephemeral_columns text[] := ARRAY[]::TEXT[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
@@ -6918,7 +6916,7 @@ DECLARE
             'id'
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  ephemeral_columns text[] := ARRAY['seen_in_import_at'];
+  ephemeral_columns text[] := ARRAY[]::TEXT[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
@@ -7892,7 +7890,6 @@ BEGIN
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
          , true AS active
-         , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
       INTO upsert_data;
@@ -7916,7 +7913,6 @@ BEGIN
         , birth_date
         , death_date
         , active
-        , seen_in_import_at
         , edit_comment
         , sector_id
         , legal_form_id
@@ -7933,7 +7929,6 @@ BEGIN
         , upsert_data.birth_date
         , upsert_data.death_date
         , upsert_data.active
-        , upsert_data.seen_in_import_at
         , upsert_data.edit_comment
         , sector.id
         , legal_form.id
@@ -8363,40 +8358,6 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.import_legal_unit_current_upsert();
 
 
-\echo public.import_legal_unit_with_delete_current
-CREATE VIEW public.import_legal_unit_with_delete_current
-WITH (security_invoker=on) AS
-SELECT * FROM public.import_legal_unit_current;
-
-\echo admin.import_legal_unit_with_delete_current
-CREATE FUNCTION admin.import_legal_unit_with_delete_current()
-RETURNS TRIGGER AS $$
-BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        WHERE uuid = auth.uid()
-        LIMIT 1
-    )
-    UPDATE public.legal_unit
-    SET valid_to = current_date
-      , edit_comment = 'Absent from upload'
-      , edit_by_user_id = (SELECT id FROM su)
-      , active = false
-    WHERE seen_in_import_at < statement_timestamp()
-      AND valid_to = 'infinity'::date
-      AND active
-    ;
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER import_legal_unit_with_delete_current_trigger
-AFTER INSERT ON public.import_legal_unit_with_delete_current
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.import_legal_unit_with_delete_current();
-
-
 CREATE PROCEDURE admin.generate_import_establishment_era()
 LANGUAGE plpgsql AS $generate_import_establishment_era$
 DECLARE
@@ -8630,7 +8591,6 @@ BEGIN
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
          , true AS active
-         , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
          , enterprise.id AS enterprise_id
@@ -8650,7 +8610,6 @@ BEGIN
         , birth_date
         , death_date
         , active
-        , seen_in_import_at
         , edit_comment
         , sector_id
         , invalid_codes
@@ -8667,7 +8626,6 @@ BEGIN
         , upsert_data.birth_date
         , upsert_data.death_date
         , upsert_data.active
-        , upsert_data.seen_in_import_at
         , upsert_data.edit_comment
         , sector.id
         , upsert_data.invalid_codes
@@ -9742,7 +9700,6 @@ BEGIN
           END AS birth_date
         , NEW."navn" AS name
         , true AS active
-        , statement_timestamp() AS seen_in_import_at
         , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
@@ -9753,7 +9710,6 @@ BEGIN
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
           , active = upsert_data.active
-          , seen_in_import_at = upsert_data.seen_in_import_at
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
@@ -9769,7 +9725,6 @@ BEGIN
           , birth_date
           , name
           , active
-          , seen_in_import_at
           , edit_comment
           , edit_by_user_id
           )
@@ -9780,7 +9735,6 @@ BEGIN
           , upsert_data.birth_date
           , upsert_data.name
           , upsert_data.active
-          , upsert_data.seen_in_import_at
           , upsert_data.edit_comment
           , upsert_data.edit_by_user_id
         FROM upsert_data
@@ -9794,37 +9748,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-\echo admin.legal_unit_brreg_view_delete_stale
-CREATE FUNCTION admin.legal_unit_brreg_view_delete_stale()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        WHERE uuid = auth.uid()
-        LIMIT 1
-    )
-    UPDATE public.legal_unit
-    SET valid_to = statement_timestamp()
-      , edit_comment = 'Absent from upload'
-      , edit_by_user_id = (SELECT id FROM su)
-      , active = false
-    WHERE seen_in_import_at < statement_timestamp();
-    RETURN NULL;
-END;
-$$;
 
 -- Create triggers for the view
 CREATE TRIGGER legal_unit_brreg_view_upsert
 INSTEAD OF INSERT ON public.legal_unit_brreg_view
 FOR EACH ROW
 EXECUTE FUNCTION admin.legal_unit_brreg_view_upsert();
-
-CREATE TRIGGER legal_unit_brreg_view_delete_stale
-AFTER INSERT ON public.legal_unit_brreg_view
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.legal_unit_brreg_view_delete_stale();
-
 
 -- time psql <<EOS
 -- \copy public.legal_unit_brreg_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -9898,7 +9827,6 @@ BEGIN
           END AS birth_date
         , NEW."navn" AS name
         , true AS active
-        , statement_timestamp() AS seen_in_import_at
         , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
@@ -9909,7 +9837,6 @@ BEGIN
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
           , active = upsert_data.active
-          , seen_in_import_at = upsert_data.seen_in_import_at
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
@@ -9925,7 +9852,6 @@ BEGIN
           , birth_date
           , name
           , active
-          , seen_in_import_at
           , edit_comment
           , edit_by_user_id
           )
@@ -9936,7 +9862,6 @@ BEGIN
           , upsert_data.birth_date
           , upsert_data.name
           , upsert_data.active
-          , upsert_data.seen_in_import_at
           , upsert_data.edit_comment
           , upsert_data.edit_by_user_id
         FROM upsert_data
@@ -9950,37 +9875,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create function for deleting stale countries
-\echo admin.delete_stale_establishment_brreg_view
-CREATE FUNCTION admin.delete_stale_establishment_brreg_view()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        WHERE uuid = auth.uid()
-        LIMIT 1
-    )
-    UPDATE public.establishment
-    SET valid_to = statement_timestamp()
-      , edit_comment = 'Absent from upload'
-      , edit_by_user_id = (SELECT id FROM su)
-      , active = false
-    WHERE seen_in_import_at < statement_timestamp();
-    RETURN NULL;
-END;
-$$;
 
 -- Create triggers for the view
 CREATE TRIGGER upsert_establishment_brreg_view
 INSTEAD OF INSERT ON public.establishment_brreg_view
 FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_establishment_brreg_view();
-
-CREATE TRIGGER delete_stale_establishment_brreg_view
-AFTER INSERT ON public.establishment_brreg_view
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
 
 \echo public.reset_all_data(boolean confirmed)
@@ -10186,7 +10086,7 @@ DECLARE
     key TEXT;
     value JSONB;
     new_value JSONB;
-    ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at', 'seen_in_import_at'];
+    ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at'];
 BEGIN
     -- Loop through each key-value pair in the JSONB object
     FOR key, value IN SELECT * FROM jsonb_each(data) LOOP
