@@ -96,28 +96,28 @@ FROM statistical_unit ORDER BY name, unit_type;
 -[ RECORD 1 ]---+------------------------------
 unit_type       | establishment
 name            | GRAPHICS BY MIA
-external_idents | [{"tax_ident": "825481982"}]
+external_idents | {"tax_ident": "825481982"}
 stats           | {}
 stats_summary   | {                            +
                 | }
 -[ RECORD 2 ]---+------------------------------
 unit_type       | enterprise
 name            | GRAPHICS BY MIA
-external_idents | 
+external_idents | {}
 stats           | 
 stats_summary   | {                            +
                 | }
 -[ RECORD 3 ]---+------------------------------
 unit_type       | establishment
 name            | KRAN & SPESIALLØFT AS
-external_idents | [{"tax_ident": "895406732"}]
+external_idents | {"tax_ident": "895406732"}
 stats           | {"employees": 19}
 stats_summary   | {                            +
                 | }
 -[ RECORD 4 ]---+------------------------------
 unit_type       | enterprise
 name            | KRAN & SPESIALLØFT AS
-external_idents | 
+external_idents | {}
 stats           | 
 stats_summary   | {                            +
                 |     "employees": {           +
@@ -135,28 +135,28 @@ stats_summary   | {                            +
 -[ RECORD 5 ]---+------------------------------
 unit_type       | establishment
 name            | NETT & EL TEKNIKK AS
-external_idents | [{"tax_ident": "819097232"}]
+external_idents | {"tax_ident": "819097232"}
 stats           | {}
 stats_summary   | {                            +
                 | }
 -[ RECORD 6 ]---+------------------------------
 unit_type       | enterprise
 name            | NETT & EL TEKNIKK AS
-external_idents | 
+external_idents | {}
 stats           | 
 stats_summary   | {                            +
                 | }
 -[ RECORD 7 ]---+------------------------------
 unit_type       | establishment
 name            | NORSVIN SA TESTESTASJON DELTA
-external_idents | [{"tax_ident": "873124032"}]
+external_idents | {"tax_ident": "873124032"}
 stats           | {"employees": 16}
 stats_summary   | {                            +
                 | }
 -[ RECORD 8 ]---+------------------------------
 unit_type       | enterprise
 name            | NORSVIN SA TESTESTASJON DELTA
-external_idents | 
+external_idents | {}
 stats           | 
 stats_summary   | {                            +
                 |     "employees": {           +
@@ -174,14 +174,14 @@ stats_summary   | {                            +
 -[ RECORD 9 ]---+------------------------------
 unit_type       | establishment
 name            | VIKEDAL LEGEKONTOR
-external_idents | [{"tax_ident": "911856174"}]
+external_idents | {"tax_ident": "911856174"}
 stats           | {"employees": 5}
 stats_summary   | {                            +
                 | }
 -[ RECORD 10 ]--+------------------------------
 unit_type       | enterprise
 name            | VIKEDAL LEGEKONTOR
-external_idents | 
+external_idents | {}
 stats           | 
 stats_summary   | {                            +
                 |     "employees": {           +
