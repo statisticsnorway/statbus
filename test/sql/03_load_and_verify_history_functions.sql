@@ -1,4 +1,5 @@
 SET datestyle TO 'ISO, DMY';
+
 BEGIN;
 
 \echo "Setting up Statbus to load establishments without legal units"
