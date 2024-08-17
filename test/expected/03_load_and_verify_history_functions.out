@@ -96,7 +96,7 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Checking timepoints."
 "Checking timepoints."
 SELECT tp.unit_type
-     , public.get_external_idents(tp.unit_type, tp.unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident' AS tax_ident
      , tp.timepoint
 FROM public.timepoints AS tp
 ORDER BY unit_type;
@@ -143,7 +143,7 @@ ORDER BY unit_type;
 \echo "Checking timesegments"
 "Checking timesegments"
 SELECT ts.unit_type
-     , public.get_external_idents(ts.unit_type, ts.unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident' AS tax_ident
      , ts.valid_after
      , ts.valid_to
 FROM public.timesegments AS ts
