@@ -51,14 +51,14 @@ SELECT view_name FROM statistical_unit_refresh_now();
 
 \echo "Checking timepoints."
 SELECT tp.unit_type
-     , public.get_external_idents(tp.unit_type, tp.unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident' AS tax_ident
      , tp.timepoint
 FROM public.timepoints AS tp
 ORDER BY unit_type;
 
 \echo "Checking timesegments"
 SELECT ts.unit_type
-     , public.get_external_idents(ts.unit_type, ts.unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident' AS tax_ident
      , ts.valid_after
      , ts.valid_to
 FROM public.timesegments AS ts
@@ -67,7 +67,7 @@ ORDER BY unit_type;
 
 \echo "Checking timeline_establishment data"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -104,7 +104,7 @@ ORDER BY unit_type, unit_id, valid_after, valid_to;
 
 \echo "Checking timeline_establishment stats"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -114,7 +114,7 @@ ORDER BY unit_type, unit_id, valid_after, valid_to;
 
 \echo "Checking timeline_legal_unit data"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -152,7 +152,7 @@ ORDER BY unit_type, unit_id, valid_after, valid_to;
 \x
 \echo "Checking timeline_legal_unit stats"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
