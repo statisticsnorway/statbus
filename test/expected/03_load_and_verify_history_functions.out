@@ -1,5 +1,4 @@
 SET datestyle TO 'ISO, DMY';
-
 BEGIN;
 \echo "Setting up Statbus to load establishments without legal units"
 "Setting up Statbus to load establishments without legal units"
@@ -104,43 +103,42 @@ FROM public.timepoints AS tp
 ORDER BY unit_type;
    unit_type   | tax_ident | timepoint  
 ---------------+-----------+------------
- establishment |           | 12-31-2009
- establishment |           | 12-31-2012
- establishment |           | 12-31-2015
- establishment |           | 12-31-2018
- establishment |           | 02-28-2019
- establishment |           | 04-30-2019
- establishment |           | 06-30-2019
- establishment |           | 08-31-2019
- establishment |           | 10-31-2019
- establishment |           | infinity
- legal_unit    |           | 12-31-2009
- legal_unit    |           | 12-31-2012
- legal_unit    |           | infinity
- legal_unit    |           | 12-31-2009
- legal_unit    |           | 12-31-2012
- legal_unit    |           | 12-31-2015
- legal_unit    |           | 12-31-2018
- legal_unit    |           | 02-28-2019
- legal_unit    |           | 04-30-2019
- legal_unit    |           | 06-30-2019
- legal_unit    |           | 08-31-2019
- legal_unit    |           | 10-31-2019
- legal_unit    |           | infinity
- enterprise    |           | 12-31-2009
- enterprise    |           | 12-31-2012
+ establishment | 895406732 | 2009-12-31
+ establishment | 895406732 | 2012-12-31
+ establishment | 895406732 | 2015-12-31
+ establishment | 895406732 | 2018-12-31
+ establishment | 895406732 | 2019-02-28
+ establishment | 895406732 | 2019-04-30
+ establishment | 895406732 | 2019-06-30
+ establishment | 895406732 | 2019-08-31
+ establishment | 895406732 | 2019-10-31
+ establishment | 895406732 | 2019-12-31
+ establishment | 895406732 | infinity
+ legal_unit    | 823573673 | 2009-12-31
+ legal_unit    | 823573673 | 2012-12-31
+ legal_unit    | 921835809 | 2012-12-31
+ legal_unit    | 921835809 | 2015-12-31
+ legal_unit    | 921835809 | 2018-12-31
+ legal_unit    | 921835809 | 2019-02-28
+ legal_unit    | 921835809 | 2019-04-30
+ legal_unit    | 921835809 | 2019-06-30
+ legal_unit    | 921835809 | 2019-08-31
+ legal_unit    | 921835809 | 2019-10-31
+ legal_unit    | 921835809 | 2019-12-31
+ legal_unit    | 921835809 | infinity
+ enterprise    |           | 2009-12-31
+ enterprise    |           | 2012-12-31
+ enterprise    |           | 2012-12-31
+ enterprise    |           | 2015-12-31
+ enterprise    |           | 2018-12-31
+ enterprise    |           | 2019-02-28
+ enterprise    |           | 2019-04-30
+ enterprise    |           | 2019-06-30
+ enterprise    |           | 2019-08-31
+ enterprise    |           | 2019-10-31
+ enterprise    |           | 2019-12-31
  enterprise    |           | infinity
- enterprise    |           | 12-31-2009
- enterprise    |           | 12-31-2012
- enterprise    |           | 12-31-2015
- enterprise    |           | 12-31-2018
- enterprise    |           | 02-28-2019
- enterprise    |           | 04-30-2019
- enterprise    |           | 06-30-2019
- enterprise    |           | 08-31-2019
- enterprise    |           | 10-31-2019
- enterprise    |           | infinity
-(36 rows)
+(35 rows)
 
 \echo "Checking timesegments"
 "Checking timesegments"
@@ -152,43 +150,42 @@ FROM public.timesegments AS ts
 ORDER BY unit_type;
    unit_type   | tax_ident | valid_after |  valid_to  
 ---------------+-----------+-------------+------------
- establishment |           | 12-31-2009  | 12-31-2012
- establishment |           | 12-31-2012  | 12-31-2015
- establishment |           | 12-31-2015  | 12-31-2018
- establishment |           | 12-31-2018  | 02-28-2019
- establishment |           | 02-28-2019  | 04-30-2019
- establishment |           | 04-30-2019  | 06-30-2019
- establishment |           | 06-30-2019  | 08-31-2019
- establishment |           | 08-31-2019  | 10-31-2019
- establishment |           | 10-31-2019  | infinity
- legal_unit    |           | 12-31-2009  | 12-31-2012
- legal_unit    |           | 12-31-2012  | infinity
- legal_unit    |           | 12-31-2009  | 12-31-2012
- legal_unit    |           | 12-31-2012  | 12-31-2015
- legal_unit    |           | 12-31-2015  | 12-31-2018
- legal_unit    |           | 12-31-2018  | 02-28-2019
- legal_unit    |           | 02-28-2019  | 04-30-2019
- legal_unit    |           | 04-30-2019  | 06-30-2019
- legal_unit    |           | 06-30-2019  | 08-31-2019
- legal_unit    |           | 08-31-2019  | 10-31-2019
- legal_unit    |           | 10-31-2019  | infinity
- enterprise    |           | 12-31-2009  | 12-31-2012
- enterprise    |           | 12-31-2012  | infinity
- enterprise    |           | 12-31-2009  | 12-31-2012
- enterprise    |           | 12-31-2012  | 12-31-2015
- enterprise    |           | 12-31-2015  | 12-31-2018
- enterprise    |           | 12-31-2018  | 02-28-2019
- enterprise    |           | 02-28-2019  | 04-30-2019
- enterprise    |           | 04-30-2019  | 06-30-2019
- enterprise    |           | 06-30-2019  | 08-31-2019
- enterprise    |           | 08-31-2019  | 10-31-2019
- enterprise    |           | 10-31-2019  | infinity
-(31 rows)
+ establishment | 895406732 | 2009-12-31  | 2012-12-31
+ establishment | 895406732 | 2012-12-31  | 2015-12-31
+ establishment | 895406732 | 2015-12-31  | 2018-12-31
+ establishment | 895406732 | 2018-12-31  | 2019-02-28
+ establishment | 895406732 | 2019-02-28  | 2019-04-30
+ establishment | 895406732 | 2019-04-30  | 2019-06-30
+ establishment | 895406732 | 2019-06-30  | 2019-08-31
+ establishment | 895406732 | 2019-08-31  | 2019-10-31
+ establishment | 895406732 | 2019-10-31  | 2019-12-31
+ establishment | 895406732 | 2019-12-31  | infinity
+ legal_unit    | 823573673 | 2009-12-31  | 2012-12-31
+ legal_unit    | 921835809 | 2012-12-31  | 2015-12-31
+ legal_unit    | 921835809 | 2015-12-31  | 2018-12-31
+ legal_unit    | 921835809 | 2018-12-31  | 2019-02-28
+ legal_unit    | 921835809 | 2019-02-28  | 2019-04-30
+ legal_unit    | 921835809 | 2019-04-30  | 2019-06-30
+ legal_unit    | 921835809 | 2019-06-30  | 2019-08-31
+ legal_unit    | 921835809 | 2019-08-31  | 2019-10-31
+ legal_unit    | 921835809 | 2019-10-31  | 2019-12-31
+ legal_unit    | 921835809 | 2019-12-31  | infinity
+ enterprise    |           | 2009-12-31  | 2012-12-31
+ enterprise    |           | 2012-12-31  | 2015-12-31
+ enterprise    |           | 2015-12-31  | 2018-12-31
+ enterprise    |           | 2018-12-31  | 2019-02-28
+ enterprise    |           | 2019-02-28  | 2019-04-30
+ enterprise    |           | 2019-04-30  | 2019-06-30
+ enterprise    |           | 2019-06-30  | 2019-08-31
+ enterprise    |           | 2019-08-31  | 2019-10-31
+ enterprise    |           | 2019-10-31  | 2019-12-31
+ enterprise    |           | 2019-12-31  | infinity
+(30 rows)
 
 \echo "Checking timeline_establishment data"
 "Checking timeline_establishment data"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -223,21 +220,22 @@ FROM public.timeline_establishment
 ORDER BY unit_type, unit_id, valid_after, valid_to;
    unit_type   | tax_ident | valid_after | valid_from |  valid_to  |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths | sector_path | sector_code | sector_name | legal_form_code | legal_form_name | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postal_code | physical_postal_place | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postal_code | postal_postal_place | postal_region_path | postal_country_iso_2 | invalid_codes 
 ---------------+-----------+-------------+------------+------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+-------------+-------------+-------------+-----------------+-----------------+------------------------+------------------------+------------------------+----------------------+-----------------------+----------------------+------------------------+----------------------+----------------------+----------------------+--------------------+---------------------+--------------------+----------------------+---------------
- establishment |           | 12-31-2009  | 01-01-2010 | 12-31-2012 | KRANLØFT ENK          | 01-01-2010 |            | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 12-31-2012  | 01-01-2013 | 12-31-2015 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 12-31-2015  | 01-01-2016 | 12-31-2018 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 12-31-2018  | 01-01-2019 | 02-28-2019 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 02-28-2019  | 03-01-2019 | 04-30-2019 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 04-30-2019  | 05-01-2019 | 06-30-2019 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 06-30-2019  | 07-01-2019 | 08-31-2019 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 08-31-2019  | 09-01-2019 | 10-31-2019 | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- establishment |           | 10-31-2019  | 11-01-2019 | infinity   | KRAN & SPESIALLØFT AS | 01-01-2010 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
-(9 rows)
+ establishment | 895406732 | 2009-12-31  | 2010-01-01 | 2012-12-31 | KRANLØFT ENK          | 2010-01-01 |            | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2012-12-31  | 2013-01-01 | 2015-12-31 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2015-12-31  | 2016-01-01 | 2018-12-31 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2018-12-31  | 2019-01-01 | 2019-02-28 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2019-02-28  | 2019-03-01 | 2019-04-30 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2019-04-30  | 2019-05-01 | 2019-06-30 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2019-06-30  | 2019-07-01 | 2019-08-31 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2019-08-31  | 2019-09-01 | 2019-10-31 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2019-10-31  | 2019-11-01 | 2019-12-31 | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ establishment | 895406732 | 2019-12-31  | 2020-01-01 | infinity   | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             |                 |                 | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+(10 rows)
 
 \echo "Checking timeline_establishment stats"
 "Checking timeline_establishment stats"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -246,21 +244,22 @@ FROM public.timeline_establishment
 ORDER BY unit_type, unit_id, valid_after, valid_to;
    unit_type   | tax_ident | valid_after | valid_from |  valid_to  |                  stats                  
 ---------------+-----------+-------------+------------+------------+-----------------------------------------
- establishment |           | 12-31-2009  | 01-01-2010 | 12-31-2012 | {"turnover": 1500000, "employees": 1}
- establishment |           | 12-31-2012  | 01-01-2013 | 12-31-2015 | {"turnover": 3000000, "employees": 3}
- establishment |           | 12-31-2015  | 01-01-2016 | 12-31-2018 | {"turnover": 12000000, "employees": 9}
- establishment |           | 12-31-2018  | 01-01-2019 | 02-28-2019 | {"turnover": 60000000, "employees": 25}
- establishment |           | 02-28-2019  | 03-01-2019 | 04-30-2019 | {"turnover": 60000000, "employees": 30}
- establishment |           | 04-30-2019  | 05-01-2019 | 06-30-2019 | {"turnover": 60000000, "employees": 35}
- establishment |           | 06-30-2019  | 07-01-2019 | 08-31-2019 | {"turnover": 60000000, "employees": 40}
- establishment |           | 08-31-2019  | 09-01-2019 | 10-31-2019 | {"turnover": 60000000, "employees": 50}
- establishment |           | 10-31-2019  | 11-01-2019 | infinity   | {"turnover": 60000000, "employees": 40}
-(9 rows)
+ establishment | 895406732 | 2009-12-31  | 2010-01-01 | 2012-12-31 | {"turnover": 1500000, "employees": 1}
+ establishment | 895406732 | 2012-12-31  | 2013-01-01 | 2015-12-31 | {"turnover": 3000000, "employees": 3}
+ establishment | 895406732 | 2015-12-31  | 2016-01-01 | 2018-12-31 | {"turnover": 12000000, "employees": 9}
+ establishment | 895406732 | 2018-12-31  | 2019-01-01 | 2019-02-28 | {"turnover": 60000000, "employees": 25}
+ establishment | 895406732 | 2019-02-28  | 2019-03-01 | 2019-04-30 | {"turnover": 60000000, "employees": 30}
+ establishment | 895406732 | 2019-04-30  | 2019-05-01 | 2019-06-30 | {"turnover": 60000000, "employees": 35}
+ establishment | 895406732 | 2019-06-30  | 2019-07-01 | 2019-08-31 | {"turnover": 60000000, "employees": 40}
+ establishment | 895406732 | 2019-08-31  | 2019-09-01 | 2019-10-31 | {"turnover": 60000000, "employees": 50}
+ establishment | 895406732 | 2019-10-31  | 2019-11-01 | 2019-12-31 | {"turnover": 60000000, "employees": 40}
+ establishment | 895406732 | 2019-12-31  | 2020-01-01 | infinity   | {"turnover": 70000000, "employees": 45}
+(10 rows)
 
 \echo "Checking timeline_legal_unit data"
 "Checking timeline_legal_unit data"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -295,22 +294,23 @@ FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_after, valid_to;
  unit_type  | tax_ident | valid_after | valid_from |  valid_to  |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postal_code | physical_postal_place | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postal_code | postal_postal_place | postal_region_path | postal_country_iso_2 | invalid_codes 
 ------------+-----------+-------------+------------+------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-----------------+---------------------+------------------------+------------------------+------------------------+----------------------+-----------------------+----------------------+------------------------+----------------------+----------------------+----------------------+--------------------+---------------------+--------------------+----------------------+---------------
- legal_unit |           | 12-31-2009  | 01-01-2010 | 12-31-2012 | KRANLØFT ENK          | 01-01-2010 | 12-31-2012 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 12-31-2012  | 01-01-2013 | 12-31-2015 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 12-31-2015  | 01-01-2016 | 12-31-2018 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 12-31-2018  | 01-01-2019 | 02-28-2019 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 02-28-2019  | 03-01-2019 | 04-30-2019 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 04-30-2019  | 05-01-2019 | 06-30-2019 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 06-30-2019  | 07-01-2019 | 08-31-2019 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 08-31-2019  | 09-01-2019 | 10-31-2019 | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
- legal_unit |           | 10-31-2019  | 11-01-2019 | infinity   | KRAN & SPESIALLØFT AS | 01-01-2013 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
-(9 rows)
+ legal_unit | 823573673 | 2009-12-31  | 2010-01-01 | 2012-12-31 | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2012-12-31  | 2013-01-01 | 2015-12-31 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2015-12-31  | 2016-01-01 | 2018-12-31 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2018-12-31  | 2019-01-01 | 2019-02-28 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2019-02-28  | 2019-03-01 | 2019-04-30 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2019-04-30  | 2019-05-01 | 2019-06-30 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2019-06-30  | 2019-07-01 | 2019-08-31 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2019-08-31  | 2019-09-01 | 2019-10-31 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2019-10-31  | 2019-11-01 | 2019-12-31 | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+ legal_unit | 921835809 | 2019-12-31  | 2020-01-01 | infinity   | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347                 | LYE                   | 11.21                | NO                     |                      |                      |                      |                    |                     |                    |                      | 
+(10 rows)
 
 \x
 \echo "Checking timeline_legal_unit stats"
 "Checking timeline_legal_unit stats"
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->0->'tax_ident' AS tax_ident
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
      , valid_after
      , valid_from
      , valid_to
@@ -321,10 +321,10 @@ FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_after, valid_to;
 -[ RECORD 1 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 12-31-2009
-valid_from    | 01-01-2010
-valid_to      | 12-31-2012
+tax_ident     | 823573673
+valid_after   | 2009-12-31
+valid_from    | 2010-01-01
+valid_to      | 2012-12-31
 name          | KRANLØFT ENK
 stats         | {}
 stats_summary | {                           +
@@ -353,10 +353,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 2 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 12-31-2012
-valid_from    | 01-01-2013
-valid_to      | 12-31-2015
+tax_ident     | 921835809
+valid_after   | 2012-12-31
+valid_from    | 2013-01-01
+valid_to      | 2015-12-31
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -385,10 +385,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 3 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 12-31-2015
-valid_from    | 01-01-2016
-valid_to      | 12-31-2018
+tax_ident     | 921835809
+valid_after   | 2015-12-31
+valid_from    | 2016-01-01
+valid_to      | 2018-12-31
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -417,10 +417,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 4 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 12-31-2018
-valid_from    | 01-01-2019
-valid_to      | 02-28-2019
+tax_ident     | 921835809
+valid_after   | 2018-12-31
+valid_from    | 2019-01-01
+valid_to      | 2019-02-28
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -449,10 +449,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 5 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 02-28-2019
-valid_from    | 03-01-2019
-valid_to      | 04-30-2019
+tax_ident     | 921835809
+valid_after   | 2019-02-28
+valid_from    | 2019-03-01
+valid_to      | 2019-04-30
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -481,10 +481,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 6 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 04-30-2019
-valid_from    | 05-01-2019
-valid_to      | 06-30-2019
+tax_ident     | 921835809
+valid_after   | 2019-04-30
+valid_from    | 2019-05-01
+valid_to      | 2019-06-30
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -513,10 +513,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 7 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 06-30-2019
-valid_from    | 07-01-2019
-valid_to      | 08-31-2019
+tax_ident     | 921835809
+valid_after   | 2019-06-30
+valid_from    | 2019-07-01
+valid_to      | 2019-08-31
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -545,10 +545,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 8 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 08-31-2019
-valid_from    | 09-01-2019
-valid_to      | 10-31-2019
+tax_ident     | 921835809
+valid_after   | 2019-08-31
+valid_from    | 2019-09-01
+valid_to      | 2019-10-31
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -577,10 +577,10 @@ stats_summary | {                           +
               | }
 -[ RECORD 9 ]-+-----------------------------
 unit_type     | legal_unit
-tax_ident     | 
-valid_after   | 10-31-2019
-valid_from    | 11-01-2019
-valid_to      | infinity
+tax_ident     | 921835809
+valid_after   | 2019-10-31
+valid_from    | 2019-11-01
+valid_to      | 2019-12-31
 name          | KRAN & SPESIALLØFT AS
 stats         | {}
 stats_summary | {                           +
@@ -607,6 +607,38 @@ stats_summary | {                           +
               |         "sum_sq_diff": 0.00 +
               |     }                       +
               | }
+-[ RECORD 10 ]+-----------------------------
+unit_type     | legal_unit
+tax_ident     | 921835809
+valid_after   | 2019-12-31
+valid_from    | 2020-01-01
+valid_to      | infinity
+name          | KRAN & SPESIALLØFT AS
+stats         | {}
+stats_summary | {                           +
+              |     "turnover": {           +
+              |         "max": 70000000,    +
+              |         "min": 70000000,    +
+              |         "sum": 70000000,    +
+              |         "mean": 70000000.00,+
+              |         "type": "number",   +
+              |         "count": 1,         +
+              |         "stddev": 0.00,     +
+              |         "variance": 0.00,   +
+              |         "sum_sq_diff": 0.00 +
+              |     },                      +
+              |     "employees": {          +
+              |         "max": 45,          +
+              |         "min": 45,          +
+              |         "sum": 45,          +
+              |         "mean": 45.00,      +
+              |         "type": "number",   +
+              |         "count": 1,         +
+              |         "stddev": 0.00,     +
+              |         "variance": 0.00,   +
+              |         "sum_sq_diff": 0.00 +
+              |     }                       +
+              | }
 
 \x
 \x
@@ -625,8 +657,8 @@ unit_type       | establishment
 external_idents | {"tax_ident": "895406732"}
 invalid_codes   | 
 stats           | {                           +
-                |     "turnover": 60000000,   +
-                |     "employees": 40         +
+                |     "turnover": 70000000,   +
+                |     "employees": 45         +
                 | }
 stats_summary   | {                           +
                 | }
@@ -638,10 +670,10 @@ stats           | {                           +
                 | }
 stats_summary   | {                           +
                 |     "turnover": {           +
-                |         "max": 60000000,    +
-                |         "min": 60000000,    +
-                |         "sum": 60000000,    +
-                |         "mean": 60000000.00,+
+                |         "max": 70000000,    +
+                |         "min": 70000000,    +
+                |         "sum": 70000000,    +
+                |         "mean": 70000000.00,+
                 |         "type": "number",   +
                 |         "count": 1,         +
                 |         "stddev": 0.00,     +
@@ -649,10 +681,10 @@ stats_summary   | {                           +
                 |         "sum_sq_diff": 0.00 +
                 |     },                      +
                 |     "employees": {          +
-                |         "max": 40,          +
-                |         "min": 40,          +
-                |         "sum": 40,          +
-                |         "mean": 40.00,      +
+                |         "max": 45,          +
+                |         "min": 45,          +
+                |         "sum": 45,          +
+                |         "mean": 45.00,      +
                 |         "type": "number",   +
                 |         "count": 1,         +
                 |         "stddev": 0.00,     +
@@ -690,10 +722,10 @@ distinct_unit_count | 1
 invalid_codes       | 
 stats_summary       | {                           +
                     |     "turnover": {           +
-                    |         "max": 60000000,    +
-                    |         "min": 60000000,    +
-                    |         "sum": 60000000,    +
-                    |         "mean": 60000000.00,+
+                    |         "max": 70000000,    +
+                    |         "min": 70000000,    +
+                    |         "sum": 70000000,    +
+                    |         "mean": 70000000.00,+
                     |         "type": "number",   +
                     |         "count": 1,         +
                     |         "stddev": 0.00,     +
@@ -701,10 +733,10 @@ stats_summary       | {                           +
                     |         "sum_sq_diff": 0.00 +
                     |     },                      +
                     |     "employees": {          +
-                    |         "max": 40,          +
-                    |         "min": 40,          +
-                    |         "sum": 40,          +
-                    |         "mean": 40.00,      +
+                    |         "max": 45,          +
+                    |         "min": 45,          +
+                    |         "sum": 45,          +
+                    |         "mean": 45.00,      +
                     |         "type": "number",   +
                     |         "count": 1,         +
                     |         "stddev": 0.00,     +
@@ -2569,9 +2601,9 @@ statistical_unit_hierarchy
                         "stat_for_unit": [
                             {
                                 "valid_to": "infinity",
-                                "employees": 40,
-                                "valid_from": "2019-11-01",
-                                "valid_after": "2019-10-31",
+                                "employees": 45,
+                                "valid_from": "2020-01-01",
+                                "valid_after": "2019-12-31",
                                 "stat_definition": {
                                     "code": "employees",
                                     "name": "Number of people employed",
@@ -2583,10 +2615,10 @@ statistical_unit_hierarchy
                                 }
                             },
                             {
-                                "turnover": 60000000,
+                                "turnover": 70000000,
                                 "valid_to": "infinity",
-                                "valid_from": "2019-01-01",
-                                "valid_after": "2018-12-31",
+                                "valid_from": "2020-01-01",
+                                "valid_after": "2019-12-31",
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
@@ -2796,9 +2828,9 @@ statistical_unit_hierarchy
                         "stat_for_unit": [
                             {
                                 "valid_to": "infinity",
-                                "employees": 40,
-                                "valid_from": "2019-11-01",
-                                "valid_after": "2019-10-31",
+                                "employees": 45,
+                                "valid_from": "2020-01-01",
+                                "valid_after": "2019-12-31",
                                 "stat_definition": {
                                     "code": "employees",
                                     "name": "Number of people employed",
@@ -2810,10 +2842,10 @@ statistical_unit_hierarchy
                                 }
                             },
                             {
-                                "turnover": 60000000,
+                                "turnover": 70000000,
                                 "valid_to": "infinity",
-                                "valid_from": "2019-01-01",
-                                "valid_after": "2018-12-31",
+                                "valid_from": "2020-01-01",
+                                "valid_after": "2019-12-31",
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
