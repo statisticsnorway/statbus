@@ -3857,6 +3857,8 @@ CREATE VIEW public.timeline_enterprise
     , establishment_ids
     , legal_unit_ids
     , enterprise_id
+    , primary_establishment_id
+    , primary_legal_unit_id
     , stats_summary
     )
     AS
@@ -3911,6 +3913,7 @@ CREATE VIEW public.timeline_enterprise
            , plu.invalid_codes AS invalid_codes
            --
            , en.id AS enterprise_id
+           , plu.id AS primary_legal_unit_id
       FROM public.timesegments AS t
       INNER JOIN public.enterprise AS en
           ON t.unit_type = 'enterprise' AND t.unit_id = en.id
@@ -4013,6 +4016,7 @@ CREATE VIEW public.timeline_enterprise
            , pes.invalid_codes AS invalid_codes
            --
            , en.id AS enterprise_id
+           , pes.id AS primary_establishment_id
       FROM public.timesegments AS t
       INNER JOIN public.enterprise AS en
           ON t.unit_type = 'enterprise' AND t.unit_id = en.id
@@ -4127,6 +4131,8 @@ CREATE VIEW public.timeline_enterprise
                , ARRAY[]::INT[] AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
+               , NULL::INTEGER AS primary_establishment_id
+               , basis.primary_legal_unit_id
                , lua.stats_summary AS stats_summary
           FROM basis_with_legal_unit AS basis
           LEFT OUTER JOIN legal_unit_aggregation AS lua
@@ -4177,6 +4183,8 @@ CREATE VIEW public.timeline_enterprise
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , ARRAY[]::INT[] AS legal_unit_ids
                , basis.enterprise_id
+               , basis.primary_establishment_id
+               , NULL::INTEGER AS primary_legal_unit_id
                , esa.stats_summary AS stats_summary
           FROM basis_with_establishemnt AS basis
           LEFT OUTER JOIN establishment_aggregation AS esa
@@ -4213,7 +4221,27 @@ CREATE FUNCTION public.get_external_idents(
   )
   SELECT COALESCE(data, '{}'::JSONB) AS external_idents
   FROM agg_data;
-$$ LANGUAGE sql IMMUTABLE;
+$$ LANGUAGE sql STRICT IMMUTABLE;
+
+
+\echo public.enterprise_external_ident
+CREATE VIEW public.enterprise_external_ident AS
+  SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+        , plu.enterprise_id AS unit_id
+        , public.get_external_idents('legal_unit', plu.id) AS external_ident
+        , plu.valid_after
+        , plu.valid_to
+  FROM public.legal_unit plu
+  WHERE  plu.primary_for_enterprise = true
+  UNION ALL
+  SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+       , pes.enterprise_id AS unit_id
+       , public.get_external_idents('establishment', pes.id) AS external_ident
+       , pes.valid_after
+       , pes.valid_to
+  FROM public.establishment pes
+  WHERE pes.enterprise_id IS NOT NULL
+; -- END public.enterprise_external_ident
 
 
 \echo public.get_tag_paths
@@ -4249,6 +4277,7 @@ CREATE VIEW public.statistical_unit_def
     , valid_after
     , valid_from
     , valid_to
+    , external_idents
     , name
     , birth_date
     , death_date
@@ -4289,7 +4318,6 @@ CREATE VIEW public.statistical_unit_def
     , enterprise_ids
     , stats
     , stats_summary
-    , external_idents
     , establishment_count
     , legal_unit_count
     , enterprise_count
@@ -4348,8 +4376,10 @@ CREATE VIEW public.statistical_unit_def
                   THEN ARRAY[]::INT[]
                   ELSE ARRAY[enterprise_id]::INT[]
               END AS enterprise_ids
+           , NULL::INTEGER AS primary_establishment_id
+           , NULL::INTEGER AS primary_legal_unit_id
            , stats
-           , '{}'::JSONB AS stats_summary
+           , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
       UNION ALL
       SELECT unit_type
@@ -4395,6 +4425,8 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , NULL::INTEGER AS primary_establishment_id
+           , NULL::INTEGER AS primary_legal_unit_id
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -4442,14 +4474,64 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , primary_establishment_id
+           , primary_legal_unit_id
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
       --UNION ALL
       --SELECT * FROM enterprise_group_timeline
     )
-    SELECT data.*
-         , public.get_external_idents(data.unit_type, data.unit_id) AS external_idents
+    SELECT data.unit_type
+         , data.unit_id
+         , data.valid_after
+         , data.valid_from
+         , data.valid_to
+         , COALESCE(
+            public.get_external_idents(data.unit_type, data.unit_id),
+            public.get_external_idents('establishment'::public.statistical_unit_type, data.primary_establishment_id),
+            public.get_external_idents('legal_unit'::public.statistical_unit_type, data.primary_legal_unit_id)
+            ) AS external_idents
+         , data.name
+         , data.birth_date
+         , data.death_date
+         , data.search
+         , data.primary_activity_category_id
+         , data.primary_activity_category_path
+         , data.secondary_activity_category_id
+         , data.secondary_activity_category_path
+         , data.activity_category_paths
+         , data.sector_id
+         , data.sector_path
+         , data.sector_code
+         , data.sector_name
+         , data.legal_form_id
+         , data.legal_form_code
+         , data.legal_form_name
+         , data.physical_address_part1
+         , data.physical_address_part2
+         , data.physical_address_part3
+         , data.physical_postal_code
+         , data.physical_postal_place
+         , data.physical_region_id
+         , data.physical_region_path
+         , data.physical_country_id
+         , data.physical_country_iso_2
+         , data.postal_address_part1
+         , data.postal_address_part2
+         , data.postal_address_part3
+         , data.postal_postal_code
+         , data.postal_postal_place
+         , data.postal_region_id
+         , data.postal_region_path
+         , data.postal_country_id
+         , data.postal_country_iso_2
+         , data.invalid_codes
+         , data.establishment_ids
+         , data.legal_unit_ids
+         , data.enterprise_ids
+         , data.stats
+         , data.stats_summary
          , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
          , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
          , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count

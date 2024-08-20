@@ -105,6 +105,7 @@ DROP MATERIALIZED VIEW public.statistical_unit;
 
 DROP VIEW public.statistical_unit_def;
 
+DROP VIEW public.enterprise_external_ident;
 DROP FUNCTION public.get_external_idents;
 DROP FUNCTION public.get_tag_paths;
 
