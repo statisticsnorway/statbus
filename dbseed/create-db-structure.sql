@@ -1313,9 +1313,9 @@ CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree 
 
 
 \echo admin.enterprise_group_id_exists
-CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
+CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.enterprise_group_role
 CREATE TABLE public.enterprise_group_role (
@@ -1425,9 +1425,9 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_i
 
 
 \echo admin.legal_unit_id_exists
-CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
+CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.establishment
 CREATE TABLE public.establishment (
@@ -1489,9 +1489,9 @@ CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_
 
 
 \echo admin.establishment_id_exists
-CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
+CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.external_ident_type
 CREATE TABLE public.external_ident_type (
@@ -3052,7 +3052,7 @@ CREATE VIEW public.timesegments AS
  * ======================================================================================
  */
 
-CREATE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb) RETURNS jsonb AS $$
+CREATE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb) RETURNS jsonb LANGUAGE plpgsql STABLE STRICT AS $$
 DECLARE
     prev_stat_state jsonb;
     stat_key text;
@@ -3221,10 +3221,10 @@ BEGIN
 
     RETURN state;
 END;
-$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+$$;
 
 
-CREATE FUNCTION public.jsonb_stats_to_summary_round(state jsonb) RETURNS jsonb AS $$
+CREATE FUNCTION public.jsonb_stats_to_summary_round(state jsonb) RETURNS jsonb LANGUAGE plpgsql STABLE STRICT AS $$
 DECLARE
     key text;
     val jsonb;
@@ -3254,7 +3254,7 @@ BEGIN
 
     RETURN result;
 END;
-$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+$$;
 
 
 \echo public.jsonb_stats_to_summary_agg
@@ -3267,7 +3267,7 @@ CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
 
 
 \echo public.jsonb_stats_summary_merge
-CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb AS $$
+CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
 DECLARE
     key_a text;
     key_b text;
@@ -3378,7 +3378,7 @@ BEGIN
 
     RETURN result;
 END;
-$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+$$;
 
 
 \echo public.jsonb_stats_summary_merge_agg
@@ -4206,7 +4206,7 @@ CREATE VIEW public.timeline_enterprise
 CREATE FUNCTION public.get_external_idents(
   unit_type public.statistical_unit_type,
   unit_id INTEGER
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE STRICT AS $$
   WITH agg_data AS (
     SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
     FROM public.external_ident AS ei
@@ -4221,7 +4221,7 @@ CREATE FUNCTION public.get_external_idents(
   )
   SELECT COALESCE(data, '{}'::JSONB) AS external_idents
   FROM agg_data;
-$$ LANGUAGE sql STRICT IMMUTABLE;
+$$;
 
 
 \echo public.enterprise_external_ident
@@ -4248,7 +4248,7 @@ CREATE VIEW public.enterprise_external_ident AS
 CREATE FUNCTION public.get_tag_paths(
   unit_type public.statistical_unit_type,
   unit_id INTEGER
-) RETURNS public.ltree[] AS $$
+) RETURNS public.ltree[] LANGUAGE sql STABLE STRICT AS $$
   WITH ordered_data AS (
     SELECT DISTINCT t.path
     FROM public.tag_for_unit AS tfu
@@ -4266,7 +4266,7 @@ CREATE FUNCTION public.get_tag_paths(
   )
   SELECT COALESCE(tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
   FROM agg_data;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 
@@ -5825,7 +5825,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
   parent_establishment_id INTEGER,
   valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH ordered_data AS (
     SELECT
         to_jsonb(sfu.*)
@@ -5850,7 +5850,7 @@ SELECT CASE
     ELSE jsonb_build_object('stat_for_unit',data)
     END
   FROM data_list;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.tag_for_unit_hierarchy
@@ -5859,7 +5859,7 @@ CREATE FUNCTION public.tag_for_unit_hierarchy(
   parent_legal_unit_id INTEGER DEFAULT NULL,
   parent_enterprise_id INTEGER DEFAULT NULL,
   parent_enterprise_group_id INTEGER DEFAULT NULL
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(t.*)
         AS data
@@ -5880,30 +5880,30 @@ CREATE FUNCTION public.tag_for_unit_hierarchy(
     END
   FROM data_list;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.region_hierarchy
 CREATE OR REPLACE FUNCTION public.region_hierarchy(region_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('region', to_jsonb(s.*)) AS data
           FROM public.region AS s
          WHERE region_id IS NOT NULL AND s.id = region_id
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.country_hierarchy
 CREATE OR REPLACE FUNCTION public.country_hierarchy(country_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('country', to_jsonb(s.*)) AS data
           FROM public.country AS s
          WHERE country_id IS NOT NULL AND s.id = country_id
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.location_hierarchy
@@ -5911,7 +5911,7 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(l.*)
         || (SELECT public.region_hierarchy(l.region_id))
@@ -5932,12 +5932,12 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
     END
   FROM data_list;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.activity_category_standard_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_standard_hierarchy(standard_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object(
                 'activity_category_standard',
@@ -5948,12 +5948,12 @@ RETURNS JSONB AS $$
          ORDER BY acs.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.activity_category_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object(
             'activity_category',
@@ -5966,7 +5966,7 @@ RETURNS JSONB AS $$
          ORDER BY ac.path
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.activity_hierarchy
@@ -5974,7 +5974,7 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH ordered_data AS (
         SELECT to_jsonb(a.*)
                || (SELECT public.activity_category_hierarchy(a.category_id))
@@ -5994,12 +5994,12 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
     END
   FROM data_list;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.sector_hierarchy
 CREATE OR REPLACE FUNCTION public.sector_hierarchy(sector_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('sector', to_jsonb(s.*)) AS data
           FROM public.sector AS s
@@ -6007,12 +6007,12 @@ RETURNS JSONB AS $$
          ORDER BY s.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.legal_form_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('legal_form', to_jsonb(lf.*)) AS data
           FROM public.legal_form AS lf
@@ -6020,7 +6020,7 @@ RETURNS JSONB AS $$
          ORDER BY lf.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.external_ident_hierarchy
@@ -6029,7 +6029,7 @@ CREATE FUNCTION public.external_ident_hierarchy(
   parent_legal_unit_id INTEGER DEFAULT NULL,
   parent_enterprise_id INTEGER DEFAULT NULL,
   parent_enterprise_group_id INTEGER DEFAULT NULL
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH agg_data AS (
     SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
      FROM public.external_ident AS ei
@@ -6046,7 +6046,7 @@ CREATE FUNCTION public.external_ident_hierarchy(
     END
   FROM agg_data;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.establishment_hierarchy
@@ -6054,7 +6054,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
     parent_enterprise_id INTEGER DEFAULT NULL,
     valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(es.*)
         || (SELECT public.external_ident_hierarchy(es.id,NULL,NULL,NULL))
@@ -6078,11 +6078,11 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     ELSE jsonb_build_object('establishment',data)
     END
   FROM data_list;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.legal_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(lu.*)
         || (SELECT public.external_ident_hierarchy(NULL,lu.id,NULL,NULL))
@@ -6105,11 +6105,11 @@ RETURNS JSONB AS $$
     ELSE jsonb_build_object('legal_unit',data)
     END
   FROM data_list;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.enterprise_hierarchy
 CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object(
                 'enterprise',
@@ -6124,12 +6124,12 @@ RETURNS JSONB AS $$
          ORDER BY en.short_name
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.statistical_unit_enterprise_id
 CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS INTEGER AS $$
+RETURNS INTEGER LANGUAGE sql STABLE AS $$
   SELECT CASE unit_type
          WHEN 'establishment' THEN (
             WITH selected_establishment AS (
@@ -6159,12 +6159,12 @@ RETURNS INTEGER AS $$
          WHEN 'enterprise_group' THEN NULL --TODO
          END
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.statistical_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
   SELECT --jsonb_strip_nulls(
             public.enterprise_hierarchy(
               public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
@@ -6172,7 +6172,7 @@ RETURNS JSONB AS $$
             )
         --)
 ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.statistical_unit_refresh_now
@@ -10203,7 +10203,7 @@ $$;
 
 -- Add helpers
 CREATE FUNCTION public.remove_ephemeral_data_from_hierarchy(data JSONB) RETURNS JSONB
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql IMMUTABLE STRICT AS $$
 DECLARE
     result JSONB := '{}';
     key TEXT;
