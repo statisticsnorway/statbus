@@ -66,8 +66,8 @@ DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_l
 DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
 \echo public.tag_for_unit_hierarchy
 DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
-\echo public.external_ident_hierarchy
-DROP FUNCTION public.external_ident_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
+\echo public.external_idents_hierarchy
+DROP FUNCTION public.external_idents_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
 \echo public.activity_category_standard_hierarchy
 DROP FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id integer);
 
@@ -105,7 +105,7 @@ DROP MATERIALIZED VIEW public.statistical_unit;
 
 DROP VIEW public.statistical_unit_def;
 
-DROP VIEW public.enterprise_external_ident;
+DROP VIEW public.enterprise_external_idents;
 DROP FUNCTION public.get_external_idents;
 DROP FUNCTION public.get_tag_paths;
 
@@ -225,10 +225,10 @@ DROP FUNCTION admin.import_lookup_activity_category;
 DROP FUNCTION admin.import_lookup_sector;
 DROP FUNCTION admin.import_lookup_legal_form;
 DROP FUNCTION admin.type_date_field;
-DROP FUNCTION admin.process_external_identifiers;
+DROP FUNCTION admin.process_external_idents;
 DROP FUNCTION admin.process_enterprise_connection;
 DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
-DROP FUNCTION admin.process_linked_legal_unit_external_identifiers(jsonb);
+DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
 DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
 DROP PROCEDURE admin.generate_import_establishment_era();
 DROP PROCEDURE admin.cleanup_import_establishment_era();

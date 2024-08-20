@@ -4207,8 +4207,7 @@ CREATE FUNCTION public.get_external_idents(
   unit_type public.statistical_unit_type,
   unit_id INTEGER
 ) RETURNS JSONB LANGUAGE sql STABLE STRICT AS $$
-  WITH agg_data AS (
-    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
+    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS external_idents
     FROM public.external_ident AS ei
     JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
     WHERE
@@ -4217,18 +4216,15 @@ CREATE FUNCTION public.get_external_idents(
         WHEN 'legal_unit' THEN ei.legal_unit_id = unit_id
         WHEN 'establishment' THEN ei.establishment_id = unit_id
         WHEN 'enterprise_group' THEN ei.enterprise_group_id = unit_id
-      END
-  )
-  SELECT COALESCE(data, '{}'::JSONB) AS external_idents
-  FROM agg_data;
+      END;
 $$;
 
 
-\echo public.enterprise_external_ident
-CREATE VIEW public.enterprise_external_ident AS
+\echo public.enterprise_external_idents
+CREATE VIEW public.enterprise_external_idents AS
   SELECT 'enterprise'::public.statistical_unit_type AS unit_type
         , plu.enterprise_id AS unit_id
-        , public.get_external_idents('legal_unit', plu.id) AS external_ident
+        , public.get_external_idents('legal_unit', plu.id) AS external_idents
         , plu.valid_after
         , plu.valid_to
   FROM public.legal_unit plu
@@ -4236,12 +4232,12 @@ CREATE VIEW public.enterprise_external_ident AS
   UNION ALL
   SELECT 'enterprise'::public.statistical_unit_type AS unit_type
        , pes.enterprise_id AS unit_id
-       , public.get_external_idents('establishment', pes.id) AS external_ident
+       , public.get_external_idents('establishment', pes.id) AS external_idents
        , pes.valid_after
        , pes.valid_to
   FROM public.establishment pes
   WHERE pes.enterprise_id IS NOT NULL
-; -- END public.enterprise_external_ident
+; -- END public.enterprise_external_idents
 
 
 \echo public.get_tag_paths
@@ -4330,6 +4326,7 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
+           , public.get_external_idents(unit_type, unit_id) AS external_idents
            , name
            , birth_date
            , death_date
@@ -4376,8 +4373,6 @@ CREATE VIEW public.statistical_unit_def
                   THEN ARRAY[]::INT[]
                   ELSE ARRAY[enterprise_id]::INT[]
               END AS enterprise_ids
-           , NULL::INTEGER AS primary_establishment_id
-           , NULL::INTEGER AS primary_legal_unit_id
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
@@ -4387,6 +4382,7 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
+           , public.get_external_idents(unit_type, unit_id) AS external_idents
            , name
            , birth_date
            , death_date
@@ -4425,8 +4421,6 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
-           , NULL::INTEGER AS primary_establishment_id
-           , NULL::INTEGER AS primary_legal_unit_id
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -4436,6 +4430,11 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
+           , COALESCE(
+             public.get_external_idents(unit_type, unit_id),
+             public.get_external_idents('establishment'::public.statistical_unit_type, primary_establishment_id),
+             public.get_external_idents('legal_unit'::public.statistical_unit_type, primary_legal_unit_id)
+           ) AS external_idents
            , name
            , birth_date
            , death_date
@@ -4474,8 +4473,6 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
-           , primary_establishment_id
-           , primary_legal_unit_id
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
@@ -4487,11 +4484,7 @@ CREATE VIEW public.statistical_unit_def
          , data.valid_after
          , data.valid_from
          , data.valid_to
-         , COALESCE(
-            public.get_external_idents(data.unit_type, data.unit_id),
-            public.get_external_idents('establishment'::public.statistical_unit_type, data.primary_establishment_id),
-            public.get_external_idents('legal_unit'::public.statistical_unit_type, data.primary_legal_unit_id)
-            ) AS external_idents
+         , data.external_idents
          , data.name
          , data.birth_date
          , data.death_date
@@ -6023,8 +6016,8 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
 $$;
 
 
-\echo public.external_ident_hierarchy
-CREATE FUNCTION public.external_ident_hierarchy(
+\echo public.external_idents_hierarchy
+CREATE FUNCTION public.external_idents_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   parent_enterprise_id INTEGER DEFAULT NULL,
@@ -6042,7 +6035,7 @@ CREATE FUNCTION public.external_ident_hierarchy(
   )
   SELECT CASE
     WHEN data IS NULL THEN '{}'::JSONB
-    ELSE jsonb_build_object('external_ident',data)
+    ELSE jsonb_build_object('external_idents',data)
     END
   FROM agg_data;
   ;
@@ -6057,7 +6050,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
 ) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(es.*)
-        || (SELECT public.external_ident_hierarchy(es.id,NULL,NULL,NULL))
+        || (SELECT public.external_idents_hierarchy(es.id,NULL,NULL,NULL))
         || (SELECT public.activity_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
@@ -6085,7 +6078,7 @@ CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTE
 RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(lu.*)
-        || (SELECT public.external_ident_hierarchy(NULL,lu.id,NULL,NULL))
+        || (SELECT public.external_idents_hierarchy(NULL,lu.id,NULL,NULL))
         || (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on))
         || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
@@ -6114,7 +6107,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
         SELECT jsonb_build_object(
                 'enterprise',
                  to_jsonb(en.*)
-                 || (SELECT public.external_ident_hierarchy(NULL,NULL,en.id,NULL))
+                 || (SELECT public.external_idents_hierarchy(NULL,NULL,en.id,NULL))
                  || (SELECT public.legal_unit_hierarchy(en.id, valid_on))
                  || (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
                  || (SELECT public.tag_for_unit_hierarchy(NULL,NULL,en.id,NULL))
@@ -7440,13 +7433,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-\echo admin.process_external_identifiers
-CREATE FUNCTION admin.process_external_identifiers(
+\echo admin.process_external_idents
+CREATE FUNCTION admin.process_external_idents(
     new_jsonb JSONB,
     unit_type TEXT,
     OUT external_idents public.external_ident[],
     OUT prior_id INTEGER
-) RETURNS RECORD AS $process_external_identifiers$
+) RETURNS RECORD AS $process_external_idents$
 DECLARE
     unit_fk_field TEXT;
     unit_fk_value INTEGER;
@@ -7525,18 +7518,18 @@ BEGIN
         RAISE EXCEPTION 'No external identifier (%) is specified for row %', array_to_string(ident_codes, ','), new_jsonb;
     END IF;
 END; -- Process external identifiers
-$process_external_identifiers$ LANGUAGE plpgsql;
+$process_external_idents$ LANGUAGE plpgsql;
 
 
 -- Find a connected legal_unit - i.e. a field with a `legal_unit`
 -- prefix that points to an external identifier.
-\echo admin.process_linked_legal_unit_external_identifiers
-CREATE FUNCTION admin.process_linked_legal_unit_external_identifiers(
+\echo admin.process_linked_legal_unit_external_idents
+CREATE FUNCTION admin.process_linked_legal_unit_external_idents(
     new_jsonb JSONB,
     OUT legal_unit_id INTEGER,
     OUT linked_ident_specified BOOL,
     OUT is_primary_for_legal_unit BOOL
-) RETURNS RECORD AS $process_linked_legal_unit_external_identifiers$
+) RETURNS RECORD AS $process_linked_legal_unit_external_ident$
 DECLARE
     unit_type TEXT := 'legal_unit';
     unit_fk_field TEXT;
@@ -7598,7 +7591,7 @@ BEGIN
         END IF; -- ident_type.code in import
     END LOOP; -- public.external_ident_type
 END; -- Process external identifiers
-$process_linked_legal_unit_external_identifiers$ LANGUAGE plpgsql;
+$process_linked_legal_unit_external_ident$ LANGUAGE plpgsql;
 
 
 \echo admin.validate_stats_for_unit
@@ -8006,7 +7999,7 @@ BEGIN
 
     SELECT external_idents        , prior_id
     INTO   external_idents_to_add , prior_legal_unit_id
-    FROM admin.process_external_identifiers(new_jsonb,'legal_unit') AS r;
+    FROM admin.process_external_idents(new_jsonb,'legal_unit') AS r;
 
     SELECT NEW.tax_ident AS tax_ident
          , NEW.name AS name
@@ -8681,11 +8674,11 @@ BEGIN
 
     SELECT external_idents        , prior_id
     INTO   external_idents_to_add , prior_establishment_id
-    FROM admin.process_external_identifiers(new_jsonb,'establishment') AS r;
+    FROM admin.process_external_idents(new_jsonb,'establishment') AS r;
 
     SELECT r.legal_unit_id, r.linked_ident_specified, r.is_primary_for_legal_unit
     INTO legal_unit.id, legal_unit_ident_specified, is_primary_for_legal_unit
-    FROM admin.process_linked_legal_unit_external_identifiers(new_jsonb) AS r;
+    FROM admin.process_linked_legal_unit_external_idents(new_jsonb) AS r;
 
     IF NOT legal_unit_ident_specified THEN
         SELECT r.enterprise_id
@@ -10205,35 +10198,36 @@ $$;
 CREATE FUNCTION public.remove_ephemeral_data_from_hierarchy(data JSONB) RETURNS JSONB
 LANGUAGE plpgsql IMMUTABLE STRICT AS $$
 DECLARE
-    result JSONB := '{}';
+    result JSONB;
     key TEXT;
     value JSONB;
     new_value JSONB;
     ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at'];
+    ephemeral_patterns TEXT[] := ARRAY['%_id','%_ids'];
 BEGIN
-    -- Loop through each key-value pair in the JSONB object
-    FOR key, value IN SELECT * FROM jsonb_each(data) LOOP
-        -- If the key is in the ephemeral_keys array or ends with "_id", skip it
-        IF key = ANY(ephemeral_keys) OR key LIKE '%_id' THEN
-            CONTINUE;
-        END IF;
-
-        -- Process the value based on its type using CASE
-        new_value := CASE jsonb_typeof(value)
-            WHEN 'object' THEN
-                public.remove_ephemeral_data_from_hierarchy(value)
-            WHEN 'array' THEN
-                (
-                    SELECT jsonb_agg(public.remove_ephemeral_data_from_hierarchy(elem))
-                    FROM jsonb_array_elements(value) AS elem
-                )
-            ELSE
-                value
-        END;
-
-        -- Add the key and the processed value to the result
-        result := jsonb_set(result, ARRAY[key], new_value, true);
-    END LOOP;
+    -- Handle both object and array types at the first level
+    CASE jsonb_typeof(data)
+        WHEN 'object' THEN
+            result := '{}';  -- Initialize result as an empty object
+            FOR key, value IN SELECT * FROM jsonb_each(data) LOOP
+                IF key = ANY(ephemeral_keys) OR key LIKE ANY(ephemeral_patterns) THEN
+                    CONTINUE;
+                END IF;
+                new_value := public.remove_ephemeral_data_from_hierarchy(value);
+                result := jsonb_set(result, ARRAY[key], new_value, true);
+            END LOOP;
+        WHEN 'array' THEN
+            -- No need to initialize result as '{}', let the SELECT INTO handle it
+            SELECT COALESCE
+                ( jsonb_agg(public.remove_ephemeral_data_from_hierarchy(elem))
+                , '[]'::JSONB
+            )
+            INTO result
+            FROM jsonb_array_elements(data) AS elem;
+        ELSE
+            -- If data is neither object nor array, return it as is
+            result := data;
+    END CASE;
 
     RETURN result;
 END;

@@ -54,11 +54,11 @@ SELECT view_name FROM statistical_unit_refresh_now();
 SELECT tp.unit_type
      , COALESCE
           ( public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident'
-          , eei.external_ident->>'tax_ident'
+          , eei.external_idents->>'tax_ident'
           ) AS tax_ident
      , tp.timepoint
 FROM public.timepoints AS tp
-LEFT JOIN public.enterprise_external_ident AS eei
+LEFT JOIN public.enterprise_external_idents AS eei
        ON eei.unit_type = tp.unit_type
       AND eei.unit_id = tp.unit_id
       AND eei.valid_after <= tp.timepoint AND tp.timepoint <= eei.valid_to
@@ -68,12 +68,12 @@ ORDER BY tp.unit_type, tp.timepoint, tp.unit_id;
 SELECT ts.unit_type
      , COALESCE
           ( public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident'
-          , eei.external_ident->>'tax_ident'
+          , eei.external_idents->>'tax_ident'
           ) AS tax_ident
      , ts.valid_after
      , ts.valid_to
 FROM public.timesegments AS ts
-LEFT JOIN public.enterprise_external_ident AS eei
+LEFT JOIN public.enterprise_external_idents AS eei
        ON eei.unit_type = ts.unit_type
       AND eei.unit_id = ts.unit_id
       AND eei.valid_after <= ts.valid_after AND ts.valid_to <= eei.valid_to
@@ -181,7 +181,7 @@ ORDER BY unit_type, unit_id, valid_after, valid_to;
 
 \echo "Checking timeline_enterprise data"
 SELECT te.unit_type
-     , eei.external_ident->>'tax_ident' AS tax_ident
+     , eei.external_idents->>'tax_ident' AS tax_ident
      , te.valid_after
      , te.valid_from
      , te.valid_to
@@ -213,7 +213,7 @@ SELECT te.unit_type
      , te.postal_country_iso_2
      , te.invalid_codes
 FROM public.timeline_enterprise AS te
-LEFT JOIN public.enterprise_external_ident AS eei
+LEFT JOIN public.enterprise_external_idents AS eei
        ON eei.unit_type = te.unit_type
       AND eei.unit_id = te.unit_id
       AND daterange(eei.valid_after, eei.valid_to, '(]')
@@ -224,14 +224,14 @@ ORDER BY te.unit_type, te.unit_id, te.valid_after, te.valid_to;
 \x
 \echo "Checking timeline_enterprise stats"
 SELECT te.unit_type
-     , eei.external_ident->>'tax_ident' AS tax_ident
+     , eei.external_idents->>'tax_ident' AS tax_ident
      , te.valid_after
      , te.valid_from
      , te.valid_to
      , te.name
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.timeline_enterprise AS te
-LEFT JOIN public.enterprise_external_ident AS eei
+LEFT JOIN public.enterprise_external_idents AS eei
        ON eei.unit_type = te.unit_type
       AND eei.unit_id = te.unit_id
       AND daterange(eei.valid_after, eei.valid_to, '(]') 
@@ -241,17 +241,29 @@ ORDER BY te.unit_type, te.unit_id, te.valid_after, te.valid_to;
 
 
 \x
-\echo "Checking statistical_unit"
-SELECT unit_type
+\echo "Check statistical_unit"
+SELECT valid_after
+     , valid_from
+     , valid_to
+     , unit_type
      , external_idents
-     , invalid_codes
+     , jsonb_pretty(
+          public.remove_ephemeral_data_from_hierarchy(
+          to_jsonb(statistical_unit.*)
+          -'stats'
+          -'stats_summary'
+          -'valid_after'
+          -'valid_from'
+          -'valid_to'
+          -'unit_type'
+          -'external_idents'
+          )
+     ) AS statistical_unit_data
      , jsonb_pretty(stats) AS stats
      , jsonb_pretty(stats_summary) AS stats_summary
- FROM statistical_unit
- WHERE valid_after < '2020-12-31'::DATE AND '2020-12-31'::DATE <= valid_to
- ORDER BY unit_type;
+ FROM public.statistical_unit
+ ORDER BY valid_after, valid_from, valid_to, unit_type, unit_id;
 
--- TODO: Fix enterprise.stats_summary
 
 \echo "Checking statistical_unit totals"
 SELECT unit_type
@@ -259,7 +271,6 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < '2020-12-31'::DATE AND '2020-12-31'::DATE <= valid_to
  GROUP BY unit_type;
 
 SELECT year
