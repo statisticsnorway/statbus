@@ -50,21 +50,34 @@ SELECT
 -- Exclude the refresh_time_ms as it will vary.
 SELECT view_name FROM statistical_unit_refresh_now();
 
-
 \echo "Checking timepoints."
 SELECT tp.unit_type
-     , public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident' AS tax_ident
+     , COALESCE
+          ( public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident'
+          , eei.external_ident->>'tax_ident'
+          ) AS tax_ident
      , tp.timepoint
 FROM public.timepoints AS tp
-ORDER BY unit_type;
+LEFT JOIN public.enterprise_external_ident AS eei
+       ON eei.unit_type = tp.unit_type
+      AND eei.unit_id = tp.unit_id
+      AND eei.valid_after <= tp.timepoint AND tp.timepoint <= eei.valid_to
+ORDER BY tp.unit_type, tp.timepoint, tp.unit_id;
 
-\echo "Checking timesegments"
+\echo "Checking timesegments."
 SELECT ts.unit_type
-     , public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident' AS tax_ident
+     , COALESCE
+          ( public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident'
+          , eei.external_ident->>'tax_ident'
+          ) AS tax_ident
      , ts.valid_after
      , ts.valid_to
 FROM public.timesegments AS ts
-ORDER BY unit_type;
+LEFT JOIN public.enterprise_external_ident AS eei
+       ON eei.unit_type = ts.unit_type
+      AND eei.unit_id = ts.unit_id
+      AND eei.valid_after <= ts.valid_after AND ts.valid_to <= eei.valid_to
+ORDER BY ts.unit_type, ts.valid_after, ts.unit_id;
 
 
 \echo "Checking timeline_establishment data"
@@ -164,6 +177,68 @@ SELECT unit_type
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_after, valid_to;
 \x
+
+
+\echo "Checking timeline_enterprise data"
+SELECT te.unit_type
+     , eei.external_ident->>'tax_ident' AS tax_ident
+     , te.valid_after
+     , te.valid_from
+     , te.valid_to
+     , te.name
+     , te.birth_date
+     , te.death_date
+     , te.search
+     , te.primary_activity_category_path
+     , te.secondary_activity_category_path
+     , te.activity_category_paths
+     , te.sector_path
+     , te.sector_code
+     , te.sector_name
+     , te.legal_form_code
+     , te.legal_form_name
+     , te.physical_address_part1
+     , te.physical_address_part2
+     , te.physical_address_part3
+     , te.physical_postal_code
+     , te.physical_postal_place
+     , te.physical_region_path
+     , te.physical_country_iso_2
+     , te.postal_address_part1
+     , te.postal_address_part2
+     , te.postal_address_part3
+     , te.postal_postal_code
+     , te.postal_postal_place
+     , te.postal_region_path
+     , te.postal_country_iso_2
+     , te.invalid_codes
+FROM public.timeline_enterprise AS te
+LEFT JOIN public.enterprise_external_ident AS eei
+       ON eei.unit_type = te.unit_type
+      AND eei.unit_id = te.unit_id
+      AND daterange(eei.valid_after, eei.valid_to, '(]')
+       && daterange(te.valid_after, te.valid_to, '(]')
+ORDER BY te.unit_type, te.unit_id, te.valid_after, te.valid_to;
+
+
+\x
+\echo "Checking timeline_enterprise stats"
+SELECT te.unit_type
+     , eei.external_ident->>'tax_ident' AS tax_ident
+     , te.valid_after
+     , te.valid_from
+     , te.valid_to
+     , te.name
+     , jsonb_pretty(stats_summary) AS stats_summary
+FROM public.timeline_enterprise AS te
+LEFT JOIN public.enterprise_external_ident AS eei
+       ON eei.unit_type = te.unit_type
+      AND eei.unit_id = te.unit_id
+      AND daterange(eei.valid_after, eei.valid_to, '(]') 
+       && daterange(te.valid_after, te.valid_to, '(]')
+ORDER BY te.unit_type, te.unit_id, te.valid_after, te.valid_to;
+\x
+
 
 \x
 \echo "Checking statistical_unit"
