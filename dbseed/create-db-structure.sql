@@ -4080,7 +4080,7 @@ CREATE VIEW public.timeline_enterprise
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
-             , public.jsonb_stats_to_summary_agg(tlu.stats) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(tlu.stats_summary) AS stats_summary
           FROM public.timeline_legal_unit AS tlu
           INNER JOIN basis_with_legal_unit AS basis
            ON tlu.enterprise_id = basis.enterprise_id
