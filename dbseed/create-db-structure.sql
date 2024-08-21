@@ -5381,6 +5381,7 @@ WITH year_with_unit_basis AS (
          , su_stop.stats AS stop_stats
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
     FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -5446,6 +5447,7 @@ WITH year_with_unit_basis AS (
          , su_stop.stats AS stop_stats
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
     FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -5496,7 +5498,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_with_unit_derived AS source
     GROUP BY resolution, year, unit_type
            , primary_activity_category_path
@@ -5530,7 +5532,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
     GROUP BY resolution, year, month, unit_type
            , primary_activity_category_path
