@@ -264,7 +264,6 @@ SELECT valid_after
  FROM public.statistical_unit
  ORDER BY valid_after, valid_from, valid_to, unit_type, unit_id;
 
-
 \echo "Checking statistical_unit totals"
 SELECT unit_type
      , COUNT(DISTINCT unit_id) AS distinct_unit_count
@@ -272,7 +271,16 @@ SELECT unit_type
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;
+\x
 
+\echo "Test over the years"
+
+\echo "Verify the generation of ranges"
+SELECT * FROM public.statistical_history_periods
+-- Only list previous years, so the test is stable over time.
+WHERE year <= 2023;
+
+\echo "Test yearly data"
 SELECT year
      , unit_type
      , count
@@ -284,10 +292,18 @@ SELECT year
      , legal_form_change_count
      , physical_region_change_count
      , physical_country_change_count
+FROM public.statistical_history
+WHERE resolution = 'year'
+ORDER BY year,unit_type;
+
+\echo "Test yearly stats"
+SELECT year
+     , unit_type
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history
-WHERE type = 'year'
+WHERE resolution = 'year'
 ORDER BY year,unit_type;
+
 
 SELECT year, month
      , unit_type
@@ -302,7 +318,7 @@ SELECT year, month
      , physical_country_change_count
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history
-WHERE type = 'year-month' AND year = 2019
+WHERE resolution = 'year-month' AND year = 2019
 ORDER BY year,month,unit_type;
 
 SELECT year
@@ -322,7 +338,7 @@ SELECT year
      , physical_country_change_count
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
-WHERE type = 'year'
+WHERE resolution = 'year'
 ORDER BY year,unit_type;
 
 SELECT year, month
@@ -342,7 +358,7 @@ SELECT year, month
      , physical_country_change_count
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
-WHERE type = 'year-month' AND year = 2019
+WHERE resolution = 'year-month' AND year = 2019
 ORDER BY year,month,unit_type;
 \x
 
@@ -352,7 +368,7 @@ SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
           'enterprise'::public.statistical_unit_type,
-          'year'::public.statistical_history_type,
+          'year'::public.history_resolution,
           NULL::INTEGER,
           NULL::public.ltree,
           NULL::public.ltree,
@@ -365,7 +381,7 @@ SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
           'enterprise'::public.statistical_unit_type,
-          'year'::public.statistical_history_type,
+          'year'::public.history_resolution,
           2020,
           NULL::public.ltree,
           NULL::public.ltree,

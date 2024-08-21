@@ -5072,36 +5072,50 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 
-\echo public.statistical_history_type
-CREATE TYPE public.statistical_history_type AS ENUM('year','year-month');
+\echo public.history_resolution
+CREATE TYPE public.history_resolution AS ENUM('year','year-month');
+
+\echo public.statistical_history_periods
+CREATE VIEW public.statistical_history_periods AS
+WITH year_range AS (
+  SELECT 
+      min(valid_from) AS start_year,
+      least(max(valid_to), current_date) AS stop_year
+  FROM public.statistical_unit
+)
+SELECT 'year'::public.history_resolution AS resolution
+     , EXTRACT(YEAR FROM time_start)::INT AS year
+     , NULL::INTEGER AS month
+     , series.time_start::DATE
+     , (series.time_start + interval '1 year' - interval '1 day')::DATE AS time_stop
+FROM year_range,
+LATERAL generate_series(
+    date_trunc('year', year_range.start_year)::DATE,
+    date_trunc('year', year_range.stop_year)::DATE,
+    interval '1 year'
+) AS series(time_start)
+UNION ALL
+SELECT 'year-month'::public.history_resolution AS resolution
+     , EXTRACT(YEAR FROM time_start)::INT AS year
+     , EXTRACT(MONTH FROM time_start)::INT AS month
+     , series.time_start::DATE
+     , (series.time_start + interval '1 month' - interval '1 day')::DATE AS time_stop
+FROM year_range,
+LATERAL generate_series(
+    date_trunc('month', year_range.start_year)::DATE,
+    date_trunc('month', year_range.stop_year)::DATE,
+    interval '1 month'
+) AS series(time_start)
+;
 
 
 \echo public.statistical_history_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_def AS
-WITH year_range AS (
-  SELECT min(valid_from) AS start_year
-       , least(max(valid_to),current_date) AS stop_year
-  FROM public.statistical_unit
-), year_in_range AS (
-    SELECT generate_series(
-        date_trunc('year', start_year)::date,
-        date_trunc('year', stop_year)::date,
-        '1 year'::interval
-    )::date AS time_start,
-    (date_trunc('year', start_year)::date + '1 year'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_and_month_in_range AS (
-    SELECT generate_series(
-        date_trunc('month', start_year)::date,
-        date_trunc('month', stop_year)::date,
-        '1 month'::interval
-    )::date AS time_start,
-    (date_trunc('month', start_year)::date + '1 month'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+WITH year_with_unit_basis AS (
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -5144,14 +5158,16 @@ WITH year_range AS (
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_with_unit_derived AS (
     SELECT basis.*
          --
@@ -5167,9 +5183,10 @@ WITH year_range AS (
          --
     FROM year_with_unit_basis AS basis
 ), year_and_month_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
-         , EXTRACT(MONTH FROM range.time_start)::INT AS month
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , range.month AS month
+         , COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -5206,14 +5223,16 @@ WITH year_range AS (
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*
          --
@@ -5229,7 +5248,7 @@ WITH year_range AS (
          --
     FROM year_and_month_with_unit_basis AS basis
 ), year_with_unit AS (
-    SELECT 'year'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
          , NULL::INTEGER                           AS month
          , source.unit_type                        AS unit_type
@@ -5248,9 +5267,9 @@ WITH year_range AS (
          --
          , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_with_unit_derived AS source
-    GROUP BY year, unit_type
+    GROUP BY resolution, year, unit_type
 ), year_and_month_with_unit AS (
-    SELECT 'year-month'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
          , source.month                            AS month
          , source.unit_type                        AS unit_type
@@ -5269,7 +5288,7 @@ WITH year_range AS (
          --
          , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
-    GROUP BY year, month, unit_type
+    GROUP BY resolution, year, month, unit_type
 )
 SELECT * FROM year_with_unit
 UNION ALL
@@ -5285,8 +5304,8 @@ CREATE MATERIALIZED VIEW public.statistical_history AS
 SELECT * FROM public.statistical_history_def
 ORDER BY year, month;
 
-\echo idx_statistical_history_type
-CREATE INDEX idx_statistical_history_type ON public.statistical_history (type);
+\echo idx_history_resolution
+CREATE INDEX idx_history_resolution ON public.statistical_history (resolution);
 \echo idx_statistical_history_year
 CREATE INDEX idx_statistical_history_year ON public.statistical_history (year);
 \echo idx_statistical_history_month
@@ -5304,29 +5323,11 @@ CREATE INDEX idx_statistical_history_stats_summary ON public.statistical_history
 \echo public.statistical_history_facet_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_facet_def AS
-WITH year_range AS (
-  SELECT min(valid_from) AS start_year
-       , least(max(valid_to),current_date) AS stop_year
-  FROM public.statistical_unit
-), year_in_range AS (
-    SELECT generate_series(
-        date_trunc('year', start_year)::date,
-        date_trunc('year', stop_year)::date,
-        '1 year'::interval
-    )::date AS time_start,
-    (date_trunc('year', start_year)::date + '1 year'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_and_month_in_range AS (
-    SELECT generate_series(
-        date_trunc('month', start_year)::date,
-        date_trunc('month', stop_year)::date,
-        '1 month'::interval
-    )::date AS time_start,
-    (date_trunc('month', start_year)::date + '1 month'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+WITH year_with_unit_basis AS (
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , NULL::INTEGER AS month
+         , COALESCE(su_start.unit_type, su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -5334,8 +5335,8 @@ WITH year_range AS (
          , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
          , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
          --
-         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
-         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date), false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop, false) AS died
          --
          , su_start.primary_activity_category_path   AS start_primary_activity_category_path
          , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
@@ -5363,14 +5364,16 @@ WITH year_range AS (
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_with_unit_derived AS (
     SELECT basis.*
          --
@@ -5382,13 +5385,14 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
          -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
-         --, CASE WHEN track_changes THEN stop_stats - start_stats ELSE NULL END AS stats_change
+         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
          --
     FROM year_with_unit_basis AS basis
 ), year_and_month_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
-         , EXTRACT(MONTH FROM range.time_start)::INT AS month
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , range.month AS month
+         , COALESCE(su_start.unit_type, su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -5396,8 +5400,8 @@ WITH year_range AS (
          , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
          , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
          --
-         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
-         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date), false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop, false) AS died
          --
          , su_start.primary_activity_category_path   AS start_primary_activity_category_path
          , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
@@ -5425,14 +5429,16 @@ WITH year_range AS (
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year-month' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*
          --
@@ -5448,9 +5454,9 @@ WITH year_range AS (
          --
     FROM year_and_month_with_unit_basis AS basis
 ), year_with_unit_per_facet AS (
-    SELECT 'year'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
-         , NULL::INTEGER                          AS month
+         , NULL::INTEGER                           AS month
          , source.unit_type                        AS unit_type
          --
          , source.primary_activity_category_path   AS primary_activity_category_path
@@ -5474,7 +5480,7 @@ WITH year_range AS (
          --
          , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_with_unit_derived AS source
-    GROUP BY year, unit_type
+    GROUP BY resolution, year, unit_type
            , primary_activity_category_path
            , secondary_activity_category_path
            , sector_path
@@ -5482,7 +5488,7 @@ WITH year_range AS (
            , physical_region_path
            , physical_country_id
 ), year_and_month_with_unit_per_facet AS (
-    SELECT 'year-month'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
          , source.month                            AS month
          , source.unit_type                        AS unit_type
@@ -5508,7 +5514,7 @@ WITH year_range AS (
          --
          , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
-    GROUP BY year, month, unit_type
+    GROUP BY resolution, year, month, unit_type
            , primary_activity_category_path
            , secondary_activity_category_path
            , sector_path
@@ -5570,7 +5576,7 @@ CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_h
 \echo public.statistical_history_drilldown
 CREATE FUNCTION public.statistical_history_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
-    type public.statistical_history_type DEFAULT 'year',
+    resolution public.history_resolution DEFAULT 'year',
     year INTEGER DEFAULT NULL,
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
@@ -5580,11 +5586,11 @@ CREATE FUNCTION public.statistical_history_drilldown(
 )
 RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     -- Use a params intermediary to avoid conflicts
-    -- between columns and parameters, leading to tautologies. i.e. 'sh.type = type' is always true.
+    -- between columns and parameters, leading to tautologies. i.e. 'sh.resolution = resolution' is always true.
     WITH params AS (
         SELECT
             unit_type AS param_unit_type,
-            type AS param_type,
+            resolution AS param_resolution,
             year AS param_year,
             region_path AS param_region_path,
             activity_category_path AS param_activity_category_path,
@@ -5599,7 +5605,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.statistical_history_facet AS sh
            , params
         WHERE (param_unit_type IS NULL OR sh.unit_type = param_unit_type)
-          AND (param_type IS NULL OR sh.type = param_type)
+          AND (param_resolution IS NULL OR sh.resolution = param_resolution)
           AND (param_year IS NULL OR sh.year = param_year)
           AND (
               param_region_path IS NULL
@@ -5726,6 +5732,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , aac.label
                , aac.code
                , aac.name
+        ORDER BY aac.path
     ),
     breadcrumb_sector AS (
         SELECT s.path
@@ -5766,6 +5773,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , "as".label
                , "as".code
                , "as".name
+       ORDER BY "as".path
     ),
     breadcrumb_legal_form AS (
         SELECT lf.id
@@ -5776,7 +5784,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             (   legal_form_id IS NOT NULL
             AND lf.id = legal_form_id
             )
-        ORDER BY lf.id
+        ORDER BY lf.code
     ),
     available_legal_form AS (
         SELECT lf.id
@@ -5785,7 +5793,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.legal_form AS lf
         -- Every sector is available, unless one is selected.
         WHERE legal_form_id IS NULL
-        ORDER BY lf.id
+        ORDER BY lf.code
     ), aggregated_legal_form_counts AS (
         SELECT lf.id
              , lf.code
@@ -5798,6 +5806,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         GROUP BY lf.id
                , lf.code
                , lf.name
+        ORDER BY lf.code
     ),
     breadcrumb_physical_country AS (
         SELECT pc.id
@@ -5830,6 +5839,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         GROUP BY pc.id
                , pc.iso_2
                , pc.name
+        ORDER BY pc.iso_2
     )
     SELECT
         jsonb_build_object(
@@ -5850,7 +5860,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           ),
           'filter',jsonb_build_object(
-            'type',param_type,
+            'type',param_resolution,
             'year',param_year,
             'unit_type',param_unit_type,
             'region_path',param_region_path,

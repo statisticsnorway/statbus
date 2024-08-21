@@ -81,11 +81,14 @@ DROP MATERIALIZED VIEW public.statistical_history_facet;
 \echo public.statistical_history_facet_def
 DROP VIEW public.statistical_history_facet_def;
 
+\echo public.statistical_history_periods
+DROP VIEW public.statistical_history_periods;
+
 \echo public.statistical_history_drilldown
 DROP FUNCTION public.statistical_history_drilldown;
 
-\echo public.statistical_history_type
-DROP TYPE public.statistical_history_type;
+\echo public.history_resolution
+DROP TYPE public.history_resolution;
 
 \echo public.websearch_to_wildcard_tsquery
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
