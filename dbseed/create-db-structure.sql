@@ -5304,6 +5304,22 @@ CREATE MATERIALIZED VIEW public.statistical_history AS
 SELECT * FROM public.statistical_history_def
 ORDER BY year, month;
 
+\echo statistical_history_month_key
+CREATE UNIQUE INDEX "statistical_history_month_key"
+    ON public.statistical_history
+    ( resolution
+    , year
+    , month
+    , unit_type
+    ) WHERE resolution = 'year-month'::public.history_resolution;
+\echo statistical_history_year_key
+CREATE UNIQUE INDEX "statistical_history_year_key"
+    ON public.statistical_history
+    ( resolution
+    , year
+    , unit_type
+    ) WHERE resolution = 'year'::public.history_resolution;
+
 \echo idx_history_resolution
 CREATE INDEX idx_history_resolution ON public.statistical_history (resolution);
 \echo idx_statistical_history_year
@@ -5532,6 +5548,34 @@ SELECT pg_catalog.set_config('search_path', '', false);
 CREATE MATERIALIZED VIEW public.statistical_history_facet AS
 SELECT * FROM public.statistical_history_facet_def
 ORDER BY year, month;
+
+\echo statistical_history_facet_month_key
+CREATE UNIQUE INDEX "statistical_history_facet_month_key"
+    ON public.statistical_history_facet
+    ( resolution
+    , year
+    , month
+    , unit_type
+    , primary_activity_category_path
+    , secondary_activity_category_path
+    , sector_path
+    , legal_form_id
+    , physical_region_path
+    , physical_country_id
+    ) WHERE resolution = 'year-month'::public.history_resolution;
+\echo statistical_history_facet_year_key
+CREATE UNIQUE INDEX "statistical_history_facet_year_key"
+    ON public.statistical_history_facet
+    ( year
+    , month
+    , unit_type
+    , primary_activity_category_path
+    , secondary_activity_category_path
+    , sector_path
+    , legal_form_id
+    , physical_region_path
+    , physical_country_id
+    ) WHERE resolution = 'year'::public.history_resolution;
 
 \echo idx_statistical_history_facet_year
 CREATE INDEX idx_statistical_history_facet_year ON public.statistical_history_facet (year);
