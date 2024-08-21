@@ -50,6 +50,12 @@ SELECT
 -- Exclude the refresh_time_ms as it will vary.
 SELECT view_name FROM statistical_unit_refresh_now();
 
+\echo "Checking statistical_history_periods"
+SELECT * FROM public.statistical_history_periods
+-- Only list previous years, so the test is stable over time.
+WHERE year <= 2023;
+
+
 \echo "Checking timepoints."
 SELECT tp.unit_type
      , COALESCE
@@ -304,7 +310,7 @@ FROM public.statistical_history
 WHERE resolution = 'year'
 ORDER BY year,unit_type;
 
-
+\echo "Test monthly data for 2019"
 SELECT year, month
      , unit_type
      , count
@@ -316,11 +322,19 @@ SELECT year, month
      , legal_form_change_count
      , physical_region_change_count
      , physical_country_change_count
+FROM public.statistical_history
+WHERE resolution = 'year-month' AND year = 2019
+ORDER BY year,month,unit_type;
+
+\echo "Test monthly stats for 2019"
+SELECT year, month
+     , unit_type
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history
 WHERE resolution = 'year-month' AND year = 2019
 ORDER BY year,month,unit_type;
 
+\echo "Test yearly facets"
 SELECT year
      , unit_type
      , primary_activity_category_path
