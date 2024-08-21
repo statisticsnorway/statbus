@@ -53,6 +53,20 @@ SELECT
     MAX((stats->'num')::integer) AS num_max,
     AVG((stats->'num')::integer) AS num_mean,
     VARIANCE((stats->'num')::integer) AS num_variance,
+    -- Calculate Standard Deviation
+    CASE WHEN COUNT((stats->'num')::integer) > 1
+         THEN SQRT(VARIANCE((stats->'num')::integer))
+         ELSE NULL END AS num_stddev,
+    -- Calculate Coefficient of Variation (CV)
+    CASE WHEN AVG((stats->'num')::integer) <> 0 THEN
+        (CASE WHEN COUNT((stats->'num')::integer) > 1 THEN
+            SQRT(VARIANCE((stats->'num')::integer)) / AVG((stats->'num')::integer)
+        ELSE NULL END)
+    ELSE NULL END AS num_coefficient_of_variation,
+    -- Calculate Rate of Change
+    CASE WHEN MIN((stats->'num')::integer) <> 0 THEN
+        (MAX((stats->'num')::integer) - MIN((stats->'num')::integer)) / MIN((stats->'num')::integer) 
+    ELSE NULL END AS num_rate_of_change,
     SUM(CASE WHEN (stats->>'bool')::boolean THEN 1 ELSE 0 END) AS bool_true_count,
     SUM(CASE WHEN NOT (stats->>'bool')::boolean THEN 1 ELSE 0 END) AS bool_false_count,
     -- Use a lateral join to unnest array elements and count distinct items
