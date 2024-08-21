@@ -5157,6 +5157,7 @@ WITH year_with_unit_basis AS (
          , su_stop.stats AS stop_stats
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
     FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
@@ -5222,13 +5223,14 @@ WITH year_with_unit_basis AS (
          , su_stop.stats AS stop_stats
          --
          , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
     FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE range.resolution = 'year' AND
+    WHERE range.resolution = 'year-month' AND
         ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
@@ -5265,7 +5267,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_with_unit_derived AS source
     GROUP BY resolution, year, unit_type
 ), year_and_month_with_unit AS (
@@ -5286,7 +5288,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , public.jsonb_stats_to_summary_agg(source.stats) AS stats_summary
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
     GROUP BY resolution, year, month, unit_type
 )
