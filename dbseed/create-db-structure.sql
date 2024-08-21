@@ -3012,13 +3012,16 @@ CREATE VIEW public.timesegments AS
  * 
  * Summary by Type:
  * 1. Numeric:
- *    - Computes the sum, count, mean, maximum, minimum, variance, and standard deviation (via sum_sq_diff).
+ *    - Computes the sum, count, mean, maximum, minimum, variance, standard deviation (via sum_sq_diff),
+ *      and coefficient of variation.
  *    - Example:
  *      Input: {"a": 10}, {"a": 5}, {"a": 20}
- *      Output: {"a": {"sum": 35, "count": 3, "mean": 11.67, "max": 20, "min": 5, "variance": 58.33, "stddev": 7.64}}
+ *      Output: {"a": {"sum": 35, "count": 3, "mean": 11.67, "max": 20, "min": 5, "variance": 58.33, "stddev": 7.64,
+ *                    "coefficient_of_variation_pct": 65.47}}
  *    - Calculation References:
  *      - Mean update: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
  *      - Variance and standard deviation update: Welford's method
+ *      - Coefficient of Variation (CV): Standard deviation divided by mean.
  * 
  * 2. String:
  *    - Counts occurrences of each distinct string value.
@@ -3062,10 +3065,6 @@ DECLARE
     next_stat_state jsonb;
     state_type text;
     stats_type text;
-    count integer;
-    mean numeric;
-    sum_sq_diff numeric;
-    delta numeric;
 BEGIN
     IF state IS NULL OR stats IS NULL THEN
         RAISE EXCEPTION 'Logic error: STRICT function should never be called with NULL';
@@ -3094,24 +3093,40 @@ BEGIN
             next_stat_state = jsonb_build_object('type', stat_type);
 
             CASE stat_type
-                -- Handle numeric values with iterative mean, variance, and standard deviation
+                -- Handle numeric values with iterative mean, variance, standard deviation, and coefficient of variation.
                 WHEN 'number' THEN
-                    count := (prev_stat_state->'count')::integer + 1;
-                    delta := stat_value::numeric - (prev_stat_state->'mean')::numeric;
-                    mean := (prev_stat_state->'mean')::numeric + delta / count;
-                    sum_sq_diff := (prev_stat_state->'sum_sq_diff')::numeric + delta * (stat_value::numeric - mean);
+                    DECLARE
+                        sum numeric := (prev_stat_state->'sum')::numeric + stat_value::numeric;
+                        count integer := (prev_stat_state->'count')::integer + 1;
+                        delta numeric := stat_value::numeric - (prev_stat_state->'mean')::numeric;
+                        mean numeric := (prev_stat_state->'mean')::numeric + delta / count;
+                        min numeric := LEAST((prev_stat_state->'min')::numeric, stat_value::numeric);
+                        max numeric := GREATEST((prev_stat_state->'max')::numeric, stat_value::numeric);
+                        sum_sq_diff numeric := (prev_stat_state->'sum_sq_diff')::numeric + delta * (stat_value::numeric - mean);
 
-                    next_stat_state :=  next_stat_state ||
-                        jsonb_build_object(
-                            'sum', (prev_stat_state->'sum')::numeric + stat_value::numeric,
-                            'count', count,
-                            'mean', mean,
-                            'min', LEAST((prev_stat_state->'min')::numeric, stat_value::numeric),
-                            'max', GREATEST((prev_stat_state->'max')::numeric, stat_value::numeric),
-                            'sum_sq_diff', sum_sq_diff,
-                            'variance', CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END,
-                            'stddev', CASE WHEN count > 1 THEN sqrt(sum_sq_diff / (count - 1)) ELSE NULL END
-                        );
+                        -- Calculate variance and standard deviation
+                        variance numeric := CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END;
+                        stddev numeric := CASE WHEN variance IS NOT NULL THEN sqrt(variance) ELSE NULL END;
+
+                        -- Calculate Coefficient of Variation (CV)
+                        coefficient_of_variation_pct numeric := CASE
+                            WHEN mean IS NULL OR mean = 0 THEN NULL
+                            ELSE (stddev / mean) * 100
+                        END;
+                    BEGIN
+                        next_stat_state :=  next_stat_state ||
+                            jsonb_build_object(
+                                'sum', sum,
+                                'count', count,
+                                'mean', mean,
+                                'min', min,
+                                'max', max,
+                                'sum_sq_diff', sum_sq_diff,
+                                'variance', variance,
+                                'stddev', stddev,
+                                'coefficient_of_variation_pct', coefficient_of_variation_pct
+                            );
+                    END;
 
                 -- Handle string values
                 WHEN 'string' THEN
@@ -3124,12 +3139,13 @@ BEGIN
                             ||
                             -- The updated count for this particular key.
                             jsonb_build_object(
-                                -- Notice that `->>0` extracts the non quoted string,
+                                -- Notice that `->>0` extracts the non-quoted string,
                                 -- otherwise the key would be double quoted.
                                 stat_value->>0,
                                 COALESCE((prev_stat_state->'counts'->(stat_value->>0))::integer, 0) + 1
                             )
                         );
+
                 -- Handle boolean types
                 WHEN 'boolean' THEN
                     next_stat_state :=  next_stat_state ||
@@ -3145,6 +3161,7 @@ BEGIN
                     DECLARE
                         element text;
                         element_count integer;
+                        count integer;
                     BEGIN
                         -- Start with the previous state, to preserve previous counts.
                         next_stat_state := prev_stat_state;
@@ -3165,6 +3182,7 @@ BEGIN
                 -- Handle object (nested JSON)
                 WHEN 'object' THEN
                     next_stat_state := public.jsonb_stats_to_summary(prev_stat_state, stat_value);
+
                 ELSE
                     RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
             END CASE;
@@ -3182,15 +3200,18 @@ BEGIN
                             'max', stat_value::numeric,
                             'sum_sq_diff', 0,
                             'variance', 0,
-                            'stddev', 0
+                            'stddev', 0,
+                            'coefficient_of_variation_pct', 0
                         );
+
                 WHEN 'string' THEN
                     next_stat_state :=  next_stat_state ||
                         jsonb_build_object(
-                            -- Notice that `->>0` extracts the non quoted string,
+                            -- Notice that `->>0` extracts the non-quoted string,
                             -- otherwise the key would be double quoted.
                             'counts', jsonb_build_object(stat_value->>0, 1)
                         );
+
                 WHEN 'boolean' THEN
                     next_stat_state :=  next_stat_state ||
                             jsonb_build_object(
@@ -3199,6 +3220,7 @@ BEGIN
                                 'false', (NOT stat_value::boolean)::integer
                             )
                         );
+
                 WHEN 'array' THEN
                     -- Initialize array with counts of each unique value
                     next_stat_state :=  next_stat_state ||
@@ -3209,8 +3231,10 @@ BEGIN
                             FROM jsonb_array_elements_text(stat_value) AS element
                             )
                         );
+
                 WHEN 'object' THEN
                     next_stat_state := public.jsonb_stats_to_summary(next_stat_state, stat_value);
+
                 ELSE
                     RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
             END CASE;
@@ -3229,7 +3253,7 @@ DECLARE
     key text;
     val jsonb;
     result jsonb := '{}';
-    rounding_keys text[] := ARRAY['mean', 'sum_sq_diff', 'variance', 'stddev'];
+    rounding_keys text[] := ARRAY['mean', 'sum_sq_diff', 'variance', 'stddev', 'coefficient_of_variation_pct'];
     sub_key text;
 BEGIN
     -- Iterate through the keys in the state JSONB object
@@ -3299,27 +3323,51 @@ BEGIN
             CASE type_a
                 WHEN 'number' THEN
                     DECLARE
-                       count_a integer := (val_a->'count')::integer;
-                       count_b integer := (val_b->'count')::integer;
-                       count integer := count_a + count_b;
-                       mean_a numeric := (val_a->'mean')::numeric;
-                       mean_b numeric := (val_b->'mean')::numeric;
-                       mean numeric := (mean_a * count_a + mean_b * count_b) / count;
-                       sum_sq_diff numeric := (val_a->'sum_sq_diff')::numeric + (val_b->'sum_sq_diff')::numeric + (mean_a - mean_b)^2 * count_a * count_b / count;
-                       variance numeric := CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END;
-                       stddev numeric := CASE WHEN variance IS NOT NULL THEN sqrt(variance) ELSE NULL END;
+                        count_a INTEGER := (val_a->'count')::INTEGER;
+                        count_b INTEGER := (val_b->'count')::INTEGER;
+                        total_count INTEGER := count_a + count_b;
+
+                        mean_a NUMERIC := (val_a->'mean')::NUMERIC;
+                        mean_b NUMERIC := (val_b->'mean')::NUMERIC;
+                        merged_mean NUMERIC := (mean_a * count_a + mean_b * count_b) / total_count;
+
+                        sum_sq_diff_a NUMERIC := (val_a->'sum_sq_diff')::NUMERIC;
+                        sum_sq_diff_b NUMERIC := (val_b->'sum_sq_diff')::NUMERIC;
+                        delta NUMERIC := mean_b - mean_a;
+
+                        merged_sum_sq_diff NUMERIC :=
+                            sum_sq_diff_a + sum_sq_diff_b + delta * delta * count_a * count_b / total_count;
+                        merged_variance NUMERIC :=
+                            CASE WHEN total_count > 1
+                            THEN merged_sum_sq_diff / (total_count - 1)
+                            ELSE NULL
+                            END;
+                        merged_stddev NUMERIC :=
+                            CASE WHEN merged_variance IS NOT NULL
+                            THEN sqrt(merged_variance)
+                            ELSE NULL
+                            END;
+
+                        -- Calculate Coefficient of Variation (CV)
+                        coefficient_of_variation_pct NUMERIC :=
+                            CASE WHEN merged_mean <> 0
+                            THEN (merged_stddev / merged_mean) * 100
+                            ELSE NULL
+                            END;
                     BEGIN
                         merged_val := jsonb_build_object(
                             'sum', (val_a->'sum')::numeric + (val_b->'sum')::numeric,
-                            'count', count,
-                            'mean', mean,
+                            'count', total_count,
+                            'mean', merged_mean,
                             'min', LEAST((val_a->'min')::numeric, (val_b->'min')::numeric),
                             'max', GREATEST((val_a->'max')::numeric, (val_b->'max')::numeric),
-                            'sum_sq_diff', sum_sq_diff,
-                            'variance', variance,
-                            'stddev', stddev
+                            'sum_sq_diff', merged_sum_sq_diff,
+                            'variance', merged_variance,
+                            'stddev', merged_stddev,
+                            'coefficient_of_variation_pct', coefficient_of_variation_pct
                         );
                     END;
+
                 WHEN 'string' THEN
                     merged_val := jsonb_build_object(
                         'counts', (
@@ -3335,6 +3383,7 @@ BEGIN
                             ) AS merged_counts
                         )
                     );
+
                 WHEN 'boolean' THEN
                     merged_val := jsonb_build_object(
                         'counts', jsonb_build_object(
@@ -3342,6 +3391,7 @@ BEGIN
                             'false', (val_a->'counts'->>'false')::integer + (val_b->'counts'->>'false')::integer
                         )
                     );
+
                 WHEN 'array' THEN
                     merged_val := jsonb_build_object(
                         'counts', (
@@ -3357,8 +3407,10 @@ BEGIN
                             ) AS merged_counts
                         )
                     );
+
                 WHEN 'object' THEN
                     merged_val := public.jsonb_stats_summary_merge(val_a, val_b);
+
                 ELSE
                     RAISE EXCEPTION 'Unsupported type "%" for key "%"', type_a, key_a;
             END CASE;

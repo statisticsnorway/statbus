@@ -49,6 +49,20 @@ SELECT
     MAX((stats->'num')::integer) AS num_max,
     AVG((stats->'num')::integer) AS num_mean,
     VARIANCE((stats->'num')::integer) AS num_variance,
+    -- Calculate Standard Deviation
+    CASE WHEN COUNT((stats->'num')::integer) > 1
+         THEN SQRT(VARIANCE((stats->'num')::integer))
+         ELSE NULL END AS num_stddev,
+    -- Calculate Coefficient of Variation (CV)
+    CASE WHEN AVG((stats->'num')::integer) <> 0 THEN
+        (CASE WHEN COUNT((stats->'num')::integer) > 1 THEN
+            SQRT(VARIANCE((stats->'num')::integer)) / AVG((stats->'num')::integer)
+        ELSE NULL END)
+    ELSE NULL END AS num_coefficient_of_variation,
+    -- Calculate Rate of Change
+    CASE WHEN MIN((stats->'num')::integer) <> 0 THEN
+        (MAX((stats->'num')::integer) - MIN((stats->'num')::integer)) / MIN((stats->'num')::integer) 
+    ELSE NULL END AS num_rate_of_change,
     SUM(CASE WHEN (stats->>'bool')::boolean THEN 1 ELSE 0 END) AS bool_true_count,
     SUM(CASE WHEN NOT (stats->>'bool')::boolean THEN 1 ELSE 0 END) AS bool_false_count,
     -- Use a lateral join to unnest array elements and count distinct items
@@ -93,8 +107,10 @@ WHERE test_case = 1;
         "mean": 2.00,
         "type": "number",
         "count": 3,
+        "stddev": 1.00,
         "variance": 1.00,
-        "sum_sq_diff": 2.00
+        "sum_sq_diff": 2.00,
+        "coefficient_of_variation_pct": 50.00
     },
     "str": {
         "type": "string",
@@ -114,25 +130,28 @@ WHERE test_case = 1;
 \x
 \a
 SELECT * FROM reference WHERE test_case = 1;
-test_case        | 1
-num_sum          | 6
-num_count        | 3
-num_min          | 1
-num_max          | 3
-num_mean         | 2.0000000000000000
-num_variance     | 1.00000000000000000000
-bool_true_count  | 2
-bool_false_count | 1
-arr_1_count      | 0
-arr_2_count      | 0
-arr_3_count      | 0
-arr_a_count      | 0
-arr_b_count      | 0
-arr_c_count      | 0
-str_a_count      | 2
-str_b_count      | 1
-str_c_count      | 0
-str_d_count      | 0
+test_case                    | 1
+num_sum                      | 6
+num_count                    | 3
+num_min                      | 1
+num_max                      | 3
+num_mean                     | 2.0000000000000000
+num_variance                 | 1.00000000000000000000
+num_stddev                   | 1.00000000000000000000
+num_coefficient_of_variation | 0.50000000000000000000
+num_rate_of_change           | 2
+bool_true_count              | 2
+bool_false_count             | 1
+arr_1_count                  | 0
+arr_2_count                  | 0
+arr_3_count                  | 0
+arr_a_count                  | 0
+arr_b_count                  | 0
+arr_c_count                  | 0
+str_a_count                  | 2
+str_b_count                  | 1
+str_c_count                  | 0
+str_d_count                  | 0
 
 \a
 \x
@@ -148,8 +167,10 @@ WHERE test_case = 2;
         "mean": 450.00,
         "type": "number",
         "count": 10,
+        "stddev": 302.77,
         "variance": 91666.67,
-        "sum_sq_diff": 825000.00
+        "sum_sq_diff": 825000.00,
+        "coefficient_of_variation_pct": 67.28
     },
     "str": {
         "type": "string",
@@ -171,25 +192,28 @@ WHERE test_case = 2;
 \x
 \a
 SELECT * FROM reference WHERE test_case = 2;
-test_case        | 2
-num_sum          | 4500
-num_count        | 10
-num_min          | 0
-num_max          | 900
-num_mean         | 450.0000000000000000
-num_variance     | 91666.666666666667
-bool_true_count  | 6
-bool_false_count | 4
-arr_1_count      | 0
-arr_2_count      | 0
-arr_3_count      | 0
-arr_a_count      | 0
-arr_b_count      | 0
-arr_c_count      | 0
-str_a_count      | 1
-str_b_count      | 2
-str_c_count      | 3
-str_d_count      | 4
+test_case                    | 2
+num_sum                      | 4500
+num_count                    | 10
+num_min                      | 0
+num_max                      | 900
+num_mean                     | 450.0000000000000000
+num_variance                 | 91666.666666666667
+num_stddev                   | 302.7650354097492
+num_coefficient_of_variation | 0.67281118979944266667
+num_rate_of_change           | 
+bool_true_count              | 6
+bool_false_count             | 4
+arr_1_count                  | 0
+arr_2_count                  | 0
+arr_3_count                  | 0
+arr_a_count                  | 0
+arr_b_count                  | 0
+arr_c_count                  | 0
+str_a_count                  | 1
+str_b_count                  | 2
+str_c_count                  | 3
+str_d_count                  | 4
 
 \a
 \x
@@ -198,7 +222,7 @@ SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
 FROM test_stats
 WHERE test_case = 3;
 ERROR:  Type mismatch between values for key "a" was "number" became "string"
-CONTEXT:  PL/pgSQL function jsonb_stats_to_summary(jsonb,jsonb) line 38 at RAISE
+CONTEXT:  PL/pgSQL function jsonb_stats_to_summary(jsonb,jsonb) line 34 at RAISE
 -- Expected output: ERROR: Type mismatch for key "a": number vs string
 -- Test 4: Array of numeric values
 SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
@@ -217,25 +241,28 @@ WHERE test_case = 4;
 \x
 \a
 SELECT * FROM reference WHERE test_case = 4;
-test_case        | 4
-num_sum          | 
-num_count        | 0
-num_min          | 
-num_max          | 
-num_mean         | 
-num_variance     | 
-bool_true_count  | 0
-bool_false_count | 0
-arr_1_count      | 1
-arr_2_count      | 2
-arr_3_count      | 1
-arr_a_count      | 0
-arr_b_count      | 0
-arr_c_count      | 0
-str_a_count      | 0
-str_b_count      | 0
-str_c_count      | 0
-str_d_count      | 0
+test_case                    | 4
+num_sum                      | 
+num_count                    | 0
+num_min                      | 
+num_max                      | 
+num_mean                     | 
+num_variance                 | 
+num_stddev                   | 
+num_coefficient_of_variation | 
+num_rate_of_change           | 
+bool_true_count              | 0
+bool_false_count             | 0
+arr_1_count                  | 1
+arr_2_count                  | 2
+arr_3_count                  | 1
+arr_a_count                  | 0
+arr_b_count                  | 0
+arr_c_count                  | 0
+str_a_count                  | 0
+str_b_count                  | 0
+str_c_count                  | 0
+str_d_count                  | 0
 
 \a
 \x
@@ -256,25 +283,28 @@ WHERE test_case = 5;
 \x
 \a
 SELECT * FROM reference WHERE test_case = 5;
-test_case        | 5
-num_sum          | 
-num_count        | 0
-num_min          | 
-num_max          | 
-num_mean         | 
-num_variance     | 
-bool_true_count  | 0
-bool_false_count | 0
-arr_1_count      | 0
-arr_2_count      | 0
-arr_3_count      | 0
-arr_a_count      | 1
-arr_b_count      | 2
-arr_c_count      | 1
-str_a_count      | 0
-str_b_count      | 0
-str_c_count      | 0
-str_d_count      | 0
+test_case                    | 5
+num_sum                      | 
+num_count                    | 0
+num_min                      | 
+num_max                      | 
+num_mean                     | 
+num_variance                 | 
+num_stddev                   | 
+num_coefficient_of_variation | 
+num_rate_of_change           | 
+bool_true_count              | 0
+bool_false_count             | 0
+arr_1_count                  | 0
+arr_2_count                  | 0
+arr_3_count                  | 0
+arr_a_count                  | 1
+arr_b_count                  | 2
+arr_c_count                  | 1
+str_a_count                  | 0
+str_b_count                  | 0
+str_c_count                  | 0
+str_d_count                  | 0
 
 \a
 \x
@@ -297,25 +327,28 @@ WHERE test_case = 6;
 \x
 \a
 SELECT * FROM reference WHERE test_case = 6;
-test_case        | 6
-num_sum          | 
-num_count        | 0
-num_min          | 
-num_max          | 
-num_mean         | 
-num_variance     | 
-bool_true_count  | 0
-bool_false_count | 0
-arr_1_count      | 1
-arr_2_count      | 1
-arr_3_count      | 0
-arr_a_count      | 2
-arr_b_count      | 1
-arr_c_count      | 1
-str_a_count      | 0
-str_b_count      | 0
-str_c_count      | 0
-str_d_count      | 0
+test_case                    | 6
+num_sum                      | 
+num_count                    | 0
+num_min                      | 
+num_max                      | 
+num_mean                     | 
+num_variance                 | 
+num_stddev                   | 
+num_coefficient_of_variation | 
+num_rate_of_change           | 
+bool_true_count              | 0
+bool_false_count             | 0
+arr_1_count                  | 1
+arr_2_count                  | 1
+arr_3_count                  | 0
+arr_a_count                  | 2
+arr_b_count                  | 1
+arr_c_count                  | 1
+str_a_count                  | 0
+str_b_count                  | 0
+str_c_count                  | 0
+str_d_count                  | 0
 
 \a
 \x
@@ -383,8 +416,10 @@ FROM ordered_data;
         "mean": 200.00,
         "type": "number",
         "count": 5,
+        "stddev": 158.11,
         "variance": 25000.00,
-        "sum_sq_diff": 100000.00
+        "sum_sq_diff": 100000.00,
+        "coefficient_of_variation_pct": 79.06
     },
     "str": {
         "type": "string",
@@ -421,8 +456,10 @@ FROM ordered_data;
         "mean": 700.00,
         "type": "number",
         "count": 5,
+        "stddev": 158.11,
         "variance": 25000.00,
-        "sum_sq_diff": 100000.00
+        "sum_sq_diff": 100000.00,
+        "coefficient_of_variation_pct": 22.59
     },
     "str": {
         "type": "string",
@@ -458,8 +495,10 @@ FROM ordered_data;
         "mean": 450.00,
         "type": "number",
         "count": 10,
+        "stddev": 302.77,
         "variance": 91666.67,
-        "sum_sq_diff": 825000.00
+        "sum_sq_diff": 825000.00,
+        "coefficient_of_variation_pct": 67.28
     },
     "str": {
         "type": "string",
@@ -497,8 +536,10 @@ FROM ordered_data;
         "mean": 450.0000000000000000,
         "type": "number",
         "count": 10,
-        "variance": 91666.6666666666666667,
-        "sum_sq_diff": 825000.0000000000000000
+        "stddev": 302.7650354097492,
+        "variance": 91666.666666666667,
+        "sum_sq_diff": 825000.000000000000,
+        "coefficient_of_variation_pct": 67.28111897994426666700
     },
     "str": {
         "type": "string",
@@ -536,8 +577,10 @@ FROM ordered_data;
         "mean": 450.00,
         "type": "number",
         "count": 10,
+        "stddev": 302.77,
         "variance": 91666.67,
-        "sum_sq_diff": 825000.00
+        "sum_sq_diff": 825000.00,
+        "coefficient_of_variation_pct": 67.28
     },
     "str": {
         "type": "string",
