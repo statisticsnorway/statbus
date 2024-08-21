@@ -5724,7 +5724,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE sh.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_history AS sh ON sh.physical_region_path OPERATOR(public.<@) ar.path
@@ -5771,7 +5770,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE sh.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -5813,7 +5811,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE sh.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_history AS sh ON sh.sector_path OPERATOR(public.<@) "as".path
@@ -5847,7 +5844,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.code
              , lf.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_history AS sh ON sh.legal_form_id = lf.id
@@ -5880,7 +5876,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(public.jsonb_stats_summary_merge_agg(sh.stats_summary), '{}'::JSONB) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_history AS sh ON sh.physical_country_id = pc.id
