@@ -12,6 +12,7 @@ export interface StatisticalUnitDetailsLinkProps {
   readonly children?: ReactNode;
   readonly className?: string;
   readonly sub_path?: string;
+  readonly params?: string;
 }
 
 export function StatisticalUnitDetailsLink({
@@ -20,6 +21,7 @@ export function StatisticalUnitDetailsLink({
   children,
   className,
   sub_path,
+  params,
 }: StatisticalUnitDetailsLinkProps) {
   const href = {
     enterprise_group: `/enterprise-groups/${id}`,
@@ -28,11 +30,11 @@ export function StatisticalUnitDetailsLink({
     establishment: `/establishments/${id}`,
   }[type];
 
+  const path = sub_path ? `${href}/${sub_path}` : href;
+  const url = params ? `${path}?${params}` : path;
+
   return (
-    <Link
-      href={sub_path ? `${href}/${sub_path}` : href}
-      className={cn("font-medium", className)}
-    >
+    <Link href={url} className={cn("font-medium", className)}>
       {children}
     </Link>
   );

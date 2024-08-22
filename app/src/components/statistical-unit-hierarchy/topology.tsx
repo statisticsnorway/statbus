@@ -2,8 +2,9 @@
 import { TopologyItem } from "@/components/statistical-unit-hierarchy/topology-item";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 interface TopologyProps {
   readonly hierarchy: StatisticalUnitHierarchy;
@@ -16,7 +17,27 @@ interface TopologyProps {
 }
 
 export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
-  const [compact, setCompact] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const details = searchParams.get("details");
+  const [compact, setCompact] = useState(!details);
+
+  useEffect(() => {
+    setCompact(!details);
+  }, [details]);
+
+  const handleCompactChange = () => {
+    const params = new URLSearchParams(searchParams);
+    if (compact) {
+      params.set("details", "true");
+    } else {
+      params.delete("details");
+    }
+    router.push(`${pathname}?${params}`);
+    setCompact(!compact);
+  };
+
   const primaryLegalUnit = hierarchy.enterprise?.legal_unit?.find(
     (lu) => lu.primary_for_enterprise
   );
@@ -37,7 +58,7 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
         <Switch
           id="compact-mode"
           checked={!compact}
-          onCheckedChange={() => setCompact((v) => !v)}
+          onCheckedChange={handleCompactChange}
         />
       </div>
       <ul
