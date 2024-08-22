@@ -3457,6 +3457,43 @@ CREATE AGGREGATE public.jsonb_concat_agg(jsonb) (
 );
 
 
+\echo public.jsonb_stats
+CREATE VIEW public.jsonb_stats AS
+WITH stats AS (
+    SELECT
+        sfu.establishment_id,
+        sfu.legal_unit_id,
+        sfu.valid_after,
+        sfu.valid_to,
+        sd.code,
+        sd.priority,
+        CASE sd.type
+            WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
+            WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
+            WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
+            WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
+        END AS stat_object
+    FROM public.stat_for_unit AS sfu
+    LEFT JOIN public.stat_definition AS sd
+        ON sfu.stat_definition_id = sd.id
+    WHERE sfu.establishment_id IS NOT NULL
+       OR sfu.legal_unit_id IS NOT NULL
+    ORDER BY sd.priority NULLS LAST, sd.code
+)
+SELECT establishment_id
+     , legal_unit_id
+     , valid_after
+     , valid_to
+     , public.jsonb_concat_agg(stat_object) AS stats
+FROM stats
+GROUP BY establishment_id
+       , legal_unit_id
+       , valid_after
+       , valid_to
+       ;
+-- END public.jsonb_stats
+
+
 \echo public.timeline_establishment
 CREATE VIEW public.timeline_establishment
     ( unit_type
@@ -3558,28 +3595,18 @@ CREATE VIEW public.timeline_establishment
            , es.legal_unit_id AS legal_unit_id
            , es.enterprise_id AS enterprise_id
            --
-           , COALESCE((
-            SELECT public.jsonb_concat_agg(
-                CASE sd.type
-                WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
-                WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
-                WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
-                WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
-                END
-                )
-            FROM public.stat_for_unit AS sfu
-            LEFT JOIN public.stat_definition AS sd
-              ON sfu.stat_definition_id = sd.id
-            WHERE sfu.establishment_id = es.id
-              AND daterange(t.valid_after, t.valid_to, '(]')
-               && daterange(sfu.valid_after, sfu.valid_to, '(]')
-           ), '{}'::JSONB) stats
+           , COALESCE(js.stats, '{}'::JSONB) stats
       --
       FROM public.timesegments AS t
       INNER JOIN public.establishment AS es
           ON t.unit_type = 'establishment' AND t.unit_id = es.id
          AND daterange(t.valid_after, t.valid_to, '(]')
           && daterange(es.valid_after, es.valid_to, '(]')
+      --
+      LEFT OUTER JOIN public.jsonb_stats AS js
+              ON js.establishment_id = es.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(js.valid_after, js.valid_to, '(]')
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.establishment_id = es.id
@@ -3726,28 +3753,18 @@ CREATE VIEW public.timeline_legal_unit
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
-           , COALESCE((
-            SELECT public.jsonb_concat_agg(
-                CASE sd.type
-                WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
-                WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
-                WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
-                WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
-                END
-                )
-            FROM public.stat_for_unit AS sfu
-            LEFT JOIN public.stat_definition AS sd
-              ON sfu.stat_definition_id = sd.id
-            WHERE sfu.legal_unit_id = lu.id
-              AND daterange(t.valid_after, t.valid_to, '(]')
-               && daterange(sfu.valid_after, sfu.valid_to, '(]')
-           ), '{}'::JSONB) stats
+           , COALESCE(js.stats, '{}'::JSONB) stats
       --
       FROM public.timesegments AS t
       INNER JOIN public.legal_unit AS lu
           ON t.unit_type = 'legal_unit' AND t.unit_id = lu.id
          AND daterange(t.valid_after, t.valid_to, '(]')
           && daterange(lu.valid_after, lu.valid_to, '(]')
+      --
+      LEFT OUTER JOIN public.jsonb_stats AS js
+              ON js.legal_unit_id = lu.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(js.valid_after, js.valid_to, '(]')
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.legal_unit_id = lu.id
@@ -3851,7 +3868,7 @@ CREATE VIEW public.timeline_legal_unit
            -- Continue one more aggregation iteration adding the stats for this unit
            -- to the aggregated stats for establishments, by using the internal
            -- aggregation function for one more step.
-           , public.jsonb_stats_to_summary(aggregation.stats_summary, basis.stats) AS stats_summary
+           , public.jsonb_stats_to_summary(COALESCE(aggregation.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
       FROM basis
       LEFT OUTER JOIN aggregation
        ON basis.legal_unit_id = aggregation.legal_unit_id
@@ -8112,6 +8129,8 @@ BEGIN
     INTO   new_typed.valid_to   , invalid_codes
     FROM admin.type_date_field(new_jsonb,'valid_to',invalid_codes);
 
+    CALL admin.validate_stats_for_unit(new_jsonb);
+
     SELECT external_idents        , prior_id
     INTO   external_idents_to_add , prior_legal_unit_id
     FROM admin.process_external_idents(new_jsonb,'legal_unit') AS r;
@@ -8384,6 +8403,14 @@ BEGIN
         SET CONSTRAINTS ALL IMMEDIATE;
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
+
+    CALL admin.process_stats_for_unit(
+        new_jsonb,
+        'legal_unit',
+        inserted_legal_unit.id,
+        new_typed.valid_from,
+        new_typed.valid_to
+        );
 
     IF tag.id IS NOT NULL THEN
         INSERT INTO public.tag_for_unit
