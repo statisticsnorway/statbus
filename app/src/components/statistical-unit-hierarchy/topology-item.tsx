@@ -78,7 +78,9 @@ export function TopologyItem({
             </div>
             <TopologyItemInfo
               title="Activity"
-              value={`${activity?.code} - ${activity?.name}`}
+              value={
+                activity ? `${activity?.code} - ${activity?.name}` : undefined
+              }
             />
           </CardContent>
         </Card>

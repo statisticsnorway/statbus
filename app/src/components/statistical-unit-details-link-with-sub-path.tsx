@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   StatisticalUnitDetailsLink,
   StatisticalUnitDetailsLinkProps,
@@ -14,10 +14,7 @@ export function StatisticalUnitDetailsLinkWithSubPath(
    * we want to go to /establishments/2/contact. */
 
   const pathname = usePathname();
-  const params = useSearchParams().toString();
   const path = pathname.split(/\d{1,10}\//)?.[1] ?? "";
 
-  return (
-    <StatisticalUnitDetailsLink {...props} sub_path={path} params={params} />
-  );
+  return <StatisticalUnitDetailsLink {...props} sub_path={path} />;
 }
