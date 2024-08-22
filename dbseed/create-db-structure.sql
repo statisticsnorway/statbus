@@ -7931,6 +7931,9 @@ DECLARE
     result TEXT := '';
     ident_type_row RECORD;
     ident_type_columns TEXT := '';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
+
     view_template TEXT := $view_template$
 CREATE VIEW public.import_legal_unit_era WITH (security_invoker=on) AS
 SELECT '' AS valid_from
@@ -7959,21 +7962,22 @@ SELECT '' AS valid_from
      , '' AS secondary_activity_category_code
      , '' AS sector_code
      , '' AS legal_form_code
+{{stat_definition_columns}}
      , '' AS tag_path
 ;
     $view_template$;
 BEGIN
-    -- Generate the column definitions from external_ident_type table
-    FOR ident_type_row IN
-        SELECT code FROM public.external_ident_type ORDER BY code
-    LOOP
-        -- Use format for proper name escaping of ident_type_row.code
-        ident_type_columns := ident_type_columns || 
-                                   format(E'     , '''' AS %I\n', ident_type_row.code);
-    END LOOP;
+    SELECT string_agg(format(E'     , %L AS %I', '', code), E'\n')
+    INTO ident_type_columns
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+
+    SELECT string_agg(format(E'     , %L AS %I', '', code), E'\n')
+    INTO stat_definition_columns
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
-        'ident_type_columns', ident_type_columns
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
     ));
 
     -- Create the view dynamically
@@ -8416,13 +8420,15 @@ CREATE PROCEDURE admin.generate_import_legal_unit_current()
 LANGUAGE plpgsql AS $generate_import_legal_unit_current$
 DECLARE
     ident_type_row RECORD;
-    view_columns TEXT := '';
-    view_column_prefix TEXT := '       ';
+    ident_type_columns TEXT := '';
+    ident_type_column_prefix TEXT := '       ';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
 
     view_template TEXT := $view_template$
 CREATE VIEW public.import_legal_unit_current WITH (security_invoker=on) AS
 SELECT
-{{view_columns}}
+{{ident_type_columns}}
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -8446,12 +8452,15 @@ SELECT
      , '' AS secondary_activity_category_code
      , '' AS sector_code
      , '' AS legal_form_code
+{{stat_definition_columns}}
      , '' AS tag_path
 FROM public.import_legal_unit_era;
     $view_template$;
 
-    insert_labels TEXT := '';
-    value_labels TEXT := '';
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
 
     function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_legal_unit_current_upsert()
@@ -8463,7 +8472,7 @@ BEGIN
     INSERT INTO public.import_legal_unit_era
         ( valid_from
         , valid_to
-{{insert_labels}}
+{{ident_insert_labels}}
         , name
         , birth_date
         , death_date
@@ -8487,12 +8496,13 @@ BEGIN
         , secondary_activity_category_code
         , sector_code
         , legal_form_code
+{{stats_insert_labels}}
         , tag_path
         )
     VALUES
         ( new_valid_from
         , new_valid_to
-{{value_labels}}
+{{ident_value_labels}}
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -8516,6 +8526,7 @@ BEGIN
         , NEW.secondary_activity_category_code
         , NEW.sector_code
         , NEW.legal_form_code
+{{stats_value_labels}}
         , NEW.tag_path
         );
     RETURN NULL;
@@ -8523,29 +8534,38 @@ END;
 $import_legal_unit_current_upsert$;
     $function_template$;
 BEGIN
-    -- Generate the column definitions from external_ident_type table
-    FOR ident_type_row IN
-        SELECT code FROM public.external_ident_type ORDER BY code
-    LOOP
-        view_columns := view_columns ||
-                        format(E'%s '''' AS %I\n', view_column_prefix, ident_type_row.code);
-        view_column_prefix := '     , ';
+    SELECT
+        regexp_replace( -- Remove leading ,
+            string_agg(format(E'     , %L AS %I', '', code), E'\n'),
+             E'^ *, ?', ''),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
-        insert_labels := insert_labels ||
-                        format(E'        , %I\n', ident_type_row.code);
-
-        value_labels := value_labels ||
-                        format(E'        , NEW.%I\n', ident_type_row.code);
-
-    END LOOP;
+    SELECT
+        string_agg(format(E'     , %L AS %I', '', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
-        'view_columns', view_columns
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
     ));
 
     function_template := admin.render_template(function_template, jsonb_build_object(
-        'insert_labels', insert_labels,
-        'value_labels', value_labels
+        'ident_insert_labels', ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_value_labels', stats_value_labels
     ));
 
     RAISE NOTICE 'Creating public.import_legal_unit_current';
@@ -8629,18 +8649,19 @@ SELECT '' AS valid_from
 ;
     $view_template$;
 BEGIN
+    SELECT
+        string_agg(format(E'     , %L AS %I', '', code), E'\n'),
+        string_agg(format(E'     , %L AS %I', '', 'legal_unit_' || code), E'\n')
+    INTO
+        ident_type_columns,
+        legal_unit_ident_type_columns
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
-    FOR ident_type_row IN SELECT code FROM public.external_ident_type ORDER BY code LOOP
-        ident_type_columns := ident_type_columns ||
-            format(E'     , %L AS %I\n', '', ident_type_row.code);
-        legal_unit_ident_type_columns := legal_unit_ident_type_columns ||
-            format(E'     , %L AS %I\n', '', 'legal_unit_' || ident_type_row.code);
-    END LOOP;
-
-    FOR stat_definition_row IN SELECT code FROM public.stat_definition ORDER BY code LOOP
-        stat_definition_columns := stat_definition_columns ||
-            format(E'     , %L AS %I\n', '', stat_definition_row.code);
-    END LOOP;
+    SELECT
+        string_agg(format(E'     , %L AS %I', '', code), E'\n')
+    INTO
+        stat_definition_columns
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
         'ident_type_columns', ident_type_columns,
@@ -9119,13 +9140,14 @@ CREATE PROCEDURE admin.generate_import_establishment_current()
 LANGUAGE plpgsql AS $generate_import_establishment_current$
 DECLARE
     ident_type_row RECORD;
-    view_columns TEXT := '';
-    view_column_prefix TEXT := '       ';
+    ident_type_columns TEXT := '';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
 
     view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_current WITH (security_invoker=on) AS
 SELECT
-{{view_columns}}
+{{ident_type_columns}}
      , '' AS name
      , '' AS birth_date
      , '' AS death_date
@@ -9149,12 +9171,15 @@ SELECT
      , '' AS secondary_activity_category_code
      , '' AS sector_code
      , '' AS legal_form_code
+{{stat_definition_columns}}
      , '' AS tag_path
 FROM public.import_establishment_era;
     $view_template$;
 
-    insert_labels TEXT := '';
-    value_labels TEXT := '';
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
 
     function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_current_upsert()
@@ -9166,7 +9191,7 @@ BEGIN
     INSERT INTO public.import_establishment_era
         ( valid_from
         , valid_to
-{{insert_labels}}
+{{ident_insert_labels}}
         , name
         , birth_date
         , death_date
@@ -9190,12 +9215,13 @@ BEGIN
         , secondary_activity_category_code
         , sector_code
         , legal_form_code
+{{stats_insert_labels}}
         , tag_path
         )
     VALUES
         ( new_valid_from
         , new_valid_to
-{{value_labels}}
+{{ident_value_labels}}
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -9219,6 +9245,7 @@ BEGIN
         , NEW.secondary_activity_category_code
         , NEW.sector_code
         , NEW.legal_form_code
+{{stats_value_labels}}
         , NEW.tag_path
         );
     RETURN NULL;
@@ -9226,29 +9253,38 @@ END;
 $import_establishment_current_upsert$;
     $function_template$;
 BEGIN
-    -- Generate the column definitions from external_ident_type table
-    FOR ident_type_row IN
-        SELECT code FROM public.external_ident_type ORDER BY code
-    LOOP
-        view_columns := view_columns ||
-                        format(E'%s '''' AS %I\n', view_column_prefix, ident_type_row.code);
-        view_column_prefix := '     , ';
+    SELECT
+        regexp_replace( -- Remove leading ,
+            string_agg(format(E'     , %L AS %I', '', code), E'\n'),
+             E'^ *, ?', ''),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
-        insert_labels := insert_labels ||
-                        format(E'        , %I\n', ident_type_row.code);
-
-        value_labels := value_labels ||
-                        format(E'        , NEW.%I\n', ident_type_row.code);
-
-    END LOOP;
+    SELECT
+        string_agg(format(E'     , %L AS %I','', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
-        'view_columns', view_columns
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
     ));
 
     function_template := admin.render_template(function_template, jsonb_build_object(
-        'insert_labels', insert_labels,
-        'value_labels', value_labels
+        'ident_insert_labels', ident_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'stats_value_labels', stats_value_labels
     ));
 
     RAISE NOTICE 'Creating public.import_establishment_current';
@@ -9419,43 +9455,35 @@ $import_establishment_era_for_legal_unit_upsert$;
     view_sql TEXT;
     function_sql TEXT;
 BEGIN
-    -- Generate the column definitions from external_ident_type table
-    FOR ident_type_row IN
-        SELECT code FROM public.external_ident_type ORDER BY code
-    LOOP
-        legal_unit_ident_missing_checks :=
-            array_append(
-                legal_unit_ident_missing_checks,
-                format('(NEW.%1$I IS NULL OR NEW.%1$I  = %2$L)',
-                    'legal_unit_'||ident_type_row.code,
-                    ''
-                    )
-                );
+    SELECT
+        string_agg(format('(NEW.%1$I IS NULL OR NEW.%1$I = %2$L)',
+                          'legal_unit_' || code, ''), ' AND '),
+        string_agg(format(E'     , %I', code), E'\n'),
+        string_agg(format(E'     , %I', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , %I', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', 'legal_unit_' || code), E'\n')
+    INTO
+        legal_unit_ident_missing_check,
+        ident_type_columns,
+        legal_unit_ident_type_columns,
+        ident_insert_labels,
+        legal_unit_ident_insert_labels,
+        ident_value_labels,
+        legal_unit_ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
-        ident_type_columns := ident_type_columns ||
-                        format(E'     , %I\n', ident_type_row.code);
-        legal_unit_ident_type_columns := legal_unit_ident_type_columns ||
-                        format(E'     , %I\n', 'legal_unit_'||ident_type_row.code);
-        ident_insert_labels := ident_insert_labels ||
-                        format(E'        , %I\n', ident_type_row.code);
-        legal_unit_ident_insert_labels := legal_unit_ident_insert_labels ||
-                        format(E'        , %I\n', 'legal_unit_'||ident_type_row.code);
-        ident_value_labels := ident_value_labels ||
-                        format(E'        , NEW.%I\n', ident_type_row.code);
-        legal_unit_ident_value_labels := legal_unit_ident_value_labels ||
-                        format(E'        , NEW.%I\n', 'legal_unit_'||ident_type_row.code);
-    END LOOP;
-    SELECT array_to_string(legal_unit_ident_missing_checks, ' AND ')
-    INTO legal_unit_ident_missing_check;
-
-    FOR stat_definition_row IN SELECT code FROM public.stat_definition ORDER BY code LOOP
-        stat_definition_columns := stat_definition_columns ||
-            format(E'     , '''' AS %I\n', stat_definition_row.code);
-        stats_insert_labels := stats_insert_labels ||
-            format(E'        , %I\n', stat_definition_row.code);
-        stats_value_labels := stats_value_labels ||
-                        format(E'        , NEW.%I\n', stat_definition_row.code);
-    END LOOP;
+    -- Process stat_definition_columns and related fields
+    SELECT
+        string_agg(format(E'     , %L AS %I','', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
 
     -- Render the view template
     view_sql := admin.render_template(view_template, jsonb_build_object(
