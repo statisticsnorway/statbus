@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 
 export interface StatisticalUnitDetailsLinkProps {
   readonly id: number;
@@ -28,11 +29,12 @@ export function StatisticalUnitDetailsLink({
     establishment: `/establishments/${id}`,
   }[type];
 
+  const params = useSearchParams();
+  const path = sub_path ? `${href}/${sub_path}` : href;
+  const url = params ? `${path}?${params}` : path;
+
   return (
-    <Link
-      href={sub_path ? `${href}/${sub_path}` : href}
-      className={cn("font-medium", className)}
-    >
+    <Link href={url} className={cn("font-medium", className)}>
       {children}
     </Link>
   );

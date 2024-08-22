@@ -19,9 +19,9 @@ export default async function RegionFilter({ urlSearchParam }: IProps) {
           className: "bg-orange-200",
         },
         ...(regions.data?.map(({ code, path, name }) => ({
-          label: `${code} ${name}`,
+          label: code ? `${code} ${name}` : `${name}`,
           value: path as string,
-          humanReadableValue: `${code} ${name}`,
+          humanReadableValue: code ? `${code} ${name}` : `${name}`,
         })) ?? []),
       ]}
       selected={

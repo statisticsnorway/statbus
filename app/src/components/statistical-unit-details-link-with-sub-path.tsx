@@ -15,5 +15,6 @@ export function StatisticalUnitDetailsLinkWithSubPath(
 
   const pathname = usePathname();
   const path = pathname.split(/\d{1,10}\//)?.[1] ?? "";
+
   return <StatisticalUnitDetailsLink {...props} sub_path={path} />;
 }

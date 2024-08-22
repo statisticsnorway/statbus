@@ -2,6 +2,11 @@ import DataDump from "@/components/data-dump";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import { notFound } from "next/navigation";
 import { getEnterpriseById } from "@/components/statistical-unit-details/requests";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Enterprise | Inspect",
+};
 
 export default async function EnterpriseInspectionPage({
   params: { id },
