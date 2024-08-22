@@ -334,7 +334,7 @@ FROM public.statistical_history
 WHERE resolution = 'year-month' AND year = 2019
 ORDER BY year,month,unit_type;
 
-\echo "Test yearly facets"
+\echo "Test yearly facet data"
 SELECT year
      , unit_type
      , primary_activity_category_path
@@ -350,11 +350,19 @@ SELECT year
      , legal_form_change_count
      , physical_region_change_count
      , physical_country_change_count
+FROM public.statistical_history_facet
+WHERE resolution = 'year'
+ORDER BY year,unit_type;
+
+\echo "Test yearly facet stats"
+SELECT year
+     , unit_type
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
 ORDER BY year,unit_type;
 
+\echo "Test monthly facet data"
 SELECT year, month
      , unit_type
      , primary_activity_category_path
@@ -370,14 +378,20 @@ SELECT year, month
      , legal_form_change_count
      , physical_region_change_count
      , physical_country_change_count
+FROM public.statistical_history_facet
+WHERE resolution = 'year-month' AND year = 2019
+ORDER BY year,month,unit_type;
+
+\echo "Test monthly facet data"
+SELECT year, month
+     , unit_type
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
 ORDER BY year,month,unit_type;
-\x
-
 
 \a
+\echo "Test yearly drilldown - enterprise"
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
@@ -391,12 +405,13 @@ SELECT jsonb_pretty(
           NULL::INTEGER
      ))) AS statistical_history_drilldown;
 
+\echo "Test yearly drilldown - legal_unit"
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type,
+          'legal_unit'::public.statistical_unit_type,
           'year'::public.history_resolution,
-          2020,
+          NULL::INTEGER,
           NULL::public.ltree,
           NULL::public.ltree,
           NULL::public.ltree,
@@ -404,16 +419,94 @@ SELECT jsonb_pretty(
           NULL::INTEGER
      ))) AS statistical_history_drilldown;
 
-\echo "Test statistical_unit_hierarchy"
+\echo "Test yearly drilldown - establishment"
+SELECT jsonb_pretty(
+     public.remove_ephemeral_data_from_hierarchy(
+     public.statistical_history_drilldown(
+          'establishment'::public.statistical_unit_type,
+          'year'::public.history_resolution,
+          NULL::INTEGER,
+          NULL::public.ltree,
+          NULL::public.ltree,
+          NULL::public.ltree,
+          NULL::INTEGER,
+          NULL::INTEGER
+     ))) AS statistical_history_drilldown;
+
+\echo "Test yearly drilldown - enterprise - with all filters as top level"
+SELECT jsonb_pretty(
+     public.remove_ephemeral_data_from_hierarchy(
+     public.statistical_history_drilldown(
+          'enterprise'::public.statistical_unit_type, -- unit_type
+          'year'::public.history_resolution, -- resolution
+          2019, -- year
+          '11'::public.ltree, -- region_path
+          'H'::public.ltree, -- activity_category_path
+          'innl'::public.ltree, -- sector_path
+          (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
+          (SELECT id FROM public.country WHERE iso_2 = 'NO') -- country_id
+     ))) AS statistical_history_drilldown;
+
+\echo "Test yearly drilldown - enterprise - with all filters as bottom level"
+SELECT jsonb_pretty(
+     public.remove_ephemeral_data_from_hierarchy(
+     public.statistical_history_drilldown(
+          'enterprise'::public.statistical_unit_type, -- unit_type
+          'year'::public.history_resolution, -- resolution
+          2019, -- year
+          '11.21'::public.ltree, -- region_path
+          'H.49.4.1.0'::public.ltree, -- activity_category_path
+          'innl.a_ikke_fin.2100'::public.ltree, -- sector_path
+          (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
+          (SELECT id FROM public.country WHERE iso_2 = 'NO') -- country_id
+     ))) AS statistical_history_drilldown;
+
+
+\echo "Test monthly drilldown"
+SELECT jsonb_pretty(
+     public.remove_ephemeral_data_from_hierarchy(
+     public.statistical_history_drilldown(
+          'enterprise'::public.statistical_unit_type,
+          'year-month'::public.history_resolution,
+          2019,
+          NULL::public.ltree,
+          NULL::public.ltree,
+          NULL::public.ltree,
+          NULL::INTEGER,
+          NULL::INTEGER
+     ))) AS statistical_history_drilldown;
+
+\echo "Test statistical_unit_hierarchy - For a date when it does not exist"
 WITH selected_enterprise AS (
      SELECT unit_id FROM public.statistical_unit
-     WHERE external_idents ->> 'tax_ident' = '921838309'
+     WHERE external_idents ->> 'tax_ident' = '823573673'
        AND unit_type = 'enterprise'
      LIMIT 1
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('enterprise',(SELECT unit_id FROM selected_enterprise))
+               public.statistical_unit_hierarchy(
+                'enterprise',
+                (SELECT unit_id FROM selected_enterprise),
+                '2013-01-01'::DATE
+            )
+          )
+     ) AS statistical_unit_hierarchy;
+
+\echo "Test statistical_unit_hierarchy - For a date when it does exist"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '823573673'
+       AND unit_type = 'enterprise'
+     LIMIT 1
+)
+SELECT jsonb_pretty(
+          public.remove_ephemeral_data_from_hierarchy(
+               public.statistical_unit_hierarchy(
+                'enterprise',
+                (SELECT unit_id FROM selected_enterprise),
+                '2010-01-01'::DATE
+            )
           )
      ) AS statistical_unit_hierarchy;
 

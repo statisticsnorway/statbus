@@ -6250,9 +6250,15 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
                 AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'enterprise' THEN (
-             SELECT en.id
-               FROM public.enterprise AS en
-              WHERE en.id = unit_id
+            SELECT lu.enterprise_id
+              FROM public.legal_unit AS lu
+             WHERE lu.enterprise_id = unit_id
+               AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+         UNION ALL
+            SELECT es.enterprise_id
+              FROM public.establishment AS es
+             WHERE es.enterprise_id = unit_id
+               AND es.valid_from <= valid_on AND valid_on <= es.valid_to
          )
          WHEN 'enterprise_group' THEN NULL --TODO
          END
