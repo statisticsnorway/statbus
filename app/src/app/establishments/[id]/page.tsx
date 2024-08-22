@@ -4,6 +4,11 @@ import { getEstablishmentById } from "@/components/statistical-unit-details/requ
 import { Button } from "@/components/ui/button";
 import { InfoBox } from "@/components/info-box";
 import { setPrimaryEstablishment } from "@/app/establishments/[id]/update-establishment-server-actions";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Establishment | General Info",
+};
 
 export default async function EstablishmentGeneralInfoPage({
   params: { id },

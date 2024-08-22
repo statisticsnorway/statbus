@@ -1,6 +1,11 @@
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import { notFound } from "next/navigation";
 import { getEstablishmentById } from "@/components/statistical-unit-details/requests";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Establishment | Contact",
+};
 
 export default async function EstablishmentContactPage({
   params: { id },

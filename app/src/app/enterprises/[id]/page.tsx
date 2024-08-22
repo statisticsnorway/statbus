@@ -8,6 +8,11 @@ import React from "react";
 import { InfoBox } from "@/components/info-box";
 import Link from "next/link";
 import { FormField } from "@/components/form/form-field";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Enterprise | General Info",
+};
 
 export default async function EnterpriseDetailsPage({
   params: { id },

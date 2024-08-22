@@ -1,6 +1,11 @@
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import { notFound } from "next/navigation";
 import { getEnterpriseById } from "@/components/statistical-unit-details/requests";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Enterprise | Contact",
+};
 
 export default async function EnterpriseContactPage({
   params: { id },
