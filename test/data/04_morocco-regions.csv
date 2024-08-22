@@ -1,0 +1,281 @@
+path,name
+1,Tanger-Tétouan-Al Hoceima
+1.051,Al Hoceima
+1.05103,Bni Boufrah
+1.05105,Bni Ouriaghel 
+1.05107,Targuist   
+1.05109,Ketama
+1.151,Chefchaouen
+1.15103,Bab Berred 
+1.15105,Bab Taza   
+1.15106,Bni Ahmed
+1.15107,Bou Ahmed   
+1.15109,Jebha
+1.227,Fahs-Anjra
+1.22703,Anjra
+1.22705,Fahs
+1.331,Larache
+1.33107,Loukouss
+1.33109,Moulay Abdeslem-Ben M'chich
+1.33111,Oued El Makhazine
+1.405,Ouezzane
+1.40507,Ouezzane  
+1.40509,Moqrisset   
+1.40511,Zoumi
+1.511,Tanger -Assilah
+1.51103,Assilah    
+1.571,Tétouan
+1.57103,Jebala      
+1.57105,Tétouan   
+1.573,Mdiq - Fnidq
+10,Guelmim-Oued Noun
+10.071,Assa-Zag
+10.07103,Assa      
+10.07105,Zag        
+10.261,Guelmim
+10.26103,Bouizakarne
+10.26105,Guelmim   
+10.26107,Laqsabi
+10.473,Sidi Ifni
+10.47305,Ifni      
+10.47307,Lakhsas    
+10.521,Tan-Tan
+10.52103,Msied     
+10.52105,Tan Tan    
+11,Laayoune-Sakia El Hamra
+11.121,Boujdour
+11.12103,Jraifia    
+11.221,Es-Semara
+11.22103,Es-Semara  
+11.321,Laayoune
+11.32103,Laayoune   
+11.537,Tarfaya
+11.53703,Daoura-El Hagounia
+11.53705,Tarfaya    
+12,Eddakhla-Oued Eddahab
+12.066,Aousserd
+12.06603,Aousserd
+12.06605,Bir Gandouz
+12.391,Oued-Ed-Dahab
+12.39105,Bir Anzarane
+12.39109,El Argoub
+2,Oriental
+2.113,Berkane
+2.11303,Ahfir      
+2.11305,Aklim    
+2.167,Driouch
+2.16703,Driouch    
+2.16709,Rif        
+2.251,Figuig
+2.25103,Bni Tadjite
+2.25105,Figuig     
+2.265,Guercif 
+2.26505,Guercif    
+2.26507,Taddart   
+2.275,Jerada
+2.27503,Jerada Banlieue   
+2.27505,Ain Bni  Mathar   
+2.381,Nador
+2.38105,Guelaia    
+2.38107,Louta     
+2.411,Oujda-Angad
+2.41103,Oujda  Banlieue Nord       
+2.41105,Oujda  Banlieue Sud    
+2.533,Taourirt
+2.53303,Debdou
+2.53307,El Aioun
+2.53309,Taourirt
+3,Fès-Meknès
+3.061,Meknès
+3.06103,Ain Orma   
+3.06105,Meknès Banlieue
+3.06107,Zerhoun    
+3.131,Boulemane
+3.13103,Boulemane  
+3.13105,Missour   
+3.13107,Outat El Haj
+3.171,El Hajeb
+3.17103,Agourai    
+3.17105,Ain Taoujdate     
+3.17107,El Hajeb   
+3.231,Fès
+3.23181,Fès Banlieue
+3.271,Ifrane
+3.27103,Azrou      
+3.451,Sefrou
+3.45103,El Menzel  
+3.45105,Imouzzer Kandar  
+3.45107,Sefrou     
+3.531,Taounate
+3.53103,Ghafsai    
+3.53105,Karia Ba  Mohamed  
+3.53107,Taounate 
+3.53109,Tissa
+3.561,Taza
+3.56103,Aknoul     
+3.56107,Oued Amlil 
+3.56109,Tahla      
+3.56111,Tainaste   
+3.56113,Taza       
+3.591,Moulay Yacoub
+3.59103,Moulay Yacoub
+3.59105,Oulad Jemaa Lemta
+4,Rabat-Salé-Kénitra
+4.281,Kénitra
+4.28103,Kénitra-Banlieue  
+4.28105,Ben Mansour
+4.28107,Souk Arbaa  El Gharb
+4.28109,Souk Tlet  El Gharb 
+4.28111,Lalla Mimouna
+4.291,Khémisset
+4.29103,Khémisset
+4.29105,Oulmes     
+4.29107,Rommani    
+4.29109,Tiflet     
+4.421,Rabat
+4.441,Salé
+4.44103,Salé  Banlieue      
+4.481,Sidi Kacem
+4.48103,Tilal Al Gharb 
+4.48105,Gharb-Bni Malek
+4.48107,Ouargha 
+4.48109,Chrarda
+4.48111,Baht
+4.491,Sidi Slimane
+4.49103,Kceibya
+4.49105,Sidi Slimane
+4.501,Skhirate- Témara
+4.50103,Ain El Aouda
+4.50105,Témara     
+5,Béni Mellal-Khénifra
+5.081,Azilal
+5.08103,Azilal     
+5.08105,Bzou       
+5.08109,Ouaouizeght 
+5.08111,Afourar
+5.08113,Fetouqka
+5.08115,Oultana
+5.091,Béni Mellal
+5.09103,Béni Mellal
+5.09105,Aghbala
+5.09107,El Ksiba   
+5.09111,Kasba Tadla
+5.255,Fquih Ben Salah
+5.25505,Bni Moussa Charquia
+5.25509,Fquih Ben Salah
+5.25511,Bni Moussa Gharbia
+5.301,Khénifra
+5.30103,El Kbab    
+5.30105,Khénifra   
+5.30107,Aguelmous
+5.311,Khouribga
+5.31103,Bejaad     
+5.31105,Khouribga
+5.31107,Oued-Zem
+6,Casablanca-Settat
+6.111,Benslimane
+6.11103,Benslimane
+6.11105,Bouznika   
+6.117,Berrechid
+6.11705,Berrechid  
+6.11708,El Gara    
+6.141,Casablanca
+6.181,El Jadida
+6.18103,Azemmour   
+6.18105,El Jadida  
+6.18107,Haouzia
+6.18109,Sidi Smail 
+6.355,Mediouna
+6.35503,Tit Mellil
+6.371,Mohammadia
+6.37103,Znata
+6.385,Nouaceur
+6.38503,Bouskoura  
+6.461,Settat
+6.46103,Ben Ahmed  
+6.46107,El Borouj  
+6.46109,Settat     
+6.467,Sidi Bennour
+6.46707,Sidi Bennour
+6.46711,Zemamra    
+7,Marrakech-Safi
+7.041,Al Haouz
+7.04103,Ait Ourir  
+7.04105,Amizmiz    
+7.04107,Asni      
+7.04109,Tahannaout
+7.04111,Touama
+7.161,Chichaoua 
+7.16103,Chichaoua  
+7.16105,Imintanoute 
+7.16107,Majjat    
+7.16109,Mtouga     
+7.191,El Kelâa des  Sraghna
+7.19103,El Kelaa Des Sraghna 
+7.19105,Laattaouia 
+7.19107,Tamallalt
+7.211,Essaouira 
+7.21103,Essaouira  
+7.21105,Tamanar   
+7.351,Marrakech 
+7.35102,Alouidane
+7.35103,Bour
+7.35105,Loudaya   
+7.35107,Saada
+7.427,Rehamna
+7.42707,Rehamna    
+7.42709,Sidi Bou Othmane  
+7.431,Safi
+7.43103,Abda       
+7.43107,Gzoula     
+7.43109,Hrara      
+7.585,Youssoufia
+7.58505,Ahmar      
+7.58507,El Gantour
+8,Drâa-Tafilalet
+8.201,Errachidia
+8.20103,Arfoud    
+8.20107,Errachidia 
+8.20111,Er-Rissani
+8.20113,Goulmima   
+8.363,Midelt
+8.36305,Boumia
+8.36307,Midelt     
+8.36309,Er-Rich    
+8.36315,Imilchil   
+8.401,Ouarzazate
+8.40103,Amerzgane  
+8.40107,Ouarzazate
+8.577,Tinghir
+8.57702,Alnif 
+8.57703,Assoul
+8.57705,Boumalne   Dades
+8.57707,Tinghir
+8.587,Zagora
+8.58703,Agdz
+8.58707,Tinzouline
+8.58709,Zagora
+9,Souss-Massa
+9.001,Agadir Ida Ou Tanane 
+9.00105,Agadir  Banlieue  
+9.00107,Agadir  Atlantique
+9.163,Chtouka- Ait Baha
+9.16303,Ait Baha  
+9.16305,Belfaa-Massa
+9.16307,Biougra    
+9.273,Inezgane Ait Melloul
+9.27305,Ait Melloul  
+9.541,Taroudannt
+9.54103,Irherm 
+9.54104,Oulad   Berhil       
+9.54105,Oulad Teima 
+9.54107,Taliouine  
+9.54109,Taroudannt
+9.551,Tata
+9.55103,Akka      
+9.55105,Foum Zguid 
+9.55107,Tata       
+9.581,Tiznit
+9.58103,Anezi      
+9.58109,Tafraout
+9.58111,Tiznit
