@@ -93,108 +93,147 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \x
 SELECT unit_type, name, external_idents, stats, jsonb_pretty(stats_summary) AS stats_summary
 FROM statistical_unit ORDER BY name, unit_type;
--[ RECORD 1 ]---+------------------------------
+-[ RECORD 1 ]---+---------------------------------------------
 unit_type       | establishment
 name            | GRAPHICS BY MIA
 external_idents | {"tax_ident": "825481982"}
 stats           | {}
-stats_summary   | {                            +
+stats_summary   | {                                           +
                 | }
--[ RECORD 2 ]---+------------------------------
+-[ RECORD 2 ]---+---------------------------------------------
 unit_type       | enterprise
 name            | GRAPHICS BY MIA
-external_idents | {}
+external_idents | {"tax_ident": "825481982"}
 stats           | 
-stats_summary   | {                            +
+stats_summary   | {                                           +
                 | }
--[ RECORD 3 ]---+------------------------------
+-[ RECORD 3 ]---+---------------------------------------------
 unit_type       | establishment
 name            | KRAN & SPESIALLØFT AS
 external_idents | {"tax_ident": "895406732"}
 stats           | {"employees": 19}
-stats_summary   | {                            +
+stats_summary   | {                                           +
+                |     "employees": {                          +
+                |         "max": 19,                          +
+                |         "min": 19,                          +
+                |         "sum": 19,                          +
+                |         "mean": 19,                         +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 4 ]---+------------------------------
+-[ RECORD 4 ]---+---------------------------------------------
 unit_type       | enterprise
 name            | KRAN & SPESIALLØFT AS
-external_idents | {}
+external_idents | {"tax_ident": "895406732"}
 stats           | 
-stats_summary   | {                            +
-                |     "employees": {           +
-                |         "max": 19,           +
-                |         "min": 19,           +
-                |         "sum": 19,           +
-                |         "mean": 19.00,       +
-                |         "type": "number",    +
-                |         "count": 1,          +
-                |         "stddev": 0.00,      +
-                |         "variance": 0.00,    +
-                |         "sum_sq_diff": 0.00  +
-                |     }                        +
+stats_summary   | {                                           +
+                |     "employees": {                          +
+                |         "max": 19,                          +
+                |         "min": 19,                          +
+                |         "sum": 19,                          +
+                |         "mean": 19.00,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 5 ]---+------------------------------
+-[ RECORD 5 ]---+---------------------------------------------
 unit_type       | establishment
 name            | NETT & EL TEKNIKK AS
 external_idents | {"tax_ident": "819097232"}
 stats           | {}
-stats_summary   | {                            +
+stats_summary   | {                                           +
                 | }
--[ RECORD 6 ]---+------------------------------
+-[ RECORD 6 ]---+---------------------------------------------
 unit_type       | enterprise
 name            | NETT & EL TEKNIKK AS
-external_idents | {}
+external_idents | {"tax_ident": "819097232"}
 stats           | 
-stats_summary   | {                            +
+stats_summary   | {                                           +
                 | }
--[ RECORD 7 ]---+------------------------------
+-[ RECORD 7 ]---+---------------------------------------------
 unit_type       | establishment
 name            | NORSVIN SA TESTESTASJON DELTA
 external_idents | {"tax_ident": "873124032"}
 stats           | {"employees": 16}
-stats_summary   | {                            +
+stats_summary   | {                                           +
+                |     "employees": {                          +
+                |         "max": 16,                          +
+                |         "min": 16,                          +
+                |         "sum": 16,                          +
+                |         "mean": 16,                         +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 8 ]---+------------------------------
+-[ RECORD 8 ]---+---------------------------------------------
 unit_type       | enterprise
 name            | NORSVIN SA TESTESTASJON DELTA
-external_idents | {}
+external_idents | {"tax_ident": "873124032"}
 stats           | 
-stats_summary   | {                            +
-                |     "employees": {           +
-                |         "max": 16,           +
-                |         "min": 16,           +
-                |         "sum": 16,           +
-                |         "mean": 16.00,       +
-                |         "type": "number",    +
-                |         "count": 1,          +
-                |         "stddev": 0.00,      +
-                |         "variance": 0.00,    +
-                |         "sum_sq_diff": 0.00  +
-                |     }                        +
+stats_summary   | {                                           +
+                |     "employees": {                          +
+                |         "max": 16,                          +
+                |         "min": 16,                          +
+                |         "sum": 16,                          +
+                |         "mean": 16.00,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 9 ]---+------------------------------
+-[ RECORD 9 ]---+---------------------------------------------
 unit_type       | establishment
 name            | VIKEDAL LEGEKONTOR
 external_idents | {"tax_ident": "911856174"}
 stats           | {"employees": 5}
-stats_summary   | {                            +
+stats_summary   | {                                           +
+                |     "employees": {                          +
+                |         "max": 5,                           +
+                |         "min": 5,                           +
+                |         "sum": 5,                           +
+                |         "mean": 5,                          +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 10 ]--+------------------------------
+-[ RECORD 10 ]--+---------------------------------------------
 unit_type       | enterprise
 name            | VIKEDAL LEGEKONTOR
-external_idents | {}
+external_idents | {"tax_ident": "911856174"}
 stats           | 
-stats_summary   | {                            +
-                |     "employees": {           +
-                |         "max": 5,            +
-                |         "min": 5,            +
-                |         "sum": 5,            +
-                |         "mean": 5.00,        +
-                |         "type": "number",    +
-                |         "count": 1,          +
-                |         "stddev": 0.00,      +
-                |         "variance": 0.00,    +
-                |         "sum_sq_diff": 0.00  +
-                |     }                        +
+stats_summary   | {                                           +
+                |     "employees": {                          +
+                |         "max": 5,                           +
+                |         "min": 5,                           +
+                |         "sum": 5,                           +
+                |         "mean": 5.00,                       +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
 
 \echo "Checking statistics"
@@ -205,28 +244,41 @@ SELECT unit_type
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;
--[ RECORD 1 ]-------+------------------------------
+-[ RECORD 1 ]-------+----------------------------------------------
 unit_type           | establishment
 distinct_unit_count | 5
 invalid_codes       | 
-stats_summary       | {                            +
+stats_summary       | {                                            +
+                    |     "employees": {                           +
+                    |         "max": 19,                           +
+                    |         "min": 5,                            +
+                    |         "sum": 40,                           +
+                    |         "mean": 13.33,                       +
+                    |         "type": "number",                    +
+                    |         "count": 3,                          +
+                    |         "stddev": 7.37,                      +
+                    |         "variance": 54.33,                   +
+                    |         "sum_sq_diff": 108.67,               +
+                    |         "coefficient_of_variation_pct": 55.28+
+                    |     }                                        +
                     | }
--[ RECORD 2 ]-------+------------------------------
+-[ RECORD 2 ]-------+----------------------------------------------
 unit_type           | enterprise
 distinct_unit_count | 5
 invalid_codes       | 
-stats_summary       | {                            +
-                    |     "employees": {           +
-                    |         "max": 19,           +
-                    |         "min": 5,            +
-                    |         "sum": 40,           +
-                    |         "mean": 13.33,       +
-                    |         "type": "number",    +
-                    |         "count": 3,          +
-                    |         "stddev": 7.37,      +
-                    |         "variance": 54.33,   +
-                    |         "sum_sq_diff": 108.67+
-                    |     }                        +
+stats_summary       | {                                            +
+                    |     "employees": {                           +
+                    |         "max": 19,                           +
+                    |         "min": 5,                            +
+                    |         "sum": 40,                           +
+                    |         "mean": 13.33,                       +
+                    |         "type": "number",                    +
+                    |         "count": 3,                          +
+                    |         "stddev": 7.37,                      +
+                    |         "variance": 54.33,                   +
+                    |         "sum_sq_diff": 108.67,               +
+                    |         "coefficient_of_variation_pct": 55.28+
+                    |     }                                        +
                     | }
 
 \x
