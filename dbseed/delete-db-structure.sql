@@ -240,11 +240,14 @@ DROP PROCEDURE admin.cleanup_import_establishment_era();
 DELETE FROM public.external_ident_type;
 DELETE FROM public.stat_definition;
 
-CALL lifecycle_callbacks.del('import_legal_unit_era');
-CALL lifecycle_callbacks.del('import_legal_unit_current');
-CALL lifecycle_callbacks.del('import_establishment_era');
-CALL lifecycle_callbacks.del('import_establishment_current');
+CALL lifecycle_callbacks.del('import_establishment_current_without_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_era_without_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_current_for_legal_unit');
 CALL lifecycle_callbacks.del('import_establishment_era_for_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_current');
+CALL lifecycle_callbacks.del('import_establishment_era');
+CALL lifecycle_callbacks.del('import_legal_unit_current');
+CALL lifecycle_callbacks.del('import_legal_unit_era');
 
 CALL lifecycle_callbacks.del_table('public.external_ident_type');
 CALL lifecycle_callbacks.del_table('public.stat_definition');
