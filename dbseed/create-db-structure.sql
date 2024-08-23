@@ -3451,7 +3451,7 @@ CREATE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
 -- Notice:
 --   The function `jsonb_concat` is not documented, but named equivalent of `||`.
 CREATE AGGREGATE public.jsonb_concat_agg(jsonb) (
-    sfunc = public.jsonb_concat,
+    sfunc = jsonb_concat,
     stype = jsonb,
     initcond = '{}'
 );
