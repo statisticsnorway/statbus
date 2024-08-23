@@ -7997,7 +7997,7 @@ BEGIN
         'stat_definition_columns', stat_definition_columns
     ));
 
-    -- Create the view dynamically
+    RAISE NOTICE 'Creating public.import_legal_unit_era';
     EXECUTE view_template;
 END;
 $generate_import_legal_unit_era$;
@@ -8005,6 +8005,7 @@ $generate_import_legal_unit_era$;
 \echo admin.cleanup_import_legal_unit_era()
 CREATE PROCEDURE admin.cleanup_import_legal_unit_era()
 LANGUAGE sql AS $$
+    RAISE NOTICE 'Deleting public.import_legal_unit_era';
     DROP VIEW IF EXISTS public.import_legal_unit_era;
 $$;
 
@@ -8600,6 +8601,11 @@ BEGIN
 
     RAISE NOTICE 'Creating admin.import_legal_unit_current_upsert()';
     EXECUTE function_template;
+
+    CREATE TRIGGER import_legal_unit_current_upsert_trigger
+    INSTEAD OF INSERT ON public.import_legal_unit_current
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_legal_unit_current_upsert();
 END;
 $generate_import_legal_unit_current$;
 
@@ -8625,12 +8631,6 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.import_legal_unit_current
 \echo Generating admin.import_legal_unit_current_upsert
 CALL admin.generate_import_legal_unit_current();
-
-CREATE TRIGGER import_legal_unit_current_upsert_trigger
-INSTEAD OF INSERT ON public.import_legal_unit_current
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_legal_unit_current_upsert();
-
 
 CREATE PROCEDURE admin.generate_import_establishment_era()
 LANGUAGE plpgsql AS $generate_import_establishment_era$
@@ -8696,6 +8696,7 @@ BEGIN
         'stat_definition_columns', stat_definition_columns
     ));
 
+    RAISE NOTICE 'Creating public.import_establishment_era';
     EXECUTE view_template;
 
     COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
@@ -8705,6 +8706,7 @@ $generate_import_establishment_era$;
 \echo admin.cleanup_import_establishment_era()
 CREATE PROCEDURE admin.cleanup_import_establishment_era()
 LANGUAGE sql AS $$
+    RAISE NOTICE 'Deleting public.import_establishment_era';
     DROP VIEW IF EXISTS public.import_establishment_era;
 $$;
 
@@ -9567,11 +9569,28 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.generate_import_establishment_era_for_legal_unit
 CALL admin.generate_import_establishment_era_for_legal_unit();
 
-\echo public.import_establishment_current_for_legal_unit
+\echo admin.generate_import_establishment_current_for_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_current_for_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_current_for_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    legal_unit_ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    legal_unit_ident_missing_check TEXT := '';
+    ident_insert_labels TEXT := '';
+    legal_unit_ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    legal_unit_ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_current_for_legal_unit
 WITH (security_invoker=on) AS
-SELECT tax_ident
-     , legal_unit_tax_ident
+SELECT {{ident_type_columns}}
+{{legal_unit_ident_type_columns}}
      , name
      , birth_date
      , death_date
@@ -9594,28 +9613,27 @@ SELECT tax_ident
      , primary_activity_category_code
      , secondary_activity_category_code
      -- sector_code is Disabled because the legal unit provides the sector_code
-     , employees
-     , turnover
+{{stat_definition_columns}}
      , tag_path
 FROM public.import_establishment_era;
-COMMENT ON VIEW public.import_establishment_current_for_legal_unit IS 'Upload of establishment from today and forwards that must connect to a legal_unit';
+    $view_template$;
 
-
-\echo admin.import_establishment_current_for_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_current_for_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_current_for_legal_unit_upsert$
 DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
-      RAISE EXCEPTION 'Missing legal_unit_tax_ident for row %', to_json(NEW);
+    IF {{legal_unit_ident_missing_check}}
+    THEN
+      RAISE EXCEPTION 'Missing legal_unit identifier for row %', to_json(NEW);
     END IF;
     INSERT INTO public.import_establishment_era
         ( valid_from
         , valid_to
-        , tax_ident
-        , legal_unit_tax_ident
+{{ident_insert_labels}}
+{{legal_unit_ident_insert_labels}}
         , name
         , birth_date
         , death_date
@@ -9637,15 +9655,14 @@ BEGIN
         , postal_country_iso_2
         , primary_activity_category_code
         , secondary_activity_category_code
-        , employees
-        , turnover
+{{stats_insert_labels}}
         , tag_path
         )
     VALUES
         ( new_valid_from
         , new_valid_to
-        , NEW.tax_ident
-        , NEW.legal_unit_tax_ident
+{{ident_value_labels}}
+{{legal_unit_ident_value_labels}}
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -9667,27 +9684,122 @@ BEGIN
         , NEW.postal_country_iso_2
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
-        , NEW.employees
-        , NEW.turnover
+{{stats_value_labels}}
         , NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_current_for_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        string_agg(format('(NEW.%1$I IS NULL OR NEW.%1$I = %2$L)',
+                          'legal_unit_' || code, ''), ' AND '),
+        regexp_replace( -- Remove leading ,
+            string_agg(format(E'     , %I', code), E'\n'),
+            E'^ *, ?', ''),
+        string_agg(format(E'     , %I', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , %I', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', 'legal_unit_' || code), E'\n')
+    INTO
+        legal_unit_ident_missing_check,
+        ident_type_columns,
+        legal_unit_ident_type_columns,
+        ident_insert_labels,
+        legal_unit_ident_insert_labels,
+        ident_value_labels,
+        legal_unit_ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+
+    SELECT
+        string_agg(format(E'     , %L AS %I','', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'legal_unit_ident_type_columns', legal_unit_ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'legal_unit_ident_missing_check', legal_unit_ident_missing_check,
+        'ident_insert_labels', ident_insert_labels,
+        'legal_unit_ident_insert_labels', legal_unit_ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'legal_unit_ident_value_labels', legal_unit_ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_current_for_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_current_for_legal_unit IS 'Upload of establishment from today and forwards that must connect to a legal_unit';
+
+    RAISE NOTICE 'Creating admin.import_establishment_current_for_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_current_for_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_current_for_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+END;
+$generate_import_establishment_current_for_legal_unit$;
+
+\echo admin.cleanup_import_establishment_current_for_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_current_for_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit';
+    DROP VIEW IF EXISTS public.import_establishment_current_for_legal_unit;
+    RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit_upsert';
+    DROP FUNCTION IF EXISTS public.import_establishment_current_for_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_current_for_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_current_for_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_current_for_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_current_for_legal_unit',
+    'admin.cleanup_import_establishment_current_for_legal_unit'
+    );
+
+\echo Generating public.generate_import_establishment_current_for_legal_unit
+CALL admin.generate_import_establishment_current_for_legal_unit();
 
 
-\echo public.import_establishment_era_without_legal_unit
+\echo admin.generate_import_establishment_era_without_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_era_without_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_era_without_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era_without_legal_unit
 WITH (security_invoker=on) AS
 SELECT valid_from
      , valid_to
-     , tax_ident
-     -- legal_unit_tax_ident is Disabled because this is an informal sector
+     {{ident_type_columns}}
      , name
      , birth_date
      , death_date
@@ -9710,20 +9822,19 @@ SELECT valid_from
      , primary_activity_category_code
      , secondary_activity_category_code
      , sector_code -- Is allowed, since there is no legal unit to provide it.
-     , employees
-     , turnover
+{{stat_definition_columns}}
      , tag_path
 FROM public.import_establishment_era;
+    $view_template$;
 
-
-\echo admin.import_establishment_era_without_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_era_without_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_era_without_legal_unit_upsert$
 BEGIN
     INSERT INTO public.import_establishment_era
         ( valid_from
         , valid_to
-        , tax_ident
+{{ident_insert_labels}}
         , name
         , birth_date
         , death_date
@@ -9746,14 +9857,13 @@ BEGIN
         , primary_activity_category_code
         , secondary_activity_category_code
         , sector_code
-        , employees
-        , turnover
+{{stats_insert_labels}}
         , tag_path
         )
     VALUES
         ( NEW.valid_from
         , NEW.valid_to
-        , NEW.tax_ident
+{{ident_value_labels}}
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -9776,23 +9886,106 @@ BEGIN
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.sector_code
-        , NEW.employees
-        , NEW.turnover
+{{stats_value_labels}}
         , NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_era_without_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        string_agg(format(E'     , %I', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+
+    SELECT
+        string_agg(format(E'     , %L AS %I','', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'ident_insert_labels', ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_era_without_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_era_without_legal_unit IS 'Upload of establishment without a legal unit for a specified time';
+
+    RAISE NOTICE 'Creating admin.import_establishment_era_without_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_era_without_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_era_without_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+
+END;
+$generate_import_establishment_era_without_legal_unit$;
+
+\echo admin.cleanup_import_establishment_era_without_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_era_without_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit';
+    DROP VIEW IF EXISTS public.import_establishment_era_without_legal_unit;
+    RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit_upsert';
+    DROP FUNCTION IF EXISTS public.import_establishment_era_without_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_era_without_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_era_without_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_era_without_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_era_without_legal_unit',
+    'admin.cleanup_import_establishment_era_without_legal_unit'
+    );
 
-\echo public.import_establishment_current_without_legal_unit
+\echo Generating admin.generate_import_establishment_era_without_legal_unit
+CALL admin.generate_import_establishment_era_without_legal_unit();
+
+
+\echo admin.generate_import_establishment_current_without_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_current_without_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_current_without_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_current_without_legal_unit
 WITH (security_invoker=on) AS
-SELECT tax_ident
+SELECT {{ident_type_columns}}
      -- legal_unit_tax_ident is Disabled because this is an informal sector
      , name
      , birth_date
@@ -9816,15 +10009,14 @@ SELECT tax_ident
      , primary_activity_category_code
      , secondary_activity_category_code
      , sector_code -- Is allowed, since there is no legal unit to provide it.
-     , employees
-     , turnover
+{{stat_definition_columns}}
      , tag_path
 FROM public.import_establishment_era;
+    $view_template$;
 
-
-\echo admin.import_establishment_current_without_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_current_without_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_current_without_legal_unit_upsert$
 DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
@@ -9832,7 +10024,7 @@ BEGIN
     INSERT INTO public.import_establishment_era
         ( valid_from
         , valid_to
-        , tax_ident
+{{ident_insert_labels}}
         , name
         , birth_date
         , death_date
@@ -9855,14 +10047,13 @@ BEGIN
         , primary_activity_category_code
         , secondary_activity_category_code
         , sector_code
-        , employees
-        , turnover
+{{stats_insert_labels}}
         , tag_path
         )
     VALUES
         ( new_valid_from
         , new_valid_to
-        , NEW.tax_ident
+{{ident_value_labels}}
         , NEW.name
         , NEW.birth_date
         , NEW.death_date
@@ -9885,18 +10076,89 @@ BEGIN
         , NEW.primary_activity_category_code
         , NEW.secondary_activity_category_code
         , NEW.sector_code
-        , NEW.employees
-        , NEW.turnover
+{{stats_value_labels}}
         , NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_current_without_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        regexp_replace( -- Remove leading ,
+            string_agg(format(E'     , %I', code), E'\n'),
+            E'^ *, ?', ''),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+
+    SELECT
+        string_agg(format(E'     , %L AS %I','', code), E'\n'),
+        string_agg(format(E'        , %I', code), E'\n'),
+        string_agg(format(E'        , NEW.%I', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'ident_insert_labels', ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_current_without_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_current_without_legal_unit IS 'Upload of establishment without a legal unit for a specified time';
+
+    RAISE NOTICE 'Creating admin.import_establishment_current_without_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_current_without_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_current_without_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
+
+END;
+$generate_import_establishment_current_without_legal_unit$;
+
+\echo admin.cleanup_import_establishment_current_without_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_current_without_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit';
+    DROP VIEW IF EXISTS public.import_establishment_current_without_legal_unit;
+    RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit_upsert';
+    DROP FUNCTION IF EXISTS public.import_establishment_current_without_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_current_without_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_current_without_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_current_without_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_current_without_legal_unit',
+    'admin.cleanup_import_establishment_current_without_legal_unit'
+    );
+
+\echo Generating admin.generate_import_establishment_current_without_legal_unit
+CALL admin.generate_import_establishment_current_without_legal_unit();
 
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)

@@ -237,6 +237,8 @@ DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
 DROP PROCEDURE admin.generate_import_establishment_era();
 DROP PROCEDURE admin.cleanup_import_establishment_era();
 
+DELETE FROM public.external_ident_type;
+DELETE FROM public.stat_definition;
 
 CALL lifecycle_callbacks.del('import_legal_unit_era');
 CALL lifecycle_callbacks.del('import_legal_unit_current');
@@ -250,7 +252,6 @@ CALL lifecycle_callbacks.del_table('public.stat_definition');
 \echo public.external_ident
 DROP TABLE public.external_ident;
 \echo Trigger cleanup of external_ident_type generated code.
-DELETE FROM public.external_ident_type;
 DROP TABLE public.external_ident_type;
 DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
 
@@ -404,12 +405,20 @@ DROP PROCEDURE admin.cleanup_import_legal_unit_current();
 DROP PROCEDURE admin.generate_import_legal_unit_era();
 DROP PROCEDURE admin.cleanup_import_legal_unit_era();
 
---DROP PROCEDURE admin.generate_import_establishment_era();
---DROP PROCEDURE admin.cleanup_import_establishment_era();
+DROP PROCEDURE admin.generate_import_establishment_era();
+DROP PROCEDURE admin.cleanup_import_establishment_era();
 DROP PROCEDURE admin.generate_import_establishment_current();
 DROP PROCEDURE admin.cleanup_import_establishment_current();
+
 DROP PROCEDURE admin.generate_import_establishment_era_for_legal_unit();
 DROP PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit();
+DROP PROCEDURE admin.generate_import_establishment_current_for_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_current_for_legal_unit();
+
+DROP PROCEDURE admin.generate_import_establishment_era_without_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_era_without_legal_unit();
+DROP PROCEDURE admin.generate_import_establishment_current_without_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_current_without_legal_unit();
 
 DROP FUNCTION admin.render_template(text,jsonb);
 DROP FUNCTION public.remove_ephemeral_data_from_hierarchy(JSONB);
