@@ -406,7 +406,7 @@ BEGIN
 END;
 $$;
 
-CREATE PROCEDURE lifecycle_callbacks.clean(table_name regclass)
+CREATE OR REPLACE PROCEDURE lifecycle_callbacks.clean(table_name regclass)
 LANGUAGE plpgsql AS $$
 DECLARE
     callback_procedures regproc[] := ARRAY[]::regproc[];
@@ -429,7 +429,7 @@ BEGIN
             -- Capture any exception that occurs during the call
             WHEN OTHERS THEN
                 -- Log the error along with the original call
-                RAISE WARNING 'Error executing callback procedure %: %', callback_sql, SQLERRM;
+                RAISE EXCEPTION 'Error executing callback procedure %: %', callback_sql, SQLERRM;
         END;
     END LOOP;
 END;
@@ -8004,9 +8004,11 @@ $generate_import_legal_unit_era$;
 
 \echo admin.cleanup_import_legal_unit_era()
 CREATE PROCEDURE admin.cleanup_import_legal_unit_era()
-LANGUAGE sql AS $$
+LANGUAGE plpgsql AS $$
+BEGIN
     RAISE NOTICE 'Deleting public.import_legal_unit_era';
-    DROP VIEW IF EXISTS public.import_legal_unit_era;
+    DROP VIEW public.import_legal_unit_era;
+END;
 $$;
 
 
@@ -8614,9 +8616,9 @@ CREATE PROCEDURE admin.cleanup_import_legal_unit_current()
 LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_legal_unit_current';
-    DROP VIEW IF EXISTS public.import_legal_unit_current;
+    DROP VIEW public.import_legal_unit_current;
     RAISE NOTICE 'Deleting admin.import_legal_unit_current_upsert()';
-    DROP FUNCTION IF EXISTS admin.import_legal_unit_current_upsert();
+    DROP FUNCTION admin.import_legal_unit_current_upsert();
 END;
 $$;
 
@@ -8705,9 +8707,11 @@ $generate_import_establishment_era$;
 
 \echo admin.cleanup_import_establishment_era()
 CREATE PROCEDURE admin.cleanup_import_establishment_era()
-LANGUAGE sql AS $$
+LANGUAGE plpgsql AS $$
+BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_era';
-    DROP VIEW IF EXISTS public.import_establishment_era;
+    DROP VIEW public.import_establishment_era;
+END;
 $$;
 
 \echo Add import_establishment_era callbacks
@@ -9330,10 +9334,10 @@ CREATE PROCEDURE admin.cleanup_import_establishment_current()
 LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_current';
-    DROP VIEW IF EXISTS public.import_establishment_current;
+    DROP VIEW public.import_establishment_current;
 
     RAISE NOTICE 'Deleting admin.import_establishment_current_upsert()';
-    DROP FUNCTION IF EXISTS admin.import_establishment_current_upsert();
+    DROP FUNCTION admin.import_establishment_current_upsert();
 END;
 $$;
 
@@ -9552,9 +9556,9 @@ CREATE PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit()
 LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit';
-    DROP VIEW IF EXISTS public.import_establishment_era_for_legal_unit;
+    DROP VIEW public.import_establishment_era_for_legal_unit;
     RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit_upsert';
-    DROP FUNCTION IF EXISTS public.import_establishment_era_for_legal_unit_upsert();
+    DROP FUNCTION public.import_establishment_era_for_legal_unit_upsert();
 END;
 $$;
 
@@ -9763,9 +9767,9 @@ CREATE PROCEDURE admin.cleanup_import_establishment_current_for_legal_unit()
 LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit';
-    DROP VIEW IF EXISTS public.import_establishment_current_for_legal_unit;
+    DROP VIEW public.import_establishment_current_for_legal_unit;
     RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit_upsert';
-    DROP FUNCTION IF EXISTS public.import_establishment_current_for_legal_unit_upsert();
+    DROP FUNCTION public.import_establishment_current_for_legal_unit_upsert();
 END;
 $$;
 
@@ -9951,9 +9955,9 @@ CREATE PROCEDURE admin.cleanup_import_establishment_era_without_legal_unit()
 LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit';
-    DROP VIEW IF EXISTS public.import_establishment_era_without_legal_unit;
+    DROP VIEW public.import_establishment_era_without_legal_unit;
     RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit_upsert';
-    DROP FUNCTION IF EXISTS public.import_establishment_era_without_legal_unit_upsert();
+    DROP FUNCTION public.import_establishment_era_without_legal_unit_upsert();
 END;
 $$;
 
@@ -10143,9 +10147,9 @@ CREATE PROCEDURE admin.cleanup_import_establishment_current_without_legal_unit()
 LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit';
-    DROP VIEW IF EXISTS public.import_establishment_current_without_legal_unit;
+    DROP VIEW public.import_establishment_current_without_legal_unit;
     RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit_upsert';
-    DROP FUNCTION IF EXISTS public.import_establishment_current_without_legal_unit_upsert();
+    DROP FUNCTION public.import_establishment_current_without_legal_unit_upsert();
 END;
 $$;
 
