@@ -351,9 +351,42 @@ CREATE PROCEDURE lifecycle_callbacks.del(
     label_param TEXT
 )
 LANGUAGE plpgsql AS $$
+DECLARE
+    higher_priority_label TEXT;
+    rows_deleted INT;
 BEGIN
+    -- CTE to get the priority of the callback to be deleted
+    WITH target_callback AS (
+        SELECT priority
+        FROM lifecycle_callbacks.registered_callback
+        WHERE label = label_param
+    )
+    -- Check for a higher priority callback
+    SELECT label
+    INTO higher_priority_label
+    FROM lifecycle_callbacks.registered_callback
+    WHERE priority > (SELECT priority FROM target_callback)
+    ORDER BY priority ASC
+    LIMIT 1;
+
+    -- If a higher priority callback exists, raise an error
+    IF higher_priority_label IS NOT NULL THEN
+        RAISE EXCEPTION 'Cannot delete % because a higher priority callback % still exists.', label_param, higher_priority_label;
+    END IF;
+
+    -- Proceed with deletion if no higher priority callback exists
     DELETE FROM lifecycle_callbacks.registered_callback
     WHERE label = label_param;
+
+    -- Get the number of rows affected by the DELETE operation
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+
+    -- Provide feedback on the deletion
+    IF rows_deleted > 0 THEN
+        RAISE NOTICE 'Callback % has been successfully deleted.', label_param;
+    ELSE
+        RAISE NOTICE 'Callback % was not found and thus not deleted.', label_param;
+    END IF;
 END;
 $$;
 
@@ -366,23 +399,53 @@ BEGIN
 END;
 $$;
 
+
 CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_update()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    sql TEXT;
 BEGIN
+    -- Build the SQL statement based on the timing of the trigger
     IF TG_WHEN = 'BEFORE' THEN
-        CALL lifecycle_callbacks.clean(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
+        sql := format('CALL lifecycle_callbacks.clean(%L)', format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
     ELSE -- AFTER
-        CALL lifecycle_callbacks.generate(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
+        sql := format('CALL lifecycle_callbacks.generate(%L)', format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
     END IF;
-    RETURN NULL; -- Statement-level trigger returns NULL
+
+    -- Execute the dynamically generated SQL and handle exceptions
+    BEGIN
+        EXECUTE sql;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Handle any exception by capturing the SQL and error message
+            RAISE EXCEPTION 'Error executing SQL: %, Error details: %', sql, SQLERRM;
+    END;
+
+    -- Return NULL for a statement-level trigger
+    RETURN NULL;
 END;
 $$;
 
+
 CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_delete()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    sql TEXT;
 BEGIN
-    CALL lifecycle_callbacks.clean(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
-    RETURN NULL; -- Statement-level trigger returns NULL
+    -- Build the SQL statement
+    sql := format('CALL lifecycle_callbacks.clean(%L)', format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
+
+    -- Execute the SQL statement with exception handling
+    BEGIN
+        EXECUTE sql;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Handle any exception by capturing the SQL and error message
+            RAISE EXCEPTION 'Error executing SQL: %, Error details: %', sql, SQLERRM;
+    END;
+
+    -- Return NULL for a statement-level trigger
+    RETURN NULL;
 END;
 $$;
 
@@ -393,14 +456,14 @@ DECLARE
     callback_procedures regproc[];
     callback_procedure regproc;
 BEGIN
-    SELECT ARRAY_AGG(generate_procedure ORDER BY priority)
+    SELECT ARRAY_AGG(generate_procedure ORDER BY priority ASC)
     INTO callback_procedures
     FROM lifecycle_callbacks.registered_callback
     WHERE table_names @> ARRAY[table_name];
 
     IF callback_procedures IS NOT NULL THEN
         FOREACH callback_procedure IN ARRAY callback_procedures LOOP
-            EXECUTE 'CALL ' || callback_procedure || '();';
+            EXECUTE format('CALL %s();', callback_procedure );
         END LOOP;
     END IF;
 END;
@@ -421,7 +484,7 @@ BEGIN
 
     -- Loop through each callback procedure
     FOREACH callback_procedure IN ARRAY callback_procedures LOOP
-        callback_sql := format('CALL %I();', callback_procedure);
+        callback_sql := format('CALL %s();', callback_procedure);
         BEGIN
             -- Attempt to execute the callback procedure
             EXECUTE callback_sql;
