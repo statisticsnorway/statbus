@@ -414,7 +414,7 @@ DECLARE
     callback_sql TEXT;
 BEGIN
     -- Fetch the list of callback procedures
-    SELECT COALESCE(ARRAY_AGG(cleanup_procedure ORDER BY priority), ARRAY[]::regproc[])
+    SELECT COALESCE(ARRAY_AGG(cleanup_procedure ORDER BY priority DESC), ARRAY[]::regproc[])
     INTO callback_procedures
     FROM lifecycle_callbacks.registered_callback
     WHERE table_names @> ARRAY[table_name];
