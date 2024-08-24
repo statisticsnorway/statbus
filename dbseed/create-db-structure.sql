@@ -527,7 +527,7 @@ BEGIN
 
     -- Perform the replacement
     FOREACH key IN ARRAY provided_variables LOOP
-        template := REPLACE(template, '{{' || key || '}}', vars->>key);
+        template := REPLACE(template, '{{' || key || '}}', COALESCE(vars->>key,''));
     END LOOP;
 
     RETURN template;
