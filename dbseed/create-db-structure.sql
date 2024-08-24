@@ -170,10 +170,9 @@ CREATE SCHEMA lifecycle_callbacks;
 
 CREATE TABLE lifecycle_callbacks.supported_table (
     table_name regclass PRIMARY KEY,
-    cleanup_before_update_trigger_name TEXT,
-    cleanup_before_delete_trigger_name TEXT,
-    generate_after_insert_trigger_name TEXT,
-    generate_after_update_trigger_name TEXT
+    after_insert_trigger_name TEXT,
+    after_update_trigger_name TEXT,
+    after_delete_trigger_name TEXT
 );
 
 CREATE TABLE lifecycle_callbacks.registered_callback (
@@ -191,10 +190,9 @@ LANGUAGE plpgsql AS $$
 DECLARE
     schema_name TEXT;
     table_name_text TEXT;
-    cleanup_before_update_trigger_name TEXT;
-    cleanup_before_delete_trigger_name TEXT;
-    generate_after_insert_trigger_name TEXT;
-    generate_after_update_trigger_name TEXT;
+    after_insert_trigger_name TEXT;
+    after_update_trigger_name TEXT;
+    after_delete_trigger_name TEXT;
 BEGIN
     -- Ensure that the table exists
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid = table_name) THEN
@@ -208,54 +206,44 @@ BEGIN
     WHERE c.oid = table_name;
 
     -- Define trigger names based on the provided table name
-    cleanup_before_update_trigger_name := format('%I_cleanup_before_update', table_name_text);
-    cleanup_before_delete_trigger_name := format('%I_cleanup_before_delete', table_name_text);
-    generate_after_insert_trigger_name := format('%I_generate_after_insert', table_name_text);
-    generate_after_update_trigger_name := format('%I_generate_after_update', table_name_text);
+    after_insert_trigger_name := format('%I_lifecycle_callbacks_after_insert', table_name_text);
+    after_update_trigger_name := format('%I_lifecycle_callbacks_after_update', table_name_text);
+    after_delete_trigger_name := format('%I_lifecycle_callbacks_after_delete', table_name_text);
 
     -- Insert the table into supported_table with trigger names
     INSERT INTO lifecycle_callbacks.supported_table (
         table_name,
-        cleanup_before_update_trigger_name,
-        cleanup_before_delete_trigger_name,
-        generate_after_insert_trigger_name,
-        generate_after_update_trigger_name
+        after_insert_trigger_name,
+        after_update_trigger_name,
+        after_delete_trigger_name
     )
     VALUES (
         table_name,
-        cleanup_before_update_trigger_name,
-        cleanup_before_delete_trigger_name,
-        generate_after_insert_trigger_name,
-        generate_after_update_trigger_name
+        after_insert_trigger_name,
+        after_update_trigger_name,
+        after_delete_trigger_name
     )
     ON CONFLICT DO NOTHING;
 
     EXECUTE format('
         CREATE TRIGGER %I
-        BEFORE UPDATE ON %I.%I
-        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_update();',
-        cleanup_before_update_trigger_name, schema_name, table_name_text
-    );
-
-    EXECUTE format('
-        CREATE TRIGGER %I
-        BEFORE DELETE ON %I.%I
-        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_delete();',
-        cleanup_before_delete_trigger_name, schema_name, table_name_text
-    );
-
-    EXECUTE format('
-        CREATE TRIGGER %I
         AFTER INSERT ON %I.%I
-        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_insert();',
-        generate_after_insert_trigger_name, schema_name, table_name_text
+        EXECUTE FUNCTION lifecycle_callbacks.clean_and_generate();',
+        after_insert_trigger_name, schema_name, table_name_text
     );
 
     EXECUTE format('
         CREATE TRIGGER %I
         AFTER UPDATE ON %I.%I
-        EXECUTE FUNCTION lifecycle_callbacks.run_table_lifecycle_update();',
-        generate_after_update_trigger_name, schema_name, table_name_text
+        EXECUTE FUNCTION lifecycle_callbacks.clean_and_generate();',
+        after_update_trigger_name, schema_name, table_name_text
+    );
+
+    EXECUTE format('
+        CREATE TRIGGER %I
+        AFTER DELETE ON %I.%I
+        EXECUTE FUNCTION lifecycle_callbacks.clean_and_generate();',
+        after_delete_trigger_name, schema_name, table_name_text
     );
 
     RAISE NOTICE 'Triggers created for table: %', table_name_text;
@@ -290,10 +278,9 @@ BEGIN
     END IF;
 
     -- Drop the triggers
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_update_trigger_name, table_name_param);
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.cleanup_before_delete_trigger_name, table_name_param);
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_insert_trigger_name, table_name_param);
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.generate_after_update_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.after_insert_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.after_update_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.after_delete_trigger_name, table_name_param);
 
     -- Delete the table from supported_table
     DELETE FROM lifecycle_callbacks.supported_table
@@ -390,64 +377,34 @@ BEGIN
 END;
 $$;
 
--- Specific trigger functions for INSERT, UPDATE, and DELETE
-CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_insert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    CALL lifecycle_callbacks.generate(format('%I.%I',TG_TABLE_SCHEMA,TG_TABLE_NAME));
-    RETURN NULL; -- Statement-level trigger returns NULL
-END;
-$$;
 
-
-CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_update()
+CREATE FUNCTION lifecycle_callbacks.clean_and_generate()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
+    proc_names TEXT[] := ARRAY['clean', 'generate'];
+    proc_name TEXT;
     sql TEXT;
 BEGIN
-    -- Build the SQL statement based on the timing of the trigger
-    IF TG_WHEN = 'BEFORE' THEN
-        sql := format('CALL lifecycle_callbacks.clean(%L)', format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
-    ELSE -- AFTER
-        sql := format('CALL lifecycle_callbacks.generate(%L)', format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
-    END IF;
+    -- Loop over the array of procedure names
+    FOREACH proc_name IN ARRAY proc_names LOOP
+        -- Generate the SQL for the current procedure
+        sql := format('CALL lifecycle_callbacks.%I(%L)', proc_name, format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
 
-    -- Execute the dynamically generated SQL and handle exceptions
-    BEGIN
-        EXECUTE sql;
-    EXCEPTION
-        WHEN OTHERS THEN
-            -- Handle any exception by capturing the SQL and error message
-            RAISE EXCEPTION 'Error executing SQL: %, Error details: %', sql, SQLERRM;
-    END;
+        -- Execute the SQL and handle exceptions
+        BEGIN
+            EXECUTE sql;
+        EXCEPTION
+            WHEN OTHERS THEN
+                -- Handle any exception by capturing the SQL and error message
+                RAISE EXCEPTION 'Error executing % procedure: %, Error details: %', proc_name, sql, SQLERRM;
+        END;
+    END LOOP;
 
     -- Return NULL for a statement-level trigger
     RETURN NULL;
 END;
 $$;
 
-
-CREATE FUNCTION lifecycle_callbacks.run_table_lifecycle_delete()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-    sql TEXT;
-BEGIN
-    -- Build the SQL statement
-    sql := format('CALL lifecycle_callbacks.clean(%L)', format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
-
-    -- Execute the SQL statement with exception handling
-    BEGIN
-        EXECUTE sql;
-    EXCEPTION
-        WHEN OTHERS THEN
-            -- Handle any exception by capturing the SQL and error message
-            RAISE EXCEPTION 'Error executing SQL: %, Error details: %', sql, SQLERRM;
-    END;
-
-    -- Return NULL for a statement-level trigger
-    RETURN NULL;
-END;
-$$;
 
 -- Helper procedures for generating and cleaning up specific tables.
 CREATE PROCEDURE lifecycle_callbacks.generate(table_name regclass)
@@ -455,15 +412,29 @@ LANGUAGE plpgsql AS $$
 DECLARE
     callback_procedures regproc[];
     callback_procedure regproc;
+    sql TEXT;
 BEGIN
+    -- Retrieve the list of callback procedures in order of priority
     SELECT ARRAY_AGG(generate_procedure ORDER BY priority ASC)
     INTO callback_procedures
     FROM lifecycle_callbacks.registered_callback
     WHERE table_names @> ARRAY[table_name];
 
+    -- If there are any callback procedures, execute them
     IF callback_procedures IS NOT NULL THEN
         FOREACH callback_procedure IN ARRAY callback_procedures LOOP
-            EXECUTE format('CALL %s();', callback_procedure );
+            -- Generate the SQL statement for the current procedure
+            sql := format('CALL %s();', callback_procedure);
+
+            -- Execute the SQL statement with error handling
+            BEGIN
+                EXECUTE sql;
+            EXCEPTION
+                WHEN OTHERS THEN
+                    -- Handle any exception by capturing the SQL and error message
+                    RAISE EXCEPTION 'Error executing callback procedure: %, SQL: %, Error details: %',
+                                    callback_procedure, sql, SQLERRM;
+            END;
         END LOOP;
     END IF;
 END;
@@ -492,7 +463,7 @@ BEGIN
             -- Capture any exception that occurs during the call
             WHEN OTHERS THEN
                 -- Log the error along with the original call
-                RAISE EXCEPTION 'Error executing callback procedure %: %', callback_sql, SQLERRM;
+                RAISE EXCEPTION 'Error executing callback procedure % for %: %', callback_sql, to_jsonb(callback_procedures), SQLERRM;
         END;
     END LOOP;
 END;
@@ -9620,8 +9591,8 @@ LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit';
     DROP VIEW public.import_establishment_era_for_legal_unit;
-    RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit_upsert';
-    DROP FUNCTION public.import_establishment_era_for_legal_unit_upsert();
+    RAISE NOTICE 'Deleting admin.import_establishment_era_for_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
 END;
 $$;
 
@@ -9831,8 +9802,8 @@ LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit';
     DROP VIEW public.import_establishment_current_for_legal_unit;
-    RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit_upsert';
-    DROP FUNCTION public.import_establishment_current_for_legal_unit_upsert();
+    RAISE NOTICE 'Deleting admin.import_establishment_current_for_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
 END;
 $$;
 
@@ -10019,8 +9990,8 @@ LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit';
     DROP VIEW public.import_establishment_era_without_legal_unit;
-    RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit_upsert';
-    DROP FUNCTION public.import_establishment_era_without_legal_unit_upsert();
+    RAISE NOTICE 'Deleting admin.import_establishment_era_without_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
 END;
 $$;
 
@@ -10211,8 +10182,8 @@ LANGUAGE plpgsql AS $$
 BEGIN
     RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit';
     DROP VIEW public.import_establishment_current_without_legal_unit;
-    RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit_upsert';
-    DROP FUNCTION public.import_establishment_current_without_legal_unit_upsert();
+    RAISE NOTICE 'Deleting admin.import_establishment_current_without_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
 END;
 $$;
 
