@@ -202,8 +202,8 @@ DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
 DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
 DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
 
---DELETE FROM public.external_ident_type;
---DELETE FROM public.stat_definition;
+DELETE FROM public.external_ident_type;
+DELETE FROM public.stat_definition;
 
 \echo "Run all the cleanup procedures for all tables."
 CALL lifecycle_callbacks.cleanup();
