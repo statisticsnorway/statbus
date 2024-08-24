@@ -156,39 +156,6 @@ DROP FUNCTION admin.legal_unit_brreg_view_upsert();
 DROP VIEW public.establishment_brreg_view;
 DROP FUNCTION admin.upsert_establishment_brreg_view();
 
-DROP TRIGGER import_legal_unit_current_upsert_trigger ON public.import_legal_unit_current;
-DROP FUNCTION admin.import_legal_unit_current_upsert();
-DROP VIEW public.import_legal_unit_current;
-
-DROP TRIGGER import_legal_unit_era_upsert_trigger ON public.import_legal_unit_era;
-DROP FUNCTION admin.import_legal_unit_era_upsert();
-DROP VIEW public.import_legal_unit_era;
-
-DROP TRIGGER import_establishment_current_without_legal_unit_upsert_trigger ON public.import_establishment_current_without_legal_unit;
-DROP FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
-DROP VIEW public.import_establishment_current_without_legal_unit;
-
-DROP TRIGGER import_establishment_era_without_legal_unit_upsert_trigger ON public.import_establishment_era_without_legal_unit;
-DROP FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
-DROP VIEW public.import_establishment_era_without_legal_unit;
-
-DROP TRIGGER import_establishment_current_for_legal_unit_upsert_trigger ON public.import_establishment_current_for_legal_unit;
-DROP FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
-DROP VIEW public.import_establishment_current_for_legal_unit;
-
-DROP TRIGGER import_establishment_era_for_legal_unit_upsert_trigger ON public.import_establishment_era_for_legal_unit;
-DROP FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
-DROP VIEW public.import_establishment_era_for_legal_unit;
-
-CALL admin.cleanup_import_establishment_current();
---DROP TRIGGER import_establishment_current_upsert_trigger ON public.import_establishment_current;
---DROP FUNCTION admin.import_establishment_current_upsert();
---DROP VIEW public.import_establishment_current;
-
-DROP TRIGGER import_establishment_era_upsert_trigger ON public.import_establishment_era;
-DROP FUNCTION admin.import_establishment_era_upsert();
-DROP VIEW public.import_establishment_era;
-
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();
 DROP VIEW public.legal_unit_era;
@@ -234,8 +201,6 @@ DROP FUNCTION admin.process_enterprise_connection;
 DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
 DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
 DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
-DROP PROCEDURE admin.generate_import_establishment_era();
-DROP PROCEDURE admin.cleanup_import_establishment_era();
 
 DELETE FROM public.external_ident_type;
 DELETE FROM public.stat_definition;
