@@ -202,8 +202,11 @@ DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
 DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
 DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
 
-DELETE FROM public.external_ident_type;
-DELETE FROM public.stat_definition;
+--DELETE FROM public.external_ident_type;
+--DELETE FROM public.stat_definition;
+
+\echo "Run all the cleanup procedures for all tables."
+CALL lifecycle_callbacks.cleanup();
 
 CALL lifecycle_callbacks.del('import_establishment_current_without_legal_unit');
 CALL lifecycle_callbacks.del('import_establishment_era_without_legal_unit');
@@ -213,6 +216,8 @@ CALL lifecycle_callbacks.del('import_establishment_current');
 CALL lifecycle_callbacks.del('import_establishment_era');
 CALL lifecycle_callbacks.del('import_legal_unit_current');
 CALL lifecycle_callbacks.del('import_legal_unit_era');
+DROP FUNCTION admin.import_legal_unit_era_upsert;
+DROP FUNCTION admin.import_establishment_era_upsert;
 
 CALL lifecycle_callbacks.del_table('public.external_ident_type');
 CALL lifecycle_callbacks.del_table('public.stat_definition');
@@ -361,9 +366,9 @@ DROP PROCEDURE lifecycle_callbacks.add_table(regclass);
 DROP PROCEDURE lifecycle_callbacks.del_table(regclass);
 DROP PROCEDURE lifecycle_callbacks.add(text,regclass[],regproc,regproc);
 DROP PROCEDURE lifecycle_callbacks.del(text);
-DROP FUNCTION lifecycle_callbacks.clean_and_generate();
+DROP FUNCTION lifecycle_callbacks.cleanup_and_generate();
 DROP PROCEDURE lifecycle_callbacks.generate(regclass);
-DROP PROCEDURE lifecycle_callbacks.clean(regclass);
+DROP PROCEDURE lifecycle_callbacks.cleanup(regclass);
 DROP SCHEMA lifecycle_callbacks CASCADE;
 
 DROP PROCEDURE admin.generate_import_legal_unit_current();
