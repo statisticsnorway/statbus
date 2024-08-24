@@ -8393,42 +8393,42 @@ DECLARE
 
     view_template TEXT := $view_template$
 CREATE VIEW public.import_legal_unit_era WITH (security_invoker=on) AS
-SELECT '' AS valid_from
-     , '' AS valid_to
+SELECT '' AS valid_from,
+       '' AS valid_to,
 {{ident_type_columns}}
-     , '' AS name
-     , '' AS birth_date
-     , '' AS death_date
-     , '' AS physical_address_part1
-     , '' AS physical_address_part2
-     , '' AS physical_address_part3
-     , '' AS physical_postal_code
-     , '' AS physical_postal_place
-     , '' AS physical_region_code
-     , '' AS physical_region_path
-     , '' AS physical_country_iso_2
-     , '' AS postal_address_part1
-     , '' AS postal_address_part2
-     , '' AS postal_address_part3
-     , '' AS postal_postal_code
-     , '' AS postal_postal_place
-     , '' AS postal_region_code
-     , '' AS postal_region_path
-     , '' AS postal_country_iso_2
-     , '' AS primary_activity_category_code
-     , '' AS secondary_activity_category_code
-     , '' AS sector_code
-     , '' AS legal_form_code
+       '' AS name,
+       '' AS birth_date,
+       '' AS death_date,
+       '' AS physical_address_part1,
+       '' AS physical_address_part2,
+       '' AS physical_address_part3,
+       '' AS physical_postal_code,
+       '' AS physical_postal_place,
+       '' AS physical_region_code,
+       '' AS physical_region_path,
+       '' AS physical_country_iso_2,
+       '' AS postal_address_part1,
+       '' AS postal_address_part2,
+       '' AS postal_address_part3,
+       '' AS postal_postal_code,
+       '' AS postal_postal_place,
+       '' AS postal_region_code,
+       '' AS postal_region_path,
+       '' AS postal_country_iso_2,
+       '' AS primary_activity_category_code,
+       '' AS secondary_activity_category_code,
+       '' AS sector_code,
+       '' AS legal_form_code,
 {{stat_definition_columns}}
-     , '' AS tag_path
+       '' AS tag_path
 ;
     $view_template$;
 BEGIN
-    SELECT string_agg(format(E'     , %L AS %I', '', code), E'\n')
+    SELECT string_agg(format(E'       %L AS %I,', '', code), E'\n')
     INTO ident_type_columns
     FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
-    SELECT string_agg(format(E'     , %L AS %I', '', code), E'\n')
+    SELECT string_agg(format(E'       %L AS %I,', '', code), E'\n')
     INTO stat_definition_columns
     FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
 
@@ -9108,47 +9108,47 @@ DECLARE
     view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era
 WITH (security_invoker=on) AS
-SELECT '' AS valid_from
-     , '' AS valid_to
+SELECT '' AS valid_from,
+       '' AS valid_to,
 {{ident_type_columns}}
 {{legal_unit_ident_type_columns}}
-     , '' AS name
-     , '' AS birth_date
-     , '' AS death_date
-     , '' AS physical_address_part1
-     , '' AS physical_address_part2
-     , '' AS physical_address_part3
-     , '' AS physical_postal_code
-     , '' AS physical_postal_place
-     , '' AS physical_region_code
-     , '' AS physical_region_path
-     , '' AS physical_country_iso_2
-     , '' AS postal_address_part1
-     , '' AS postal_address_part2
-     , '' AS postal_address_part3
-     , '' AS postal_postal_code
-     , '' AS postal_postal_place
-     , '' AS postal_region_code
-     , '' AS postal_region_path
-     , '' AS postal_country_iso_2
-     , '' AS primary_activity_category_code
-     , '' AS secondary_activity_category_code
-     , '' AS sector_code
+       '' AS name,
+       '' AS birth_date,
+       '' AS death_date,
+       '' AS physical_address_part1,
+       '' AS physical_address_part2,
+       '' AS physical_address_part3,
+       '' AS physical_postal_code,
+       '' AS physical_postal_place,
+       '' AS physical_region_code,
+       '' AS physical_region_path,
+       '' AS physical_country_iso_2,
+       '' AS postal_address_part1,
+       '' AS postal_address_part2,
+       '' AS postal_address_part3,
+       '' AS postal_postal_code,
+       '' AS postal_postal_place,
+       '' AS postal_region_code,
+       '' AS postal_region_path,
+       '' AS postal_country_iso_2,
+       '' AS primary_activity_category_code,
+       '' AS secondary_activity_category_code,
+       '' AS sector_code,
 {{stat_definition_columns}}
-     , '' AS tag_path
+       '' AS tag_path
 ;
     $view_template$;
 BEGIN
     SELECT
-        string_agg(format(E'     , %L AS %I', '', code), E'\n'),
-        string_agg(format(E'     , %L AS %I', '', 'legal_unit_' || code), E'\n')
+        string_agg(format(E'       %L AS %I,', '', code), E'\n'),
+        string_agg(format(E'       %L AS %I,', '', 'legal_unit_' || code), E'\n')
     INTO
         ident_type_columns,
         legal_unit_ident_type_columns
     FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
     SELECT
-        string_agg(format(E'     , %L AS %I', '', code), E'\n')
+        string_agg(format(E'     %L AS %I,', '', code), E'\n')
     INTO
         stat_definition_columns
     FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
@@ -9205,31 +9205,31 @@ DECLARE
 CREATE VIEW public.import_establishment_current WITH (security_invoker=on) AS
 SELECT
 {{ident_type_columns}}
-     , '' AS name
-     , '' AS birth_date
-     , '' AS death_date
-     , '' AS physical_address_part1
-     , '' AS physical_address_part2
-     , '' AS physical_address_part3
-     , '' AS physical_postal_code
-     , '' AS physical_postal_place
-     , '' AS physical_region_code
-     , '' AS physical_region_path
-     , '' AS physical_country_iso_2
-     , '' AS postal_address_part1
-     , '' AS postal_address_part2
-     , '' AS postal_address_part3
-     , '' AS postal_postal_code
-     , '' AS postal_postal_place
-     , '' AS postal_region_code
-     , '' AS postal_region_path
-     , '' AS postal_country_iso_2
-     , '' AS primary_activity_category_code
-     , '' AS secondary_activity_category_code
-     , '' AS sector_code
-     , '' AS legal_form_code
+       '' AS name,
+       '' AS birth_date,
+       '' AS death_date,
+       '' AS physical_address_part1,
+       '' AS physical_address_part2,
+       '' AS physical_address_part3,
+       '' AS physical_postal_code,
+       '' AS physical_postal_place,
+       '' AS physical_region_code,
+       '' AS physical_region_path,
+       '' AS physical_country_iso_2,
+       '' AS postal_address_part1,
+       '' AS postal_address_part2,
+       '' AS postal_address_part3,
+       '' AS postal_postal_code,
+       '' AS postal_postal_place,
+       '' AS postal_region_code,
+       '' AS postal_region_path,
+       '' AS postal_country_iso_2,
+       '' AS primary_activity_category_code,
+       '' AS secondary_activity_category_code,
+       '' AS sector_code,
+       '' AS legal_form_code,
 {{stat_definition_columns}}
-     , '' AS tag_path
+       '' AS tag_path
 FROM public.import_establishment_era;
     $view_template$;
 
@@ -9245,65 +9245,65 @@ DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
+    INSERT INTO public.import_establishment_era(
+        valid_from,
+        valid_to,
 {{ident_insert_labels}}
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , sector_code
-        , legal_form_code
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
+        legal_form_code,
 {{stats_insert_labels}}
-        , tag_path
+        tag_path
         )
-    VALUES
-        ( new_valid_from
-        , new_valid_to
+    VALUES (
+        new_valid_from,
+        new_valid_to,
 {{ident_value_labels}}
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.sector_code
-        , NEW.legal_form_code
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
+        NEW.legal_form_code,
 {{stats_value_labels}}
-        , NEW.tag_path
+        NEW.tag_path
         );
     RETURN NULL;
 END;
@@ -9311,11 +9311,9 @@ $import_establishment_current_upsert$;
     $function_template$;
 BEGIN
     SELECT
-        regexp_replace( -- Remove leading ,
-            string_agg(format(E'     , %L AS %I', '', code), E'\n'),
-             E'^ *, ?', ''),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %L AS %I,', '', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         ident_type_columns,
         ident_insert_labels,
@@ -9323,9 +9321,9 @@ BEGIN
     FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
     SELECT
-        string_agg(format(E'     , %L AS %I','', code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         stat_definition_columns,
         stats_insert_labels,
@@ -9398,37 +9396,35 @@ DECLARE
     view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era_for_legal_unit
 WITH (security_invoker=on) AS
-SELECT valid_from
-     , valid_to
-     --
+SELECT valid_from,
+       valid_to,
 {{ident_type_columns}}
      -- One of these are required - it must connect to an existing legal_unit
 {{legal_unit_ident_type_columns}}
-     --
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
      -- sector_code is Disabled because the legal unit provides the sector_code
 {{stat_definition_columns}}
-     , tag_path
+       tag_path
 FROM public.import_establishment_era;
     $view_template$;
 
@@ -9440,87 +9436,85 @@ BEGIN
     THEN
       RAISE EXCEPTION 'Missing legal_unit identifier for row %', to_json(NEW);
     END IF;
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
+    INSERT INTO public.import_establishment_era(
+        valid_from,
+        valid_to,
         --
 {{ident_insert_labels}}
         --
 {{legal_unit_ident_insert_labels}}
         --
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
 {{stats_insert_labels}}
-        , tag_path
-        )
-    VALUES
-        ( NEW.valid_from
-        , NEW.valid_to
+        tag_path
+    ) VALUES (
+        NEW.valid_from,
+        NEW.valid_to,
         --
 {{ident_value_labels}}
         --
 {{legal_unit_ident_value_labels}}
         --
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
 {{stats_value_labels}}
-        , NEW.tag_path
+        NEW.tag_path
         );
     RETURN NULL;
 END;
 $import_establishment_era_for_legal_unit_upsert$;
     $function_template$;
-    legal_unit_ident_missing_checks TEXT[] := ARRAY[]::TEXT[];
     view_sql TEXT;
     function_sql TEXT;
 BEGIN
     SELECT
         string_agg(format('(NEW.%1$I IS NULL OR NEW.%1$I = %2$L)',
                           'legal_unit_' || code, ''), ' AND '),
-        string_agg(format(E'     , %I', code), E'\n'),
-        string_agg(format(E'     , %I', 'legal_unit_' || code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , %I', 'legal_unit_' || code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', 'legal_unit_' || code), E'\n')
+        string_agg(format(E'       %I,', code), E'\n'),
+        string_agg(format(E'       %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', 'legal_unit_' || code), E'\n')
     INTO
         legal_unit_ident_missing_check,
         ident_type_columns,
@@ -9533,9 +9527,9 @@ BEGIN
 
     -- Process stat_definition_columns and related fields
     SELECT
-        string_agg(format(E'     , %L AS %I','', code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'       %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         stat_definition_columns,
         stats_insert_labels,
@@ -9551,7 +9545,7 @@ BEGIN
 
     -- Render the function template
     function_sql := admin.render_template(function_template, jsonb_build_object(
-        'legal_unit_ident_missing_check', legal_unit_ident_missing_check,
+        'legal_unit_ident_missing_check', COALESCE(legal_unit_ident_missing_check,'true'),
         'ident_insert_labels', ident_insert_labels,
         'legal_unit_ident_insert_labels', legal_unit_ident_insert_labels,
         'stats_insert_labels', stats_insert_labels,
@@ -9619,30 +9613,30 @@ CREATE VIEW public.import_establishment_current_for_legal_unit
 WITH (security_invoker=on) AS
 SELECT {{ident_type_columns}}
 {{legal_unit_ident_type_columns}}
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
      -- sector_code is Disabled because the legal unit provides the sector_code
 {{stat_definition_columns}}
-     , tag_path
+       tag_path
 FROM public.import_establishment_era;
     $view_template$;
 
@@ -9657,63 +9651,62 @@ BEGIN
     THEN
       RAISE EXCEPTION 'Missing legal_unit identifier for row %', to_json(NEW);
     END IF;
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
+    INSERT INTO public.import_establishment_era(
+        valid_from,
+        valid_to,
 {{ident_insert_labels}}
 {{legal_unit_ident_insert_labels}}
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
 {{stats_insert_labels}}
-        , tag_path
-        )
-    VALUES
-        ( new_valid_from
-        , new_valid_to
+        tag_path
+    ) VALUES (
+        new_valid_from,
+        new_valid_to,
 {{ident_value_labels}}
 {{legal_unit_ident_value_labels}}
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
 {{stats_value_labels}}
-        , NEW.tag_path
+        NEW.tag_path
         );
     RETURN NULL;
 END;
@@ -9725,14 +9718,12 @@ BEGIN
     SELECT
         string_agg(format('(NEW.%1$I IS NULL OR NEW.%1$I = %2$L)',
                           'legal_unit_' || code, ''), ' AND '),
-        regexp_replace( -- Remove leading ,
-            string_agg(format(E'     , %I', code), E'\n'),
-            E'^ *, ?', ''),
-        string_agg(format(E'     , %I', 'legal_unit_' || code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , %I', 'legal_unit_' || code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', 'legal_unit_' || code), E'\n')
+        string_agg(format(E'     %I,', code), E'\n'),
+        string_agg(format(E'     %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', 'legal_unit_' || code), E'\n')
     INTO
         legal_unit_ident_missing_check,
         ident_type_columns,
@@ -9744,9 +9735,9 @@ BEGIN
     FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
     SELECT
-        string_agg(format(E'     , %L AS %I','', code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         stat_definition_columns,
         stats_insert_labels,
@@ -9762,7 +9753,7 @@ BEGIN
 
     -- Render the function template
     function_sql := admin.render_template(function_template, jsonb_build_object(
-        'legal_unit_ident_missing_check', legal_unit_ident_missing_check,
+        'legal_unit_ident_missing_check', COALESCE(legal_unit_ident_missing_check,'true'),
         'ident_insert_labels', ident_insert_labels,
         'legal_unit_ident_insert_labels', legal_unit_ident_insert_labels,
         'stats_insert_labels', stats_insert_labels,
@@ -9825,33 +9816,33 @@ DECLARE
     view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era_without_legal_unit
 WITH (security_invoker=on) AS
-SELECT valid_from
-     , valid_to
-     {{ident_type_columns}}
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
-     , sector_code -- Is allowed, since there is no legal unit to provide it.
+SELECT valid_from,
+       valid_to,
+{{ident_type_columns}}
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
+       sector_code, -- Is allowed, since there is no legal unit to provide it.
 {{stat_definition_columns}}
-     , tag_path
+       tag_path
 FROM public.import_establishment_era;
     $view_template$;
 
@@ -9859,63 +9850,62 @@ FROM public.import_establishment_era;
 CREATE FUNCTION admin.import_establishment_era_without_legal_unit_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_era_without_legal_unit_upsert$
 BEGIN
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
+    INSERT INTO public.import_establishment_era (
+        valid_from,
+        valid_to,
 {{ident_insert_labels}}
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , sector_code
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
 {{stats_insert_labels}}
-        , tag_path
-        )
-    VALUES
-        ( NEW.valid_from
-        , NEW.valid_to
+        tag_path
+    ) VALUES (
+        NEW.valid_from,
+        NEW.valid_to,
 {{ident_value_labels}}
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.sector_code
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
 {{stats_value_labels}}
-        , NEW.tag_path
+        NEW.tag_path
         );
     RETURN NULL;
 END;
@@ -9925,9 +9915,9 @@ $import_establishment_era_without_legal_unit_upsert$;
     function_sql TEXT;
 BEGIN
     SELECT
-        string_agg(format(E'     , %I', code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %I,', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         ident_type_columns,
         ident_insert_labels,
@@ -9935,9 +9925,9 @@ BEGIN
     FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
     SELECT
-        string_agg(format(E'     , %L AS %I','', code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         stat_definition_columns,
         stats_insert_labels,
@@ -10015,30 +10005,30 @@ CREATE VIEW public.import_establishment_current_without_legal_unit
 WITH (security_invoker=on) AS
 SELECT {{ident_type_columns}}
      -- legal_unit_tax_ident is Disabled because this is an informal sector
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
-     , sector_code -- Is allowed, since there is no legal unit to provide it.
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
+       sector_code, -- Is allowed, since there is no legal unit to provide it.
 {{stat_definition_columns}}
-     , tag_path
+       tag_path
 FROM public.import_establishment_era;
     $view_template$;
 
@@ -10049,63 +10039,62 @@ DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
+    INSERT INTO public.import_establishment_era (
+        valid_from,
+        valid_to,
 {{ident_insert_labels}}
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , sector_code
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
 {{stats_insert_labels}}
-        , tag_path
-        )
-    VALUES
-        ( new_valid_from
-        , new_valid_to
+        tag_path
+    ) VALUES (
+        new_valid_from,
+        new_valid_to,
 {{ident_value_labels}}
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.sector_code
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
 {{stats_value_labels}}
-        , NEW.tag_path
+        NEW.tag_path
         );
     RETURN NULL;
 END;
@@ -10115,11 +10104,9 @@ $import_establishment_current_without_legal_unit_upsert$;
     function_sql TEXT;
 BEGIN
     SELECT
-        regexp_replace( -- Remove leading ,
-            string_agg(format(E'     , %I', code), E'\n'),
-            E'^ *, ?', ''),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %I,', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         ident_type_columns,
         ident_insert_labels,
@@ -10127,9 +10114,9 @@ BEGIN
     FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
 
     SELECT
-        string_agg(format(E'     , %L AS %I','', code), E'\n'),
-        string_agg(format(E'        , %I', code), E'\n'),
-        string_agg(format(E'        , NEW.%I', code), E'\n')
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
     INTO
         stat_definition_columns,
         stats_insert_labels,
