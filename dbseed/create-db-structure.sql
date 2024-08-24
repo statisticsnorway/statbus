@@ -1562,6 +1562,19 @@ WHEN (NEW.by_tag_id IS NOT NULL AND NEW.by_tag_id IS DISTINCT FROM OLD.by_tag_id
 EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
 
 
+CREATE VIEW public.external_ident_type_canonical AS
+    SELECT *
+    FROM public.external_ident_type
+    ORDER BY priority ASC NULLS LAST, code
+;
+
+CREATE VIEW public.external_ident_type_active AS
+    SELECT *
+    FROM public.external_ident_type_canonical
+    WHERE NOT archived
+;
+
+
 \echo INSERT INTO public.external_ident_type
 -- Prepare the per-configured external identifiers.
 INSERT INTO public.external_ident_type (code, name, priority, description) VALUES
@@ -2375,6 +2388,18 @@ CREATE TABLE public.stat_definition(
 --
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
 COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
+--
+CREATE VIEW public.stat_definition_canonical AS
+    SELECT *
+    FROM public.stat_definition
+    ORDER BY priority ASC NULLS LAST, code
+;
+
+CREATE VIEW public.stat_definition_active AS
+    SELECT *
+    FROM public.stat_definition_canonical
+    WHERE NOT archived
+;
 --
 \echo lifecycle_callbacks.add_table('public.stat_definition');
 CALL lifecycle_callbacks.add_table('public.stat_definition');
@@ -8426,11 +8451,11 @@ SELECT '' AS valid_from,
 BEGIN
     SELECT string_agg(format(E'       %L AS %I,', '', code), E'\n')
     INTO ident_type_columns
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT string_agg(format(E'       %L AS %I,', '', code), E'\n')
     INTO stat_definition_columns
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
         'ident_type_columns', ident_type_columns,
@@ -8596,7 +8621,7 @@ BEGIN
         ident_type_columns,
         ident_insert_labels,
         ident_value_labels
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT
         string_agg(format(E'     %L AS %I,', '', code), E'\n'),
@@ -8606,7 +8631,7 @@ BEGIN
         stat_definition_columns,
         stats_insert_labels,
         stats_value_labels
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
         'ident_type_columns', ident_type_columns,
@@ -9145,13 +9170,13 @@ BEGIN
     INTO
         ident_type_columns,
         legal_unit_ident_type_columns
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT
         string_agg(format(E'     %L AS %I,', '', code), E'\n')
     INTO
         stat_definition_columns
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
         'ident_type_columns', ident_type_columns,
@@ -9318,7 +9343,7 @@ BEGIN
         ident_type_columns,
         ident_insert_labels,
         ident_value_labels
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT
         string_agg(format(E'     %L AS %I,','', code), E'\n'),
@@ -9328,7 +9353,7 @@ BEGIN
         stat_definition_columns,
         stats_insert_labels,
         stats_value_labels
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     view_template := admin.render_template(view_template, jsonb_build_object(
         'ident_type_columns', ident_type_columns,
@@ -9523,7 +9548,7 @@ BEGIN
         legal_unit_ident_insert_labels,
         ident_value_labels,
         legal_unit_ident_value_labels
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     -- Process stat_definition_columns and related fields
     SELECT
@@ -9534,7 +9559,7 @@ BEGIN
         stat_definition_columns,
         stats_insert_labels,
         stats_value_labels
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     -- Render the view template
     view_sql := admin.render_template(view_template, jsonb_build_object(
@@ -9732,7 +9757,7 @@ BEGIN
         legal_unit_ident_insert_labels,
         ident_value_labels,
         legal_unit_ident_value_labels
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT
         string_agg(format(E'     %L AS %I,','', code), E'\n'),
@@ -9742,7 +9767,7 @@ BEGIN
         stat_definition_columns,
         stats_insert_labels,
         stats_value_labels
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     -- Render the view template
     view_sql := admin.render_template(view_template, jsonb_build_object(
@@ -9922,7 +9947,7 @@ BEGIN
         ident_type_columns,
         ident_insert_labels,
         ident_value_labels
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT
         string_agg(format(E'     %L AS %I,','', code), E'\n'),
@@ -9932,7 +9957,7 @@ BEGIN
         stat_definition_columns,
         stats_insert_labels,
         stats_value_labels
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     -- Render the view template
     view_sql := admin.render_template(view_template, jsonb_build_object(
@@ -10111,7 +10136,7 @@ BEGIN
         ident_type_columns,
         ident_insert_labels,
         ident_value_labels
-    FROM (SELECT code FROM public.external_ident_type ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
 
     SELECT
         string_agg(format(E'     %L AS %I,','', code), E'\n'),
@@ -10121,7 +10146,7 @@ BEGIN
         stat_definition_columns,
         stats_insert_labels,
         stats_value_labels
-    FROM (SELECT code FROM public.stat_definition ORDER BY code) AS ordered;
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
 
     -- Render the view template
     view_sql := admin.render_template(view_template, jsonb_build_object(

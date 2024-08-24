@@ -1,0 +1,436 @@
+BEGIN;
+\echo "Establish a baseline"
+"Establish a baseline"
+\sv public.import_legal_unit_era
+CREATE OR REPLACE VIEW public.import_legal_unit_era
+ WITH (security_invoker='on') AS
+ SELECT ''::text AS valid_from,
+    ''::text AS valid_to,
+    ''::text AS tax_ident,
+    ''::text AS stat_ident,
+    ''::text AS name,
+    ''::text AS birth_date,
+    ''::text AS death_date,
+    ''::text AS physical_address_part1,
+    ''::text AS physical_address_part2,
+    ''::text AS physical_address_part3,
+    ''::text AS physical_postal_code,
+    ''::text AS physical_postal_place,
+    ''::text AS physical_region_code,
+    ''::text AS physical_region_path,
+    ''::text AS physical_country_iso_2,
+    ''::text AS postal_address_part1,
+    ''::text AS postal_address_part2,
+    ''::text AS postal_address_part3,
+    ''::text AS postal_postal_code,
+    ''::text AS postal_postal_place,
+    ''::text AS postal_region_code,
+    ''::text AS postal_region_path,
+    ''::text AS postal_country_iso_2,
+    ''::text AS primary_activity_category_code,
+    ''::text AS secondary_activity_category_code,
+    ''::text AS sector_code,
+    ''::text AS legal_form_code,
+    ''::text AS employees,
+    ''::text AS turnover,
+    ''::text AS tag_path
+\sv public.import_establishment_era
+CREATE OR REPLACE VIEW public.import_establishment_era
+ WITH (security_invoker='on') AS
+ SELECT ''::text AS valid_from,
+    ''::text AS valid_to,
+    ''::text AS tax_ident,
+    ''::text AS stat_ident,
+    ''::text AS legal_unit_tax_ident,
+    ''::text AS legal_unit_stat_ident,
+    ''::text AS name,
+    ''::text AS birth_date,
+    ''::text AS death_date,
+    ''::text AS physical_address_part1,
+    ''::text AS physical_address_part2,
+    ''::text AS physical_address_part3,
+    ''::text AS physical_postal_code,
+    ''::text AS physical_postal_place,
+    ''::text AS physical_region_code,
+    ''::text AS physical_region_path,
+    ''::text AS physical_country_iso_2,
+    ''::text AS postal_address_part1,
+    ''::text AS postal_address_part2,
+    ''::text AS postal_address_part3,
+    ''::text AS postal_postal_code,
+    ''::text AS postal_postal_place,
+    ''::text AS postal_region_code,
+    ''::text AS postal_region_path,
+    ''::text AS postal_country_iso_2,
+    ''::text AS primary_activity_category_code,
+    ''::text AS secondary_activity_category_code,
+    ''::text AS sector_code,
+    ''::text AS employees,
+    ''::text AS turnover,
+    ''::text AS tag_path
+\echo "Modify stat_definition"
+"Modify stat_definition"
+\echo "Delete unused stat variable".
+"Delete unused stat variable".
+DELETE FROM public.stat_definition WHERE code = 'employees';
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Make turnover the first variable"
+"Make turnover the first variable"
+UPDATE public.stat_definition SET priority = 1 wHERE code = 'turnover';
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Add new custom variables"
+"Add new custom variables"
+INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
+  ('men_employees','int','yearly','Number of men employed','The number of men receiving an official salary with government reporting.',2),
+  ('women_employees','int','yearly','Number of women employed','The number of women receiving an official salary with government reporting.',3),
+  ('children_employees','int','yearly','Number of children employed','The number of children receiving an official salary with government reporting.',4);
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Stop using the children_employees, it can no longer be imported, but will be in statistics."
+"Stop using the children_employees, it can no longer be imported, but will be in statistics."
+UPDATE public.stat_definition SET archived = true wHERE code = 'children_employees';
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Track children by gender"
+"Track children by gender"
+INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
+  ('boy_employees','int','yearly','Number of boys employed','The number of boys receiving an official salary with government reporting.',5),
+  ('girl_employees','int','yearly','Number of girls employed','The number of girls receiving an official salary with government reporting.',6);
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Modify external_ident_type"
+"Modify external_ident_type"
+\echo "Delete unused stat identifier".
+"Delete unused stat identifier".
+DELETE FROM public.external_ident_type WHERE code = 'stat_ident';
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Make tax_ident the first identifier"
+"Make tax_ident the first identifier"
+UPDATE public.external_ident_type SET priority = 1 wHERE code = 'tax_ident';
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Add new custom identifiers"
+"Add new custom identifiers"
+INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
+	('pin', 'Personal Identification Number', 2, 'Stable identifier provided by the governemnt and used by all individials who have a business just for themselves.'),
+	('mobile', 'Mobile Number', 3, 'Mandated reporting by all phone companies.');
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
+"Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
+UPDATE public.external_ident_type SET archived = true wHERE code = 'mobile';
+NOTICE:  Deleting public.import_establishment_current_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_without_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_without_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_current_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_era_for_legal_unit
+NOTICE:  Deleting admin.import_establishment_era_for_legal_unit_upsert
+NOTICE:  Deleting public.import_establishment_current
+NOTICE:  Deleting admin.import_establishment_current_upsert()
+NOTICE:  Deleting public.import_establishment_era
+NOTICE:  Deleting public.import_legal_unit_current
+NOTICE:  Deleting admin.import_legal_unit_current_upsert()
+NOTICE:  Deleting public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_era
+NOTICE:  Creating public.import_legal_unit_current
+NOTICE:  Creating admin.import_legal_unit_current_upsert()
+NOTICE:  Creating public.import_establishment_era
+NOTICE:  Creating public.import_establishment_current
+NOTICE:  Creating admin.import_establishment_current_upsert()
+NOTICE:  Creating public.import_establishment_era_for_legal_unit
+NOTICE:  Creating admin.import_establishment_era_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_for_legal_unit
+NOTICE:  Creating admin.import_establishment_current_for_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_era_without_legal_unit
+NOTICE:  Creating admin.import_establishment_era_without_legal_unit_upsert()
+NOTICE:  Creating public.import_establishment_current_without_legal_unit
+NOTICE:  Creating admin.import_establishment_current_without_legal_unit_upsert()
+\echo "Check new generated code"
+"Check new generated code"
+\sv public.import_legal_unit_era
+CREATE OR REPLACE VIEW public.import_legal_unit_era
+ WITH (security_invoker='on') AS
+ SELECT ''::text AS valid_from,
+    ''::text AS valid_to,
+    ''::text AS tax_ident,
+    ''::text AS pin,
+    ''::text AS name,
+    ''::text AS birth_date,
+    ''::text AS death_date,
+    ''::text AS physical_address_part1,
+    ''::text AS physical_address_part2,
+    ''::text AS physical_address_part3,
+    ''::text AS physical_postal_code,
+    ''::text AS physical_postal_place,
+    ''::text AS physical_region_code,
+    ''::text AS physical_region_path,
+    ''::text AS physical_country_iso_2,
+    ''::text AS postal_address_part1,
+    ''::text AS postal_address_part2,
+    ''::text AS postal_address_part3,
+    ''::text AS postal_postal_code,
+    ''::text AS postal_postal_place,
+    ''::text AS postal_region_code,
+    ''::text AS postal_region_path,
+    ''::text AS postal_country_iso_2,
+    ''::text AS primary_activity_category_code,
+    ''::text AS secondary_activity_category_code,
+    ''::text AS sector_code,
+    ''::text AS legal_form_code,
+    ''::text AS turnover,
+    ''::text AS men_employees,
+    ''::text AS women_employees,
+    ''::text AS boy_employees,
+    ''::text AS girl_employees,
+    ''::text AS tag_path
+\sv public.import_establishment_era
+CREATE OR REPLACE VIEW public.import_establishment_era
+ WITH (security_invoker='on') AS
+ SELECT ''::text AS valid_from,
+    ''::text AS valid_to,
+    ''::text AS tax_ident,
+    ''::text AS pin,
+    ''::text AS legal_unit_tax_ident,
+    ''::text AS legal_unit_pin,
+    ''::text AS name,
+    ''::text AS birth_date,
+    ''::text AS death_date,
+    ''::text AS physical_address_part1,
+    ''::text AS physical_address_part2,
+    ''::text AS physical_address_part3,
+    ''::text AS physical_postal_code,
+    ''::text AS physical_postal_place,
+    ''::text AS physical_region_code,
+    ''::text AS physical_region_path,
+    ''::text AS physical_country_iso_2,
+    ''::text AS postal_address_part1,
+    ''::text AS postal_address_part2,
+    ''::text AS postal_address_part3,
+    ''::text AS postal_postal_code,
+    ''::text AS postal_postal_place,
+    ''::text AS postal_region_code,
+    ''::text AS postal_region_path,
+    ''::text AS postal_country_iso_2,
+    ''::text AS primary_activity_category_code,
+    ''::text AS secondary_activity_category_code,
+    ''::text AS sector_code,
+    ''::text AS turnover,
+    ''::text AS men_employees,
+    ''::text AS women_employees,
+    ''::text AS boy_employees,
+    ''::text AS girl_employees,
+    ''::text AS tag_path
+ROLLBACK;
