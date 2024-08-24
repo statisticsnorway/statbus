@@ -225,6 +225,8 @@ CALL lifecycle_callbacks.del_table('public.stat_definition');
 \echo public.external_ident
 DROP TABLE public.external_ident;
 \echo Trigger cleanup of external_ident_type generated code.
+DROP VIEW public.external_ident_type_active;
+DROP VIEW public.external_ident_type_canonical;
 DROP TABLE public.external_ident_type;
 DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
 
@@ -270,6 +272,8 @@ DROP TABLE public.analysis_log;
 DROP TABLE public.analysis_queue;
 
 DROP TABLE public.stat_for_unit;
+DROP VIEW public.stat_definition_active;
+DROP VIEW public.stat_definition_canonical;
 DROP TABLE public.stat_definition;
 DROP TYPE public.stat_type;
 DROP TYPE public.stat_frequency;
