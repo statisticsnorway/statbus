@@ -117,7 +117,7 @@ DROP VIEW public.timeline_legal_unit;
 DROP VIEW public.timeline_establishment;
 DROP VIEW public.timesegments;
 DROP VIEW public.timepoints;
-DROP VIEW public.jsonb_stats;
+DROP FUNCTION public.get_jsonb_stats;
 
 DROP TYPE public.statistical_unit_type;
 
