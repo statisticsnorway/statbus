@@ -202,7 +202,10 @@ DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
 DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
 DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
 
+TRUNCATE public.external_ident;
 DELETE FROM public.external_ident_type;
+
+TRUNCATE public.stat_for_unit;
 DELETE FROM public.stat_definition;
 
 \echo "Run all the cleanup procedures for all tables."
