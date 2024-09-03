@@ -4800,7 +4800,7 @@ SELECT valid_from
      , legal_form_id
      , physical_country_id
      , count(*) AS count
-     , public.jsonb_stats_to_summary_agg(stats_summary) AS stats_summary
+     , public.jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
 FROM public.statistical_unit
 GROUP BY valid_from
        , valid_to
@@ -4899,7 +4899,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
-             , public.jsonb_stats_to_summary_agg(af.stats_summary) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(af.stats_summary) AS stats_summary
         FROM available_facet AS af
     ),
     breadcrumb_region AS (
@@ -4933,7 +4933,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
@@ -4980,7 +4980,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -5021,7 +5021,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
@@ -5054,7 +5054,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.code
              , lf.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
@@ -5086,7 +5086,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_to_summary_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id

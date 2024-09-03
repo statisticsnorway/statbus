@@ -334,6 +334,21 @@ FROM public.statistical_history
 WHERE resolution = 'year-month' AND year = 2019
 ORDER BY year,month,unit_type;
 
+\x
+\echo "Inspect facet summary table"
+SELECT valid_from
+     , valid_to
+     , unit_type
+     , physical_region_path
+     , primary_activity_category_path
+     , sector_path
+     , count
+     , jsonb_pretty(stats_summary) AS stats_summary
+  FROM public.statistical_unit_facet
+  ORDER BY valid_from, valid_to, unit_type
+;
+\x
+
 \echo "Test yearly facet data"
 SELECT year
      , unit_type
