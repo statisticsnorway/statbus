@@ -5949,6 +5949,1042 @@ ORDER BY year,month,unit_type;
       |       |               | }
 (36 rows)
 
+\x
+\echo "Inspect facet summary table"
+"Inspect facet summary table"
+SELECT valid_from
+     , valid_to
+     , unit_type
+     , physical_region_path
+     , primary_activity_category_path
+     , sector_path
+     , count
+     , jsonb_pretty(stats_summary) AS stats_summary
+  FROM public.statistical_unit_facet
+  ORDER BY valid_from, valid_to, unit_type
+;
+-[ RECORD 1 ]------------------+---------------------------------------------
+valid_from                     | 2010-01-01
+valid_to                       | 2012-12-31
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 1500000,                     +
+                               |         "min": 1500000,                     +
+                               |         "sum": 1500000,                     +
+                               |         "mean": 1500000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 1,                           +
+                               |         "min": 1,                           +
+                               |         "sum": 1,                           +
+                               |         "mean": 1.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 2 ]------------------+---------------------------------------------
+valid_from                     | 2010-01-01
+valid_to                       | 2012-12-31
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 1500000,                     +
+                               |         "min": 1500000,                     +
+                               |         "sum": 1500000,                     +
+                               |         "mean": 1500000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 1,                           +
+                               |         "min": 1,                           +
+                               |         "sum": 1,                           +
+                               |         "mean": 1.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 3 ]------------------+---------------------------------------------
+valid_from                     | 2010-01-01
+valid_to                       | 2012-12-31
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 1500000,                     +
+                               |         "min": 1500000,                     +
+                               |         "sum": 1500000,                     +
+                               |         "mean": 1500000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 1,                           +
+                               |         "min": 1,                           +
+                               |         "sum": 1,                           +
+                               |         "mean": 1.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 4 ]------------------+---------------------------------------------
+valid_from                     | 2013-01-01
+valid_to                       | 2015-12-31
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 3000000,                     +
+                               |         "min": 3000000,                     +
+                               |         "sum": 3000000,                     +
+                               |         "mean": 3000000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 3,                           +
+                               |         "min": 3,                           +
+                               |         "sum": 3,                           +
+                               |         "mean": 3.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 5 ]------------------+---------------------------------------------
+valid_from                     | 2013-01-01
+valid_to                       | 2015-12-31
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 3000000,                     +
+                               |         "min": 3000000,                     +
+                               |         "sum": 3000000,                     +
+                               |         "mean": 3000000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 3,                           +
+                               |         "min": 3,                           +
+                               |         "sum": 3,                           +
+                               |         "mean": 3.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 6 ]------------------+---------------------------------------------
+valid_from                     | 2013-01-01
+valid_to                       | 2015-12-31
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 3000000,                     +
+                               |         "min": 3000000,                     +
+                               |         "sum": 3000000,                     +
+                               |         "mean": 3000000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 3,                           +
+                               |         "min": 3,                           +
+                               |         "sum": 3,                           +
+                               |         "mean": 3.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 7 ]------------------+---------------------------------------------
+valid_from                     | 2016-01-01
+valid_to                       | 2018-12-31
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 12000000,                    +
+                               |         "min": 12000000,                    +
+                               |         "sum": 12000000,                    +
+                               |         "mean": 12000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 9,                           +
+                               |         "min": 9,                           +
+                               |         "sum": 9,                           +
+                               |         "mean": 9.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 8 ]------------------+---------------------------------------------
+valid_from                     | 2016-01-01
+valid_to                       | 2018-12-31
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 12000000,                    +
+                               |         "min": 12000000,                    +
+                               |         "sum": 12000000,                    +
+                               |         "mean": 12000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 9,                           +
+                               |         "min": 9,                           +
+                               |         "sum": 9,                           +
+                               |         "mean": 9.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 9 ]------------------+---------------------------------------------
+valid_from                     | 2016-01-01
+valid_to                       | 2018-12-31
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 12000000,                    +
+                               |         "min": 12000000,                    +
+                               |         "sum": 12000000,                    +
+                               |         "mean": 12000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 9,                           +
+                               |         "min": 9,                           +
+                               |         "sum": 9,                           +
+                               |         "mean": 9.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 10 ]-----------------+---------------------------------------------
+valid_from                     | 2019-01-01
+valid_to                       | 2019-02-28
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 25,                          +
+                               |         "min": 25,                          +
+                               |         "sum": 25,                          +
+                               |         "mean": 25.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 11 ]-----------------+---------------------------------------------
+valid_from                     | 2019-01-01
+valid_to                       | 2019-02-28
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 25,                          +
+                               |         "min": 25,                          +
+                               |         "sum": 25,                          +
+                               |         "mean": 25.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 12 ]-----------------+---------------------------------------------
+valid_from                     | 2019-01-01
+valid_to                       | 2019-02-28
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 25,                          +
+                               |         "min": 25,                          +
+                               |         "sum": 25,                          +
+                               |         "mean": 25.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 13 ]-----------------+---------------------------------------------
+valid_from                     | 2019-03-01
+valid_to                       | 2019-04-30
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 30,                          +
+                               |         "min": 30,                          +
+                               |         "sum": 30,                          +
+                               |         "mean": 30.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 14 ]-----------------+---------------------------------------------
+valid_from                     | 2019-03-01
+valid_to                       | 2019-04-30
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 30,                          +
+                               |         "min": 30,                          +
+                               |         "sum": 30,                          +
+                               |         "mean": 30.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 15 ]-----------------+---------------------------------------------
+valid_from                     | 2019-03-01
+valid_to                       | 2019-04-30
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 30,                          +
+                               |         "min": 30,                          +
+                               |         "sum": 30,                          +
+                               |         "mean": 30.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 16 ]-----------------+---------------------------------------------
+valid_from                     | 2019-05-01
+valid_to                       | 2019-06-30
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 35,                          +
+                               |         "min": 35,                          +
+                               |         "sum": 35,                          +
+                               |         "mean": 35.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 17 ]-----------------+---------------------------------------------
+valid_from                     | 2019-05-01
+valid_to                       | 2019-06-30
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 35,                          +
+                               |         "min": 35,                          +
+                               |         "sum": 35,                          +
+                               |         "mean": 35.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 18 ]-----------------+---------------------------------------------
+valid_from                     | 2019-05-01
+valid_to                       | 2019-06-30
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 35,                          +
+                               |         "min": 35,                          +
+                               |         "sum": 35,                          +
+                               |         "mean": 35.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 19 ]-----------------+---------------------------------------------
+valid_from                     | 2019-07-01
+valid_to                       | 2019-08-31
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 20 ]-----------------+---------------------------------------------
+valid_from                     | 2019-07-01
+valid_to                       | 2019-08-31
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 21 ]-----------------+---------------------------------------------
+valid_from                     | 2019-07-01
+valid_to                       | 2019-08-31
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 22 ]-----------------+---------------------------------------------
+valid_from                     | 2019-09-01
+valid_to                       | 2019-10-31
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 50,                          +
+                               |         "min": 50,                          +
+                               |         "sum": 50,                          +
+                               |         "mean": 50.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 23 ]-----------------+---------------------------------------------
+valid_from                     | 2019-09-01
+valid_to                       | 2019-10-31
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 50,                          +
+                               |         "min": 50,                          +
+                               |         "sum": 50,                          +
+                               |         "mean": 50.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 24 ]-----------------+---------------------------------------------
+valid_from                     | 2019-09-01
+valid_to                       | 2019-10-31
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 50,                          +
+                               |         "min": 50,                          +
+                               |         "sum": 50,                          +
+                               |         "mean": 50.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 25 ]-----------------+---------------------------------------------
+valid_from                     | 2019-11-01
+valid_to                       | 2019-12-31
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 26 ]-----------------+---------------------------------------------
+valid_from                     | 2019-11-01
+valid_to                       | 2019-12-31
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 27 ]-----------------+---------------------------------------------
+valid_from                     | 2019-11-01
+valid_to                       | 2019-12-31
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 28 ]-----------------+---------------------------------------------
+valid_from                     | 2020-01-01
+valid_to                       | infinity
+unit_type                      | establishment
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | 
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 70000000,                    +
+                               |         "min": 70000000,                    +
+                               |         "sum": 70000000,                    +
+                               |         "mean": 70000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 45,                          +
+                               |         "min": 45,                          +
+                               |         "sum": 45,                          +
+                               |         "mean": 45.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 29 ]-----------------+---------------------------------------------
+valid_from                     | 2020-01-01
+valid_to                       | infinity
+unit_type                      | legal_unit
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 70000000,                    +
+                               |         "min": 70000000,                    +
+                               |         "sum": 70000000,                    +
+                               |         "mean": 70000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 45,                          +
+                               |         "min": 45,                          +
+                               |         "sum": 45,                          +
+                               |         "mean": 45.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+-[ RECORD 30 ]-----------------+---------------------------------------------
+valid_from                     | 2020-01-01
+valid_to                       | infinity
+unit_type                      | enterprise
+physical_region_path           | 11.21
+primary_activity_category_path | H.49.4.1.0
+sector_path                    | innl.a_ikke_fin.2100
+count                          | 1
+stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 70000000,                    +
+                               |         "min": 70000000,                    +
+                               |         "sum": 70000000,                    +
+                               |         "mean": 70000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 45,                          +
+                               |         "min": 45,                          +
+                               |         "sum": 45,                          +
+                               |         "mean": 45.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
+                               | }
+
+\x
 \echo "Test yearly facet data"
 "Test yearly facet data"
 SELECT year
