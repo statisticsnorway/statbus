@@ -1459,7 +1459,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -1670,7 +1670,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -1881,7 +1881,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2092,7 +2092,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2303,7 +2303,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2514,7 +2514,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2725,7 +2725,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2936,7 +2936,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -3147,7 +3147,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -3358,7 +3358,7 @@ statistical_unit_data | {                                                  +
                       |     "legal_unit_count": 1,                         +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 0,                      +
+                      |     "establishment_count": 1,                      +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -11710,4 +11710,130 @@ statistical_unit_hierarchy
     }
 }
 (1 row)
+\a
+\x
+\echo "Check relevant_statistical_units"
+"Check relevant_statistical_units"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '823573673'
+       AND unit_type = 'enterprise'
+     LIMIT 1
+)
+SELECT valid_after
+     , valid_from
+     , valid_to
+     , unit_type
+     , external_idents
+     , jsonb_pretty(stats) AS stats
+     , jsonb_pretty(stats_summary) AS stats_summary
+  FROM public.relevant_statistical_units(
+     'enterprise',
+     (SELECT unit_id FROM selected_enterprise),
+     '2023-01-01'::DATE
+);
+-[ RECORD 1 ]---+---------------------------------------------
+valid_after     | 2019-12-31
+valid_from      | 2020-01-01
+valid_to        | infinity
+unit_type       | enterprise
+external_idents | {"tax_ident": "921835809"}
+stats           | 
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 70000000,                    +
+                |         "min": 70000000,                    +
+                |         "sum": 70000000,                    +
+                |         "mean": 70000000.00,                +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 45,                          +
+                |         "min": 45,                          +
+                |         "sum": 45,                          +
+                |         "mean": 45.00,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
+                | }
+-[ RECORD 2 ]---+---------------------------------------------
+valid_after     | 2019-12-31
+valid_from      | 2020-01-01
+valid_to        | infinity
+unit_type       | legal_unit
+external_idents | {"tax_ident": "921835809"}
+stats           | {                                           +
+                | }
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 70000000,                    +
+                |         "min": 70000000,                    +
+                |         "sum": 70000000,                    +
+                |         "mean": 70000000.00,                +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 45,                          +
+                |         "min": 45,                          +
+                |         "sum": 45,                          +
+                |         "mean": 45.00,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
+                | }
+-[ RECORD 3 ]---+---------------------------------------------
+valid_after     | 2019-12-31
+valid_from      | 2020-01-01
+valid_to        | infinity
+unit_type       | establishment
+external_idents | {"tax_ident": "895406732"}
+stats           | {                                           +
+                |     "turnover": 70000000,                   +
+                |     "employees": 45                         +
+                | }
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 70000000,                    +
+                |         "min": 70000000,                    +
+                |         "sum": 70000000,                    +
+                |         "mean": 70000000,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 45,                          +
+                |         "min": 45,                          +
+                |         "sum": 45,                          +
+                |         "mean": 45,                         +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
+                | }
+
 ROLLBACK;
