@@ -5992,7 +5992,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
     FROM public.stat_for_unit AS sfu
     JOIN public.stat_definition AS sd ON sd.id = sfu.stat_definition_id
     WHERE parent_establishment_id IS NOT NULL AND sfu.establishment_id = parent_establishment_id
-      AND sfu.valid_from <= valid_on AND valid_on <= sfu.valid_to
+      AND sfu.valid_after < valid_on AND valid_on <= sfu.valid_to
     ORDER BY sd.code
 ), data_list AS (
     SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -6070,7 +6070,7 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
         || (SELECT public.country_hierarchy(l.country_id))
         AS data
       FROM public.location AS l
-     WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
+     WHERE l.valid_after < valid_on AND valid_on <= l.valid_to
        AND (  parent_establishment_id IS NOT NULL AND l.establishment_id = parent_establishment_id
            OR parent_legal_unit_id    IS NOT NULL AND l.legal_unit_id    = parent_legal_unit_id
            )
@@ -6132,7 +6132,7 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
                || (SELECT public.activity_category_hierarchy(a.category_id))
                AS data
           FROM public.activity AS a
-         WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
+         WHERE a.valid_after < valid_on AND valid_on <= a.valid_to
            AND (  parent_establishment_id IS NOT NULL AND a.establishment_id = parent_establishment_id
                OR parent_legal_unit_id    IS NOT NULL AND a.legal_unit_id    = parent_legal_unit_id
                )
@@ -6220,7 +6220,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
    WHERE (  (parent_legal_unit_id IS NOT NULL AND es.legal_unit_id = parent_legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND es.enterprise_id = parent_enterprise_id)
          )
-     AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+     AND es.valid_after < valid_on AND valid_on <= es.valid_to
    ORDER BY es.primary_for_legal_unit DESC, es.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -6247,7 +6247,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
         AS data
     FROM public.legal_unit AS lu
    WHERE parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id
-     AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+     AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
    ORDER BY lu.primary_for_enterprise DESC, lu.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -6288,31 +6288,31 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
                 SELECT es.id, es.enterprise_id, es.legal_unit_id, es.valid_from, es.valid_to
                 FROM public.establishment AS es
                 WHERE es.id = unit_id
-                  AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+                  AND es.valid_after < valid_on AND valid_on <= es.valid_to
             )
             SELECT enterprise_id FROM selected_establishment WHERE enterprise_id IS NOT NULL
             UNION ALL
             SELECT lu.enterprise_id
             FROM selected_establishment AS es
             JOIN public.legal_unit AS lu ON es.legal_unit_id = lu.id
-            WHERE lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+            WHERE lu.valid_after < valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'legal_unit' THEN (
              SELECT lu.enterprise_id
                FROM public.legal_unit AS lu
               WHERE lu.id = unit_id
-                AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+                AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'enterprise' THEN (
             SELECT lu.enterprise_id
               FROM public.legal_unit AS lu
              WHERE lu.enterprise_id = unit_id
-               AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+               AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
          UNION ALL
             SELECT es.enterprise_id
               FROM public.establishment AS es
              WHERE es.enterprise_id = unit_id
-               AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+               AND es.valid_after < valid_on AND valid_on <= es.valid_to
          )
          WHEN 'enterprise_group' THEN NULL --TODO
          END
