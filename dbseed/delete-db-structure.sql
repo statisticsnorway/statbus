@@ -42,6 +42,10 @@ SELECT sql_saga.drop_era('public.legal_unit');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
 
+
+\echo public.relevant_statistical_units
+DROP FUNCTION public.relevant_statistical_units(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
+
 \echo public.statistical_unit_hierarchy
 DROP FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
 \echo public.statistical_unit_enterprise_id
