@@ -4178,6 +4178,7 @@ CREATE VIEW public.timeline_enterprise
         SELECT tlu.enterprise_id
              , basis.valid_after
              , basis.valid_to
+             , agg.establishment_ids
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
              , public.jsonb_stats_summary_merge_agg(tlu.stats_summary) AS stats_summary
           FROM public.timeline_legal_unit AS tlu
@@ -4185,7 +4186,13 @@ CREATE VIEW public.timeline_enterprise
            ON tlu.enterprise_id = basis.enterprise_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tlu.valid_after, tlu.valid_to, '(]')
-        GROUP BY tlu.enterprise_id, basis.valid_after , basis.valid_to
+           CROSS JOIN LATERAL (
+                SELECT array_agg(DISTINCT id) AS establishment_ids
+                FROM (
+                    SELECT unnest(tlu.establishment_ids) AS id
+                ) AS unnested_ids
+            ) AS agg
+        GROUP BY tlu.enterprise_id, basis.valid_after , basis.valid_to, agg.establishment_ids
         ), basis_with_legal_unit_aggregation AS (
           SELECT basis.unit_type
                , basis.unit_id
@@ -4227,7 +4234,7 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
-               , ARRAY[]::INT[] AS establishment_ids
+               , COALESCE(lua.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
                , NULL::INTEGER AS primary_establishment_id
