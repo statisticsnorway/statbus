@@ -20,3 +20,6 @@ services:
     shm_size: 1g
     ports:
       - 127.0.0.1:${DB_PUBLIC_LOCALHOST_PORT}:5432
+    volumes:
+      # Make all files available for running tests.
+      - ..:/statbus

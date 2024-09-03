@@ -12,26 +12,86 @@ cd $WORKSPACE
 # Add support for an optional profile as an extra argument for start and stop,
 # and when present add the proper `--profile ...` argument.
 action=${1:-}
-compose_profile_arg="--profile \"${2:-all}\""
-# move away $1 and $2 from $@
 shift || true
-shift || true
+
+set_profile_arg() {
+    profile=${1:-all}
+    compose_profile_arg="--profile \"$profile\""
+    shift || true
+}
 
 case "$action" in
     'start' )
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
-        eval docker compose $compose_profile_arg up --build --detach
+        set_profile_arg "$@"
+
+        # Conditionally add the --build argument if the profile is 'all'
+        # since docker compose does not use the --profile to determine
+        # if a build is required.
+        build_arg=""
+        if [ "$profile" = "all" ]; then
+            build_arg="--build"
+        fi
+
+        eval docker compose $compose_profile_arg up $build_arg --detach
       ;;
     'stop' )
+        set_profile_arg "$@"
         eval docker compose $compose_profile_arg down
       ;;
     'logs' )
+        set_profile_arg "$@"
         eval docker compose $compose_profile_arg logs --follow
       ;;
     'ps' )
+        set_profile_arg "$@"
         eval docker compose $compose_profile_arg ps
       ;;
+    'test' )
+        eval $(./devops/manage-statbus.sh postgres-variables)
+
+        PG_REGRESS_DIR="$WORKSPACE/test"
+        PG_REGRESS="/usr/lib/postgresql/15/lib/pgxs/src/test/regress/pg_regress"
+        CONTAINER_REGRESS_DIR="/statbus/test"
+
+        for suffix in "sql" "expected" "results"; do
+            if ! test -d "$PG_REGRESS_DIR/$suffix"; then
+                mkdir -p "$PG_REGRESS_DIR/$suffix"
+            fi
+        done
+
+        TEST_BASENAMES="$@"
+        if test -z "$TEST_BASENAMES"; then
+            echo "Available tests:"
+            basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
+            exit 0
+        elif test "$TEST_BASENAMES" = "all"; then
+            TEST_BASENAMES=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+        fi
+
+        for test_basename in $TEST_BASENAMES; do
+            expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
+            if [ ! -f "$expected_file" ]; then
+                echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
+                touch "$expected_file"
+            fi
+        done
+
+        debug_arg=""
+        if test -n "${DEBUG:-}"; then
+          debug_arg="--debug"
+        fi
+        docker compose exec --workdir "/statbus" db \
+            $PG_REGRESS $debug_arg \
+            --use-existing \
+            --bindir='/usr/lib/postgresql/15/bin' \
+            --inputdir=$CONTAINER_REGRESS_DIR \
+            --outputdir=$CONTAINER_REGRESS_DIR \
+            --dbname=$PGDATABASE \
+            --user=$PGUSER \
+            $TEST_BASENAMES
+    ;;
     'activate_sql_saga' )
         eval $(./devops/manage-statbus.sh postgres-variables)
         PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
@@ -326,7 +386,7 @@ EOS
             args="-ti"
           fi
           COMPOSE_INSTANCE_NAME=$(./devops/dotenv --file .env get COMPOSE_INSTANCE_NAME)
-          docker exec $args -e PGPASSWORD $(docker ps  | awk "/$COMPOSE_INSTANCE_NAME-db/{print \$1}") psql -U $PGUSER $PGDATABASE "$@"
+          docker compose exec $args -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
         fi
       ;;
      'generate-types' )
