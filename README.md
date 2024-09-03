@@ -156,6 +156,13 @@ Ref. https://stackoverflow.com/a/13154031/1023558
 [![Linter](https://github.com/statisticsnorway/statbus/actions/workflows/linter-workflow.yaml/badge.svg)](https://github.com/statisticsnorway/statbus/actions/workflows/linter-workflow.yaml)
 -->
 
+### Backend (Services)
+Start the Docker Containers with all services except the app
+
+```bash
+./devops/manage-statbus.sh start not_app
+```
+
 
 ### Frontend
 

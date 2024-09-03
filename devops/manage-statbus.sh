@@ -9,22 +9,28 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 
+# Add support for an optional profile as an extra argument for start and stop,
+# and when present add the proper `--profile ...` argument.
 action=${1:-}
-shift || true # move away $1 from $@
+compose_profile_arg="--profile \"${2:-all}\""
+# move away $1 and $2 from $@
+shift || true
+shift || true
+
 case "$action" in
     'start' )
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
-        docker compose up --build --detach
+        eval docker compose $compose_profile_arg up --build --detach
       ;;
     'stop' )
-        docker compose down
+        eval docker compose $compose_profile_arg down
       ;;
     'logs' )
-        docker compose logs --follow
+        eval docker compose $compose_profile_arg logs --follow
       ;;
     'ps' )
-        docker compose ps
+        eval docker compose $compose_profile_arg ps
       ;;
     'activate_sql_saga' )
         eval $(./devops/manage-statbus.sh postgres-variables)
@@ -339,16 +345,6 @@ EOS
         ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
      'generate-docker-compose-adjustments' )
-        echo Generating docker-compose.supabase_docker.customize-container_name.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("container_name")) |
-          .container_name = "${COMPOSE_INSTANCE_NAME:-statbus}-" + key |
-          (.container_name)
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.customize-container_name.yml
-
         echo Generating docker-compose.supabase_docker.erase-ports.yml
         yq '(
           .. | # recurse through all the nodes
@@ -360,6 +356,24 @@ EOS
           setpath($i | path; $i) # and put in each node, using its original path
         ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-ports.yml
 
+        echo Generating docker-compose.supabase_docker.customize-container_name.yml
+        yq '(
+          .. | # recurse through all the nodes
+          select(has("container_name")) |
+          .container_name = "${COMPOSE_INSTANCE_NAME:-statbus}-" + key |
+          (.container_name)
+        ) as $i ireduce({};  # using that set of nodes, create a new result map
+          setpath($i | path; $i) # and put in each node, using its original path
+        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.customize-container_name.yml
+
+        echo Generating docker-compose.supabase_docker.add-profile.yml
+        yq '(
+          .services[] | # recurse through all service definitions
+          .profiles = ["all", "not_app"] | # set profiles
+          (.profiles) # Only retain profiles
+        ) as $i ireduce({};  # using that set of nodes, create a new result map
+          setpath($i | path; $i) # and put in each node, using its original path
+        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-profile.yml
       ;;
      * )
       echo "Unknown action '$action', select one of"
