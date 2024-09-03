@@ -64,6 +64,7 @@ case "$action" in
         TEST_BASENAMES="$@"
         if test -z "$TEST_BASENAMES"; then
             echo "Available tests:"
+            echo "all"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
         elif test "$TEST_BASENAMES" = "all"; then
