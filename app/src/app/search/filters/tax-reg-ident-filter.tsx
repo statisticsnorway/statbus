@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { TAX_REG_IDENT } from "@/app/search/filters/url-search-params";
+import { TAX_IDENT } from "@/app/global-variables";
 
 interface IProps {
   readonly urlSearchParam: string | null;
@@ -12,7 +13,7 @@ export default function TaxRegIdentFilter({ urlSearchParam }: IProps) {
   const {
     dispatch,
     search: {
-      values: { [TAX_REG_IDENT]: selected = [] },
+      values: { [`external_idents->>${TAX_IDENT}`]: selected = [] },
     },
   } = useSearchContext();
 
@@ -21,7 +22,7 @@ export default function TaxRegIdentFilter({ urlSearchParam }: IProps) {
       dispatch({
         type: "set_query",
         payload: {
-          name: TAX_REG_IDENT,
+          name: `external_idents->>${TAX_IDENT}`,
           query: value ? `eq.${value}` : null,
           values: value ? [value] : [],
         },

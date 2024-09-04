@@ -28,12 +28,12 @@ export default function GeneralInfoForm({
         value={values.name}
         response={state}
       />
-      <FormField
+      {/* <FormField
         label="Tax Register ID"
         name="tax_ident"
         value={values.tax_ident}
         response={state}
-      />
+      /> */}
       <SubmissionFeedbackDebugInfo state={state} />
       <Button type="submit">Update Legal Unit</Button>
     </form>
