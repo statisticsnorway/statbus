@@ -9,6 +9,8 @@ import { Bug } from "lucide-react";
 import { useCartContext } from "@/app/search/use-cart-context";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
+import { EMPLOYEES, TAX_IDENT, TURNOVER } from "@/app/global-variables";
+import { StatisticalUnit } from "@/app/types";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -32,13 +34,16 @@ export const StatisticalUnitTableRow = ({
     name,
     primary_activity_category_path,
     physical_region_path,
-    tax_ident,
-    employees,
-    turnover,
+    external_idents,
+    stats_summary,
     sector_name,
     sector_code,
     invalid_codes,
-  } = unit;
+  } = unit as StatisticalUnit;
+
+  const tax_ident = external_idents[TAX_IDENT];
+  const employees = stats_summary[EMPLOYEES]?.sum;
+  const turnover = stats_summary[TURNOVER]?.sum;
 
   const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({ path }) => path === physical_region_path);
