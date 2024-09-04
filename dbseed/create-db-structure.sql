@@ -6534,7 +6534,7 @@ BEGIN
             string_agg(format(E'\t\t"%s" %s',
                 format_type(t.oid, a.atttypmod),
                 a.attname
-            ), E'\n')
+            ), E'\n' ORDER BY a.attnum)
         )
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -6542,7 +6542,9 @@ BEGIN
         LEFT JOIN pg_type t ON a.atttypid = t.oid
         WHERE c.relkind IN ('r', 'p')
           AND NOT c.relispartition
-          AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+          AND n.nspname !~ '^pg_'
+          AND n.nspname !~ '^_'
+          AND n.nspname <> 'information_schema'
         GROUP BY n.nspname, c.relname
         ORDER BY n.nspname, c.relname
     LOOP
@@ -6596,7 +6598,14 @@ BEGIN
         JOIN pg_namespace n1 ON n1.oid = c1.relnamespace
         JOIN pg_namespace n2 ON n2.oid = c2.relnamespace
         JOIN pg_attribute a ON a.attnum = ANY (c.conkey) AND a.attrelid = c.conrelid
-        WHERE NOT c1.relispartition AND NOT c2.relispartition
+        WHERE NOT c1.relispartition
+          AND NOT c2.relispartition
+          AND n1.nspname !~ '^pg_'
+          AND n1.nspname !~ '^_'
+          AND n1.nspname <> 'information_schema'
+          AND n2.nspname !~ '^pg_'
+          AND n2.nspname !~ '^_'
+          AND n2.nspname <> 'information_schema'
         ORDER BY n1.nspname, c1.relname, n2.nspname, c2.relname
     LOOP
         result := result || E'\n' || rec.format;
