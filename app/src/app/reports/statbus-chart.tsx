@@ -26,7 +26,7 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
   }, []);
 
   const statisticalVariables: {
-    value: keyof DrillDownPoint;
+    value: string;
     label: string;
     title: string;
   }[] = [

@@ -1,3 +1,5 @@
+import { StatsSummary } from "@/app/types";
+
 export type DrillDown = {
   available: {
     region: DrillDownPoint[];
@@ -15,8 +17,7 @@ export type DrillDownPoint = {
   name: string;
   path: string;
   count: number;
-  employees: number;
-  turnover: number;
+  stats_summary: StatsSummary;
   label: string;
   has_children: boolean;
 };
