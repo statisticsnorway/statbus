@@ -1562,7 +1562,7 @@ WHEN (NEW.by_tag_id IS NOT NULL AND NEW.by_tag_id IS DISTINCT FROM OLD.by_tag_id
 EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
 
 
-CREATE VIEW public.external_ident_type_canonical AS
+CREATE VIEW public.external_ident_type_ordered AS
     SELECT *
     FROM public.external_ident_type
     ORDER BY priority ASC NULLS LAST, code
@@ -1570,7 +1570,7 @@ CREATE VIEW public.external_ident_type_canonical AS
 
 CREATE VIEW public.external_ident_type_active AS
     SELECT *
-    FROM public.external_ident_type_canonical
+    FROM public.external_ident_type_ordered
     WHERE NOT archived
 ;
 
@@ -2389,7 +2389,7 @@ CREATE TABLE public.stat_definition(
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
 COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
 --
-CREATE VIEW public.stat_definition_canonical AS
+CREATE VIEW public.stat_definition_ordered AS
     SELECT *
     FROM public.stat_definition
     ORDER BY priority ASC NULLS LAST, code
@@ -2397,7 +2397,7 @@ CREATE VIEW public.stat_definition_canonical AS
 
 CREATE VIEW public.stat_definition_active AS
     SELECT *
-    FROM public.stat_definition_canonical
+    FROM public.stat_definition_ordered
     WHERE NOT archived
 ;
 --
