@@ -917,7 +917,7 @@ export type Database = {
             foreignKeyName: "external_ident_type_id_fkey"
             columns: ["type_id"]
             isOneToOne: false
-            referencedRelation: "external_ident_type_canonical"
+            referencedRelation: "external_ident_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1939,7 +1939,7 @@ export type Database = {
             foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
-            referencedRelation: "stat_definition_canonical"
+            referencedRelation: "stat_definition_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -2773,7 +2773,7 @@ export type Database = {
           },
         ]
       }
-      external_ident_type_canonical: {
+      external_ident_type_ordered: {
         Row: {
           archived: boolean | null
           by_tag_id: number | null
@@ -4025,7 +4025,7 @@ export type Database = {
         }
         Relationships: []
       }
-      stat_definition_canonical: {
+      stat_definition_ordered: {
         Row: {
           archived: boolean | null
           code: string | null
@@ -4117,7 +4117,7 @@ export type Database = {
             foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
-            referencedRelation: "stat_definition_canonical"
+            referencedRelation: "stat_definition_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -5409,6 +5409,14 @@ export type Database = {
         }
         Returns: Json
       }
+      relevant_statistical_units: {
+        Args: {
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          unit_id: number
+          valid_on?: string
+        }
+        Returns: unknown[]
+      }
       remove_ephemeral_data_from_hierarchy: {
         Args: {
           data: Json
@@ -5504,14 +5512,6 @@ export type Database = {
           view_name: string
           modified_at: string
         }[]
-      }
-      stats_summary_for_unit: {
-        Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          unit_id: number
-          valid_on?: string
-        }
-        Returns: unknown
       }
       tag_for_unit_hierarchy: {
         Args: {
