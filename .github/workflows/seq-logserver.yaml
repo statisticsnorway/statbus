@@ -16,7 +16,7 @@ jobs:
     - name: Run commands
       uses: appleboy/ssh-action@master
       with:
-        host: libu.statbus.org
+        host: niue.statbus.org
         username: devops
         key: ${{ secrets.SSH_KEY }}
         script_stop: true

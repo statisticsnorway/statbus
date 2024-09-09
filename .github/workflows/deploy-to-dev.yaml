@@ -19,7 +19,7 @@ jobs:
     - name: executing remote ssh commands
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: libu.statbus.org
+        host: niue.statbus.org
         username: statbus_dev
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
