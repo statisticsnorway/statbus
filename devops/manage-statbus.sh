@@ -80,20 +80,30 @@ case "$action" in
                 exit 1
             fi
 
+            # Fetch latest changes from the remote,
+            # before validating the commit, as it must first
+            # be fetched.
             git fetch origin
 
-            # Check if commit is valid and provided
+            # Validate that the commit is provided and non-empty
             if [ -z "$COMMIT" ]; then
                 echo "Error: Commit hash must be provided."
                 exit 1
-            elif ! git cat-file -e "$COMMIT" 2>/dev/null; then
+            fi
+
+            # Check if the commit exists in the repository
+            if ! git cat-file -e "$COMMIT" 2>/dev/null; then
                 echo "Error: Commit '$COMMIT' is invalid or not found."
                 exit 1
             fi
 
+            # Log the branch and commit being used for debugging
+            echo "Checking out branch '$BRANCH' at commit '$COMMIT'"
+
             # Create or reset the local branch with the given name, using the specified commit
             git checkout -B "$BRANCH" "$COMMIT"
         fi
+
         # Proceed with the rest of the workflow
         ./devops/manage-statbus.sh create-db
 
