@@ -36,6 +36,4 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
         script: |
-          BRANCH=${{ github.ref_name }}
-          COMMIT=${{ github.sha }}
-          ./statbus/devops/manage-statbus.sh continous-integration-test $BRANCH $COMMIT
+          ./statbus/devops/manage-statbus.sh continous-integration-test "${{github.ref_name}}" "${{github.sha}}"
