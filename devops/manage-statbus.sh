@@ -136,7 +136,8 @@ EOS
         SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate SUPABASE_URL echo "http://localhost:3011")
         # Logging server
         SEQ_SERVER_URL=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_SERVER_URL echo "https://log.statbus.org")
-        SEQ_API_KEY=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_API_KEY echo "secret")
+        SEQ_API_KEY=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_API_KEY echo "secret_seq_api_key")
+        SLACK_TOKEN=$(./devops/dotenv --file $CONFIG_FILE generate SLACK_TOKEN echo "secret_slack_api_token")
 
         # Prepare a new environment file
         # Check if the original file exists
@@ -194,7 +195,9 @@ STATBUS_URL=https://www.ex.statbus.org
 SUPABASE_URL=https://api.ex.statbus.org
 # Logging server
 SEQ_SERVER_URL=https://log.statbus.org
-SEQ_API_KEY=secret_api_key
+SEQ_API_KEY=secret_seq_api_key
+# Deployment Messages
+SLACK_TOKEN=secret_slack_api_token
 # The prefix used for all container names in docker
 COMPOSE_INSTANCE_NAME=statbus
 # The host address connected to the STATBUS app
