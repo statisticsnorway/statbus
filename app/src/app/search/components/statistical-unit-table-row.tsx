@@ -9,8 +9,8 @@ import { Bug } from "lucide-react";
 import { useCartContext } from "@/app/search/use-cart-context";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
-import { EMPLOYEES, TAX_IDENT, TURNOVER } from "@/app/global-variables";
 import { StatisticalUnit } from "@/app/types";
+import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -23,6 +23,7 @@ export const StatisticalUnitTableRow = ({
 }: SearchResultTableRowProps) => {
   const { regions, activityCategories } = useSearchContext();
   const { selected } = useCartContext();
+  const { statDefinitions, externalIdentTypes } = useCustomConfigContext();
 
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
@@ -41,9 +42,7 @@ export const StatisticalUnitTableRow = ({
     invalid_codes,
   } = unit as StatisticalUnit;
 
-  const tax_ident = external_idents[TAX_IDENT];
-  const employees = stats_summary[EMPLOYEES]?.sum;
-  const turnover = stats_summary[TURNOVER]?.sum;
+  const external_ident = external_idents[externalIdentTypes?.[0]?.code];
 
   const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({ path }) => path === physical_region_path);
@@ -104,7 +103,7 @@ export const StatisticalUnitTableRow = ({
               <span className="font-medium">{name}</span>
             )}
             <small className="text-gray-700 flex items-center space-x-1">
-              <span>{tax_ident}</span>
+              <span>{external_ident}</span>
               <span>|</span>
               <span>{prettifyUnitType(type)}</span>
               {invalid_codes && (
@@ -128,10 +127,10 @@ export const StatisticalUnitTableRow = ({
         </div>
       </TableCell>
       <TableCell className="py-2 text-right hidden lg:table-cell">
-        {thousandSeparator(employees)}
+        {thousandSeparator(stats_summary[statDefinitions?.[0]?.code]?.sum)}
       </TableCell>
       <TableCell className="py-2 text-right hidden lg:table-cell">
-        {thousandSeparator(turnover)}
+        {thousandSeparator(stats_summary[statDefinitions?.[1]?.code]?.sum)}
       </TableCell>
       <TableCell
         className="py-2 text-left hidden lg:table-cell"

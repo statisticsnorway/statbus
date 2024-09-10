@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
+import { DrillDown } from "@/app/reports/types/drill-down";
 import * as highcharts from "highcharts";
 import HC_drilldown from "highcharts/modules/drilldown";
 import HC_a11y from "highcharts/modules/accessibility";
@@ -10,6 +10,7 @@ import { DrillDownChart } from "@/app/reports/drill-down-chart";
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
 import { SearchLink } from "@/app/reports/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCustomConfigContext } from "../use-custom-config-context";
 
 export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
   const {
@@ -19,6 +20,8 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
     activityCategory,
     setActivityCategory,
   } = useDrillDownData(props.drillDown);
+
+  const { statDefinitions } = useCustomConfigContext();
 
   useEffect(() => {
     HC_a11y(highcharts);
@@ -31,8 +34,11 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
     title: string;
   }[] = [
     { value: "count", label: "Count", title: "Number of enterprises" },
-    { value: "employees", label: "Employees", title: "Number of employees" },
-    { value: "turnover", label: "Turnover", title: "Total turnover" },
+    ...(statDefinitions.map(({ code, name }) => ({
+      value: code,
+      label: code,
+      title: name,
+    })) ?? []),
   ];
 
   return (
@@ -43,6 +49,7 @@ export default function StatBusChart(props: { readonly drillDown: DrillDown }) {
             <TabsTrigger
               key={statisticalVariable.value}
               value={statisticalVariable.value}
+              className="capitalize"
             >
               {statisticalVariable.label}
             </TabsTrigger>
