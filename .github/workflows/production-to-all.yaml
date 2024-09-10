@@ -18,5 +18,6 @@ jobs:
       run: |
         git push --force origin HEAD:devops/deploy-to-no
         git push --force origin HEAD:devops/deploy-to-tcc
+        git push --force origin HEAD:devops/deploy-to-ug
         git push --force origin HEAD:devops/deploy-to-ma
         git push --force origin HEAD:devops/deploy-to-demo

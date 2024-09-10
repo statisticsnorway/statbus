@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: "demo.statbus.org<-devops/deploy-to-demo"
+name: "ug.statbus.org<-devops/deploy-to-ug"
 on:
   # Allow manual deployment in github
   workflow_dispatch:
   push:
     branches:
-      - "devops/deploy-to-demo"
+      - devops/deploy-to-ug
 
 # Deploys are serial for a deploy branch.
 concurrency:
@@ -20,7 +20,7 @@ jobs:
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: niue.statbus.org
-        username: statbus_demo
+        username: statbus_ug
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
         script: /usr/local/bin/deploy-statbus.sh

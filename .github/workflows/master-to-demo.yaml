@@ -1,9 +1,5 @@
-name: Push master -> devops/deploy-to-dev
+name: Push master -> devops/deploy-to-demo
 on:
-  # Auto deploy master to dev on push to master
-  push:
-    branches:
-      - 'master'
   # Allow manual deployment in github
   workflow_dispatch:
 
@@ -17,4 +13,4 @@ jobs:
         ssh-key: ${{ secrets.SSH_KEY }}
     - name: Push for deployment
       run: |
-        git push --force origin HEAD:devops/deploy-to-dev
+        git push --force origin HEAD:devops/deploy-to-demo
