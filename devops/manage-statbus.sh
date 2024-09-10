@@ -390,6 +390,7 @@ EOS
         ./devops/dotenv --file .env set SUPABASE_URL=$SUPABASE_URL
         ./devops/dotenv --file .env set SEQ_SERVER_URL=$SEQ_SERVER_URL
         ./devops/dotenv --file .env set SEQ_API_KEY=$SEQ_API_KEY
+        ./devops/dotenv --file .env set SLACK_TOKEN=$SLACK_TOKEN
 
         APP_BIND_ADDRESS="127.0.0.1:$(( 3000+$DEPLOYMENT_SLOT_PORT_OFFSET*10 ))"
         ./devops/dotenv --file .env set APP_BIND_ADDRESS=$APP_BIND_ADDRESS
