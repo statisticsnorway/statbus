@@ -66,8 +66,8 @@ case "$action" in
       ;;
     'continous-integration-test' )
         # Validate arguments
-        BRANCH=${1:-}
-        COMMIT=${2:-}
+        BRANCH=${1:-${BRANCH:-}}
+        COMMIT=${2:-${COMMIT:-}}
 
         # If no branch is provided, use the current branch (local testing case)
         if [ -z "$BRANCH" ]; then

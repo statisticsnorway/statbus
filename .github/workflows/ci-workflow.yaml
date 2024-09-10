@@ -24,7 +24,7 @@ jobs:
           npm run build -- --no-lint
   pg_regress:
     concurrency:
-      group: ${{ github.ref_name }}
+      group: statbus_test
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
