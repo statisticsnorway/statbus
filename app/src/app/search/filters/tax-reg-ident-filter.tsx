@@ -2,18 +2,19 @@
 import { Input } from "@/components/ui/input";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
-import { TAX_REG_IDENT } from "@/app/search/filters/url-search-params";
-import { TAX_IDENT } from "@/app/global-variables";
+import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 interface IProps {
   readonly urlSearchParam: string | null;
 }
 
 export default function TaxRegIdentFilter({ urlSearchParam }: IProps) {
+  const { externalIdentTypes } = useCustomConfigContext();
+  const externalIdentType = externalIdentTypes?.[0]?.code;
   const {
     dispatch,
     search: {
-      values: { [`external_idents->>${TAX_IDENT}`]: selected = [] },
+      values: { [`external_idents->>${externalIdentType}`]: selected = [] },
     },
   } = useSearchContext();
 
@@ -22,13 +23,13 @@ export default function TaxRegIdentFilter({ urlSearchParam }: IProps) {
       dispatch({
         type: "set_query",
         payload: {
-          name: `external_idents->>${TAX_IDENT}`,
+          name: `external_idents->>${externalIdentType}`,
           query: value ? `eq.${value}` : null,
           values: value ? [value] : [],
         },
       });
     },
-    [dispatch]
+    [dispatch, externalIdentType]
   );
 
   useEffect(() => {

@@ -92,7 +92,7 @@ export const DrillDownChart = ({
         ],
       });
     }
-  }, [points, onSelect, variable]);
+  }, [points, onSelect, variable, title]);
 
   return <div ref={_ref} />;
 };

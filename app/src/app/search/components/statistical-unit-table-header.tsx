@@ -1,7 +1,9 @@
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
+import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 export const StatisticalUnitTableHeader = () => {
+  const { statDefinitions } = useCustomConfigContext();
   return (
     <TableHeader className="bg-gray-50">
       <TableRow>
@@ -13,16 +15,16 @@ export const StatisticalUnitTableHeader = () => {
           Region
         </SortableTableHead>
         <SortableTableHead
-          className="text-right hidden lg:table-cell"
-          name="employees"
+          className="text-right hidden lg:table-cell [&>*]:capitalize"
+          name={statDefinitions?.[0]?.code}
         >
-          Employees
+          {statDefinitions?.[0]?.code}
         </SortableTableHead>
         <SortableTableHead
-          className="text-right hidden lg:table-cell"
-          name="turnover"
+          className="text-right hidden lg:table-cell [&>*]:capitalize"
+          name={statDefinitions?.[1]?.code}
         >
-          Turnover
+          {statDefinitions?.[1]?.code}
         </SortableTableHead>
         <SortableTableHead
           className="text-left hidden lg:table-cell"
