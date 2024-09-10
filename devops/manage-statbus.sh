@@ -71,8 +71,8 @@ case "$action" in
 
         # If no branch is provided, use the current branch (local testing case)
         if [ -z "$BRANCH" ]; then
-            echo "No branch argument provided, using the currently checked-out branch."
             BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            echo "No branch argument provided, using the currently checked-out branch $BRANCH"
         else
             # Ensure the repository is clean before switching branches (no uncommitted changes)
             if ! git diff-index --quiet HEAD --; then
@@ -80,28 +80,13 @@ case "$action" in
                 exit 1
             fi
 
-            # Get the branches and commits to validate
             git fetch origin
+            # Checkout or create a new local branch, even if it already exists
+            git checkout -B "$BRANCH"
 
-            # Validate the branch exists
-            if ! git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
-                echo "Error: Invalid branch name '$BRANCH'"
-                exit 1
-            fi
-
-            # Validate the commit exists if a branch is provided
-            if [ -z "$COMMIT" ]; then
-                echo "Error: Commit hash must be provided when a branch is specified"
-                exit 1
-            elif ! git cat-file -e "$COMMIT" 2>/dev/null; then
-                echo "Error: Invalid commit hash '$COMMIT'"
-                exit 1
-            fi
-
-            # Switch to the specified branch and checkout the commit
-            git checkout "$COMMIT"
+            # Ensure the specified commit is used as the branch tip
+            git reset --hard "$COMMIT"
         fi
-
         # Proceed with the rest of the workflow
         ./devops/manage-statbus.sh create-db
 

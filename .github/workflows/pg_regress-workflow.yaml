@@ -1,4 +1,4 @@
-name: CI
+name: pg_regress
 on:
   workflow_dispatch:
   push:
@@ -9,19 +9,6 @@ on:
       - 'devops/**'  # Ignore any branch prefixed with devops/
 
 jobs:
-  build-app:
-    runs-on: ubuntu-20.04
-    container:
-      image: node:20.10-alpine
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build app
-        run: |
-          cd app
-          npm ci
-          npm test -- --ci --silent
-          npm run lint -- --quiet
-          npm run build -- --no-lint
   pg_regress:
     concurrency:
       group: statbus_test
