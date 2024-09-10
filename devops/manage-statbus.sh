@@ -80,14 +80,14 @@ case "$action" in
                 exit 1
             fi
 
+            # Get the branches and commits to validate
+            git fetch origin
+
             # Validate the branch exists
             if ! git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
                 echo "Error: Invalid branch name '$BRANCH'"
                 exit 1
             fi
-
-            # Get the latest commits to check against.
-            git fetch origin "$BRANCH"
 
             # Validate the commit exists if a branch is provided
             if [ -z "$COMMIT" ]; then
