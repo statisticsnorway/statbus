@@ -16,6 +16,22 @@ shift || true
 
 set_profile_arg() {
     profile=${1:-all}
+
+    # Get the available profiles from Docker Compose
+    available_profiles=$(docker compose config --profiles)
+
+    # If no profile is provided (fallback to "all"), display available profiles
+    if [ "$profile" = "all" ]; then
+        echo "No profile provided. Available profiles are:"
+        echo "$available_profiles"
+    else
+        # Validate if the provided profile exists
+        if ! echo "$available_profiles" | grep -wq "$profile"; then
+            echo "Error: Profile '$profile' does not exist in docker compose."
+            exit 1
+        fi
+    fi
+
     compose_profile_arg="--profile \"$profile\""
     shift || true
 }
@@ -47,6 +63,76 @@ case "$action" in
     'ps' )
         set_profile_arg "$@"
         eval docker compose $compose_profile_arg ps
+      ;;
+    'continous-integration-test' )
+        # Validate arguments
+        BRANCH=${1:-}
+        COMMIT=${2:-}
+
+        # If no branch is provided, use the current branch (local testing case)
+        if [ -z "$BRANCH" ]; then
+            echo "No branch argument provided, using the currently checked-out branch."
+            BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        else
+            # Ensure the repository is clean before switching branches (no uncommitted changes)
+            if ! git diff-index --quiet HEAD --; then
+                echo "Error: Repository has uncommitted changes. Please commit or stash changes before switching branches."
+                exit 1
+            fi
+
+            # Validate the branch exists
+            if ! git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
+                echo "Error: Invalid branch name '$BRANCH'"
+                exit 1
+            fi
+
+            # Validate the commit exists if a branch is provided
+            if [ -z "$COMMIT" ]; then
+                echo "Error: Commit hash must be provided when a branch is specified"
+                exit 1
+            elif ! git cat-file -e "$COMMIT" 2>/dev/null; then
+                echo "Error: Invalid commit hash '$COMMIT'"
+                exit 1
+            fi
+
+            # Switch to the specified branch and checkout the commit
+            git fetch origin "$BRANCH"
+            git checkout "$COMMIT"
+        fi
+
+        # Proceed with the rest of the workflow
+        ./devops/manage-statbus.sh create-db
+
+        # Ensure delete-db runs no matter what
+        trap './devops/manage-statbus.sh delete-db' EXIT
+
+        # Run tests and capture output
+        TEST_OUTPUT=$(mktemp)
+        ./devops/manage-statbus.sh test all > "$TEST_OUTPUT" 2>&1 || true
+
+        # Check if the test output indicates failure
+        if grep -q "FAILED" "$TEST_OUTPUT"; then
+            echo "One or more tests failed."
+            echo "Test summary:"
+            grep -A 20 "======================" "$TEST_OUTPUT"
+
+            # Display the diff with color using delta (Rust tool)
+            if command -v delta >/dev/null 2>&1; then
+                echo "Showing the color-coded diff:"
+                docker compose exec --workdir /statbus db cat /statbus/test/regression.diffs | delta
+            else
+                echo "Error: 'delta' tool is not installed. You can install it with:"
+                echo "  brew install git-delta"
+
+                echo "Showing raw diff:"
+                docker compose exec --workdir /statbus db cat /statbus/test/regression.diffs
+            fi
+
+            # Exit with failure status
+            exit 1
+        else
+            echo "All tests passed successfully."
+        fi
       ;;
     'test' )
         eval $(./devops/manage-statbus.sh postgres-variables)
@@ -108,10 +194,19 @@ case "$action" in
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
       ;;
+    'create-db' )
+        ./devops/manage-statbus.sh start not_app
+        ./devops/manage-statbus.sh activate_sql_saga
+        ./devops/manage-statbus.sh create-db-structure
+        ./devops/manage-statbus.sh create-users
+      ;;
     'recreate-database' )
-        ./devops/recreate-database.sh
+        echo "Recreate the backend with the lastest database structures"
+        ./devops/manage-statbus.sh delete-db
+        ./devops/manage-statbus.sh create-db
       ;;
     'delete-db' )
+        ./devops/manage-statbus.sh stop
         # Define the directory path
         DIRECTORY="$WORKSPACE/supabase_docker/volumes/db/data"
 
