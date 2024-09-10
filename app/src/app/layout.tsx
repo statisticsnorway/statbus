@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import TimeContextProvider from "@/app/time-context-provider";
+import CustomConfigProvider from "./custom-config-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,12 +31,14 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <TimeContextProvider>
-          <Suspense fallback={<NavbarSkeleton />}>
-            <Navbar />
-          </Suspense>
-          {children}
-        </TimeContextProvider>
+        <CustomConfigProvider>
+          <TimeContextProvider>
+            <Suspense fallback={<NavbarSkeleton />}>
+              <Navbar />
+            </Suspense>
+            {children}
+          </TimeContextProvider>
+        </CustomConfigProvider>
         <CommandPalette />
         <Toaster />
         <Suspense fallback={<FooterSkeleton />}>
