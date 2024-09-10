@@ -1,0 +1,24 @@
+name: Docker Periodic Maintenance
+on:
+  # Allow manual deployment in github
+  workflow_dispatch:
+  schedule:
+    # Weekly night to Sunday
+    - cron: '17 3 * * 0'
+
+concurrency: docker
+
+jobs:
+  docker:
+    name: Remove obsolete docker artifacts
+    runs-on: ubuntu-latest
+    steps:
+    - name: Run commands
+      uses: appleboy/ssh-action@master
+      with:
+        host: niue.statbus.org
+        username: devops
+        key: ${{ secrets.SSH_KEY }}
+        script_stop: true
+        script: |
+          ./bin/maintain-docker.sh
