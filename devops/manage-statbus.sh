@@ -86,6 +86,9 @@ case "$action" in
                 exit 1
             fi
 
+            # Get the latest commits to check against.
+            git fetch origin "$BRANCH"
+
             # Validate the commit exists if a branch is provided
             if [ -z "$COMMIT" ]; then
                 echo "Error: Commit hash must be provided when a branch is specified"
@@ -96,7 +99,6 @@ case "$action" in
             fi
 
             # Switch to the specified branch and checkout the commit
-            git fetch origin "$BRANCH"
             git checkout "$COMMIT"
         fi
 
