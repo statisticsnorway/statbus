@@ -81,11 +81,8 @@ case "$action" in
             fi
 
             git fetch origin
-            # Checkout or create a new local branch, even if it already exists
-            git checkout -B "$BRANCH"
-
-            # Ensure the specified commit is used as the branch tip
-            git reset --hard "$COMMIT"
+            # Create or reset the local branch with the given name, using the specified commit
+            git checkout -B "$BRANCH" "$COMMIT"
         fi
         # Proceed with the rest of the workflow
         ./devops/manage-statbus.sh create-db
