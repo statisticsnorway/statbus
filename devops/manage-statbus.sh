@@ -81,6 +81,16 @@ case "$action" in
             fi
 
             git fetch origin
+
+            # Check if commit is valid and provided
+            if [ -z "$COMMIT" ]; then
+                echo "Error: Commit hash must be provided."
+                exit 1
+            elif ! git cat-file -e "$COMMIT" 2>/dev/null; then
+                echo "Error: Commit '$COMMIT' is invalid or not found."
+                exit 1
+            fi
+
             # Create or reset the local branch with the given name, using the specified commit
             git checkout -B "$BRANCH" "$COMMIT"
         fi
