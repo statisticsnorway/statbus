@@ -105,10 +105,10 @@ case "$action" in
         fi
 
         # Proceed with the rest of the workflow
-        ./devops/manage-statbus.sh create-db
+        ./devops/manage-statbus.sh create-db > /dev/null
 
         # Ensure delete-db runs no matter what
-        trap './devops/manage-statbus.sh delete-db' EXIT
+        trap './devops/manage-statbus.sh delete-db > /dev/null' EXIT
 
         # Run tests and capture output
         TEST_OUTPUT=$(mktemp)
