@@ -21,4 +21,4 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script_stop: true
         script: |
-          ./bin/maintain-docker.sh
+          ./bin/docker-maintenance.sh
