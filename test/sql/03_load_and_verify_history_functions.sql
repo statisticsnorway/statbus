@@ -12,7 +12,10 @@ DO UPDATE SET
    activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
    WHERE settings.id = EXCLUDED.id;
 ;
-SELECT activity_category_standard_id FROM public.settings;
+SELECT acs.code
+  FROM public.settings AS s
+  JOIN activity_category_standard AS acs
+    ON s.activity_category_standard_id = acs.id;
 
 \echo "User uploads the sample activity categories"
 \copy public.activity_category_available_custom(path,name,description) FROM 'app/public/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

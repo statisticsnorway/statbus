@@ -10,7 +10,10 @@ ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id;
 
-SELECT activity_category_standard_id FROM public.settings;
+SELECT acs.code
+  FROM public.settings AS s
+  JOIN activity_category_standard AS acs
+    ON s.activity_category_standard_id = acs.id;
 
 \echo "User uploads the activity categories"
 \copy public.activity_category_available_custom(path,name,description) FROM 'test/data/04_morocco-activity_category.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
