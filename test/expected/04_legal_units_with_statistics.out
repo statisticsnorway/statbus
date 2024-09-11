@@ -10,10 +10,13 @@ SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id;
-SELECT activity_category_standard_id FROM public.settings;
- activity_category_standard_id 
--------------------------------
-                             1
+SELECT acs.code
+  FROM public.settings AS s
+  JOIN activity_category_standard AS acs
+    ON s.activity_category_standard_id = acs.id;
+  code   
+---------
+ isic_v4
 (1 row)
 
 \echo "User uploads the activity categories"
