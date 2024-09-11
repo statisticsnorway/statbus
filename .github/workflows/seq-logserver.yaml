@@ -21,4 +21,4 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script_stop: true
         script: |
-          ./bin/upgrade-to-latest-seq.sh
+          ./bin/./bin/github-run.sh upgrade-to-latest-seq
