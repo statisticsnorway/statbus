@@ -1370,8 +1370,8 @@ CREATE TABLE public.sector (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(path, active, custom)
 );
-CREATE UNIQUE INDEX ix_sector ON public.sector USING btree (code) WHERE active;
-CREATE INDEX ix_sector_parent_id ON public.sector USING btree (parent_id);
+CREATE UNIQUE INDEX sector_code_active_key ON public.sector USING btree (code) WHERE active;
+CREATE INDEX sector_parent_id_idx ON public.sector USING btree (parent_id);
 
 
 \echo public.enterprise
@@ -6640,7 +6640,7 @@ ORDER BY path;
 
 \echo admin.sector_custom_only_upsert
 CREATE FUNCTION admin.sector_custom_only_upsert()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     maybe_parent_id int := NULL;
     row RECORD;
@@ -6659,39 +6659,54 @@ BEGIN
     END IF;
 
     -- Perform an upsert operation on public.sector
-    INSERT INTO public.sector
-        ( path
-        , parent_id
-        , name
-        , description
-        , updated_at
-        , active
-        , custom
-        )
-    VALUES
-        ( NEW.path
-        , maybe_parent_id
-        , NEW.name
-        , NEW.description
-        , statement_timestamp()
-        , TRUE -- Active
-        , TRUE -- Custom
-        )
-    ON CONFLICT (path, active, custom)
-    DO UPDATE SET
-            parent_id = maybe_parent_id
-          , name = NEW.name
-          , description = NEW.description
-          , updated_at = statement_timestamp()
-          , active = TRUE
-          , custom = TRUE
-       WHERE sector.id = EXCLUDED.id
-       RETURNING * INTO row;
-    RAISE DEBUG 'UPSERTED %', to_json(row);
+    BEGIN
+        INSERT INTO public.sector
+            ( path
+            , parent_id
+            , name
+            , description
+            , updated_at
+            , active
+            , custom
+            )
+        VALUES
+            ( NEW.path
+            , maybe_parent_id
+            , NEW.name
+            , NEW.description
+            , statement_timestamp()
+            , TRUE -- Active
+            , TRUE -- Custom
+            )
+        ON CONFLICT (path, active, custom)
+        DO UPDATE SET
+                parent_id = maybe_parent_id
+              , name = NEW.name
+              , description = NEW.description
+              , updated_at = statement_timestamp()
+              , active = TRUE
+              , custom = TRUE
+           RETURNING * INTO row;
+
+        -- Log the upserted row
+        RAISE DEBUG 'UPSERTED %', to_json(row);
+
+    EXCEPTION WHEN unique_violation THEN
+        DECLARE
+            code varchar := regexp_replace(regexp_replace(NEW.path::TEXT, '[^0-9]', '', 'g'),'^([0-9]{2})(.+)$','\1.\2','');
+            data JSONB := to_jsonb(NEW);
+        BEGIN
+           data := jsonb_set(data, '{code}', code::jsonb, true);
+            RAISE EXCEPTION '% for row %', SQLERRM, data
+                USING
+                DETAIL = 'Failed during UPSERT operation',
+                HINT = 'Check for path derived numeric code violations';
+        END;
+    END;
 
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 CREATE TRIGGER sector_custom_only_upsert
