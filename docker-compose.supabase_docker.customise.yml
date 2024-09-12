@@ -23,3 +23,23 @@ services:
     volumes:
       # Make all files available for running tests.
       - ..:/statbus
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal # prevents Realtime polling queries from appearing in logs
+      - -c # Give PostgreSQL more RAM and work around slow disks in hosting.
+      - synchronous_commit=off
+      - -c
+      - wal_writer_delay=500ms
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - work_mem=256MB
+      - -c
+      - wal_buffers=64MB
