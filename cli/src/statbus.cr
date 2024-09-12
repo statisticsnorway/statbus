@@ -384,6 +384,9 @@ class StatBus
         case @import_strategy
         when ImportStrategy::Copy
           copy_stream = db.exec_copy "COPY public.#{upload_view_name}(#{sql_fields_str}) FROM STDIN"
+          start_time = Time.monotonic
+          row_count = 0
+
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             sql_row.any? do |value|
               if !value.nil? && value.includes?("\t")
@@ -393,9 +396,16 @@ class StatBus
             sql_text = sql_row.join("\t")
             puts "Uploading #{sql_text}" if @verbose
             copy_stream.puts sql_text
+            row_count += 1
           end
           puts "Waiting for processing" if @verbose
           copy_stream.close
+
+          total_duration = Time.monotonic - start_time
+          total_rows_per_second = row_count / total_duration.total_seconds
+          puts "Total rows processed: #{row_count}"
+          puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
+
           db.close
         when ImportStrategy::Insert
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
@@ -408,11 +418,15 @@ class StatBus
             db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
             db.exec "SET CONSTRAINTS ALL DEFERRED;"
           end
+          start_time = Time.monotonic
+          batch_start_time = start_time
+          row_count = 0
           insert = db.build sql_statment
           batch_size = 10000
           batch_item = 0
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             batch_item += 1
+            row_count += 1
             puts "Uploading #{sql_row}" if @verbose
             insert.exec(args: sql_row)
             if (batch_item % batch_size) == 0
@@ -421,6 +435,12 @@ class StatBus
                 db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
               end
               db.exec "END;"
+
+              batch_duration = Time.monotonic - batch_start_time
+              batch_rows_per_second = batch_size / batch_duration.total_seconds
+              puts "Processed #{batch_size} rows in #{batch_duration.total_seconds.round(2)} seconds (#{batch_rows_per_second.round(2)} rows/second)"
+              batch_start_time = Time.monotonic
+
               if @refresh_materialized_views
                 puts "Refreshing statistical_unit and other materialized views"
                 db.exec "SELECT statistical_unit_refresh_now();"
@@ -438,6 +458,12 @@ class StatBus
             db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
           end
           db.exec "END;"
+
+          total_duration = Time.monotonic - start_time
+          total_rows_per_second = row_count / total_duration.total_seconds
+          puts "Total rows processed: #{row_count}"
+          puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
+
           if @refresh_materialized_views
             puts "Refreshing statistical_unit and other materialized views"
             db.exec "SELECT statistical_unit_refresh_now();"
