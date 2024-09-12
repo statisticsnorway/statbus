@@ -22,9 +22,12 @@ export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
       dispatch({
         type: "set_query",
         payload: {
-          name: SEARCH,
-          query: value ? `fts(simple).${generateFTSQuery(value)}` : null,
-          values: value ? [value] : [],
+          app_param_name: SEARCH,
+          api_param_name: SEARCH,
+          api_param_value: value
+            ? `fts(simple).${generateFTSQuery(value)}`
+            : null,
+          app_param_values: value ? [value] : [],
         },
       });
     },

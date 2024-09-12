@@ -30,9 +30,10 @@ export default function ActivityCategoryOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: ACTIVITY_CATEGORY_PATH,
-          query: buildQuery(initialSelected),
-          values: initialSelected,
+          app_param_name: ACTIVITY_CATEGORY_PATH,
+          api_param_name: ACTIVITY_CATEGORY_PATH,
+          api_param_value: buildQuery(initialSelected),
+          app_param_values: initialSelected,
         },
       });
     }
@@ -44,9 +45,10 @@ export default function ActivityCategoryOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: ACTIVITY_CATEGORY_PATH,
-          query: buildQuery(values),
-          values,
+          app_param_name: ACTIVITY_CATEGORY_PATH,
+          api_param_name: ACTIVITY_CATEGORY_PATH,
+          api_param_value: buildQuery(values),
+          app_param_values: values,
         },
       });
     },
@@ -57,9 +59,10 @@ export default function ActivityCategoryOptions({
     dispatch({
       type: "set_query",
       payload: {
-        name: ACTIVITY_CATEGORY_PATH,
-        query: null,
-        values: [],
+        app_param_name: ACTIVITY_CATEGORY_PATH,
+        api_param_name: ACTIVITY_CATEGORY_PATH,
+        api_param_value: null,
+        app_param_values: [],
       },
     });
   }, [dispatch]);

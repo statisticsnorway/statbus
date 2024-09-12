@@ -6,10 +6,9 @@ import {
   REGION,
   SEARCH,
   SECTOR,
-  TAX_REG_IDENT,
   UNIT_TYPE,
 } from "@/app/search/filters/url-search-params";
-import TaxRegIdentFilter from "@/app/search/filters/tax-reg-ident-filter";
+import ExternalIdentFilter from "@/app/search/filters/external-ident-filter";
 import UnitTypeFilter from "@/app/search/filters/unit-type-filter";
 import { Suspense } from "react";
 import { FilterSkeleton } from "@/app/search/components/filter-skeleton";
@@ -27,7 +26,6 @@ interface ITableToolbarProps {
 
 export default function TableToolbar({ urlSearchParams }: ITableToolbarProps) {
   const search = urlSearchParams.get(SEARCH);
-  const taxRegIdent = urlSearchParams.get(TAX_REG_IDENT);
   const unitType = urlSearchParams.get(UNIT_TYPE);
   const sector = urlSearchParams.get(SECTOR);
   const region = urlSearchParams.get(REGION);
@@ -37,7 +35,7 @@ export default function TableToolbar({ urlSearchParams }: ITableToolbarProps) {
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
       <FullTextSearchFilter urlSearchParam={search} />
-      <TaxRegIdentFilter urlSearchParam={taxRegIdent} />
+      <ExternalIdentFilter urlSearchParams={urlSearchParams} />
       <UnitTypeFilter urlSearchParam={unitType} />
       <Suspense fallback={<FilterSkeleton title="Sector" />}>
         <SectorFilter urlSearchParam={sector} />
