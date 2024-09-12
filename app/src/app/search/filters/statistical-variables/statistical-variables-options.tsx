@@ -24,9 +24,12 @@ export default function StatisticalVariablesOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: code,
-          query: `${initialSelected.operator}.${initialSelected.value}`,
-          values: [`${initialSelected.operator}.${initialSelected.value}`],
+          app_param_name: code,
+          api_param_name: `stats_summary->${code}->sum`,
+          api_param_value: `${initialSelected.operator}.${initialSelected.value}`,
+          app_param_values: [
+            `${initialSelected.operator}.${initialSelected.value}`,
+          ],
         },
       });
     }
@@ -37,9 +40,10 @@ export default function StatisticalVariablesOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: code,
-          query: operator && value ? `${operator}.${value}` : null,
-          values: operator && value ? [`${operator}.${value}`] : [],
+          app_param_name: code,
+          api_param_name: `stats_summary->${code}->sum`,
+          api_param_value: operator && value ? `${operator}.${value}` : null,
+          app_param_values: operator && value ? [`${operator}.${value}`] : [],
         },
       });
     },
@@ -50,9 +54,10 @@ export default function StatisticalVariablesOptions({
     dispatch({
       type: "set_query",
       payload: {
-        name: code,
-        query: null,
-        values: [],
+        app_param_name: code,
+        api_param_name: `stats_summary->${code}->sum`,
+        api_param_value: null,
+        app_param_values: [],
       },
     });
   }, [dispatch, code]);

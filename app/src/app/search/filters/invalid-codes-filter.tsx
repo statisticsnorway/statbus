@@ -21,9 +21,10 @@ export default function InvalidCodesFilter({ urlSearchParam }: IProps) {
       dispatch({
         type: "set_query",
         payload: {
-          name: INVALID_CODES,
-          query: value === "yes" ? `not.is.null` : null,
-          values: [value],
+          app_param_name: INVALID_CODES,
+          api_param_name: INVALID_CODES,
+          api_param_value: value === "yes" ? `not.is.null` : null,
+          app_param_values: [value],
         },
       });
     },
@@ -34,9 +35,10 @@ export default function InvalidCodesFilter({ urlSearchParam }: IProps) {
     dispatch({
       type: "set_query",
       payload: {
-        name: INVALID_CODES,
-        query: null,
-        values: [],
+        app_param_name: INVALID_CODES,
+        api_param_name: INVALID_CODES,
+        api_param_value: null,
+        app_param_values: [],
       },
     });
   }, [dispatch]);

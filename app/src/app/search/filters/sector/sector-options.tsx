@@ -29,9 +29,10 @@ export default function SectorOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: SECTOR,
-          query: buildQuery(values),
-          values,
+          app_param_name: SECTOR,
+          api_param_name: SECTOR,
+          api_param_value: buildQuery(values),
+          app_param_values: values,
         },
       });
     },
@@ -42,9 +43,10 @@ export default function SectorOptions({
     dispatch({
       type: "set_query",
       payload: {
-        name: SECTOR,
-        query: null,
-        values: [],
+        app_param_name: SECTOR,
+        api_param_name: SECTOR,
+        api_param_value: null,
+        app_param_values: [],
       },
     });
   }, [dispatch]);
@@ -54,9 +56,10 @@ export default function SectorOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: SECTOR,
-          query: buildQuery(initialSelected),
-          values: initialSelected,
+          app_param_name: SECTOR,
+          api_param_name: SECTOR,
+          api_param_value: buildQuery(initialSelected),
+          app_param_values: initialSelected,
         },
       });
     }

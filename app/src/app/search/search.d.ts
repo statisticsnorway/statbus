@@ -53,9 +53,10 @@ interface SetPage {
 interface SetQuery {
   type: "set_query";
   payload: {
-    name: string;
-    query: string | null;
-    values: (string | null)[];
+    app_param_name: string;
+    api_param_name: string;
+    api_param_value: string | null;
+    app_param_values: (string | null)[];
   };
 }
 

@@ -27,9 +27,10 @@ export default function LegalFormOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: LEGAL_FORM,
-          query: next.length ? `in.(${next.join(",")})` : null,
-          values: next,
+          app_param_name: LEGAL_FORM,
+          api_param_name: LEGAL_FORM,
+          api_param_value: next.length ? `in.(${next.join(",")})` : null,
+          app_param_values: next,
         },
       });
     },
@@ -40,9 +41,10 @@ export default function LegalFormOptions({
     dispatch({
       type: "set_query",
       payload: {
-        name: LEGAL_FORM,
-        query: null,
-        values: [],
+        app_param_name: LEGAL_FORM,
+        api_param_name: LEGAL_FORM,
+        api_param_value: null,
+        app_param_values: [],
       },
     });
   }, [dispatch]);
@@ -52,9 +54,10 @@ export default function LegalFormOptions({
       dispatch({
         type: "set_query",
         payload: {
-          name: LEGAL_FORM,
-          query: `in.(${initialSelected.join(",")})`,
-          values: initialSelected,
+          app_param_name: LEGAL_FORM,
+          api_param_name: LEGAL_FORM,
+          api_param_value: `in.(${initialSelected.join(",")})`,
+          app_param_values: initialSelected,
         },
       });
     }
