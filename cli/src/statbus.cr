@@ -410,8 +410,8 @@ class StatBus
           db.close
         when ImportStrategy::Insert
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
-          sql_statment = "INSERT INTO public.#{upload_view_name}(#{sql_fields_str}) VALUES(#{sql_args})"
-          puts "sql_statment = #{sql_statment}" if @verbose
+          sql_statement = "INSERT INTO public.#{upload_view_name}(#{sql_fields_str}) VALUES(#{sql_args})"
+          puts "sql_statement = #{sql_statement}" if @verbose
           db.exec "BEGIN;"
           # Set a config that prevents inner trigger functions form activating constraints,
           # make the deferral moot.
@@ -422,7 +422,7 @@ class StatBus
           start_time = Time.monotonic
           batch_start_time = start_time
           row_count = 0
-          insert = db.build sql_statment
+          insert = db.build sql_statement
           batch_size = 10000
           batch_item = 0
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
@@ -452,7 +452,7 @@ class StatBus
                   db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
                   db.exec "SET CONSTRAINTS ALL DEFERRED;"
                 end
-                insert = db.build sql_statment
+                insert = db.build sql_statement
               end
             }
           end
