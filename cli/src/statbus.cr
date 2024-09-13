@@ -397,6 +397,7 @@ class StatBus
             puts "Uploading #{sql_text}" if @verbose
             copy_stream.puts sql_text
             row_count += 1
+            nil
           end
           puts "Waiting for processing" if @verbose
           copy_stream.close
@@ -429,29 +430,31 @@ class StatBus
             row_count += 1
             puts "Uploading #{sql_row}" if @verbose
             insert.exec(args: sql_row)
-            if (batch_item % batch_size) == 0
-              puts "Commit-ing changes"
-              if @delayed_constraint_checking
-                db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
-              end
-              db.exec "END;"
+            -> {
+              if (batch_item % batch_size) == 0
+                puts "Commit-ing changes"
+                if @delayed_constraint_checking
+                  db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+                end
+                db.exec "END;"
 
-              batch_duration = Time.monotonic - batch_start_time
-              batch_rows_per_second = batch_size / batch_duration.total_seconds
-              puts "Processed #{batch_size} rows in #{batch_duration.total_seconds.round(2)} seconds (#{batch_rows_per_second.round(2)} rows/second)"
-              batch_start_time = Time.monotonic
+                batch_duration = Time.monotonic - batch_start_time
+                batch_rows_per_second = batch_size / batch_duration.total_seconds
+                puts "Processed #{batch_size} rows in #{batch_duration.total_seconds.round(2)} seconds (#{batch_rows_per_second.round(2)} rows/second)"
+                batch_start_time = Time.monotonic
 
-              if @refresh_materialized_views
-                puts "Refreshing statistical_unit and other materialized views"
-                db.exec "SELECT statistical_unit_refresh_now();"
+                if @refresh_materialized_views
+                  puts "Refreshing statistical_unit and other materialized views"
+                  db.exec "SELECT statistical_unit_refresh_now();"
+                end
+                db.exec "BEGIN;"
+                if @delayed_constraint_checking
+                  db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
+                  db.exec "SET CONSTRAINTS ALL DEFERRED;"
+                end
+                insert = db.build sql_statment
               end
-              db.exec "BEGIN;"
-              if @delayed_constraint_checking
-                db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
-                db.exec "SET CONSTRAINTS ALL DEFERRED;"
-              end
-              insert = db.build sql_statment
-            end
+            }
           end
           puts "Commit-ing changes"
           if @delayed_constraint_checking
@@ -475,14 +478,14 @@ class StatBus
   end
 
   private def iterate_csv_stream(csv_stream)
-    rowcount = 0
+    row_count = 0
     while csv_stream.next
-      rowcount += 1
+      row_count += 1
       if 0 < @offset
-        if rowcount < @offset
+        if row_count < @offset
           next
-        elsif rowcount == @offset
-          puts "Continuing after  #{rowcount.format(delimiter: '_')} rows"
+        elsif row_count == @offset
+          puts "Continuing after  #{row_count.format(delimiter: '_')} rows"
           next
         end
       end
@@ -502,12 +505,15 @@ class StatBus
           csv_value.strip
         end
       end
-      yield(sql_row, csv_row)
-      if (rowcount % 1000) == 0
-        puts "Uploaded #{rowcount.format(delimiter: '_')} rows"
+      post_process = yield(sql_row, csv_row)
+      if (row_count % 1000) == 0
+        puts "Uploaded #{row_count.format(delimiter: '_')} rows"
+      end
+      if !post_process.nil?
+        post_process.call
       end
     end
-    puts "Wrote #{rowcount} rows"
+    puts "Wrote #{row_count} rows"
   end
 
   private def build_option_parser
