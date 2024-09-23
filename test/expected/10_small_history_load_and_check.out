@@ -47,62 +47,6 @@ BEGIN
         context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag;
 
 END $$;
-CREATE TEMP TABLE import_small_history (
-    organisasjonsnummer TEXT,
-    navn TEXT,
-    organisasjonsform_kode TEXT,
-    organisasjonsform_beskrivelse TEXT,
-    naeringskode1_kode TEXT,
-    naeringskode1_beskrivelse TEXT,
-    naeringskode2_kode TEXT,
-    naeringskode2_beskrivelse TEXT,
-    naeringskode3_kode TEXT,
-    naeringskode3_beskrivelse TEXT,
-    hjelpeenhetskode_kode TEXT,
-    hjelpeenhetskode_beskrivelse TEXT,
-    harRegistrertAntallAnsatte TEXT,
-    antallAnsatte TEXT,
-    hjemmeside TEXT,
-    postadresse_adresse TEXT,
-    postadresse_poststed TEXT,
-    postadresse_postnummer TEXT,
-    postadresse_kommune TEXT,
-    postadresse_kommunenummer TEXT,
-    postadresse_land TEXT,
-    postadresse_landkode TEXT,
-    forretningsadresse_adresse TEXT,
-    forretningsadresse_poststed TEXT,
-    forretningsadresse_postnummer TEXT,
-    forretningsadresse_kommune TEXT,
-    forretningsadresse_kommunenummer TEXT,
-    forretningsadresse_land TEXT,
-    forretningsadresse_landkode TEXT,
-    institusjonellSektorkode_kode TEXT,
-    institusjonellSektorkode_beskrivelse TEXT,
-    sisteInnsendteAarsregnskap TEXT,
-    registreringsdatoenhetsregisteret TEXT,
-    stiftelsesdato TEXT,
-    registrertIMvaRegisteret TEXT,
-    frivilligMvaRegistrertBeskrivelser TEXT,
-    registrertIFrivillighetsregisteret TEXT,
-    registrertIForetaksregisteret TEXT,
-    registrertIStiftelsesregisteret TEXT,
-    konkurs TEXT,
-    konkursdato TEXT,
-    underAvvikling TEXT,
-    underAvviklingDato TEXT,
-    underTvangsavviklingEllerTvangsopplosning TEXT,
-    tvangsopplostPgaManglendeDagligLederDato TEXT,
-    tvangsopplostPgaManglendeRevisorDato TEXT,
-    tvangsopplostPgaManglendeRegnskapDato TEXT,
-    tvangsopplostPgaMangelfulltStyreDato TEXT,
-    tvangsavvikletPgaManglendeSlettingDato TEXT,
-    overordnetEnhet TEXT,
-    maalform TEXT,
-    vedtektsdato TEXT,
-    vedtektsfestetFormaal TEXT,
-    aktivitet TEXT
-);
 CREATE TEMP TABLE prepared_small_history (
     valid_from DATE,
     valid_to DATE,
@@ -121,160 +65,155 @@ CREATE TEMP TABLE prepared_small_history (
     naeringskode1_kode TEXT,
     antallAnsatte TEXT
 );
+CREATE TEMP VIEW import_small_history AS
+SELECT
+    organisasjonsnummer,
+    navn,
+    ''::TEXT AS organisasjonsform_kode,
+    ''::TEXT AS organisasjonsform_beskrivelse,
+    naeringskode1_kode,
+    ''::TEXT AS naeringskode1_beskrivelse,
+    ''::TEXT AS naeringskode2_kode,
+    ''::TEXT AS naeringskode2_beskrivelse,
+    ''::TEXT AS naeringskode3_kode,
+    ''::TEXT AS naeringskode3_beskrivelse,
+    ''::TEXT AS hjelpeenhetskode_kode,
+    ''::TEXT AS hjelpeenhetskode_beskrivelse,
+    ''::TEXT AS harRegistrertAntallAnsatte,
+    antallAnsatte,
+    ''::TEXT AS hjemmeside,
+    postadresse_adresse,
+    postadresse_poststed,
+    postadresse_postnummer,
+    ''::TEXT AS postadresse_kommune,
+    postadresse_kommunenummer,
+    ''::TEXT AS postadresse_land,
+    postadresse_landkode,
+    forretningsadresse_adresse,
+    forretningsadresse_poststed,
+    forretningsadresse_postnummer,
+    ''::TEXT AS forretningsadresse_kommune,
+    forretningsadresse_kommunenummer,
+    ''::TEXT AS forretningsadresse_land,
+    forretningsadresse_landkode,
+    ''::TEXT AS institusjonellSektorkode_kode,
+    ''::TEXT AS institusjonellSektorkode_beskrivelse,
+    ''::TEXT AS sisteInnsendteAarsregnskap,
+    ''::TEXT AS registreringsdatoenhetsregisteret,
+    ''::TEXT AS stiftelsesdato,
+    ''::TEXT AS registrertIMvaRegisteret,
+    ''::TEXT AS frivilligMvaRegistrertBeskrivelser,
+    ''::TEXT AS registrertIFrivillighetsregisteret,
+    ''::TEXT AS registrertIForetaksregisteret,
+    ''::TEXT AS registrertIStiftelsesregisteret,
+    ''::TEXT AS konkurs,
+    ''::TEXT AS konkursdato,
+    ''::TEXT AS underAvvikling,
+    ''::TEXT AS underAvviklingDato,
+    ''::TEXT AS underTvangsavviklingEllerTvangsopplosning,
+    ''::TEXT AS tvangsopplostPgaManglendeDagligLederDato,
+    ''::TEXT AS tvangsopplostPgaManglendeRevisorDato,
+    ''::TEXT AS tvangsopplostPgaManglendeRegnskapDato,
+    ''::TEXT AS tvangsopplostPgaMangelfulltStyreDato,
+    ''::TEXT AS tvangsavvikletPgaManglendeSlettingDato,
+    ''::TEXT AS overordnetEnhet,
+    ''::TEXT AS maalform,
+    ''::TEXT AS vedtektsdato,
+    ''::TEXT AS vedtektsfestetFormaal,
+    ''::TEXT AS aktivitet
+FROM prepared_small_history;
+CREATE OR REPLACE FUNCTION insert_into_import_small_history()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO prepared_small_history (
+        valid_from,
+        valid_to,
+        organisasjonsnummer,
+        navn,
+        forretningsadresse_adresse,
+        forretningsadresse_postnummer,
+        forretningsadresse_poststed,
+        forretningsadresse_kommunenummer,
+        forretningsadresse_landkode,
+        postadresse_adresse,
+        postadresse_postnummer,
+        postadresse_poststed,
+        postadresse_kommunenummer,
+        postadresse_landkode,
+        naeringskode1_kode,
+        antallAnsatte
+    ) VALUES (
+        NULL,
+        NULL,
+        NEW.organisasjonsnummer,
+        NEW.navn,
+        NEW.forretningsadresse_adresse,
+        NEW.forretningsadresse_postnummer,
+        NEW.forretningsadresse_poststed,
+        NEW.forretningsadresse_kommunenummer,
+        NEW.forretningsadresse_landkode,
+        NEW.postadresse_adresse,
+        NEW.postadresse_postnummer,
+        NEW.postadresse_poststed,
+        NEW.postadresse_kommunenummer,
+        NEW.postadresse_landkode,
+        NEW.naeringskode1_kode,
+        NEW.antallAnsatte
+    );
+    RETURN NULL; -- As this is an INSTEAD OF trigger
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_insert_import_small_history
+INSTEAD OF INSERT ON import_small_history
+FOR EACH ROW
+EXECUTE FUNCTION insert_into_import_small_history();
 \echo "Loading historical units"
 "Loading historical units"
+-- Function to update valid_from and valid_to
+CREATE OR REPLACE FUNCTION update_validity_dates(year INTEGER) RETURNS VOID AS $$
+BEGIN
+    UPDATE prepared_small_history
+    SET
+        valid_from = make_date(year, 1, 1),
+        valid_to = 'infinity'::DATE
+    WHERE valid_from IS NULL AND valid_to IS NULL;
+END;
+$$ LANGUAGE plpgsql;
+-- 2015 data
 \copy import_small_history FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
-INSERT INTO prepared_small_history (
-    valid_from,
-    valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-)
-SELECT
-    '2015-01-01'::DATE AS valid_from,
-    'infinity'::DATE AS valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-FROM import_small_history;
-TRUNCATE import_small_history;
+SELECT update_validity_dates(2015);
+ update_validity_dates 
+-----------------------
+ 
+(1 row)
+
+-- 2016 data
 \copy import_small_history FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
-INSERT INTO prepared_small_history (
-    valid_from,
-    valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-)
-SELECT
-    '2016-01-01'::DATE AS valid_from,
-    'infinity'::DATE AS valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-FROM import_small_history;
-TRUNCATE import_small_history;
+SELECT update_validity_dates(2016);
+ update_validity_dates 
+-----------------------
+ 
+(1 row)
+
+-- 2017 data
 \copy import_small_history FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
-INSERT INTO prepared_small_history (
-    valid_from,
-    valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-)
-SELECT
-    '2017-01-01'::DATE AS valid_from,
-    'infinity'::DATE AS valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-FROM import_small_history;
-TRUNCATE import_small_history;
+SELECT update_validity_dates(2017);
+ update_validity_dates 
+-----------------------
+ 
+(1 row)
+
+-- 2018 data
 \copy import_small_history FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
-INSERT INTO prepared_small_history (
-    valid_from,
-    valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-)
-SELECT
-    '2018-01-01'::DATE AS valid_from,
-    'infinity'::DATE AS valid_to,
-    organisasjonsnummer,
-    navn,
-    forretningsadresse_adresse,
-    forretningsadresse_postnummer,
-    forretningsadresse_poststed,
-    forretningsadresse_kommunenummer,
-    forretningsadresse_landkode,
-    postadresse_adresse,
-    postadresse_postnummer,
-    postadresse_poststed,
-    postadresse_kommunenummer,
-    postadresse_landkode,
-    naeringskode1_kode,
-    antallAnsatte
-FROM import_small_history;
-TRUNCATE import_small_history;
+SELECT update_validity_dates(2018);
+ update_validity_dates 
+-----------------------
+ 
+(1 row)
+
+-- Speed up changes by validating in the end.
+SET CONSTRAINTS ALL DEFERRED;
+-- Insert into target table
 INSERT INTO public.import_legal_unit_era (
     valid_from,
     valid_to,
@@ -312,6 +251,59 @@ SELECT
     antallAnsatte
 FROM prepared_small_history
 ORDER BY valid_from, organisasjonsnummer;
+-- Validate all inserted rows.
+SET CONSTRAINTS ALL IMMEDIATE;
+CREATE INDEX IF NOT EXISTS idx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);
+CREATE INDEX IF NOT EXISTS idx_activity_establishment_id ON activity (establishment_id);
+CREATE INDEX IF NOT EXISTS idx_legal_unit_valid_after_valid_to ON legal_unit (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_activity_legal_unit_id ON activity (legal_unit_id);
+CREATE INDEX IF NOT EXISTS idx_stat_for_unit_legal_unit_id ON stat_for_unit (legal_unit_id);
+CREATE INDEX IF NOT EXISTS idx_location_legal_unit_id ON location (legal_unit_id);
+CREATE INDEX IF NOT EXISTS idx_activity_est_legal_date ON activity (establishment_id, valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_legal_activity_date ON legal_unit (id, valid_after, valid_to);
+ANALYZE establishment;
+ANALYZE stat_for_unit;
+ANALYZE activity;
+ANALYZE legal_unit;
+ANALYZE location;
+-- Check the query efficiency of the views used for building statistical_unit.
+\a
+\t
+SELECT pg_stat_reset();
+
+\o tmp/timepoints.txt
+EXPLAIN ANALYZE SELECT * FROM public.timepoints;
+SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
+SELECT pg_stat_reset();
+\o
+\o tmp/timesegments.txt
+EXPLAIN ANALYZE SELECT * FROM public.timesegments;
+SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
+SELECT pg_stat_reset();
+\o
+\o tmp/timeline_establishment.txt
+EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment;
+SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
+SELECT pg_stat_reset();
+\o
+\o tmp/timeline_legal_unit.txt
+EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit;
+SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
+SELECT pg_stat_reset();
+\o
+\o tmp/timeline_enterprise.txt
+EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise;
+SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
+SELECT pg_stat_reset();
+\o
+\o tmp/statistical_unit_def.txt
+EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
+SELECT pg_stat_reset();
+\o
+\a
+\t
 \echo Refreshing materialized views
 Refreshing materialized views
 SELECT view_name FROM statistical_unit_refresh_now();
