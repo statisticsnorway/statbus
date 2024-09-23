@@ -82,4 +82,9 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
+\a
+\echo "Checking that reset works"
+SELECT jsonb_pretty(public.reset_all_data(confirmed := true) - 'statistical_unit_refresh_now') AS reset_all_data;
+\a
+
 ROLLBACK;
