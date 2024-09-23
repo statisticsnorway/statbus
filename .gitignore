@@ -476,3 +476,4 @@ key-*.xml
 .env.credentials
 .users.yml
 
+.aider*
