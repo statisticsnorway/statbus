@@ -536,7 +536,7 @@ EOS
           setpath($i | path; $i) # and put in each node, using its original path
         ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-profile.yml
       ;;
-     'vimdiff-fail-first' )
+     'diff-fail-first' )
         first_fail=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
         if [ -n "$first_fail" ]; then
             echo "Running vimdiff for test: $first_fail"
@@ -551,7 +551,7 @@ EOS
             echo "No failing tests found."
         fi
       ;;
-     'vimdiff-fail-all' )
+     'diff-fail-all' )
         grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
             echo "Next test: $test"
             echo "Press C to continue, s to skip, or b to break (default: C)"
