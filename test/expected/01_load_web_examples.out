@@ -2900,4 +2900,62 @@ stats_summary | {                                             +
               | }
 
 \x
+\a
+\echo "Checking that reset works"
+"Checking that reset works"
+SELECT jsonb_pretty(public.reset_all_data(confirmed := true) - 'statistical_unit_refresh_now') AS reset_all_data;
+reset_all_data
+{
+    "tag": {
+        "deleted_count": 0
+    },
+    "region": {
+        "deleted_count": 417
+    },
+    "sector": {
+        "changed_count": 36,
+        "deleted_count": 33
+    },
+    "activity": {
+        "deleted_count": 1420
+    },
+    "location": {
+        "deleted_count": 1760
+    },
+    "settings": {
+        "deleted_count": 1
+    },
+    "enterprise": {
+        "deleted_count": 100
+    },
+    "legal_form": {
+        "changed_count": 46,
+        "deleted_count": 46
+    },
+    "legal_unit": {
+        "deleted_count": 100
+    },
+    "establishment": {
+        "deleted_count": 1305
+    },
+    "stat_for_unit": {
+        "deleted_count": 351
+    },
+    "external_ident": {
+        "deleted_count": 1405
+    },
+    "stat_definition": {
+        "deleted_count": 0
+    },
+    "activity_category": {
+        "changed_count": 643,
+        "deleted_count": 1811,
+        "changed_children_count": 640
+    },
+    "external_ident_type": {
+        "deleted_count": 0
+    }
+}
+(1 row)
+\a
 ROLLBACK;

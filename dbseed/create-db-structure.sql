@@ -10539,6 +10539,50 @@ BEGIN
     ) INTO changed;
     result := result || changed;
 
+    -- Add delete for public.tag where type = 'custom'
+    WITH deleted_tag AS (
+        DELETE FROM public.tag WHERE type = 'custom' RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'tag', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_tag)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Add delete for public.stat_definition WHERE code NOT IN ('employees','turnover')
+    WITH deleted_stat_definition AS (
+        DELETE FROM public.stat_definition WHERE code NOT IN ('employees','turnover') RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'stat_definition', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_stat_definition)
+        )
+    ) INTO changed;
+    result := result || changed;
+    
+    -- Add delete for public.external_ident_type not added by the system
+    WITH deleted_external_ident AS (
+        DELETE FROM public.external_ident RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'external_ident', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Add delete for public.external_ident_type not added by the system
+    WITH deleted_external_ident_type AS (
+        DELETE FROM public.external_ident_type WHERE code NOT IN ('stat_ident','tax_ident') RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'external_ident_type', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident_type)
+        )
+    ) INTO changed;
+    result := result || changed;
+
     -- Apply pattern for 'stat_for_unit'
     WITH deleted_stat_for_unit AS (
         DELETE FROM public.stat_for_unit WHERE id > 0 RETURNING *
@@ -10693,6 +10737,7 @@ BEGIN
     RETURN result;
 END;
 $$;
+
 
 
 -- time psql <<EOS
