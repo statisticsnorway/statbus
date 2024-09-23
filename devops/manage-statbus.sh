@@ -536,6 +536,41 @@ EOS
           setpath($i | path; $i) # and put in each node, using its original path
         ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-profile.yml
       ;;
+     'vimdiff-fail-first' )
+        first_fail=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
+        if [ -n "$first_fail" ]; then
+            echo "Running vimdiff for test: $first_fail"
+            if command -v opendiff >/dev/null 2>&1; then
+                echo "Running opendiff for test: $first_fail"
+                opendiff $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out
+            else
+                echo "Running vimdiff for test: $first_fail"
+                vim -d $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out < /dev/tty
+            fi
+        else
+            echo "No failing tests found."
+        fi
+      ;;
+     'vimdiff-fail-all' )
+        grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
+            echo "Next test: $test"
+            echo "Press C to continue, s to skip, or b to break (default: C)"
+            read -n 1 -s input < /dev/tty
+            if [ "$input" = "b" ]; then
+                break
+            elif [ "$input" = "s" ]; then
+                continue
+            fi
+            echo "Running vimdiff for test: $test"
+            if command -v opendiff >/dev/null 2>&1; then
+                echo "Running opendiff for test: $test"
+                opendiff $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out
+            else
+                echo "Running vimdiff for test: $test"
+                vim -d $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out < /dev/tty
+            fi
+        done
+      ;;
      * )
       echo "Unknown action '$action', select one of"
       awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-statbus.sh
