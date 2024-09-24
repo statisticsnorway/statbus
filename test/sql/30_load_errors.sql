@@ -25,8 +25,8 @@ SELECT acs.code
 --\copy public.legal_form_custom_only(code,name) FROM 'app/public/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 --SELECT count(*) FROM public.legal_form_available;
 
---\d public.sector_custom_only
---\sf admin.sector_custom_only_upsert
+\d public.sector_custom_only
+\sf admin.sector_custom_only_upsert
 
 \echo "User uploads the sample sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'test/data/30_ug_sectorcodes_with_index_error.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
