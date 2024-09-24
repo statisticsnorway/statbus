@@ -19,6 +19,15 @@ SELECT acs.code
 \copy public.activity_category_available_custom(path,name,description) FROM 'test/data/04_morocco-activity_category.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.activity_category_available;
 
+SELECT standard_code
+     , code
+     , path
+     , parent_path
+     , label
+     , name
+FROM public.activity_category_available
+ORDER BY standard_code, path;
+
 \echo "User uploads the regions"
 \copy public.region_upload(path, name) FROM 'test/data/04_morocco-regions.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.region;
