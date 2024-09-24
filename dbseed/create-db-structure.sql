@@ -131,9 +131,9 @@ CREATE SCHEMA lifecycle_callbacks;
 -- This trigger function is designed to manage lifecycle callbacks for tables.
 -- It dynamically finds and executes procedures based on registered callbacks,
 -- using the generate and cleanup helper procedures for shared code.
--- 
+--
 -- Table Structure:
--- 
+--
 -- 1. supported_table:
 --    - Holds the list of tables that are supported by the lifecycle management.
 --    - Columns:
@@ -150,7 +150,7 @@ CREATE SCHEMA lifecycle_callbacks;
 --      - table_name: Array of tables (regclass) this callback applies to.
 --      - generate_procedure: The procedure that generates data for the table.
 --      - cleanup_procedure: The procedure that cleans up data for the table.
--- 
+--
 -- Usage:
 -- 1. Register a table using `lifecycle_callbacks.add_table(...)`.
 -- 2. Register callbacks using `lifecycle_callbacks.add(...)`.
@@ -158,7 +158,7 @@ CREATE SCHEMA lifecycle_callbacks;
 -- 4. Call `lifecycle_callbacks.generate(table_name)` or `lifecycle_callbacks.cleanup(table_name)` manually if needed.
 --
 -- Example:
--- 
+--
 -- CALL lifecycle_callbacks.add_table('external_ident_type');
 -- CALL lifecycle_callbacks.add(
 --     'label_for_concept',
@@ -413,7 +413,7 @@ DECLARE
     sql TEXT;
 BEGIN
     -- Loop through each callback procedure directly from the SELECT query
-    FOR callback_procedure IN 
+    FOR callback_procedure IN
         SELECT generate_procedure
         FROM lifecycle_callbacks.registered_callback
         WHERE table_names @> ARRAY[table_name]
@@ -2710,15 +2710,15 @@ $$;
 -- BEGIN
 --     -- Start building the dynamic query
 --     dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, edit_comment, valid_from, valid_to';
--- 
+--
 --     -- For each code in stat_definition, add it as a column
 --     FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
 --     LOOP
 --         dyn_query := dyn_query || ', stats ->> ''' || stat_code.code || ''' AS "' || stat_code.code || '"';
 --     END LOOP;
--- 
+--
 --     dyn_query := dyn_query || ' FROM legal_unit_history';
--- 
+--
 --     -- Execute the dynamic query
 --     EXECUTE dyn_query;
 --     -- Reload PostgREST to expose the new view
@@ -2731,7 +2731,7 @@ $$;
 -- BEGIN
 --     -- Call the view generation function
 --     PERFORM generate_legal_unit_history_with_stats_view();
--- 
+--
 --     -- As this is an AFTER trigger, we don't need to return any specific row.
 --     RETURN NULL;
 -- END;
@@ -2769,7 +2769,7 @@ CREATE VIEW public.timepoints AS
          FROM public.activity AS a
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE a.establishment_id IS NOT NULL
         UNION
@@ -2781,7 +2781,7 @@ CREATE VIEW public.timepoints AS
          FROM public.location AS l
          INNER JOIN public.establishment AS es
             ON l.establishment_id = es.id
-           AND daterange(l.valid_after, l.valid_to, '(]') 
+           AND daterange(l.valid_after, l.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE l.establishment_id IS NOT NULL
         UNION
@@ -2793,7 +2793,7 @@ CREATE VIEW public.timepoints AS
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE sfu.establishment_id IS NOT NULL
     ), lu AS (
@@ -2812,7 +2812,7 @@ CREATE VIEW public.timepoints AS
          FROM public.activity AS a
          INNER JOIN public.legal_unit AS lu
             ON a.legal_unit_id = lu.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE a.legal_unit_id IS NOT NULL
         UNION
@@ -2824,7 +2824,7 @@ CREATE VIEW public.timepoints AS
          FROM public.location AS l
          INNER JOIN public.legal_unit AS lu
             ON l.legal_unit_id = lu.id
-           AND daterange(l.valid_after, l.valid_to, '(]') 
+           AND daterange(l.valid_after, l.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE l.legal_unit_id IS NOT NULL
         UNION
@@ -2836,7 +2836,7 @@ CREATE VIEW public.timepoints AS
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.legal_unit AS lu
             ON sfu.legal_unit_id = lu.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE sfu.legal_unit_id IS NOT NULL
         UNION
@@ -2848,7 +2848,7 @@ CREATE VIEW public.timepoints AS
          FROM public.establishment AS es
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
-           AND daterange(es.valid_after, es.valid_to, '(]') 
+           AND daterange(es.valid_after, es.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE es.legal_unit_id IS NOT NULL
         UNION
@@ -2860,11 +2860,11 @@ CREATE VIEW public.timepoints AS
          FROM public.activity AS a
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE es.legal_unit_id IS NOT NULL
         UNION
@@ -2876,11 +2876,11 @@ CREATE VIEW public.timepoints AS
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE es.legal_unit_id IS NOT NULL
     ), en AS (
@@ -2907,7 +2907,7 @@ CREATE VIEW public.timepoints AS
          FROM public.establishment AS es
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
-           AND daterange(es.valid_after, es.valid_to, '(]') 
+           AND daterange(es.valid_after, es.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
         UNION
@@ -2919,7 +2919,7 @@ CREATE VIEW public.timepoints AS
          FROM public.activity AS a
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE es.enterprise_id IS NOT NULL
         UNION
@@ -2931,7 +2931,7 @@ CREATE VIEW public.timepoints AS
          FROM public.activity AS a
          INNER JOIN public.legal_unit AS lu
             ON a.legal_unit_id = lu.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
         UNION
@@ -2943,11 +2943,11 @@ CREATE VIEW public.timepoints AS
          FROM public.activity AS a
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
-           AND daterange(a.valid_after, a.valid_to, '(]') 
+           AND daterange(a.valid_after, a.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
         UNION
@@ -2959,7 +2959,7 @@ CREATE VIEW public.timepoints AS
          FROM public.location AS l
          INNER JOIN public.establishment AS es
             ON l.establishment_id = es.id
-           AND daterange(l.valid_after, l.valid_to, '(]') 
+           AND daterange(l.valid_after, l.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE es.enterprise_id IS NOT NULL
         UNION
@@ -2971,7 +2971,7 @@ CREATE VIEW public.timepoints AS
          FROM public.location AS l
          INNER JOIN public.legal_unit AS lu
             ON l.legal_unit_id = lu.id
-           AND daterange(l.valid_after, l.valid_to, '(]') 
+           AND daterange(l.valid_after, l.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
            AND lu.primary_for_enterprise
@@ -2984,7 +2984,7 @@ CREATE VIEW public.timepoints AS
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE es.enterprise_id IS NOT NULL
         UNION
@@ -2996,7 +2996,7 @@ CREATE VIEW public.timepoints AS
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.legal_unit AS lu
             ON sfu.legal_unit_id = lu.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
         UNION
@@ -3008,11 +3008,11 @@ CREATE VIEW public.timepoints AS
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(es.valid_after, es.valid_to, '(]')
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
-           AND daterange(sfu.valid_after, sfu.valid_to, '(]') 
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
                <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
     ), base AS (
@@ -3057,11 +3057,11 @@ CREATE VIEW public.timesegments AS
  * ======================================================================================
  * Function: jsonb_stats_to_summary
  * Purpose: Aggregates and summarizes JSONB data by computing statistics for various data types.
- * 
+ *
  * This function accumulates statistics for JSONB objects, including numeric, string, boolean,
  * array, and nested object types. The function is used as the state transition function in
  * the jsonb_stats_to_summary_agg aggregate, summarizing data across multiple rows.
- * 
+ *
  * Summary by Type:
  * 1. Numeric:
  *    - Computes the sum, count, mean, maximum, minimum, variance, standard deviation (via sum_sq_diff),
@@ -3074,32 +3074,32 @@ CREATE VIEW public.timesegments AS
  *      - Mean update: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
  *      - Variance and standard deviation update: Welford's method
  *      - Coefficient of Variation (CV): Standard deviation divided by mean.
- * 
+ *
  * 2. String:
  *    - Counts occurrences of each distinct string value.
  *    - Example:
  *      Input: {"b": "apple"}, {"b": "banana"}, {"b": "apple"}
  *      Output: {"b": {"counts": {"apple": 2, "banana": 1}}}
- * 
+ *
  * 3. Boolean:
  *    - Counts the occurrences of true and false values.
  *    - Example:
  *      Input: {"c": true}, {"c": false}, {"c": true}
  *      Output: {"c": {"counts": {"true": 2, "false": 1}}}
- * 
+ *
  * 4. Array:
  *    - Aggregates the count of each unique value item across all arrays.
  *    - Example:
  *      Input: {"d": [1, 2]}, {"d": [2, 3]}, {"d": [3, 4]}
  *      Output: {"d": {"counts": {"1": 1, "2": 2, "3": 2, "4": 1}}}
  *    - Note: An exception is raised if arrays contain mixed types.
- * 
+ *
  * 5. Object (Nested JSON):
  *    - Recursively aggregates nested JSON objects.
  *    - Example:
  *      Input: {"e": {"f": 1}}, {"e": {"f": 2}}, {"e": {"f": 3}}
  *      Output: {"e": {"f": {"sum": 6, "count": 3, "max": 3, "min": 1}}}
- * 
+ *
  * Note:
  * - The function raises an exception if it encounters a type mismatch for a key across different rows.
  * - Semantically, a single key will always have the same structure across different rows, as it is uniquely defined in a table.
@@ -5132,7 +5132,7 @@ CREATE TYPE public.history_resolution AS ENUM('year','year-month');
 \echo public.statistical_history_periods
 CREATE VIEW public.statistical_history_periods AS
 WITH year_range AS (
-  SELECT 
+  SELECT
       min(valid_from) AS start_year,
       least(max(valid_to), current_date) AS stop_year
   FROM public.statistical_unit
@@ -6475,7 +6475,7 @@ $$ LANGUAGE plpgsql;
   Purpose: Generates a Mermaid syntax ER diagram representing the schema of the database.
 
   Description:
-  This function constructs a textual representation of the database schema using the Mermaid ER diagram syntax. 
+  This function constructs a textual representation of the database schema using the Mermaid ER diagram syntax.
   It lists tables with their columns and types and describes the relationships between tables through foreign keys.
 
   Relationship Notation:
@@ -6499,11 +6499,11 @@ $$ LANGUAGE plpgsql;
       - From EntityA to EntityB:
         - Each instance of EntityA can be associated with zero or more instances of EntityB ("o{" on EntityB side).
 
-  This interpretation is consistent with the Mermaid syntax rules, ensuring that the generated diagram accurately reflects 
+  This interpretation is consistent with the Mermaid syntax rules, ensuring that the generated diagram accurately reflects
   the database schema's relationships and constraints.
 
   Usage:
-  This function can be used to visualize the structure of the database schema, making it easier to understand the 
+  This function can be used to visualize the structure of the database schema, making it easier to understand the
   relationships and cardinalities between different tables.
 
   Note: The output is a text-based ER diagram in Mermaid syntax, which can be rendered using Mermaid-compatible tools to produce a visual representation of the schema.
@@ -10560,7 +10560,7 @@ BEGIN
         )
     ) INTO changed;
     result := result || changed;
-    
+
     -- Add delete for public.external_ident_type not added by the system
     WITH deleted_external_ident AS (
         DELETE FROM public.external_ident RETURNING *
@@ -10805,7 +10805,7 @@ $$
 $$;
 
 -- Add security functions
-\echo auth.has_one_of_statbus_roles 
+\echo auth.has_one_of_statbus_roles
 CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, types public.statbus_role_type[])
 RETURNS BOOL
 LANGUAGE SQL
@@ -10822,7 +10822,7 @@ $$
 $$;
 
 
-\echo auth.has_activity_category_access 
+\echo auth.has_activity_category_access
 CREATE OR REPLACE FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer)
 RETURNS BOOL
 LANGUAGE SQL
