@@ -2591,21 +2591,34 @@ SELECT admin.prevent_id_update_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
 
 
+\echo public.set_primary_legal_unit_for_enterprise
 -- Functions to manage connections between enterprise <-> legal_unit <-> establishment
 CREATE OR REPLACE FUNCTION public.set_primary_legal_unit_for_enterprise(
     legal_unit_id integer,
-    valid_from date DEFAULT current_date,
-    valid_to date DEFAULT 'infinity'
+    valid_from_param date DEFAULT current_date,
+    valid_to_param date DEFAULT 'infinity'
 )
 RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE
-    v_enterprise_id integer;
+    legal_unit_row public.legal_unit;
     v_unset_ids jsonb := '[]';
     v_set_id jsonb := 'null';
 BEGIN
-    SELECT enterprise_id INTO v_enterprise_id FROM public.legal_unit WHERE id = legal_unit_id;
+    SELECT lu.* INTO legal_unit_row
+    FROM public.legal_unit AS lu
+    WHERE lu.id = legal_unit_id
+      AND daterange(lu.valid_from, lu.valid_to, '[]')
+       && daterange(valid_from_param, valid_to_param, '[]');
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Legal unit does not exist.';
+    END IF;
+
+    IF legal_unit_row.primary_for_enterprise THEN
+      RETURN jsonb_build_object(
+          'message', 'No changes made as the legal unit is already primary.',
+          'enterprise_id', legal_unit_row.enterprise_id,
+          'legal_unit_id', legal_unit_row.id
+      );
     END IF;
 
     -- Unset all legal units of the enterprise from being primary and capture their ids and table name
@@ -2613,7 +2626,9 @@ BEGIN
         UPDATE public.legal_unit
         SET primary_for_enterprise = false
         WHERE primary_for_enterprise
-          AND enterprise_id = v_enterprise_id
+          AND enterprise_id = legal_unit_row.enterprise_id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_agg(jsonb_build_object('table', 'legal_unit', 'id', id)) INTO v_unset_ids FROM updated_rows;
@@ -2622,7 +2637,9 @@ BEGIN
     WITH updated_row AS (
         UPDATE public.legal_unit
         SET primary_for_enterprise = true
-        WHERE id = legal_unit_id
+        WHERE id = legal_unit_row.id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_build_object('table', 'legal_unit', 'id', id) INTO v_set_id FROM updated_row;
@@ -2635,21 +2652,33 @@ BEGIN
 END;
 $$;
 
-
+\echo public.set_primary_establishment_for_legal_unit
 CREATE OR REPLACE FUNCTION public.set_primary_establishment_for_legal_unit(
     establishment_id integer,
-    valid_from date DEFAULT current_date,
-    valid_to date DEFAULT 'infinity'
+    valid_from_param date DEFAULT current_date,
+    valid_to_param date DEFAULT 'infinity'
 )
 RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE
-    v_legal_unit_id integer;
+    establishment_row public.establishment;
     v_unset_ids jsonb := '[]';
     v_set_id jsonb := 'null';
 BEGIN
-    SELECT legal_unit_id INTO v_legal_unit_id FROM public.establishment WHERE id = establishment_id;
-    IF v_legal_unit_id IS NULL THEN
+    SELECT * INTO establishment_row
+      FROM public.establishment
+     WHERE id = establishment_id
+       AND daterange(valid_from, valid_to, '[]')
+        && daterange(valid_from_param, valid_to_param, '[]');
+     IF NOT FOUND THEN
         RAISE EXCEPTION 'Establishment does not exist or is not linked to a legal unit.';
+    END IF;
+
+    IF establishment_row.primary_for_legal_unit THEN
+      RETURN jsonb_build_object(
+          'message', 'No changes made as the establishment is already primary.',
+          'legal_unit_id', establishment_row.legal_unit_id,
+          'establishment_id', establishment_row.id
+      );
     END IF;
 
     -- Unset all establishments of the legal unit from being primary and capture their ids and table name
@@ -2657,7 +2686,9 @@ BEGIN
         UPDATE public.establishment
         SET primary_for_legal_unit = false
         WHERE primary_for_legal_unit
-          AND legal_unit_id = v_legal_unit_id
+          AND legal_unit_id = establishment_row.legal_unit_id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_agg(jsonb_build_object('table', 'establishment', 'id', id)) INTO v_unset_ids FROM updated_rows;
@@ -2666,7 +2697,9 @@ BEGIN
     WITH updated_row AS (
         UPDATE public.establishment
         SET primary_for_legal_unit = true
-        WHERE id = establishment_id
+        WHERE id = establishment_row.id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_build_object('table', 'establishment', 'id', id) INTO v_set_id FROM updated_row;
@@ -2765,10 +2798,10 @@ BEGIN
 
     -- Return a jsonb summary of changes including the updated legal unit ids, old and new enterprise_ids, and deleted enterprise id if applicable
     RETURN jsonb_build_object(
-        'updated_legal_unit', updated_legal_unit_ids,
-        'old_enterprise', old_enterprise_id,
-        'new_enterprise', enterprise_id,
-        'deleted_enterprise', deleted_enterprise_id
+        'updated_legal_unit_ids', updated_legal_unit_ids,
+        'old_enterprise_id', old_enterprise_id,
+        'new_enterprise_id', enterprise_id,
+        'deleted_enterprise_id', deleted_enterprise_id
     );
 END;
 $$;
@@ -3986,6 +4019,22 @@ CREATE VIEW public.timeline_legal_unit
 
 --SELECT * FROM public.timeline_legal_unit;
 
+-- Final function to remove duplicates from concatenated arrays
+CREATE FUNCTION public.array_distinct_concat_final(anycompatiblearray)
+RETURNS anycompatiblearray LANGUAGE sql AS $$
+SELECT array_agg(DISTINCT elem)
+  FROM unnest($1) as elem;
+$$;
+
+-- Aggregate function using array_cat for concatenation and public.array_distinct_concat_final to remove duplicates
+CREATE AGGREGATE public.array_distinct_concat(anycompatiblearray) (
+  SFUNC = pg_catalog.array_cat,
+  STYPE = anycompatiblearray,
+  FINALFUNC = public.array_distinct_concat_final,
+  INITCOND = '{}'
+);
+
+
 
 \echo public.timeline_enterprise
 CREATE VIEW public.timeline_enterprise
@@ -4139,7 +4188,7 @@ CREATE VIEW public.timeline_enterprise
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      ), basis_with_establishemnt AS (
+      ), basis_with_establishment AS (
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
@@ -4245,7 +4294,7 @@ CREATE VIEW public.timeline_enterprise
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
              , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
-          INNER JOIN basis_with_establishemnt AS basis
+          INNER JOIN basis_with_establishment AS basis
            ON tes.enterprise_id = basis.enterprise_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tes.valid_after, tes.valid_to, '(]')
@@ -4254,7 +4303,7 @@ CREATE VIEW public.timeline_enterprise
         SELECT tlu.enterprise_id
              , basis.valid_after
              , basis.valid_to
-             , agg.establishment_ids
+             , public.array_distinct_concat(tlu.establishment_ids) AS establishment_ids
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
              , public.jsonb_stats_summary_merge_agg(tlu.stats_summary) AS stats_summary
           FROM public.timeline_legal_unit AS tlu
@@ -4262,13 +4311,7 @@ CREATE VIEW public.timeline_enterprise
            ON tlu.enterprise_id = basis.enterprise_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tlu.valid_after, tlu.valid_to, '(]')
-           CROSS JOIN LATERAL (
-                SELECT array_agg(DISTINCT id) AS establishment_ids
-                FROM (
-                    SELECT unnest(tlu.establishment_ids) AS id
-                ) AS unnested_ids
-            ) AS agg
-        GROUP BY tlu.enterprise_id, basis.valid_after , basis.valid_to, agg.establishment_ids
+        GROUP BY tlu.enterprise_id, basis.valid_after , basis.valid_to
         ), basis_with_legal_unit_aggregation AS (
           SELECT basis.unit_type
                , basis.unit_id
@@ -4368,7 +4411,7 @@ CREATE VIEW public.timeline_enterprise
                , basis.primary_establishment_id
                , NULL::INTEGER AS primary_legal_unit_id
                , esa.stats_summary AS stats_summary
-          FROM basis_with_establishemnt AS basis
+          FROM basis_with_establishment AS basis
           LEFT OUTER JOIN establishment_aggregation AS esa
                        ON basis.enterprise_id = esa.enterprise_id
                       AND basis.valid_after = esa.valid_after
@@ -6380,7 +6423,9 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
                 AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'enterprise' THEN (
-            SELECT lu.enterprise_id
+            -- The same enterprise can be returned multiple times
+            -- if it has multiple legal_unit's connected, so use DISTINCT.
+            SELECT DISTINCT lu.enterprise_id
               FROM public.legal_unit AS lu
              WHERE lu.enterprise_id = unit_id
                AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
@@ -8924,19 +8969,25 @@ BEGIN
             new_typed.valid_from, new_typed.valid_to,
             edited_by_user.id) AS r;
     ELSE
-        EXECUTE '
-            SELECT NOT EXISTS(
-                SELECT 1
-                FROM public.establishment
-                WHERE legal_unit_id = $1
-                AND primary_for_legal_unit
-                AND id <> $2
-                AND daterange(valid_from, valid_to, ''[]'')
-                 && daterange($3, $4, ''[]'')
-            )
-        '
-        INTO is_primary_for_legal_unit
-        USING legal_unit.id, prior_establishment_id, new_typed.valid_from, new_typed.valid_to;
+        DECLARE
+          sql_query TEXT :=  format(
+            'SELECT NOT EXISTS(
+                  SELECT 1
+                  FROM public.establishment
+                  WHERE legal_unit_id = %L
+                  AND primary_for_legal_unit
+                  AND COALESCE(id <> %L,true)
+                  AND daterange(valid_from, valid_to, ''[]'')
+                  && daterange(%L, %L, ''[]'')
+              )',
+              legal_unit.id, prior_establishment_id, new_typed.valid_from, new_typed.valid_to
+          );
+        BEGIN
+          RAISE DEBUG 'Executing SQL: %', sql_query;
+          EXECUTE sql_query
+          INTO is_primary_for_legal_unit;
+          RAISE DEBUG 'is_primary_for_legal_unit=%', is_primary_for_legal_unit;
+        END;
     END IF;
 
     SELECT NEW.name AS name
