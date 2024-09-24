@@ -155,10 +155,13 @@ case "$action" in
         if test -z "$TEST_BASENAMES"; then
             echo "Available tests:"
             echo "all"
+            echo "failed"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
         elif test "$TEST_BASENAMES" = "all"; then
             TEST_BASENAMES=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+        elif test "$TEST_BASENAMES" = "failed"; then
+            TEST_BASENAMES=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
         fi
 
         for test_basename in $TEST_BASENAMES; do
@@ -183,6 +186,39 @@ case "$action" in
             --user=$PGUSER \
             $TEST_BASENAMES
     ;;
+     'diff-fail-first' )
+        first_fail=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
+        if [ -n "$first_fail" ]; then
+            #if command -v opendiff >/dev/null 2>&1; then
+            #    echo "Running opendiff for test: $first_fail"
+            #    opendiff $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out -merge $WORKSPACE/test/expected/$first_fail.out
+            #else
+                echo "Running vimdiff for test: $first_fail"
+                vim -d $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out < /dev/tty
+            #fi
+        else
+            echo "No failing tests found."
+        fi
+      ;;
+     'diff-fail-all' )
+        grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
+            echo "Next test: $test"
+            echo "Press C to continue, s to skip, or b to break (default: C)"
+            read -n 1 -s input < /dev/tty
+            if [ "$input" = "b" ]; then
+                break
+            elif [ "$input" = "s" ]; then
+                continue
+            fi
+            #if command -v opendiff >/dev/null 2>&1; then
+            #    echo "Running opendiff for test: $test"
+            #    opendiff $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out -merge $WORKSPACE/test/expected/$test.out
+            #else
+                echo "Running vimdiff for test: $test"
+                vim -d $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out < /dev/tty
+            #fi
+        done
+      ;;
     'activate_sql_saga' )
         eval $(./devops/manage-statbus.sh postgres-variables)
         PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
@@ -535,39 +571,6 @@ EOS
         ) as $i ireduce({};  # using that set of nodes, create a new result map
           setpath($i | path; $i) # and put in each node, using its original path
         ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-profile.yml
-      ;;
-     'diff-fail-first' )
-        first_fail=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
-        if [ -n "$first_fail" ]; then
-            #if command -v opendiff >/dev/null 2>&1; then
-            #    echo "Running opendiff for test: $first_fail"
-            #    opendiff $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out -merge $WORKSPACE/test/expected/$first_fail.out
-            #else
-                echo "Running vimdiff for test: $first_fail"
-                vim -d $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out < /dev/tty
-            #fi
-        else
-            echo "No failing tests found."
-        fi
-      ;;
-     'diff-fail-all' )
-        grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
-            echo "Next test: $test"
-            echo "Press C to continue, s to skip, or b to break (default: C)"
-            read -n 1 -s input < /dev/tty
-            if [ "$input" = "b" ]; then
-                break
-            elif [ "$input" = "s" ]; then
-                continue
-            fi
-            #if command -v opendiff >/dev/null 2>&1; then
-            #    echo "Running opendiff for test: $test"
-            #    opendiff $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out -merge $WORKSPACE/test/expected/$test.out
-            #else
-                echo "Running vimdiff for test: $test"
-                vim -d $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out < /dev/tty
-            #fi
-        done
       ;;
      * )
       echo "Unknown action '$action', select one of"
