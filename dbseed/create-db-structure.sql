@@ -1750,9 +1750,23 @@ CREATE TABLE public.region (
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
+    midpoint_latitude numeric(9, 6),
+    midpoint_longitude numeric(9, 6),
+    midpoint_altitude numeric(6, 1),
     CONSTRAINT "parent_id is required for child"
-      CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL)
+      CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL),
+    CONSTRAINT "midpoint coordinates all or nothing"
+      CHECK((midpoint_latitude IS NOT NULL AND midpoint_longitude IS NOT NULL)
+         OR (midpoint_latitude IS NULL     AND midpoint_longitude IS NULL)),
+    CONSTRAINT "altitude requires coordinates"
+      CHECK(CASE 
+                WHEN midpoint_altitude IS NOT NULL THEN 
+                    (midpoint_latitude IS NOT NULL AND midpoint_longitude IS NOT NULL)
+                ELSE 
+                    TRUE 
+            END)
 );
+
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 
