@@ -186,49 +186,55 @@ case "$action" in
             --user=$PGUSER \
             $TEST_BASENAMES
     ;;
-     'diff-fail-first' )
-        if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-            echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
-            exit 1
-        fi
+    'diff-fail-first' )
+      if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+          echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+          exit 1
+      fi
 
-        test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
-        if [ -n "$test" ]; then
-            if command -v opendiff >/dev/null 2>&1; then
-                echo "Running opendiff for test: $test"
-                opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
-            else
-                echo "Running vimdiff for test: $test"
-                vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
-            fi
-        else
-            echo "No failing tests found."
-        fi
-      ;;
-     'diff-fail-all' )
-        if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-            echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
-            exit 1
-        fi
+      test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
+      if [ -n "$test" ]; then
+          case "${2:-}" in
+              'ui')
+                  echo "Running opendiff for test: $test"
+                  opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
+                  ;;
+              'text'|*)
+                  echo "Running vimdiff for test: $test"
+                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+          esac
+      else
+          echo "No failing tests found."
+      fi
+    ;;
+    'diff-fail-all' )
+      if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+          echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+          exit 1
+      fi
 
-        grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
-            echo "Next test: $test"
-            echo "Press C to continue, s to skip, or b to break (default: C)"
-            read -n 1 -s input < /dev/tty
-            if [ "$input" = "b" ]; then
-                break
-            elif [ "$input" = "s" ]; then
-                continue
-            fi
-            if command -v opendiff >/dev/null 2>&1; then
-                echo "Running opendiff for test: $test"
-                opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
-            else
-                echo "Running vimdiff for test: $test"
-                vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
-            fi
-        done
-      ;;
+      grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
+          echo "Next test: $test"
+          echo "Press C to continue, s to skip, or b to break (default: C)"
+          read -n 1 -s input < /dev/tty
+          if [ "$input" = "b" ]; then
+              break
+          elif [ "$input" = "s" ]; then
+              continue
+          fi
+          case "${2:-}" in
+              'ui')
+                  echo "Running opendiff for test: $test"
+                  opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
+                  ;;
+              'text'|*)
+                  echo "Running vimdiff for test: $test"
+                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+          esac
+      done
+    ;;
     'activate_sql_saga' )
         eval $(./devops/manage-statbus.sh postgres-variables)
         PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
