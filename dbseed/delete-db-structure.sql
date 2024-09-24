@@ -133,6 +133,9 @@ DROP FUNCTION public.jsonb_stats_to_summary_round(jsonb);
 
 DROP AGGREGATE public.jsonb_concat_agg(jsonb);
 
+DROP AGGREGATE public.array_distinct_concat(anycompatiblearray);
+DROP FUNCTION public.array_distinct_concat_final(anycompatiblearray);
+
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
 
