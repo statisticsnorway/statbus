@@ -271,6 +271,8 @@ DROP TABLE public.activity;
 DROP TABLE public.activity_category_role;
 DROP TABLE public.activity_category;
 DROP TABLE public.activity_category_standard;
+DROP TYPE public.activity_category_code_behaviour;
+DROP FUNCTION public.lookup_parent_and_derive_code();
 
 DROP TABLE public.tag_for_unit;
 DROP TABLE public.person_for_unit;
