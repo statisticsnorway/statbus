@@ -187,20 +187,30 @@ case "$action" in
             $TEST_BASENAMES
     ;;
      'diff-fail-first' )
-        first_fail=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
-        if [ -n "$first_fail" ]; then
-            #if command -v opendiff >/dev/null 2>&1; then
-            #    echo "Running opendiff for test: $first_fail"
-            #    opendiff $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out -merge $WORKSPACE/test/expected/$first_fail.out
-            #else
-                echo "Running vimdiff for test: $first_fail"
-                vim -d $WORKSPACE/test/results/$first_fail.out $WORKSPACE/test/expected/$first_fail.out < /dev/tty
-            #fi
+        if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+            echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+            exit 1
+        fi
+
+        test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
+        if [ -n "$test" ]; then
+            if command -v opendiff >/dev/null 2>&1; then
+                echo "Running opendiff for test: $test"
+                opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
+            else
+                echo "Running vimdiff for test: $test"
+                vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+            fi
         else
             echo "No failing tests found."
         fi
       ;;
      'diff-fail-all' )
+        if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+            echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+            exit 1
+        fi
+
         grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
             echo "Next test: $test"
             echo "Press C to continue, s to skip, or b to break (default: C)"
@@ -210,13 +220,13 @@ case "$action" in
             elif [ "$input" = "s" ]; then
                 continue
             fi
-            #if command -v opendiff >/dev/null 2>&1; then
-            #    echo "Running opendiff for test: $test"
-            #    opendiff $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out -merge $WORKSPACE/test/expected/$test.out
-            #else
+            if command -v opendiff >/dev/null 2>&1; then
+                echo "Running opendiff for test: $test"
+                opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
+            else
                 echo "Running vimdiff for test: $test"
-                vim -d $WORKSPACE/test/results/$test.out $WORKSPACE/test/expected/$test.out < /dev/tty
-            #fi
+                vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+            fi
         done
       ;;
     'activate_sql_saga' )
