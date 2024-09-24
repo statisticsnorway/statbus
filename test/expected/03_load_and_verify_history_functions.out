@@ -12128,7 +12128,10 @@ statistical_unit_hierarchy
                             "name": "Time",
                             "path": "11.21",
                             "label": "1121",
-                            "level": 2
+                            "level": 2,
+                            "midpoint_altitude": null,
+                            "midpoint_latitude": null,
+                            "midpoint_longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -12138,6 +12141,7 @@ statistical_unit_hierarchy
                             "custom": false,
                             "iso_num": "578"
                         },
+                        "altitude": null,
                         "latitude": null,
                         "valid_to": "2012-12-31",
                         "longitude": null,
@@ -12204,7 +12208,10 @@ statistical_unit_hierarchy
                                     "name": "Time",
                                     "path": "11.21",
                                     "label": "1121",
-                                    "level": 2
+                                    "level": 2,
+                                    "midpoint_altitude": null,
+                                    "midpoint_latitude": null,
+                                    "midpoint_longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -12214,6 +12221,7 @@ statistical_unit_hierarchy
                                     "custom": false,
                                     "iso_num": "578"
                                 },
+                                "altitude": null,
                                 "latitude": null,
                                 "valid_to": "infinity",
                                 "longitude": null,
@@ -12356,7 +12364,10 @@ statistical_unit_hierarchy
                             "name": "Time",
                             "path": "11.21",
                             "label": "1121",
-                            "level": 2
+                            "level": 2,
+                            "midpoint_altitude": null,
+                            "midpoint_latitude": null,
+                            "midpoint_longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -12366,6 +12377,7 @@ statistical_unit_hierarchy
                             "custom": false,
                             "iso_num": "578"
                         },
+                        "altitude": null,
                         "latitude": null,
                         "valid_to": "infinity",
                         "longitude": null,
@@ -12432,7 +12444,10 @@ statistical_unit_hierarchy
                                     "name": "Time",
                                     "path": "11.21",
                                     "label": "1121",
-                                    "level": 2
+                                    "level": 2,
+                                    "midpoint_altitude": null,
+                                    "midpoint_latitude": null,
+                                    "midpoint_longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -12442,6 +12457,7 @@ statistical_unit_hierarchy
                                     "custom": false,
                                     "iso_num": "578"
                                 },
+                                "altitude": null,
                                 "latitude": null,
                                 "valid_to": "infinity",
                                 "longitude": null,
@@ -12583,7 +12599,10 @@ statistical_unit_hierarchy
                             "name": "Time",
                             "path": "11.21",
                             "label": "1121",
-                            "level": 2
+                            "level": 2,
+                            "midpoint_altitude": null,
+                            "midpoint_latitude": null,
+                            "midpoint_longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -12593,6 +12612,7 @@ statistical_unit_hierarchy
                             "custom": false,
                             "iso_num": "578"
                         },
+                        "altitude": null,
                         "latitude": null,
                         "valid_to": "infinity",
                         "longitude": null,
@@ -12659,7 +12679,10 @@ statistical_unit_hierarchy
                                     "name": "Time",
                                     "path": "11.21",
                                     "label": "1121",
-                                    "level": 2
+                                    "level": 2,
+                                    "midpoint_altitude": null,
+                                    "midpoint_latitude": null,
+                                    "midpoint_longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -12669,6 +12692,7 @@ statistical_unit_hierarchy
                                     "custom": false,
                                     "iso_num": "578"
                                 },
+                                "altitude": null,
                                 "latitude": null,
                                 "valid_to": "infinity",
                                 "longitude": null,
