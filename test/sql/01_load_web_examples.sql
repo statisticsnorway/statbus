@@ -19,10 +19,10 @@ SELECT acs.code
 \copy public.activity_category_available_custom(path,name,description) FROM 'app/public/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 SELECT standard_code
-     , path
-     , parent_code
-     , label
      , code
+     , path
+     , parent_path
+     , label
      , name
 FROM public.activity_category_available
 ORDER BY standard_code, path;

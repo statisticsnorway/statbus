@@ -250,6 +250,7 @@ erDiagram
 		"character varying(16)" code
 		"character varying" name
 		"character varying" description
+		"activity_category_code_behaviour" code_pattern
 		"boolean" obsolete
 	}
 	analysis_log["analysis_log"] {
@@ -503,9 +504,9 @@ erDiagram
 		"character varying" label
 		"character varying" code
 		"text" name
-		"numeric(9,6)" midpoint_latitude
-		"numeric(9,6)" midpoint_longitude
-		"numeric(6,1)" midpoint_altitude
+		"numeric(9,6)" center_latitude
+		"numeric(9,6)" center_longitude
+		"numeric(6,1)" center_altitude
 	}
 	region_role["region_role"] {
 		"integer" id

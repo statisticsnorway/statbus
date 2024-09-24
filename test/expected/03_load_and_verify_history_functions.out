@@ -12115,7 +12115,8 @@ statistical_unit_hierarchy
                                 "code": "nace_v2.1",
                                 "name": "NACE 2.1",
                                 "obsolete": false,
-                                "description": "NACE Version 2 Revision 1"
+                                "description": "NACE Version 2 Revision 1",
+                                "code_pattern": "dot_after_two_digits"
                             }
                         }
                     }
@@ -12129,9 +12130,9 @@ statistical_unit_hierarchy
                             "path": "11.21",
                             "label": "1121",
                             "level": 2,
-                            "midpoint_altitude": null,
-                            "midpoint_latitude": null,
-                            "midpoint_longitude": null
+                            "center_altitude": null,
+                            "center_latitude": null,
+                            "center_longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -12195,7 +12196,8 @@ statistical_unit_hierarchy
                                         "code": "nace_v2.1",
                                         "name": "NACE 2.1",
                                         "obsolete": false,
-                                        "description": "NACE Version 2 Revision 1"
+                                        "description": "NACE Version 2 Revision 1",
+                                        "code_pattern": "dot_after_two_digits"
                                     }
                                 }
                             }
@@ -12209,9 +12211,9 @@ statistical_unit_hierarchy
                                     "path": "11.21",
                                     "label": "1121",
                                     "level": 2,
-                                    "midpoint_altitude": null,
-                                    "midpoint_latitude": null,
-                                    "midpoint_longitude": null
+                                    "center_altitude": null,
+                                    "center_latitude": null,
+                                    "center_longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -12351,7 +12353,8 @@ statistical_unit_hierarchy
                                 "code": "nace_v2.1",
                                 "name": "NACE 2.1",
                                 "obsolete": false,
-                                "description": "NACE Version 2 Revision 1"
+                                "description": "NACE Version 2 Revision 1",
+                                "code_pattern": "dot_after_two_digits"
                             }
                         }
                     }
@@ -12365,9 +12368,9 @@ statistical_unit_hierarchy
                             "path": "11.21",
                             "label": "1121",
                             "level": 2,
-                            "midpoint_altitude": null,
-                            "midpoint_latitude": null,
-                            "midpoint_longitude": null
+                            "center_altitude": null,
+                            "center_latitude": null,
+                            "center_longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -12431,7 +12434,8 @@ statistical_unit_hierarchy
                                         "code": "nace_v2.1",
                                         "name": "NACE 2.1",
                                         "obsolete": false,
-                                        "description": "NACE Version 2 Revision 1"
+                                        "description": "NACE Version 2 Revision 1",
+                                        "code_pattern": "dot_after_two_digits"
                                     }
                                 }
                             }
@@ -12445,9 +12449,9 @@ statistical_unit_hierarchy
                                     "path": "11.21",
                                     "label": "1121",
                                     "level": 2,
-                                    "midpoint_altitude": null,
-                                    "midpoint_latitude": null,
-                                    "midpoint_longitude": null
+                                    "center_altitude": null,
+                                    "center_latitude": null,
+                                    "center_longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -12586,7 +12590,8 @@ statistical_unit_hierarchy
                                 "code": "nace_v2.1",
                                 "name": "NACE 2.1",
                                 "obsolete": false,
-                                "description": "NACE Version 2 Revision 1"
+                                "description": "NACE Version 2 Revision 1",
+                                "code_pattern": "dot_after_two_digits"
                             }
                         }
                     }
@@ -12600,9 +12605,9 @@ statistical_unit_hierarchy
                             "path": "11.21",
                             "label": "1121",
                             "level": 2,
-                            "midpoint_altitude": null,
-                            "midpoint_latitude": null,
-                            "midpoint_longitude": null
+                            "center_altitude": null,
+                            "center_latitude": null,
+                            "center_longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -12666,7 +12671,8 @@ statistical_unit_hierarchy
                                         "code": "nace_v2.1",
                                         "name": "NACE 2.1",
                                         "obsolete": false,
-                                        "description": "NACE Version 2 Revision 1"
+                                        "description": "NACE Version 2 Revision 1",
+                                        "code_pattern": "dot_after_two_digits"
                                     }
                                 }
                             }
@@ -12680,9 +12686,9 @@ statistical_unit_hierarchy
                                     "path": "11.21",
                                     "label": "1121",
                                     "level": 2,
-                                    "midpoint_altitude": null,
-                                    "midpoint_latitude": null,
-                                    "midpoint_longitude": null
+                                    "center_altitude": null,
+                                    "center_latitude": null,
+                                    "center_longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
