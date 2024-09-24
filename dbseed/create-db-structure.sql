@@ -1750,20 +1750,20 @@ CREATE TABLE public.region (
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
-    midpoint_latitude numeric(9, 6),
-    midpoint_longitude numeric(9, 6),
-    midpoint_altitude numeric(6, 1),
+    center_latitude numeric(9, 6),
+    center_longitude numeric(9, 6),
+    center_altitude numeric(6, 1),
     CONSTRAINT "parent_id is required for child"
       CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL),
-    CONSTRAINT "midpoint coordinates all or nothing"
-      CHECK((midpoint_latitude IS NOT NULL AND midpoint_longitude IS NOT NULL)
-         OR (midpoint_latitude IS NULL     AND midpoint_longitude IS NULL)),
+    CONSTRAINT "center coordinates all or nothing"
+      CHECK((center_latitude IS NOT NULL AND center_longitude IS NOT NULL)
+         OR (center_latitude IS NULL     AND center_longitude IS NULL)),
     CONSTRAINT "altitude requires coordinates"
-      CHECK(CASE 
-                WHEN midpoint_altitude IS NOT NULL THEN 
-                    (midpoint_latitude IS NOT NULL AND midpoint_longitude IS NOT NULL)
-                ELSE 
-                    TRUE 
+      CHECK(CASE
+                WHEN center_altitude IS NOT NULL THEN
+                    (center_latitude IS NOT NULL AND center_longitude IS NOT NULL)
+                ELSE
+                    TRUE
             END)
 );
 
@@ -1814,7 +1814,7 @@ CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (upda
 \echo public.region_upload
 CREATE VIEW public.region_upload
 WITH (security_invoker=on) AS
-SELECT path, name
+SELECT path, name, center_latitude, center_longitude, center_altitude
 FROM public.region
 ORDER BY path;
 COMMENT ON VIEW public.region_upload IS 'Upload of region by path,name that automatically connects parent_id';
@@ -1837,12 +1837,15 @@ BEGIN
         RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
     END IF;
 
-    INSERT INTO public.region (path, parent_id, name)
-    VALUES (NEW.path, maybe_parent_id, NEW.name)
+    INSERT INTO public.region (path, parent_id, name, center_latitude, center_longitude, center_altitude)
+    VALUES (NEW.path, maybe_parent_id, NEW.name, NEW.center_latitude, NEW.center_longitude, NEW.center_altitude)
     ON CONFLICT (path)
     DO UPDATE SET
         parent_id = maybe_parent_id,
-        name = EXCLUDED.name
+        name = EXCLUDED.name,
+        center_latitude = EXCLUDED.center_latitude,
+        center_longitude = EXCLUDED.center_longitude,
+        center_altitude = EXCLUDED.center_altitude
     WHERE region.id = EXCLUDED.id
     RETURNING * INTO row;
     RAISE DEBUG 'UPSERTED %', to_json(row);
