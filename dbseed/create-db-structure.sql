@@ -1770,15 +1770,25 @@ CREATE TABLE public.location (
     postal_place character varying(200),
     region_id integer REFERENCES public.region(id) ON DELETE RESTRICT,
     country_id integer NOT NULL REFERENCES public.country(id) ON DELETE RESTRICT,
-    latitude double precision,
-    longitude double precision,
+    latitude numeric(9, 6),
+    longitude numeric(9, 6),
+    altitude numeric(6, 1),
     establishment_id integer,
     legal_unit_id integer,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL),
+    CONSTRAINT "coordinates require both latitude and longitude"
+      CHECK((latitude IS NOT NULL AND longitude IS NOT NULL)
+         OR (latitude IS NULL AND longitude IS NULL)),
+    CONSTRAINT "altitude requires coordinates"
+      CHECK(CASE
+                WHEN altitude IS NOT NULL THEN
+                    (latitude IS NOT NULL AND longitude IS NOT NULL)
+                ELSE
+                    TRUE
+            END)
 );
 CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
