@@ -54,7 +54,8 @@ export const config = {
      * - login (authentication page)
      * - maintenance (maintenance page)
      * - api/logger (allow logging without authentication)
+     * - api/auth/session (allow session checking without authentication)
      */
-    "/((?!_next/static|_next/image|favicon.ico|login|maintenance|api/logger).*)",
+    "/((?!_next/static|_next/image|favicon.ico|login|maintenance|api/logger|api/auth/session|api/test).*)",
   ],
 };
