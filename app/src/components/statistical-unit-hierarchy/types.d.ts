@@ -128,6 +128,7 @@ declare interface StatisticalUnit {
   seen_in_import_at: string;
   external_ident_date: string | null;
   external_ident_type: string | null;
+  external_idents: Json;
   data_source_classification_id: string | null;
 }
 

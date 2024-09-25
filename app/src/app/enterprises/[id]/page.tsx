@@ -7,8 +7,8 @@ import {
 import React from "react";
 import { InfoBox } from "@/components/info-box";
 import Link from "next/link";
-import { FormField } from "@/components/form/form-field";
 import { Metadata } from "next";
+import GeneralInfoForm from "./general-info/general-info-form";
 
 export const metadata: Metadata = {
   title: "Enterprise | General Info",
@@ -47,24 +47,7 @@ export default async function EnterpriseDetailsPage({
       title="General Info"
       subtitle="General information such as name, sector"
     >
-      <form className="space-y-8">
-        <FormField
-          readonly
-          label="Name"
-          name="name"
-          value={primaryLegalUnit.name}
-          response={null}
-        />
-
-        <FormField
-          readonly
-          label="Tax Register ID"
-          name="tax_ident"
-          value={primaryLegalUnit.tax_ident}
-          response={null}
-        />
-      </form>
-
+      <GeneralInfoForm values={primaryLegalUnit} />
       <InfoBox>
         <p>
           The information above is derived from the primary legal unit &nbsp;
