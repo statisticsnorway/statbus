@@ -11,10 +11,10 @@ import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 export default function GeneralInfoForm({
   id,
-  values,
+  legal_unit,
 }: {
   readonly id: string;
-  readonly values: LegalUnit;
+  readonly legal_unit: LegalUnit;
 }) {
   const [state, formAction] = useFormState(
     updateLegalUnit.bind(null, id, "general-info"),
@@ -27,24 +27,26 @@ export default function GeneralInfoForm({
       <FormField
         label="Name"
         name="name"
-        value={values.name}
+        value={legal_unit.name}
         response={state}
       />
-      {Object.keys(values.external_idents).map((key) => {
-        const externalIdentType = externalIdentTypes.find(
-          (type) => key === type.code
-        );
-        return (
-          <FormField
-            readonly
-            key={key}
-            label={externalIdentType?.name ?? key}
-            name={`external_idents.${key}`}
-            value={values.external_idents[key]}
-            response={state}
-          />
-        );
+      {externalIdentTypes.map((type) => {
+        const value = legal_unit.external_idents[type.code];
+        if (value) {
+          return (
+            <FormField
+              readonly
+              key={type.code}
+              label={type.name ?? type.code}
+              name={`external_idents.${type.code}`}
+              value={value}
+              response={state}
+            />
+          );
+        }
+        return null; // Skip rendering if there's no value
       })}
+
       <SubmissionFeedbackDebugInfo state={state} />
       <Button type="submit">Update Legal Unit</Button>
     </form>
