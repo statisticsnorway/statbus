@@ -17,7 +17,7 @@ export const Cart = () => {
             {selected.map((unit) => {
               return (
                 <StatisticalUnitTableRow
-                  key={`${unit.unit_id}-${unit.unit_type}`}
+                  key={`cart_${unit.unit_type}_${unit.unit_id}`}
                   unit={unit}
                 />
               );

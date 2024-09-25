@@ -20,7 +20,7 @@ export default function SearchResultTable() {
             {searchResult?.statisticalUnits?.map((unit) => {
               return (
                 <StatisticalUnitTableRow
-                  key={`${unit.unit_id}-${unit.unit_type}`}
+                  key={`${unit.unit_type}-${unit.unit_id}-${unit.valid_from}`}
                   unit={unit}
                 />
               );
