@@ -194,15 +194,21 @@ case "$action" in
 
       test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
       if [ -n "$test" ]; then
-          case "${2:-}" in
-              'ui')
+          ui=${1:-tui}
+          shift || true
+          case $ui in
+              'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'text'|*)
+              'tui')
                   echo "Running vimdiff for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
+              *)
+                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  exit 1
+              ;;
           esac
       else
           echo "No failing tests found."
