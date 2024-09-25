@@ -14,21 +14,18 @@ export const StatisticalUnitTableHeader = () => {
         >
           Region
         </SortableTableHead>
-        <SortableTableHead
-          className="text-right hidden lg:table-cell [&>*]:capitalize"
-          name={statDefinitions?.[0]?.code}
-        >
-          {statDefinitions?.[0]?.code}
-        </SortableTableHead>
-        <SortableTableHead
-          className="text-right hidden lg:table-cell [&>*]:capitalize"
-          name={statDefinitions?.[1]?.code}
-        >
-          {statDefinitions?.[1]?.code}
-        </SortableTableHead>
+        {statDefinitions.map(({ code }) => (
+          <SortableTableHead
+            key={code}
+            className="text-right hidden lg:table-cell [&>*]:capitalize"
+            name={code}
+          >
+            {code}
+          </SortableTableHead>
+        ))}
         <SortableTableHead
           className="text-left hidden lg:table-cell"
-          name="sector_code"
+          name="sector_path"
         >
           Sector
         </SortableTableHead>
