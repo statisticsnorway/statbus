@@ -477,3 +477,6 @@ key-*.xml
 .users.yml
 
 .aider*
+!.aider.conf.yml
+!.aiderignore
+
