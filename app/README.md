@@ -29,3 +29,6 @@ docker compose up
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+To have vscode automatically attach to your running node instances, run the command
+`code --enable-proposed-api ms-vscode.node-debug`.
