@@ -126,12 +126,11 @@ export const StatisticalUnitTableRow = ({
           </small>
         </div>
       </TableCell>
-      <TableCell className="py-2 text-right hidden lg:table-cell">
-        {thousandSeparator(stats_summary[statDefinitions?.[0]?.code]?.sum)}
-      </TableCell>
-      <TableCell className="py-2 text-right hidden lg:table-cell">
-        {thousandSeparator(stats_summary[statDefinitions?.[1]?.code]?.sum)}
-      </TableCell>
+      {statDefinitions.map(({ code }) => (
+        <TableCell key={code} className="py-2 text-right hidden lg:table-cell">
+          {thousandSeparator(stats_summary[code]?.sum)}
+        </TableCell>
+      ))}
       <TableCell
         className="py-2 text-left hidden lg:table-cell"
         title={sector_name ?? ""}
