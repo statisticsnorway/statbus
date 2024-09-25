@@ -4,9 +4,8 @@ import logger from "@/lib/client-logger";
 
 export default function useCustomConfig() {
   const [statDefinitions, setStatDefinitions] = useState<StatDefinition[]>([]);
-  const [externalIdentTypes, setExternalIdentTypes] = useState<
-    ExternalIdentType[]
-  >([]);
+  const [externalIdentTypes, setExternalIdentTypes] = useState<ExternalIdentType[]>([]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -21,13 +20,12 @@ export default function useCustomConfig() {
           setStatDefinitions(data.statDefinitions);
           setExternalIdentTypes(data.externalIdentTypes);
         } else {
-          logger.error("Invalid response format or content type");
+          // Capture the error stack trace
+          const error = new Error("Invalid response format or content type");
+          logger.error(error, "failed to fetch stat definitions and external ident types");
         }
       } catch (e) {
-        logger.error(
-          e,
-          "failed to fetch stat definitions and external ident types"
-        );
+        logger.error(e,"failed to fetch stat definitions and external ident types");
       }
     })();
   }, []);

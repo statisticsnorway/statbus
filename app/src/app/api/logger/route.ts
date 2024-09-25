@@ -12,7 +12,7 @@ interface ClientLogRequest {
 }
 
 // Maximum allowed size for non-authenticated logs
-const MAX_LOG_SIZE = 100; // Set your size limit here, e.g., 100 characters
+const MAX_LOG_SIZE = 256; // Set your size limit here, e.g., 100 characters
 
 // Function to parse log request payload
 const parseLogPayload = (event: LogEvent) => {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     } else {
       // Limit log data for non-authenticated users
       const limitedPayload = limitDataSize(payload, MAX_LOG_SIZE);
-      await logEvent(logger, "info", limitedPayload, event, userAgent);
+      await logEvent(logger, level, limitedPayload, event, userAgent);
     }
 
     return NextResponse.json({ success: true });
