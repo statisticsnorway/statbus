@@ -1,4 +1,3 @@
-export const TAX_REG_IDENT = "tax_ident";
 export const SEARCH = "search";
 export const UNIT_TYPE = "unit_type";
 export const INVALID_CODES = "invalid_codes";

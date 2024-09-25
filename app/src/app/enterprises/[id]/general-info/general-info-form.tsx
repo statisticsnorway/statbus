@@ -1,34 +1,22 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
-import { useFormState } from "react-dom";
-import React from "react";
-import { z } from "zod";
-import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
-import { SubmissionFeedbackDebugInfo } from "@/app/legal-units/components/submission-feedback-debug-info";
 import { FormField } from "@/components/form/form-field";
 import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 export default function GeneralInfoForm({
-  id,
   values,
 }: {
-  readonly id: string;
   readonly values: LegalUnit;
 }) {
-  const [state, formAction] = useFormState(
-    updateLegalUnit.bind(null, id, "general-info"),
-    null
-  );
   const { externalIdentTypes } = useCustomConfigContext();
 
   return (
-    <form className="space-y-8" action={formAction}>
+    <form className="space-y-8">
       <FormField
+        readonly
         label="Name"
         name="name"
         value={values.name}
-        response={state}
+        response={null}
       />
       {Object.keys(values.external_idents).map((key) => {
         const externalIdentType = externalIdentTypes.find(
@@ -41,12 +29,10 @@ export default function GeneralInfoForm({
             label={externalIdentType?.name ?? key}
             name={`external_idents.${key}`}
             value={values.external_idents[key]}
-            response={state}
+            response={null}
           />
         );
       })}
-      <SubmissionFeedbackDebugInfo state={state} />
-      <Button type="submit">Update Legal Unit</Button>
     </form>
   );
 }
