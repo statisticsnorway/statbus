@@ -1,12 +1,14 @@
 import useSWR, { Fetcher } from "swr";
 
 import { useTimeContext } from "@/app/use-time-context";
+import { useCustomConfigContext } from "../use-custom-config-context";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) =>
   fetch(...args).then((res) => res.json());
 
 export default function useSearch(searchFilterState: SearchState) {
   const { selectedPeriod } = useTimeContext();
+  const { statDefinitions } = useCustomConfigContext();
   const { order, pagination, queries } = searchFilterState;
 
   const searchParams = Object.entries(queries ?? {})
@@ -16,8 +18,14 @@ export default function useSearch(searchFilterState: SearchState) {
       return params;
     }, new URLSearchParams());
 
-  if (order.name && order.direction) {
-    searchParams.set("order", `${order.name}.${order.direction}`);
+  const api_param_name = statDefinitions?.find(
+    ({ code }) => code === order.name
+  )
+    ? `stats_summary->${order.name}->sum`
+    : order.name;
+
+  if (api_param_name && order.direction) {
+    searchParams.set("order", `${api_param_name}.${order.direction}`);
   }
 
   if (selectedPeriod) {
