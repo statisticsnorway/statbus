@@ -51,7 +51,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - login (authentication page)
+     * - maintenance (maintenance page)
+     * - api/logger (allow logging without authentication)
      */
-    "/((?!_next/static|_next/image|favicon.ico|login|maintenance).*)",
+    "/((?!_next/static|_next/image|favicon.ico|login|maintenance|api/logger).*)",
   ],
 };
