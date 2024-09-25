@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { Level, LogEvent } from "pino";
+import { NextResponse, NextRequest } from "next/server";
+import { Level, LogEvent, Logger } from "pino";
 
 import { createServerLogger } from "@/lib/server-logger";
 import { createClient } from "@/lib/supabase/middleware";
@@ -37,7 +37,7 @@ const limitDataSize = (payload: any, maxSize: number) => {
 };
 
 // Function to log events
-const logEvent = async (logger, level: Level, payload, event: LogEvent, useragent: string) => {
+const logEvent = async (logger: Logger<never>, level: Level, payload: any, event: LogEvent, useragent: string) => {
   logger[level](
     {
       ...payload,
@@ -48,7 +48,7 @@ const logEvent = async (logger, level: Level, payload, event: LogEvent, useragen
   );
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();

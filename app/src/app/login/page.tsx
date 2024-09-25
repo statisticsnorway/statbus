@@ -5,15 +5,27 @@ import { login } from "@/app/login/actions";
 import Image from "next/image";
 import { useFormState } from "react-dom";
 import logo from "@/../public/statbus-logo.png";
+import { useAuth } from "@/hooks/useAuth"; // Import the auth hook
+import { useRouter } from "next/navigation";
 
 const initialState: LoginState = {
   error: null,
 };
 
 export default function LoginPage() {
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [state, formAction] = useFormState(login, initialState);
 
-  return (
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/");
+    }
+  }, [isAuthenticated, router]);
+
+  // Render the login form if not authenticated
+  return !isAuthenticated ? (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <Image
@@ -95,5 +107,5 @@ export default function LoginPage() {
         </form>
       </div>
     </main>
-  );
+  ) : null;
 }
