@@ -17,3 +17,4 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Use TypeScript; define types in .d.ts or locally.
  • Use functional components with hooks.
  • Use layout.tsx in app/ for global providers, not _app.tsx. 
+ • Use an app directory structure (not pages).
