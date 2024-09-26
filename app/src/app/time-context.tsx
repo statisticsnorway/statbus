@@ -1,11 +1,11 @@
 "use client";
 import { createContext } from "react";
-import type { Period } from "@/app/types";
+import type { TimeContext } from "@/app/types";
 
 interface TimeContextState {
-  readonly periods: Period[];
-  readonly selectedPeriod: Period | null;
-  readonly setSelectedPeriod: (period: Period) => void;
+  readonly timeContexts: TimeContext[];
+  readonly selectedTimeContext: TimeContext | null;
+  readonly setSelectedTimeContext: (period: TimeContext) => void;
 }
 
-export const TimeContext = createContext<TimeContextState | null>(null);
+export const TimeContextState = createContext<TimeContextState | null>(null);

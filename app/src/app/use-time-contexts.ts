@@ -1,29 +1,31 @@
 import { useAuth } from "@/hooks/useAuth";
+import logger from "@/lib/client-logger";
 import { useState, useEffect } from "react";
+import { TimeContext } from "./types";
 
-export default function useRelativePeriods() {
+export default function useTimeContexts() {
   const { isAuthenticated } = useAuth();
-  const [periods, setPeriods] = useState<Period[]>([]);
+  const [timeContexts, setTimeContexts] = useState<TimeContext[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
       (async () => {
         try {
-          const response = await fetch("/api/relative-periods");
+          const response = await fetch("/api/time-contexts");
 
         if (
           response.ok &&
           response.headers.get("content-type") === "application/json"
         ) {
           const data = await response.json();
-          setPeriods(data);
+          setTimeContexts(data);
         }
         } catch (e) {
-          logger.error(e, "failed to fetch relative periods");
+          logger.error(e, "failed to fetch time contexts");
         }
       })();
     }
   }, [isAuthenticated]);
 
-  return periods;
+  return timeContexts;
 }

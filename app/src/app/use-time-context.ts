@@ -1,8 +1,8 @@
 import { useContext } from "react";
-import { TimeContext } from "@/app/time-context";
+import { TimeContextState } from "@/app/time-context";
 
 export const useTimeContext = () => {
-  const context = useContext(TimeContext);
+  const context = useContext(TimeContextState);
 
   if (!context) {
     throw new Error("useTimeContext must be used within a TimeProvider");

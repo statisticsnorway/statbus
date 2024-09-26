@@ -7,7 +7,7 @@ const fetcher: Fetcher<SearchResult, string> = (...args) =>
   fetch(...args).then((res) => res.json());
 
 export default function useSearch(searchFilterState: SearchState) {
-  const { selectedPeriod } = useTimeContext();
+  const { selectedTimeContext } = useTimeContext();
   const { statDefinitions } = useCustomConfigContext();
   const { order, pagination, queries } = searchFilterState;
 
@@ -28,9 +28,9 @@ export default function useSearch(searchFilterState: SearchState) {
     searchParams.set("order", `${api_param_name}.${order.direction}`);
   }
 
-  if (selectedPeriod) {
-    searchParams.set("valid_from", `lte.${selectedPeriod.valid_on}`);
-    searchParams.set("valid_to", `gte.${selectedPeriod.valid_on}`);
+  if (selectedTimeContext) {
+    searchParams.set("valid_from", `lte.${selectedTimeContext.valid_on}`);
+    searchParams.set("valid_to", `gte.${selectedTimeContext.valid_on}`);
   }
 
   if (pagination.pageNumber && pagination.pageSize) {

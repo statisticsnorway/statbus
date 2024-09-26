@@ -1,6 +1,6 @@
 import { Tables } from "@/lib/database.types";
 
-type Period = Tables<"period_active">;
+type TimeContext = Tables<"time_context">;
 
 type StatDefinition = Tables<"stat_definition">;
 type ExternalIdentType = Tables<"external_ident_type">;

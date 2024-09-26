@@ -20,13 +20,13 @@ import { useEffect, useState } from "react";
 
 export default function TimeContextSelector({
   className,
-  title = "Select period",
+  title = "Select time",
 }: {
   readonly className?: string;
   readonly title?: string;
 }) {
   const [visible, setVisible] = useState(false);
-  const { selectedPeriod, periods, setSelectedPeriod } = useTimeContext();
+  const { selectedTimeContext, timeContexts: time_contexts, setSelectedTimeContext} = useTimeContext();
 
   useEffect(() => {
     setVisible(true);
@@ -44,7 +44,7 @@ export default function TimeContextSelector({
           )}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
-          {selectedPeriod?.name_when_query ?? title}
+          {selectedTimeContext?.name_when_query ?? title}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -56,15 +56,15 @@ export default function TimeContextSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {periods.map((period) => (
+              {time_contexts.map((time_context) => (
                 <CommandItem
-                  key={period.ident}
-                  value={period.ident!}
-                  onSelect={() => setSelectedPeriod(period)}
+                  key={time_context.ident}
+                  value={time_context.ident!}
+                  onSelect={() => setSelectedTimeContext(time_context)}
                   className="space-x-2"
                 >
-                  {selectedPeriod === period ? <Check size={14} /> : null}
-                  <span>{period.name_when_query}</span>
+                  {selectedTimeContext === time_context ? <Check size={14} /> : null}
+                  <span>{time_context.name_when_query}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
