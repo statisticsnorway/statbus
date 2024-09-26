@@ -17,6 +17,6 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Group components by feature in components/.
  • Use TypeScript; define types in .d.ts or locally.
  • Use functional components with hooks.
+ • Use App Routing(app directory structure) (not Pages Router).
  • Use layout.tsx in app/ for global providers, not `_app.tsx`. 
- • Use an app directory structure (not pages).
 
