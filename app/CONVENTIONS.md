@@ -5,6 +5,7 @@ The app runs server-side and client-side with SSR, using Next.js 14 in app/src/{
 Deployed on custom servers behind Caddy with HTTPS.
 
  • Use named exports for HTTP methods.
+ • Use destructuring for imports.
  • Use route.ts for all pages.
  • Handle responses with NextResponse.
  • Organize under app/api to match endpoints.
