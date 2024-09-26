@@ -246,10 +246,10 @@ class StatBus
       postgres_host = "localhost"
       # global_vars["POSTGRES_HOST"]
       postgres_port = global_vars["DB_PUBLIC_LOCALHOST_PORT"]
-      postgres_password = global_vars["POSTGRES_PASSWORD"]
       postgres_db = global_vars["POSTGRES_DB"]
       postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
-      puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}" if @verbose
+      postgres_password = global_vars["POSTGRES_PASSWORD"]
+      puts "Import data to postgres_host=#{postgres_host} postgres_port=#{postgres_port} postgres_db=#{postgres_db} postgres_user=#{postgres_user} postgres_password=#{postgres_password}" if @verbose
 
       sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
       sql_fields_list = sql_cli_provided_fields + sql_field_required_list + sql_field_optional_list
