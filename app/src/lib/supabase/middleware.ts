@@ -33,7 +33,7 @@ export const createClient = (request: NextRequest) => {
     }
   }
 
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
