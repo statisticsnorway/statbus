@@ -1,4 +1,4 @@
-read: CONVENTIONS.md
+read: app/CONVENTIONS.md
 #read: [CONVENTIONS.md, anotherfile.txt]
 
 # The code quality for large SQL file edits is not great,
