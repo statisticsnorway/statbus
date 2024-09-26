@@ -1,6 +1,6 @@
 "use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTimeContext } from "@/app/use-time-context";
 import useSWR from "swr";
 
@@ -24,17 +24,36 @@ export const useDrillDownData = (initialDrillDown: DrillDown) => {
     urlSearchParams.set("valid_on", selectedPeriod.valid_on);
   }
 
+  const cache = useMemo(() => new Map<string, DrillDown>(), []);
+
+  useEffect(() => {
+    cache.clear();
+  }, []);
+
+  const fetcher = async (url: string) => {
+    if (cache.has(url)) {
+      return cache.get(url);
+    }
+    const response = await fetch(url);
+    const data = await response.json();
+    cache.set(url, data);
+    return data;
+  };
+
   const swrResponse = useSWR<DrillDown>(
-    `/api/reports?${urlSearchParams}`,
-    (url: string) => fetch(url).then((res) => res.json()),
+    `/api/reports?${urlSearchParams.toString()}`,
+    fetcher,
     {
       fallbackData: initialDrillDown,
       keepPreviousData: true,
     }
   );
 
+  // Use initial data when no parameters are present
+  const drillDown = swrResponse.data || initialDrillDown;
+
   return {
-    drillDown: swrResponse.data,
+    drillDown,
     region,
     setRegion,
     activityCategory,
