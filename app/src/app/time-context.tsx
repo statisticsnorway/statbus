@@ -9,6 +9,7 @@ interface TimeContextState {
   readonly timeContexts: TimeContextType[];
   readonly selectedTimeContext: TimeContextType | null;
   readonly setSelectedTimeContext: (period: TimeContextType) => void;
+  readonly appendTcParam: (url: string) => string;
 }
 
 const TC_QUERY_PARAM = "tc";
@@ -78,7 +79,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
   }, [isAuthenticated, timeContexts, router]);
 
   useEffect(() => {
-    if (selectedTimeContext) {
+    if (selectedTimeContext && selectedTimeContext.ident != null) {
       const query = new URLSearchParams(window.location.search);
       query.set(TC_QUERY_PARAM, selectedTimeContext.ident);
       router.replace(`?${query.toString()}`);

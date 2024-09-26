@@ -5,6 +5,7 @@ import { FC } from "react";
 
 interface TimeContextLinkProps extends NextLinkProps {
   children: React.ReactNode;
+  className?: string;
 }
 
 const TimeContextLink: FC<TimeContextLinkProps> = ({ href, children, className, ...props }) => {
