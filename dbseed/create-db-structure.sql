@@ -758,11 +758,11 @@ CREATE TABLE public.settings (
 \echo public.activity_category_available
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
-SELECT ac.id
-     , acs.code AS standard_code
-     , ac.code
+SELECT acs.code AS standard_code
+     , ac.id
      , ac.path
      , acp.path AS parent_path
+     , ac.code
      , ac.label
      , ac.name
      , ac.description
@@ -4833,9 +4833,9 @@ CREATE MATERIALIZED VIEW public.activity_category_used AS
 SELECT acs.code AS standard_code
      , ac.id
      , ac.path
-     , acp.code AS parent_code
-     , ac.label
+     , acp.path AS parent_path
      , ac.code
+     , ac.label
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
