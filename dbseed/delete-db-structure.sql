@@ -305,8 +305,8 @@ DROP TABLE public.custom_analysis_check;
 
 DROP TABLE public.data_source;
 
-DROP VIEW public.period_active;
-DROP TYPE public.period_type;
+DROP VIEW public.time_context;
+DROP TYPE public.time_context_type;
 
 DROP VIEW public.relative_period_with_time;
 DROP TABLE public.relative_period;
