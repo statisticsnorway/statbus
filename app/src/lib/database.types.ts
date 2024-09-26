@@ -80,7 +80,7 @@ export type Database = {
       activity_category: {
         Row: {
           active: boolean
-          code: string | null
+          code: string
           custom: boolean
           description: string | null
           id: number
@@ -94,7 +94,7 @@ export type Database = {
         }
         Insert: {
           active: boolean
-          code?: string | null
+          code: string
           custom: boolean
           description?: string | null
           id?: never
@@ -108,7 +108,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          code?: string | null
+          code?: string
           custom?: boolean
           description?: string | null
           id?: never
@@ -201,6 +201,7 @@ export type Database = {
       activity_category_standard: {
         Row: {
           code: string
+          code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"]
           description: string
           id: number
           name: string
@@ -208,6 +209,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"]
           description: string
           id?: never
           name: string
@@ -215,6 +217,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"]
           description?: string
           id?: never
           name?: string
@@ -1288,6 +1291,7 @@ export type Database = {
           address_part1: string | null
           address_part2: string | null
           address_part3: string | null
+          altitude: number | null
           country_id: number
           establishment_id: number | null
           id: number
@@ -1307,6 +1311,7 @@ export type Database = {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
+          altitude?: number | null
           country_id: number
           establishment_id?: number | null
           id?: number
@@ -1326,6 +1331,7 @@ export type Database = {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
+          altitude?: number | null
           country_id?: number
           establishment_id?: number | null
           id?: number
@@ -1559,6 +1565,9 @@ export type Database = {
       }
       region: {
         Row: {
+          center_altitude: number | null
+          center_latitude: number | null
+          center_longitude: number | null
           code: string | null
           id: number
           label: string
@@ -1568,6 +1577,9 @@ export type Database = {
           path: unknown
         }
         Insert: {
+          center_altitude?: number | null
+          center_latitude?: number | null
+          center_longitude?: number | null
           code?: string | null
           id?: number
           label?: string
@@ -1577,6 +1589,9 @@ export type Database = {
           path: unknown
         }
         Update: {
+          center_altitude?: number | null
+          center_latitude?: number | null
+          center_longitude?: number | null
           code?: string | null
           id?: number
           label?: string
@@ -2154,7 +2169,7 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_code: string | null
+          parent_path: unknown | null
           path: unknown | null
           standard_code: string | null
         }
@@ -3557,6 +3572,7 @@ export type Database = {
           address_part1: string | null
           address_part2: string | null
           address_part3: string | null
+          altitude: number | null
           country_id: number | null
           establishment_id: number | null
           id: number | null
@@ -3576,6 +3592,7 @@ export type Database = {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
+          altitude?: number | null
           country_id?: number | null
           establishment_id?: number | null
           id?: number | null
@@ -3595,6 +3612,7 @@ export type Database = {
           address_part1?: string | null
           address_part2?: string | null
           address_part3?: string | null
+          altitude?: number | null
           country_id?: number | null
           establishment_id?: number | null
           id?: number | null
@@ -3654,21 +3672,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      period_active: {
-        Row: {
-          code: Database["public"]["Enums"]["relative_period_code"] | null
-          ident: string | null
-          name_when_input: string | null
-          name_when_query: string | null
-          path: unknown | null
-          scope: Database["public"]["Enums"]["relative_period_scope"] | null
-          type: Database["public"]["Enums"]["period_type"] | null
-          valid_from: string | null
-          valid_on: string | null
-          valid_to: string | null
-        }
-        Relationships: []
       }
       person_type_custom: {
         Row: {
@@ -3745,14 +3748,23 @@ export type Database = {
       }
       region_upload: {
         Row: {
+          center_altitude: number | null
+          center_latitude: number | null
+          center_longitude: number | null
           name: string | null
           path: unknown | null
         }
         Insert: {
+          center_altitude?: number | null
+          center_latitude?: number | null
+          center_longitude?: number | null
           name?: string | null
           path?: unknown | null
         }
         Update: {
+          center_altitude?: number | null
+          center_latitude?: number | null
+          center_longitude?: number | null
           name?: string | null
           path?: unknown | null
         }
@@ -4345,6 +4357,21 @@ export type Database = {
         }
         Relationships: []
       }
+      time_context: {
+        Row: {
+          code: Database["public"]["Enums"]["relative_period_code"] | null
+          ident: string | null
+          name_when_input: string | null
+          name_when_query: string | null
+          path: unknown | null
+          scope: Database["public"]["Enums"]["relative_period_scope"] | null
+          type: Database["public"]["Enums"]["time_context_type"] | null
+          valid_from: string | null
+          valid_on: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       timeline_enterprise: {
         Row: {
           activity_category_paths: unknown[] | null
@@ -4495,13 +4522,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -4511,26 +4531,33 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
+            referencedRelation: "country"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
+            isOneToOne: false
             referencedRelation: "country_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -4839,6 +4866,12 @@ export type Database = {
           valid_on?: string
         }
         Returns: Json
+      }
+      array_distinct_concat_final: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
       }
       connect_legal_unit_to_enterprise: {
         Args: {
@@ -5438,16 +5471,16 @@ export type Database = {
       set_primary_establishment_for_legal_unit: {
         Args: {
           establishment_id: number
-          valid_from?: string
-          valid_to?: string
+          valid_from_param?: string
+          valid_to_param?: string
         }
         Returns: Json
       }
       set_primary_legal_unit_for_enterprise: {
         Args: {
           legal_unit_id: number
-          valid_from?: string
-          valid_to?: string
+          valid_from_param?: string
+          valid_to_param?: string
         }
         Returns: Json
       }
@@ -5536,10 +5569,10 @@ export type Database = {
       }
     }
     Enums: {
+      activity_category_code_behaviour: "digits" | "dot_after_two_digits"
       activity_type: "primary" | "secondary" | "ancilliary"
       history_resolution: "year" | "year-month"
       location_type: "physical" | "postal"
-      period_type: "relative_period" | "tag"
       person_sex: "Male" | "Female"
       relative_period_code:
         | "today"
@@ -5590,6 +5623,7 @@ export type Database = {
         | "enterprise"
         | "enterprise_group"
       tag_type: "custom" | "system"
+      time_context_type: "relative_period" | "tag"
     }
     CompositeTypes: {
       [_ in never]: never
