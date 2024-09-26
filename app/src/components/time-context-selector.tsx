@@ -15,7 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { useTimeContext } from "@/app/use-time-context";
+import { useTimeContext } from "@/app/time-context";
 import { useEffect, useState } from "react";
 
 export default function TimeContextSelector({

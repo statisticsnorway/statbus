@@ -1,6 +1,6 @@
 import useSWR, { Fetcher } from "swr";
 
-import { useTimeContext } from "@/app/use-time-context";
+import { useTimeContext } from "@/app/time-context";
 import { useCustomConfigContext } from "../use-custom-config-context";
 
 const fetcher: Fetcher<SearchResult, string> = (...args) =>

@@ -8,7 +8,7 @@ import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
-import TimeContextProvider from "@/app/time-context-provider";
+import { TimeContextProvider } from "@/app/time-context";
 import CustomConfigProvider from "./custom-config-provider";
 import { AuthProvider } from "@/context/AuthContext";
 
@@ -39,15 +39,15 @@ export default function RootLayout({
                 <Navbar />
               </Suspense>
               {children}
+              <CommandPalette />
+              <Toaster />
+              <Suspense fallback={<FooterSkeleton />}>
+                <Footer />
+              </Suspense>
+              <GlobalErrorReporter />
             </TimeContextProvider>
           </CustomConfigProvider>
         </AuthProvider>
-        <CommandPalette />
-        <Toaster />
-        <Suspense fallback={<FooterSkeleton />}>
-          <Footer />
-        </Suspense>
-        <GlobalErrorReporter />
       </body>
     </html>
   );
