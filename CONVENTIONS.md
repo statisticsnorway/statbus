@@ -10,11 +10,13 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Organize under app/api to match endpoints.
  • Avoid default exports.
  • Styling: Tailwind CSS.
+ • Component Library: shadcn/ui
  • Testing: Jest and ts-jest.
  • Build/Deployment: Standard Next.js scripts in package.json.
  • Use React Context/hooks; organize in context/ and hooks/.
  • Group components by feature in components/.
  • Use TypeScript; define types in .d.ts or locally.
  • Use functional components with hooks.
- • Use layout.tsx in app/ for global providers, not _app.tsx. 
+ • Use layout.tsx in app/ for global providers, not `_app.tsx`. 
  • Use an app directory structure (not pages).
+
