@@ -243,7 +243,7 @@ class StatBus
       # The variables are all in the global scope, as an ".env" file is not really an ini file,
       # it just has the same
       global_vars = vars[""]
-      postgres_host = "localhost"
+      postgres_host = "127.0.0.1"
       # global_vars["POSTGRES_HOST"]
       postgres_port = global_vars["DB_PUBLIC_LOCALHOST_PORT"]
       postgres_db = global_vars["POSTGRES_DB"]
@@ -336,7 +336,9 @@ class StatBus
         end
       end
 
-      DB.connect("postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}") do |db|
+      db_connection_string = "postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}"
+      puts db_connection_string if @verbose
+      DB.connect(db_connection_string) do |db|
         if !@import_tag.nil?
           tag = db.query_one?("
             SELECT id, path::text, name, context_valid_from::text, context_valid_to::text
