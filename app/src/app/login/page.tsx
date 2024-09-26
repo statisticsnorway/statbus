@@ -25,7 +25,7 @@ export default function LoginPage() {
   }, [isAuthenticated, router]);
 
   // Render the login form if not authenticated
-  return !isAuthenticated ? (
+  return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <Image
@@ -107,5 +107,5 @@ export default function LoginPage() {
         </form>
       </div>
     </main>
-  ) : null;
+  );
 }
