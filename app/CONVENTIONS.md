@@ -6,7 +6,7 @@ Deployed on custom servers behind Caddy with HTTPS.
 
  • Use named exports for HTTP methods.
  • Use destructuring for imports.
- • Use route.ts for all pages.
+ • Use route.ts for all pages and API routes in app/.
  • Handle responses with NextResponse.
  • Organize under app/api to match endpoints.
  • Avoid default exports.
