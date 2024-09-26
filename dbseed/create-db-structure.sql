@@ -1270,7 +1270,7 @@ CREATE VIEW public.period_active
   ) AS
 WITH combined_data AS (
   SELECT 'relative_period'::public.period_type AS type
-  ,      'r:'||code::VARCHAR                   AS ident
+  ,      'r_'||code::VARCHAR                   AS ident
   ,      name_when_query                       AS name_when_query
   ,      name_when_input                       AS name_when_input
   ,      scope                                 AS scope
