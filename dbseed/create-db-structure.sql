@@ -1249,14 +1249,14 @@ BEGIN
 END $$;
 
 
-\echo public.period_type
-CREATE TYPE public.period_type AS ENUM (
+\echo public.time_context_type
+CREATE TYPE public.time_context_type AS ENUM (
     'relative_period',
     'tag'
 );
 
-\echo public.period_active
-CREATE VIEW public.period_active
+\echo public.time_context
+CREATE VIEW public.time_context
   ( type
   , ident
   , name_when_query
@@ -1269,7 +1269,7 @@ CREATE VIEW public.period_active
   , path         -- Exposing the path for ordering
   ) AS
 WITH combined_data AS (
-  SELECT 'relative_period'::public.period_type AS type
+  SELECT 'relative_period'::public.time_context_type AS type
   ,      'r_'||code::VARCHAR                   AS ident
   ,      name_when_query                       AS name_when_query
   ,      name_when_input                       AS name_when_input
@@ -1284,7 +1284,7 @@ WITH combined_data AS (
 
   UNION ALL
 
-  SELECT 'tag'::public.period_type                       AS type
+  SELECT 'tag'::public.time_context_type                 AS type
   ,      't:'||path::VARCHAR                             AS ident
   ,      description                                     AS name_when_query
   ,      description                                     AS name_when_input
