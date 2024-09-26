@@ -1,7 +1,8 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone'
-}
+  output: 'standalone',
+  reactStrictMode: false,
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
