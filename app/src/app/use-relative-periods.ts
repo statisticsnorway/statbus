@@ -1,14 +1,15 @@
-import logger from "@/lib/client-logger";
-import { useEffect, useState } from "react";
-import { Period } from "@/app/types";
+import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
 
 export default function useRelativePeriods() {
+  const { isAuthenticated } = useAuth();
   const [periods, setPeriods] = useState<Period[]>([]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const response = await fetch("/api/relative-periods");
+    if (isAuthenticated) {
+      (async () => {
+        try {
+          const response = await fetch("/api/relative-periods");
 
         if (
           response.ok &&
@@ -17,11 +18,12 @@ export default function useRelativePeriods() {
           const data = await response.json();
           setPeriods(data);
         }
-      } catch (e) {
-        logger.error(e, "failed to fetch relative periods");
-      }
-    })();
-  }, []);
+        } catch (e) {
+          logger.error(e, "failed to fetch relative periods");
+        }
+      })();
+    }
+  }, [isAuthenticated]);
 
   return periods;
 }

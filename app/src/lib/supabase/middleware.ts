@@ -5,7 +5,18 @@ import { NextRequest, NextResponse } from "next/server";
 // This approach is inspired by supabase docs:
 // https://supabase.com/docs/guides/auth/server-side/creating-a-client?environment=middleware
 export const createClient = (request: NextRequest) => {
-  let response = NextResponse.next({
+  if (!isAuthenticated(request)) {
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    } else {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
+
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
