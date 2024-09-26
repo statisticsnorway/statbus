@@ -21,3 +21,4 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Use App Routing(app directory structure) (not Pages Router).
  • Use layout.tsx in app/ for global providers, not `_app.tsx`. 
 
+When CWD is the app dir then shell commands must remove the initial 'app/' from paths.
