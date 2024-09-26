@@ -10,6 +10,7 @@ import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import TimeContextProvider from "@/app/time-context-provider";
 import CustomConfigProvider from "./custom-config-provider";
+import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,14 +32,16 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <CustomConfigProvider>
-          <TimeContextProvider>
-            <Suspense fallback={<NavbarSkeleton />}>
-              <Navbar />
-            </Suspense>
-            {children}
-          </TimeContextProvider>
-        </CustomConfigProvider>
+        <AuthProvider>
+          <CustomConfigProvider>
+            <TimeContextProvider>
+              <Suspense fallback={<NavbarSkeleton />}>
+                <Navbar />
+              </Suspense>
+              {children}
+            </TimeContextProvider>
+          </CustomConfigProvider>
+        </AuthProvider>
         <CommandPalette />
         <Toaster />
         <Suspense fallback={<FooterSkeleton />}>
