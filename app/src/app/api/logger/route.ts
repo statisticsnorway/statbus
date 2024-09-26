@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { Level, LogEvent, Logger } from "pino";
 
 import { createServerLogger } from "@/lib/server-logger";
-import { createClient } from "@/lib/supabase/middleware";
+import { isAuthenticated } from "@/lib/supabase/middleware";
 
 // Interface for log requests
 interface ClientLogRequest {
@@ -53,11 +53,8 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
 
-    // Check for authentication session
-    const { client, response } = createClient(request);
-    const {
-      data: { session },
-    } = await client.auth.getSession();
+    // Check for authentication
+    const isLoggedIn = await isAuthenticated(request);
 
     // Parse the payload
     const payload = parseLogPayload(event);
@@ -65,7 +62,7 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get("user-agent") ?? "unknown";
 
     // If session exists, log normally; otherwise, limit data
-    if (session) {
+    if (isLoggedIn) {
       await logEvent(logger, level, payload, event, userAgent);
     } else {
       // Limit log data for non-authenticated users

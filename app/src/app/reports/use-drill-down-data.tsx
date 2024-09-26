@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useTimeContext } from "@/app/use-time-context";
 import useSWR from "swr";
 
-export const useDrillDownData = (initialDrillDown: DrillDown) => {
-  const { selectedPeriod } = useTimeContext();
+export const useDrillDownData = () => {
+  const { selectedTimeContext } = useTimeContext();
   const [region, setRegion] = useState<DrillDownPoint | null>(null);
   const [activityCategory, setActivityCategory] =
     useState<DrillDownPoint | null>(null);
@@ -20,15 +20,15 @@ export const useDrillDownData = (initialDrillDown: DrillDown) => {
     urlSearchParams.set("activity_category_path", activityCategory?.path);
   }
 
-  if (selectedPeriod?.valid_on) {
-    urlSearchParams.set("valid_on", selectedPeriod.valid_on);
+  if (selectedTimeContext?.valid_on) {
+    urlSearchParams.set("valid_on", selectedTimeContext.valid_on);
   }
 
   const cache = useMemo(() => new Map<string, DrillDown>(), []);
 
   useEffect(() => {
     cache.clear();
-  }, []);
+  }, [cache]);
 
   const fetcher = async (url: string) => {
     if (cache.has(url)) {
@@ -44,13 +44,12 @@ export const useDrillDownData = (initialDrillDown: DrillDown) => {
     `/api/reports?${urlSearchParams.toString()}`,
     fetcher,
     {
-      fallbackData: initialDrillDown,
       keepPreviousData: true,
     }
   );
 
   // Use initial data when no parameters are present
-  const drillDown = swrResponse.data || initialDrillDown;
+  const drillDown = swrResponse.data;
 
   return {
     drillDown,

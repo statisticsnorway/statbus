@@ -1,23 +1,23 @@
 "use client";
 import { ReactNode, useMemo, useState } from "react";
-import { TimeContext } from "@/app/time-context";
-import type { Period } from "@/app/types";
-import useRelativePeriods from "@/app/use-relative-periods";
+import { TimeContextState } from "@/app/time-context";
+import type { TimeContext } from "@/app/types";
+import useTimeContexts from "@/app/use-time-contexts";
 
 interface TimeContextProviderProps {
   readonly children: ReactNode;
 }
 
 export default function TimeContextProvider(props: TimeContextProviderProps) {
-  const periods = useRelativePeriods();
-  const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null);
+  const timeContexts = useTimeContexts();
+  const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContext | null>(null);
 
   const value = useMemo(
-    () => ({ periods, selectedPeriod, setSelectedPeriod }),
-    [periods, selectedPeriod, setSelectedPeriod]
+    () => ({ timeContexts, selectedTimeContext, setSelectedTimeContext }),
+    [timeContexts, selectedTimeContext, setSelectedTimeContext]
   );
 
   return (
-    <TimeContext.Provider value={value}>{props.children}</TimeContext.Provider>
+    <TimeContextState.Provider value={value}>{props.children}</TimeContextState.Provider>
   );
 }
