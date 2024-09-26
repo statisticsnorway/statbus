@@ -25,22 +25,18 @@ export default function TimeContextSelector({
   readonly className?: string;
   readonly title?: string;
 }) {
-  const [visible, setVisible] = useState(false);
-  const { selectedTimeContext, timeContexts: time_contexts, setSelectedTimeContext} = useTimeContext();
+  const { selectedTimeContext, timeContexts: time_contexts, setSelectedTimeContext } = useTimeContext();
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  useEffect(() => {
-    setVisible(true);
-  }, []);
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+      <PopoverTrigger asChild onClick={() => setIsPopoverOpen(!isPopoverOpen)}>
         <Button
           variant="outline"
           className={cn(
-            "space-x-2 transition-opacity border-dashed duration-500 bg-transparent",
-            className,
-            visible ? "opacity-100" : "opacity-0"
+            "space-x-2 border-dashed bg-transparent",
+            className
           )}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
@@ -60,7 +56,10 @@ export default function TimeContextSelector({
                 <CommandItem
                   key={time_context.ident}
                   value={time_context.ident!}
-                  onSelect={() => setSelectedTimeContext(time_context)}
+                  onSelect={() => {
+                    setSelectedTimeContext(time_context);
+                    setIsPopoverOpen(false);
+                  }}
                   className="space-x-2"
                 >
                   {selectedTimeContext === time_context ? <Check size={14} /> : null}
