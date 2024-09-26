@@ -11,7 +11,10 @@ interface TimeContextLinkProps extends NextLinkProps {
 const TimeContextLink: FC<TimeContextLinkProps> = ({ href, children, className, ...props }) => {
   const { appendTcParam } = useTimeContext();
 
-  const modifiedHref = typeof href === "string" ? appendTcParam(href) : href;
+  const modifiedHref =
+    typeof href === "string"
+      ? appendTcParam(href)
+      : href;
 
   return (
     <NextLink href={modifiedHref} className={className} {...props}>
