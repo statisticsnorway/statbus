@@ -1,7 +1,7 @@
 "use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useState, useMemo, useEffect } from "react";
-import { useTimeContext } from "@/app/use-time-context";
+import { useTimeContext } from "@/app/time-context";
 import useSWR from "swr";
 
 export const useDrillDownData = () => {
