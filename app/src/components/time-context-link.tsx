@@ -23,4 +23,4 @@ const TimeContextLink: FC<TimeContextLinkProps> = ({ href, children, className, 
   );
 };
 
-export default TimeContextLink;
+export { TimeContextLink };
