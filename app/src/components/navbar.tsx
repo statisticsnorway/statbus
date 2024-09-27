@@ -2,7 +2,7 @@
 import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
-import TimeContextLink from "@/components/TimeContextLink";
+import { TimeContextLink } from "@/components/time-context-link";
 import { BarChartHorizontal, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
