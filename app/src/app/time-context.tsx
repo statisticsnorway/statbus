@@ -1,6 +1,6 @@
 "use client";
-import { createContext, useContext, useState, useMemo, ReactNode, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useContext, useState, useMemo, ReactNode, useEffect, useCallback } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import logger from "@/lib/client-logger";
 import type { TimeContext as TimeContextType } from "@/app/types";
@@ -31,12 +31,42 @@ interface TimeContextProviderProps {
 
 export function TimeContextProvider({ children }: TimeContextProviderProps) {
   const { isAuthenticated } = useAuth();
-  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [timeContexts, setTimeContexts] = useState<TimeContextType[]>([]);
 
   const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContextType | null>(null);
 
+  const updateQueryParam = useCallback((tcIdent: string | null) => {
+    const query = new URLSearchParams(searchParams.toString());
+    if (tcIdent) {
+      query.set(TC_QUERY_PARAM, tcIdent);
+    }
+    window.history.replaceState(null, "", `${pathname}?${query.toString()}`);
+  }, [pathname, searchParams]);
+
   useEffect(() => {
+    const handleRouteChange = () => {
+      const query = new URLSearchParams(searchParams.toString());
+      const tc = query.get(TC_QUERY_PARAM);
+      if (!tc && selectedTimeContext) {
+        updateQueryParam(selectedTimeContext.ident);
+      } else if (!tc && timeContexts.length > 0) {
+        const firstTimeContext = timeContexts[0];
+        if (firstTimeContext?.ident) {
+          setSelectedTimeContext(firstTimeContext);
+          updateQueryParam(firstTimeContext.ident);
+        }
+      } else {
+        const selectedContext = timeContexts.find(
+          (context) => context.ident === tc
+        );
+        if (selectedContext) {
+          setSelectedTimeContext(selectedContext);
+        }
+      }
+    };
+
     if (typeof window !== "undefined" && isAuthenticated) {
       const fetchTimeContexts = async () => {
         try {
@@ -56,48 +86,42 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       if (timeContexts.length === 0) {
         fetchTimeContexts();
       } else {
-        const query = new URLSearchParams(window.location.search);
-        const tc = query.get(TC_QUERY_PARAM);
-
-        if (!tc) {
-          const firstTimeContext = timeContexts[0];
-          if (firstTimeContext?.ident) {
-            setSelectedTimeContext(firstTimeContext);
-            query.set(TC_QUERY_PARAM, firstTimeContext.ident);
-            router.replace(`?${query.toString()}`);
-          }
-        } else {
-          const selectedContext = timeContexts.find(
-            (context) => context.ident === tc
-          );
-          if (selectedContext) {
-            setSelectedTimeContext(selectedContext);
-          }
-        }
+        handleRouteChange();
       }
+
+      handleRouteChange();
     }
-  }, [isAuthenticated, timeContexts, router]);
+  }, [isAuthenticated, timeContexts, pathname, searchParams, updateQueryParam]);
 
   useEffect(() => {
     if (selectedTimeContext && selectedTimeContext.ident != null) {
-      const query = new URLSearchParams(window.location.search);
-      query.set(TC_QUERY_PARAM, selectedTimeContext.ident);
-      router.replace(`?${query.toString()}`);
+      updateQueryParam(selectedTimeContext.ident);
     }
-  }, [selectedTimeContext, router]);
+  }, [selectedTimeContext, pathname, searchParams, updateQueryParam]);
+
+  const appendTcParam = useCallback((url: string) => {
+    const urlObj = new URL(url, window.location.origin);
+    const tc = selectedTimeContext?.ident;
+
+    if (tc && !urlObj.searchParams.has(TC_QUERY_PARAM)) {
+      urlObj.searchParams.set(TC_QUERY_PARAM, tc);
+    }
+
+    return urlObj.toString().replace(window.location.origin, '');
+  }, [selectedTimeContext]);
 
   const value = useMemo(
-    () => ({ timeContexts, selectedTimeContext, setSelectedTimeContext }),
-    [timeContexts, selectedTimeContext]
+    () => ({
+      timeContexts,
+      selectedTimeContext,
+      setSelectedTimeContext,
+      appendTcParam,
+    }),
+    [timeContexts, selectedTimeContext, appendTcParam]
   );
 
-  const appendTcParam = (url: string) => {
-    const query = new URLSearchParams(window.location.search);
-    const tc = query.get(TC_QUERY_PARAM);
-    return tc ? `${url}?${TC_QUERY_PARAM}=${tc}` : url;
-  };
   return (
-    <TimeContext.Provider value={{ ...value, appendTcParam }}>
+    <TimeContext.Provider value={value}>
       {children}
     </TimeContext.Provider>
   );
