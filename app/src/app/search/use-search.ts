@@ -39,7 +39,19 @@ export default function useSearch(searchFilterState: SearchState) {
     searchParams.set("offset", `${offset}`);
   }
 
-  const search = useSWR<SearchResult>(`/api/search?${searchParams}`, fetcher, {
+  if (!searchParams.has("order")) {
+    searchParams.set("order", "tax_ident.desc");
+  }
+
+  if (!searchParams.has("select")) {
+    searchParams.set("select", "*");
+  }
+
+  if (!searchParams.has("limit")) {
+    searchParams.set("limit", "10");
+  }
+
+  const search = useSWR<SearchResult>(`/api/statistical-units?${searchParams}`, fetcher, {
     keepPreviousData: true,
     revalidateOnFocus: false,
   });
