@@ -10,14 +10,15 @@ interface IProps {
 
 export default function ExternalIdentFilter({ urlSearchParams }: IProps) {
   const { externalIdentTypes } = useCustomConfigContext();
-  const externalIdentType = externalIdentTypes?.[0]?.code;
+  const defaultExternalIdent = externalIdentTypes?.[0];
+  const defaultCode = defaultExternalIdent?.code;
   const urlSearchParam = new URLSearchParams(urlSearchParams).get(
-    externalIdentType
+    defaultCode
   );
   const {
     dispatch,
     search: {
-      values: { [externalIdentType]: selected = [] },
+      values: { [defaultCode]: selected = [] },
     },
   } = useSearchContext();
 
@@ -26,14 +27,14 @@ export default function ExternalIdentFilter({ urlSearchParams }: IProps) {
       dispatch({
         type: "set_query",
         payload: {
-          app_param_name: externalIdentType,
-          api_param_name: `external_idents->>${externalIdentType}`,
+          app_param_name: defaultCode,
+          api_param_name: `external_idents->>${defaultCode}`,
           api_param_value: app_param_value ? `eq.${app_param_value}` : null,
           app_param_values: app_param_value ? [app_param_value] : [],
         },
       });
     },
-    [dispatch, externalIdentType]
+    [dispatch, defaultCode]
   );
 
   useEffect(() => {
@@ -45,8 +46,10 @@ export default function ExternalIdentFilter({ urlSearchParams }: IProps) {
   return (
     <Input
       type="text"
-      placeholder="Find units by Tax Reg ID"
+      placeholder={`Find units by ${defaultExternalIdent?.name || ''}`}
       className="h-9 w-full md:max-w-[200px]"
+      id="external-ident-search"
+      name="external-ident-search"
       value={selected[0] ?? ""}
       onChange={(e) => update(e.target.value)}
     />

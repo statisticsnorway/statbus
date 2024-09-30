@@ -45,6 +45,8 @@ export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
       type="text"
       placeholder="Find units by name"
       className="h-9 w-full md:max-w-[200px]"
+      id="full-text-search"
+      name="full-text-search"
       value={selected[0] ?? ""}
       onChange={(e) => update(e.target.value)}
     />
