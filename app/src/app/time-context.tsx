@@ -91,7 +91,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
 
       handleRouteChange();
     }
-  }, [isAuthenticated, timeContexts, pathname, searchParams, updateQueryParam]);
+  }, [isAuthenticated, timeContexts, pathname, searchParams, updateQueryParam, selectedTimeContext]);
 
   useEffect(() => {
     if (selectedTimeContext && selectedTimeContext.ident != null) {
