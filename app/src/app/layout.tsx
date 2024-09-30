@@ -10,6 +10,7 @@ import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import { TimeContextProvider } from "@/app/time-context";
 import CustomConfigProvider from "./custom-config-provider";
+import PopStateHandler from "@/components/PopStateHandler";
 import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -35,6 +36,7 @@ export default function RootLayout({
         <AuthProvider>
           <CustomConfigProvider>
             <TimeContextProvider>
+              <PopStateHandler />
               <Suspense fallback={<NavbarSkeleton />}>
                 <Navbar />
               </Suspense>

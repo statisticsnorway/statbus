@@ -11,7 +11,18 @@ import { SearchContext, SearchContextState } from "@/app/search/search-context";
 import { SearchState, SearchResult, SearchOrder, SearchPagination } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status} ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch data:", error);
+    throw error;
+  }
+};
 
 interface SearchResultsProps {
   readonly children: ReactNode;
@@ -31,11 +42,6 @@ export default function SearchResults({
   urlSearchParams,
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
-
-  // Early return if no time context is available
-  if (!selectedTimeContext) {
-    return <div>No time context available</div>;
-  }
 
   const [search, dispatch] = useReducer(searchFilterReducer, {
     order: initialOrder,
@@ -58,8 +64,10 @@ export default function SearchResults({
       if (value) params.set(key, value);
     });
 
-    params.set("valid_from", `lte.${selectedTimeContext.valid_on}`);
-    params.set("valid_to", `gte.${selectedTimeContext.valid_on}`);
+    if (selectedTimeContext) {
+      params.set("valid_from", `lte.${selectedTimeContext.valid_on}`);
+      params.set("valid_to", `gte.${selectedTimeContext.valid_on}`);
+    }
 
     if (order.name) {
       params.set("order", `${order.name}.${order.direction}`);
