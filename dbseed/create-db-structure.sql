@@ -378,7 +378,7 @@ $$;
 
 
 CREATE FUNCTION lifecycle_callbacks.cleanup_and_generate()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     proc_names TEXT[] := ARRAY['cleanup', 'generate'];
     proc_name TEXT;
@@ -461,6 +461,9 @@ BEGIN
     END LOOP;
 END;
 $$;
+
+GRANT USAGE ON SCHEMA lifecycle_callbacks TO authenticated;
+GRANT EXECUTE ON FUNCTION lifecycle_callbacks.cleanup_and_generate() TO authenticated;
 
 -- =================================================================
 -- END: Callbacks for code generation based on naming conventions.
@@ -10690,7 +10693,7 @@ BEGIN
 
     -- Add delete for public.external_ident_type not added by the system
     WITH deleted_external_ident AS (
-        DELETE FROM public.external_ident RETURNING *
+        DELETE FROM public.external_ident WHERE id > 0 RETURNING *
     )
     SELECT jsonb_build_object(
         'external_ident', jsonb_build_object(
