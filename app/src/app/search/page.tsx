@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { SearchProvider } from "@/app/search/search-provider";
+import SearchResults from "@/app/search/SearchResults";
 import TableToolbar from "@/app/search/components/table-toolbar";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
@@ -44,7 +44,7 @@ export default async function SearchPage({
   const currentPage = Number(params.get("page")) || defaultCurrentPage;
 
   return (
-    <SearchProvider
+    <SearchResults
       order={{ name: orderBy, direction: orderDirections.join(".") }}
       pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
       regions={regions.data}
@@ -75,6 +75,6 @@ export default async function SearchPage({
           </section>
         </CartProvider>
       </main>
-    </SearchProvider>
+    </SearchResults>
   );
 }

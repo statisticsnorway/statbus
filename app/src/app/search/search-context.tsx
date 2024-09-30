@@ -9,6 +9,7 @@ export interface SearchContextState {
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<"region_used">[];
   readonly activityCategories: Tables<"activity_category_available">[];
+  readonly selectedTimeContext: TimeContextType | null;
   /**
    * Indicates whether the search is currently loading new data.
    */
