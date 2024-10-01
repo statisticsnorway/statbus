@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useMemo, ReactNode, useEffect, use
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import logger from "@/lib/client-logger";
-import type { TimeContext as TimeContextType } from "@/app/types";
+import type { TimeContext, TimeContext as TimeContextType } from "@/app/types";
 
 interface TimeContextState {
   readonly timeContexts: TimeContextType[];
@@ -46,27 +46,6 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    const handleRouteChange = () => {
-      const query = new URLSearchParams(searchParams.toString());
-      const tc = query.get(TC_QUERY_PARAM);
-      if (!tc && selectedTimeContext) {
-        updateQueryParam(selectedTimeContext.ident);
-      } else if (!tc && timeContexts.length > 0) {
-        const firstTimeContext = timeContexts[0];
-        if (firstTimeContext?.ident) {
-          setSelectedTimeContext(firstTimeContext);
-          updateQueryParam(firstTimeContext.ident);
-        }
-      } else {
-        const selectedContext = timeContexts.find(
-          (context) => context.ident === tc
-        );
-        if (selectedContext) {
-          setSelectedTimeContext(selectedContext);
-        }
-      }
-    };
-
     if (typeof window !== "undefined" && isAuthenticated) {
       const fetchTimeContexts = async () => {
         try {
@@ -83,21 +62,35 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
         }
       };
 
+      const handleRouteChange = () => {
+        const query = new URLSearchParams(searchParams.toString());
+        const tcQueryParam = query.get(TC_QUERY_PARAM);
+
+        if (selectedTimeContext) {
+          updateQueryParam(selectedTimeContext.ident);
+        } else if (tcQueryParam) {
+          const selectedContext = timeContexts.find(
+            (context: TimeContext) => context.ident === tcQueryParam
+          );
+          if (selectedContext) {
+            setSelectedTimeContext(selectedContext);
+          }
+        } else if (timeContexts.length > 0) {
+          const firstTimeContext = timeContexts[0];
+          if (firstTimeContext?.ident) {
+            setSelectedTimeContext(firstTimeContext);
+            updateQueryParam(firstTimeContext.ident);
+          }
+        }
+      };
+
       if (timeContexts.length === 0) {
         fetchTimeContexts();
       } else {
         handleRouteChange();
       }
-
-      handleRouteChange();
     }
   }, [isAuthenticated, timeContexts, pathname, searchParams, updateQueryParam, selectedTimeContext]);
-
-  useEffect(() => {
-    if (selectedTimeContext && selectedTimeContext.ident != null) {
-      updateQueryParam(selectedTimeContext.ident);
-    }
-  }, [selectedTimeContext, pathname, searchParams, updateQueryParam]);
 
   const appendTcParam = useCallback((url: string) => {
     const urlObj = new URL(url, window.location.origin);
