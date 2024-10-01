@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   const response = await authFetch(
-    `${process.env.SUPABASE_URL}/rest/v1/activity_category_available?${searchParams}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/activity_category_available?${searchParams}`,
     {
       method: "GET",
       headers: {

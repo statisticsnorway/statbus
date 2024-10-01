@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const params = new URLSearchParams(requestParams);
   const authFetch = setupAuthorizedFetchFn();
   const response = await authFetch(
-    `${process.env.SUPABASE_URL}/rest/v1/rpc/statistical_unit_facet_drilldown?${params}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/statistical_unit_facet_drilldown?${params}`,
     {
       method: "GET",
     }
