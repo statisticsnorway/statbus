@@ -3,6 +3,7 @@ import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
+import { SearchFilterOption } from "../search";
 
 interface IProps {
   readonly urlSearchParam: string | null;

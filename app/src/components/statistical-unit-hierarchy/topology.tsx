@@ -28,7 +28,7 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   }, [details]);
 
   const handleCompactChange = () => {
-    const params = new URLSearchParams(searchParams??"");
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
     if (compact) {
       params.set("details", "true");
     } else {

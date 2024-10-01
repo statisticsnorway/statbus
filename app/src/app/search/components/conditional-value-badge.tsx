@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import * as React from "react";
+import { ConditionalValue } from "../search";
 
 export function ConditionalValueBadge({ operator, value }: ConditionalValue) {
   function resolveSymbol(condition: string) {

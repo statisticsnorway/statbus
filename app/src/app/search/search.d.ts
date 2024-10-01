@@ -1,56 +1,56 @@
-type SearchFilterOption = {
+export type SearchFilterOption = {
   readonly label: string;
   readonly value: string | null;
   readonly humanReadableValue?: string;
   readonly className?: string;
 };
 
-type SearchOrder = {
+export type SearchOrder = {
   readonly name: string;
   readonly direction: string;
 };
 
-type SearchPagination = {
+export type SearchPagination = {
   readonly pageSize: number;
   readonly pageNumber: number;
 };
 
-interface SearchState {
+export interface SearchState {
   readonly queries: Record<string, string | null>;
   readonly values: Record<string, (string | null)[] | undefined>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
 }
 
-type SearchResult = {
+export type SearchResult = {
   statisticalUnits: Tables<"statistical_unit">[];
   count: number;
 };
 
-interface ConditionalValue {
+export interface ConditionalValue {
   operator: PostgrestOperator;
   value: string;
 }
 
-interface SetOrder {
+export interface SetOrder {
   type: "set_order";
   payload: {
     name: string;
   };
 }
 
-interface ResetAll {
+export interface ResetAll {
   type: "reset_all";
 }
 
-interface SetPage {
+export interface SetPage {
   type: "set_page";
   payload: {
     pageNumber: number;
   };
 }
 
-interface SetQuery {
+export interface SetQuery {
   type: "set_query";
   payload: {
     app_param_name: string;
@@ -60,4 +60,4 @@ interface SetQuery {
   };
 }
 
-type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
+export type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
