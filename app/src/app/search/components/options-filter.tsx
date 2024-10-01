@@ -17,6 +17,7 @@ import * as React from "react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { SearchFilterOption } from "../search";
 
 interface ITableFilterProps {
   title: string;

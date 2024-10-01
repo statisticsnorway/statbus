@@ -1,6 +1,8 @@
 "use client";
 import { createContext, Dispatch } from "react";
 import type { Tables } from "@/lib/database.types";
+import { SearchAction, SearchResult, SearchState } from "./search";
+import { TimeContext } from "../types";
 
 export interface SearchContextState {
   readonly search: SearchState;
@@ -9,7 +11,7 @@ export interface SearchContextState {
   readonly searchParams: URLSearchParams;
   readonly regions: Tables<"region_used">[];
   readonly activityCategories: Tables<"activity_category_available">[];
-  readonly selectedTimeContext: TimeContextType | null;
+  readonly selectedTimeContext: TimeContext | null;
   /**
    * Indicates whether the search is currently loading new data.
    */

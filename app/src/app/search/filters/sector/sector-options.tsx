@@ -3,6 +3,7 @@ import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { SECTOR } from "@/app/search/filters/url-search-params";
+import { SearchFilterOption } from "../../search";
 
 export default function SectorOptions({
   selected: initialSelected,

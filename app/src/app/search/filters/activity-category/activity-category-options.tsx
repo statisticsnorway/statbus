@@ -3,6 +3,7 @@ import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { ACTIVITY_CATEGORY_PATH } from "@/app/search/filters/url-search-params";
+import { SearchFilterOption } from "../../search";
 
 export default function ActivityCategoryOptions({
   selected: initialSelected,

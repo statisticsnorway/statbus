@@ -1,3 +1,5 @@
+import { SearchAction, SearchState } from "./search";
+
 export function searchFilterReducer(
   state: SearchState,
   action: SearchAction

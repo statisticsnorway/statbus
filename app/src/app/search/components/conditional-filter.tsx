@@ -19,6 +19,7 @@ import {
 import { ConditionalValueBadge } from "@/app/search/components/conditional-value-badge";
 import { cn } from "@/lib/utils";
 import { Command } from "@/components/ui/command";
+import { ConditionalValue } from "../search";
 
 interface ITableFilterCustomProps {
   title: string;
