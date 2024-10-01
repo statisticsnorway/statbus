@@ -1,7 +1,7 @@
 read: CONVENTIONS.md
 #read: [CONVENTIONS.md, anotherfile.txt]
 
-#auto-commits: false
+auto-commits: false
 
 #lint-cmd: ["sql: true"]
 
