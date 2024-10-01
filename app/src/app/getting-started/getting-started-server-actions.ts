@@ -32,7 +32,7 @@ export async function uploadFile(
     const file = formData.get(filename) as File;
     const authFetch = setupAuthorizedFetchFn();
     const response = await authFetch(
-      `${process.env.SUPABASE_URL}/rest/v1/${uploadView}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${uploadView}`,
       {
         method: "POST",
         headers: {

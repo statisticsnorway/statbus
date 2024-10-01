@@ -12,7 +12,7 @@ export const setupAuthorizedFetchFn = () => {
       headers: {
         ...init.headers,
         Authorization: `Bearer ${session.data.session?.access_token}`,
-        apikey: process.env.SUPABASE_ANON_KEY!,
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       },
     });
   };

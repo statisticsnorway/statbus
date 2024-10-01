@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
   const authFetch = setupAuthorizedFetchFn();
   const response = await authFetch(
-    `${process.env.SUPABASE_URL}/rest/v1/region?${searchParams}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/region?${searchParams}`,
     {
       method: "GET",
       headers: {

@@ -3,7 +3,7 @@ import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
 export async function getStatisticalUnits(searchParams: URLSearchParams) {
   const authFetch = setupAuthorizedFetchFn();
   return await authFetch(
-    `${process.env.SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`,
     {
       method: "GET",
       headers: {
