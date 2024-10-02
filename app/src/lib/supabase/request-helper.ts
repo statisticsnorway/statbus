@@ -1,12 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 
 /**
  * This function returns a fetch function that is authorized to access Supabase REST API.
  */
 export const setupAuthorizedFetchFn = () => {
-  const supabase = createClient();
+  const supabase = createClient(null);
   return async (url: string, init: RequestInit) => {
-    const session = await supabase.auth.getSession();
+    const session = await supabase.client.auth.getSession();
     return fetch(url, {
       ...init,
       headers: {
