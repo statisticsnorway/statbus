@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
@@ -9,7 +9,7 @@ export const StatisticalUnitCountCard = async ({
   readonly unitType: "enterprise" | "legal_unit" | "establishment";
   readonly title: string;
 }) => {
-  const client = createClient();
+  const { client } = createClient();
 
   const { count, error } = await client
     .from("statistical_unit")

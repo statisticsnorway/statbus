@@ -6,11 +6,11 @@ import {
 } from "@/components/ui/accordion";
 import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 
 export default async function UploadLegalUnitsPage() {
-  const client = createClient();
+  const { client } = createClient();
   const { count } = await client
     .from("legal_unit")
     .select("*", { count: "exact", head: true })

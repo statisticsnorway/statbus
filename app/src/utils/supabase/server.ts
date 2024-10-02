@@ -6,7 +6,12 @@ import { createServerClient } from "@supabase/ssr";
 import { Database } from "@/lib/database.types";
 import { NextResponse, type NextRequest } from 'next/server'
 
-export const createClient = (request: NextRequest | null) => {
+/*
+Noice that the NextRequest is *only* available in the middleware,
+but not in any SSR (Server Side Rendered) component, by design,
+in Next.js 14. The code adapts dynamically.
+ */
+export const createClient = (request?: NextRequest) => {
   const isNextRequest = (req: any): req is NextRequest => req !== null;
   let response = isNextRequest(request) ? NextResponse.next({
     request,
@@ -28,7 +33,7 @@ export const createClient = (request: NextRequest | null) => {
           cookiesToSet.forEach(({ name, value, options }) => {
             if (isNextRequest(request)) {
               request.cookies.set(name, value);
-              response!.cookies.set(name, value, options);
+              response?.cookies.set(name, value, options);
             } else {
               cookies().set(name, value, options);
             }

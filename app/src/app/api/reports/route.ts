@@ -1,21 +1,21 @@
-import { NextResponse } from "next/server";
-import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
 
-export async function GET(request: Request) {
-  const { searchParams: requestParams } = new URL(request.url);
-  const params = new URLSearchParams(requestParams);
-  const authFetch = setupAuthorizedFetchFn();
-  const response = await authFetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/statistical_unit_facet_drilldown?${params}`,
-    {
-      method: "GET",
-    }
-  );
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
 
-  if (!response.ok) {
-    return NextResponse.json({ error: response.statusText });
+  // Convert URLSearchParams to object
+  const requestParams: any = {};
+  searchParams.forEach((value, key) => {
+    requestParams[key] = value;
+  });
+
+  const { client } = createClient(request);
+  const { data, error } = await client.rpc('statistical_unit_facet_drilldown', requestParams);
+
+  if (error) {
+    return NextResponse.json({ error: error.message });
   }
 
-  const data = await response.json();
   return NextResponse.json(data);
 }

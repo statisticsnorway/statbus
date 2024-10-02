@@ -7,7 +7,7 @@ function showCommandPalette() {
   document.dispatchEvent(new CustomEvent("toggle-command-palette"));
 }
 
-export default function CommandPaletteTriggerButton({
+export function CommandPaletteTriggerButton({
   className,
 }: {
   readonly className?: string;
