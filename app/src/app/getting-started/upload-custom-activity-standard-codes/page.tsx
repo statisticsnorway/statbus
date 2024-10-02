@@ -1,6 +1,6 @@
 import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
   Accordion,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/accordion";
 
 export default async function UploadCustomActivityCategoryCodesPage() {
-  const client = createClient();
+  const { client } = createClient();
   const { count } = await client
     .from("activity_category_available_custom")
     .select("*", { count: "exact", head: true })

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import RegionOptions from "@/app/search/filters/region/region-options";
 
 interface IProps {
@@ -6,7 +6,7 @@ interface IProps {
 }
 
 export default async function RegionFilter({ urlSearchParam }: IProps) {
-  const client = createClient();
+  const { client } = createClient();
   const regions = await client.from("region_used").select();
 
   return (

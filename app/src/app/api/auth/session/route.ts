@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 
-export async function GET() {
-  const supabaseClient = createClient();
-  const { data: { session } } = await supabaseClient.auth.getSession();
+export async function GET(request : NextRequest) {
+  const {client} = createClient(request);
+  const { data: { session } } = await client.auth.getSession();
 
   if (session) {
     return NextResponse.json({ isAuthenticated: true });

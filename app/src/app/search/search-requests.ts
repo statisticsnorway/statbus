@@ -1,15 +1,29 @@
-import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
+import { createClient } from "@/utils/supabase/server";
 
 export async function getStatisticalUnits(searchParams: URLSearchParams) {
-  const authFetch = setupAuthorizedFetchFn();
-  return await authFetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`,
-    {
-      method: "GET",
-      headers: {
-        Prefer: "count=exact",
-        "Range-Unit": "items",
-      },
-    }
-  );
+  const { client } = createClient();
+  const rangeStart = searchParams.get("range-start");
+  const rangeEnd = searchParams.get("range-end");
+
+  let query = client
+    .from('statistical_unit')
+    .select("*");
+    //.select(selectParam, { count: 'exact' });
+
+  if (rangeStart !== null && rangeEnd !== null) {
+    query = query.range(parseInt(rangeStart, 10), parseInt(rangeEnd, 10));
+  }
+
+  const response = await query;
+
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+
+  return {
+    statistical_units: response.data,
+    count: response.count,
+    status: response.status,
+    statusText: response.statusText,
+  };
 }

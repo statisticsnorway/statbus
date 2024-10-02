@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { BarChart3 } from "lucide-react";
 
 export const StatisticalVariableCountCard = async () => {
-  const client = createClient();
+  const { client } = createClient();
 
   const { count, error } = await client
     .from("stat_definition")

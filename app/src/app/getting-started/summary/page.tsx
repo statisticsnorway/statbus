@@ -1,10 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { Check, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 
 export default async function OnboardingCompletedPage() {
-  const client = createClient();
+  const { client } = createClient();
   const { data: settings } = await client
     .from("settings")
     .select("activity_category_standard(id,name)")

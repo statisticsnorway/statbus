@@ -7,7 +7,7 @@ import SearchResultPagination from "@/app/search/components/search-result-pagina
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Cart } from "@/app/search/components/cart";
 import { CartProvider } from "@/app/search/cart-provider";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
   title: "Statbus | Search statistical units",
@@ -33,10 +33,10 @@ export default async function SearchPage({
    * A better solution would be to include the names in the search results
    * so that we do not need any blocking calls to supabase here.
    */
-  const supabase = createClient();
+  const {client} = createClient();
   const [activityCategories, regions] = await Promise.all([
-    supabase.from("activity_category_used").select(),
-    supabase.from("region_used").select(),
+    client.from("activity_category_used").select(),
+    client.from("region_used").select(),
   ]);
 
   const defaultCurrentPage = 1;

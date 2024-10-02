@@ -1,29 +1,29 @@
-import { NextResponse } from "next/server";
-import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const authFetch = setupAuthorizedFetchFn();
+  const { client } = createClient(request);
+  const selectParam = searchParams.get("select") || "*";
+  const rangeStart = searchParams.get("range-start");
+  const rangeEnd = searchParams.get("range-end");
 
-  const response = await authFetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`,
-    {
-      method: "GET",
-      headers: {
-        Prefer: "count=exact",
-        "Range-Unit": "items",
-      },
-    }
-  );
+  let query = client
+    .from('statistical_unit')
+    .select(selectParam, { count: 'exact' });
 
-  if (!response.ok) {
-    return NextResponse.json({ error: response.statusText }, { status: response.status });
+  if (rangeStart !== null && rangeEnd !== null) {
+    query = query.range(parseInt(rangeStart, 10), parseInt(rangeEnd, 10));
   }
 
-  const statisticalUnits = await response.json();
-  const count = response.headers.get("content-range")?.split("/")[1];
+  const { data: statisticalUnits, error, count } = await query;
+
+  if (error) {
+    return NextResponse.json({ error: error.message });
+  }
+
   return NextResponse.json({
     statisticalUnits,
-    count: parseInt(count ?? "-1", 10),
+    count,
   });
 }

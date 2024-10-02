@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import LegalFormOptions from "@/app/search/filters/legal-form/legal-form-options";
 
 interface IProps {
@@ -8,7 +8,7 @@ interface IProps {
 export default async function LegalFormFilter({
   urlSearchParam: param,
 }: IProps) {
-  const client = createClient();
+  const { client } = createClient();
   const legalForms = await client
     .from("legal_form_used")
     .select()

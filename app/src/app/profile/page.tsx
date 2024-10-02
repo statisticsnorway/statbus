@@ -1,8 +1,8 @@
 import { logout } from "@/app/login/actions";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 
 export default async function ProfilePage() {
-  const client = createClient();
+  const { client } = createClient();
   const {
     data: { session },
   } = await client.auth.getSession();

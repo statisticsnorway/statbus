@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   if (!searchParams.has("order")) {
@@ -16,18 +16,14 @@ export async function GET(request: Request) {
     searchParams.set("limit", "10");
   }
 
-  const statisticalUnitsResponse = await getStatisticalUnits(searchParams);
+  const response = await getStatisticalUnits(searchParams);
 
-  if (!statisticalUnitsResponse.ok) {
-    return NextResponse.json({ error: statisticalUnitsResponse.statusText });
+  if (response.statusText != '') {
+    return NextResponse.json({ error: response.statusText });
   }
 
-  const statisticalUnits = await statisticalUnitsResponse.json();
-  const count = statisticalUnitsResponse.headers
-    .get("content-range")
-    ?.split("/")[1];
   return NextResponse.json({
-    statisticalUnits,
-    count: parseInt(count ?? "-1", 10),
+    statisticalUnits: response.statistical_units,
+    count: response.count,
   });
 }
