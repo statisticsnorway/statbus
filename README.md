@@ -27,8 +27,7 @@ In 2023 we changed the technology stack with the following goals in mind:
 
 * Simple and secure advanced database integration for custom setups and integration.
 
-* Adaptation of the original data models with the newest insights from SSB,
-  as well as a host of database cleanups accumulated over the years.
+* Adaptation of the original data models with insights from SSB, and partner countries in asia and africa
 
 ## Technology Stack
 
@@ -225,4 +224,5 @@ At the bottom rigth corner there is a command palette, Ctrl+shift+K to jump to t
 Make sure you get the classifications as good as possible before starting with units. A small unit file is recomended, in order to verify that classifications are matching the data loaded in the unit-loads (7 & 8)
 Error messages, hints and teqniques are described at: www.statbus.org   https://www.statbus.org/files/Statbus_faq_load.html
 
-
+### Testdrive Statbus in the cloud
+Statbus can be tested and demonstrated in the cloud. Countries have their own country domains where they test the system with sountry specific classificatios and unit-data. We recommmend to postphone local installation until testing the application with country specific data has successfully completed with a all classifications but with limitided number of business units.
