@@ -18,8 +18,8 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const {client} = createClient();
-  const { data: { session } } = await client.auth.getSession();
+  const client = createClient();
+  const session = (await client?.auth?.getSession())?.data?.session;
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
@@ -38,7 +38,7 @@ export default async function Footer() {
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
           </div>
-          {session?.user && (
+          {session != null && (
             <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
           )}
         </div>

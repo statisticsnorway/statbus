@@ -2,10 +2,8 @@ import { logout } from "@/app/login/actions";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function ProfilePage() {
-  const { client } = createClient();
-  const {
-    data: { session },
-  } = await client.auth.getSession();
+  const client = createClient();
+  const user = (await client.auth.getUser()).data.user;
 
   return (
     <main className="flex flex-col items-center justify-between px-2 py-8 md:py-24">
@@ -25,7 +23,7 @@ export default async function ProfilePage() {
                 User ID
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user?.id}
+                {user.id}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -33,7 +31,7 @@ export default async function ProfilePage() {
                 Full name
               </dt>
               <dd className="mt-1 text-sm capitalize leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user?.email?.split("@")[0].replace(/\./, " ")}
+                {user.email?.split("@")[0].replace(/\./, " ")}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -41,7 +39,7 @@ export default async function ProfilePage() {
                 Email address
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user?.email}
+                {user.email}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">

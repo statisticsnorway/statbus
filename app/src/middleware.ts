@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createClient } from '@/utils/supabase/server';
+import { createMiddlewareClient } from '@/utils/supabase/server';
 
 export async function middleware(request: NextRequest) {
-  const {client} = createClient(request);
-  const {
-    data: { session },
-  } = await client.auth.getSession();
+  const { client } = createMiddlewareClient(request);
+  const session =
+    client !== undefined ?
+      (await client?.auth.getSession())?.data?.session :
+      null;
 
   if (!session) {
     return NextResponse.redirect(`${request.nextUrl.origin}/login`);

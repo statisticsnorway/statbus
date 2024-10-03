@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 
 export default async function SetupStatus() {
-  const { client } = createClient();
+  const client = createClient();
   const { data: settings } = await client
     .from("settings")
     .select("activity_category_standard(id,name)")

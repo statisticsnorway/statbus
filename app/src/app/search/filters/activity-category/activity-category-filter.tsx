@@ -6,7 +6,7 @@ export default async function ActivityCategoryFilter({
 }: {
   readonly urlSearchParam: string | null;
 }) {
-  const { client } = createClient();
+  const client = createClient();
   const activityCategories = await client
     .from("activity_category_used")
     .select();

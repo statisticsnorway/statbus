@@ -3,7 +3,7 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { BarChart3 } from "lucide-react";
 
 export const StatisticalVariableCountCard = async () => {
-  const { client } = createClient();
+  const client = createClient();
 
   const { count, error } = await client
     .from("stat_definition")

@@ -3,7 +3,7 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
 
 export const RegionCard = async () => {
-  const { client } = createClient();
+  const client = createClient();
 
   const { count, error } = await client
     .from("region")

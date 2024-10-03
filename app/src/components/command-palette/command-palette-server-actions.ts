@@ -6,7 +6,7 @@ import { createServerLogger } from "@/lib/server-logger";
 
 export async function refreshStatisticalUnits() {
   "use server";
-  const { client } = createClient();
+  const client = createClient();
   const logger = await createServerLogger();
 
   try {
@@ -32,7 +32,7 @@ export async function refreshStatisticalUnits() {
 
 export async function resetAll() {
   "use server";
-  const { client } = createClient();
+  const client = createClient();
   const logger = await createServerLogger();
 
   try {

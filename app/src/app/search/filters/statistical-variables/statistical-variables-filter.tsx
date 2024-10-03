@@ -7,7 +7,7 @@ export default async function StatisticalVariablesFilter({
   readonly urlSearchParams: URLSearchParams;
 }) {
   const resolve = createURLParamsResolver(new URLSearchParams(urlSearchParams));
-  const { client } = createClient();
+  const client = createClient();
   const statisticalVariables = await client
     .from("stat_definition")
     .select()

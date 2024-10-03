@@ -53,9 +53,13 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
 
-    const {client} = createClient(request);
+    const client = createClient();
     // Check for authentication
-    const isLoggedIn = await client.auth.getSession();
+    const isLoggedIn =
+      client !== undefined ?
+        (await client?.auth.getSession())?.data?.session :
+        null;
+
 
     // Parse the payload
     const payload = parseLogPayload(event);

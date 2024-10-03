@@ -3,7 +3,7 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Settings } from "lucide-react";
 
 export const CustomActivityCategoryCard = async () => {
-  const {client} = createClient();
+  const client = createClient();
 
   const { count, error } = await client
     .from("activity_category_available_custom")

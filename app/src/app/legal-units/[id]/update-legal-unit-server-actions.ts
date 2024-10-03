@@ -49,7 +49,7 @@ export async function updateLegalUnit(
 export async function setPrimaryLegalUnit(id: number) {
   "use server";
   const logger = await createServerLogger();
-  const { client } = createClient();
+  const client = createClient();
   const { error } = await client.rpc("set_primary_legal_unit_for_enterprise", {
     legal_unit_id: id,
   });
