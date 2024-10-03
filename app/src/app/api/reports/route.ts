@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     requestParams[key] = value;
   });
 
-  const { client } = createClient(request);
+  const client = createClient();
   const { data, error } = await client.rpc('statistical_unit_facet_drilldown', requestParams);
 
   if (error) {

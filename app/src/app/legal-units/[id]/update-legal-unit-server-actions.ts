@@ -13,7 +13,7 @@ export async function updateLegalUnit(
   formData: FormData
 ): Promise<UpdateResponse> {
   "use server";
-  const {client} = createClient();
+  const client = createClient();
   const schema = resolveSchemaByType(schemaType);
   const validatedFields = schema.safeParse(formData);
 

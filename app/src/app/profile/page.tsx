@@ -1,9 +1,16 @@
 import { logout } from "@/app/login/actions";
 import { createClient } from "@/utils/supabase/server";
+import { logger } from "@/lib/client-logger"
 
 export default async function ProfilePage() {
   const client = createClient();
-  const user = (await client.auth.getUser()).data.user;
+  const {data: {user}} = await client.auth.getUser();
+
+  if (!user) {
+    const errorMessage = "User not found. Cannot retrieve profile.";
+    logger.error({ context: "ProfilePage", user }, errorMessage);
+    throw new Error(errorMessage);
+  }
 
   return (
     <main className="flex flex-col items-center justify-between px-2 py-8 md:py-24">
@@ -47,7 +54,7 @@ export default async function ProfilePage() {
                 Phone
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user.phone || "N/A"}
+                {user.phone || "N/A"}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -55,7 +62,7 @@ export default async function ProfilePage() {
                 Last sign in
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user.last_sign_in_at}
+                {user.last_sign_in_at}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -63,7 +70,7 @@ export default async function ProfilePage() {
                 Email confirmed
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user.email_confirmed_at}
+                {user.email_confirmed_at}
               </dd>
             </div>
           </dl>

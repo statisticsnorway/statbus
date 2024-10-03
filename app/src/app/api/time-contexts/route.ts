@@ -4,7 +4,7 @@ import { createServerLogger } from "@/lib/server-logger";
 
 export async function GET(request: NextRequest) {
   const logger = await createServerLogger();
-  const {client} = createClient(request)
+  const client = createClient();
   const res = await client
     .from("time_context")
     .select()
