@@ -4,8 +4,6 @@ import { AlertTriangle } from "lucide-react";
 
 export const InvalidCodesCard = async () => {
   const client = createClient();
-  console.log("client:");
-  debugger;
   const { count, error } = await client
     .from("statistical_unit")
     .select("", { count: "exact" })
