@@ -9,7 +9,7 @@ export const StatisticalUnitCountCard = async ({
   readonly unitType: "enterprise" | "legal_unit" | "establishment";
   readonly title: string;
 }) => {
-  const { client } = createClient();
+  const client = createClient();
 
   const { count, error } = await client
     .from("statistical_unit")

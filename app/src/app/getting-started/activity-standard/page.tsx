@@ -9,7 +9,7 @@ import {
 import { createClient } from "@/utils/supabase/server";
 
 export default async function ActivityStandardPage() {
-  const { client } = createClient();
+  const client = createClient();
 
   const { data: standards } = await client
     .from("activity_category_standard")

@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import ReportsPageClient from "./ReportsPageClient";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Statbus | Reports",
 };
 
 export default function ReportsPage() {
-  return <ReportsPageClient />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ReportsPageClient />
+    </Suspense>
+  );
 }

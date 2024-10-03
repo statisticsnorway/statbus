@@ -1,7 +1,7 @@
 "use client";
 
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
-import { useEffect, Suspense } from "react";
+import { useEffect } from "react";
 import * as highcharts from "highcharts";
 import HC_drilldown from "highcharts/modules/drilldown";
 import HC_a11y from "highcharts/modules/accessibility";
