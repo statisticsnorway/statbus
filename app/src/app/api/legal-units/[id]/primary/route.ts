@@ -25,7 +25,7 @@ export async function POST(
       );
     }
 
-    const client = createClient();
+    const client = await createClient();
     const { data, error } = await client.rpc(
       "connect_legal_unit_to_enterprise",
       {

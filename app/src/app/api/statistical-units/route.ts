@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const client = createClient();
+  const client = await createClient();
   const selectParam = searchParams.get("select") || "*";
   const rangeStart = searchParams.get("range-start");
   const rangeEnd = searchParams.get("range-end");

@@ -8,7 +8,7 @@ interface IProps {
 export default async function LegalFormFilter({
   urlSearchParam: param,
 }: IProps) {
-  const client = createClient();
+  const client = await createClient();
   const legalForms = await client
     .from("legal_form_used")
     .select()

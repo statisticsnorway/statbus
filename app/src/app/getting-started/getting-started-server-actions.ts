@@ -29,7 +29,7 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const client = createClient();
+    const client = await createClient();
     // TODO: Specify the contentType for CSV upload.
     const { error } = await client.from(uploadView).insert(file) //, { contentType: "text/csv" });
 
@@ -51,7 +51,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = createClient();
+  const client = await createClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

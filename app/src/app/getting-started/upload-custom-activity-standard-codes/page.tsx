@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/accordion";
 
 export default async function UploadCustomActivityCategoryCodesPage() {
-  const client = createClient();
+  const client = await createClient();
   const { count } = await client
     .from("activity_category_available_custom")
     .select("*", { count: "exact", head: true })

@@ -12,7 +12,7 @@ export async function getEnterpriseById(id: string) {
 }
 
 export async function getEstablishmentById(id: string) {
-  const client = createClient();
+  const client = await createClient();
   const { data: establishments, error } = await client
     .from("establishment")
     .select("*")
@@ -23,7 +23,7 @@ export async function getEstablishmentById(id: string) {
 }
 
 export async function getLegalUnitById(id: string) {
-  const client = createClient();
+  const client = await createClient();
   const { data: legalUnits, error } = await client
     .from("legal_unit")
     .select("*")
@@ -37,7 +37,7 @@ export async function getStatisticalUnitHierarchy(
   unitId: number,
   unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
 ) {
-  const client = createClient();
+  const client = await createClient();
   const { data: hierarchy, error } = await client
     .rpc("statistical_unit_hierarchy", {
       unit_id: unitId,

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/accordion";
 
 export default async function UploadCustomSectorsPage() {
-  const client = createClient();
+  const client = await createClient();
   const { count } = await client
     .from("sector_custom")
     .select("*", { count: "exact", head: true })

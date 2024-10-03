@@ -6,7 +6,7 @@ interface IProps {
 }
 
 export default async function RegionFilter({ urlSearchParam }: IProps) {
-  const client = createClient();
+  const client = await createClient();
   const regions = await client.from("region_used").select();
 
   return (
