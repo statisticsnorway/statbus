@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { logger } from "@/lib/client-logger"
 
 export default async function ProfilePage() {
-  const client = createClient();
+  const client = await createClient();
   const {data: {user}} = await client.auth.getUser();
 
   if (!user) {

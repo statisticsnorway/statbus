@@ -4,7 +4,7 @@ import { createServerLogger } from "@/lib/server-logger";
 
 export async function GET(request: NextRequest) {
   const logger = await createServerLogger();
-  const client = createClient();
+  const client = await createClient();
 
   try {
     const statDefinitionResponse = await client

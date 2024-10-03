@@ -6,7 +6,7 @@ interface IProps {
 }
 
 export default async function SectorFilter({ urlSearchParam }: IProps) {
-  const client = createClient();
+  const client = await createClient();
   const sectors = await client.from("sector_used").select();
 
   return (

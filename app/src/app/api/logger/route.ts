@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
 
-    const client = createClient();
+    const client = await createClient();
     // Check for authentication
     const isLoggedIn =
       client !== undefined ?

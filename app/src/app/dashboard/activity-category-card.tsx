@@ -3,7 +3,7 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { ScrollText } from "lucide-react";
 
 export const ActivityCategoryCard = async () => {
-  const client = createClient();
+  const client = await createClient();
 
   const { data: settings, error } = await client
     .from("settings")

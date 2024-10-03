@@ -10,7 +10,7 @@ import { createClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 
 export default async function UploadLegalUnitsPage() {
-  const client = createClient();
+  const client = await createClient();
   const { count } = await client
     .from("legal_unit")
     .select("*", { count: "exact", head: true })

@@ -18,8 +18,8 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const client = createClient();
-  const session = (await client.auth.getSession())?.data?.session;
+  const client = await createClient();
+  const session = (await client.auth.getSession()).data.session;
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
