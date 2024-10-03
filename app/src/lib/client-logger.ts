@@ -1,6 +1,6 @@
 import pino from "pino";
 
-const logger = pino({
+export const logger = pino({
   level: "info",
   browser: {
     transmit: {

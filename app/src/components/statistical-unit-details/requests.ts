@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 
 export async function getEnterpriseById(id: string) {
-  const { client } = createClient()
+  const client = createClient()
   const { data: enterprises, error } = await client
     .from("enterprise")
     .select("*")

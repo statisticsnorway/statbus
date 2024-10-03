@@ -13,7 +13,7 @@ export async function login(
 ): Promise<LoginState> {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
-  const {client} = createClient();
+  const client = createClient();
 
   const { error } = await client.auth.signInWithPassword({
     email,
@@ -33,7 +33,7 @@ export async function login(
 }
 
 export async function logout() {
-  const {client} = createClient();
+  const client = createClient();
   await client.auth.signOut();
   redirect("/login");
 }
