@@ -1,0 +1,24 @@
+{
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/.git": true,
+    "**/.hg": true,
+    "**/.svn": true,
+    "**/CVS": true,
+    "client": false,
+    "legacy/**": true,
+    "src": false,
+    "test": false
+  },
+  "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yaml"],
+  "svelte.plugin.svelte.defaultScriptLanguage": "ts",
+  "[svelte]": {
+    "editor.defaultFormatter": "svelte.svelte-vscode"
+  },
+  "files.watcherExclude": {
+    "legacy/**": true
+  },
+  "search.exclude": {
+    "legacy/**": true
+  }
+}
