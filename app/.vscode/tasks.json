@@ -2,16 +2,153 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run tsc",
-      "type": "shell",
-      "command": "./node_modules/.bin/tsc",
-      "args": ["--noEmit"],
+      "label": ".NET Core Test with debugger",
+      "type": "process",
+      "isBackground": true,
+      "command": "dotnet",
+      "args": [
+        "test"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/test/nscreg.Server.Test",
+        "env": {
+          "VSTEST_HOST_DEBUG": "1"
+        }
+      },
       "group": {
-        "kind": "build",
+        "kind": "test",
         "isDefault": true
       },
-      "problemMatcher": "$tsc",
-      "detail": "Run the TypeScript compiler"
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/nscreg.Server/nscreg.Server.csproj",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "type": "docker-build",
+      "label": "docker-build: debug",
+      "dependsOn": [
+        "build"
+      ],
+      "dockerBuild": {
+        "tag": "nscreg:dev",
+        "target": "base",
+        "dockerfile": "${workspaceFolder}/src/nscreg.Server/Dockerfile",
+        "context": "${workspaceFolder}",
+        "pull": true
+      },
+      "netCore": {
+        "appProject": "${workspaceFolder}/src/nscreg.Server/nscreg.Server.csproj"
+      }
+    },
+    {
+      "type": "docker-build",
+      "label": "docker-build: release",
+      "dependsOn": [
+        "build"
+      ],
+      "dockerBuild": {
+        "tag": "nscreg:latest",
+        "dockerfile": "${workspaceFolder}/src/nscreg.Server/Dockerfile",
+        "context": "${workspaceFolder}",
+        "pull": true
+      },
+      "netCore": {
+        "appProject": "${workspaceFolder}/src/nscreg.Server/nscreg.Server.csproj"
+      }
+    },
+    {
+      "type": "docker-run",
+      "label": "docker-run: debug",
+      "dependsOn": [
+        "docker-build: debug"
+      ],
+      "dockerRun": {
+        "containerName": "nscreg.server"
+      },
+      "netCore": {
+        "appProject": "${workspaceFolder}/src/nscreg.Server/nscreg.Server.csproj",
+        "enableDebugging": true
+      }
+    },
+    {
+      "type": "docker-run",
+      "label": "docker-run: release",
+      "dependsOn": [
+        "docker-build: release"
+      ],
+      "dockerRun": {
+        "containerName": "nscreg.server"
+      },
+      "netCore": {
+        "appProject": "${workspaceFolder}/src/nscreg.Server/nscreg.Server.csproj"
+      }
+    },
+    {
+      "label": "act: lint",
+      "type": "shell",
+      "command": "/home/vscode/.asdf/shims/act",
+      "args": [
+        "push",
+        "--secret",
+        "GITHUB_TOKEN=$GITHUB_TOKEN",
+        "--rm",
+        "--reuse",
+        "--workflows",
+        "./.github/workflows/linter-workflow.yaml",
+        "--userns",
+        "vscode"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "act: cd",
+      "type": "shell",
+      "command": "/home/vscode/.asdf/shims/act",
+      "args": [
+        "push",
+        "--secret",
+        "GITHUB_TOKEN=$GITHUB_TOKEN",
+        "--rm",
+        "--reuse",
+        "--workflows",
+        "./.github/workflows/cd-workflow.yaml",
+        "--userns",
+        "vscode"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "act: ci",
+      "type": "shell",
+      "command": "/home/vscode/.asdf/shims/act",
+      "args": [
+        "push",
+        "--secret",
+        "GITHUB_TOKEN=$GITHUB_TOKEN",
+        "--rm",
+        "--reuse",
+        "--workflows",
+        "./.github/workflows/ci-workflow.yaml",
+        "--userns",
+        "vscode"
+      ],
+      "group": "test"
     }
   ]
 }
