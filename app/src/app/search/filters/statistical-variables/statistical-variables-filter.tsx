@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
 
 export default async function StatisticalVariablesFilter({
@@ -7,7 +7,7 @@ export default async function StatisticalVariablesFilter({
   readonly urlSearchParams: URLSearchParams;
 }) {
   const resolve = createURLParamsResolver(new URLSearchParams(urlSearchParams));
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
   const statisticalVariables = await client
     .from("stat_definition")
     .select()

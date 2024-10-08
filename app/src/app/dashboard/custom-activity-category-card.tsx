@@ -1,9 +1,9 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Settings } from "lucide-react";
 
 export const CustomActivityCategoryCard = async () => {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
 
   const { count, error } = await client
     .from("activity_category_available_custom")

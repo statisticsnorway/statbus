@@ -1,9 +1,9 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
 
 export const RegionCard = async () => {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
 
   const { count, error } = await client
     .from("region")

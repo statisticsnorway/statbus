@@ -1,9 +1,9 @@
 import { logout } from "@/app/login/actions";
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { logger } from "@/lib/client-logger"
 
 export default async function ProfilePage() {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
   const {data: {user}} = await client.auth.getUser();
 
   if (!user) {
