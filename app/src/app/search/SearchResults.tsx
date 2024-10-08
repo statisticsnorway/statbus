@@ -41,19 +41,27 @@ export default function SearchResults({
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
 
-  const [search, dispatch] = useReducer(searchFilterReducer, {
-    order: initialOrder,
-    pagination,
-    queries: {},
-    timeContext: selectedTimeContext,
-    values: useMemo(() => {
+  /**
+   * Extract values from URLSearchParams and initialize search state.
+   * This is not strictly necessary, but gives a more responsive UI when the search page filters are loaded
+   */
+    const valuesFromUrlSearchParams = useMemo(() => {
       const params = new URLSearchParams(urlSearchParams);
       return Array.from(params.keys()).reduce(
         (acc, key) => ({ ...acc, [key]: params.get(key)?.split(",") }),
         {}
       );
-    }, [urlSearchParams]),
+    }, [urlSearchParams]);
+
+  const [search, dispatch] = useReducer(searchFilterReducer, {
+    order: initialOrder,
+    pagination,
+    queries: {},
+    timeContext: selectedTimeContext,
+    values: valuesFromUrlSearchParams,
   });
+
+
 
   const { order, pagination: searchPagination, queries } = search;
 
@@ -80,8 +88,8 @@ export default function SearchResults({
     return params;
   }, [queries, order, searchPagination, selectedTimeContext]);
 
-  const { data, error } = useSWR<SearchResult>(
-    `/api/statistical-units?${searchParams}`,
+  const { data: searchResult, error, isLoading } = useSWR<SearchResult>(
+    `/api/search?${searchParams}`,
     fetcher,
     { keepPreviousData: true, revalidateOnFocus: false }
   );
@@ -90,24 +98,24 @@ export default function SearchResults({
     () => ({
       search,
       dispatch,
-      searchResult: data,
+      searchResult,
       searchParams,
       regions: regions ?? [],
       activityCategories: activityCategories ?? [],
       selectedTimeContext,
-      isLoading: !data && !error,
+      isLoading,
     }),
-    [search, data, searchParams, regions, activityCategories, error, selectedTimeContext]
+    [search, searchResult, searchParams, regions, activityCategories, selectedTimeContext, isLoading]
   );
 
   useUpdatedUrlSearchParams(ctx);
 
-  if (error) {
-    return <div>Error loading data</div>;
+  if (isLoading) {
+    return <div>Loading...</div>;
   }
 
-  if (!data) {
-    return <div>Loading...</div>;
+  if (error) {
+    return <div>Error loading data</div>;
   }
 
   return (
