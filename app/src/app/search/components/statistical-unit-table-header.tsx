@@ -1,9 +1,10 @@
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
-import { useCustomConfigContext } from "@/app/use-custom-config-context";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export const StatisticalUnitTableHeader = () => {
-  const { statDefinitions } = useCustomConfigContext();
+  const { statDefinitions } = useBaseData();
+
   return (
     <TableHeader className="bg-gray-50">
       <TableRow>
@@ -18,7 +19,7 @@ export const StatisticalUnitTableHeader = () => {
           <SortableTableHead
             key={code}
             className="text-right hidden lg:table-cell [&>*]:capitalize"
-            name={code}
+            name={code!}
           >
             {code}
           </SortableTableHead>

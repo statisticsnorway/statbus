@@ -3,9 +3,11 @@ import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
 import { useCartContext } from "@/app/search/use-cart-context";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export const Cart = () => {
   const { selected } = useCartContext();
+  const { statDefinitions, externalIdentTypes } = useBaseData();
 
   if (selected.length === 0) return null;
 
@@ -18,8 +20,7 @@ export const Cart = () => {
               return (
                 <StatisticalUnitTableRow
                   key={`cart_${unit.unit_type}_${unit.unit_id}`}
-                  unit={unit}
-                />
+                  unit={unit} />
               );
             })}
           </TableBody>

@@ -21,8 +21,7 @@ export default function SearchResultTable() {
               return (
                 <StatisticalUnitTableRow
                   key={`${unit.unit_type}-${unit.unit_id}-${unit.valid_from}`}
-                  unit={unit}
-                />
+                  unit={unit}/>
               );
             })}
           </TableBody>

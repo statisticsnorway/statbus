@@ -1,9 +1,12 @@
 import { Tables } from "@/lib/database.types";
 
-type TimeContext = Tables<"time_context">;
+type TimeContextRow = Tables<"time_context">;
+type StatDefinitionRow = Tables<"stat_definition">;
+type ExternalIdentRow = Tables<"external_ident_type">;
 
-type StatDefinition = Tables<"stat_definition">;
-type ExternalIdentType = Tables<"external_ident_type">;
+type TimeContextRows = TimeContextRow[];
+type StatDefinitionRows = StatDefinitionRow[];
+type ExternalIdentRows = ExternalIdentRow[];
 
 interface ExternalIdents {
   [key: string]: number | string;

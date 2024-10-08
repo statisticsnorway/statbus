@@ -9,9 +9,10 @@ import { BreadCrumb } from "@/app/reports/bread-crumb";
 import { DrillDownChart } from "@/app/reports/drill-down-chart";
 import { SearchLink } from "@/app/reports/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useCustomConfigContext } from "../use-custom-config-context";
+import { useBaseData } from "@/app/BaseDataClient";
 
-export default function ReportsPageClient() {
+export default function ReportsPageClient({
+}) {
   const {
     drillDown,
     region,
@@ -20,7 +21,7 @@ export default function ReportsPageClient() {
     setActivityCategory,
   } = useDrillDownData();
 
-  const { statDefinitions } = useCustomConfigContext();
+  const { statDefinitions } = useBaseData();
 
   useEffect(() => {
     HC_a11y(highcharts);
@@ -34,9 +35,9 @@ export default function ReportsPageClient() {
   }[] = [
     { value: "count", label: "Count", title: "Number of enterprises" },
     ...(statDefinitions.map(({ code, name }) => ({
-      value: code,
-      label: code,
-      title: name,
+      value: code!,
+      label: code!,
+      title: name!,
     })) ?? []),
   ];
 

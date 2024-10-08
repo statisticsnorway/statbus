@@ -6,7 +6,8 @@ export const metadata: Metadata = {
   title: "Statbus | Reports",
 };
 
-export default function ReportsPage() {
+export default function ReportsPage({
+}) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <ReportsPageClient />

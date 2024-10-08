@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     requestParams[key] = value;
   });
 
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
   const { data, error } = await client.rpc('statistical_unit_facet_drilldown', requestParams);
 
   if (error) {

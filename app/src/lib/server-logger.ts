@@ -1,5 +1,5 @@
 "use server";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 import pino from "pino";
 import { createStream } from "pino-seq";
 import { headers } from "next/headers";
@@ -11,7 +11,7 @@ const seqApiKey = process.env.SEQ_API_KEY;
  * Create a pino logger for the server that includes the user's email and the app version
  */
 export async function createServerLogger() {
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
 
   const user = (await client?.auth.getUser())?.data?.user;
 
