@@ -35,10 +35,10 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <PopStateHandler />
           <ServerBaseDataProvider>
             <Suspense fallback={<div>Loading...</div>}>
               <TimeContextProvider>
+                <PopStateHandler />
                 <Suspense fallback={<NavbarSkeleton />}>
                   <Navbar />
                 </Suspense>
