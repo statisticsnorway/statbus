@@ -1,7 +1,7 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 
 export async function getEnterpriseById(id: string) {
-  const client = createSupabaseSSRClient()
+  const client = await createSupabaseSSRClient()
   const { data: enterprises, error } = await client
     .from("enterprise")
     .select("*")

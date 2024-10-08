@@ -4,13 +4,17 @@ import { createMiddlewareClientAsync } from '@/utils/supabase/server';
 
 export async function middleware(request: NextRequest) {
   const { response, client } = await createMiddlewareClientAsync(request);
+  if (request.nextUrl.pathname === "/login") {
+    return response; // Return early for /login to avoid any redirects or session checks
+  }
+
   const session =
     client !== undefined ?
       (await client?.auth.getSession())?.data?.session :
       null;
 
   if (!session) {
-    return NextResponse.redirect(`${request.nextUrl.origin}/login`);
+    return NextResponse.redirect(`${request.nextUrl.origin}/login`, { headers: response.headers });
   }
 
   if (request.nextUrl.pathname === "/") {
@@ -20,14 +24,16 @@ export async function middleware(request: NextRequest) {
       .limit(1);
     if (!settings?.length) {
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/getting-started/activity-standard`
+        `${request.nextUrl.origin}/getting-started/activity-standard`,
+        { headers: response.headers }
       );
     }
 
     const { data: regions } = await client.from("region").select("id").limit(1);
     if (!regions?.length) {
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/getting-started/upload-regions`
+        `${request.nextUrl.origin}/getting-started/upload-regions`,
+        { headers: response.headers }
       );
     }
 
@@ -37,11 +43,15 @@ export async function middleware(request: NextRequest) {
       .limit(1);
     if (!legalUnits?.length) {
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/getting-started/upload-legal-units`
+        `${request.nextUrl.origin}/getting-started/upload-legal-units`,
+        { headers: response.headers }
       );
     }
   }
 
+  // Return the response object modified by createMiddlewareClientAsync, such that
+  // any cookies set/clear are propagated, since the createMiddlewareClientAsync may
+  // use a refresh token against the server.
   return response;
 }
 
@@ -52,11 +62,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - login (authentication page)
      * - maintenance (maintenance page)
      * - api/logger (allow logging without authentication)
      * - api/auth/session (allow session checking without authentication)
      */
-    "/((?!_next/static|_next/image|favicon.ico|login|maintenance|api/logger|api/auth/session|api/test).*)",
+    "/((?!_next/static|_next/image|favicon.ico|maintenance|api/logger|api/auth/session|api/test).*)",
   ],
 };

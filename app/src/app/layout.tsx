@@ -36,8 +36,8 @@ export default function RootLayout({
       >
         <AuthProvider>
           <PopStateHandler />
-          <Suspense fallback={<div>Loading...</div>}>
-            <ServerBaseDataProvider>
+          <ServerBaseDataProvider>
+            <Suspense fallback={<div>Loading...</div>}>
               <TimeContextProvider>
                 <Suspense fallback={<NavbarSkeleton />}>
                   <Navbar />
@@ -49,8 +49,8 @@ export default function RootLayout({
                   <Footer />
                 </Suspense>
               </TimeContextProvider>
-            </ServerBaseDataProvider>
-          </Suspense>
+            </Suspense>
+          </ServerBaseDataProvider>
           <GlobalErrorReporter />
         </AuthProvider>
       </body>
