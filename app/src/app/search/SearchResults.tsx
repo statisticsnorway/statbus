@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { searchFilterReducer } from "@/app/search/search-filter-reducer";
 import useUpdatedUrlSearchParams from "@/app/search/use-updated-url-search-params";
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
-import { SearchState, SearchResult, SearchOrder, SearchPagination } from "./search.d"; // Import necessary types
+import { SearchResult, SearchOrder, SearchPagination } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
 
 const fetcher = async (url: string) => {
@@ -45,6 +45,7 @@ export default function SearchResults({
     order: initialOrder,
     pagination,
     queries: {},
+    timeContext: selectedTimeContext,
     values: useMemo(() => {
       const params = new URLSearchParams(urlSearchParams);
       return Array.from(params.keys()).reduce(
