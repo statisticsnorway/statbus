@@ -7,7 +7,7 @@ import SearchResultPagination from "@/app/search/components/search-result-pagina
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Cart } from "@/app/search/components/cart";
 import { CartProvider } from "@/app/search/cart-provider";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
   title: "Statbus | Search statistical units",
@@ -20,10 +20,13 @@ export default async function SearchPage({
 }) {
   const params = new URLSearchParams(searchParams);
 
-  const [orderBy, ...orderDirections] = params.get("order")?.split(".") ?? [
-    "name",
-    "asc",
-  ];
+  const defaultOrder = "name.asc";
+  const orderParam = params.get("order") || defaultOrder;
+
+  const [orderBy, orderDirection] = orderParam.split(".");
+
+  // Validate the orderDirection to ensure it is either "asc" or "desc"
+  const validOrderDirection: "asc" | "desc" = orderDirection === "desc" ? "desc" : "asc"; // Default to "asc" if invalid
 
   /* TODO - Remove this once the search results include the activity category and region names
    * Until activity category and region names are included in the search results,
@@ -33,7 +36,7 @@ export default async function SearchPage({
    * A better solution would be to include the names in the search results
    * so that we do not need any blocking calls to supabase here.
    */
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
   const [activityCategories, regions] = await Promise.all([
     client.from("activity_category_used").select(),
     client.from("region_used").select(),
@@ -45,7 +48,7 @@ export default async function SearchPage({
 
   return (
     <SearchResults
-      order={{ name: orderBy, direction: orderDirections.join(".") }}
+      order={{ name: orderBy, direction: validOrderDirection }}
       pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
       regions={regions.data}
       activityCategories={activityCategories.data}
