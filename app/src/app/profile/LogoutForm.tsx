@@ -2,13 +2,16 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LogoutForm() {
   const router = useRouter();
+  const { refreshAuth } = useAuth();
 
   const handleLogout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await fetch("/api/auth/logout", { method: "POST" });
+    refreshAuth();
     router.push("/login");
   };
 

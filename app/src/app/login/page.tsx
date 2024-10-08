@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 
 export default function LoginPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, refreshAuth } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +30,7 @@ export default function LoginPage() {
       const data = await response.json();
       setError(data.error);
     } else {
+      refreshAuth();
       router.push("/");
     }
   };
