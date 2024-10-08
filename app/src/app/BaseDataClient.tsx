@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { BaseData } from '@/utils/base-data';
+import { BaseData } from './BaseDataServer';
 
 // Create a context for the base data
 const BaseDataContext = createContext<BaseData>({} as BaseData);

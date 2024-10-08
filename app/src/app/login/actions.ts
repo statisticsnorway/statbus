@@ -13,7 +13,7 @@ export async function login(
 ): Promise<LoginState> {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
-  const client = createSupabaseSSRClient();
+  const client = await createSupabaseSSRClient({ allowCookieModification: true });
 
   const { error } = await client.auth.signInWithPassword({
     email,
@@ -33,7 +33,7 @@ export async function login(
 }
 
 export async function logout() {
-  const client = createSupabaseSSRClient();
+  const client = await createSupabaseSSRClient({ allowCookieModification: true });
   await client.auth.signOut();
   redirect("/login");
 }
