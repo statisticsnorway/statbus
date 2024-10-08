@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import { ReactNode, useMemo, useReducer } from "react";
 import { useTimeContext } from "@/app/time-context";
 import useSWR from "swr";
