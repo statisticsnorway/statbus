@@ -35,11 +35,8 @@ export const createSupabaseSSGClient = async () => {
   return client;
 }
 
-interface SupabaseSSRClientOptions {
-  allowCookieModification?: boolean;
-}
 
-export const createSupabaseSSRClient = async ({ allowCookieModification = false }: SupabaseSSRClientOptions = {}) => {
+export const createSupabaseSSRClient = async () => {
   let cookieStore = cookies();
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
@@ -52,14 +49,7 @@ export const createSupabaseSSRClient = async ({ allowCookieModification = false 
           return cookieStore?.getAll();
         },
         setAll(cookiesToSet) {
-          // The login/logout functions are exempt from cokie modification.
-          if (allowCookieModification) {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value);
-              });
-          } else {
-            throw new Error("Prohibited by Next.js: Direct setting of cookies is not allowed. Use middleware instead.");
-          }
+          throw new Error("Prohibited by Next.js: Direct setting of cookies is not allowed. Use middleware instead.");
         },
       },
       auth: { // Workaround bug https://github.com/supabase/supabase-js/issues/1250
@@ -74,7 +64,8 @@ export const createSupabaseSSRClient = async ({ allowCookieModification = false 
 };
 
 
-export const createMiddlewareAndApiClientAsync = async (request: NextRequest) => {
+export const createMiddlewareClientAsync = async (request: NextRequest) => {
+  // Only them middleware can use NextResponse.next not API functions (in App Router)
   let response = NextResponse.next({
     request,
   });
@@ -104,4 +95,36 @@ export const createMiddlewareAndApiClientAsync = async (request: NextRequest) =>
     }
   );
   return { client, response };
+};
+
+
+export const createApiClientAsync = async () => {
+  // Server Actions / API functions under App Routing must not directly modify
+  // the request, but use API's.
+  let cookieStore = cookies();
+
+  // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
+  const client = await createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        },
+      },
+      auth: { // Perform all cookie modifications for API endpoint.
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+        //debug: true,
+      },
+    }
+  );
+  return client;
 };

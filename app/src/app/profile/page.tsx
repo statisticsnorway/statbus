@@ -1,6 +1,6 @@
-import { logout } from "@/app/login/actions";
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
-import { logger } from "@/lib/client-logger"
+import { logger } from "@/lib/client-logger";
+import LogoutForm from "./LogoutForm";
 
 export default async function ProfilePage() {
   const client = await createSupabaseSSRClient();
@@ -75,14 +75,7 @@ export default async function ProfilePage() {
             </div>
           </dl>
         </div>
-        <form action={logout} className="flex justify-end bg-gray-100 p-6">
-          <button
-            type="submit"
-            className="me-2 rounded-md bg-gray-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-          >
-            Log out
-          </button>
-        </form>
+        <LogoutForm />
       </div>
     </main>
   );
