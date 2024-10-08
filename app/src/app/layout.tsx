@@ -8,10 +8,11 @@ import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
-import { TimeContextProvider } from "@/app/time-context";
-import CustomConfigProvider from "./custom-config-provider";
 import PopStateHandler from "@/components/PopStateHandler";
+import { ServerBaseDataProvider } from "@/app/BaseDataServer";
+import { ClientBaseDataProvider } from "@/app/BaseDataClient";
 import { AuthProvider } from "@/context/AuthContext";
+import { TimeContextProvider } from "@/app/time-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,21 +35,23 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <CustomConfigProvider>
-            <TimeContextProvider>
-              <PopStateHandler />
-              <Suspense fallback={<NavbarSkeleton />}>
-                <Navbar />
-              </Suspense>
-              {children}
-              <CommandPalette />
-              <Toaster />
-              <Suspense fallback={<FooterSkeleton />}>
-                <Footer />
-              </Suspense>
-              <GlobalErrorReporter />
-            </TimeContextProvider>
-          </CustomConfigProvider>
+          <PopStateHandler />
+          <Suspense fallback={<div>Loading...</div>}>
+            <ServerBaseDataProvider>
+              <TimeContextProvider>
+                <Suspense fallback={<NavbarSkeleton />}>
+                  <Navbar />
+                </Suspense>
+                {children}
+                <CommandPalette />
+                <Toaster />
+                <Suspense fallback={<FooterSkeleton />}>
+                  <Footer />
+                </Suspense>
+              </TimeContextProvider>
+            </ServerBaseDataProvider>
+          </Suspense>
+          <GlobalErrorReporter />
         </AuthProvider>
       </body>
     </html>

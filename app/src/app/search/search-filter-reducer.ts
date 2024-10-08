@@ -1,4 +1,4 @@
-import { SearchAction, SearchState } from "./search";
+import { SearchAction, SearchOrder, SearchState } from "./search";
 
 export function searchFilterReducer(
   state: SearchState,
@@ -28,16 +28,13 @@ export function searchFilterReducer(
       };
     case "set_order": {
       const { name } = action.payload;
-      const order =
-        name == state.order.name
-          ? {
-              ...state.order,
-              direction:
-                state.order.direction === "desc.nullslast"
-                  ? "asc"
-                  : "desc.nullslast",
-            }
-          : { name, direction: "desc.nullslast" };
+      const validDirections: Set<'asc' | 'desc'> = new Set(['asc', 'desc']);
+      const currentDirection = state.order.direction;
+      const direction: 'asc' | 'desc' = validDirections.has(currentDirection as 'asc' | 'desc') ? (currentDirection === 'desc' ? 'asc' : 'desc') : 'desc';
+
+      const order: SearchOrder = name === state.order.name
+        ? { ...state.order, direction }
+        : { name, direction: 'desc' };
       return { ...state, order };
     }
     case "set_page": {

@@ -1,13 +1,13 @@
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 
 export async function getStatisticalUnits(searchParams: URLSearchParams) {
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
   const rangeStart = searchParams.get("range-start");
   const rangeEnd = searchParams.get("range-end");
 
   let query = client
     .from('statistical_unit')
-    .select("*");
+    .select("*", { count: 'exact' });
     //.select(selectParam, { count: 'exact' });
 
   if (rangeStart !== null && rangeEnd !== null) {

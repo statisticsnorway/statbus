@@ -1,6 +1,6 @@
 "use server";
 import { redirect, RedirectType } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -29,7 +29,7 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const client = await createClient();
+    const client = await createSupabaseServerClient();
     // TODO: Specify the contentType for CSV upload.
     const { error } = await client.from(uploadView).insert(file) //, { contentType: "text/csv" });
 
@@ -51,7 +51,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

@@ -1,3 +1,5 @@
+import { TimeContext } from "../types";
+
 export type SearchFilterOption = {
   readonly label: string;
   readonly value: string | null;
@@ -7,7 +9,7 @@ export type SearchFilterOption = {
 
 export type SearchOrder = {
   readonly name: string;
-  readonly direction: string;
+  readonly direction: "asc" | "desc";
 };
 
 export type SearchPagination = {
@@ -20,6 +22,7 @@ export interface SearchState {
   readonly values: Record<string, (string | null)[] | undefined>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
+  readonly timeContext: TimeContext | null;
 }
 
 export type SearchResult = {

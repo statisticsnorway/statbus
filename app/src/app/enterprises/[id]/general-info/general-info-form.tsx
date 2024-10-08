@@ -1,13 +1,13 @@
 "use client";
+import { useBaseData } from "@/app/BaseDataClient";
 import { FormField } from "@/components/form/form-field";
-import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 export default function GeneralInfoForm({
-  values,
+  values
 }: {
   readonly values: LegalUnit;
 }) {
-  const { externalIdentTypes } = useCustomConfigContext();
+  const { externalIdentTypes } = useBaseData();
 
   return (
     <form className="space-y-8">

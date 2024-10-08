@@ -16,7 +16,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useTimeContext } from "@/app/time-context";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useBaseData } from "@/app/BaseDataClient"; // Import the useBaseData hook
 
 export default function TimeContextSelector({
   className,
@@ -25,8 +26,9 @@ export default function TimeContextSelector({
   readonly className?: string;
   readonly title?: string;
 }) {
-  const { selectedTimeContext, timeContexts: time_contexts, setSelectedTimeContext } = useTimeContext();
+  const { selectedTimeContext, setSelectedTimeContext } = useTimeContext();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const { timeContexts } = useBaseData(); // Use the useBaseData hook to get timeContexts
 
 
   return (
@@ -52,7 +54,7 @@ export default function TimeContextSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {time_contexts.map((time_context) => (
+              {timeContexts.map((time_context) => (
                 <CommandItem
                   key={time_context.ident}
                   value={time_context.ident!}

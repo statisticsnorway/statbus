@@ -1,14 +1,15 @@
 "use client";
-import { createContext, useContext, useState, useMemo, ReactNode, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useMemo, ReactNode, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import logger from "@/lib/client-logger";
-import type { TimeContext, TimeContext as TimeContextType } from "@/app/types";
+import type { TimeContextRow, TimeContextRows } from "@/app/types";
+import { useBaseData } from "@/app/BaseDataClient";
+
 
 interface TimeContextState {
-  readonly timeContexts: TimeContextType[];
-  readonly selectedTimeContext: TimeContextType | null;
-  readonly setSelectedTimeContext: (period: TimeContextType) => void;
+  readonly selectedTimeContext: TimeContextRow;
+  readonly setSelectedTimeContext: (period: TimeContextRow) => void;
   readonly appendTcParam: (url: string) => string;
 }
 
@@ -30,12 +31,12 @@ interface TimeContextProviderProps {
 }
 
 export function TimeContextProvider({ children }: TimeContextProviderProps) {
-  const { isAuthenticated } = useAuth();
+  //const { isAuthenticated } = useAuth();
+  const { timeContexts, defaultTimeContext } = useBaseData();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [timeContexts, setTimeContexts] = useState<TimeContextType[]>([]);
 
-  const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContextType | null>(null);
+  const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContextRow>(defaultTimeContext);
 
   const updateQueryParam = useCallback((tcIdent: string | null) => {
     const query = new URLSearchParams(searchParams.toString());
@@ -46,51 +47,29 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && isAuthenticated) {
-      const fetchTimeContexts = async () => {
-        try {
-          const response = await fetch("/api/time-contexts");
-          if (
-            response.ok &&
-            response.headers.get("content-type") === "application/json"
-          ) {
-            const data = await response.json();
-            setTimeContexts(data);
-          }
-        } catch (e) {
-          logger.error(e, "failed to fetch time contexts");
+    const handleRouteChange = () => {
+      const query = new URLSearchParams(searchParams.toString());
+      const tcQueryParam = query.get(TC_QUERY_PARAM);
+
+      if (selectedTimeContext) {
+        updateQueryParam(selectedTimeContext.ident);
+      } else if (tcQueryParam) {
+        const selectedContext = timeContexts.find(
+          (timeContext) => timeContext.ident === tcQueryParam
+        );
+        if (selectedContext) {
+          setSelectedTimeContext(selectedContext);
         }
-      };
-
-      const handleRouteChange = () => {
-        const query = new URLSearchParams(searchParams.toString());
-        const tcQueryParam = query.get(TC_QUERY_PARAM);
-
-        if (selectedTimeContext) {
-          updateQueryParam(selectedTimeContext.ident);
-        } else if (tcQueryParam) {
-          const selectedContext = timeContexts.find(
-            (context: TimeContext) => context.ident === tcQueryParam
-          );
-          if (selectedContext) {
-            setSelectedTimeContext(selectedContext);
-          }
-        } else if (timeContexts.length > 0) {
-          const firstTimeContext = timeContexts[0];
-          if (firstTimeContext?.ident) {
-            setSelectedTimeContext(firstTimeContext);
-            updateQueryParam(firstTimeContext.ident);
-          }
-        }
-      };
-
-      if (timeContexts.length === 0) {
-        fetchTimeContexts();
       } else {
-        handleRouteChange();
+        if (defaultTimeContext?.ident) {
+          setSelectedTimeContext(defaultTimeContext);
+          updateQueryParam(defaultTimeContext.ident);
+        }
       }
-    }
-  }, [isAuthenticated, timeContexts, pathname, searchParams, updateQueryParam, selectedTimeContext]);
+    };
+
+    handleRouteChange();
+  }, [/*isAuthenticated, */ pathname, searchParams, updateQueryParam, selectedTimeContext, timeContexts, defaultTimeContext]);
 
   const appendTcParam = useCallback((url: string) => {
     const urlObj = new URL(url, window.location.origin);
@@ -110,12 +89,14 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       setSelectedTimeContext,
       appendTcParam,
     }),
-    [timeContexts, selectedTimeContext, appendTcParam]
+    [selectedTimeContext, appendTcParam, timeContexts]
   );
 
   return (
-    <TimeContext.Provider value={value}>
-      {children}
-    </TimeContext.Provider>
+    <Suspense fallback={<div>Loading...</div>}>
+      <TimeContext.Provider value={value}>
+        {children}
+      </TimeContext.Provider>
+    </Suspense>
   );
 }

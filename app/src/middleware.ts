@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createMiddlewareClient } from '@/utils/supabase/server';
+import { createMiddlewareClientAsync } from '@/utils/supabase/server';
 
 export async function middleware(request: NextRequest) {
-  const { client } = createMiddlewareClient(request);
+  const { response, client } = await createMiddlewareClientAsync(request);
   const session =
     client !== undefined ?
       (await client?.auth.getSession())?.data?.session :
@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

@@ -13,8 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LegalUnitGeneralInfoPage({
-  params: { id },
-}: {
+  params: { id }}: {
   readonly params: { id: string };
 }) {
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
@@ -39,7 +38,7 @@ export default async function LegalUnitGeneralInfoPage({
       title="General Info"
       subtitle="General information such as name, id, sector and primary activity"
     >
-      <GeneralInfoForm legal_unit={legalUnit} id={id} />
+      <GeneralInfoForm legal_unit={legalUnit} id={id}/>
       {legalUnit.primary_for_enterprise && (
         <InfoBox>
           <p>

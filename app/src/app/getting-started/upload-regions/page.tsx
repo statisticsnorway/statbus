@@ -6,11 +6,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 
 export default async function UploadRegionsPage() {
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
   const { count } = await client
     .from("region")
     .select("*", { count: "exact", head: true })

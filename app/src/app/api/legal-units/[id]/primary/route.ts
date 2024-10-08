@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { createServerLogger } from "@/lib/server-logger";
 
 export async function POST(
@@ -25,7 +25,7 @@ export async function POST(
       );
     }
 
-    const client = await createClient();
+    const client = await createSupabaseServerClient();
     const { data, error } = await client.rpc(
       "connect_legal_unit_to_enterprise",
       {

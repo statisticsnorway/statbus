@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EnterpriseDetailsPage({
-  params: { id },
+  params: { id }
 }: {
   readonly params: { id: string };
 }) {

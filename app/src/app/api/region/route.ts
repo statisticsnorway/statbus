@@ -1,9 +1,9 @@
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
 
   let query = client.from('region')
     .select(

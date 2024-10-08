@@ -7,7 +7,7 @@ import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { SubmissionFeedbackDebugInfo } from "@/app/legal-units/components/submission-feedback-debug-info";
 import { FormField } from "@/components/form/form-field";
-import { useCustomConfigContext } from "@/app/use-custom-config-context";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export default function GeneralInfoForm({
   id,
@@ -20,7 +20,8 @@ export default function GeneralInfoForm({
     updateLegalUnit.bind(null, id, "general-info"),
     null
   );
-  const { externalIdentTypes } = useCustomConfigContext();
+
+  const { externalIdentTypes } = useBaseData();
 
   return (
     <form className="space-y-8" action={formAction}>
@@ -37,7 +38,7 @@ export default function GeneralInfoForm({
             <FormField
               readonly
               key={type.code}
-              label={type.name ?? type.code}
+              label={type.name ?? type.code!}
               name={`external_idents.${type.code}`}
               value={value}
               response={state}

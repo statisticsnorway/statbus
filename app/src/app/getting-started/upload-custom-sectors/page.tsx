@@ -1,6 +1,6 @@
 import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
   Accordion,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/accordion";
 
 export default async function UploadCustomSectorsPage() {
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
   const { count } = await client
     .from("sector_custom")
     .select("*", { count: "exact", head: true })

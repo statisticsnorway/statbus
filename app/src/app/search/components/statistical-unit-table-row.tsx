@@ -9,8 +9,8 @@ import { Bug } from "lucide-react";
 import { useCartContext } from "@/app/search/use-cart-context";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
+import { useBaseData } from "@/app/BaseDataClient";
 import { StatisticalUnit } from "@/app/types";
-import { useCustomConfigContext } from "@/app/use-custom-config-context";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -22,8 +22,8 @@ export const StatisticalUnitTableRow = ({
   className,
 }: SearchResultTableRowProps) => {
   const { regions, activityCategories } = useSearchContext();
+  const { statDefinitions, externalIdentTypes } = useBaseData();
   const { selected } = useCartContext();
-  const { statDefinitions, externalIdentTypes } = useCustomConfigContext();
 
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
@@ -42,7 +42,7 @@ export const StatisticalUnitTableRow = ({
     invalid_codes,
   } = unit as StatisticalUnit;
 
-  const external_ident = external_idents[externalIdentTypes?.[0]?.code];
+  const external_ident = external_idents[externalIdentTypes?.[0]?.code!];
 
   const getRegionByPath = (physical_region_path: unknown) =>
     regions.find(({ path }) => path === physical_region_path);
@@ -128,7 +128,7 @@ export const StatisticalUnitTableRow = ({
       </TableCell>
       {statDefinitions.map(({ code }) => (
         <TableCell key={code} className="py-2 text-right hidden lg:table-cell">
-          {thousandSeparator(stats_summary[code]?.sum)}
+          {thousandSeparator(stats_summary[code!]?.sum)}
         </TableCell>
       ))}
       <TableCell

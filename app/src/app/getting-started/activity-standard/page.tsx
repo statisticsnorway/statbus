@@ -6,10 +6,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 
 export default async function ActivityStandardPage() {
-  const client = await createClient();
+  const client = await createSupabaseServerClient();
 
   const { data: standards } = await client
     .from("activity_category_standard")
