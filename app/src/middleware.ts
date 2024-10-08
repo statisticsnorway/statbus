@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createMiddlewareAndApiClientAsync } from '@/utils/supabase/server';
+import { createMiddlewareClientAsync } from '@/utils/supabase/server';
 
 export async function middleware(request: NextRequest) {
-  const { response, client } = await createMiddlewareAndApiClientAsync(request);
+  const { response, client } = await createMiddlewareClientAsync(request);
   if (request.nextUrl.pathname === "/login") {
     return response; // Return early for /login to avoid any redirects or session checks
   }
@@ -63,9 +63,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - maintenance (maintenance page)
-     * - api/logger (allow logging without authentication)
-     * - api/auth/session (allow session checking without authentication)
+     * - api (API's are responsible for handling their own sessions by calling any requried functions)
      */
-    "/((?!_next/static|_next/image|favicon.ico|maintenance|api/logger|api/auth/session|api/test).*)",
+    "/((?!_next/static|_next/image|favicon.ico|maintenance|api).*)",
   ],
 };
