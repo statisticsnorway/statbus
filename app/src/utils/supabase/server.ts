@@ -74,7 +74,7 @@ export const createSupabaseSSRClient = async ({ allowCookieModification = false 
 };
 
 
-export const createMiddlewareClientAsync = async (request: NextRequest) => {
+export const createMiddlewareAndApiClientAsync = async (request: NextRequest) => {
   let response = NextResponse.next({
     request,
   });

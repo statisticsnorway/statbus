@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createMiddlewareClientAsync } from '@/utils/supabase/server';
+import { createMiddlewareAndApiClientAsync } from '@/utils/supabase/server';
 
 export async function middleware(request: NextRequest) {
-  const { response, client } = await createMiddlewareClientAsync(request);
+  const { response, client } = await createMiddlewareAndApiClientAsync(request);
   if (request.nextUrl.pathname === "/login") {
     return response; // Return early for /login to avoid any redirects or session checks
   }
