@@ -1,8 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useMemo, ReactNode, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import logger from "@/lib/client-logger";
 import type { TimeContextRow, TimeContextRows } from "@/app/types";
 import { useBaseData } from "@/app/BaseDataClient";
 
@@ -10,6 +8,7 @@ import { useBaseData } from "@/app/BaseDataClient";
 interface TimeContextState {
   readonly selectedTimeContext: TimeContextRow;
   readonly setSelectedTimeContext: (period: TimeContextRow) => void;
+  readonly setSelectedTimeContextFromIdent: (ident: string) => void;
   readonly appendTcParam: (url: string) => string;
 }
 
@@ -37,6 +36,17 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
   const searchParams = useSearchParams();
 
   const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContextRow>(defaultTimeContext);
+
+  const setSelectedTimeContextFromIdent = useCallback((ident: string) => {
+    const selectedContext = timeContexts.find(
+      (timeContext) => timeContext.ident === ident
+    );
+    if (selectedContext) {
+      setSelectedTimeContext(selectedContext);
+    } else {
+      console.warn(`Time context with ident ${ident} not found.`);
+    }
+  }, [timeContexts]);
 
   const updateQueryParam = useCallback((tcIdent: string | null) => {
     const query = new URLSearchParams(searchParams.toString());
@@ -87,6 +97,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       timeContexts,
       selectedTimeContext,
       setSelectedTimeContext,
+      setSelectedTimeContextFromIdent,
       appendTcParam,
     }),
     [selectedTimeContext, appendTcParam, timeContexts]

@@ -5,7 +5,7 @@ import { useTimeContext } from "@/app/time-context";
 
 export default function PopStateHandler() {
   const searchParams = useSearchParams();
-  const { setSelectedTimeContext, timeContexts } = useTimeContext();
+  const { setSelectedTimeContextFromIdent } = useTimeContext();
 
   useEffect(() => {
     const handlePopState = () => {
@@ -13,12 +13,7 @@ export default function PopStateHandler() {
       const tcQueryParam = query.get("tc");
 
       if (tcQueryParam) {
-        const selectedContext = timeContexts.find(
-          (timeContext) => timeContext.ident === tcQueryParam
-        );
-        if (selectedContext) {
-          setSelectedTimeContext(selectedContext);
-        }
+        setSelectedTimeContextFromIdent(tcQueryParam);
       }
     };
 
@@ -26,7 +21,7 @@ export default function PopStateHandler() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [searchParams, setSelectedTimeContext, timeContexts]);
+  }, [searchParams, setSelectedTimeContextFromIdent]);
 
   return null;
 }
