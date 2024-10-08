@@ -1,7 +1,7 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 
 export async function getStatisticalUnits(searchParams: URLSearchParams) {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
   const rangeStart = searchParams.get("range-start");
   const rangeEnd = searchParams.get("range-end");
 

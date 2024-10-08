@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { SSBLogo } from "@/components/ssb-logo";
@@ -18,7 +18,7 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
   const session = (await client.auth.getSession()).data.session;
 
   return (

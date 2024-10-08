@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import SectorOptions from "@/app/search/filters/sector/sector-options";
 
 interface IProps {
@@ -6,7 +6,7 @@ interface IProps {
 }
 
 export default async function SectorFilter({ urlSearchParam }: IProps) {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
   const sectors = await client.from("sector_used").select();
 
   return (

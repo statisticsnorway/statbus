@@ -1,6 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { createServerLogger } from "@/lib/server-logger";
 
 export interface LoginState {
@@ -13,7 +13,7 @@ export async function login(
 ): Promise<LoginState> {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
-  const client = await createSupabaseServerClient();
+  const client = createSupabaseSSRClient();
 
   const { error } = await client.auth.signInWithPassword({
     email,
@@ -33,7 +33,7 @@ export async function login(
 }
 
 export async function logout() {
-  const client = await createSupabaseServerClient();
+  const client = createSupabaseSSRClient();
   await client.auth.signOut();
   redirect("/login");
 }

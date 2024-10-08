@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import ActivityCategoryOptions from "@/app/search/filters/activity-category/activity-category-options";
 
 export default async function ActivityCategoryFilter({
@@ -6,7 +6,7 @@ export default async function ActivityCategoryFilter({
 }: {
   readonly urlSearchParam: string | null;
 }) {
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseSSRClient();
   const activityCategories = await client
     .from("activity_category_used")
     .select();
