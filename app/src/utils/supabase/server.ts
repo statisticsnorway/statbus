@@ -15,7 +15,7 @@ export const createSupabaseSSGClient = async () => {
       cookies: {
         getAll() {
           // If the client *tries* to access the cookies, then it breaks SSG
-          // so just return an empty array when it checks the cookies.
+          // so just return an empty array when the supabase code checks the cookies.
           return [];
         },
         setAll(cookiesToSet) {
@@ -81,7 +81,11 @@ export const createMiddlewareClientAsync = async (request: NextRequest) => {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
+            // The cookies in the request are used later by createSupabaseSSRClient
+            // and then detects and uses the JWT token in the cookie.
             request.cookies.set(name, value);
+            // The cookies in the response are sent back to the browser,
+            // so that the possibly refreshed JWT is saved as a cookie.
             response.cookies.set(name, value, options);
           });
         },
@@ -100,7 +104,9 @@ export const createMiddlewareClientAsync = async (request: NextRequest) => {
 
 export const createApiClientAsync = async () => {
   // Server Actions / API functions under App Routing must not directly modify
-  // the request, but use API's.
+  // the request, but use API's, and the underlying Next.js framework
+  // will return the set cookies to the browser.
+  // This is a design choice for Next.js 13+
   let cookieStore = cookies();
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
