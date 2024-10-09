@@ -403,7 +403,6 @@ EOS
 # by `./devops/manage-statbus.sh` that also sets the VERSION
 # required for precise logging by the statbus app.
 ################################################################
-
 EOS
 
         cat >> .env <<'EOS'
@@ -516,6 +515,21 @@ EOF
         export SERVICE_ROLE_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_service_role_payload")
         ./devops/dotenv --file .env set SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 
+        # Add Publicly exposed Next.js variables
+        cat >> .env <<EOS
+################################################################
+# Statbus App Environment Variables
+# Next.js only exposes environment variables with the 'NEXT_PUBLIC_'
+# prefix. Add all the variables here that are exposed publicly,
+# i.e. available in the web page source code for all to see.
+#
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME
+NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE
+#
+################################################################
+EOS
         ;;
      'postgres-variables' )
         PGHOST=127.0.0.1
