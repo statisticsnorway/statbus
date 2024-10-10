@@ -46,9 +46,8 @@ export default function SearchResults({
    * This is not strictly necessary, but gives a more responsive UI when the search page filters are loaded
    */
     const valuesFromUrlSearchParams = useMemo(() => {
-      const params = new URLSearchParams(initialUrlSearchParams);
-      return Array.from(params.keys()).reduce(
-        (acc, key) => ({ ...acc, [key]: params.get(key)?.split(",") }),
+      return Array.from(initialUrlSearchParams.keys()).reduce(
+        (acc, key) => ({ ...acc, [key]: initialUrlSearchParams.get(key)?.split(",") }),
         {}
       );
     }, [initialUrlSearchParams]);

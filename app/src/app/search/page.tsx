@@ -14,12 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default async function SearchPage({
-  searchParams: initialReadOnlyUrlSearchParams,
+  searchParams: initialUrlSearchParams,
 }: {
   readonly searchParams: URLSearchParams;
 }) {
-  const initialUrlSearchParams = new URLSearchParams(initialReadOnlyUrlSearchParams);
-
   const defaultOrder = "name.asc";
   const orderParam = initialUrlSearchParams.get("order") || defaultOrder;
 
