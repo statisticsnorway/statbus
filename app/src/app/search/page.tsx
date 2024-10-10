@@ -8,16 +8,15 @@ import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Cart } from "@/app/search/components/cart";
 import { CartProvider } from "@/app/search/cart-provider";
 import { createSupabaseSSRClient } from "@/utils/supabase/server"; // Use SSG client if needed
+import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 
 export const metadata: Metadata = {
   title: "Statbus | Search statistical units",
 };
 
-export default async function SearchPage({
-  searchParams: initialUrlSearchParams,
-}: {
-  readonly searchParams: URLSearchParams;
-}) {
+export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {
+  const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
+
   const defaultOrder = "name.asc";
   const orderParam = initialUrlSearchParams.get("order") || defaultOrder;
 
@@ -50,7 +49,7 @@ export default async function SearchPage({
       initialPagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
       regions={regions ?? []}
       activityCategories={activityCategories ?? []}
-      initialUrlSearchParams={initialUrlSearchParams}
+      initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
       <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
@@ -59,7 +58,7 @@ export default async function SearchPage({
         <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
         <CartProvider>
           <section className="space-y-3">
-            <TableToolbar initialUrlSearchParams={initialUrlSearchParams} />
+            <TableToolbar initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
             <div className="rounded-md border overflow-hidden">
               <SearchResultTable />
             </div>

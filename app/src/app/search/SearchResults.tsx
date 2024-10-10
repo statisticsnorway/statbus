@@ -8,6 +8,7 @@ import useDerivedUrlSearchParams from "@/app/search/use-updated-url-search-param
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
 import { SearchResult, SearchOrder, SearchPagination } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
+import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 
 const fetcher = async (url: string) => {
   try {
@@ -28,7 +29,7 @@ interface SearchResultsProps {
   readonly initialPagination: SearchPagination;
   readonly regions: Tables<"region_used">[];
   readonly activityCategories: Tables<"activity_category_used">[];
-  readonly initialUrlSearchParams: URLSearchParams;
+  readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
 
 export default function SearchResults({
@@ -37,9 +38,10 @@ export default function SearchResults({
   initialPagination,
   regions,
   activityCategories,
-  initialUrlSearchParams,
+  initialUrlSearchParamsDict,
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
+  const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
 
   /**
    * Extract values from URLSearchParams and initialize search state.
@@ -59,8 +61,6 @@ export default function SearchResults({
     timeContext: selectedTimeContext,
     values: valuesFromUrlSearchParams,
   });
-
-
 
   const { order, pagination: searchPagination, queries } = searchState;
 

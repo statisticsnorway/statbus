@@ -11,26 +11,28 @@ import StatisticalVariablesFilter from "@/app/search/filters/statistical-variabl
 import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 
-export default function TableToolbar({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
+import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
+
+export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      <FullTextSearchFilter initialUrlSearchParams={initialUrlSearchParams} />
-      <ExternalIdentFilter initialUrlSearchParams={initialUrlSearchParams} />
-      <UnitTypeFilter initialUrlSearchParams={initialUrlSearchParams} />
+      <FullTextSearchFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+      <ExternalIdentFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+      <UnitTypeFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
       <Suspense fallback={<FilterSkeleton title="Sector" />}>
-        <SectorFilter initialUrlSearchParams={initialUrlSearchParams} />
+        <SectorFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Region" />}>
-        <RegionFilter initialUrlSearchParams={initialUrlSearchParams} />
+        <RegionFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-        <LegalFormFilter initialUrlSearchParams={initialUrlSearchParams} />
+        <LegalFormFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-        <ActivityCategoryFilter initialUrlSearchParams={initialUrlSearchParams} />
+        <ActivityCategoryFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
       </Suspense>
-      <StatisticalVariablesFilter urlSearchParams={initialUrlSearchParams} />
-      <InvalidCodesFilter initialUrlSearchParams={initialUrlSearchParams} />
+      <StatisticalVariablesFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+      <InvalidCodesFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
       <ResetFilterButton />
     </div>
   );

@@ -1,12 +1,9 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
+import { IURLSearchParamsDict, toURLSearchParams } from "@/lib/url-search-params-dict";
 
-export default async function StatisticalVariablesFilter({
-  urlSearchParams,
-}: {
-  readonly urlSearchParams: URLSearchParams;
-}) {
-  const resolve = createURLParamsResolver(new URLSearchParams(urlSearchParams));
+export default async function StatisticalVariablesFilter({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
+  const resolve = createURLParamsResolver(toURLSearchParams(initialUrlSearchParamsDict));
   const client = await createSupabaseSSRClient();
   const statisticalVariables = await client
     .from("stat_definition")

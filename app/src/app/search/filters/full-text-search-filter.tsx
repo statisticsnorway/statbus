@@ -5,8 +5,11 @@ import { useCallback, useEffect } from "react";
 import { SEARCH } from "@/app/search/filters/url-search-params";
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
-export default function FullTextSearchFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
-  const searchValue = initialUrlSearchParams.get(SEARCH);
+import { IURLSearchParamsDict, toURLSearchParams } from "@/lib/url-search-params-dict";
+
+export default function FullTextSearchFilter({ initialUrlSearchParamsDict: initialUrlSearchParams }: IURLSearchParamsDict) {
+  const urlSearchParams = toURLSearchParams(initialUrlSearchParams);
+  const searchValue = urlSearchParams.get(SEARCH);
   const {
     modifySearchState,
     searchState: {

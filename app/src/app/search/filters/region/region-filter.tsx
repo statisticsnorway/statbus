@@ -1,9 +1,13 @@
+"use server";
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import RegionOptions from "@/app/search/filters/region/region-options";
 import { REGION } from "../url-search-params";
+import { IURLSearchParamsDict, toURLSearchParams } from "@/lib/url-search-params-dict";
 
-export default async function RegionFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
-  const region = initialUrlSearchParams.get(REGION);
+export default async function RegionFilter({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
+  const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
+
+  const regionQueryValue = initialUrlSearchParams.get(REGION);
   const client = await createSupabaseSSRClient();
   const regions = await client.from("region_used").select();
 
@@ -23,7 +27,7 @@ export default async function RegionFilter({ initialUrlSearchParams}: { readonly
         })) ?? []),
       ]}
       selected={
-        region
+        regionQueryValue
           ?.split(",")
           .map((value) => (value === "null" ? null : value)) ?? []
       }

@@ -2,8 +2,12 @@ import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import LegalFormOptions from "@/app/search/filters/legal-form/legal-form-options";
 import { LEGAL_FORM } from "../url-search-params";
 
-export default async function LegalFormFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
-  const legalForm = initialUrlSearchParams.get(LEGAL_FORM);
+import { IURLSearchParamsDict, toURLSearchParams } from "@/lib/url-search-params-dict";
+
+export default async function LegalFormFilter({ initialUrlSearchParamsDict: initialUrlSearchParams }: IURLSearchParamsDict) {
+  const urlSearchParams = toURLSearchParams(initialUrlSearchParams);
+
+  const legalForm = urlSearchParams.get(LEGAL_FORM);
   const client = await createSupabaseSSRClient();
   const legalForms = await client
     .from("legal_form_used")
