@@ -120,16 +120,9 @@ export default function SearchResults({
 
   useDerivedUrlSearchParams(ctx);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>Error loading data</div>;
-  }
-
   return (
     <SearchContext.Provider value={ctx}>
+      {error && <div>Error loading data</div>}
       {children}
     </SearchContext.Provider>
   );
