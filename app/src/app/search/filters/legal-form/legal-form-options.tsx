@@ -13,8 +13,8 @@ export default function LegalFormOptions({
   readonly selected: (string | null)[];
 }) {
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [LEGAL_FORM]: selected = [] },
     },
   } = useSearchContext();
@@ -25,7 +25,7 @@ export default function LegalFormOptions({
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: LEGAL_FORM,
@@ -35,11 +35,11 @@ export default function LegalFormOptions({
         },
       });
     },
-    [dispatch, selected]
+    [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    dispatch({
+    modifySearchState({
       type: "set_query",
       payload: {
         app_param_name: LEGAL_FORM,
@@ -48,11 +48,11 @@ export default function LegalFormOptions({
         app_param_values: [],
       },
     });
-  }, [dispatch]);
+  }, [modifySearchState]);
 
   useEffect(() => {
     if (initialSelected.length > 0) {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: LEGAL_FORM,
@@ -62,7 +62,7 @@ export default function LegalFormOptions({
         },
       });
     }
-  }, [dispatch, initialSelected]);
+  }, [modifySearchState, initialSelected]);
 
   return (
     <OptionsFilter

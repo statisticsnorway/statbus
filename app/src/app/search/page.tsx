@@ -14,14 +14,14 @@ export const metadata: Metadata = {
 };
 
 export default async function SearchPage({
-  searchParams,
+  searchParams: initialReadOnlyUrlSearchParams,
 }: {
   readonly searchParams: URLSearchParams;
 }) {
-  const params = new URLSearchParams(searchParams);
+  const initialUrlSearchParams = new URLSearchParams(initialReadOnlyUrlSearchParams);
 
   const defaultOrder = "name.asc";
-  const orderParam = params.get("order") || defaultOrder;
+  const orderParam = initialUrlSearchParams.get("order") || defaultOrder;
 
   const [orderBy, orderDirection] = orderParam.split(".");
 
@@ -37,22 +37,22 @@ export default async function SearchPage({
    * so that we do not need any blocking calls to supabase here.
    */
   const client = await createSupabaseSSRClient();
-  const [activityCategories, regions] = await Promise.all([
+  const [{data: activityCategories}, {data: regions}] = await Promise.all([
     client.from("activity_category_used").select(),
     client.from("region_used").select(),
   ]);
 
   const defaultCurrentPage = 1;
   const defaultPageSize = 10;
-  const currentPage = Number(params.get("page")) || defaultCurrentPage;
+  const currentPage = Number(initialUrlSearchParams.get("page")) || defaultCurrentPage;
 
   return (
     <SearchResults
-      order={{ name: orderBy, direction: validOrderDirection }}
-      pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
-      regions={regions.data}
-      activityCategories={activityCategories.data}
-      urlSearchParams={params}
+      initialOrder={{ name: orderBy, direction: validOrderDirection }}
+      initialPagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
+      regions={regions ?? []}
+      activityCategories={activityCategories ?? []}
+      initialUrlSearchParams={initialUrlSearchParams}
     >
       <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
@@ -61,7 +61,7 @@ export default async function SearchPage({
         <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
         <CartProvider>
           <section className="space-y-3">
-            <TableToolbar urlSearchParams={params} />
+            <TableToolbar initialUrlSearchParams={initialUrlSearchParams} />
             <div className="rounded-md border overflow-hidden">
               <SearchResultTable />
             </div>

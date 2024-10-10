@@ -3,8 +3,8 @@
 import { ReactNode, useMemo, useReducer } from "react";
 import { useTimeContext } from "@/app/time-context";
 import useSWR from "swr";
-import { searchFilterReducer } from "@/app/search/search-filter-reducer";
-import useUpdatedUrlSearchParams from "@/app/search/use-updated-url-search-params";
+import { modifySearchStateReducer } from "@/app/search/search-filter-reducer";
+import useDerivedUrlSearchParams from "@/app/search/use-updated-url-search-params";
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
 import { SearchResult, SearchOrder, SearchPagination } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
@@ -24,20 +24,20 @@ const fetcher = async (url: string) => {
 
 interface SearchResultsProps {
   readonly children: ReactNode;
-  readonly order: SearchOrder;
-  readonly pagination: SearchPagination;
-  readonly regions: Tables<"region_used">[] | null;
-  readonly activityCategories: Tables<"activity_category_used">[] | null;
-  readonly urlSearchParams: URLSearchParams;
+  readonly initialOrder: SearchOrder;
+  readonly initialPagination: SearchPagination;
+  readonly regions: Tables<"region_used">[];
+  readonly activityCategories: Tables<"activity_category_used">[];
+  readonly initialUrlSearchParams: URLSearchParams;
 }
 
 export default function SearchResults({
   children,
-  order: initialOrder,
-  pagination,
+  initialOrder,
+  initialPagination,
   regions,
   activityCategories,
-  urlSearchParams,
+  initialUrlSearchParams,
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
 
@@ -46,16 +46,16 @@ export default function SearchResults({
    * This is not strictly necessary, but gives a more responsive UI when the search page filters are loaded
    */
     const valuesFromUrlSearchParams = useMemo(() => {
-      const params = new URLSearchParams(urlSearchParams);
+      const params = new URLSearchParams(initialUrlSearchParams);
       return Array.from(params.keys()).reduce(
         (acc, key) => ({ ...acc, [key]: params.get(key)?.split(",") }),
         {}
       );
-    }, [urlSearchParams]);
+    }, [initialUrlSearchParams]);
 
-  const [search, dispatch] = useReducer(searchFilterReducer, {
+  const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, {
     order: initialOrder,
-    pagination,
+    pagination: initialPagination,
     queries: {},
     timeContext: selectedTimeContext,
     values: valuesFromUrlSearchParams,
@@ -63,9 +63,9 @@ export default function SearchResults({
 
 
 
-  const { order, pagination: searchPagination, queries } = search;
+  const { order, pagination: searchPagination, queries } = searchState;
 
-  const searchParams = useMemo(() => {
+  const derivedUrlSearchParams = useMemo(() => {
     const params = new URLSearchParams();
     Object.entries(queries).forEach(([key, value]) => {
       if (value) params.set(key, value);
@@ -89,26 +89,26 @@ export default function SearchResults({
   }, [queries, order, searchPagination, selectedTimeContext]);
 
   const { data: searchResult, error, isLoading } = useSWR<SearchResult>(
-    `/api/search?${searchParams}`,
+    `/api/search?${derivedUrlSearchParams}`,
     fetcher,
     { keepPreviousData: true, revalidateOnFocus: false }
   );
 
   const ctx: SearchContextState = useMemo(
     () => ({
-      search,
-      dispatch,
+      searchState,
+      modifySearchState,
       searchResult,
-      searchParams,
+      derivedUrlSearchParams,
       regions: regions ?? [],
       activityCategories: activityCategories ?? [],
       selectedTimeContext,
       isLoading,
-    }),
-    [search, searchResult, searchParams, regions, activityCategories, selectedTimeContext, isLoading]
+    } as SearchContextState),
+    [searchState, searchResult, derivedUrlSearchParams, regions, activityCategories, selectedTimeContext, isLoading]
   );
 
-  useUpdatedUrlSearchParams(ctx);
+  useDerivedUrlSearchParams(ctx);
 
   if (isLoading) {
     return <div>Loading...</div>;

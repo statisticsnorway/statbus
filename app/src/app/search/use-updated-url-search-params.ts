@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { SearchContextState } from "@/app/search/search-context";
 
-export default function useUpdatedUrlSearchParams({
-  search: { values, order, pagination },
+export default function useDerivedUrlSearchParams({
+  searchState: { values, order, pagination },
 }: SearchContextState) {
   useEffect(() => {
     const params = Object.entries(values).reduce((params, [name, values]) => {

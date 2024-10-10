@@ -13,8 +13,8 @@ export default function ActivityCategoryOptions({
   readonly selected: (string | null)[];
 }) {
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
     },
   } = useSearchContext();
@@ -28,7 +28,7 @@ export default function ActivityCategoryOptions({
 
   useEffect(() => {
     if (initialSelected.length > 0) {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: ACTIVITY_CATEGORY_PATH,
@@ -38,12 +38,12 @@ export default function ActivityCategoryOptions({
         },
       });
     }
-  }, [dispatch, initialSelected]);
+  }, [modifySearchState, initialSelected]);
 
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
       const values = selected.includes(value) ? [] : [value];
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: ACTIVITY_CATEGORY_PATH,
@@ -53,11 +53,11 @@ export default function ActivityCategoryOptions({
         },
       });
     },
-    [dispatch, selected]
+    [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    dispatch({
+    modifySearchState({
       type: "set_query",
       payload: {
         app_param_name: ACTIVITY_CATEGORY_PATH,
@@ -66,7 +66,7 @@ export default function ActivityCategoryOptions({
         app_param_values: [],
       },
     });
-  }, [dispatch]);
+  }, [modifySearchState]);
 
   return (
     <OptionsFilter

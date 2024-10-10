@@ -13,15 +13,15 @@ import { useSearchContext } from "@/app/search/use-search-context";
 
 export default function SearchResultPagination() {
   const {
-    search: { pagination },
-    dispatch,
+    searchState: { pagination },
+    modifySearchState,
     searchResult,
   } = useSearchContext();
   const totalResults = searchResult?.count || 0;
   const totalPages = Math.ceil(totalResults / pagination.pageSize);
 
   const handlePageChange = (newPage: number) => {
-    dispatch({ type: "set_page", payload: { pageNumber: newPage } });
+    modifySearchState({ type: "set_page", payload: { pageNumber: newPage } });
   };
 
   if (!totalResults) return null;

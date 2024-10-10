@@ -1,6 +1,6 @@
 import { SearchAction, SearchOrder, SearchState } from "./search";
 
-export function searchFilterReducer(
+export function modifySearchStateReducer(
   state: SearchState,
   action: SearchAction
 ): SearchState {

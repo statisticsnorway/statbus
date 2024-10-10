@@ -8,7 +8,7 @@ export const SearchResultCount = ({
   readonly className?: string;
 }) => {
   const {
-    search: { pagination },
+    searchState: { pagination },
     searchResult,
   } = useSearchContext();
   const hasResults = searchResult?.count;

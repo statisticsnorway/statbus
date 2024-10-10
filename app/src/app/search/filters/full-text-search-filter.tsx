@@ -6,20 +6,21 @@ import { SEARCH } from "@/app/search/filters/url-search-params";
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
 interface IProps {
-  readonly urlSearchParam: string | null;
+  readonly initialUrlSearchParams: URLSearchParams;
 }
 
-export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
+export default function FullTextSearchFilter({ initialUrlSearchParams }: IProps) {
+  const searchValue = initialUrlSearchParams.get(SEARCH);
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [SEARCH]: selected = [] },
     },
   } = useSearchContext();
 
   const update = useCallback(
     (value: string) => {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: SEARCH,
@@ -31,14 +32,14 @@ export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
         },
       });
     },
-    [dispatch]
+    [modifySearchState]
   );
 
   useEffect(() => {
-    if (urlSearchParam) {
-      update(urlSearchParam);
+    if (searchValue) {
+      update(searchValue);
     }
-  }, [update, urlSearchParam]);
+  }, [update, searchValue]);
 
   return (
     <Input

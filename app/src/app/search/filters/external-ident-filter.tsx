@@ -4,18 +4,18 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { useBaseData } from "@/app/BaseDataClient";
 
-export default function ExternalIdentFilter({ urlSearchParams }: { urlSearchParams: URLSearchParams }) {
+export default function ExternalIdentFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
   const { externalIdentTypes } = useBaseData();
   const maybeDefaultExternalIdent = externalIdentTypes?.[0];
   const maybeDefaultCode = maybeDefaultExternalIdent?.code;
-  const urlSearchParam = maybeDefaultCode ? new URLSearchParams(urlSearchParams).get(maybeDefaultCode) : null;
-  const { dispatch, search } = useSearchContext();
-  const selected = maybeDefaultCode ? search.values[maybeDefaultCode] ?? [] : [];
+  const urlSearchParam = maybeDefaultCode ? initialUrlSearchParams.get(maybeDefaultCode) : null;
+  const { modifySearchState, searchState } = useSearchContext();
+  const selected = maybeDefaultCode ? searchState.values[maybeDefaultCode] ?? [] : [];
 
   const update = useCallback(
     (app_param_value: string) => {
       if (maybeDefaultCode) {
-        dispatch({
+        modifySearchState({
           type: "set_query",
           payload: {
             app_param_name: maybeDefaultCode,
@@ -26,7 +26,7 @@ export default function ExternalIdentFilter({ urlSearchParams }: { urlSearchPara
         });
       }
     },
-    [dispatch, maybeDefaultCode]
+    [modifySearchState, maybeDefaultCode]
   );
 
   useEffect(() => {

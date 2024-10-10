@@ -1,11 +1,9 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import SectorOptions from "@/app/search/filters/sector/sector-options";
+import { SECTOR } from "../url-search-params";
 
-interface IProps {
-  readonly urlSearchParam: string | null;
-}
-
-export default async function SectorFilter({ urlSearchParam }: IProps) {
+export default async function SectorFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+  const sector = initialUrlSearchParams.get(SECTOR);
   const client = await createSupabaseSSRClient();
   const sectors = await client.from("sector_used").select();
 
@@ -18,7 +16,7 @@ export default async function SectorFilter({ urlSearchParam }: IProps) {
           humanReadableValue: code ? `${code} ${name}` : `${name}`,
         })) ?? []
       }
-      selected={urlSearchParam ? urlSearchParam.split(",") : []}
+      selected={sector ? sector.split(",") : []}
     />
   );
 }

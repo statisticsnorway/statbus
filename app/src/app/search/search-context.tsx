@@ -5,10 +5,10 @@ import { SearchAction, SearchResult, SearchState } from "./search";
 import { TimeContextRow } from "../types";
 
 export interface SearchContextState {
-  readonly search: SearchState;
-  readonly dispatch: Dispatch<SearchAction>;
+  readonly searchState: SearchState;
+  readonly modifySearchState: Dispatch<SearchAction>;
   readonly searchResult?: SearchResult;
-  readonly searchParams: URLSearchParams;
+  readonly derivedUrlSearchParams: URLSearchParams;
   readonly regions: Tables<"region_used">[];
   readonly activityCategories: Tables<"activity_category_available">[];
   readonly selectedTimeContext: TimeContextRow;

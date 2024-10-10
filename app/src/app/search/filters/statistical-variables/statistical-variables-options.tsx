@@ -13,15 +13,15 @@ export default function StatisticalVariablesOptions({
   readonly selected?: { operator?: string; value: string | null };
 }) {
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [code]: selected = [] },
     },
   } = useSearchContext();
 
   useEffect(() => {
     if (initialSelected) {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: code,
@@ -33,11 +33,11 @@ export default function StatisticalVariablesOptions({
         },
       });
     }
-  }, [dispatch, code, initialSelected]);
+  }, [modifySearchState, code, initialSelected]);
 
   const update = useCallback(
     ({ operator, value }: { operator: string; value: string }) => {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: code,
@@ -47,11 +47,11 @@ export default function StatisticalVariablesOptions({
         },
       });
     },
-    [dispatch, code]
+    [modifySearchState, code]
   );
 
   const reset = useCallback(() => {
-    dispatch({
+    modifySearchState({
       type: "set_query",
       payload: {
         app_param_name: code,
@@ -60,7 +60,7 @@ export default function StatisticalVariablesOptions({
         app_param_values: [],
       },
     });
-  }, [dispatch, code]);
+  }, [modifySearchState, code]);
 
   const [operator, value] = selected[0]?.split(".") ?? [];
 

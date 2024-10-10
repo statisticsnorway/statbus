@@ -5,14 +5,11 @@ import { useCallback, useEffect } from "react";
 import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../search";
 
-interface IProps {
-  readonly urlSearchParam: string | null;
-}
-
-export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
+export default function UnitTypeFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+  const unitType = initialUrlSearchParams.get(UNIT_TYPE);
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [UNIT_TYPE]: selected = [] },
     },
   } = useSearchContext();
@@ -27,7 +24,7 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: UNIT_TYPE,
@@ -37,11 +34,11 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         },
       });
     },
-    [dispatch, selected]
+    [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    dispatch({
+    modifySearchState({
       type: "set_query",
       payload: {
         app_param_name: UNIT_TYPE,
@@ -50,12 +47,12 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         app_param_values: [],
       },
     });
-  }, [dispatch]);
+  }, [modifySearchState]);
 
   useEffect(() => {
-    if (param) {
-      const initialSelected = param.split(",");
-      dispatch({
+    if (unitType) {
+      const initialSelected = unitType.split(",");
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: UNIT_TYPE,
@@ -65,7 +62,7 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         },
       });
     }
-  }, [dispatch, param]);
+  }, [modifySearchState, unitType]);
 
   return (
     <OptionsFilter

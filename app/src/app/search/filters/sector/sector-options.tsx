@@ -13,8 +13,8 @@ export default function SectorOptions({
   readonly selected: (string | null)[];
 }) {
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [SECTOR]: selected = [] },
     },
   } = useSearchContext();
@@ -27,7 +27,7 @@ export default function SectorOptions({
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
       const values = selected.includes(value) ? [] : [value];
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: SECTOR,
@@ -37,11 +37,11 @@ export default function SectorOptions({
         },
       });
     },
-    [dispatch, selected]
+    [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    dispatch({
+    modifySearchState({
       type: "set_query",
       payload: {
         app_param_name: SECTOR,
@@ -50,11 +50,11 @@ export default function SectorOptions({
         app_param_values: [],
       },
     });
-  }, [dispatch]);
+  }, [modifySearchState]);
 
   useEffect(() => {
     if (initialSelected.length > 0) {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: SECTOR,
@@ -64,7 +64,7 @@ export default function SectorOptions({
         },
       });
     }
-  }, [dispatch, initialSelected]);
+  }, [modifySearchState, initialSelected]);
 
   return (
     <OptionsFilter

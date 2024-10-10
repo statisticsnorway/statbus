@@ -4,21 +4,19 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { INVALID_CODES } from "@/app/search/filters/url-search-params";
 
-interface IProps {
-  readonly urlSearchParam: string | null;
-}
+export default function InvalidCodesFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+  const invalidCodes = initialUrlSearchParams.get(INVALID_CODES);
 
-export default function InvalidCodesFilter({ urlSearchParam }: IProps) {
   const {
-    dispatch,
-    search: {
+    modifySearchState,
+    searchState: {
       values: { [INVALID_CODES]: selected = [] },
     },
   } = useSearchContext();
 
   const update = useCallback(
     ({ value }: { value: string | null }) => {
-      dispatch({
+      modifySearchState({
         type: "set_query",
         payload: {
           app_param_name: INVALID_CODES,
@@ -28,11 +26,11 @@ export default function InvalidCodesFilter({ urlSearchParam }: IProps) {
         },
       });
     },
-    [dispatch]
+    [modifySearchState]
   );
 
   const reset = useCallback(() => {
-    dispatch({
+    modifySearchState({
       type: "set_query",
       payload: {
         app_param_name: INVALID_CODES,
@@ -41,13 +39,13 @@ export default function InvalidCodesFilter({ urlSearchParam }: IProps) {
         app_param_values: [],
       },
     });
-  }, [dispatch]);
+  }, [modifySearchState]);
 
   useEffect(() => {
-    if (urlSearchParam) {
-      update({ value: urlSearchParam });
+    if (invalidCodes) {
+      update({ value: invalidCodes });
     }
-  }, [update, urlSearchParam]);
+  }, [update, invalidCodes]);
 
   return (
     <OptionsFilter

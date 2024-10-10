@@ -9,10 +9,10 @@ interface ResetFilterButtonProps {
 }
 
 export const ResetFilterButton = ({ className }: ResetFilterButtonProps) => {
-  const { dispatch } = useSearchContext();
+  const { modifySearchState } = useSearchContext();
   return (
     <Button
-      onClick={() => dispatch({ type: "reset_all" })}
+      onClick={() => modifySearchState({ type: "reset_all" })}
       type="button"
       variant="secondary"
       className={cn("flex items-center space-x-2 h-9 p-2", className)}

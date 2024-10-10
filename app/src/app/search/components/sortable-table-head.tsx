@@ -16,13 +16,13 @@ export default function SortableTableHead({
   ...props
 }: SortableTableHeadProps) {
   const {
-    search: { order },
-    dispatch,
+    searchState: { order },
+    modifySearchState,
   } = useSearchContext();
   return (
     <TableHead {...props}>
       <button
-        onClick={() => dispatch({ type: "set_order", payload: { name } })}
+        onClick={() => modifySearchState({ type: "set_order", payload: { name } })}
         className={cn("p-0", order.name === name ? "underline" : "")}
       >
         {children}
