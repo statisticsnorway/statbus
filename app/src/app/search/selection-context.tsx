@@ -2,10 +2,10 @@
 import { Tables } from "@/lib/database.types";
 import { createContext } from "react";
 
-export interface CartContextData {
+export interface SelectionContextData {
   readonly selected: Tables<"statistical_unit">[];
   readonly clearSelected: () => void;
   readonly toggle: (unit: Tables<"statistical_unit">) => void;
 }
 
-export const CartContext = createContext<CartContextData | null>(null);
+export const SelectionContext = createContext<SelectionContextData | null>(null);

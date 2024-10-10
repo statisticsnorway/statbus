@@ -5,8 +5,8 @@ import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
 import SearchResultPagination from "@/app/search/components/search-result-pagination";
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
-import { Cart } from "@/app/search/components/cart";
-import { CartProvider } from "@/app/search/cart-provider";
+import { Selection } from "@/app/search/components/selection";
+import { SelectionProvider } from "@/app/search/selection-provider";
 import { createSupabaseSSRClient } from "@/utils/supabase/server"; // Use SSG client if needed
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 
@@ -56,7 +56,7 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
           Search for statistical units
         </h1>
         <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
-        <CartProvider>
+        <SelectionProvider>
           <section className="space-y-3">
             <TableToolbar initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
             <div className="rounded-md border overflow-hidden">
@@ -71,9 +71,9 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
             </div>
           </section>
           <section className="mt-8">
-            <Cart />
+            <Selection />
           </section>
-        </CartProvider>
+        </SelectionProvider>
       </main>
     </SearchResults>
   );

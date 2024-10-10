@@ -1,13 +1,13 @@
 "use client";
 import { ReactNode, useCallback, useMemo, useState } from "react";
 import { Tables } from "@/lib/database.types";
-import { CartContext } from "@/app/search/cart-context";
+import { SelectionContext } from "@/app/search/selection-context";
 
-interface CartProviderProps {
+interface SelectionProviderProps {
   readonly children: ReactNode;
 }
 
-export const CartProvider = ({ children }: CartProviderProps) => {
+export const SelectionProvider = ({ children }: SelectionProviderProps) => {
   const [selected, setSelected] = useState<Tables<"statistical_unit">[]>([]);
 
   const toggle = useCallback(
@@ -31,5 +31,5 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     [toggle, selected]
   );
 
-  return <CartContext.Provider value={ctx}>{children}</CartContext.Provider>;
+  return <SelectionContext.Provider value={ctx}>{children}</SelectionContext.Provider>;
 };

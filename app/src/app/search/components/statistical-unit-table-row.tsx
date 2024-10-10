@@ -6,7 +6,7 @@ import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
 import { Bug } from "lucide-react";
-import { useCartContext } from "@/app/search/use-cart-context";
+import { useSelectionContext } from "@/app/search/use-selection-context";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
 import { useBaseData } from "@/app/BaseDataClient";
@@ -23,7 +23,7 @@ export const StatisticalUnitTableRow = ({
 }: SearchResultTableRowProps) => {
   const { regions, activityCategories } = useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
-  const { selected } = useCartContext();
+  const { selected } = useSelectionContext();
 
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
