@@ -12,7 +12,7 @@ export const RegionCard = async () => {
 
   return (
     <DashboardCard
-      title="Regions"
+      title="Region Hierarchy"
       icon={<Globe2 className="h-4" />}
       text={count?.toString() ?? "-"}
       failed={!!error}
