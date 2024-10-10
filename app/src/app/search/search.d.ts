@@ -37,9 +37,7 @@ export interface ConditionalValue {
 
 export interface SetOrder {
   type: "set_order";
-  payload: {
-    name: string;
-  };
+  payload: { name: string};
 }
 
 export interface ResetAll {

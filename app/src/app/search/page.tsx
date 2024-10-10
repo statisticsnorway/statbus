@@ -9,6 +9,8 @@ import { Selection } from "@/app/search/components/selection";
 import { SelectionProvider } from "@/app/search/selection-provider";
 import { createSupabaseSSRClient } from "@/utils/supabase/server"; // Use SSG client if needed
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
+import { defaultOrder } from "./search-filter-reducer";
+import { SearchOrder } from "./search";
 
 export const metadata: Metadata = {
   title: "Statbus | Search statistical units",
@@ -16,14 +18,6 @@ export const metadata: Metadata = {
 
 export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {
   const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
-
-  const defaultOrder = "name.asc";
-  const orderParam = initialUrlSearchParams.get("order") || defaultOrder;
-
-  const [orderBy, orderDirection] = orderParam.split(".");
-
-  // Validate the orderDirection to ensure it is either "asc" or "desc"
-  const validOrderDirection: "asc" | "desc" = orderDirection === "desc" ? "desc" : "asc"; // Default to "asc" if invalid
 
   /* TODO - Remove this once the search results include the activity category and region names
    * Until activity category and region names are included in the search results,
@@ -39,13 +33,22 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
     client.from("region_used").select(),
   ]);
 
+  let order = defaultOrder;
+
+  const orderParam = initialUrlSearchParams.get("order")
+  if (orderParam){
+    const [orderBy, orderDirection] = orderParam.split(".");
+    const validOrderDirection: "asc" | "desc" = orderDirection === "desc" ? "desc" : "asc"; // Default to "asc" if invalid
+    order = {name: orderBy, direction: validOrderDirection} as SearchOrder;
+  }
+
   const defaultCurrentPage = 1;
   const defaultPageSize = 10;
   const currentPage = Number(initialUrlSearchParams.get("page")) || defaultCurrentPage;
 
   return (
     <SearchResults
-      initialOrder={{ name: orderBy, direction: validOrderDirection }}
+      initialOrder={order}
       initialPagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
       regions={regions ?? []}
       activityCategories={activityCategories ?? []}

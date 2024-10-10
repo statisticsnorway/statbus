@@ -1,5 +1,7 @@
 import { SearchAction, SearchOrder, SearchState } from "./search";
 
+export const defaultOrder = {name: "name", direction: "asc"} as SearchOrder;
+
 export function modifySearchStateReducer(
   state: SearchState,
   action: SearchAction
@@ -25,16 +27,15 @@ export function modifySearchStateReducer(
         apiSearchParams: {},
         appSearchParams: {},
         pagination: { ...state.pagination, pageNumber: 1 },
+        order: defaultOrder
       };
     case "set_order": {
-      const { name } = action.payload;
-      const validDirections: Set<'asc' | 'desc'> = new Set(['asc', 'desc']);
-      const currentDirection = state.order.direction;
-      const direction: 'asc' | 'desc' = validDirections.has(currentDirection as 'asc' | 'desc') ? (currentDirection === 'desc' ? 'asc' : 'desc') : 'desc';
+      const name = action.payload.name;
+      const flippedDirection = state.order.direction === 'desc' ? 'asc' : 'desc';
 
       const order: SearchOrder = name === state.order.name
-        ? { ...state.order, direction }
-        : { name, direction: 'desc' };
+        ? { ...state.order, direction: flippedDirection }
+        : { name, direction: 'asc' };
       return { ...state, order };
     }
     case "set_page": {

@@ -5,6 +5,7 @@ import { useTimeContext } from "@/app/time-context";
 import useSWR from "swr";
 import { modifySearchStateReducer } from "@/app/search/search-filter-reducer";
 import useDerivedUrlSearchParams from "@/app/search/use-updated-url-search-params";
+import { useBaseData } from "@/app/BaseDataClient";
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
 import { SearchResult, SearchOrder, SearchPagination, SearchState } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
@@ -42,6 +43,7 @@ export default function SearchResults({
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
   const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
+  const { externalIdentTypes, statDefinitions } = useBaseData();
 
   /**
    * Extract values from URLSearchParams and initialize search state.
@@ -76,7 +78,16 @@ export default function SearchResults({
     }
 
     if (order.name) {
-      params.set("order", `${order.name}.${order.direction}`);
+      const externalIdent = externalIdentTypes.find(type => type.code === order.name);
+      const statDefinition = statDefinitions.find(identifier => identifier.code === order.name);
+
+      if (externalIdent) {
+        params.set("order", `external_idents->>${order.name}.${order.direction}`);
+      } else if (statDefinition) {
+        params.set("order", `stats_summary->${order.name}->sum.${order.direction}`);
+      } else {
+        params.set("order", `${order.name}.${order.direction}`);
+      }
     }
 
     if (pagination.pageNumber && pagination.pageSize) {
@@ -85,7 +96,7 @@ export default function SearchResults({
       params.set("offset", `${offset}`);
     }
     return params;
-  }, [apiSearchParams, order, pagination, selectedTimeContext]);
+  }, [apiSearchParams, externalIdentTypes, order.direction, order.name, pagination.pageNumber, pagination.pageSize, selectedTimeContext, statDefinitions]);
 
   const { data: searchResult, error, isLoading } = useSWR<SearchResult>(
     `/api/search?${derivedApiSearchParams}`,
