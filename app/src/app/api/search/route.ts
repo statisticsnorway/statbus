@@ -18,12 +18,15 @@ export async function GET(request: NextRequest) {
 
   const response = await getStatisticalUnits(searchParams);
 
-  if (response.statusText != '') {
+  if (!response.ok) {
     return NextResponse.json({ error: response.statusText });
   }
 
+  const statisticalUnits = response.statistical_units;
+  const count = response.count;
+
   return NextResponse.json({
-    statisticalUnits: response.statistical_units,
-    count: response.count,
+    statisticalUnits,
+    count,
   });
 }

@@ -2,28 +2,44 @@ import { createSupabaseSSRClient } from "@/utils/supabase/server";
 
 export async function getStatisticalUnits(searchParams: URLSearchParams) {
   const client = await createSupabaseSSRClient();
-  const rangeStart = searchParams.get("range-start");
-  const rangeEnd = searchParams.get("range-end");
+  const apiFetcher = async (url: string, init: RequestInit) => {
+      const session = await client.auth.getSession();
+      return fetch(url, {
+        ...init,
+        headers: {
+          ...init.headers,
+          Authorization: `Bearer ${session.data.session?.access_token}`,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+      });
+    };
 
-  let query = client
-    .from('statistical_unit')
-    .select("*", { count: 'exact' });
-    //.select(selectParam, { count: 'exact' });
+  var response = await apiFetcher(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`,
+    {
+      method: "GET",
+      headers: {
+        Prefer: "count=exact",
+        "Range-Unit": "items",
+      },
+    }
+  ) as Response;
 
-  if (rangeStart !== null && rangeEnd !== null) {
-    query = query.range(parseInt(rangeStart, 10), parseInt(rangeEnd, 10));
+  if (!response.ok) {
+    return { error: response.statusText };
   }
 
-  const response = await query;
+  const data = await response.json();
+  const count_str = response.headers.get("content-range")?.split("/")[1]
+  const count = parseInt(count_str ?? "0", 10);
 
-  if (response.error) {
-    throw new Error(response.error.message);
-  }
-
+  // What is a suitable return structure?
+  // Either an error or the data?
   return {
-    statistical_units: response.data,
-    count: response.count,
+    statistical_units: data,
+    count: count,
     status: response.status,
     statusText: response.statusText,
+    ok: response.ok
   };
 }
