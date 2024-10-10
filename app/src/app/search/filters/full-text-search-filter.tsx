@@ -1,7 +1,7 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SEARCH } from "@/app/search/filters/url-search-params";
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
@@ -16,6 +16,8 @@ export default function FullTextSearchFilter({ initialUrlSearchParamsDict: initi
       appSearchParams: { [SEARCH]: selected = [] },
     },
   } = useSearchContext();
+
+  const [debouncedValue, setDebouncedValue] = useState<string>(selected[0] ?? "");
 
   const update = useCallback(
     (value: string) => {
@@ -35,6 +37,16 @@ export default function FullTextSearchFilter({ initialUrlSearchParamsDict: initi
   );
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      update(debouncedValue);
+    }, 300); // 300ms delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [debouncedValue, update]);
+
+  useEffect(() => {
     if (searchValue) {
       update(searchValue);
     }
@@ -47,8 +59,8 @@ export default function FullTextSearchFilter({ initialUrlSearchParamsDict: initi
       className="h-9 w-full md:max-w-[200px]"
       id="full-text-search"
       name="full-text-search"
-      value={selected[0] ?? ""}
-      onChange={(e) => update(e.target.value)}
+      value={debouncedValue}
+      onChange={(e) => setDebouncedValue(e.target.value)}
     />
   );
 }
