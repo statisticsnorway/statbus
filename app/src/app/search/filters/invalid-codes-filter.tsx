@@ -14,7 +14,7 @@ export default function InvalidCodesFilter({ initialUrlSearchParamsDict }: IURLS
   const {
     modifySearchState,
     searchState: {
-      values: { [INVALID_CODES]: selected = [] },
+      appSearchParams: { [INVALID_CODES]: selected = [] },
     },
   } = useSearchContext();
 

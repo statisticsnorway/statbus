@@ -15,7 +15,7 @@ export default function SectorOptions({
   const {
     modifySearchState,
     searchState: {
-      values: { [SECTOR]: selected = [] },
+      appSearchParams: { [SECTOR]: selected = [] },
     },
   } = useSearchContext();
   const buildQuery = (values: (string | null)[]) => {

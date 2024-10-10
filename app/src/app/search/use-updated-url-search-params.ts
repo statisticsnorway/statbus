@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { SearchContextState } from "@/app/search/search-context";
 
 export default function useDerivedUrlSearchParams({
-  searchState: { values, order, pagination },
+  searchState: { appSearchParams, order, pagination },
 }: SearchContextState) {
   useEffect(() => {
-    const params = Object.entries(values).reduce((params, [name, values]) => {
+    const params = Object.entries(appSearchParams).reduce((params, [name, values]) => {
       if (!values?.length) return params;
 
       if (values[0] === null) {
@@ -30,5 +30,5 @@ export default function useDerivedUrlSearchParams({
       "",
       params.size > 0 ? `?${params}` : window.location.pathname
     );
-  }, [values, order, pagination]);
+  }, [appSearchParams, order, pagination]);
 }

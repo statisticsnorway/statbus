@@ -15,7 +15,7 @@ export default function LegalFormOptions({
   const {
     modifySearchState,
     searchState: {
-      values: { [LEGAL_FORM]: selected = [] },
+      appSearchParams: { [LEGAL_FORM]: selected = [] },
     },
   } = useSearchContext();
 

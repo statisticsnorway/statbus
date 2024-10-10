@@ -15,7 +15,7 @@ export default function ActivityCategoryOptions({
   const {
     modifySearchState,
     searchState: {
-      values: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
+      appSearchParams: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
     },
   } = useSearchContext();
 

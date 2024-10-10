@@ -15,7 +15,7 @@ export default function RegionOptions({
   const {
     modifySearchState,
     searchState: {
-      values: { [REGION]: selected = [] },
+      appSearchParams: { [REGION]: selected = [] },
     },
   } = useSearchContext();
 

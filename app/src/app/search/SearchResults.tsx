@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { modifySearchStateReducer } from "@/app/search/search-filter-reducer";
 import useDerivedUrlSearchParams from "@/app/search/use-updated-url-search-params";
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
-import { SearchResult, SearchOrder, SearchPagination } from "./search.d"; // Import necessary types
+import { SearchResult, SearchOrder, SearchPagination, SearchState } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 
@@ -57,16 +57,16 @@ export default function SearchResults({
   const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, {
     order: initialOrder,
     pagination: initialPagination,
-    queries: {},
-    timeContext: selectedTimeContext,
-    values: valuesFromUrlSearchParams,
-  });
+    apiSearchParams: {},
+    valid_on: selectedTimeContext.valid_on,
+    appSearchParams: valuesFromUrlSearchParams,
+  } as SearchState);
 
-  const { order, pagination: searchPagination, queries } = searchState;
+  const { order, pagination, apiSearchParams } = searchState;
 
-  const derivedUrlSearchParams = useMemo(() => {
+  const derivedApiSearchParams = useMemo(() => {
     const params = new URLSearchParams();
-    Object.entries(queries).forEach(([key, value]) => {
+    Object.entries(apiSearchParams).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
 
@@ -79,16 +79,16 @@ export default function SearchResults({
       params.set("order", `${order.name}.${order.direction}`);
     }
 
-    if (searchPagination.pageNumber && searchPagination.pageSize) {
-      const offset = (searchPagination.pageNumber - 1) * searchPagination.pageSize;
-      params.set("limit", `${searchPagination.pageSize}`);
+    if (pagination.pageNumber && pagination.pageSize) {
+      const offset = (pagination.pageNumber - 1) * pagination.pageSize;
+      params.set("limit", `${pagination.pageSize}`);
       params.set("offset", `${offset}`);
     }
     return params;
-  }, [queries, order, searchPagination, selectedTimeContext]);
+  }, [apiSearchParams, order, pagination, selectedTimeContext]);
 
   const { data: searchResult, error, isLoading } = useSWR<SearchResult>(
-    `/api/search?${derivedUrlSearchParams}`,
+    `/api/search?${derivedApiSearchParams}`,
     fetcher,
     { keepPreviousData: true, revalidateOnFocus: false }
   );
@@ -98,13 +98,13 @@ export default function SearchResults({
       searchState,
       modifySearchState,
       searchResult,
-      derivedUrlSearchParams,
+      derivedApiSearchParams,
       regions: regions ?? [],
       activityCategories: activityCategories ?? [],
       selectedTimeContext,
       isLoading,
     } as SearchContextState),
-    [searchState, searchResult, derivedUrlSearchParams, regions, activityCategories, selectedTimeContext, isLoading]
+    [searchState, searchResult, derivedApiSearchParams, regions, activityCategories, selectedTimeContext, isLoading]
   );
 
   useDerivedUrlSearchParams(ctx);

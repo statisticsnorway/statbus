@@ -15,7 +15,7 @@ export default function StatisticalVariablesOptions({
   const {
     modifySearchState,
     searchState: {
-      values: { [code]: selected = [] },
+      appSearchParams: { [code]: selected = [] },
     },
   } = useSearchContext();
 

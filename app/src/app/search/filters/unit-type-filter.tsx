@@ -14,7 +14,7 @@ export default function UnitTypeFilter({ initialUrlSearchParamsDict: initialUrlS
   const {
     modifySearchState,
     searchState: {
-      values: { [UNIT_TYPE]: selected = [] },
+      appSearchParams: { [UNIT_TYPE]: selected = [] },
     },
   } = useSearchContext();
 

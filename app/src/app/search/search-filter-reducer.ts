@@ -14,16 +14,16 @@ export function modifySearchStateReducer(
       } = action.payload;
       return {
         ...state,
-        queries: { ...state.queries, [api_param_name]: api_param_value },
-        values: { ...state.values, [app_param_name]: app_param_values },
+        apiSearchParams: { ...state.apiSearchParams, [api_param_name]: api_param_value },
+        appSearchParams: { ...state.appSearchParams, [app_param_name]: app_param_values },
         pagination: { ...state.pagination, pageNumber: 1 },
       };
     }
     case "reset_all":
       return {
         ...state,
-        queries: {},
-        values: {},
+        apiSearchParams: {},
+        appSearchParams: {},
         pagination: { ...state.pagination, pageNumber: 1 },
       };
     case "set_order": {

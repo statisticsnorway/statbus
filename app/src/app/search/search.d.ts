@@ -18,11 +18,11 @@ export type SearchPagination = {
 };
 
 export interface SearchState {
-  readonly queries: Record<string, string | null>;
-  readonly values: Record<string, (string | null)[] | undefined>;
+  readonly apiSearchParams: Record<string, string | null>;
+  readonly appSearchParams: Record<string, (string | null)[] | undefined>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
-  readonly timeContext: TimeContext | null;
+  readonly valid_on: string; // Should be date, but is string from database, so we do the same.
 }
 
 export type SearchResult = {

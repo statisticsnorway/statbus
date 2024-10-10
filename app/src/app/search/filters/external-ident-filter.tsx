@@ -14,7 +14,7 @@ export default function ExternalIdentFilter({ initialUrlSearchParamsDict }: IURL
   const maybeDefaultCode = maybeDefaultExternalIdent?.code;
   const urlSearchParam = maybeDefaultCode ? initialUrlSearchParams.get(maybeDefaultCode) : null;
   const { modifySearchState, searchState } = useSearchContext();
-  const selected = maybeDefaultCode ? searchState.values[maybeDefaultCode] ?? [] : [];
+  const selected = maybeDefaultCode ? searchState.appSearchParams[maybeDefaultCode] ?? [] : [];
 
   const update = useCallback(
     (app_param_value: string) => {

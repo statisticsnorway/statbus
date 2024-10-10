@@ -13,7 +13,7 @@ export default function FullTextSearchFilter({ initialUrlSearchParamsDict: initi
   const {
     modifySearchState,
     searchState: {
-      values: { [SEARCH]: selected = [] },
+      appSearchParams: { [SEARCH]: selected = [] },
     },
   } = useSearchContext();
 

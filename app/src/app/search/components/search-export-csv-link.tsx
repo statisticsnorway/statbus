@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useSearchContext } from "@/app/search/use-search-context";
 
 export function ExportCSVLink() {
-  const { searchResult, derivedUrlSearchParams: searchParams } = useSearchContext();
+  const { searchResult, derivedApiSearchParams: searchParams } = useSearchContext();
 
   if (!searchResult?.count) {
     return null;

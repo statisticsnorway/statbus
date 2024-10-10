@@ -8,7 +8,7 @@ export interface SearchContextState {
   readonly searchState: SearchState;
   readonly modifySearchState: Dispatch<SearchAction>;
   readonly searchResult?: SearchResult;
-  readonly derivedUrlSearchParams: URLSearchParams;
+  readonly derivedApiSearchParams: URLSearchParams;
   readonly regions: Tables<"region_used">[];
   readonly activityCategories: Tables<"activity_category_available">[];
   readonly selectedTimeContext: TimeContextRow;
