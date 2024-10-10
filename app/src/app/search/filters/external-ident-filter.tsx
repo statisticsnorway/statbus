@@ -4,7 +4,7 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { useBaseData } from "@/app/BaseDataClient";
 
-export default function ExternalIdentFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+export default function ExternalIdentFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
   const { externalIdentTypes } = useBaseData();
   const maybeDefaultExternalIdent = externalIdentTypes?.[0];
   const maybeDefaultCode = maybeDefaultExternalIdent?.code;

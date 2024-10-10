@@ -2,7 +2,7 @@ import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import ActivityCategoryOptions from "@/app/search/filters/activity-category/activity-category-options";
 import { ACTIVITY_CATEGORY_PATH } from "../url-search-params";
 
-export default async function ActivityCategoryFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+export default async function ActivityCategoryFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
   const activityCategoryPath = initialUrlSearchParams.get(ACTIVITY_CATEGORY_PATH);
 
   const client = await createSupabaseSSRClient();

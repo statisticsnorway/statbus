@@ -11,7 +11,7 @@ import StatisticalVariablesFilter from "@/app/search/filters/statistical-variabl
 import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 
-export default function TableToolbar({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+export default function TableToolbar({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
       <FullTextSearchFilter initialUrlSearchParams={initialUrlSearchParams} />

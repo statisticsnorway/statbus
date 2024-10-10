@@ -5,11 +5,7 @@ import { useCallback, useEffect } from "react";
 import { SEARCH } from "@/app/search/filters/url-search-params";
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 
-interface IProps {
-  readonly initialUrlSearchParams: URLSearchParams;
-}
-
-export default function FullTextSearchFilter({ initialUrlSearchParams }: IProps) {
+export default function FullTextSearchFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
   const searchValue = initialUrlSearchParams.get(SEARCH);
   const {
     modifySearchState,

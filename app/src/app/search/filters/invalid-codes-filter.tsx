@@ -4,7 +4,7 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect } from "react";
 import { INVALID_CODES } from "@/app/search/filters/url-search-params";
 
-export default function InvalidCodesFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+export default function InvalidCodesFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
   const invalidCodes = initialUrlSearchParams.get(INVALID_CODES);
 
   const {

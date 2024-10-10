@@ -5,7 +5,7 @@ import { useCallback, useEffect } from "react";
 import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../search";
 
-export default function UnitTypeFilter({ initialUrlSearchParams}: { initialUrlSearchParams: URLSearchParams }) {
+export default function UnitTypeFilter({ initialUrlSearchParams}: { readonly initialUrlSearchParams: URLSearchParams }) {
   const unitType = initialUrlSearchParams.get(UNIT_TYPE);
   const {
     modifySearchState,
