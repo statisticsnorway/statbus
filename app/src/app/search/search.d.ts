@@ -5,6 +5,7 @@ export type SearchFilterOption = {
   readonly value: string | null;
   readonly humanReadableValue?: string;
   readonly className?: string;
+  readonly icon?: React.ReactNode;
 };
 
 export type SearchOrder = {

@@ -64,6 +64,7 @@ export function OptionsFilter({
                       option.className
                     )}
                   >
+                    {option.icon && <span className="mr-1">{option.icon}</span>}
                     {option.humanReadableValue ?? option.value}
                   </Badge>
                 ))}
@@ -90,6 +91,7 @@ export function OptionsFilter({
                   {selectedValues.includes(option.value) ? (
                     <Check size={14} />
                   ) : null}
+                  {option.icon}
                   <span>{option.label}</span>
                 </CommandItem>
               ))}
