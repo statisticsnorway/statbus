@@ -20,5 +20,6 @@
   },
   "search.exclude": {
     "legacy/**": true
-  }
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
 }
