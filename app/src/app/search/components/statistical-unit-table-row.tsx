@@ -15,11 +15,13 @@ import { StatisticalUnit } from "@/app/types";
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
   className?: string;
+  regionLevel: number;
 }
 
 export const StatisticalUnitTableRow = ({
   unit,
   className,
+  regionLevel,
 }: SearchResultTableRowProps) => {
   const { regions, activityCategories } = useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
@@ -43,9 +45,12 @@ export const StatisticalUnitTableRow = ({
   } = unit as StatisticalUnit;
 
   const external_ident = external_idents[externalIdentTypes?.[0]?.code!];
-
-  const getRegionByPath = (physical_region_path: unknown) =>
-    regions.find(({ path }) => path === physical_region_path);
+  const getRegionByPath = (physical_region_path: unknown) => {
+    if (typeof physical_region_path !== "string") return undefined;
+    const regionParts = physical_region_path.split(".");
+    const selectedRegionPath = regionParts.slice(0, regionLevel).join(".");
+    return regions.find(({ path }) => path === selectedRegionPath);
+  };
 
   const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
     activityCategories.find(
@@ -118,10 +123,13 @@ export const StatisticalUnitTableRow = ({
           </div>
         </div>
       </TableCell>
-      <TableCell className="py-2 text-left hidden lg:table-cell">
+      <TableCell
+        title={region?.name ?? ""}
+        className="py-2 text-left hidden lg:table-cell"
+      >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{region?.code}</span>
-          <small className="text-gray-700 max-w-24 overflow-hidden overflow-ellipsis whitespace-nowrap">
+          <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
             {region?.name}
           </small>
         </div>
@@ -148,7 +156,7 @@ export const StatisticalUnitTableRow = ({
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{activityCategory?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-40">
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
             {activityCategory?.name}
           </small>
         </div>
