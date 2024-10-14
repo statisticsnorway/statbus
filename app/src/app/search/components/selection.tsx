@@ -3,11 +3,11 @@ import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
 import { useSelectionContext } from "@/app/search/use-selection-context";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
 
 export const Selection = () => {
   const { selected } = useSelectionContext();
-  const { statDefinitions, externalIdentTypes } = useBaseData();
+  const { regionLevel } = useRegionLevel();
 
   if (selected.length === 0) return null;
 
@@ -20,7 +20,9 @@ export const Selection = () => {
               return (
                 <StatisticalUnitTableRow
                   key={`selection_${unit.unit_type}_${unit.unit_id}`}
-                  unit={unit} />
+                  unit={unit}
+                  regionLevel={regionLevel}
+                  />
               );
             })}
           </TableBody>

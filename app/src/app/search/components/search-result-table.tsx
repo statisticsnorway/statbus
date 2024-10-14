@@ -5,10 +5,10 @@ import { StatisticalUnitTableHeader } from "@/app/search/components/statistical-
 import { useSearchContext } from "@/app/search/use-search-context";
 import { cn } from "@/lib/utils";
 import { SearchResultTableBodySkeleton } from "@/app/search/components/search-result-table-body-skeleton";
-import { useState } from "react";
+import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
 export default function SearchResultTable() {
   const { searchResult, isLoading, regions } = useSearchContext();
-  const [regionLevel, setRegionLevel] = useState<number>(1);
+  const { regionLevel, setRegionLevel } = useRegionLevel();
   const maxRegionLevel = Math.max(
     ...(regions?.map((region) => region.level ?? 0) ?? [])
   );
