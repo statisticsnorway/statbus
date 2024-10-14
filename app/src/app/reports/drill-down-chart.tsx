@@ -5,7 +5,7 @@ import { chart } from "highcharts";
 
 interface DrillDownChartProps {
   readonly points: DrillDownPoint[];
-  readonly variable: keyof DrillDownPoint;
+  readonly variable: string;
   readonly title: string;
   readonly onSelect: (p: DrillDownPoint) => void;
 }
@@ -84,7 +84,7 @@ export const DrillDownChart = ({
             type: "bar",
             showInLegend: false,
             data: points
-              ?.filter((point) => point[variable] !== 0)
+              ?.filter((point) => getStatValue(point, variable) !== 0)
               .map((point) => toPointOptionObject(point, variable)),
             groupPadding: 0.05,
             minPointLength: 3,
@@ -92,17 +92,19 @@ export const DrillDownChart = ({
         ],
       });
     }
-  }, [points, onSelect, variable]);
+  }, [points, onSelect, variable, title]);
 
   return <div ref={_ref} />;
 };
 
-const toPointOptionObject = (
-  point: DrillDownPoint,
-  variable: keyof DrillDownPoint
-) => ({
+const getStatValue = (point: DrillDownPoint, variable: string): number =>
+  variable === "count"
+    ? point.count
+    : (point.stats_summary?.[variable]?.sum as number) ?? 0;
+
+const toPointOptionObject = (point: DrillDownPoint, variable: string) => ({
   name: `${point.path} - ${point.name}`,
-  y: point[variable] as number,
+  y: getStatValue(point, variable),
   drilldown: point.has_children ? "1" : "",
   custom: point,
   color: "#00719c",

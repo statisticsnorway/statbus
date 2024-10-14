@@ -55,6 +55,11 @@ jspm_packages
 !.vscode/tasks.json
 !.vscode/launch.json
 
+app/.vscode/*
+!app/.vscode/settings.json
+!app/.vscode/tasks.json
+!app/.vscode/launch.json
+
 
 ### Csharp ###
 ## Ignore Visual Studio temporary files, build results, and
@@ -475,4 +480,8 @@ key-*.xml
 .env.backup*
 .env.credentials
 .users.yml
+
+.aider*
+!.aider.conf.yml
+!.aiderignore
 

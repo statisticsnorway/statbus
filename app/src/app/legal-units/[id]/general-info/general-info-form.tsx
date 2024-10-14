@@ -7,33 +7,47 @@ import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { SubmissionFeedbackDebugInfo } from "@/app/legal-units/components/submission-feedback-debug-info";
 import { FormField } from "@/components/form/form-field";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export default function GeneralInfoForm({
   id,
-  values,
+  legal_unit,
 }: {
   readonly id: string;
-  readonly values: z.infer<typeof generalInfoSchema>;
+  readonly legal_unit: LegalUnit;
 }) {
   const [state, formAction] = useFormState(
     updateLegalUnit.bind(null, id, "general-info"),
     null
   );
 
+  const { externalIdentTypes } = useBaseData();
+
   return (
     <form className="space-y-8" action={formAction}>
       <FormField
         label="Name"
         name="name"
-        value={values.name}
+        value={legal_unit.name}
         response={state}
       />
-      <FormField
-        label="Tax Register ID"
-        name="tax_ident"
-        value={values.tax_ident}
-        response={state}
-      />
+      {externalIdentTypes.map((type) => {
+        const value = legal_unit.external_idents[type.code];
+        if (value) {
+          return (
+            <FormField
+              readonly
+              key={type.code}
+              label={type.name ?? type.code!}
+              name={`external_idents.${type.code}`}
+              value={value}
+              response={state}
+            />
+          );
+        }
+        return null; // Skip rendering if there's no value
+      })}
+
       <SubmissionFeedbackDebugInfo state={state} />
       <Button type="submit">Update Legal Unit</Button>
     </form>

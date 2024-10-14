@@ -16,10 +16,10 @@ import {
 } from "@/components/ui/command";
 import * as React from "react";
 import CombineUnits from "@/app/search/components/bulk-actions/combine-units";
-import { useCartContext } from "@/app/search/use-cart-context";
+import { useSelectionContext } from "@/app/search/use-selection-context";
 
 export default function SearchBulkActionButton() {
-  const { selected, clearSelected } = useCartContext();
+  const { selected, clearSelected } = useSelectionContext();
 
   return (
     <Popover>

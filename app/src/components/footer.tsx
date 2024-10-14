@@ -1,9 +1,9 @@
-import CommandPaletteTriggerButton from "@/components/command-palette/command-palette-trigger-button";
-import { Separator } from "@/components/ui/separator";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { SSBLogo } from "@/components/ssb-logo";
-import { createClient } from "@/lib/supabase/server";
+import { Session } from "@supabase/auth-js/src/lib/types"
+import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
 
 export function FooterSkeleton() {
   return (
@@ -18,8 +18,8 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const supabase = createClient();
-  const session = await supabase.auth.getSession();
+  const client = await createSupabaseSSRClient();
+  const session = (await client.auth.getSession()).data.session;
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
@@ -38,7 +38,7 @@ export default async function Footer() {
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
           </div>
-          {session.data.session?.user && (
+          {session != null && (
             <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
           )}
         </div>

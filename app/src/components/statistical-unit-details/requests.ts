@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 
 export async function getEnterpriseById(id: string) {
-  const { data: enterprises, error } = await createClient()
+  const client = await createSupabaseSSRClient()
+  const { data: enterprises, error } = await client
     .from("enterprise")
     .select("*")
     .eq("id", id)
@@ -11,7 +12,8 @@ export async function getEnterpriseById(id: string) {
 }
 
 export async function getEstablishmentById(id: string) {
-  const { data: establishments, error } = await createClient()
+  const client = await createSupabaseSSRClient();
+  const { data: establishments, error } = await client
     .from("establishment")
     .select("*")
     .eq("id", id)
@@ -21,7 +23,8 @@ export async function getEstablishmentById(id: string) {
 }
 
 export async function getLegalUnitById(id: string) {
-  const { data: legalUnits, error } = await createClient()
+  const client = await createSupabaseSSRClient();
+  const { data: legalUnits, error } = await client
     .from("legal_unit")
     .select("*")
     .eq("id", id)
@@ -34,7 +37,8 @@ export async function getStatisticalUnitHierarchy(
   unitId: number,
   unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
 ) {
-  const { data: hierarchy, error } = await createClient()
+  const client = await createSupabaseSSRClient();
+  const { data: hierarchy, error } = await client
     .rpc("statistical_unit_hierarchy", {
       unit_id: unitId,
       unit_type: unitType,

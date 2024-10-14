@@ -6,21 +6,27 @@ import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
 import { Bug } from "lucide-react";
-import { useCartContext } from "@/app/search/use-cart-context";
+import { useSelectionContext } from "@/app/search/use-selection-context";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
+import { useBaseData } from "@/app/BaseDataClient";
+import { StatisticalUnit } from "@/app/types";
+import { InvalidCodes } from "./invalid-codes";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
   className?: string;
+  regionLevel: number;
 }
 
 export const StatisticalUnitTableRow = ({
   unit,
   className,
+  regionLevel,
 }: SearchResultTableRowProps) => {
   const { regions, activityCategories } = useSearchContext();
-  const { selected } = useCartContext();
+  const { statDefinitions, externalIdentTypes } = useBaseData();
+  const { selected } = useSelectionContext();
 
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
@@ -32,16 +38,20 @@ export const StatisticalUnitTableRow = ({
     name,
     primary_activity_category_path,
     physical_region_path,
-    tax_ident,
-    employees,
-    turnover,
+    external_idents,
+    stats_summary,
     sector_name,
     sector_code,
     invalid_codes,
-  } = unit;
+  } = unit as StatisticalUnit;
 
-  const getRegionByPath = (physical_region_path: unknown) =>
-    regions.find(({ path }) => path === physical_region_path);
+  const external_ident = external_idents[externalIdentTypes?.[0]?.code!];
+  const getRegionByPath = (physical_region_path: unknown) => {
+    if (typeof physical_region_path !== "string") return undefined;
+    const regionParts = physical_region_path.split(".");
+    const selectedRegionPath = regionParts.slice(0, regionLevel).join(".");
+    return regions.find(({ path }) => path === selectedRegionPath);
+  };
 
   const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
     activityCategories.find(
@@ -99,35 +109,35 @@ export const StatisticalUnitTableRow = ({
               <span className="font-medium">{name}</span>
             )}
             <small className="text-gray-700 flex items-center space-x-1">
-              <span>{tax_ident}</span>
+              <span>{external_ident}</span>
               <span>|</span>
               <span>{prettifyUnitType(type)}</span>
               {invalid_codes && (
                 <>
                   <span>|</span>
-                  <div title={JSON.stringify(invalid_codes)}>
-                    <Bug className="h-3 w-3 stroke-gray-600" />
-                  </div>
+                  <InvalidCodes invalidCodes={JSON.stringify(invalid_codes)} />
                 </>
               )}
             </small>
           </div>
         </div>
       </TableCell>
-      <TableCell className="py-2 text-left hidden lg:table-cell">
+      <TableCell
+        title={region?.name ?? ""}
+        className="py-2 text-left hidden lg:table-cell"
+      >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{region?.code}</span>
-          <small className="text-gray-700 max-w-24 overflow-hidden overflow-ellipsis whitespace-nowrap">
+          <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
             {region?.name}
           </small>
         </div>
       </TableCell>
-      <TableCell className="py-2 text-right hidden lg:table-cell">
-        {thousandSeparator(employees)}
-      </TableCell>
-      <TableCell className="py-2 text-right hidden lg:table-cell">
-        {thousandSeparator(turnover)}
-      </TableCell>
+      {statDefinitions.map(({ code }) => (
+        <TableCell key={code} className="py-2 text-right hidden lg:table-cell">
+          {thousandSeparator(stats_summary[code!]?.sum)}
+        </TableCell>
+      ))}
       <TableCell
         className="py-2 text-left hidden lg:table-cell"
         title={sector_name ?? ""}
@@ -145,7 +155,7 @@ export const StatisticalUnitTableRow = ({
       >
         <div className="flex flex-col space-y-0.5 leading-tight">
           <span>{activityCategory?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-40">
+          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
             {activityCategory?.name}
           </small>
         </div>

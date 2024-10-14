@@ -1,11 +1,16 @@
-import { logout } from "@/app/login/actions";
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { logger } from "@/lib/client-logger";
+import LogoutForm from "./LogoutForm";
 
 export default async function ProfilePage() {
-  const client = createClient();
-  const {
-    data: { session },
-  } = await client.auth.getSession();
+  const client = await createSupabaseSSRClient();
+  const {data: {user}} = await client.auth.getUser();
+
+  if (!user) {
+    const errorMessage = "User not found. Cannot retrieve profile.";
+    logger.error({ context: "ProfilePage", user }, errorMessage);
+    throw new Error(errorMessage);
+  }
 
   return (
     <main className="flex flex-col items-center justify-between px-2 py-8 md:py-24">
@@ -25,7 +30,7 @@ export default async function ProfilePage() {
                 User ID
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user?.id}
+                {user.id}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -33,7 +38,7 @@ export default async function ProfilePage() {
                 Full name
               </dt>
               <dd className="mt-1 text-sm capitalize leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user?.email?.split("@")[0].replace(/\./, " ")}
+                {user.email?.split("@")[0].replace(/\./, " ")}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -41,7 +46,7 @@ export default async function ProfilePage() {
                 Email address
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user?.email}
+                {user.email}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -49,7 +54,7 @@ export default async function ProfilePage() {
                 Phone
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user.phone || "N/A"}
+                {user.phone || "N/A"}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -57,7 +62,7 @@ export default async function ProfilePage() {
                 Last sign in
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user.last_sign_in_at}
+                {user.last_sign_in_at}
               </dd>
             </div>
             <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -65,19 +70,12 @@ export default async function ProfilePage() {
                 Email confirmed
               </dt>
               <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                {session?.user.email_confirmed_at}
+                {user.email_confirmed_at}
               </dd>
             </div>
           </dl>
         </div>
-        <form action={logout} className="flex justify-end bg-gray-100 p-6">
-          <button
-            type="submit"
-            className="me-2 rounded-md bg-gray-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-          >
-            Log out
-          </button>
-        </form>
+        <LogoutForm />
       </div>
     </main>
   );

@@ -1,62 +1,65 @@
-type SearchFilterOption = {
+import { TimeContext } from "../types";
+
+export type SearchFilterOption = {
   readonly label: string;
   readonly value: string | null;
   readonly humanReadableValue?: string;
   readonly className?: string;
+  readonly icon?: React.ReactNode;
 };
 
-type SearchOrder = {
+export type SearchOrder = {
   readonly name: string;
-  readonly direction: string;
+  readonly direction: "asc" | "desc";
 };
 
-type SearchPagination = {
+export type SearchPagination = {
   readonly pageSize: number;
   readonly pageNumber: number;
 };
 
-interface SearchState {
-  readonly queries: Record<string, string | null>;
-  readonly values: Record<string, (string | null)[] | undefined>;
+export interface SearchState {
+  readonly apiSearchParams: Record<string, string | null>;
+  readonly appSearchParams: Record<string, (string | null)[] | undefined>;
   readonly order: SearchOrder;
   readonly pagination: SearchPagination;
+  readonly valid_on: string; // Should be date, but is string from database, so we do the same.
 }
 
-type SearchResult = {
+export type SearchResult = {
   statisticalUnits: Tables<"statistical_unit">[];
   count: number;
 };
 
-interface ConditionalValue {
+export interface ConditionalValue {
   operator: PostgrestOperator;
-  value: string;
+  operand: string;
 }
 
-interface SetOrder {
+export interface SetOrder {
   type: "set_order";
-  payload: {
-    name: string;
-  };
+  payload: { name: string};
 }
 
-interface ResetAll {
+export interface ResetAll {
   type: "reset_all";
 }
 
-interface SetPage {
+export interface SetPage {
   type: "set_page";
   payload: {
     pageNumber: number;
   };
 }
 
-interface SetQuery {
+export interface SetQuery {
   type: "set_query";
   payload: {
-    name: string;
-    query: string | null;
-    values: (string | null)[];
+    app_param_name: string;
+    api_param_name: string;
+    api_param_value: string | null;
+    app_param_values: (string | null)[];
   };
 }
 
-type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
+export type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;

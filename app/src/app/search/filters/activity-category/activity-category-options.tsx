@@ -1,68 +1,31 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
-import { ACTIVITY_CATEGORY_PATH } from "@/app/search/filters/url-search-params";
+import { useCallback } from "react";
+import { ACTIVITY_CATEGORY_PATH, activityCategoryDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+import { SearchFilterOption } from "../../search";
 
-export default function ActivityCategoryOptions({
-  selected: initialSelected,
-  options,
-}: {
+export default function ActivityCategoryOptions({options}: {
   readonly options: SearchFilterOption[];
-  readonly selected: (string | null)[];
 }) {
   const {
-    dispatch,
-    search: {
-      values: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
+    modifySearchState,
+    searchState: {
+      appSearchParams: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
     },
   } = useSearchContext();
 
-  const buildQuery = (values: (string | null)[]) => {
-    const path = values[0];
-    if (path) return `cd.${path}`;
-    if (path === null) return "is.null";
-    return null;
-  };
-
-  useEffect(() => {
-    if (initialSelected.length > 0) {
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: ACTIVITY_CATEGORY_PATH,
-          query: buildQuery(initialSelected),
-          values: initialSelected,
-        },
-      });
-    }
-  }, [dispatch, initialSelected]);
-
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value) ? [] : [value];
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: ACTIVITY_CATEGORY_PATH,
-          query: buildQuery(values),
-          values,
-        },
-      });
+      const toggledValues = selected.includes(value) ? [] : [value];
+      modifySearchState(activityCategoryDeriveStateUpdateFromValues(toggledValues));
     },
-    [dispatch, selected]
+    [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    dispatch({
-      type: "set_query",
-      payload: {
-        name: ACTIVITY_CATEGORY_PATH,
-        query: null,
-        values: [],
-      },
-    });
-  }, [dispatch]);
+    modifySearchState(activityCategoryDeriveStateUpdateFromValues([]));
+  }, [modifySearchState]);
 
   return (
     <OptionsFilter

@@ -21,7 +21,7 @@ SET default_table_access_method = heap;
 
 -- Use international date time parsing, to avoid
 -- confusion with local syntax, where day and month may be reversed.
---ALTER DATABASE "statbus" SET datestyle TO 'ISO, DMY';
+ALTER DATABASE "postgres" SET datestyle TO 'ISO, DMY';
 SET datestyle TO 'ISO, DMY';
 
 -- We need longer timeout for larger loads.
@@ -115,28 +115,447 @@ INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user'
 -- UPDATE auth.users SET role = 'new_role_1' WHERE id = <some-user-uuid>;
 
 
-
 -- TODO: Formulate RLS for the roles.
 --CREATE POLICY "Public users are viewable by everyone." ON "user" FOR SELECT USING ( true );
 --CREATE POLICY "Users can insert their own data." ON "user" FOR INSERT WITH check ( auth.uid() = id );
 --CREATE POLICY "Users can update own data." ON "user" FOR UPDATE USING ( auth.uid() = id );
 
 
+-- =================================================================
+-- BEGIN: Callbacks for code generation based on naming conventions.
+-- =================================================================
+CREATE SCHEMA lifecycle_callbacks;
+
+-- Documentation for lifecycle_callbacks.run_table_lifecycle_callbacks
+--
+-- This trigger function is designed to manage lifecycle callbacks for tables.
+-- It dynamically finds and executes procedures based on registered callbacks,
+-- using the generate and cleanup helper procedures for shared code.
+--
+-- Table Structure:
+--
+-- 1. supported_table:
+--    - Holds the list of tables that are supported by the lifecycle management.
+--    - Columns:
+--      - table_name: The table's name as regclass.
+--      - after_insert_trigger_name: Name of the after insert trigger.
+--      - after_update_trigger_name: Name of the after delete trigger.
+--      - after_delete_trigger_name: Name of the after insert trigger.
+--
+-- 2. registered_callback:
+--    - Holds the list of lifecycle callbacks registered for tables.
+--    - Columns:
+--      - label: A unique label for the callback.
+--      - priority: An integer representing the priority of the callback.
+--      - table_name: Array of tables (regclass) this callback applies to.
+--      - generate_procedure: The procedure that generates data for the table.
+--      - cleanup_procedure: The procedure that cleans up data for the table.
+--
+-- Usage:
+-- 1. Register a table using `lifecycle_callbacks.add_table(...)`.
+-- 2. Register callbacks using `lifecycle_callbacks.add(...)`.
+-- 3. Associate this function as a trigger for table lifecycle events.
+-- 4. Call `lifecycle_callbacks.generate(table_name)` or `lifecycle_callbacks.cleanup(table_name)` manually if needed.
+--
+-- Example:
+--
+-- CALL lifecycle_callbacks.add_table('external_ident_type');
+-- CALL lifecycle_callbacks.add(
+--     'label_for_concept',
+--     ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+--     'lifecycle_callbacks.generate_label_for_concept',
+--     'lifecycle_callbacks.cleanup_label_for_concept'
+-- );
+
+CREATE TABLE lifecycle_callbacks.supported_table (
+    table_name regclass PRIMARY KEY,
+    after_insert_trigger_name TEXT,
+    after_update_trigger_name TEXT,
+    after_delete_trigger_name TEXT
+);
+
+CREATE TABLE lifecycle_callbacks.registered_callback (
+    label TEXT PRIMARY KEY,
+    priority SERIAL NOT NULL,
+    table_names regclass[],
+    generate_procedure regproc NOT NULL,
+    cleanup_procedure regproc NOT NULL
+);
+
+CREATE PROCEDURE lifecycle_callbacks.add_table(
+    table_name regclass
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    schema_name TEXT;
+    table_name_text TEXT;
+    after_insert_trigger_name TEXT;
+    after_update_trigger_name TEXT;
+    after_delete_trigger_name TEXT;
+BEGIN
+    -- Ensure that the table exists
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid = table_name) THEN
+        RAISE EXCEPTION 'Table % does not exist.', table_name;
+    END IF;
+
+    -- Extract schema and table name from the table_identifier
+    SELECT nspname, relname INTO schema_name, table_name_text
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = table_name;
+
+    -- Define trigger names based on the provided table name
+    after_insert_trigger_name := format('%I_lifecycle_callbacks_after_insert', table_name_text);
+    after_update_trigger_name := format('%I_lifecycle_callbacks_after_update', table_name_text);
+    after_delete_trigger_name := format('%I_lifecycle_callbacks_after_delete', table_name_text);
+
+    -- Insert the table into supported_table with trigger names
+    INSERT INTO lifecycle_callbacks.supported_table (
+        table_name,
+        after_insert_trigger_name,
+        after_update_trigger_name,
+        after_delete_trigger_name
+    )
+    VALUES (
+        table_name,
+        after_insert_trigger_name,
+        after_update_trigger_name,
+        after_delete_trigger_name
+    )
+    ON CONFLICT DO NOTHING;
+
+    EXECUTE format('
+        CREATE TRIGGER %I
+        AFTER INSERT ON %I.%I
+        EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate();',
+        after_insert_trigger_name, schema_name, table_name_text
+    );
+
+    EXECUTE format('
+        CREATE TRIGGER %I
+        AFTER UPDATE ON %I.%I
+        EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate();',
+        after_update_trigger_name, schema_name, table_name_text
+    );
+
+    EXECUTE format('
+        CREATE TRIGGER %I
+        AFTER DELETE ON %I.%I
+        EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate();',
+        after_delete_trigger_name, schema_name, table_name_text
+    );
+
+    RAISE NOTICE 'Triggers created for table: %', table_name_text;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.del_table(
+    table_name_param regclass
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    trigger_info lifecycle_callbacks.supported_table;
+    table_in_use BOOLEAN;
+BEGIN
+    -- Check if the table is still referenced in registered_callback
+    SELECT EXISTS (
+        SELECT 1 FROM lifecycle_callbacks.registered_callback
+        WHERE table_names @> ARRAY[table_name_param]
+    ) INTO table_in_use;
+
+    IF table_in_use THEN
+        RAISE EXCEPTION 'Cannot delete triggers for table % because it is still referenced in registered_callback.', table_name_param;
+    END IF;
+
+    -- Fetch trigger names from supported_table
+    SELECT * INTO trigger_info
+    FROM lifecycle_callbacks.supported_table
+    WHERE table_name = table_name_param;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Cannot triggers for table % because it is not registered.', table_name_param;
+    END IF;
+
+    -- Drop the triggers
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.after_insert_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.after_update_trigger_name, table_name_param);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %s;', trigger_info.after_delete_trigger_name, table_name_param);
+
+    -- Delete the table from supported_table
+    DELETE FROM lifecycle_callbacks.supported_table
+    WHERE table_name = table_name_param;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.add(
+    label TEXT,
+    table_names regclass[],
+    generate_procedure regproc,
+    cleanup_procedure regproc
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    missing_tables regclass[];
+BEGIN
+    IF array_length(table_names, 1) IS NULL THEN
+        RAISE EXCEPTION 'table_names must have one entry';
+    END IF;
+
+    -- Find any tables in table_names that are not in supported_table
+    SELECT ARRAY_AGG(t_name)
+    INTO missing_tables
+    FROM UNNEST(table_names) AS t_name
+    WHERE t_name NOT IN (SELECT table_name FROM lifecycle_callbacks.supported_table);
+
+    IF missing_tables IS NOT NULL THEN
+        RAISE EXCEPTION 'One or more tables in % are not supported: %', table_names, missing_tables;
+    END IF;
+
+    -- Ensure that the procedures exist
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = generate_procedure) THEN
+        RAISE EXCEPTION 'Generate procedure % does not exist.', generate_procedure;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = cleanup_procedure) THEN
+        RAISE EXCEPTION 'Cleanup procedure % does not exist.', cleanup_procedure;
+    END IF;
+
+    -- Insert or update the registered_callback entry
+    INSERT INTO lifecycle_callbacks.registered_callback
+           (label, table_names, generate_procedure, cleanup_procedure)
+    VALUES (label, table_names, generate_procedure, cleanup_procedure)
+    ON CONFLICT DO NOTHING;
+
+    -- Check if the record was inserted; if not, raise an exception
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Callback with label % already exists. Cannot overwrite.', label;
+    END IF;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.del(
+    label_param TEXT
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    higher_priority_label TEXT;
+    rows_deleted INT;
+BEGIN
+    -- CTE to get the priority of the callback to be deleted
+    WITH target_callback AS (
+        SELECT priority
+        FROM lifecycle_callbacks.registered_callback
+        WHERE label = label_param
+    )
+    -- Check for a higher priority callback
+    SELECT label
+    INTO higher_priority_label
+    FROM lifecycle_callbacks.registered_callback
+    WHERE priority > (SELECT priority FROM target_callback)
+    ORDER BY priority ASC
+    LIMIT 1;
+
+    -- If a higher priority callback exists, raise an error
+    IF higher_priority_label IS NOT NULL THEN
+        RAISE EXCEPTION 'Cannot delete % because a higher priority callback % still exists.', label_param, higher_priority_label;
+    END IF;
+
+    -- Proceed with deletion if no higher priority callback exists
+    DELETE FROM lifecycle_callbacks.registered_callback
+    WHERE label = label_param;
+
+    -- Get the number of rows affected by the DELETE operation
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+
+    -- Provide feedback on the deletion
+    IF rows_deleted > 0 THEN
+        RAISE NOTICE 'Callback % has been successfully deleted.', label_param;
+    ELSE
+        RAISE NOTICE 'Callback % was not found and thus not deleted.', label_param;
+    END IF;
+END;
+$$;
+
+
+CREATE FUNCTION lifecycle_callbacks.cleanup_and_generate()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    proc_names TEXT[] := ARRAY['cleanup', 'generate'];
+    proc_name TEXT;
+    sql TEXT;
+BEGIN
+    -- Loop over the array of procedure names
+    FOREACH proc_name IN ARRAY proc_names LOOP
+        -- Generate the SQL for the current procedure
+        sql := format('CALL lifecycle_callbacks.%I(%L)', proc_name, format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME));
+
+        -- Execute the SQL and handle exceptions
+        BEGIN
+            EXECUTE sql;
+        EXCEPTION
+            WHEN OTHERS THEN
+                -- Handle any exception by capturing the SQL and error message
+                RAISE EXCEPTION 'Error executing % procedure: %, Error details: %', proc_name, sql, SQLERRM;
+        END;
+    END LOOP;
+
+    -- Return NULL for a statement-level trigger
+    RETURN NULL;
+END;
+$$;
+
+
+-- Helper procedures for generating and cleaning up specific tables.
+CREATE PROCEDURE lifecycle_callbacks.generate(table_name regclass)
+LANGUAGE plpgsql AS $$
+DECLARE
+    callback_procedure regproc;
+    sql TEXT;
+BEGIN
+    -- Loop through each callback procedure directly from the SELECT query
+    FOR callback_procedure IN
+        SELECT generate_procedure
+        FROM lifecycle_callbacks.registered_callback
+        WHERE table_names @> ARRAY[table_name]
+        ORDER BY priority ASC
+    LOOP
+        -- Generate the SQL statement for the current procedure
+        sql := format('CALL %s();', callback_procedure);
+
+        -- Execute the SQL statement with error handling
+        BEGIN
+            EXECUTE sql;
+        EXCEPTION
+            WHEN OTHERS THEN
+                -- Handle any exception by capturing the SQL and error message
+                RAISE EXCEPTION 'Error executing callback procedure: %, SQL: %, Error details: %',
+                                callback_procedure, sql, SQLERRM;
+        END;
+    END LOOP;
+END;
+$$;
+
+CREATE PROCEDURE lifecycle_callbacks.cleanup(table_name regclass DEFAULT NULL)
+LANGUAGE plpgsql AS $$
+DECLARE
+    callback_procedure regproc;
+    callback_sql TEXT;
+BEGIN
+    -- Loop through each callback procedure directly from the SELECT query
+    FOR callback_procedure IN
+        SELECT cleanup_procedure
+        FROM lifecycle_callbacks.registered_callback
+        WHERE table_name IS NULL OR table_names @> ARRAY[table_name]
+        ORDER BY priority DESC
+    LOOP
+        callback_sql := format('CALL %s();', callback_procedure);
+        BEGIN
+            -- Attempt to execute the callback procedure
+            EXECUTE callback_sql;
+        EXCEPTION
+            -- Capture any exception that occurs during the call
+            WHEN OTHERS THEN
+                -- Log the error along with the original call
+                RAISE EXCEPTION 'Error executing callback procedure % for %: %', callback_sql, table_name, SQLERRM;
+        END;
+    END LOOP;
+END;
+$$;
+
+GRANT USAGE ON SCHEMA lifecycle_callbacks TO authenticated;
+GRANT EXECUTE ON FUNCTION lifecycle_callbacks.cleanup_and_generate() TO authenticated;
+
+-- =================================================================
+-- END: Callbacks for code generation based on naming conventions.
+-- =================================================================
+
+
+
+-- =================================================================
+-- BEGIN: Render template with consistency checking.
+-- =================================================================
+CREATE FUNCTION admin.render_template(template TEXT, vars JSONB)
+RETURNS TEXT AS $$
+DECLARE
+    required_variables TEXT[];
+    provided_variables TEXT[];
+    missing_variables TEXT[];
+    excess_variables TEXT[];
+    key TEXT;
+BEGIN
+    -- Extract all placeholders from the template using a capture group
+    SELECT array_agg(DISTINCT match[1])
+    INTO required_variables
+    FROM regexp_matches(template, '\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}', 'g') AS match;
+
+    -- Extract all keys from the provided JSONB object
+    SELECT array_agg(var)
+    INTO provided_variables
+    FROM jsonb_object_keys(vars) AS var;
+
+    -- Check variables.
+    WITH
+    required AS (SELECT unnest(required_variables) AS variable),
+    provided AS (SELECT unnest(provided_variables) AS variable),
+    missing AS (
+        SELECT array_agg(variable) AS variables
+        FROM required
+        WHERE variable NOT IN (SELECT variable FROM provided)
+    ),
+    excess AS (
+        SELECT array_agg(variable) AS variables
+        FROM provided
+        WHERE variable NOT IN (SELECT variable FROM required)
+    )
+    SELECT missing.variables, excess.variables
+    INTO missing_variables, excess_variables
+    FROM missing, excess;
+
+    -- Raise exception if there are missing variables
+    IF array_length(missing_variables, 1) IS NOT NULL THEN
+        RAISE EXCEPTION 'Missing variables: %', array_to_string(missing_variables, ', ');
+    END IF;
+
+    -- Raise exception if there are excess variables
+    IF array_length(excess_variables, 1) IS NOT NULL THEN
+        RAISE EXCEPTION 'Unsupported variables: %', array_to_string(excess_variables, ', ');
+    END IF;
+
+    -- Perform the replacement
+    FOREACH key IN ARRAY provided_variables LOOP
+        template := REPLACE(template, '{{' || key || '}}', COALESCE(vars->>key,''));
+    END LOOP;
+
+    RETURN template;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =================================================================
+-- END: Render template with consistency checking.
+-- =================================================================
+
+
+
+
+\echo public.activity_category_code_behaviour
+CREATE TYPE public.activity_category_code_behaviour AS ENUM ('digits', 'dot_after_two_digits');
+
 \echo public.activity_category_standard
 CREATE TABLE public.activity_category_standard (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code character varying(16) UNIQUE NOT NULL,
     name character varying UNIQUE NOT NULL,
+    description character varying UNIQUE NOT NULL,
+    code_pattern public.activity_category_code_behaviour NOT NULL, -- Custom type
     obsolete boolean NOT NULL DEFAULT false
 );
 
-INSERT INTO public.activity_category_standard(code, name)
-VALUES ('isic_v4','ISIC Version 4')
-     , ('nace_v2.1','NACE Version 2 Revision 1');
+INSERT INTO public.activity_category_standard(code, name, description, code_pattern)
+VALUES ('isic_v4', 'ISIC 4', 'ISIC Version 4', 'digits')
+     , ('nace_v2.1', 'NACE 2.1', 'NACE Version 2 Revision 1', 'dot_after_two_digits');
 
 CREATE EXTENSION ltree SCHEMA public;
 
-\echo public.activity_category
 CREATE TABLE public.activity_category (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
@@ -144,7 +563,7 @@ CREATE TABLE public.activity_category (
     parent_id integer REFERENCES public.activity_category(id) ON DELETE RESTRICT,
     level int GENERATED ALWAYS AS (public.nlevel(path)) STORED,
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
-    code varchar GENERATED ALWAYS AS (regexp_replace(regexp_replace(path::text, '[^0-9]', '', 'g'),'^([0-9]{2})(.+)$','\1.\2','')) STORED,
+    code varchar NOT NULL,
     name character varying(256) NOT NULL,
     description text,
     active boolean NOT NULL,
@@ -153,6 +572,53 @@ CREATE TABLE public.activity_category (
     UNIQUE(standard_id, path, active)
 );
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
+
+-- Trigger function to handle path updates, derive code, and lookup parent
+CREATE FUNCTION public.lookup_parent_and_derive_code() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    code_pattern_var public.activity_category_code_behaviour;
+    derived_code varchar;
+    parent_path public.ltree;
+BEGIN
+    -- Look up the code pattern
+    SELECT code_pattern INTO code_pattern_var
+    FROM public.activity_category_standard
+    WHERE id = NEW.standard_id;
+
+    -- Derive the code based on the code pattern using CASE expression
+    CASE code_pattern_var
+        WHEN 'digits' THEN
+            derived_code := regexp_replace(NEW.path::text, '[^0-9]', '', 'g');
+        WHEN 'dot_after_two_digits' THEN
+            derived_code := regexp_replace(regexp_replace(NEW.path::text, '[^0-9]', '', 'g'), '^([0-9]{2})(.+)$', '\1.\2');
+        ELSE
+            RAISE EXCEPTION 'Unknown code pattern: %', code_pattern_var;
+    END CASE;
+
+    -- Set the derived code
+    NEW.code := derived_code;
+
+    -- Ensure parent_id is consistent with the path
+    -- Only update parent_id if path has parent segments
+    IF public.nlevel(NEW.path) > 1 THEN
+        SELECT id INTO NEW.parent_id
+        FROM public.activity_category
+        WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
+          AND active
+        ;
+    ELSE
+        NEW.parent_id := NULL; -- No parent, set parent_id to NULL
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+-- Trigger to call the function before insert or update
+CREATE TRIGGER lookup_parent_and_derive_code_before_insert_update
+BEFORE INSERT OR UPDATE ON public.activity_category
+FOR EACH ROW
+EXECUTE FUNCTION public.lookup_parent_and_derive_code();
 
 
 \echo admin.upsert_activity_category
@@ -298,9 +764,9 @@ WITH (security_invoker=on) AS
 SELECT acs.code AS standard_code
      , ac.id
      , ac.path
-     , acp.code AS parent_code
-     , ac.label
+     , acp.path AS parent_path
      , ac.code
+     , ac.label
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
@@ -754,12 +1220,12 @@ BEGIN
     INSERT INTO public.relative_period
         (code                         , name_when_query                      , name_when_input                  , scope             , active)
     VALUES
-        ('today'                      , 'Today'                              , 'From today and onwards'         , 'input_and_query' , true)   ,
+        ('today'                      , 'Today'                              , 'From today and onwards'         , 'input_and_query' , false)   ,
         --
-        ('year_prev'                  , 'Previous Year'                      , 'From previous year and onwards' , 'input_and_query' , true)   ,
         ('year_curr'                  , 'Current Year'                       , 'Current year and onwards'       , 'input_and_query' , true)   ,
-        ('year_prev_only'             , NULL                                 , 'Previous year only'             , 'input'           , true)   ,
-        ('year_curr_only'             , NULL                                 , 'Current year only'              , 'input'           , true)   ,
+        ('year_prev'                  , 'Previous Year'                      , 'From previous year and onwards' , 'input_and_query' , true)   ,
+        ('year_curr_only'             , NULL                                 , 'Current year only'              , 'input'           , false)   ,
+        ('year_prev_only'             , NULL                                 , 'Previous year only'             , 'input'           , false)   ,
         --
         ('start_of_week_curr'         , 'Start of Current Week'              , NULL                             , 'query'           , false)  ,
         ('stop_of_week_prev'          , 'End of Previous Week'               , NULL                             , 'query'           , false)  ,
@@ -786,14 +1252,14 @@ BEGIN
 END $$;
 
 
-\echo public.period_type
-CREATE TYPE public.period_type AS ENUM (
+\echo public.time_context_type
+CREATE TYPE public.time_context_type AS ENUM (
     'relative_period',
     'tag'
 );
 
-\echo public.period_active
-CREATE VIEW public.period_active
+\echo public.time_context
+CREATE VIEW public.time_context
   ( type
   , ident
   , name_when_query
@@ -806,8 +1272,8 @@ CREATE VIEW public.period_active
   , path         -- Exposing the path for ordering
   ) AS
 WITH combined_data AS (
-  SELECT 'relative_period'::public.period_type AS type
-  ,      'r:'||code::VARCHAR                   AS ident
+  SELECT 'relative_period'::public.time_context_type AS type
+  ,      'r_'||code::VARCHAR                   AS ident
   ,      name_when_query                       AS name_when_query
   ,      name_when_input                       AS name_when_input
   ,      scope                                 AS scope
@@ -821,7 +1287,7 @@ WITH combined_data AS (
 
   UNION ALL
 
-  SELECT 'tag'::public.period_type                       AS type
+  SELECT 'tag'::public.time_context_type                 AS type
   ,      't:'||path::VARCHAR                             AS ident
   ,      description                                     AS name_when_query
   ,      description                                     AS name_when_input
@@ -898,9 +1364,6 @@ CREATE TABLE public.enterprise_group (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident text,
-    external_ident text,
-    external_ident_type text,
     active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
@@ -929,9 +1392,9 @@ CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree 
 
 
 \echo admin.enterprise_group_id_exists
-CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean AS $$
+CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.enterprise_group_role
 CREATE TABLE public.enterprise_group_role (
@@ -959,14 +1422,13 @@ CREATE TABLE public.sector (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(path, active, custom)
 );
-CREATE UNIQUE INDEX ix_sector ON public.sector USING btree (code) WHERE active;
-CREATE INDEX ix_sector_parent_id ON public.sector USING btree (parent_id);
+CREATE UNIQUE INDEX sector_code_active_key ON public.sector USING btree (code) WHERE active;
+CREATE INDEX sector_parent_id_idx ON public.sector USING btree (parent_id);
 
 
 \echo public.enterprise
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    stat_ident character varying(15) UNIQUE,
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     notes text,
@@ -985,7 +1447,9 @@ CREATE TABLE public.legal_form (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(code, active, custom)
 );
+\echo ix_legal_form_code
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
+
 
 \echo public.legal_unit
 CREATE TABLE public.legal_unit (
@@ -993,12 +1457,6 @@ CREATE TABLE public.legal_unit (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident character varying(15),
-    tax_ident character varying(50),
-    external_ident character varying(50),
-    external_ident_type character varying(50),
-    by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
-    by_tag_id_unique_ident varchar(64),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256),
@@ -1022,34 +1480,33 @@ CREATE TABLE public.legal_unit (
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     primary_for_enterprise boolean NOT NULL,
-    invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
-    CONSTRAINT "by_tag_id and by_tag_id_unique_ident are all or nothing"
-    CHECK( by_tag_id IS     NULL AND by_tag_id_unique_ident IS     NULL
-        OR by_tag_id IS NOT NULL AND by_tag_id_unique_ident IS NOT NULL
-         )
+    invalid_codes jsonb
 );
 
--- TODO: Use a scoped sql_saga unique key for enterprise_id below.
-CREATE UNIQUE INDEX "Only one primary legal_unit per enterprise" ON public.legal_unit(enterprise_id) WHERE primary_for_enterprise;
-CREATE INDEX legal_unit_valid_to_idx ON public.legal_unit(tax_ident) WHERE valid_to = 'infinity';
+\echo legal_unit_active_idx
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
+\echo ix_legal_unit_data_source_id
 CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
+\echo ix_legal_unit_enterprise_id
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
+\echo ix_legal_unit_foreign_participation_id
 CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
+\echo ix_legal_unit_sector_id
 CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id);
+\echo ix_legal_unit_legal_form_id
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
+\echo ix_legal_unit_name
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
+\echo ix_legal_unit_reorg_type_id
 CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
-CREATE INDEX ix_legal_unit_short_name_reg_ident_stat_ident_tax ON public.legal_unit USING btree (short_name, stat_ident, tax_ident);
+\echo ix_legal_unit_size_id
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
-CREATE INDEX ix_legal_unit_stat_ident ON public.legal_unit USING btree (stat_ident);
 
 
 \echo admin.legal_unit_id_exists
-CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean AS $$
+CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.establishment
 CREATE TABLE public.establishment (
@@ -1057,12 +1514,6 @@ CREATE TABLE public.establishment (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
-    stat_ident character varying(15),
-    tax_ident character varying(50),
-    external_ident character varying(50),
-    external_ident_type character varying(50),
-    by_tag_id integer REFERENCES public.tag(id) ON DELETE RESTRICT,
-    by_tag_id_unique_ident varchar(64),
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256),
@@ -1086,7 +1537,6 @@ CREATE TABLE public.establishment (
     legal_unit_id integer,
     primary_for_legal_unit boolean,
     invalid_codes jsonb,
-    seen_in_import_at timestamp with time zone DEFAULT statement_timestamp(),
     CONSTRAINT "Must have either legal_unit_id or enterprise_id"
     CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
         OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
@@ -1096,31 +1546,116 @@ CREATE TABLE public.establishment (
         OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
         ),
     CONSTRAINT "enterprise_id enables sector_id"
-    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END),
-    CONSTRAINT "by_tag_id and by_tag_id_unique_ident are all or nothing"
-    CHECK( by_tag_id IS     NULL AND by_tag_id_unique_ident IS     NULL
-        OR by_tag_id IS NOT NULL AND by_tag_id_unique_ident IS NOT NULL
-         )
-
+    CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
 
-CREATE INDEX establishment_valid_to_idx ON public.establishment(tax_ident) WHERE valid_to = 'infinity';
+\echo establishment_active_idx
 CREATE INDEX establishment_active_idx ON public.establishment(active);
+\echo ix_establishment_data_source_id
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
+\echo ix_establishment_sector_id
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
+\echo ix_establishment_enterprise_id
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
+\echo ix_establishment_legal_unit_id
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
+\echo ix_establishment_name
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
+\echo ix_establishment_reorg_type_id
 CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
-CREATE INDEX ix_establishment_short_name_reg_ident_stat_ident_tax ON public.establishment USING btree (short_name, stat_ident, tax_ident);
+\echo ix_establishment_size_id
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
-CREATE INDEX ix_establishment_stat_ident ON public.establishment USING btree (stat_ident);
 
 
 \echo admin.establishment_id_exists
-CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean AS $$
+CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
+
+\echo public.external_ident_type
+CREATE TABLE public.external_ident_type (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code VARCHAR(128) UNIQUE NOT NULL,
+    name VARCHAR(50),
+    by_tag_id INTEGER UNIQUE REFERENCES public.tag(id) ON DELETE RESTRICT,
+    description text,
+    priority integer UNIQUE,
+    archived boolean NOT NULL DEFAULT false
+);
+
+\echo lifecycle_callbacks.add_table('public.external_ident_type');
+CALL lifecycle_callbacks.add_table('public.external_ident_type');
+
+\echo public.external_ident_type_derive_code_and_name_from_by_tag_id()
+CREATE OR REPLACE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.by_tag_id IS NOT NULL THEN
+        SELECT tag.path, tag.name INTO NEW.code, NEW.name
+        FROM public.tag
+        WHERE tag.id = NEW.by_tag_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+\echo public.external_ident_type_derive_code_and_name_from_by_tag_id_insert
+CREATE TRIGGER external_ident_type_derive_code_and_name_from_by_tag_id_insert
+BEFORE INSERT ON public.external_ident_type
+FOR EACH ROW
+WHEN (NEW.by_tag_id IS NOT NULL)
+EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
+\echo public.external_ident_type_derive_code_and_name_from_by_tag_id_update
+CREATE TRIGGER external_ident_type_derive_code_and_name_from_by_tag_id_update
+BEFORE UPDATE ON public.external_ident_type
+FOR EACH ROW
+WHEN (NEW.by_tag_id IS NOT NULL AND NEW.by_tag_id IS DISTINCT FROM OLD.by_tag_id)
+EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
+
+CREATE VIEW public.external_ident_type_ordered AS
+    SELECT *
+    FROM public.external_ident_type
+    ORDER BY priority ASC NULLS LAST, code
+;
+
+CREATE VIEW public.external_ident_type_active AS
+    SELECT *
+    FROM public.external_ident_type_ordered
+    WHERE NOT archived
+;
+
+
+\echo INSERT INTO public.external_ident_type
+-- Prepare the per-configured external identifiers.
+INSERT INTO public.external_ident_type (code, name, priority, description) VALUES
+('stat_ident', 'Statistical Identifier', 2, 'Stable identifier generated by Statbus'),
+('tax_ident', 'Tax Identifier', 1, 'Stable and country unique identifier used for tax reporting.');
+
+
+\echo public.external_ident
+CREATE TABLE public.external_ident (
+    id SERIAL NOT NULL,
+    ident VARCHAR(50) NOT NULL,
+    type_id INTEGER NOT NULL REFERENCES public.external_ident_type(id) ON DELETE RESTRICT,
+    establishment_id INTEGER CHECK (admin.establishment_id_exists(establishment_id)),
+    legal_unit_id INTEGER CHECK (admin.legal_unit_id_exists(legal_unit_id)),
+    enterprise_id INTEGER REFERENCES public.enterprise(id) ON DELETE CASCADE,
+    enterprise_group_id INTEGER CHECK (admin.enterprise_group_id_exists(enterprise_group_id)),
+    updated_by_user_id INTEGER NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
+    UNIQUE (ident, type_id),
+    CONSTRAINT "One and only one statistical unit id must be set"
+    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
+        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
+        )
+);
+CREATE INDEX external_ident_establishment_id_idx ON public.external_ident(establishment_id);
+CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_unit_id);
+CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);
+CREATE INDEX external_ident_enterprise_group_id_idx ON public.external_ident(enterprise_group_id);
 
 
 
@@ -1267,9 +1802,23 @@ CREATE TABLE public.region (
     label varchar NOT NULL GENERATED ALWAYS AS (replace(path::text,'.','')) STORED,
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
+    center_latitude numeric(9, 6),
+    center_longitude numeric(9, 6),
+    center_altitude numeric(6, 1),
     CONSTRAINT "parent_id is required for child"
-      CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL)
+      CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL),
+    CONSTRAINT "center coordinates all or nothing"
+      CHECK((center_latitude IS NOT NULL AND center_longitude IS NOT NULL)
+         OR (center_latitude IS NULL     AND center_longitude IS NULL)),
+    CONSTRAINT "altitude requires coordinates"
+      CHECK(CASE
+                WHEN center_altitude IS NOT NULL THEN
+                    (center_latitude IS NOT NULL AND center_longitude IS NOT NULL)
+                ELSE
+                    TRUE
+            END)
 );
+
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 
@@ -1287,15 +1836,25 @@ CREATE TABLE public.location (
     postal_place character varying(200),
     region_id integer REFERENCES public.region(id) ON DELETE RESTRICT,
     country_id integer NOT NULL REFERENCES public.country(id) ON DELETE RESTRICT,
-    latitude double precision,
-    longitude double precision,
+    latitude numeric(9, 6),
+    longitude numeric(9, 6),
+    altitude numeric(6, 1),
     establishment_id integer,
     legal_unit_id integer,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
+        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL),
+    CONSTRAINT "coordinates require both latitude and longitude"
+      CHECK((latitude IS NOT NULL AND longitude IS NOT NULL)
+         OR (latitude IS NULL AND longitude IS NULL)),
+    CONSTRAINT "altitude requires coordinates"
+      CHECK(CASE
+                WHEN altitude IS NOT NULL THEN
+                    (latitude IS NOT NULL AND longitude IS NOT NULL)
+                ELSE
+                    TRUE
+            END)
 );
 CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
@@ -1307,7 +1866,7 @@ CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (upda
 \echo public.region_upload
 CREATE VIEW public.region_upload
 WITH (security_invoker=on) AS
-SELECT path, name
+SELECT path, name, center_latitude, center_longitude, center_altitude
 FROM public.region
 ORDER BY path;
 COMMENT ON VIEW public.region_upload IS 'Upload of region by path,name that automatically connects parent_id';
@@ -1330,12 +1889,15 @@ BEGIN
         RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
     END IF;
 
-    INSERT INTO public.region (path, parent_id, name)
-    VALUES (NEW.path, maybe_parent_id, NEW.name)
+    INSERT INTO public.region (path, parent_id, name, center_latitude, center_longitude, center_altitude)
+    VALUES (NEW.path, maybe_parent_id, NEW.name, NEW.center_latitude, NEW.center_longitude, NEW.center_altitude)
     ON CONFLICT (path)
     DO UPDATE SET
         parent_id = maybe_parent_id,
-        name = EXCLUDED.name
+        name = EXCLUDED.name,
+        center_latitude = EXCLUDED.center_latitude,
+        center_longitude = EXCLUDED.center_longitude,
+        center_altitude = EXCLUDED.center_altitude
     WHERE region.id = EXCLUDED.id
     RETURNING * INTO row;
     RAISE DEBUG 'UPSERTED %', to_json(row);
@@ -1906,6 +2468,21 @@ CREATE TABLE public.stat_definition(
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
 COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
 --
+CREATE VIEW public.stat_definition_ordered AS
+    SELECT *
+    FROM public.stat_definition
+    ORDER BY priority ASC NULLS LAST, code
+;
+
+CREATE VIEW public.stat_definition_active AS
+    SELECT *
+    FROM public.stat_definition_ordered
+    WHERE NOT archived
+;
+--
+\echo lifecycle_callbacks.add_table('public.stat_definition');
+CALL lifecycle_callbacks.add_table('public.stat_definition');
+--
 INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
   ('employees','int','yearly','Number of people employed','The number of people receiving an official salary with government reporting.',2),
   ('turnover','int','yearly','Turnover','The amount (EUR)',3);
@@ -2017,21 +2594,34 @@ SELECT admin.prevent_id_update_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
 
 
+\echo public.set_primary_legal_unit_for_enterprise
 -- Functions to manage connections between enterprise <-> legal_unit <-> establishment
 CREATE OR REPLACE FUNCTION public.set_primary_legal_unit_for_enterprise(
     legal_unit_id integer,
-    valid_from date DEFAULT current_date,
-    valid_to date DEFAULT 'infinity'
+    valid_from_param date DEFAULT current_date,
+    valid_to_param date DEFAULT 'infinity'
 )
 RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE
-    v_enterprise_id integer;
+    legal_unit_row public.legal_unit;
     v_unset_ids jsonb := '[]';
     v_set_id jsonb := 'null';
 BEGIN
-    SELECT enterprise_id INTO v_enterprise_id FROM public.legal_unit WHERE id = legal_unit_id;
+    SELECT lu.* INTO legal_unit_row
+    FROM public.legal_unit AS lu
+    WHERE lu.id = legal_unit_id
+      AND daterange(lu.valid_from, lu.valid_to, '[]')
+       && daterange(valid_from_param, valid_to_param, '[]');
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Legal unit does not exist.';
+    END IF;
+
+    IF legal_unit_row.primary_for_enterprise THEN
+      RETURN jsonb_build_object(
+          'message', 'No changes made as the legal unit is already primary.',
+          'enterprise_id', legal_unit_row.enterprise_id,
+          'legal_unit_id', legal_unit_row.id
+      );
     END IF;
 
     -- Unset all legal units of the enterprise from being primary and capture their ids and table name
@@ -2039,7 +2629,9 @@ BEGIN
         UPDATE public.legal_unit
         SET primary_for_enterprise = false
         WHERE primary_for_enterprise
-          AND enterprise_id = v_enterprise_id
+          AND enterprise_id = legal_unit_row.enterprise_id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_agg(jsonb_build_object('table', 'legal_unit', 'id', id)) INTO v_unset_ids FROM updated_rows;
@@ -2048,7 +2640,9 @@ BEGIN
     WITH updated_row AS (
         UPDATE public.legal_unit
         SET primary_for_enterprise = true
-        WHERE id = legal_unit_id
+        WHERE id = legal_unit_row.id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_build_object('table', 'legal_unit', 'id', id) INTO v_set_id FROM updated_row;
@@ -2061,21 +2655,33 @@ BEGIN
 END;
 $$;
 
-
+\echo public.set_primary_establishment_for_legal_unit
 CREATE OR REPLACE FUNCTION public.set_primary_establishment_for_legal_unit(
     establishment_id integer,
-    valid_from date DEFAULT current_date,
-    valid_to date DEFAULT 'infinity'
+    valid_from_param date DEFAULT current_date,
+    valid_to_param date DEFAULT 'infinity'
 )
 RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE
-    v_legal_unit_id integer;
+    establishment_row public.establishment;
     v_unset_ids jsonb := '[]';
     v_set_id jsonb := 'null';
 BEGIN
-    SELECT legal_unit_id INTO v_legal_unit_id FROM public.establishment WHERE id = establishment_id;
-    IF v_legal_unit_id IS NULL THEN
+    SELECT * INTO establishment_row
+      FROM public.establishment
+     WHERE id = establishment_id
+       AND daterange(valid_from, valid_to, '[]')
+        && daterange(valid_from_param, valid_to_param, '[]');
+     IF NOT FOUND THEN
         RAISE EXCEPTION 'Establishment does not exist or is not linked to a legal unit.';
+    END IF;
+
+    IF establishment_row.primary_for_legal_unit THEN
+      RETURN jsonb_build_object(
+          'message', 'No changes made as the establishment is already primary.',
+          'legal_unit_id', establishment_row.legal_unit_id,
+          'establishment_id', establishment_row.id
+      );
     END IF;
 
     -- Unset all establishments of the legal unit from being primary and capture their ids and table name
@@ -2083,7 +2689,9 @@ BEGIN
         UPDATE public.establishment
         SET primary_for_legal_unit = false
         WHERE primary_for_legal_unit
-          AND legal_unit_id = v_legal_unit_id
+          AND legal_unit_id = establishment_row.legal_unit_id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_agg(jsonb_build_object('table', 'establishment', 'id', id)) INTO v_unset_ids FROM updated_rows;
@@ -2092,7 +2700,9 @@ BEGIN
     WITH updated_row AS (
         UPDATE public.establishment
         SET primary_for_legal_unit = true
-        WHERE id = establishment_id
+        WHERE id = establishment_row.id
+          AND daterange(valid_from, valid_to, '[]')
+           && daterange(valid_from_param, valid_to_param, '[]')
         RETURNING id
     )
     SELECT jsonb_build_object('table', 'establishment', 'id', id) INTO v_set_id FROM updated_row;
@@ -2191,10 +2801,10 @@ BEGIN
 
     -- Return a jsonb summary of changes including the updated legal unit ids, old and new enterprise_ids, and deleted enterprise id if applicable
     RETURN jsonb_build_object(
-        'updated_legal_unit', updated_legal_unit_ids,
-        'old_enterprise', old_enterprise_id,
-        'new_enterprise', enterprise_id,
-        'deleted_enterprise', deleted_enterprise_id
+        'updated_legal_unit_ids', updated_legal_unit_ids,
+        'old_enterprise_id', old_enterprise_id,
+        'new_enterprise_id', enterprise_id,
+        'deleted_enterprise_id', deleted_enterprise_id
     );
 END;
 $$;
@@ -2212,15 +2822,15 @@ $$;
 -- BEGIN
 --     -- Start building the dynamic query
 --     dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, edit_comment, valid_from, valid_to';
--- 
+--
 --     -- For each code in stat_definition, add it as a column
 --     FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
 --     LOOP
 --         dyn_query := dyn_query || ', stats ->> ''' || stat_code.code || ''' AS "' || stat_code.code || '"';
 --     END LOOP;
--- 
+--
 --     dyn_query := dyn_query || ' FROM legal_unit_history';
--- 
+--
 --     -- Execute the dynamic query
 --     EXECUTE dyn_query;
 --     -- Reload PostgREST to expose the new view
@@ -2233,7 +2843,7 @@ $$;
 -- BEGIN
 --     -- Call the view generation function
 --     PERFORM generate_legal_unit_history_with_stats_view();
--- 
+--
 --     -- As this is an AFTER trigger, we don't need to return any specific row.
 --     RETURN NULL;
 -- END;
@@ -2265,27 +2875,39 @@ CREATE VIEW public.timepoints AS
         UNION
         -- activity -> establishment
         SELECT 'establishment'::public.statistical_unit_type AS unit_type
-             , establishment_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.activity
-         WHERE establishment_id IS NOT NULL
+             , a.establishment_id AS unit_id
+             , a.valid_after
+             , a.valid_to
+         FROM public.activity AS a
+         INNER JOIN public.establishment AS es
+            ON a.establishment_id = es.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
+         WHERE a.establishment_id IS NOT NULL
         UNION
         -- location -> establishment
         SELECT 'establishment'::public.statistical_unit_type AS unit_type
-             , establishment_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.location
-         WHERE establishment_id IS NOT NULL
+             , l.establishment_id AS unit_id
+             , l.valid_after
+             , l.valid_to
+         FROM public.location AS l
+         INNER JOIN public.establishment AS es
+            ON l.establishment_id = es.id
+           AND daterange(l.valid_after, l.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
+         WHERE l.establishment_id IS NOT NULL
         UNION
         -- stat_for_unit -> establishment
         SELECT 'establishment'::public.statistical_unit_type AS unit_type
-             , establishment_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.stat_for_unit
-         WHERE establishment_id IS NOT NULL
+             , sfu.establishment_id AS unit_id
+             , sfu.valid_after
+             , sfu.valid_to
+         FROM public.stat_for_unit AS sfu
+         INNER JOIN public.establishment AS es
+            ON sfu.establishment_id = es.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
+         WHERE sfu.establishment_id IS NOT NULL
     ), lu AS (
         -- legal_unit
         SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -2296,34 +2918,50 @@ CREATE VIEW public.timepoints AS
         UNION
         -- activity -> legal_unit
         SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
-             , legal_unit_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.activity
-         WHERE legal_unit_id IS NOT NULL
+             , a.legal_unit_id AS unit_id
+             , a.valid_after
+             , a.valid_to
+         FROM public.activity AS a
+         INNER JOIN public.legal_unit AS lu
+            ON a.legal_unit_id = lu.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE a.legal_unit_id IS NOT NULL
         UNION
         -- location -> legal_unit
         SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
-             , legal_unit_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.location
-         WHERE legal_unit_id IS NOT NULL
+             , l.legal_unit_id AS unit_id
+             , l.valid_after
+             , l.valid_to
+         FROM public.location AS l
+         INNER JOIN public.legal_unit AS lu
+            ON l.legal_unit_id = lu.id
+           AND daterange(l.valid_after, l.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE l.legal_unit_id IS NOT NULL
         UNION
         -- stat_for_unit -> legal_unit
         SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
-             , legal_unit_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.stat_for_unit
-         WHERE legal_unit_id IS NOT NULL
-         UNION
+             , sfu.legal_unit_id AS unit_id
+             , sfu.valid_after
+             , sfu.valid_to
+         FROM public.stat_for_unit AS sfu
+         INNER JOIN public.legal_unit AS lu
+            ON sfu.legal_unit_id = lu.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE sfu.legal_unit_id IS NOT NULL
+        UNION
         -- establishment -> legal_unit
         SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
-             , es.legal_unit_id AS unit_id
+             , lu.id AS unit_id
              , es.valid_after
              , es.valid_to
          FROM public.establishment AS es
+         INNER JOIN public.legal_unit AS lu
+            ON es.legal_unit_id = lu.id
+           AND daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE es.legal_unit_id IS NOT NULL
         UNION
         -- activity -> establishment -> legal_unit
@@ -2335,19 +2973,27 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
            AND daterange(a.valid_after, a.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
+         INNER JOIN public.legal_unit AS lu
+            ON es.legal_unit_id = lu.id
+           AND daterange(a.valid_after, a.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE es.legal_unit_id IS NOT NULL
         UNION
         -- stat_for_unit -> establishment -> legal_unit
         SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
-             , es.legal_unit_id AS unit_id
+             , lu.id AS unit_id
              , sfu.valid_after
              , sfu.valid_to
          FROM public.stat_for_unit AS sfu
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
            AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
+         INNER JOIN public.legal_unit AS lu
+            ON es.legal_unit_id = lu.id
+           AND daterange(sfu.valid_after, sfu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE es.legal_unit_id IS NOT NULL
     ), en AS (
         -- legal_unit -> enterprise
@@ -2356,14 +3002,14 @@ CREATE VIEW public.timepoints AS
              , valid_after
              , valid_to
          FROM public.legal_unit
-         UNION
+        UNION
         -- establishment -> enterprise
         SELECT 'enterprise'::public.statistical_unit_type AS unit_type
-             , enterprise_id AS unit_id
-             , valid_after
-             , valid_to
-         FROM public.establishment
-         WHERE enterprise_id IS NOT NULL
+             , es.enterprise_id AS unit_id
+             , es.valid_after
+             , es.valid_to
+         FROM public.establishment AS es
+         WHERE es.enterprise_id IS NOT NULL
         UNION
         -- establishment -> legal_unit -> enterprise
         SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -2374,7 +3020,7 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
            AND daterange(es.valid_after, es.valid_to, '(]')
-            && daterange(lu.valid_after, lu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
          WHERE lu.enterprise_id IS NOT NULL
         UNION
         -- activity -> establishment -> enterprise
@@ -2386,7 +3032,7 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
            AND daterange(a.valid_after, a.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE es.enterprise_id IS NOT NULL
         UNION
         -- activity -> legal_unit -> enterprise
@@ -2398,7 +3044,8 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.legal_unit AS lu
             ON a.legal_unit_id = lu.id
            AND daterange(a.valid_after, a.valid_to, '(]')
-            && daterange(lu.valid_after, lu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.enterprise_id IS NOT NULL
         UNION
         -- activity -> establishment -> legal_unit -> enterprise
         SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -2409,11 +3056,12 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.establishment AS es
             ON a.establishment_id = es.id
            AND daterange(a.valid_after, a.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
            AND daterange(a.valid_after, a.valid_to, '(]')
-            && daterange(lu.valid_after, lu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.enterprise_id IS NOT NULL
         UNION
         -- location -> establishment -> enterprise
         SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -2424,7 +3072,7 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.establishment AS es
             ON l.establishment_id = es.id
            AND daterange(l.valid_after, l.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE es.enterprise_id IS NOT NULL
         UNION
         -- location -> legal_unit -> enterprise
@@ -2436,8 +3084,9 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.legal_unit AS lu
             ON l.legal_unit_id = lu.id
            AND daterange(l.valid_after, l.valid_to, '(]')
-            && daterange(lu.valid_after, lu.valid_to, '(]')
-         WHERE lu.primary_for_enterprise
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.enterprise_id IS NOT NULL
+           AND lu.primary_for_enterprise
         UNION
         -- stat_for_unit -> establishment -> enterprise
         SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -2448,7 +3097,7 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
            AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
          WHERE es.enterprise_id IS NOT NULL
         UNION
         -- stat_for_unit -> legal_unit -> enterprise
@@ -2460,7 +3109,8 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.legal_unit AS lu
             ON sfu.legal_unit_id = lu.id
            AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-            && daterange(lu.valid_after, lu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.enterprise_id IS NOT NULL
         UNION
         -- stat_for_unit -> establishment -> legal_unit -> enterprise
         SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -2471,11 +3121,12 @@ CREATE VIEW public.timepoints AS
          INNER JOIN public.establishment AS es
             ON sfu.establishment_id = es.id
            AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-            && daterange(es.valid_after, es.valid_to, '(]')
+               <@ daterange(es.valid_after, es.valid_to, '(]')
          INNER JOIN public.legal_unit AS lu
             ON es.legal_unit_id = lu.id
            AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-            && daterange(lu.valid_after, lu.valid_to, '(]')
+               <@ daterange(lu.valid_after, lu.valid_to, '(]')
+         WHERE lu.enterprise_id IS NOT NULL
     ), base AS (
           SELECT * FROM es
           UNION ALL
@@ -2513,6 +3164,488 @@ CREATE VIEW public.timesegments AS
 
 --SELECT * FROM public.timesegments;
 
+\echo public.jsonb_stats_to_summary
+/*
+ * ======================================================================================
+ * Function: jsonb_stats_to_summary
+ * Purpose: Aggregates and summarizes JSONB data by computing statistics for various data types.
+ *
+ * This function accumulates statistics for JSONB objects, including numeric, string, boolean,
+ * array, and nested object types. The function is used as the state transition function in
+ * the jsonb_stats_to_summary_agg aggregate, summarizing data across multiple rows.
+ *
+ * Summary by Type:
+ * 1. Numeric:
+ *    - Computes the sum, count, mean, maximum, minimum, variance, standard deviation (via sum_sq_diff),
+ *      and coefficient of variation.
+ *    - Example:
+ *      Input: {"a": 10}, {"a": 5}, {"a": 20}
+ *      Output: {"a": {"sum": 35, "count": 3, "mean": 11.67, "max": 20, "min": 5, "variance": 58.33, "stddev": 7.64,
+ *                    "coefficient_of_variation_pct": 65.47}}
+ *    - Calculation References:
+ *      - Mean update: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
+ *      - Variance and standard deviation update: Welford's method
+ *      - Coefficient of Variation (CV): Standard deviation divided by mean.
+ *
+ * 2. String:
+ *    - Counts occurrences of each distinct string value.
+ *    - Example:
+ *      Input: {"b": "apple"}, {"b": "banana"}, {"b": "apple"}
+ *      Output: {"b": {"counts": {"apple": 2, "banana": 1}}}
+ *
+ * 3. Boolean:
+ *    - Counts the occurrences of true and false values.
+ *    - Example:
+ *      Input: {"c": true}, {"c": false}, {"c": true}
+ *      Output: {"c": {"counts": {"true": 2, "false": 1}}}
+ *
+ * 4. Array:
+ *    - Aggregates the count of each unique value item across all arrays.
+ *    - Example:
+ *      Input: {"d": [1, 2]}, {"d": [2, 3]}, {"d": [3, 4]}
+ *      Output: {"d": {"counts": {"1": 1, "2": 2, "3": 2, "4": 1}}}
+ *    - Note: An exception is raised if arrays contain mixed types.
+ *
+ * 5. Object (Nested JSON):
+ *    - Recursively aggregates nested JSON objects.
+ *    - Example:
+ *      Input: {"e": {"f": 1}}, {"e": {"f": 2}}, {"e": {"f": 3}}
+ *      Output: {"e": {"f": {"sum": 6, "count": 3, "max": 3, "min": 1}}}
+ *
+ * Note:
+ * - The function raises an exception if it encounters a type mismatch for a key across different rows.
+ * - Semantically, a single key will always have the same structure across different rows, as it is uniquely defined in a table.
+ * - The function should be used in conjunction with the jsonb_stats_to_summary_agg aggregate to process multiple rows.
+ * ======================================================================================
+ */
+
+CREATE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb) RETURNS jsonb LANGUAGE plpgsql STABLE STRICT AS $$
+DECLARE
+    prev_stat_state jsonb;
+    stat_key text;
+    stat_value jsonb;
+    stat_type text;
+    prev_stat_type text;
+    next_stat_state jsonb;
+    state_type text;
+    stats_type text;
+BEGIN
+    IF state IS NULL OR stats IS NULL THEN
+        RAISE EXCEPTION 'Logic error: STRICT function should never be called with NULL';
+    END IF;
+
+    state_type := jsonb_typeof(state);
+    IF state_type <> 'object' THEN
+        RAISE EXCEPTION 'Type mismatch for state "%": % <> object', state, state_type;
+    END IF;
+
+    stats_type := jsonb_typeof(stats);
+    IF stats_type <> 'object' THEN
+        RAISE EXCEPTION 'Type mismatch for stats "%": % <> object', stats, stats_type;
+    END IF;
+
+    -- Update state with data from `value`
+    FOR stat_key, stat_value IN SELECT * FROM jsonb_each(stats) LOOP
+        stat_type := jsonb_typeof(stat_value);
+
+        IF state ? stat_key THEN
+            prev_stat_state := state->stat_key;
+            prev_stat_type := prev_stat_state->>'type';
+            IF stat_type <> prev_stat_type THEN
+                RAISE EXCEPTION 'Type mismatch between values for key "%" was "%" became "%"', stat_key, prev_stat_type, stat_type;
+            END IF;
+            next_stat_state = jsonb_build_object('type', stat_type);
+
+            CASE stat_type
+                -- Handle numeric values with iterative mean, variance, standard deviation, and coefficient of variation.
+                WHEN 'number' THEN
+                    DECLARE
+                        sum numeric := (prev_stat_state->'sum')::numeric + stat_value::numeric;
+                        count integer := (prev_stat_state->'count')::integer + 1;
+                        delta numeric := stat_value::numeric - (prev_stat_state->'mean')::numeric;
+                        mean numeric := (prev_stat_state->'mean')::numeric + delta / count;
+                        min numeric := LEAST((prev_stat_state->'min')::numeric, stat_value::numeric);
+                        max numeric := GREATEST((prev_stat_state->'max')::numeric, stat_value::numeric);
+                        sum_sq_diff numeric := (prev_stat_state->'sum_sq_diff')::numeric + delta * (stat_value::numeric - mean);
+
+                        -- Calculate variance and standard deviation
+                        variance numeric := CASE WHEN count > 1 THEN sum_sq_diff / (count - 1) ELSE NULL END;
+                        stddev numeric := CASE WHEN variance IS NOT NULL THEN sqrt(variance) ELSE NULL END;
+
+                        -- Calculate Coefficient of Variation (CV)
+                        coefficient_of_variation_pct numeric := CASE
+                            WHEN mean IS NULL OR mean = 0 THEN NULL
+                            ELSE (stddev / mean) * 100
+                        END;
+                    BEGIN
+                        next_stat_state :=  next_stat_state ||
+                            jsonb_build_object(
+                                'sum', sum,
+                                'count', count,
+                                'mean', mean,
+                                'min', min,
+                                'max', max,
+                                'sum_sq_diff', sum_sq_diff,
+                                'variance', variance,
+                                'stddev', stddev,
+                                'coefficient_of_variation_pct', coefficient_of_variation_pct
+                            );
+                    END;
+
+                -- Handle string values
+                WHEN 'string' THEN
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'counts',
+                            -- The previous dictionary with count for each key.
+                            (prev_stat_state->'counts')
+                            -- Appending to it
+                            ||
+                            -- The updated count for this particular key.
+                            jsonb_build_object(
+                                -- Notice that `->>0` extracts the non-quoted string,
+                                -- otherwise the key would be double quoted.
+                                stat_value->>0,
+                                COALESCE((prev_stat_state->'counts'->(stat_value->>0))::integer, 0) + 1
+                            )
+                        );
+
+                -- Handle boolean types
+                WHEN 'boolean' THEN
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'counts', jsonb_build_object(
+                                'true', COALESCE((prev_stat_state->'counts'->'true')::integer, 0) + (stat_value::boolean)::integer,
+                                'false', COALESCE((prev_stat_state->'counts'->'false')::integer, 0) + (NOT stat_value::boolean)::integer
+                            )
+                        );
+
+                -- Handle array types
+                WHEN 'array' THEN
+                    DECLARE
+                        element text;
+                        element_count integer;
+                        count integer;
+                    BEGIN
+                        -- Start with the previous state, to preserve previous counts.
+                        next_stat_state := prev_stat_state;
+
+                        FOR element IN SELECT jsonb_array_elements_text(stat_value) LOOP
+                            -- Retrieve the old count for this element, defaulting to 0 if not present
+                            count := COALESCE((next_stat_state->'counts'->element)::integer, 0) + 1;
+
+                            -- Update the next state with the incremented count
+                            next_stat_state := jsonb_set(
+                                next_stat_state,
+                                ARRAY['counts',element],
+                                to_jsonb(count)
+                            );
+                        END LOOP;
+                    END;
+
+                -- Handle object (nested JSON)
+                WHEN 'object' THEN
+                    next_stat_state := public.jsonb_stats_to_summary(prev_stat_state, stat_value);
+
+                ELSE
+                    RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
+            END CASE;
+        ELSE
+            -- Initialize new entry in state
+            next_stat_state = jsonb_build_object('type', stat_type);
+            CASE stat_type
+                WHEN 'number' THEN
+                    next_stat_state := next_stat_state ||
+                        jsonb_build_object(
+                            'sum', stat_value::numeric,
+                            'count', 1,
+                            'mean', stat_value::numeric,
+                            'min', stat_value::numeric,
+                            'max', stat_value::numeric,
+                            'sum_sq_diff', 0,
+                            'variance', 0,
+                            'stddev', 0,
+                            'coefficient_of_variation_pct', 0
+                        );
+
+                WHEN 'string' THEN
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            -- Notice that `->>0` extracts the non-quoted string,
+                            -- otherwise the key would be double quoted.
+                            'counts', jsonb_build_object(stat_value->>0, 1)
+                        );
+
+                WHEN 'boolean' THEN
+                    next_stat_state :=  next_stat_state ||
+                            jsonb_build_object(
+                            'counts', jsonb_build_object(
+                                'true', (stat_value::boolean)::integer,
+                                'false', (NOT stat_value::boolean)::integer
+                            )
+                        );
+
+                WHEN 'array' THEN
+                    -- Initialize array with counts of each unique value
+                    next_stat_state :=  next_stat_state ||
+                        jsonb_build_object(
+                            'counts',
+                            (
+                            SELECT jsonb_object_agg(element,1)
+                            FROM jsonb_array_elements_text(stat_value) AS element
+                            )
+                        );
+
+                WHEN 'object' THEN
+                    next_stat_state := public.jsonb_stats_to_summary(next_stat_state, stat_value);
+
+                ELSE
+                    RAISE EXCEPTION 'Unsupported type "%" for %', stat_type, stat_value;
+            END CASE;
+        END IF;
+
+        state := state || jsonb_build_object(stat_key, next_stat_state);
+    END LOOP;
+
+    RETURN state;
+END;
+$$;
+
+
+CREATE FUNCTION public.jsonb_stats_to_summary_round(state jsonb) RETURNS jsonb LANGUAGE plpgsql STABLE STRICT AS $$
+DECLARE
+    key text;
+    val jsonb;
+    result jsonb := '{}';
+    rounding_keys text[] := ARRAY['mean', 'sum_sq_diff', 'variance', 'stddev', 'coefficient_of_variation_pct'];
+    sub_key text;
+BEGIN
+    -- Iterate through the keys in the state JSONB object
+    FOR key, val IN SELECT * FROM jsonb_each(state) LOOP
+        CASE jsonb_typeof(val)
+            WHEN 'object' THEN
+                -- Iterate over the rounding keys directly and apply rounding if key exists and value is numeric
+                FOR sub_key IN SELECT unnest(rounding_keys) LOOP
+                    IF val ? sub_key AND jsonb_typeof(val->sub_key) = 'number' THEN
+                        val := val || jsonb_build_object(sub_key, round((val->sub_key)::numeric, 2));
+                    END IF;
+                END LOOP;
+
+                -- Recursively process nested objects
+                result := result || jsonb_build_object(key, public.jsonb_stats_to_summary_round(val));
+
+            ELSE
+                -- Non-object types are added to the result as is
+                result := result || jsonb_build_object(key, val);
+        END CASE;
+    END LOOP;
+
+    RETURN result;
+END;
+$$;
+
+
+\echo public.jsonb_stats_to_summary_agg
+CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
+    sfunc = public.jsonb_stats_to_summary,
+    stype = jsonb,
+    initcond = '{}',
+    finalfunc = public.jsonb_stats_to_summary_round
+);
+
+
+\echo public.jsonb_stats_summary_merge
+CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+DECLARE
+    key_a text;
+    key_b text;
+    val_a jsonb;
+    val_b jsonb;
+    merged_val jsonb;
+    type_a text;
+    type_b text;
+    result jsonb := '{}';
+BEGIN
+    -- Ensure both a and b are objects
+    IF jsonb_typeof(a) <> 'object' OR jsonb_typeof(b) <> 'object' THEN
+        RAISE EXCEPTION 'Both arguments must be JSONB objects';
+    END IF;
+
+    -- Iterate over keys in both JSONB objects
+    FOR key_a, val_a IN SELECT * FROM jsonb_each(a) LOOP
+        IF b ? key_a THEN
+            val_b := b->key_a;
+            type_a := val_a->>'type';
+            type_b := val_b->>'type';
+
+            -- Ensure the types are the same for the same key
+            IF type_a <> type_b THEN
+                RAISE EXCEPTION 'Type mismatch for key "%": % vs %', key_a, type_a, type_b;
+            END IF;
+
+            -- Merge the values based on their type
+            CASE type_a
+                WHEN 'number' THEN
+                    DECLARE
+                        count_a INTEGER := (val_a->'count')::INTEGER;
+                        count_b INTEGER := (val_b->'count')::INTEGER;
+                        total_count INTEGER := count_a + count_b;
+
+                        mean_a NUMERIC := (val_a->'mean')::NUMERIC;
+                        mean_b NUMERIC := (val_b->'mean')::NUMERIC;
+                        merged_mean NUMERIC := (mean_a * count_a + mean_b * count_b) / total_count;
+
+                        sum_sq_diff_a NUMERIC := (val_a->'sum_sq_diff')::NUMERIC;
+                        sum_sq_diff_b NUMERIC := (val_b->'sum_sq_diff')::NUMERIC;
+                        delta NUMERIC := mean_b - mean_a;
+
+                        merged_sum_sq_diff NUMERIC :=
+                            sum_sq_diff_a + sum_sq_diff_b + delta * delta * count_a * count_b / total_count;
+                        merged_variance NUMERIC :=
+                            CASE WHEN total_count > 1
+                            THEN merged_sum_sq_diff / (total_count - 1)
+                            ELSE NULL
+                            END;
+                        merged_stddev NUMERIC :=
+                            CASE WHEN merged_variance IS NOT NULL
+                            THEN sqrt(merged_variance)
+                            ELSE NULL
+                            END;
+
+                        -- Calculate Coefficient of Variation (CV)
+                        coefficient_of_variation_pct NUMERIC :=
+                            CASE WHEN merged_mean <> 0
+                            THEN (merged_stddev / merged_mean) * 100
+                            ELSE NULL
+                            END;
+                    BEGIN
+                        merged_val := jsonb_build_object(
+                            'sum', (val_a->'sum')::numeric + (val_b->'sum')::numeric,
+                            'count', total_count,
+                            'mean', merged_mean,
+                            'min', LEAST((val_a->'min')::numeric, (val_b->'min')::numeric),
+                            'max', GREATEST((val_a->'max')::numeric, (val_b->'max')::numeric),
+                            'sum_sq_diff', merged_sum_sq_diff,
+                            'variance', merged_variance,
+                            'stddev', merged_stddev,
+                            'coefficient_of_variation_pct', coefficient_of_variation_pct
+                        );
+                    END;
+
+                WHEN 'string' THEN
+                    merged_val := jsonb_build_object(
+                        'counts', (
+                            SELECT jsonb_object_agg(key, value)
+                            FROM (
+                                SELECT key, SUM(value) AS value
+                                FROM (
+                                    SELECT key, value::integer FROM jsonb_each(val_a->'counts')
+                                    UNION ALL
+                                    SELECT key, value::integer FROM jsonb_each(val_b->'counts')
+                                ) AS enumerated
+                                GROUP BY key
+                            ) AS merged_counts
+                        )
+                    );
+
+                WHEN 'boolean' THEN
+                    merged_val := jsonb_build_object(
+                        'counts', jsonb_build_object(
+                            'true', (val_a->'counts'->>'true')::integer + (val_b->'counts'->>'true')::integer,
+                            'false', (val_a->'counts'->>'false')::integer + (val_b->'counts'->>'false')::integer
+                        )
+                    );
+
+                WHEN 'array' THEN
+                    merged_val := jsonb_build_object(
+                        'counts', (
+                            SELECT jsonb_object_agg(key, value)
+                            FROM (
+                                SELECT key, SUM(value) AS value
+                                FROM (
+                                    SELECT key, value::integer FROM jsonb_each(val_a->'counts')
+                                    UNION ALL
+                                    SELECT key, value::integer FROM jsonb_each(val_b->'counts')
+                                ) AS enumerated
+                                GROUP BY key
+                            ) AS merged_counts
+                        )
+                    );
+
+                WHEN 'object' THEN
+                    merged_val := public.jsonb_stats_summary_merge(val_a, val_b);
+
+                ELSE
+                    RAISE EXCEPTION 'Unsupported type "%" for key "%"', type_a, key_a;
+            END CASE;
+
+            -- Add the merged value to the result
+            result := result || jsonb_build_object(key_a, jsonb_build_object('type', type_a) || merged_val);
+        ELSE
+            -- Key only in a
+            result := result || jsonb_build_object(key_a, val_a);
+        END IF;
+    END LOOP;
+
+    -- Add keys only in b
+    FOR key_b, val_b IN SELECT key, value FROM jsonb_each(b) WHERE NOT (a ? key) LOOP
+        result := result || jsonb_build_object(key_b, val_b);
+    END LOOP;
+
+    RETURN result;
+END;
+$$;
+
+
+\echo public.jsonb_stats_summary_merge_agg
+CREATE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
+    sfunc = public.jsonb_stats_summary_merge,
+    stype = jsonb,
+    initcond = '{}',
+    finalfunc = public.jsonb_stats_to_summary_round
+);
+
+
+\echo public.jsonb_concat_agg()
+-- Aggregate: jsonb_concat_agg
+-- Purpose: Aggregate function to concatenate JSONB objects from multiple rows into a single JSONB object.
+-- Example:
+--   SELECT jsonb_concat_agg(column_name) FROM table_name;
+--   Output: A single JSONB object resulting from the concatenation of JSONB objects from all rows.
+-- Notice:
+--   The function `jsonb_concat` is not documented, but named equivalent of `||`.
+CREATE AGGREGATE public.jsonb_concat_agg(jsonb) (
+    sfunc = jsonb_concat,
+    stype = jsonb,
+    initcond = '{}'
+);
+
+
+\echo public.get_jsonb_stats
+CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
+    p_establishment_id INTEGER,
+    p_legal_unit_id INTEGER,
+    p_valid_after DATE,
+    p_valid_to DATE
+) RETURNS JSONB LANGUAGE sql AS $get_jsonb_stats$
+    SELECT public.jsonb_concat_agg(
+        CASE sd.type
+            WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
+            WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
+            WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
+            WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
+        END
+    )
+    FROM public.stat_for_unit AS sfu
+    LEFT JOIN public.stat_definition AS sd
+        ON sfu.stat_definition_id = sd.id
+    WHERE (p_establishment_id IS NULL OR sfu.establishment_id = p_establishment_id)
+      AND (p_legal_unit_id IS NULL OR sfu.legal_unit_id = p_legal_unit_id)
+      AND daterange(p_valid_after, p_valid_to, '(]')
+      && daterange(sfu.valid_after, sfu.valid_to, '(]')
+$get_jsonb_stats$;
+
+
 \echo public.timeline_establishment
 CREATE VIEW public.timeline_establishment
     ( unit_type
@@ -2520,12 +3653,6 @@ CREATE VIEW public.timeline_establishment
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -2564,21 +3691,14 @@ CREATE VIEW public.timeline_establishment
     , establishment_id
     , legal_unit_id
     , enterprise_id
-    , employees
-    , turnover
+    , stats
     )
     AS
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
-           , es.stat_ident AS stat_ident
-           , es.tax_ident AS tax_ident
-           , es.external_ident AS external_ident
-           , es.external_ident_type AS external_ident_type
-           , es.by_tag_id    AS by_tag_id
-           , es.by_tag_id_unique_ident AS by_tag_id_unique_ident
            , es.name AS name
            , es.birth_date AS birth_date
            , es.death_date AS death_date
@@ -2627,8 +3747,8 @@ CREATE VIEW public.timeline_establishment
            , es.legal_unit_id AS legal_unit_id
            , es.enterprise_id AS enterprise_id
            --
-           , sfu1.value_int AS employees
-           , sfu2.value_int AS turnover
+           , COALESCE(public.get_jsonb_stats(es.id, NULL, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
+      --
       FROM public.timesegments AS t
       INNER JOIN public.establishment AS es
           ON t.unit_type = 'establishment' AND t.unit_id = es.id
@@ -2674,21 +3794,6 @@ CREATE VIEW public.timeline_establishment
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       --
-      LEFT OUTER JOIN public.stat_definition AS sd1
-              ON sd1.code = 'employees'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu1
-              ON sfu1.stat_definition_id = sd1.id
-             AND sfu1.establishment_id = es.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu1.valid_after, sfu1.valid_to, '(]')
-      --
-      LEFT OUTER JOIN public.stat_definition AS sd2
-              ON sd2.code = 'turnover'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu2
-              ON sfu2.stat_definition_id = sd2.id
-             AND sfu2.establishment_id = es.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu2.valid_after, sfu2.valid_to, '(]')
       ORDER BY t.unit_type, t.unit_id, t.valid_after
 ;
 
@@ -2701,12 +3806,6 @@ CREATE VIEW public.timeline_legal_unit
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -2745,22 +3844,16 @@ CREATE VIEW public.timeline_legal_unit
     , establishment_ids
     , legal_unit_id
     , enterprise_id
-    , employees
-    , turnover
+    , stats
+    , stats_summary
     )
     AS
       WITH basis AS (
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
-           , lu.stat_ident AS stat_ident
-           , lu.tax_ident AS tax_ident
-           , lu.external_ident AS external_ident
-           , lu.external_ident_type AS external_ident_type
-           , lu.by_tag_id    AS by_tag_id
-           , lu.by_tag_id_unique_ident AS by_tag_id_unique_ident
            , lu.name AS name
            , lu.birth_date AS birth_date
            , lu.death_date AS death_date
@@ -2807,9 +3900,8 @@ CREATE VIEW public.timeline_legal_unit
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
-           --
-           , sfu1.value_int AS employees
-           , sfu2.value_int AS turnover
+           , COALESCE(public.get_jsonb_stats(NULL, lu.id, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
+      --
       FROM public.timesegments AS t
       INNER JOIN public.legal_unit AS lu
           ON t.unit_type = 'legal_unit' AND t.unit_id = lu.id
@@ -2857,29 +3949,12 @@ CREATE VIEW public.timeline_legal_unit
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      --
-      LEFT OUTER JOIN public.stat_definition AS sd1
-              ON sd1.code = 'employees'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu1
-              ON sfu1.stat_definition_id = sd1.id
-             AND sfu1.legal_unit_id = lu.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu1.valid_after, sfu1.valid_to, '(]')
-      --
-      LEFT OUTER JOIN public.stat_definition AS sd2
-              ON sd2.code = 'turnover'
-      LEFT OUTER JOIN public.stat_for_unit AS sfu2
-              ON sfu2.stat_definition_id = sd2.id
-             AND sfu2.legal_unit_id = lu.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu2.valid_after, sfu2.valid_to, '(]')
       ), aggregation AS (
         SELECT tes.legal_unit_id
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
-             , sum(tes.employees) AS employees
-             , sum(tes.turnover) AS turnover
+             , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
           INNER JOIN basis
            ON tes.legal_unit_id = basis.legal_unit_id
@@ -2892,12 +3967,6 @@ CREATE VIEW public.timeline_legal_unit
            , basis.valid_after
            , basis.valid_from
            , basis.valid_to
-           , basis.stat_ident
-           , basis.tax_ident
-           , basis.external_ident
-           , basis.external_ident_type
-           , basis.by_tag_id
-           , basis.by_tag_id_unique_ident
            , basis.name
            , basis.birth_date
            , basis.death_date
@@ -2936,8 +4005,12 @@ CREATE VIEW public.timeline_legal_unit
            , COALESCE(aggregation.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
-           , COALESCE(basis.employees + aggregation.employees, basis.employees, aggregation.employees) AS employees
-           , COALESCE(basis.turnover + aggregation.turnover, basis.turnover, aggregation.turnover) AS turnover
+           -- Expose the stats for just this entry.
+           , basis.stats AS stats
+           -- Continue one more aggregation iteration adding the stats for this unit
+           -- to the aggregated stats for establishments, by using the internal
+           -- aggregation function for one more step.
+           , public.jsonb_stats_to_summary(COALESCE(aggregation.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
       FROM basis
       LEFT OUTER JOIN aggregation
        ON basis.legal_unit_id = aggregation.legal_unit_id
@@ -2949,6 +4022,22 @@ CREATE VIEW public.timeline_legal_unit
 
 --SELECT * FROM public.timeline_legal_unit;
 
+-- Final function to remove duplicates from concatenated arrays
+CREATE FUNCTION public.array_distinct_concat_final(anycompatiblearray)
+RETURNS anycompatiblearray LANGUAGE sql AS $$
+SELECT array_agg(DISTINCT elem)
+  FROM unnest($1) as elem;
+$$;
+
+-- Aggregate function using array_cat for concatenation and public.array_distinct_concat_final to remove duplicates
+CREATE AGGREGATE public.array_distinct_concat(anycompatiblearray) (
+  SFUNC = pg_catalog.array_cat,
+  STYPE = anycompatiblearray,
+  FINALFUNC = public.array_distinct_concat_final,
+  INITCOND = '{}'
+);
+
+
 
 \echo public.timeline_enterprise
 CREATE VIEW public.timeline_enterprise
@@ -2957,12 +4046,6 @@ CREATE VIEW public.timeline_enterprise
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
     , name
     , birth_date
     , death_date
@@ -3001,22 +4084,17 @@ CREATE VIEW public.timeline_enterprise
     , establishment_ids
     , legal_unit_ids
     , enterprise_id
-    , employees
-    , turnover
+    , primary_establishment_id
+    , primary_legal_unit_id
+    , stats_summary
     )
     AS
-      WITH basis AS (
+      WITH basis_with_legal_unit AS (
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
-           , t.valid_after + '1 day'::INTERVAL AS valid_from
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
            , t.valid_to
-           , plu.stat_ident AS stat_ident
-           , plu.tax_ident AS tax_ident
-           , plu.external_ident AS external_ident
-           , plu.external_ident_type AS external_ident_type
-           , plu.by_tag_id    AS by_tag_id
-           , plu.by_tag_id_unique_ident AS by_tag_id_unique_ident
            , plu.name AS name
            , plu.birth_date AS birth_date
            , plu.death_date AS death_date
@@ -3062,6 +4140,7 @@ CREATE VIEW public.timeline_enterprise
            , plu.invalid_codes AS invalid_codes
            --
            , en.id AS enterprise_id
+           , plu.id AS primary_legal_unit_id
       FROM public.timesegments AS t
       INNER JOIN public.enterprise AS en
           ON t.unit_type = 'enterprise' AND t.unit_id = en.id
@@ -3112,15 +4191,113 @@ CREATE VIEW public.timeline_enterprise
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      ), basis_with_establishment AS (
+      SELECT t.unit_type
+           , t.unit_id
+           , t.valid_after
+           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
+           , t.valid_to
+           , pes.name AS name
+           , pes.birth_date AS birth_date
+           , pes.death_date AS death_date
+           -- Se supported languages with `SELECT * FROM pg_ts_config`
+           , to_tsvector('simple', pes.name) AS search
+           --
+           , pa.category_id AS primary_activity_category_id
+           , pac.path                AS primary_activity_category_path
+           --
+           , sa.category_id AS secondary_activity_category_id
+           , sac.path                AS secondary_activity_category_path
+           --
+           , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
+           --
+           , s.id   AS sector_id
+           , s.path AS sector_path
+           , s.code AS sector_code
+           , s.name AS sector_name
+           -- An establishment has no legal_form, that is for legal_unit only.
+           , NULL::INTEGER AS legal_form_id
+           , NULL::VARCHAR AS legal_form_code
+           , NULL::VARCHAR AS legal_form_name
+           --
+           , phl.address_part1 AS physical_address_part1
+           , phl.address_part2 AS physical_address_part2
+           , phl.address_part3 AS physical_address_part3
+           , phl.postal_code AS physical_postal_code
+           , phl.postal_place AS physical_postal_place
+           , phl.region_id           AS physical_region_id
+           , phr.path                AS physical_region_path
+           , phl.country_id AS physical_country_id
+           , phc.iso_2     AS physical_country_iso_2
+           --
+           , pol.address_part1 AS postal_address_part1
+           , pol.address_part2 AS postal_address_part2
+           , pol.address_part3 AS postal_address_part3
+           , pol.postal_code AS postal_postal_code
+           , pol.postal_place AS postal_postal_place
+           , pol.region_id           AS postal_region_id
+           , por.path                AS postal_region_path
+           , pol.country_id AS postal_country_id
+           , poc.iso_2     AS postal_country_iso_2
+           --
+           , pes.invalid_codes AS invalid_codes
+           --
+           , en.id AS enterprise_id
+           , pes.id AS primary_establishment_id
+      FROM public.timesegments AS t
+      INNER JOIN public.enterprise AS en
+          ON t.unit_type = 'enterprise' AND t.unit_id = en.id
+      INNER JOIN public.establishment AS pes
+          ON pes.enterprise_id = en.id
+          AND daterange(t.valid_after, t.valid_to, '(]')
+           && daterange(pes.valid_after, pes.valid_to, '(]')
+      --
+      LEFT OUTER JOIN public.activity AS pa
+              ON pa.establishment_id = pes.id
+             AND pa.type = 'primary'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pa.valid_after, pa.valid_to, '(]')
+      LEFT JOIN public.activity_category AS pac
+              ON pa.category_id = pac.id
+      --
+      LEFT OUTER JOIN public.activity AS sa
+              ON sa.establishment_id = pes.id
+             AND sa.type = 'secondary'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sa.valid_after, sa.valid_to, '(]')
+      LEFT JOIN public.activity_category AS sac
+              ON sa.category_id = sac.id
+      --
+      LEFT OUTER JOIN public.sector AS s
+              ON pes.sector_id = s.id
+      --
+      LEFT OUTER JOIN public.location AS phl
+              ON phl.establishment_id = pes.id
+             AND phl.type = 'physical'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(phl.valid_after, phl.valid_to, '(]')
+      LEFT JOIN public.region AS phr
+              ON phl.region_id = phr.id
+      LEFT JOIN public.country AS phc
+              ON phl.country_id = phc.id
+      --
+      LEFT OUTER JOIN public.location AS pol
+              ON pol.establishment_id = pes.id
+             AND pol.type = 'postal'
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(pol.valid_after, pol.valid_to, '(]')
+      LEFT JOIN public.region AS por
+              ON pol.region_id = por.id
+      LEFT JOIN public.country AS poc
+              ON pol.country_id = poc.id
       ), establishment_aggregation AS (
         SELECT tes.enterprise_id
              , basis.valid_after
              , basis.valid_to
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
-             , sum(tes.employees) AS employees
-             , sum(tes.turnover) AS turnover
+             , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
-          INNER JOIN basis
+          INNER JOIN basis_with_establishment AS basis
            ON tes.enterprise_id = basis.enterprise_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tes.valid_after, tes.valid_to, '(]')
@@ -3129,27 +4306,73 @@ CREATE VIEW public.timeline_enterprise
         SELECT tlu.enterprise_id
              , basis.valid_after
              , basis.valid_to
+             , public.array_distinct_concat(tlu.establishment_ids) AS establishment_ids
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
-             , sum(tlu.employees) AS employees
-             , sum(tlu.turnover) AS turnover
+             , public.jsonb_stats_summary_merge_agg(tlu.stats_summary) AS stats_summary
           FROM public.timeline_legal_unit AS tlu
-          INNER JOIN basis
+          INNER JOIN basis_with_legal_unit AS basis
            ON tlu.enterprise_id = basis.enterprise_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tlu.valid_after, tlu.valid_to, '(]')
         GROUP BY tlu.enterprise_id, basis.valid_after , basis.valid_to
-        )
+        ), basis_with_legal_unit_aggregation AS (
           SELECT basis.unit_type
                , basis.unit_id
                , basis.valid_after
                , basis.valid_from
                , basis.valid_to
-               , basis.stat_ident
-               , basis.tax_ident
-               , basis.external_ident
-               , basis.external_ident_type
-               , basis.by_tag_id
-               , basis.by_tag_id_unique_ident
+               , basis.name
+               , basis.birth_date
+               , basis.death_date
+               , basis.search
+               , basis.primary_activity_category_id
+               , basis.primary_activity_category_path
+               , basis.secondary_activity_category_id
+               , basis.secondary_activity_category_path
+               , basis.activity_category_paths
+               , basis.sector_id
+               , basis.sector_path
+               , basis.sector_code
+               , basis.sector_name
+               , basis.legal_form_id
+               , basis.legal_form_code
+               , basis.legal_form_name
+               , basis.physical_address_part1
+               , basis.physical_address_part2
+               , basis.physical_address_part3
+               , basis.physical_postal_code
+               , basis.physical_postal_place
+               , basis.physical_region_id
+               , basis.physical_region_path
+               , basis.physical_country_id
+               , basis.physical_country_iso_2
+               , basis.postal_address_part1
+               , basis.postal_address_part2
+               , basis.postal_address_part3
+               , basis.postal_postal_code
+               , basis.postal_postal_place
+               , basis.postal_region_id
+               , basis.postal_region_path
+               , basis.postal_country_id
+               , basis.postal_country_iso_2
+               , basis.invalid_codes
+               , COALESCE(lua.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
+               , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
+               , basis.enterprise_id
+               , NULL::INTEGER AS primary_establishment_id
+               , basis.primary_legal_unit_id
+               , lua.stats_summary AS stats_summary
+          FROM basis_with_legal_unit AS basis
+          LEFT OUTER JOIN legal_unit_aggregation AS lua
+                       ON basis.enterprise_id = lua.enterprise_id
+                      AND basis.valid_after = lua.valid_after
+                      AND basis.valid_to = lua.valid_to
+        ), basis_with_establishment_aggregation AS (
+          SELECT basis.unit_type
+               , basis.unit_id
+               , basis.valid_after
+               , basis.valid_from
+               , basis.valid_to
                , basis.name
                , basis.birth_date
                , basis.death_date
@@ -3186,24 +4409,89 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_country_iso_2
                , basis.invalid_codes
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
-               , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
+               , ARRAY[]::INT[] AS legal_unit_ids
                , basis.enterprise_id
-               , COALESCE(esa.employees + lua.employees, esa.employees, lua.employees) AS employees
-               , COALESCE(esa.turnover + lua.turnover, esa.turnover, lua.turnover) AS turnover
-          FROM basis
+               , basis.primary_establishment_id
+               , NULL::INTEGER AS primary_legal_unit_id
+               , esa.stats_summary AS stats_summary
+          FROM basis_with_establishment AS basis
           LEFT OUTER JOIN establishment_aggregation AS esa
                        ON basis.enterprise_id = esa.enterprise_id
                       AND basis.valid_after = esa.valid_after
                       AND basis.valid_to = esa.valid_to
-          LEFT OUTER JOIN legal_unit_aggregation AS lua
-                       ON basis.enterprise_id = lua.enterprise_id
-                      AND basis.valid_after = lua.valid_after
-                      AND basis.valid_to = lua.valid_to
-          --
-          ORDER BY unit_type, unit_id, valid_after
+        ), basis_with_both AS (
+            SELECT * FROM basis_with_legal_unit_aggregation
+            UNION ALL
+            SELECT * FROM basis_with_establishment_aggregation
+        )
+        SELECT * FROM basis_with_both
+         ORDER BY unit_type, unit_id, valid_after
 ;
 
 -- SELECT * FROM public.timeline_enterprise;
+
+\echo public.get_external_idents
+CREATE FUNCTION public.get_external_idents(
+  unit_type public.statistical_unit_type,
+  unit_id INTEGER
+) RETURNS JSONB LANGUAGE sql STABLE STRICT AS $$
+    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS external_idents
+    FROM public.external_ident AS ei
+    JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+    WHERE
+      CASE unit_type
+        WHEN 'enterprise' THEN ei.enterprise_id = unit_id
+        WHEN 'legal_unit' THEN ei.legal_unit_id = unit_id
+        WHEN 'establishment' THEN ei.establishment_id = unit_id
+        WHEN 'enterprise_group' THEN ei.enterprise_group_id = unit_id
+      END;
+$$;
+
+
+\echo public.enterprise_external_idents
+CREATE VIEW public.enterprise_external_idents AS
+  SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+        , plu.enterprise_id AS unit_id
+        , public.get_external_idents('legal_unit', plu.id) AS external_idents
+        , plu.valid_after
+        , plu.valid_to
+  FROM public.legal_unit plu
+  WHERE  plu.primary_for_enterprise = true
+  UNION ALL
+  SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+       , pes.enterprise_id AS unit_id
+       , public.get_external_idents('establishment', pes.id) AS external_idents
+       , pes.valid_after
+       , pes.valid_to
+  FROM public.establishment pes
+  WHERE pes.enterprise_id IS NOT NULL
+; -- END public.enterprise_external_idents
+
+
+\echo public.get_tag_paths
+CREATE FUNCTION public.get_tag_paths(
+  unit_type public.statistical_unit_type,
+  unit_id INTEGER
+) RETURNS public.ltree[] LANGUAGE sql STABLE STRICT AS $$
+  WITH ordered_data AS (
+    SELECT DISTINCT t.path
+    FROM public.tag_for_unit AS tfu
+    JOIN public.tag AS t ON t.id = tfu.tag_id
+    WHERE
+      CASE unit_type
+      WHEN 'enterprise' THEN tfu.enterprise_id = unit_id
+      WHEN 'legal_unit' THEN tfu.legal_unit_id = unit_id
+      WHEN 'establishment' THEN tfu.establishment_id = unit_id
+      WHEN 'enterprise_group' THEN tfu.enterprise_group_id = unit_id
+      END
+    ORDER BY t.path
+  ), agg_data AS (
+    SELECT array_agg(path) AS tag_paths FROM ordered_data
+  )
+  SELECT COALESCE(tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
+  FROM agg_data;
+$$;
+
 
 
 \echo public.statistical_unit_def
@@ -3213,12 +4501,7 @@ CREATE VIEW public.statistical_unit_def
     , valid_after
     , valid_from
     , valid_to
-    , stat_ident
-    , tax_ident
-    , external_ident
-    , external_ident_type
-    , by_tag_id
-    , by_tag_id_unique_ident
+    , external_idents
     , name
     , birth_date
     , death_date
@@ -3257,8 +4540,8 @@ CREATE VIEW public.statistical_unit_def
     , establishment_ids
     , legal_unit_ids
     , enterprise_ids
-    , employees
-    , turnover
+    , stats
+    , stats_summary
     , establishment_count
     , legal_unit_count
     , enterprise_count
@@ -3271,12 +4554,7 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
+           , public.get_external_idents(unit_type, unit_id) AS external_idents
            , name
            , birth_date
            , death_date
@@ -3323,8 +4601,8 @@ CREATE VIEW public.statistical_unit_def
                   THEN ARRAY[]::INT[]
                   ELSE ARRAY[enterprise_id]::INT[]
               END AS enterprise_ids
-           , employees
-           , turnover
+           , stats
+           , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
       UNION ALL
       SELECT unit_type
@@ -3332,12 +4610,7 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
+           , public.get_external_idents(unit_type, unit_id) AS external_idents
            , name
            , birth_date
            , death_date
@@ -3376,8 +4649,8 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
-           , employees
-           , turnover
+           , stats
+           , stats_summary
       FROM public.timeline_legal_unit
       UNION ALL
       SELECT unit_type
@@ -3385,12 +4658,11 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , stat_ident
-           , tax_ident
-           , external_ident
-           , external_ident_type
-           , by_tag_id
-           , by_tag_id_unique_ident
+           , COALESCE(
+             public.get_external_idents(unit_type, unit_id),
+             public.get_external_idents('establishment'::public.statistical_unit_type, primary_establishment_id),
+             public.get_external_idents('legal_unit'::public.statistical_unit_type, primary_legal_unit_id)
+           ) AS external_idents
            , name
            , birth_date
            , death_date
@@ -3429,28 +4701,62 @@ CREATE VIEW public.statistical_unit_def
            , establishment_ids
            , legal_unit_ids
            , ARRAY[enterprise_id]::INT[] AS enterprise_ids
-           , employees
-           , turnover
+           , NULL::JSONB AS stats
+           , stats_summary
       FROM public.timeline_enterprise
       --UNION ALL
       --SELECT * FROM enterprise_group_timeline
     )
-    SELECT data.*
-             , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
-             , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
-             , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
-             , (
-          SELECT array_agg(DISTINCT t.path)
-          FROM public.tag_for_unit AS tfu
-          JOIN public.tag AS t ON t.id = tfu.tag_id
-          WHERE
-            CASE data.unit_type
-            WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
-            WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
-            WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
-            WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
-            END
-          ) AS tag_paths
+    SELECT data.unit_type
+         , data.unit_id
+         , data.valid_after
+         , data.valid_from
+         , data.valid_to
+         , data.external_idents
+         , data.name
+         , data.birth_date
+         , data.death_date
+         , data.search
+         , data.primary_activity_category_id
+         , data.primary_activity_category_path
+         , data.secondary_activity_category_id
+         , data.secondary_activity_category_path
+         , data.activity_category_paths
+         , data.sector_id
+         , data.sector_path
+         , data.sector_code
+         , data.sector_name
+         , data.legal_form_id
+         , data.legal_form_code
+         , data.legal_form_name
+         , data.physical_address_part1
+         , data.physical_address_part2
+         , data.physical_address_part3
+         , data.physical_postal_code
+         , data.physical_postal_place
+         , data.physical_region_id
+         , data.physical_region_path
+         , data.physical_country_id
+         , data.physical_country_iso_2
+         , data.postal_address_part1
+         , data.postal_address_part2
+         , data.postal_address_part3
+         , data.postal_postal_code
+         , data.postal_postal_place
+         , data.postal_region_id
+         , data.postal_region_path
+         , data.postal_country_id
+         , data.postal_country_iso_2
+         , data.invalid_codes
+         , data.establishment_ids
+         , data.legal_unit_ids
+         , data.enterprise_ids
+         , data.stats
+         , data.stats_summary
+         , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
+         , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
+         , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
+         , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
     FROM data;
 ;
 
@@ -3459,6 +4765,7 @@ CREATE VIEW public.statistical_unit_def
 CREATE MATERIALIZED VIEW public.statistical_unit AS
 SELECT * FROM public.statistical_unit_def;
 
+\echo statistical_unit_key
 CREATE UNIQUE INDEX "statistical_unit_key"
     ON public.statistical_unit
     (valid_from
@@ -3466,37 +4773,61 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     ,unit_type
     ,unit_id
     );
+\echo idx_statistical_unit_unit_type
 CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
+\echo idx_statistical_unit_establishment_id
 CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (unit_id);
-CREATE INDEX idx_statistical_unit_by_tag_id ON public.statistical_unit (by_tag_id);
-CREATE INDEX idx_statistical_unit_by_tag_id_unique_ident ON public.statistical_unit (by_tag_id_unique_ident);
+\echo idx_statistical_unit_search
 CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
+\echo idx_statistical_unit_primary_activity_category_id
 CREATE INDEX idx_statistical_unit_primary_activity_category_id ON public.statistical_unit (primary_activity_category_id);
+\echo idx_statistical_unit_secondary_activity_category_id
 CREATE INDEX idx_statistical_unit_secondary_activity_category_id ON public.statistical_unit (secondary_activity_category_id);
+\echo idx_statistical_unit_physical_region_id
 CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit (physical_region_id);
+\echo idx_statistical_unit_physical_country_id
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
+\echo idx_statistical_unit_sector_id
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
 
 CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit(sector_path);
 CREATE INDEX idx_gist_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
 
+\echo idx_statistical_unit_legal_form_id
 CREATE INDEX idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
+\echo idx_statistical_unit_invalid_codes
 CREATE INDEX idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
+\echo idx_statistical_unit_invalid_codes_exists
 CREATE INDEX idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
 
+\echo idx_statistical_unit_primary_activity_category_path
 CREATE INDEX idx_statistical_unit_primary_activity_category_path ON public.statistical_unit(primary_activity_category_path);
+\echo idx_gist_statistical_unit_primary_activity_category_path
 CREATE INDEX idx_gist_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
 
+\echo idx_statistical_unit_secondary_activity_category_path
 CREATE INDEX idx_statistical_unit_secondary_activity_category_path ON public.statistical_unit(secondary_activity_category_path);
+\echo idx_gist_statistical_unit_secondary_activity_category_path
 CREATE INDEX idx_gist_statistical_unit_secondary_activity_category_path ON public.statistical_unit USING GIST (secondary_activity_category_path);
 
+\echo idx_statistical_unit_activity_category_paths
 CREATE INDEX idx_statistical_unit_activity_category_paths ON public.statistical_unit(activity_category_paths);
+\echo idx_gist_statistical_unit_activity_category_paths
 CREATE INDEX idx_gist_statistical_unit_activity_category_paths ON public.statistical_unit USING GIST (activity_category_paths);
 
+\echo idx_statistical_unit_physical_region_path
 CREATE INDEX idx_statistical_unit_physical_region_path ON public.statistical_unit(physical_region_path);
+\echo idx_gist_statistical_unit_physical_region_path
 CREATE INDEX idx_gist_statistical_unit_physical_region_path ON public.statistical_unit USING GIST (physical_region_path);
 
+\echo idx_statistical_unit_external_idents
+CREATE INDEX idx_statistical_unit_external_idents ON public.statistical_unit(external_idents);
+\echo idx_gist_statistical_unit_external_idents
+CREATE INDEX idx_gist_statistical_unit_external_idents ON public.statistical_unit USING GIN (external_idents jsonb_path_ops);
+
+\echo idx_statistical_unit_tag_paths
 CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths);
+\echo idx_gist_statistical_unit_tag_paths
 CREATE INDEX idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
 
@@ -3505,9 +4836,9 @@ CREATE MATERIALIZED VIEW public.activity_category_used AS
 SELECT acs.code AS standard_code
      , ac.id
      , ac.path
-     , acp.code AS parent_code
-     , ac.label
+     , acp.path AS parent_path
      , ac.code
+     , ac.label
      , ac.name
      , ac.description
 FROM public.activity_category AS ac
@@ -3532,7 +4863,7 @@ SELECT r.id
      , r.name
 FROM public.region AS r
 WHERE r.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT physical_region_path) FROM public.statistical_unit WHERE physical_region_path IS NOT NULL)
-ORDER BY path;
+ORDER BY public.nlevel(path), path;
 
 CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
@@ -3591,8 +4922,7 @@ SELECT valid_from
      , legal_form_id
      , physical_country_id
      , count(*) AS count
-     , sum(employees) AS employees
-     , sum(turnover) AS turnover
+     , public.jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
 FROM public.statistical_unit
 GROUP BY valid_from
        , valid_to
@@ -3604,20 +4934,31 @@ GROUP BY valid_from
        , physical_country_id
 ;
 
+\echo statistical_unit_facet_valid_from
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
+\echo statistical_unit_facet_valid_to
 CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
+\echo statistical_unit_facet_unit_type
 CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
 
+\echo statistical_unit_facet_physical_region_path_btree
 CREATE INDEX statistical_unit_facet_physical_region_path_btree ON public.statistical_unit_facet USING BTREE (physical_region_path);
+\echo statistical_unit_facet_physical_region_path_gist
 CREATE INDEX statistical_unit_facet_physical_region_path_gist ON public.statistical_unit_facet USING GIST (physical_region_path);
 
+\echo statistical_unit_facet_primary_activity_category_path_btree
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON public.statistical_unit_facet USING BTREE (primary_activity_category_path);
+\echo statistical_unit_facet_primary_activity_category_path_gist
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
 
+\echo statistical_unit_facet_sector_path_btree
 CREATE INDEX statistical_unit_facet_sector_path_btree ON public.statistical_unit_facet USING BTREE (sector_path);
+\echo statistical_unit_facet_sector_path_gist
 CREATE INDEX statistical_unit_facet_sector_path_gist ON public.statistical_unit_facet USING GIST (sector_path);
 
+\echo statistical_unit_facet_legal_form_id_btree
 CREATE INDEX statistical_unit_facet_legal_form_id_btree ON public.statistical_unit_facet USING BTREE (legal_form_id);
+\echo statistical_unit_facet_physical_country_id_btree
 CREATE INDEX statistical_unit_facet_physical_country_id_btree ON public.statistical_unit_facet USING BTREE (physical_country_id);
 
 
@@ -3652,8 +4993,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , suf.legal_form_id
              , suf.physical_country_id
              , count
-             , employees
-             , turnover
+             , stats_summary
         FROM public.statistical_unit_facet AS suf
            , params
         WHERE
@@ -3681,8 +5021,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
-             , COALESCE(SUM(af.employees), 0) AS employees
-             , COALESCE(SUM(af.turnover), 0) AS turnover
+             , public.jsonb_stats_summary_merge_agg(af.stats_summary) AS stats_summary
         FROM available_facet AS af
     ),
     breadcrumb_region AS (
@@ -3716,8 +5055,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
@@ -3764,8 +5102,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -3806,8 +5143,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
@@ -3840,8 +5176,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , lf.code
              , lf.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
@@ -3873,8 +5208,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , COALESCE(SUM(suf.employees), 0) AS employees
-             , COALESCE(SUM(suf.turnover), 0) AS turnover
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id
@@ -3885,7 +5219,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     SELECT
         jsonb_build_object(
           'unit_type', unit_type,
-          'stats', (SELECT jsonb_agg(to_jsonb(source.*)) FROM available_facet_stats AS source),
+          'stats', (SELECT to_jsonb(source.*) FROM available_facet_stats AS source),
           'breadcrumb',jsonb_build_object(
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
@@ -3914,36 +5248,50 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 
+\echo public.history_resolution
+CREATE TYPE public.history_resolution AS ENUM('year','year-month');
 
-CREATE TYPE public.statistical_history_type AS ENUM('year','year-month');
+\echo public.statistical_history_periods
+CREATE VIEW public.statistical_history_periods AS
+WITH year_range AS (
+  SELECT
+      min(valid_from) AS start_year,
+      least(max(valid_to), current_date) AS stop_year
+  FROM public.statistical_unit
+)
+SELECT 'year'::public.history_resolution AS resolution
+     , EXTRACT(YEAR FROM time_start)::INT AS year
+     , NULL::INTEGER AS month
+     , series.time_start::DATE
+     , (series.time_start + interval '1 year' - interval '1 day')::DATE AS time_stop
+FROM year_range,
+LATERAL generate_series(
+    date_trunc('year', year_range.start_year)::DATE,
+    date_trunc('year', year_range.stop_year)::DATE,
+    interval '1 year'
+) AS series(time_start)
+UNION ALL
+SELECT 'year-month'::public.history_resolution AS resolution
+     , EXTRACT(YEAR FROM time_start)::INT AS year
+     , EXTRACT(MONTH FROM time_start)::INT AS month
+     , series.time_start::DATE
+     , (series.time_start + interval '1 month' - interval '1 day')::DATE AS time_stop
+FROM year_range,
+LATERAL generate_series(
+    date_trunc('month', year_range.start_year)::DATE,
+    date_trunc('month', year_range.stop_year)::DATE,
+    interval '1 month'
+) AS series(time_start)
+;
 
 
 \echo public.statistical_history_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_def AS
-WITH year_range AS (
-  SELECT min(valid_from) AS start_year
-       , least(max(valid_to),current_date) AS stop_year
-  FROM public.statistical_unit
-), year_in_range AS (
-    SELECT generate_series(
-        date_trunc('year', start_year)::date,
-        date_trunc('year', stop_year)::date,
-        '1 year'::interval
-    )::date AS time_start,
-    (date_trunc('year', start_year)::date + '1 year'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_and_month_in_range AS (
-    SELECT generate_series(
-        date_trunc('month', start_year)::date,
-        date_trunc('month', stop_year)::date,
-        '1 month'::interval
-    )::date AS time_start,
-    (date_trunc('month', start_year)::date + '1 month'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+WITH year_with_unit_basis AS (
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -3975,22 +5323,28 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         -- Notice that `stats` is the stats of this particular unit as recorded,
+         -- while stats_summary is the aggregated stats of multiple contained units.
+         -- For our tracking of changes we will only look at the base `stats` for
+         -- changes, and not at the summaries, as I don't see how it makes sense
+         -- to track changes in statistical summaries, but rather in the reported
+         -- statistical variables, and then possibly summarise the changes.
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_with_unit_derived AS (
     SELECT basis.*
          --
@@ -4001,14 +5355,15 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
          --
     FROM year_with_unit_basis AS basis
 ), year_and_month_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
-         , EXTRACT(MONTH FROM range.time_start)::INT AS month
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , range.month AS month
+         , COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -4040,22 +5395,22 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year-month' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*
          --
@@ -4066,12 +5421,12 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
          --
     FROM year_and_month_with_unit_basis AS basis
 ), year_with_unit AS (
-    SELECT 'year'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
          , NULL::INTEGER                           AS month
          , source.unit_type                        AS unit_type
@@ -4088,12 +5443,11 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover)  AS turnover
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_with_unit_derived AS source
-    GROUP BY year, unit_type
+    GROUP BY resolution, year, unit_type
 ), year_and_month_with_unit AS (
-    SELECT 'year-month'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
          , source.month                            AS month
          , source.unit_type                        AS unit_type
@@ -4110,10 +5464,9 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover)  AS turnover
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
-    GROUP BY year, month, unit_type
+    GROUP BY resolution, year, month, unit_type
 )
 SELECT * FROM year_with_unit
 UNION ALL
@@ -4129,42 +5482,46 @@ CREATE MATERIALIZED VIEW public.statistical_history AS
 SELECT * FROM public.statistical_history_def
 ORDER BY year, month;
 
-CREATE INDEX idx_statistical_history_type ON public.statistical_history (type);
+\echo statistical_history_month_key
+CREATE UNIQUE INDEX "statistical_history_month_key"
+    ON public.statistical_history
+    ( resolution
+    , year
+    , month
+    , unit_type
+    ) WHERE resolution = 'year-month'::public.history_resolution;
+\echo statistical_history_year_key
+CREATE UNIQUE INDEX "statistical_history_year_key"
+    ON public.statistical_history
+    ( resolution
+    , year
+    , unit_type
+    ) WHERE resolution = 'year'::public.history_resolution;
+
+\echo idx_history_resolution
+CREATE INDEX idx_history_resolution ON public.statistical_history (resolution);
+\echo idx_statistical_history_year
 CREATE INDEX idx_statistical_history_year ON public.statistical_history (year);
+\echo idx_statistical_history_month
 CREATE INDEX idx_statistical_history_month ON public.statistical_history (month);
+\echo idx_statistical_history_births
 CREATE INDEX idx_statistical_history_births ON public.statistical_history (births);
+\echo idx_statistical_history_deaths
 CREATE INDEX idx_statistical_history_deaths ON public.statistical_history (deaths);
+\echo idx_statistical_history_count
 CREATE INDEX idx_statistical_history_count ON public.statistical_history (count);
-CREATE INDEX idx_statistical_history_employees ON public.statistical_history (employees);
-CREATE INDEX idx_statistical_history_turnover ON public.statistical_history (turnover);
+\echo idx_statistical_history_stats
+CREATE INDEX idx_statistical_history_stats_summary ON public.statistical_history USING GIN (stats_summary jsonb_path_ops);
 
 
 \echo public.statistical_history_facet_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_facet_def AS
-WITH year_range AS (
-  SELECT min(valid_from) AS start_year
-       , least(max(valid_to),current_date) AS stop_year
-  FROM public.statistical_unit
-), year_in_range AS (
-    SELECT generate_series(
-        date_trunc('year', start_year)::date,
-        date_trunc('year', stop_year)::date,
-        '1 year'::interval
-    )::date AS time_start,
-    (date_trunc('year', start_year)::date + '1 year'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_and_month_in_range AS (
-    SELECT generate_series(
-        date_trunc('month', start_year)::date,
-        date_trunc('month', stop_year)::date,
-        '1 month'::interval
-    )::date AS time_start,
-    (date_trunc('month', start_year)::date + '1 month'::interval - '1 day'::interval)::date AS time_stop
-    FROM year_range
-), year_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
+WITH year_with_unit_basis AS (
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , NULL::INTEGER AS month
+         , COALESCE(su_start.unit_type, su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -4172,8 +5529,8 @@ WITH year_range AS (
          , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
          , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
          --
-         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
-         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date), false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop, false) AS died
          --
          , su_start.primary_activity_category_path   AS start_primary_activity_category_path
          , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
@@ -4196,22 +5553,22 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_with_unit_derived AS (
     SELECT basis.*
          --
@@ -4222,14 +5579,15 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
          --
     FROM year_with_unit_basis AS basis
 ), year_and_month_with_unit_basis AS (
-    SELECT COALESCE(su_start.unit_type,su_stop.unit_type) AS unit_type
-         , EXTRACT(YEAR FROM range.time_start)::INT AS year
-         , EXTRACT(MONTH FROM range.time_start)::INT AS month
+    SELECT range.resolution AS resolution
+         , range.year AS year
+         , range.month AS month
+         , COALESCE(su_start.unit_type, su_stop.unit_type) AS unit_type
          --
          , COALESCE(su_start.unit_id, su_stop.unit_id) AS unit_id
          , su_start.unit_id IS NOT NULL AND su_stop.unit_id IS NOT NULL AS track_changes
@@ -4237,8 +5595,8 @@ WITH year_range AS (
          , COALESCE(su_stop.birth_date, su_start.birth_date) AS birth_date
          , COALESCE(su_stop.death_date, su_start.death_date) AS death_date
          --
-         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date),false) AS born
-         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop ,false) AS died
+         , COALESCE(range.time_start <= COALESCE(su_stop.birth_date, su_start.birth_date), false) AS born
+         , COALESCE(COALESCE(su_stop.death_date, su_start.death_date) <= range.time_stop, false) AS died
          --
          , su_start.primary_activity_category_path   AS start_primary_activity_category_path
          , su_start.secondary_activity_category_path AS start_secondary_activity_category_path
@@ -4261,22 +5619,22 @@ WITH year_range AS (
          , COALESCE(su_stop.physical_region_path            , su_start.physical_region_path)             AS physical_region_path
          , COALESCE(su_stop.physical_country_id             , su_start.physical_country_id)              AS physical_country_id
          --
-         , su_start.employees AS start_employees
-         , su_stop.employees  AS stop_employees
-         , su_start.turnover  AS start_turnover
-         , su_stop.turnover   AS stop_turnover
+         , su_start.stats AS start_stats
+         , su_stop.stats AS stop_stats
          --
-         , COALESCE(su_stop.employees , su_start.employees) AS employees
-         , COALESCE(su_stop.turnover  , su_start.turnover)  AS turnover
+         , COALESCE(su_stop.stats , su_start.stats) AS stats
+         , COALESCE(su_stop.stats_summary , su_start.stats_summary) AS stats_summary
          --
-    FROM year_in_range AS range
+    FROM public.statistical_history_periods AS range
     LEFT JOIN public.statistical_unit AS su_start
            ON su_start.valid_from <= range.time_start AND range.time_start <= su_start.valid_to
     LEFT JOIN public.statistical_unit AS su_stop
            ON su_stop.valid_from <= range.time_stop AND range.time_stop <= su_stop.valid_to
-    WHERE su_start.unit_type IS NULL
+    WHERE range.resolution = 'year-month' AND
+        ( su_start.unit_type IS NULL
        OR su_stop.unit_type IS NULL
        OR su_start.unit_type = su_stop.unit_type AND su_start.unit_id = su_stop.unit_id
+        )
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*
          --
@@ -4287,14 +5645,14 @@ WITH year_range AS (
          , track_changes AND NOT born AND not died AND start_physical_region_path             IS DISTINCT FROM stop_physical_region_path             AS physical_region_changed
          , track_changes AND NOT born AND not died AND start_physical_country_id              IS DISTINCT FROM stop_physical_country_id              AS physical_country_changed
          --
-         , CASE WHEN track_changes THEN stop_employees - start_employees ELSE NULL END AS employees_change
-         , CASE WHEN track_changes THEN stop_turnover  - start_turnover  ELSE NULL END AS turnover_change
+         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
+         --, CASE WHEN track_changes THEN stop_stats - start_stats ELSE NULL END AS stats_change
          --
     FROM year_and_month_with_unit_basis AS basis
 ), year_with_unit_per_facet AS (
-    SELECT 'year'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
-         , NULL::INTEGER                          AS month
+         , NULL::INTEGER                           AS month
          , source.unit_type                        AS unit_type
          --
          , source.primary_activity_category_path   AS primary_activity_category_path
@@ -4316,10 +5674,9 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover) AS turnover
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_with_unit_derived AS source
-    GROUP BY year, unit_type
+    GROUP BY resolution, year, unit_type
            , primary_activity_category_path
            , secondary_activity_category_path
            , sector_path
@@ -4327,7 +5684,7 @@ WITH year_range AS (
            , physical_region_path
            , physical_country_id
 ), year_and_month_with_unit_per_facet AS (
-    SELECT 'year-month'::public.statistical_history_type AS type
+    SELECT source.resolution                       AS resolution
          , source.year                             AS year
          , source.month                            AS month
          , source.unit_type                        AS unit_type
@@ -4351,10 +5708,9 @@ WITH year_range AS (
          , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          --
-         , SUM(source.employees) AS employees
-         , SUM(source.turnover) AS turnover
+         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_and_month_with_unit_derived AS source
-    GROUP BY year, month, unit_type
+    GROUP BY resolution, year, month, unit_type
            , primary_activity_category_path
            , secondary_activity_category_path
            , sector_path
@@ -4373,35 +5729,78 @@ CREATE MATERIALIZED VIEW public.statistical_history_facet AS
 SELECT * FROM public.statistical_history_facet_def
 ORDER BY year, month;
 
+\echo statistical_history_facet_month_key
+CREATE UNIQUE INDEX "statistical_history_facet_month_key"
+    ON public.statistical_history_facet
+    ( resolution
+    , year
+    , month
+    , unit_type
+    , primary_activity_category_path
+    , secondary_activity_category_path
+    , sector_path
+    , legal_form_id
+    , physical_region_path
+    , physical_country_id
+    ) WHERE resolution = 'year-month'::public.history_resolution;
+\echo statistical_history_facet_year_key
+CREATE UNIQUE INDEX "statistical_history_facet_year_key"
+    ON public.statistical_history_facet
+    ( year
+    , month
+    , unit_type
+    , primary_activity_category_path
+    , secondary_activity_category_path
+    , sector_path
+    , legal_form_id
+    , physical_region_path
+    , physical_country_id
+    ) WHERE resolution = 'year'::public.history_resolution;
+
+\echo idx_statistical_history_facet_year
 CREATE INDEX idx_statistical_history_facet_year ON public.statistical_history_facet (year);
+\echo idx_statistical_history_facet_month
 CREATE INDEX idx_statistical_history_facet_month ON public.statistical_history_facet (month);
+\echo idx_statistical_history_facet_births
 CREATE INDEX idx_statistical_history_facet_births ON public.statistical_history_facet (births);
+\echo idx_statistical_history_facet_deaths
 CREATE INDEX idx_statistical_history_facet_deaths ON public.statistical_history_facet (deaths);
 
+\echo idx_statistical_history_facet_primary_activity_category_path
 CREATE INDEX idx_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet (primary_activity_category_path);
+\echo idx_gist_statistical_history_facet_primary_activity_category_path
 CREATE INDEX idx_gist_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet USING GIST (primary_activity_category_path);
 
+\echo idx_statistical_history_facet_secondary_activity_category_path
 CREATE INDEX idx_statistical_history_facet_secondary_activity_category_path ON public.statistical_history_facet (secondary_activity_category_path);
+\echo idx_gist_statistical_history_facet_secondary_activity_category_path
 CREATE INDEX idx_gist_statistical_history_facet_secondary_activity_category_path ON public.statistical_history_facet USING GIST (secondary_activity_category_path);
 
+\echo idx_statistical_history_facet_sector_path
 CREATE INDEX idx_statistical_history_facet_sector_path ON public.statistical_history_facet (sector_path);
+\echo idx_gist_statistical_history_facet_sector_path
 CREATE INDEX idx_gist_statistical_history_facet_sector_path ON public.statistical_history_facet USING GIST (sector_path);
 
+\echo idx_statistical_history_facet_legal_form_id
 CREATE INDEX idx_statistical_history_facet_legal_form_id ON public.statistical_history_facet (legal_form_id);
 
+\echo idx_statistical_history_facet_physical_region_path
 CREATE INDEX idx_statistical_history_facet_physical_region_path ON public.statistical_history_facet (physical_region_path);
+\echo idx_gist_statistical_history_facet_physical_region_path
 CREATE INDEX idx_gist_statistical_history_facet_physical_region_path ON public.statistical_history_facet USING GIST (physical_region_path);
 
+\echo idx_statistical_history_facet_physical_country_id
 CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statistical_history_facet (physical_country_id);
+\echo idx_statistical_history_facet_count
 CREATE INDEX idx_statistical_history_facet_count ON public.statistical_history_facet (count);
-CREATE INDEX idx_statistical_history_facet_employees ON public.statistical_history_facet (employees);
-CREATE INDEX idx_statistical_history_facet_turnover ON public.statistical_history_facet (turnover);
+\echo idx_statistical_history_facet_stats_summary
+CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
 
 
 \echo public.statistical_history_drilldown
 CREATE FUNCTION public.statistical_history_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
-    type public.statistical_history_type DEFAULT 'year',
+    resolution public.history_resolution DEFAULT 'year',
     year INTEGER DEFAULT NULL,
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
@@ -4411,11 +5810,11 @@ CREATE FUNCTION public.statistical_history_drilldown(
 )
 RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     -- Use a params intermediary to avoid conflicts
-    -- between columns and parameters, leading to tautologies. i.e. 'sh.type = type' is always true.
+    -- between columns and parameters, leading to tautologies. i.e. 'sh.resolution = resolution' is always true.
     WITH params AS (
         SELECT
             unit_type AS param_unit_type,
-            type AS param_type,
+            resolution AS param_resolution,
             year AS param_year,
             region_path AS param_region_path,
             activity_category_path AS param_activity_category_path,
@@ -4430,7 +5829,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.statistical_history_facet AS sh
            , params
         WHERE (param_unit_type IS NULL OR sh.unit_type = param_unit_type)
-          AND (param_type IS NULL OR sh.type = param_type)
+          AND (param_resolution IS NULL OR sh.resolution = param_resolution)
           AND (param_year IS NULL OR sh.year = param_year)
           AND (
               param_region_path IS NULL
@@ -4454,22 +5853,20 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
               )
     ), available_history_stats AS (
         SELECT year, month
-             , COALESCE(SUM(ah.count), 0) AS count
+             , COALESCE(ah.count, 0) AS count
             --
-             , COALESCE(SUM(ah.employees), 0) AS employees
-             , COALESCE(SUM(ah.turnover) , 0) AS turnover
+             , COALESCE(ah.stats_summary, '{}'::JSONB) AS stats_summary
              --
-             , COALESCE(SUM(ah.births), 0) AS births
-             , COALESCE(SUM(ah.deaths), 0) AS deaths
+             , COALESCE(ah.births, 0) AS births
+             , COALESCE(ah.deaths, 0) AS deaths
              --
-             , COALESCE(SUM(ah.primary_activity_category_change_count) , 0) AS primary_activity_category_change_count
-             , COALESCE(SUM(ah.sector_change_count)                    , 0) AS sector_change_count
-             , COALESCE(SUM(ah.legal_form_change_count)                , 0) AS legal_form_change_count
-             , COALESCE(SUM(ah.physical_region_change_count)           , 0) AS physical_region_change_count
-             , COALESCE(SUM(ah.physical_country_change_count)          , 0) AS physical_country_change_count
+             , COALESCE(ah.primary_activity_category_change_count , 0) AS primary_activity_category_change_count
+             , COALESCE(ah.sector_change_count                    , 0) AS sector_change_count
+             , COALESCE(ah.legal_form_change_count                , 0) AS legal_form_change_count
+             , COALESCE(ah.physical_region_change_count           , 0) AS physical_region_change_count
+             , COALESCE(ah.physical_country_change_count          , 0) AS physical_country_change_count
              --
         FROM available_history AS ah
-        GROUP BY year, month
         ORDER BY year ASC, month ASC NULLS FIRST
     ),
     breadcrumb_region AS (
@@ -4503,7 +5900,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ar.code
              , ar.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
              , COALESCE(bool_or(true) FILTER (WHERE sh.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_history AS sh ON sh.physical_region_path OPERATOR(public.<@) ar.path
@@ -4550,7 +5946,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , aac.code
              , aac.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
              , COALESCE(bool_or(true) FILTER (WHERE sh.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -4559,6 +5954,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , aac.label
                , aac.code
                , aac.name
+        ORDER BY aac.path
     ),
     breadcrumb_sector AS (
         SELECT s.path
@@ -4591,7 +5987,6 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , "as".code
              , "as".name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
              , COALESCE(bool_or(true) FILTER (WHERE sh.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_history AS sh ON sh.sector_path OPERATOR(public.<@) "as".path
@@ -4599,6 +5994,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , "as".label
                , "as".code
                , "as".name
+       ORDER BY "as".path
     ),
     breadcrumb_legal_form AS (
         SELECT lf.id
@@ -4609,7 +6005,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             (   legal_form_id IS NOT NULL
             AND lf.id = legal_form_id
             )
-        ORDER BY lf.id
+        ORDER BY lf.code
     ),
     available_legal_form AS (
         SELECT lf.id
@@ -4618,19 +6014,19 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.legal_form AS lf
         -- Every sector is available, unless one is selected.
         WHERE legal_form_id IS NULL
-        ORDER BY lf.id
+        ORDER BY lf.code
     ), aggregated_legal_form_counts AS (
         SELECT lf.id
              , lf.code
              , lf.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_history AS sh ON sh.legal_form_id = lf.id
         GROUP BY lf.id
                , lf.code
                , lf.name
+        ORDER BY lf.code
     ),
     breadcrumb_physical_country AS (
         SELECT pc.id
@@ -4656,13 +6052,13 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(sh.count), 0) AS count
-             , COALESCE(SUM(sh.employees), 0) AS employees
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_history AS sh ON sh.physical_country_id = pc.id
         GROUP BY pc.id
                , pc.iso_2
                , pc.name
+        ORDER BY pc.iso_2
     )
     SELECT
         jsonb_build_object(
@@ -4683,7 +6079,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           ),
           'filter',jsonb_build_object(
-            'type',param_type,
+            'type',param_resolution,
             'year',param_year,
             'unit_type',param_unit_type,
             'region_path',param_region_path,
@@ -4703,7 +6099,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
   parent_establishment_id INTEGER,
   valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH ordered_data AS (
     SELECT
         to_jsonb(sfu.*)
@@ -4718,7 +6114,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
     FROM public.stat_for_unit AS sfu
     JOIN public.stat_definition AS sd ON sd.id = sfu.stat_definition_id
     WHERE parent_establishment_id IS NOT NULL AND sfu.establishment_id = parent_establishment_id
-      AND sfu.valid_from <= valid_on AND valid_on <= sfu.valid_to
+      AND sfu.valid_after < valid_on AND valid_on <= sfu.valid_to
     ORDER BY sd.code
 ), data_list AS (
     SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -4728,7 +6124,7 @@ SELECT CASE
     ELSE jsonb_build_object('stat_for_unit',data)
     END
   FROM data_list;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.tag_for_unit_hierarchy
@@ -4737,7 +6133,7 @@ CREATE FUNCTION public.tag_for_unit_hierarchy(
   parent_legal_unit_id INTEGER DEFAULT NULL,
   parent_enterprise_id INTEGER DEFAULT NULL,
   parent_enterprise_group_id INTEGER DEFAULT NULL
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(t.*)
         AS data
@@ -4758,30 +6154,30 @@ CREATE FUNCTION public.tag_for_unit_hierarchy(
     END
   FROM data_list;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.region_hierarchy
 CREATE OR REPLACE FUNCTION public.region_hierarchy(region_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('region', to_jsonb(s.*)) AS data
           FROM public.region AS s
          WHERE region_id IS NOT NULL AND s.id = region_id
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.country_hierarchy
 CREATE OR REPLACE FUNCTION public.country_hierarchy(country_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('country', to_jsonb(s.*)) AS data
           FROM public.country AS s
          WHERE country_id IS NOT NULL AND s.id = country_id
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.location_hierarchy
@@ -4789,14 +6185,14 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(l.*)
         || (SELECT public.region_hierarchy(l.region_id))
         || (SELECT public.country_hierarchy(l.country_id))
         AS data
       FROM public.location AS l
-     WHERE l.valid_from <= valid_on AND valid_on <= l.valid_to
+     WHERE l.valid_after < valid_on AND valid_on <= l.valid_to
        AND (  parent_establishment_id IS NOT NULL AND l.establishment_id = parent_establishment_id
            OR parent_legal_unit_id    IS NOT NULL AND l.legal_unit_id    = parent_legal_unit_id
            )
@@ -4810,12 +6206,12 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
     END
   FROM data_list;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.activity_category_standard_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_standard_hierarchy(standard_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object(
                 'activity_category_standard',
@@ -4826,12 +6222,12 @@ RETURNS JSONB AS $$
          ORDER BY acs.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.activity_category_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object(
             'activity_category',
@@ -4844,7 +6240,7 @@ RETURNS JSONB AS $$
          ORDER BY ac.path
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.activity_hierarchy
@@ -4852,13 +6248,13 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH ordered_data AS (
         SELECT to_jsonb(a.*)
                || (SELECT public.activity_category_hierarchy(a.category_id))
                AS data
           FROM public.activity AS a
-         WHERE a.valid_from <= valid_on AND valid_on <= a.valid_to
+         WHERE a.valid_after < valid_on AND valid_on <= a.valid_to
            AND (  parent_establishment_id IS NOT NULL AND a.establishment_id = parent_establishment_id
                OR parent_legal_unit_id    IS NOT NULL AND a.legal_unit_id    = parent_legal_unit_id
                )
@@ -4872,12 +6268,12 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
     END
   FROM data_list;
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.sector_hierarchy
 CREATE OR REPLACE FUNCTION public.sector_hierarchy(sector_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('sector', to_jsonb(s.*)) AS data
           FROM public.sector AS s
@@ -4885,12 +6281,12 @@ RETURNS JSONB AS $$
          ORDER BY s.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.legal_form_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object('legal_form', to_jsonb(lf.*)) AS data
           FROM public.legal_form AS lf
@@ -4898,7 +6294,33 @@ RETURNS JSONB AS $$
          ORDER BY lf.code
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
+
+
+\echo public.external_idents_hierarchy
+CREATE FUNCTION public.external_idents_hierarchy(
+  parent_establishment_id INTEGER DEFAULT NULL,
+  parent_legal_unit_id INTEGER DEFAULT NULL,
+  parent_enterprise_id INTEGER DEFAULT NULL,
+  parent_enterprise_group_id INTEGER DEFAULT NULL
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
+  WITH agg_data AS (
+    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
+     FROM public.external_ident AS ei
+     JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+     WHERE (  parent_establishment_id    IS NOT NULL AND ei.establishment_id    = parent_establishment_id
+           OR parent_legal_unit_id       IS NOT NULL AND ei.legal_unit_id       = parent_legal_unit_id
+           OR parent_enterprise_id       IS NOT NULL AND ei.enterprise_id       = parent_enterprise_id
+           OR parent_enterprise_group_id IS NOT NULL AND ei.enterprise_group_id = parent_enterprise_group_id
+           )
+  )
+  SELECT CASE
+    WHEN data IS NULL THEN '{}'::JSONB
+    ELSE jsonb_build_object('external_idents',data)
+    END
+  FROM agg_data;
+  ;
+$$;
 
 
 \echo public.establishment_hierarchy
@@ -4906,9 +6328,10 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
     parent_enterprise_id INTEGER DEFAULT NULL,
     valid_on DATE DEFAULT current_date
-) RETURNS JSONB AS $$
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(es.*)
+        || (SELECT public.external_idents_hierarchy(es.id,NULL,NULL,NULL))
         || (SELECT public.activity_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
@@ -4919,7 +6342,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
    WHERE (  (parent_legal_unit_id IS NOT NULL AND es.legal_unit_id = parent_legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND es.enterprise_id = parent_enterprise_id)
          )
-     AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+     AND es.valid_after < valid_on AND valid_on <= es.valid_to
    ORDER BY es.primary_for_legal_unit DESC, es.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -4929,13 +6352,14 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     ELSE jsonb_build_object('establishment',data)
     END
   FROM data_list;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.legal_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (
     SELECT to_jsonb(lu.*)
+        || (SELECT public.external_idents_hierarchy(NULL,lu.id,NULL,NULL))
         || (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on))
         || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
@@ -4945,7 +6369,7 @@ RETURNS JSONB AS $$
         AS data
     FROM public.legal_unit AS lu
    WHERE parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id
-     AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+     AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
    ORDER BY lu.primary_for_enterprise DESC, lu.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -4955,15 +6379,16 @@ RETURNS JSONB AS $$
     ELSE jsonb_build_object('legal_unit',data)
     END
   FROM data_list;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 \echo public.enterprise_hierarchy
 CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (
         SELECT jsonb_build_object(
                 'enterprise',
                  to_jsonb(en.*)
+                 || (SELECT public.external_idents_hierarchy(NULL,NULL,en.id,NULL))
                  || (SELECT public.legal_unit_hierarchy(en.id, valid_on))
                  || (SELECT public.establishment_hierarchy(NULL, en.id, valid_on))
                  || (SELECT public.tag_for_unit_hierarchy(NULL,NULL,en.id,NULL))
@@ -4973,47 +6398,55 @@ RETURNS JSONB AS $$
          ORDER BY en.short_name
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.statistical_unit_enterprise_id
 CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS INTEGER AS $$
+RETURNS INTEGER LANGUAGE sql STABLE AS $$
   SELECT CASE unit_type
          WHEN 'establishment' THEN (
             WITH selected_establishment AS (
                 SELECT es.id, es.enterprise_id, es.legal_unit_id, es.valid_from, es.valid_to
                 FROM public.establishment AS es
                 WHERE es.id = unit_id
-                  AND es.valid_from <= valid_on AND valid_on <= es.valid_to
+                  AND es.valid_after < valid_on AND valid_on <= es.valid_to
             )
             SELECT enterprise_id FROM selected_establishment WHERE enterprise_id IS NOT NULL
             UNION ALL
             SELECT lu.enterprise_id
             FROM selected_establishment AS es
             JOIN public.legal_unit AS lu ON es.legal_unit_id = lu.id
-            WHERE lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+            WHERE lu.valid_after < valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'legal_unit' THEN (
              SELECT lu.enterprise_id
                FROM public.legal_unit AS lu
               WHERE lu.id = unit_id
-                AND lu.valid_from <= valid_on AND valid_on <= lu.valid_to
+                AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
          )
          WHEN 'enterprise' THEN (
-             SELECT en.id
-               FROM public.enterprise AS en
-              WHERE en.id = unit_id
+            -- The same enterprise can be returned multiple times
+            -- if it has multiple legal_unit's connected, so use DISTINCT.
+            SELECT DISTINCT lu.enterprise_id
+              FROM public.legal_unit AS lu
+             WHERE lu.enterprise_id = unit_id
+               AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
+         UNION ALL
+            SELECT es.enterprise_id
+              FROM public.establishment AS es
+             WHERE es.enterprise_id = unit_id
+               AND es.valid_after < valid_on AND valid_on <= es.valid_to
          )
          WHEN 'enterprise_group' THEN NULL --TODO
          END
   ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
 
 
 \echo public.statistical_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS JSONB AS $$
+RETURNS JSONB LANGUAGE sql STABLE AS $$
   SELECT --jsonb_strip_nulls(
             public.enterprise_hierarchy(
               public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
@@ -5021,7 +6454,36 @@ RETURNS JSONB AS $$
             )
         --)
 ;
-$$ LANGUAGE sql IMMUTABLE;
+$$;
+
+
+CREATE FUNCTION public.relevant_statistical_units(
+    unit_type public.statistical_unit_type,
+    unit_id INTEGER,
+    valid_on DATE DEFAULT current_date
+) RETURNS SETOF public.statistical_unit LANGUAGE sql STABLE AS $$
+    WITH valid_units AS (
+        SELECT * FROM public.statistical_unit
+        WHERE valid_after < valid_on AND valid_on <= valid_to
+    ), root_unit AS (
+        SELECT * FROM valid_units
+        WHERE unit_type = 'enterprise'
+          AND unit_id = public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
+    ), related_units AS (
+        SELECT * FROM valid_units
+        WHERE unit_type = 'legal_unit'
+          AND unit_id IN (SELECT unnest(legal_unit_ids) FROM root_unit)
+            UNION ALL
+        SELECT * FROM valid_units
+        WHERE unit_type = 'establishment'
+          AND unit_id IN (SELECT unnest(establishment_ids) FROM root_unit)
+    ), relevant_units AS (
+        SELECT * FROM root_unit
+            UNION ALL
+        SELECT * FROM related_units
+    )
+    SELECT * FROM relevant_units;
+$$;
 
 
 \echo public.statistical_unit_refresh_now
@@ -5132,6 +6594,44 @@ $$ LANGUAGE plpgsql;
 
 
 \echo public.generate_mermaid_er_diagram
+/*
+  Function: public.generate_mermaid_er_diagram()
+  Purpose: Generates a Mermaid syntax ER diagram representing the schema of the database.
+
+  Description:
+  This function constructs a textual representation of the database schema using the Mermaid ER diagram syntax.
+  It lists tables with their columns and types and describes the relationships between tables through foreign keys.
+
+  Relationship Notation:
+  - The relationships are represented with the following cardinality symbols:
+    - Left-hand side (from the perspective of the right entity):
+      - "||": Exactly one
+      - "|o": Zero or one
+      - "}o": Zero or more (no upper limit)
+      - "}|": One or more (no upper limit)
+    - Right-hand side (from the perspective of the left entity):
+      - "||": Exactly one
+      - "o|": One or more (no upper limit)
+      - "o{": Zero or more (no upper limit)
+      - "|{": One or more (no upper limit)
+
+  Cardinality Representation:
+  - The notation is interpreted based on the perspective of the entities:
+    - For "EntityA ||--o{ EntityB":
+      - From EntityB to EntityA:
+        - Each instance of EntityB must be associated with exactly one instance of EntityA ("||" on EntityA side).
+      - From EntityA to EntityB:
+        - Each instance of EntityA can be associated with zero or more instances of EntityB ("o{" on EntityB side).
+
+  This interpretation is consistent with the Mermaid syntax rules, ensuring that the generated diagram accurately reflects
+  the database schema's relationships and constraints.
+
+  Usage:
+  This function can be used to visualize the structure of the database schema, making it easier to understand the
+  relationships and cardinalities between different tables.
+
+  Note: The output is a text-based ER diagram in Mermaid syntax, which can be rendered using Mermaid-compatible tools to produce a visual representation of the schema.
+*/
 CREATE OR REPLACE FUNCTION public.generate_mermaid_er_diagram()
 RETURNS text AS $$
 DECLARE
@@ -5139,13 +6639,26 @@ DECLARE
     result text := 'erDiagram';
 BEGIN
     -- First part of the query (tables and columns)
+    result := result || E'\n\t%% Entities (derived from tables)';
     FOR rec IN
-        SELECT format(E'\t%s{\n%s\n}',
-            c.relname,
-            string_agg(format(E'\t\t%s %s',
+        SELECT format(E'\t%s["%s"] {\n%s\n\t}',
+            -- Include the schema and a underscore if different than 'public' for the source table
+            -- since period is not valid syntax for an entity name.
+            CASE WHEN n.nspname <> 'public'
+                 THEN n.nspname || '_' || c.relname
+                 ELSE c.relname
+            END,
+            -- Provide the correct name with period as the label.
+            CASE WHEN n.nspname <> 'public'
+                 THEN n.nspname || '.' || c.relname
+                 ELSE c.relname
+            END,
+            -- Notice that mermaid uses the "attribute_type attribute_name" pattern
+            -- and that if there are spaces there must be double quoting.
+            string_agg(format(E'\t\t"%s" %s',
                 format_type(t.oid, a.atttypmod),
                 a.attname
-            ), E'\n')
+            ), E'\n' ORDER BY a.attnum)
         )
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -5153,19 +6666,71 @@ BEGIN
         LEFT JOIN pg_type t ON a.atttypid = t.oid
         WHERE c.relkind IN ('r', 'p')
           AND NOT c.relispartition
-          AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-        GROUP BY c.relname
+          AND n.nspname !~ '^pg_'
+          AND n.nspname !~ '^_'
+          AND n.nspname <> 'information_schema'
+        GROUP BY n.nspname, c.relname
+        ORDER BY n.nspname, c.relname
     LOOP
         result := result || E'\n' || rec.format;
     END LOOP;
 
     -- Second part of the query (foreign key constraints)
+    result := result || E'\n\t%% Relationships (derived from foreign keys)';
+    -- Documentation of relationship syntax from https://mermaid.js.org/syntax/entityRelationshipDiagram.html#relationship-syntax
+    -- In particular:
+    --     Value (left)    Value (right)   Meaning
+    --     |o              o|              Zero or one
+    --     ||              ||              Exactly one
+    --     }o              o{              Zero or more (no upper limit)
+    --     }|              |{              One or more (no upper limit)
     FOR rec IN
-        SELECT format('%s }|..|| %s : %s', c1.relname, c2.relname, c.conname)
+        SELECT format(E'\t%s %s--%s %s : %s',
+            -- Include the schema and a underscore if different than 'public' for the source table
+            -- since period is not valid syntax for an entity name.
+            CASE WHEN n1.nspname <> 'public'
+                 THEN n1.nspname || '_' || c1.relname
+                 ELSE c1.relname
+            END,
+            -- The relationship cardinality from the referenced table (target) towards the referencing table (source).
+            CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM pg_constraint con
+                    WHERE con.conrelid = c.confrelid
+                    AND con.conkey = c.conkey
+                    AND con.contype IN ('p', 'u')
+                )
+                THEN '}|' -- Every instance in the target can have one or more instances in the source
+                ELSE '}o' -- Every instance in the target can have zero or more instances in the source
+            END,
+            -- The relationship cardinality from the referencing table (source) towards the referenced table (target).
+            CASE
+                WHEN a.attnotnull THEN '||' -- Every instance in the source must reference exactly one instance in the target
+                ELSE 'o|'                   -- Every instance in the source may reference zero or one instance in the target
+            END,
+            -- Include the schema and a period if different than 'public' for the target table
+            CASE WHEN n2.nspname <> 'public'
+                 THEN n2.nspname || '.' || c2.relname
+                 ELSE c2.relname
+            END,
+            c.conname
+        )
         FROM pg_constraint c
         JOIN pg_class c1 ON c.conrelid = c1.oid AND c.contype = 'f'
         JOIN pg_class c2 ON c.confrelid = c2.oid
-        WHERE NOT c1.relispartition AND NOT c2.relispartition
+        JOIN pg_namespace n1 ON n1.oid = c1.relnamespace
+        JOIN pg_namespace n2 ON n2.oid = c2.relnamespace
+        JOIN pg_attribute a ON a.attnum = ANY (c.conkey) AND a.attrelid = c.conrelid
+        WHERE NOT c1.relispartition
+          AND NOT c2.relispartition
+          AND n1.nspname !~ '^pg_'
+          AND n1.nspname !~ '^_'
+          AND n1.nspname <> 'information_schema'
+          AND n2.nspname !~ '^pg_'
+          AND n2.nspname !~ '^_'
+          AND n2.nspname <> 'information_schema'
+        ORDER BY n1.nspname, c1.relname, n2.nspname, c2.relname
     LOOP
         result := result || E'\n' || rec.format;
     END LOOP;
@@ -5173,6 +6738,7 @@ BEGIN
     RETURN result;
 END;
 $$ LANGUAGE plpgsql;
+
 
 \echo public.sector_available
 CREATE VIEW public.sector_available(path, name, custom, description)
@@ -5198,7 +6764,7 @@ ORDER BY path;
 
 \echo admin.sector_custom_only_upsert
 CREATE FUNCTION admin.sector_custom_only_upsert()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     maybe_parent_id int := NULL;
     row RECORD;
@@ -5217,39 +6783,54 @@ BEGIN
     END IF;
 
     -- Perform an upsert operation on public.sector
-    INSERT INTO public.sector
-        ( path
-        , parent_id
-        , name
-        , description
-        , updated_at
-        , active
-        , custom
-        )
-    VALUES
-        ( NEW.path
-        , maybe_parent_id
-        , NEW.name
-        , NEW.description
-        , statement_timestamp()
-        , TRUE -- Active
-        , TRUE -- Custom
-        )
-    ON CONFLICT (path, active, custom)
-    DO UPDATE SET
-            parent_id = maybe_parent_id
-          , name = NEW.name
-          , description = NEW.description
-          , updated_at = statement_timestamp()
-          , active = TRUE
-          , custom = TRUE
-       WHERE sector.id = EXCLUDED.id
-       RETURNING * INTO row;
-    RAISE DEBUG 'UPSERTED %', to_json(row);
+    BEGIN
+        INSERT INTO public.sector
+            ( path
+            , parent_id
+            , name
+            , description
+            , updated_at
+            , active
+            , custom
+            )
+        VALUES
+            ( NEW.path
+            , maybe_parent_id
+            , NEW.name
+            , NEW.description
+            , statement_timestamp()
+            , TRUE -- Active
+            , TRUE -- Custom
+            )
+        ON CONFLICT (path, active, custom)
+        DO UPDATE SET
+                parent_id = maybe_parent_id
+              , name = NEW.name
+              , description = NEW.description
+              , updated_at = statement_timestamp()
+              , active = TRUE
+              , custom = TRUE
+           RETURNING * INTO row;
+
+        -- Log the upserted row
+        RAISE DEBUG 'UPSERTED %', to_json(row);
+
+    EXCEPTION WHEN unique_violation THEN
+        DECLARE
+            code varchar := regexp_replace(regexp_replace(NEW.path::TEXT, '[^0-9]', '', 'g'),'^([0-9]{2})(.+)$','\1.\2','');
+            data JSONB := to_jsonb(NEW);
+        BEGIN
+           data := jsonb_set(data, '{code}', code::jsonb, true);
+            RAISE EXCEPTION '% for row %', SQLERRM, data
+                USING
+                DETAIL = 'Failed during UPSERT operation',
+                HINT = 'Check for path derived numeric code violations';
+        END;
+    END;
 
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 CREATE TRIGGER sector_custom_only_upsert
@@ -5489,7 +7070,7 @@ CREATE FUNCTION admin.upsert_generic_valid_time_table
     )
 RETURNS INTEGER AS $upsert_generic_valid_time_table$
 DECLARE
-  existing_id integer;
+  existing_id integer := NEW.id;
   existing RECORD;
   result RECORD;
   existing_data jsonb;
@@ -5539,32 +7120,32 @@ BEGIN
   INTO equivalent_clause
   FROM jsonb_each_text(equivalent_data);
 
-  SELECT
-    string_agg(
-        CASE jsonb_typeof(unique_column)
-        WHEN 'array' THEN
-                '(' || (SELECT string_agg(' '||element||'= $1.'||element||' ', ' AND ') FROM jsonb_array_elements_text(unique_column) AS element) || ')'
-        WHEN 'string' THEN ' '||unique_column::text||'= $1.'||unique_column::text||' '
-        ELSE NULL
-        END,
-        ' OR '
-    ) INTO identifying_clause
-  FROM (SELECT jsonb_array_elements(unique_columns) AS unique_column) AS subquery;
-
-  identifying_query := format($$
-      SELECT id
-      FROM %1$I.%2$I
-      WHERE %3$s
-      LIMIT 1;$$
-      , schema_name
-      , table_name
-      , identifying_clause
-    );
-  RAISE DEBUG 'identifying_query %', identifying_query;
-
-  EXECUTE identifying_query INTO existing_id USING NEW;
-  RAISE DEBUG 'existing_id %', existing_id;
   IF NEW.id IS NULL THEN
+      SELECT
+        string_agg(
+            CASE jsonb_typeof(unique_column)
+            WHEN 'array' THEN
+                    '(' || (SELECT string_agg(' '||element||'= $1.'||element||' ', ' AND ') FROM jsonb_array_elements_text(unique_column) AS element) || ')'
+            WHEN 'string' THEN ' '||unique_column::text||'= $1.'||unique_column::text||' '
+            ELSE NULL
+            END,
+            ' OR '
+        ) INTO identifying_clause
+      FROM (SELECT jsonb_array_elements(unique_columns) AS unique_column) AS subquery;
+
+      identifying_query := format($$
+          SELECT id
+          FROM %1$I.%2$I
+          WHERE %3$s
+          LIMIT 1;$$
+          , schema_name
+          , table_name
+          , identifying_clause
+        );
+      RAISE DEBUG 'identifying_query %', identifying_query;
+
+      EXECUTE identifying_query INTO existing_id USING NEW;
+      RAISE DEBUG 'existing_id %', existing_id;
       NEW.id = existing_id;
   END IF;
 
@@ -5751,14 +7332,10 @@ DECLARE
   table_name text := 'legal_unit';
   unique_columns jsonb :=
     jsonb_build_array(
-            'id',
-            'stat_ident',
-            'tax_ident',
-            jsonb_build_array('external_ident', 'external_ident_type'),
-            jsonb_build_array('by_tag_id', 'by_tag_id_unique_ident')
+            'id'
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  ephemeral_columns text[] := ARRAY['seen_in_import_at'];
+  ephemeral_columns text[] := ARRAY[]::TEXT[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
@@ -5794,14 +7371,10 @@ DECLARE
   table_name text := 'establishment';
   unique_columns jsonb :=
     jsonb_build_array(
-            'id',
-            'stat_ident',
-            'tax_ident',
-            jsonb_build_array('external_ident', 'external_ident_type'),
-            jsonb_build_array('by_tag_id', 'by_tag_id_unique_ident')
+            'id'
         );
   temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
-  ephemeral_columns text[] := ARRAY['seen_in_import_at'];
+  ephemeral_columns text[] := ARRAY[]::TEXT[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
     ( schema_name
@@ -5930,6 +7503,7 @@ BEGIN
 END;
 $stat_for_unit_era_upsert$ LANGUAGE plpgsql;
 
+\echo stat_for_unit_era_upsert
 CREATE TRIGGER stat_for_unit_era_upsert
 INSTEAD OF INSERT ON public.stat_for_unit_era
 FOR EACH ROW
@@ -5951,42 +7525,640 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
 
-\echo public.import_legal_unit_era
-CREATE VIEW public.import_legal_unit_era
-WITH (security_invoker=on) AS
-SELECT '' AS valid_from
-     , '' AS valid_to
-     , '' AS tax_ident
-     , '' AS name
-     , '' AS birth_date
-     , '' AS death_date
-     , '' AS physical_address_part1
-     , '' AS physical_address_part2
-     , '' AS physical_address_part3
-     , '' AS physical_postal_code
-     , '' AS physical_postal_place
-     , '' AS physical_region_code
-     , '' AS physical_region_path
-     , '' AS physical_country_iso_2
-     , '' AS postal_address_part1
-     , '' AS postal_address_part2
-     , '' AS postal_address_part3
-     , '' AS postal_postal_code
-     , '' AS postal_postal_place
-     , '' AS postal_region_code
-     , '' AS postal_region_path
-     , '' AS postal_country_iso_2
-     , '' AS primary_activity_category_code
-     , '' AS secondary_activity_category_code
-     , '' AS sector_code
-     , '' AS legal_form_code
-     , '' AS tag_path
-;
+
+-- ========================================================
+-- BEGIN:  Helper functions for import
+-- ========================================================
+
+\echo admin.import_lookup_tag
+CREATE FUNCTION admin.import_lookup_tag(
+    new_jsonb JSONB,
+    OUT tag_id INTEGER
+) RETURNS INTEGER AS $$
+DECLARE
+    tag_path_str TEXT := new_jsonb ->> 'tag_path';
+    tag_path public.LTREE;
+BEGIN
+    -- Check if tag_path_str is not null and not empty
+    IF tag_path_str IS NOT NULL AND tag_path_str <> '' THEN
+        BEGIN
+            -- Try to cast tag_path_str to public.LTREE
+            tag_path := tag_path_str::public.LTREE;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', new_jsonb, SQLERRM;
+        END;
+
+        SELECT tag.id INTO tag_id
+        FROM public.tag
+        WHERE active
+          AND path = tag_path;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Could not find tag_path for row %', new_jsonb;
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_country
+CREATE FUNCTION admin.import_lookup_country(
+    new_jsonb JSONB,
+    country_type TEXT,
+    OUT country_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    country_iso_2_field TEXT;
+    country_iso_2 TEXT;
+BEGIN
+    -- Check that country_type is valid and determine the fields
+    IF country_type NOT IN ('physical', 'postal') THEN
+        RAISE EXCEPTION 'Invalid country_type: %', country_type;
+    END IF;
+
+    country_iso_2_field := country_type || '_country_iso_2';
+
+    -- Get the value of the country ISO 2 field from the JSONB parameter
+    country_iso_2 := new_jsonb ->> country_iso_2_field;
+
+    -- Check if country_iso_2 is not null and not empty
+    IF country_iso_2 IS NOT NULL AND country_iso_2 <> '' THEN
+        SELECT country.id INTO country_id
+        FROM public.country
+        WHERE iso_2 = country_iso_2;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find % for row %', country_iso_2_field, new_jsonb;
+            updated_invalid_codes := updated_invalid_codes || jsonb_build_object(country_iso_2_field, country_iso_2);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_region
+CREATE FUNCTION admin.import_lookup_region(
+    IN new_jsonb JSONB,
+    IN region_type TEXT,
+    OUT region_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    region_code_field TEXT;
+    region_path_field TEXT;
+    region_code TEXT;
+    region_path_str TEXT;
+    region_path public.LTREE;
+BEGIN
+    -- Check that region_type is valid and determine the fields
+    IF region_type NOT IN ('physical', 'postal') THEN
+        RAISE EXCEPTION 'Invalid region_type: %', region_type;
+    END IF;
+
+    region_code_field := region_type || '_region_code';
+    region_path_field := region_type || '_region_path';
+
+    -- Get the values of the region code and path fields from the JSONB parameter
+    region_code := new_jsonb ->> region_code_field;
+    region_path_str := new_jsonb ->> region_path_field;
+
+    -- Check if both region_code and region_path are specified
+    IF region_code IS NOT NULL AND region_code <> '' AND
+       region_path_str IS NOT NULL AND region_path_str <> '' THEN
+        RAISE EXCEPTION 'Only one of % or % can be specified for row %', region_code_field, region_path_field, new_jsonb;
+    ELSE
+        IF region_code IS NOT NULL AND region_code <> '' THEN
+            SELECT id INTO region_id
+            FROM public.region
+            WHERE code = region_code;
+
+            IF NOT FOUND THEN
+                RAISE WARNING 'Could not find % for row %', region_code_field, new_jsonb;
+                updated_invalid_codes := updated_invalid_codes || jsonb_build_object(region_code_field, region_code);
+            END IF;
+        ELSIF region_path_str IS NOT NULL AND region_path_str <> '' THEN
+            BEGIN
+                region_path := region_path_str::public.LTREE;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE EXCEPTION 'Invalid % for row % with error "%"', region_path_field, new_jsonb, SQLERRM;
+            END;
+
+            SELECT id INTO region_id
+            FROM public.region
+            WHERE path = region_path;
+
+            IF NOT FOUND THEN
+                RAISE WARNING 'Could not find % for row %', region_path_field, new_jsonb;
+                updated_invalid_codes := updated_invalid_codes || jsonb_build_object(region_path_field, region_path);
+            END IF;
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_activity_category
+CREATE FUNCTION admin.import_lookup_activity_category(
+    new_jsonb JSONB,
+    category_type TEXT,
+    OUT activity_category_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    category_code_field TEXT;
+    category_code TEXT;
+BEGIN
+    IF category_type NOT IN ('primary', 'secondary') THEN
+        RAISE EXCEPTION 'Invalid category_type: %', category_type;
+    END IF;
+
+    category_code_field := category_type || '_activity_category_code';
+
+    -- Get the value of the category code field from the JSONB parameter
+    category_code := new_jsonb ->> category_code_field;
+
+    -- Check if category_code is not null and not empty
+    IF category_code IS NOT NULL AND category_code <> '' THEN
+        SELECT id INTO activity_category_id
+        FROM public.activity_category_available
+        WHERE code = category_code;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find % for row %', category_code_field, new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, ARRAY[category_code_field], to_jsonb(category_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_sector
+CREATE FUNCTION admin.import_lookup_sector(
+    new_jsonb JSONB,
+    OUT sector_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    sector_code TEXT;
+BEGIN
+    -- Get the value of the sector_code field from the JSONB parameter
+    sector_code := new_jsonb ->> 'sector_code';
+
+    -- Check if sector_code is not null and not empty
+    IF sector_code IS NOT NULL AND sector_code <> '' THEN
+        SELECT id INTO sector_id
+        FROM public.sector
+        WHERE code = sector_code
+          AND active;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find sector_code for row %', new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, '{sector_code}', to_jsonb(sector_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.import_lookup_legal_form
+CREATE FUNCTION admin.import_lookup_legal_form(
+    new_jsonb JSONB,
+    OUT legal_form_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    legal_form_code TEXT;
+BEGIN
+    -- Get the value of the legal_form_code field from the JSONB parameter
+    legal_form_code := new_jsonb ->> 'legal_form_code';
+
+    -- Check if legal_form_code is not null and not empty
+    IF legal_form_code IS NOT NULL AND legal_form_code <> '' THEN
+        SELECT id INTO legal_form_id
+        FROM public.legal_form
+        WHERE code = legal_form_code
+          AND active;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find legal_form_code for row %', new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, '{legal_form_code}', to_jsonb(legal_form_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.type_date_field
+CREATE FUNCTION admin.type_date_field(
+    IN new_jsonb JSONB,
+    IN field_name TEXT,
+    OUT date_value DATE,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    date_str TEXT;
+    invalid_code JSONB;
+BEGIN
+    date_str := new_jsonb ->> field_name;
+
+    IF date_str IS NOT NULL AND date_str <> '' THEN
+        BEGIN
+            date_value := date_str::DATE;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'Invalid % for row % because of %', field_name, new_jsonb, SQLERRM;
+            invalid_code := jsonb_build_object(field_name, date_str);
+            updated_invalid_codes := updated_invalid_codes || invalid_code;
+        END;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+\echo admin.process_external_idents
+CREATE FUNCTION admin.process_external_idents(
+    new_jsonb JSONB,
+    unit_type TEXT,
+    OUT external_idents public.external_ident[],
+    OUT prior_id INTEGER
+) RETURNS RECORD AS $process_external_idents$
+DECLARE
+    unit_fk_field TEXT;
+    unit_fk_value INTEGER;
+    ident_code TEXT;
+    ident_value TEXT;
+    ident_row public.external_ident;
+    ident_type_row public.external_ident_type;
+    ident_codes TEXT[] := '{}';
+    -- Helpers to provide error messages to the user, with the ident_type_code
+    -- that would otherwise be lost.
+    ident_jsonb JSONB;
+    prev_ident_jsonb JSONB;
+    unique_ident_specified BOOLEAN := false;
+BEGIN
+    IF unit_type NOT IN ('legal_unit', 'establishment') THEN
+        RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
+    END IF;
+
+    unit_fk_field := unit_type || '_id';
+
+    FOR ident_type_row IN
+        (SELECT * FROM public.external_ident_type)
+    LOOP
+        ident_code := ident_type_row.code;
+        ident_codes := array_append(ident_codes, ident_code);
+
+        IF new_jsonb ? ident_code THEN
+            ident_value := new_jsonb ->> ident_code;
+
+            IF ident_value IS NOT NULL AND ident_value <> '' THEN
+                unique_ident_specified := true;
+
+                SELECT to_jsonb(ei.*)
+                     || jsonb_build_object(
+                    'ident_code', eit.code -- For user feedback
+                    ) INTO ident_jsonb
+                FROM public.external_ident AS ei
+                JOIN public.external_ident_type AS eit
+                  ON ei.type_id = eit.id
+                WHERE eit.id = ident_type_row.id
+                  AND ei.ident = ident_value;
+
+                IF NOT FOUND THEN
+                    -- Prepare a row to be added later after the legal_unit is created
+                    -- and the legal_unit_id is known.
+                    ident_jsonb := jsonb_build_object(
+                                'ident_code', ident_type_row.code, -- For user feedback - ignored by jsonb_populate_record
+                                'type_id', ident_type_row.id, -- For jsonb_populate_record
+                                'ident', ident_value
+                        );
+                    -- Initialise the ROW using mandatory positions, however,
+                    -- populate with jsonb_populate_record for avoiding possible mismatch.
+                    ident_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+                    ident_row := jsonb_populate_record(NULL::public.external_ident,ident_jsonb);
+                    external_idents := array_append(external_idents, ident_row);
+                ELSE -- FOUND
+                    unit_fk_value := (ident_jsonb -> unit_fk_field)::INTEGER;
+                    IF unit_fk_value IS NULL THEN
+                        RAISE EXCEPTION 'The external identifier % is not for a % but % for row %'
+                                        , ident_code, unit_type, ident_jsonb, new_jsonb;
+                    END IF;
+                    IF prior_id IS NULL THEN
+                        prior_id := unit_fk_value;
+                    ELSEIF prior_id IS DISTINCT FROM unit_fk_value THEN
+                        -- All matching identifiers must be consistent.
+                        RAISE EXCEPTION 'Inconsistent external identifiers % and % for row %'
+                                        , prev_ident_jsonb, ident_jsonb, new_jsonb;
+                    END IF;
+                END IF; -- FOUND / NOT FOUND
+                prev_ident_jsonb := ident_jsonb;
+            END IF; -- ident_value provided
+        END IF; -- ident_type.code in import
+    END LOOP; -- public.external_ident_type
+
+    IF NOT unique_ident_specified THEN
+        RAISE EXCEPTION 'No external identifier (%) is specified for row %', array_to_string(ident_codes, ','), new_jsonb;
+    END IF;
+END; -- Process external identifiers
+$process_external_idents$ LANGUAGE plpgsql;
+
+
+-- Find a connected legal_unit - i.e. a field with a `legal_unit`
+-- prefix that points to an external identifier.
+\echo admin.process_linked_legal_unit_external_idents
+CREATE FUNCTION admin.process_linked_legal_unit_external_idents(
+    new_jsonb JSONB,
+    OUT legal_unit_id INTEGER,
+    OUT linked_ident_specified BOOL,
+    OUT is_primary_for_legal_unit BOOL
+) RETURNS RECORD AS $process_linked_legal_unit_external_ident$
+DECLARE
+    unit_type TEXT := 'legal_unit';
+    unit_fk_field TEXT;
+    unit_fk_value INTEGER;
+    ident_code TEXT;
+    ident_value TEXT;
+    ident_row public.external_ident;
+    ident_type_row public.external_ident_type;
+    ident_codes TEXT[] := '{}';
+    -- Helpers to provide error messages to the user, with the ident_type_code
+    -- that would otherwise be lost.
+    ident_jsonb JSONB;
+    prev_ident_jsonb JSONB;
+BEGIN
+    linked_ident_specified := false;
+    unit_fk_value := NULL;
+    legal_unit_id := NULL;
+
+    unit_fk_field := unit_type || '_id';
+
+    FOR ident_type_row IN
+        (SELECT * FROM public.external_ident_type)
+    LOOP
+        ident_code := unit_type || '_' || ident_type_row.code;
+        ident_codes := array_append(ident_codes, ident_code);
+
+        IF new_jsonb ? ident_code THEN
+            ident_value := new_jsonb ->> ident_code;
+
+            IF ident_value IS NOT NULL AND ident_value <> '' THEN
+                linked_ident_specified := true;
+
+                SELECT to_jsonb(ei.*)
+                     || jsonb_build_object(
+                    'ident_code', ident_code -- For user feedback
+                    ) INTO ident_jsonb
+                FROM public.external_ident AS ei
+                WHERE ei.type_id = ident_type_row.id
+                  AND ei.ident = ident_value;
+
+                IF NOT FOUND THEN
+                  RAISE EXCEPTION 'Could not find % for row %', ident_code, new_jsonb;
+                ELSE -- FOUND
+                    unit_fk_value := (ident_jsonb -> unit_fk_field)::INTEGER;
+                    IF unit_fk_value IS NULL THEN
+                        RAISE EXCEPTION 'The external identifier % is not for a % but % for row %'
+                                        , ident_code, unit_type, ident_jsonb, new_jsonb;
+                    END IF;
+                    IF legal_unit_id IS NULL THEN
+                        legal_unit_id := unit_fk_value;
+                    ELSEIF legal_unit_id IS DISTINCT FROM unit_fk_value THEN
+                        -- All matching identifiers must be consistent.
+                        RAISE EXCEPTION 'Inconsistent external identifiers % and % for row %'
+                                        , prev_ident_jsonb, ident_jsonb, new_jsonb;
+                    END IF;
+                END IF; -- FOUND / NOT FOUND
+                prev_ident_jsonb := ident_jsonb;
+            END IF; -- ident_value provided
+        END IF; -- ident_type.code in import
+    END LOOP; -- public.external_ident_type
+END; -- Process external identifiers
+$process_linked_legal_unit_external_ident$ LANGUAGE plpgsql;
+
+
+\echo admin.validate_stats_for_unit
+CREATE PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB)
+LANGUAGE plpgsql AS $validate_stats_for_unit$
+DECLARE
+    stat_def_row public.stat_definition;
+    stat_code TEXT;
+    stat_value TEXT;
+    sql_type_str TEXT;
+    stat_type_check TEXT;
+BEGIN
+    FOR stat_def_row IN
+        (SELECT * FROM public.stat_definition ORDER BY priority, code)
+    LOOP
+        stat_code := stat_def_row.code;
+        IF new_jsonb ? stat_code THEN
+            stat_value := new_jsonb ->> stat_code;
+            IF stat_value IS NOT NULL AND stat_value <> '' THEN
+                sql_type_str :=
+                    CASE stat_def_row.type
+                    WHEN 'int' THEN 'INT4'
+                    WHEN 'float' THEN 'FLOAT8'
+                    WHEN 'string' THEN 'TEXT'
+                    WHEN 'bool' THEN 'BOOL'
+                    END;
+                stat_type_check := format('SELECT %L::%s', stat_value, sql_type_str);
+                BEGIN -- Try to cast the stat_value into the correct type.
+                    EXECUTE stat_type_check;
+                EXCEPTION WHEN OTHERS THEN
+                    RAISE EXCEPTION 'Invalid % type for stat % for row % with error "%"', stat_def_row.type, stat_code, new_jsonb, SQLERRM;
+                END;
+            END IF; -- stat_value provided
+        END IF; -- stat_code in import
+    END LOOP; -- public.stat_definition
+END;
+$validate_stats_for_unit$;
+
+
+\echo admin.process_stats_for_unit
+CREATE PROCEDURE admin.process_stats_for_unit(
+    new_jsonb JSONB,
+    unit_type TEXT,
+    unit_id INTEGER,
+    valid_from DATE,
+    valid_to DATE
+) LANGUAGE plpgsql AS $process_stats_for_unit$
+DECLARE
+    stat_code TEXT;
+    stat_value TEXT;
+    stat_type public.stat_type;
+    stat_jsonb JSONB;
+    stat_row public.stat_for_unit;
+    stat_def_row public.stat_definition;
+    stat_codes TEXT[] := '{}';
+    unit_fk_field TEXT;
+    statbus_constraints_already_deferred BOOLEAN;
+BEGIN
+    SELECT COALESCE(NULLIF(current_setting('statbus.constraints_already_deferred', true),'')::boolean,false) INTO statbus_constraints_already_deferred;
+
+    IF unit_type NOT IN ('legal_unit', 'establishment') THEN
+        RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
+    END IF;
+
+    unit_fk_field := unit_type || '_id';
+
+    FOR stat_def_row IN
+        (SELECT * FROM public.stat_definition ORDER BY priority, code)
+    LOOP
+        stat_code := stat_def_row.code;
+        stat_type := stat_def_row.type;
+        IF new_jsonb ? stat_code THEN
+            stat_value := new_jsonb ->> stat_code;
+            IF stat_value IS NOT NULL AND stat_value <> '' THEN
+                stat_jsonb := jsonb_build_object(
+                    'stat_definition_id', stat_def_row.id,
+                    'valid_from', valid_from,
+                    'valid_to', valid_to,
+                    unit_fk_field, unit_id,
+                    'value_' || stat_type, stat_value
+                );
+                stat_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+                BEGIN
+                    -- Assign jsonb to the row - casting the fields as required,
+                    -- possibly throwing an error message.
+                    stat_row := jsonb_populate_record(NULL::public.stat_for_unit,stat_jsonb);
+                EXCEPTION WHEN OTHERS THEN
+                    RAISE EXCEPTION 'Invalid % for row % with error "%"',stat_code, new_jsonb, SQLERRM;
+                END;
+                INSERT INTO public.stat_for_unit_era
+                    ( stat_definition_id
+                    , valid_after
+                    , valid_from
+                    , valid_to
+                    , establishment_id
+                    , legal_unit_id
+                    , value_int
+                    , value_float
+                    , value_string
+                    , value_bool
+                    )
+                 SELECT stat_row.stat_definition_id
+                      , stat_row.valid_after
+                      , stat_row.valid_from
+                      , stat_row.valid_to
+                      , stat_row.establishment_id
+                      , stat_row.legal_unit_id
+                      , stat_row.value_int
+                      , stat_row.value_float
+                      , stat_row.value_string
+                      , stat_row.value_bool
+                RETURNING *
+                INTO stat_row
+                ;
+                IF NOT statbus_constraints_already_deferred THEN
+                    IF current_setting('client_min_messages') ILIKE 'debug%' THEN
+                        DECLARE
+                            row RECORD;
+                        BEGIN
+                            RAISE DEBUG 'DEBUG: Selecting from public.stat_for_unit where id = %', stat_row.id;
+                            FOR row IN
+                                SELECT * FROM public.stat_for_unit WHERE id = stat_row.id
+                            LOOP
+                                RAISE DEBUG 'stat_for_unit row: %', to_json(row);
+                            END LOOP;
+                        END;
+                    END IF;
+                    SET CONSTRAINTS ALL IMMEDIATE;
+                    SET CONSTRAINTS ALL DEFERRED;
+                END IF;
+
+                RAISE DEBUG 'inserted_stat_for_unit: %', to_jsonb(stat_row);
+            END IF; -- stat_value provided
+        END IF; -- stat_code in import
+    END LOOP; -- public.stat_definition
+END;
+$process_stats_for_unit$;
+
+
+\echo admin.process_enterprise_connection
+CREATE FUNCTION admin.process_enterprise_connection(
+    IN prior_unit_id INTEGER,
+    IN unit_type TEXT,
+    IN new_valid_from DATE,
+    IN new_valid_to DATE,
+    IN edited_by_user_id INTEGER,
+    OUT enterprise_id INTEGER,
+    OUT is_primary_for_enterprise BOOLEAN
+) RETURNS RECORD AS $$
+DECLARE
+    new_center DATE;
+BEGIN
+    IF unit_type NOT IN ('legal_unit', 'establishment') THEN
+        RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
+    END IF;
+
+    IF prior_unit_id IS NOT NULL THEN
+        -- Calculate the new center date, handling infinity.
+        IF new_valid_from = '-infinity' THEN
+            new_center := new_valid_to;
+        ELSIF new_valid_to = 'infinity' THEN
+            new_center := new_valid_from;
+        ELSE
+            new_center := new_valid_from + ((new_valid_to - new_valid_from) / 2);
+        END IF;
+
+        -- Find the closest enterprise connected to the prior legal unit or establishment, with consistent midpoint logic.
+        EXECUTE format('
+            SELECT enterprise_id
+            FROM public.%I
+            WHERE id = $1
+            ORDER BY (
+                CASE
+                    WHEN valid_from = ''-infinity'' THEN ABS($2::DATE - valid_to)
+                    WHEN valid_to = ''infinity'' THEN ABS(valid_from - $2::DATE)
+                    ELSE ABS($2::DATE - (valid_from + ((valid_to - valid_from) / 2))::DATE)
+                END
+            ) ASC
+            LIMIT 1
+        ', unit_type)
+        INTO enterprise_id
+        USING prior_unit_id, new_center;
+
+        -- Determine if this should be the primary for the enterprise.
+        IF unit_type = 'legal_unit' THEN
+            EXECUTE format('
+                SELECT NOT EXISTS(
+                    SELECT 1
+                    FROM public.%I
+                    WHERE enterprise_id = $1
+                    AND primary_for_enterprise
+                    AND id <> $2
+                    AND daterange(valid_from, valid_to, ''[]'')
+                     && daterange($3, $4, ''[]'')
+                )
+            ', unit_type)
+            INTO is_primary_for_enterprise
+            USING enterprise_id, prior_unit_id, new_valid_from, new_valid_to;
+        END IF;
+
+    ELSE
+        -- Create a new enterprise and connect to it.
+        INSERT INTO public.enterprise
+            (active, edit_by_user_id, edit_comment)
+        VALUES
+            (true, edited_by_user_id, 'Batch import')
+        RETURNING id INTO enterprise_id;
+
+        -- This will be the primary legal unit or establishment for the enterprise.
+        is_primary_for_enterprise := true;
+    END IF;
+
+    RETURN;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================================
+-- END:  Helper functions for import
+-- ========================================================
 
 \echo admin.import_legal_unit_era_upsert
 CREATE FUNCTION admin.import_legal_unit_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
+    new_jsonb JSONB := to_jsonb(NEW);
     edited_by_user RECORD;
     tag RECORD;
     physical_region RECORD;
@@ -5999,6 +8171,8 @@ DECLARE
     legal_form RECORD;
     upsert_data RECORD;
     new_typed RECORD;
+    external_idents_to_add public.external_ident[] := ARRAY[]::public.external_ident[];
+    prior_legal_unit_id INTEGER;
     enterprise RECORD;
     is_primary_for_enterprise BOOLEAN;
     inserted_legal_unit RECORD;
@@ -6020,7 +8194,6 @@ BEGIN
          , NULL::DATE AS valid_from
          , NULL::DATE AS valid_to
         INTO new_typed;
-    SELECT NULL::int AS id INTO tag;
     SELECT NULL::int AS id INTO enterprise;
     SELECT NULL::int AS id INTO physical_region;
     SELECT NULL::int AS id INTO physical_country;
@@ -6030,6 +8203,7 @@ BEGIN
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
     SELECT NULL::int AS id INTO legal_form;
+    SELECT NULL::int AS id INTO tag;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
@@ -6037,189 +8211,67 @@ BEGIN
     -- WHERE uuid = auth.uid()
     LIMIT 1;
 
-    IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
-        DECLARE
-           tag_path public.LTREE;
-        BEGIN
-          BEGIN
-              tag_path := NEW.tag_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', to_json(NEW), SQLERRM;
-          END;
-          SELECT * INTO tag
-          FROM public.tag
-          WHERE active
-            AND path = tag_path;
-          IF NOT FOUND THEN
-              RAISE EXCEPTION 'Could not find tag_path for row %', to_json(NEW);
-          END IF;
-        END;
-    END IF;
+    SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);
 
-    IF NEW.physical_country_iso_2 IS NOT NULL AND NEW.physical_country_iso_2 <> '' THEN
-      SELECT * INTO physical_country
-      FROM public.country
-      WHERE iso_2 = NEW.physical_country_iso_2;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_country_iso_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{physical_country_iso_2}', to_jsonb(NEW.physical_country_iso_2), true);
-      END IF;
-    END IF;
+    SELECT country_id          , updated_invalid_codes
+    INTO   physical_country.id , invalid_codes
+    FROM admin.import_lookup_country(new_jsonb, 'physical', invalid_codes);
 
-    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' AND
-       NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> ''
-    THEN
-      RAISE EXCEPTION 'Only one of physical_region_code or physical_region_path can be specified for row %', to_json(NEW);
-    ELSE
-      IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
-        SELECT * INTO physical_region
-        FROM public.region
-        WHERE code = NEW.physical_region_code;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
-        END IF;
-      END IF;
-      IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
-        DECLARE
-           physical_region_path public.LTREE;
-        BEGIN
-          BEGIN
-              physical_region_path := NEW.physical_region_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid physical_region_path for row % with error "%"', to_json(NEW), SQLERRM;
-          END;
-          SELECT * INTO physical_region
-          FROM public.region
-          WHERE path = physical_region_path;
-          IF NOT FOUND THEN
-            RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
-            invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
-          END IF;
-        END;
-      END IF;
-    END IF;
+    SELECT region_id          , updated_invalid_codes
+    INTO   physical_region.id , invalid_codes
+    FROM admin.import_lookup_region(new_jsonb, 'physical', invalid_codes);
 
-    IF NEW.postal_country_iso_2 IS NOT NULL AND NEW.postal_country_iso_2 <> '' THEN
-      SELECT * INTO postal_country
-      FROM public.country
-      WHERE iso_2 = NEW.postal_country_iso_2;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_country_iso_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{postal_country_iso_2}', to_jsonb(NEW.postal_country_iso_2), true);
-      END IF;
-    END IF;
+    SELECT country_id        , updated_invalid_codes
+    INTO   postal_country.id , invalid_codes
+    FROM admin.import_lookup_country(new_jsonb, 'postal', invalid_codes);
 
-    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' AND
-       NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> ''
-    THEN
-      RAISE EXCEPTION 'Only one of postal_region_code or postal_region_path can be specified for row %', to_json(NEW);
-    ELSE
-      IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
-        SELECT * INTO postal_region
-        FROM public.region
-        WHERE code = NEW.postal_region_code;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
-        END IF;
-      END IF;
-      IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
-        DECLARE
-           postal_region_path public.LTREE;
-        BEGIN
-          BEGIN
-              postal_region_path := NEW.postal_region_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid postal_region_path for row % with error "%"', to_json(NEW), SQLERRM;
-          END;
-          SELECT * INTO postal_region
-          FROM public.region
-          WHERE path = postal_region_path;
-          IF NOT FOUND THEN
-            RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
-            invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
-          END IF;
-        END;
-      END IF;
-    END IF;
+    SELECT region_id        , updated_invalid_codes
+    INTO   postal_region.id , invalid_codes
+    FROM admin.import_lookup_region(new_jsonb, 'postal', invalid_codes);
 
-    IF NEW.primary_activity_category_code IS NOT NULL AND NEW.primary_activity_category_code <> '' THEN
-      SELECT * INTO primary_activity_category
-      FROM public.activity_category_available
-      WHERE code = NEW.primary_activity_category_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
-      END IF;
-    END IF;
+    SELECT activity_category_id, updated_invalid_codes
+    INTO primary_activity_category.id, invalid_codes
+    FROM admin.import_lookup_activity_category(new_jsonb, 'primary', invalid_codes);
 
-    IF NEW.secondary_activity_category_code IS NOT NULL AND NEW.secondary_activity_category_code <> '' THEN
-      SELECT * INTO secondary_activity_category
-      FROM public.activity_category_available
-      WHERE code = NEW.secondary_activity_category_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find secondary_activity_category_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{secondary_activity_category_code}', to_jsonb(NEW.secondary_activity_category_code), true);
-      END IF;
-    END IF;
+    SELECT activity_category_id, updated_invalid_codes
+    INTO secondary_activity_category.id, invalid_codes
+    FROM admin.import_lookup_activity_category(new_jsonb, 'secondary', invalid_codes);
 
-    IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
-      SELECT * INTO sector
-      FROM public.sector
-      WHERE code = NEW.sector_code
-        AND active;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find sector_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
-      END IF;
-    END IF;
+    SELECT sector_id , updated_invalid_codes
+    INTO   sector.id , invalid_codes
+    FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
 
-    IF NEW.legal_form_code IS NOT NULL AND NEW.legal_form_code <> '' THEN
-      SELECT * INTO legal_form
-      FROM public.legal_form
-      WHERE code = NEW.legal_form_code
-        AND active;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find legal_form_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{legal_form_code}', to_jsonb(NEW.legal_form_code), true);
-      END IF;
-    END IF;
+    SELECT legal_form_id , updated_invalid_codes
+    INTO   legal_form.id , invalid_codes
+    FROM admin.import_lookup_legal_form(new_jsonb, invalid_codes);
 
-    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
-        BEGIN
-            new_typed.birth_date := NEW.birth_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
-        END;
-    END IF;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.birth_date , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'birth_date',invalid_codes);
 
-    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
-        BEGIN
-            new_typed.death_date := NEW.death_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
-        END;
-    END IF;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.death_date , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'death_date',invalid_codes);
 
-    BEGIN
-        new_typed.valid_from := NEW.valid_from::DATE;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'Invalid valid_from for row %', to_json(NEW);
-    END;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.valid_from , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'valid_from',invalid_codes);
 
-    BEGIN
-        new_typed.valid_to := NEW.valid_to::DATE;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
-    END;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.valid_to   , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'valid_to',invalid_codes);
+
+    CALL admin.validate_stats_for_unit(new_jsonb);
+
+    SELECT external_idents        , prior_id
+    INTO   external_idents_to_add , prior_legal_unit_id
+    FROM admin.process_external_idents(new_jsonb,'legal_unit') AS r;
 
     SELECT NEW.tax_ident AS tax_ident
          , NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
          , true AS active
-         , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
       INTO upsert_data;
@@ -6228,34 +8280,21 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    -- TODO: Lookup any existing enterprise and re-use it
-    -- SELECT * INTO enterprise
-    -- FROM public.enterprise
-    -- WHERE
-
-    -- Create an enterprise and connect to it.
-    INSERT INTO public.enterprise
-        ( active
-        , edit_by_user_id
-        , edit_comment
-        )
-    VALUES
-        ( true
-        , edited_by_user.id
-        , 'Batch import'
-        ) RETURNING *
-     INTO enterprise;
-    is_primary_for_enterprise := true;
+    SELECT r.enterprise_id, r.is_primary_for_enterprise
+    INTO     enterprise.id,   is_primary_for_enterprise
+    FROM admin.process_enterprise_connection(
+        prior_legal_unit_id, 'legal_unit',
+        new_typed.valid_from, new_typed.valid_to,
+        edited_by_user.id) AS r;
 
     INSERT INTO public.legal_unit_era
-        ( tax_ident
-        , valid_from
+        ( valid_from
         , valid_to
+        , id
         , name
         , birth_date
         , death_date
         , active
-        , seen_in_import_at
         , edit_comment
         , sector_id
         , legal_form_id
@@ -6265,14 +8304,13 @@ BEGIN
         , edit_by_user_id
         )
     VALUES
-        ( upsert_data.tax_ident
-        , new_typed.valid_from
+        ( new_typed.valid_from
         , new_typed.valid_to
+        , prior_legal_unit_id
         , upsert_data.name
         , upsert_data.birth_date
         , upsert_data.death_date
         , upsert_data.active
-        , upsert_data.seen_in_import_at
         , upsert_data.edit_comment
         , sector.id
         , legal_form.id
@@ -6301,6 +8339,22 @@ BEGIN
         SET CONSTRAINTS ALL IMMEDIATE;
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
+
+    -- Store external identifiers
+    IF array_length(external_idents_to_add, 1) > 0 THEN
+        INSERT INTO public.external_ident
+            ( type_id
+            , ident
+            , legal_unit_id
+            , updated_by_user_id
+            )
+         SELECT type_id
+              , ident
+              , inserted_legal_unit.id
+              , edited_by_user.id
+         FROM unnest(external_idents_to_add);
+    END IF;
+
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
@@ -6482,6 +8536,14 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
+    CALL admin.process_stats_for_unit(
+        new_jsonb,
+        'legal_unit',
+        inserted_legal_unit.id,
+        new_typed.valid_from,
+        new_typed.valid_to
+        );
+
     IF tag.id IS NOT NULL THEN
         INSERT INTO public.tag_for_unit
             ( tag_id
@@ -6506,192 +8568,287 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER import_legal_unit_era_upsert_trigger
-INSTEAD OF INSERT ON public.import_legal_unit_era
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_legal_unit_era_upsert();
+\echo admin.generate_import_legal_unit_era()
+CREATE PROCEDURE admin.generate_import_legal_unit_era()
+LANGUAGE plpgsql AS $generate_import_legal_unit_era$
+DECLARE
+    result TEXT := '';
+    ident_type_row RECORD;
+    ident_type_columns TEXT := '';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
+
+    view_template TEXT := $view_template$
+CREATE VIEW public.import_legal_unit_era WITH (security_invoker=on) AS
+SELECT '' AS valid_from,
+       '' AS valid_to,
+{{ident_type_columns}}
+       '' AS name,
+       '' AS birth_date,
+       '' AS death_date,
+       '' AS physical_address_part1,
+       '' AS physical_address_part2,
+       '' AS physical_address_part3,
+       '' AS physical_postal_code,
+       '' AS physical_postal_place,
+       '' AS physical_region_code,
+       '' AS physical_region_path,
+       '' AS physical_country_iso_2,
+       '' AS postal_address_part1,
+       '' AS postal_address_part2,
+       '' AS postal_address_part3,
+       '' AS postal_postal_code,
+       '' AS postal_postal_place,
+       '' AS postal_region_code,
+       '' AS postal_region_path,
+       '' AS postal_country_iso_2,
+       '' AS primary_activity_category_code,
+       '' AS secondary_activity_category_code,
+       '' AS sector_code,
+       '' AS legal_form_code,
+{{stat_definition_columns}}
+       '' AS tag_path
+;
+    $view_template$;
+BEGIN
+    SELECT string_agg(format(E'       %L AS %I,', '', code), E'\n')
+    INTO ident_type_columns
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT string_agg(format(E'       %L AS %I,', '', code), E'\n')
+    INTO stat_definition_columns
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    RAISE NOTICE 'Creating public.import_legal_unit_era';
+    EXECUTE view_template;
+
+    CREATE TRIGGER import_legal_unit_era_upsert_trigger
+    INSTEAD OF INSERT ON public.import_legal_unit_era
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_legal_unit_era_upsert();
+END;
+$generate_import_legal_unit_era$;
+
+\echo admin.cleanup_import_legal_unit_era()
+CREATE PROCEDURE admin.cleanup_import_legal_unit_era()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_legal_unit_era';
+    DROP VIEW public.import_legal_unit_era;
+END;
+$$;
 
 
+\echo Add import_legal_unit_era callbacks
+CALL lifecycle_callbacks.add(
+    'import_legal_unit_era',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_legal_unit_era',
+    'admin.cleanup_import_legal_unit_era'
+    );
+-- Call the generate function once to generate the view with the currently
+-- defined external_ident_type's.
+\echo Generating public.import_legal_unit_era
+CALL admin.generate_import_legal_unit_era();
 
-\echo public.import_legal_unit_current
-CREATE VIEW public.import_legal_unit_current
-WITH (security_invoker=on) AS
-SELECT tax_ident
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
-     , sector_code
-     , legal_form_code
-     , tag_path
+\echo admin.generate_import_legal_unit_current()
+CREATE PROCEDURE admin.generate_import_legal_unit_current()
+LANGUAGE plpgsql AS $generate_import_legal_unit_current$
+DECLARE
+    ident_type_row RECORD;
+    ident_type_columns TEXT := '';
+    ident_type_column_prefix TEXT := '       ';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
+
+    view_template TEXT := $view_template$
+CREATE VIEW public.import_legal_unit_current WITH (security_invoker=on) AS
+SELECT
+{{ident_type_columns}}
+     '' AS name,
+     '' AS birth_date,
+     '' AS death_date,
+     '' AS physical_address_part1,
+     '' AS physical_address_part2,
+     '' AS physical_address_part3,
+     '' AS physical_postal_code,
+     '' AS physical_postal_place,
+     '' AS physical_region_code,
+     '' AS physical_region_path,
+     '' AS physical_country_iso_2,
+     '' AS postal_address_part1,
+     '' AS postal_address_part2,
+     '' AS postal_address_part3,
+     '' AS postal_postal_code,
+     '' AS postal_postal_place,
+     '' AS postal_region_code,
+     '' AS postal_region_path,
+     '' AS postal_country_iso_2,
+     '' AS primary_activity_category_code,
+     '' AS secondary_activity_category_code,
+     '' AS sector_code,
+     '' AS legal_form_code,
+{{stat_definition_columns}}
+     '' AS tag_path
 FROM public.import_legal_unit_era;
+    $view_template$;
 
-\echo admin.import_legal_unit_current_upsert
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_legal_unit_current_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_legal_unit_current_upsert$
 DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    INSERT INTO public.import_legal_unit_era
-        ( valid_from
-        , valid_to
-        , tax_ident
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , sector_code
-        , legal_form_code
-        , tag_path
+    INSERT INTO public.import_legal_unit_era(
+        valid_from,
+        valid_to,
+{{ident_insert_labels}}
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
+        legal_form_code,
+{{stats_insert_labels}}
+        tag_path
         )
-    VALUES
-        ( new_valid_from
-        , new_valid_to
-        , NEW.tax_ident
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.sector_code
-        , NEW.legal_form_code
-        , NEW.tag_path
+    VALUES(
+        new_valid_from,
+        new_valid_to,
+{{ident_value_labels}}
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
+        NEW.legal_form_code,
+{{stats_value_labels}}
+        NEW.tag_path
         );
     RETURN NULL;
 END;
 $import_legal_unit_current_upsert$;
-
-
-CREATE TRIGGER import_legal_unit_current_upsert_trigger
-INSTEAD OF INSERT ON public.import_legal_unit_current
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_legal_unit_current_upsert();
-
-
-\echo public.import_legal_unit_with_delete_current
-CREATE VIEW public.import_legal_unit_with_delete_current
-WITH (security_invoker=on) AS
-SELECT * FROM public.import_legal_unit_current;
-
-\echo admin.import_legal_unit_with_delete_current
-CREATE FUNCTION admin.import_legal_unit_with_delete_current()
-RETURNS TRIGGER AS $$
+    $function_template$;
 BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        WHERE uuid = auth.uid()
-        LIMIT 1
-    )
-    UPDATE public.legal_unit
-    SET valid_to = current_date
-      , edit_comment = 'Absent from upload'
-      , edit_by_user_id = (SELECT id FROM su)
-      , active = false
-    WHERE seen_in_import_at < statement_timestamp()
-      AND valid_to = 'infinity'::date
-      AND active
-    ;
-    RETURN NULL;
+    SELECT
+        string_agg(format(E'     %L AS %I,', '', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT
+        string_agg(format(E'     %L AS %I,', '', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    function_template := admin.render_template(function_template, jsonb_build_object(
+        'ident_insert_labels', ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    RAISE NOTICE 'Creating public.import_legal_unit_current';
+    EXECUTE view_template;
+
+    RAISE NOTICE 'Creating admin.import_legal_unit_current_upsert()';
+    EXECUTE function_template;
+
+    CREATE TRIGGER import_legal_unit_current_upsert_trigger
+    INSTEAD OF INSERT ON public.import_legal_unit_current
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_legal_unit_current_upsert();
 END;
-$$ LANGUAGE plpgsql;
+$generate_import_legal_unit_current$;
 
-CREATE TRIGGER import_legal_unit_with_delete_current_trigger
-AFTER INSERT ON public.import_legal_unit_with_delete_current
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.import_legal_unit_with_delete_current();
+\echo admin.cleanup_import_legal_unit_current()
+CREATE PROCEDURE admin.cleanup_import_legal_unit_current()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_legal_unit_current';
+    DROP VIEW public.import_legal_unit_current;
+    RAISE NOTICE 'Deleting admin.import_legal_unit_current_upsert()';
+    DROP FUNCTION admin.import_legal_unit_current_upsert();
+END;
+$$;
 
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_legal_unit_current',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_legal_unit_current',
+    'admin.cleanup_import_legal_unit_current'
+    );
 
-\echo public.import_establishment_era
-CREATE VIEW public.import_establishment_era
-WITH (security_invoker=on) AS
-SELECT '' AS valid_from
-     , '' AS valid_to
-     , '' AS tax_ident
-     , '' AS legal_unit_tax_ident
-     , '' AS name
-     , '' AS birth_date
-     , '' AS death_date
-     , '' AS physical_address_part1
-     , '' AS physical_address_part2
-     , '' AS physical_address_part3
-     , '' AS physical_postal_code
-     , '' AS physical_postal_place
-     , '' AS physical_region_code
-     , '' AS physical_region_path
-     , '' AS physical_country_iso_2
-     , '' AS postal_address_part1
-     , '' AS postal_address_part2
-     , '' AS postal_address_part3
-     , '' AS postal_postal_code
-     , '' AS postal_postal_place
-     , '' AS postal_region_code
-     , '' AS postal_region_path
-     , '' AS postal_country_iso_2
-     , '' AS primary_activity_category_code
-     , '' AS secondary_activity_category_code
-     , '' AS sector_code
-     , '' AS employees
-     , '' AS turnover
-     , '' AS tag_path
-;
-COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
+\echo Generating public.import_legal_unit_current
+\echo Generating admin.import_legal_unit_current_upsert
+CALL admin.generate_import_legal_unit_current();
+
 
 \echo admin.import_establishment_era_upsert
 CREATE FUNCTION admin.import_establishment_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
+    new_jsonb JSONB := to_jsonb(NEW);
     edited_by_user RECORD;
     tag RECORD;
     physical_region RECORD;
@@ -6706,6 +8863,9 @@ DECLARE
     sector RECORD;
     upsert_data RECORD;
     new_typed RECORD;
+    external_idents_to_add public.external_ident[] := ARRAY[]::public.external_ident[];
+    prior_establishment_id INTEGER;
+    legal_unit_ident_specified BOOL := false;
     inserted_establishment RECORD;
     inserted_location RECORD;
     inserted_activity RECORD;
@@ -6748,214 +8908,95 @@ BEGIN
     -- WHERE uuid = auth.uid()
     LIMIT 1;
 
-    IF NEW.tag_path IS NOT NULL AND NEW.tag_path <> '' THEN
-        DECLARE
-           tag_path public.LTREE;
-        BEGIN
-          BEGIN
-              tag_path := NEW.tag_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid tag_path for row % with error "%"', to_json(NEW), SQLERRM;
-          END;
-          SELECT * INTO tag
-          FROM public.tag
-          WHERE active
-            AND path = tag_path;
-          IF NOT FOUND THEN
-              RAISE EXCEPTION 'Could not find tag_path for row %', to_json(NEW);
-          END IF;
-        END;
-    END IF;
+    SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);
 
-    IF NEW.birth_date IS NOT NULL AND NEW.birth_date <> '' THEN
-        BEGIN
-            new_typed.birth_date := NEW.birth_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid birth_date for row %', to_json(NEW);
-        END;
-    END IF;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.birth_date , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'birth_date',invalid_codes);
 
-    IF NEW.death_date IS NOT NULL AND NEW.death_date <> '' THEN
-        BEGIN
-            new_typed.death_date := NEW.death_date::DATE;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid death_date for row %', to_json(NEW);
-        END;
-    END IF;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.death_date , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'death_date',invalid_codes);
 
-    BEGIN
-        new_typed.valid_from := NEW.valid_from::DATE;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'Invalid valid_from for row %', to_json(NEW);
-    END;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.valid_from , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'valid_from',invalid_codes);
 
-    BEGIN
-        new_typed.valid_to := NEW.valid_to::DATE;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'Invalid valid_to for row %', to_json(NEW);
-    END;
+    SELECT date_value           , updated_invalid_codes
+    INTO   new_typed.valid_to   , invalid_codes
+    FROM admin.type_date_field(new_jsonb,'valid_to',invalid_codes);
 
-    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
-        -- TODO: Reuse any existing enterprise connection.
-        -- Create an enterprise and connect to it.
-        INSERT INTO public.enterprise
-            ( active
-            , edit_by_user_id
-            , edit_comment
-            ) VALUES
-            ( true
-            , edited_by_user.id
-            , 'Batch import'
-            ) RETURNING *
-            INTO enterprise;
-    ELSE -- Lookup the legal_unit - it must exist.
-        SELECT lu.* INTO legal_unit
-        FROM public.legal_unit AS lu
-        WHERE lu.tax_ident = NEW.legal_unit_tax_ident
-          AND daterange(lu.valid_from, lu.valid_to, '[]')
-            && daterange(new_typed.valid_from, new_typed.valid_to, '[]')
-        ;
-        IF NOT FOUND THEN
-          RAISE EXCEPTION 'Could not find legal_unit_tax_ident for row %', to_json(NEW);
-        END IF;
-        PERFORM *
-        FROM public.establishment AS es
-        WHERE es.legal_unit_id = legal_unit.id
-          AND daterange(es.valid_from, es.valid_to, '[]')
-            && daterange(new_typed.valid_from, new_typed.valid_to, '[]')
-        LIMIT 1;
-        IF NOT FOUND THEN
-            is_primary_for_legal_unit := true;
-        ELSE
-            is_primary_for_legal_unit := false;
-        END IF;
-    END IF;
+    CALL admin.validate_stats_for_unit(new_jsonb);
 
-    IF NEW.physical_country_iso_2 IS NOT NULL AND NEW.physical_country_iso_2 <> '' THEN
-      SELECT * INTO physical_country
-      FROM public.country
-      WHERE iso_2 = NEW.physical_country_iso_2;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find physical_country_iso_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{physical_country_iso_2}', to_jsonb(NEW.physical_country_iso_2), true);
-      END IF;
-    END IF;
+    SELECT country_id          , updated_invalid_codes
+    INTO   physical_country.id , invalid_codes
+    FROM admin.import_lookup_country(new_jsonb, 'physical', invalid_codes);
 
-    IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' AND
-       NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> ''
-    THEN
-      RAISE EXCEPTION 'Only one of physical_region_code or physical_region_path can be specified for row %', to_json(NEW);
+    SELECT region_id          , updated_invalid_codes
+    INTO   physical_region.id , invalid_codes
+    FROM admin.import_lookup_region(new_jsonb, 'physical', invalid_codes);
+
+    SELECT country_id        , updated_invalid_codes
+    INTO   postal_country.id , invalid_codes
+    FROM admin.import_lookup_country(new_jsonb, 'postal', invalid_codes);
+
+    SELECT region_id        , updated_invalid_codes
+    INTO   postal_region.id , invalid_codes
+    FROM admin.import_lookup_region(new_jsonb, 'postal', invalid_codes);
+
+    SELECT activity_category_id, updated_invalid_codes
+    INTO primary_activity_category.id, invalid_codes
+    FROM admin.import_lookup_activity_category(new_jsonb, 'primary', invalid_codes);
+
+    SELECT activity_category_id, updated_invalid_codes
+    INTO secondary_activity_category.id, invalid_codes
+    FROM admin.import_lookup_activity_category(new_jsonb, 'secondary', invalid_codes);
+
+    SELECT sector_id , updated_invalid_codes
+    INTO   sector.id , invalid_codes
+    FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
+
+    SELECT external_idents        , prior_id
+    INTO   external_idents_to_add , prior_establishment_id
+    FROM admin.process_external_idents(new_jsonb,'establishment') AS r;
+
+    SELECT r.legal_unit_id, r.linked_ident_specified, r.is_primary_for_legal_unit
+    INTO legal_unit.id, legal_unit_ident_specified, is_primary_for_legal_unit
+    FROM admin.process_linked_legal_unit_external_idents(new_jsonb) AS r;
+
+    IF NOT legal_unit_ident_specified THEN
+        SELECT r.enterprise_id
+        INTO     enterprise.id
+        FROM admin.process_enterprise_connection(
+            prior_establishment_id, 'establishment',
+            new_typed.valid_from, new_typed.valid_to,
+            edited_by_user.id) AS r;
     ELSE
-      IF NEW.physical_region_code IS NOT NULL AND NEW.physical_region_code <> '' THEN
-        SELECT * INTO physical_region
-        FROM public.region
-        WHERE code = NEW.physical_region_code;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find physical_region_code for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{physical_region_code}', to_jsonb(NEW.physical_region_code), true);
-        END IF;
-      END IF;
-      IF NEW.physical_region_path IS NOT NULL AND NEW.physical_region_path <> '' THEN
         DECLARE
-           query_path public.LTREE;
+          sql_query TEXT :=  format(
+            'SELECT NOT EXISTS(
+                  SELECT 1
+                  FROM public.establishment
+                  WHERE legal_unit_id = %L
+                  AND primary_for_legal_unit
+                  AND COALESCE(id <> %L,true)
+                  AND daterange(valid_from, valid_to, ''[]'')
+                  && daterange(%L, %L, ''[]'')
+              )',
+              legal_unit.id, prior_establishment_id, new_typed.valid_from, new_typed.valid_to
+          );
         BEGIN
-          BEGIN
-              query_path := NEW.physical_region_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid physical_region_path for row % with error "%"', to_json(NEW), SQLERRM;
-          END;
-          SELECT * INTO physical_region
-          FROM public.region
-          WHERE path = query_path;
-          IF NOT FOUND THEN
-            RAISE WARNING 'Could not find physical_region_path for row %', to_json(NEW);
-            invalid_codes := jsonb_set(invalid_codes, '{physical_region_path}', to_jsonb(NEW.physical_region_path), true);
-          END IF;
+          RAISE DEBUG 'Executing SQL: %', sql_query;
+          EXECUTE sql_query
+          INTO is_primary_for_legal_unit;
+          RAISE DEBUG 'is_primary_for_legal_unit=%', is_primary_for_legal_unit;
         END;
-      END IF;
     END IF;
 
-    IF NEW.postal_country_iso_2 IS NOT NULL AND NEW.postal_country_iso_2 <> '' THEN
-      SELECT * INTO postal_country
-      FROM public.country
-      WHERE iso_2 = NEW.postal_country_iso_2;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find postal_country_iso_2 for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{postal_country_iso_2}', to_jsonb(NEW.postal_country_iso_2), true);
-      END IF;
-    END IF;
-
-    IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' AND
-       NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> ''
-    THEN
-      RAISE EXCEPTION 'Only one of postal_region_code or postal_region_path can be specified for row %', to_json(NEW);
-    ELSE
-      IF NEW.postal_region_code IS NOT NULL AND NEW.postal_region_code <> '' THEN
-        SELECT * INTO postal_region
-        FROM public.region
-        WHERE code = NEW.postal_region_code;
-        IF NOT FOUND THEN
-          RAISE WARNING 'Could not find postal_region_code for row %', to_json(NEW);
-          invalid_codes := jsonb_set(invalid_codes, '{postal_region_code}', to_jsonb(NEW.postal_region_code), true);
-        END IF;
-      END IF;
-      IF NEW.postal_region_path IS NOT NULL AND NEW.postal_region_path <> '' THEN
-        DECLARE
-           postal_region_path public.LTREE;
-        BEGIN
-          BEGIN
-              postal_region_path := NEW.postal_region_path::public.LTREE;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE EXCEPTION 'Invalid postal_region_path for row % with error "%"', to_json(NEW), SQLERRM;
-          END;
-          SELECT * INTO postal_region
-          FROM public.region
-          WHERE path = postal_region_path;
-          IF NOT FOUND THEN
-            RAISE WARNING 'Could not find postal_region_path for row %', to_json(NEW);
-            invalid_codes := jsonb_set(invalid_codes, '{postal_region_path}', to_jsonb(NEW.postal_region_path), true);
-          END IF;
-        END;
-      END IF;
-    END IF;
-
-    IF NEW.primary_activity_category_code IS NOT NULL AND NEW.primary_activity_category_code <> '' THEN
-      SELECT * INTO primary_activity_category
-      FROM public.activity_category_available
-      WHERE code = NEW.primary_activity_category_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find primary_activity_category_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{primary_activity_category_code}', to_jsonb(NEW.primary_activity_category_code), true);
-      END IF;
-    END IF;
-
-    IF NEW.secondary_activity_category_code IS NOT NULL AND NEW.secondary_activity_category_code <> '' THEN
-      SELECT * INTO secondary_activity_category
-      FROM public.activity_category_available
-      WHERE code = NEW.secondary_activity_category_code;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find secondary_activity_category_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{secondary_activity_category_code}', to_jsonb(NEW.secondary_activity_category_code), true);
-      END IF;
-    END IF;
-
-    IF NEW.sector_code IS NOT NULL AND NEW.sector_code <> '' THEN
-      SELECT * INTO sector
-      FROM public.sector
-      WHERE code = NEW.sector_code
-        AND active;
-      IF NOT FOUND THEN
-        RAISE WARNING 'Could not find sector_code for row %', to_json(NEW);
-        invalid_codes := jsonb_set(invalid_codes, '{sector_code}', to_jsonb(NEW.sector_code), true);
-      END IF;
-    END IF;
-
-    SELECT NEW.tax_ident AS tax_ident
-         , NEW.name AS name
+    SELECT NEW.name AS name
          , new_typed.birth_date AS birth_date
          , new_typed.death_date AS death_date
          , true AS active
-         , statement_timestamp() AS seen_in_import_at
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
          , enterprise.id AS enterprise_id
@@ -6968,14 +9009,13 @@ BEGIN
     END IF;
 
     INSERT INTO public.establishment_era
-        ( tax_ident
-        , valid_from
+        ( valid_from
         , valid_to
+        , id
         , name
         , birth_date
         , death_date
         , active
-        , seen_in_import_at
         , edit_comment
         , sector_id
         , invalid_codes
@@ -6985,14 +9025,13 @@ BEGIN
         , edit_by_user_id
         )
     VALUES
-        ( upsert_data.tax_ident
-        , new_typed.valid_from
+        ( new_typed.valid_from
         , new_typed.valid_to
+        , prior_establishment_id
         , upsert_data.name
         , upsert_data.birth_date
         , upsert_data.death_date
         , upsert_data.active
-        , upsert_data.seen_in_import_at
         , upsert_data.edit_comment
         , sector.id
         , upsert_data.invalid_codes
@@ -7020,6 +9059,20 @@ BEGIN
         END IF;
         SET CONSTRAINTS ALL IMMEDIATE;
         SET CONSTRAINTS ALL DEFERRED;
+    END IF;
+
+    IF array_length(external_idents_to_add, 1) > 0 THEN
+        INSERT INTO public.external_ident
+            ( type_id
+            , ident
+            , establishment_id
+            , updated_by_user_id
+            )
+         SELECT type_id
+              , ident
+              , inserted_establishment.id
+              , edited_by_user.id
+         FROM unnest(external_idents_to_add);
     END IF;
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
@@ -7201,96 +9254,13 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    IF NEW.employees IS NOT NULL AND NEW.employees <> '' THEN
-        BEGIN
-            stats.employees := NEW.employees::INTEGER;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid employees integer for row %', to_json(NEW);
-        END;
-
-        SELECT * INTO stat_def
-        FROM stat_definition
-        WHERE code = 'employees';
-
-        INSERT INTO public.stat_for_unit_era
-            ( stat_definition_id
-            , valid_from
-            , valid_to
-            , establishment_id
-            , value_int
-            )
-        VALUES
-            ( stat_def.id
-            , new_typed.valid_from
-            , new_typed.valid_to
-            , inserted_establishment.id
-            , stats.employees
-            )
-        RETURNING *
-        INTO inserted_stat_for_unit;
-
-        IF NOT statbus_constraints_already_deferred THEN
-            IF current_setting('client_min_messages') ILIKE 'debug%' THEN
-                DECLARE
-                    row RECORD;
-                BEGIN
-                    RAISE DEBUG 'DEBUG: Selecting from public.stat_for_unit where id = %', inserted_stat_for_unit.id;
-                    FOR row IN
-                        SELECT * FROM public.stat_for_unit WHERE id = inserted_stat_for_unit.id
-                    LOOP
-                        RAISE DEBUG 'stat_for_unit row: %', to_json(row);
-                    END LOOP;
-                END;
-            END IF;
-            SET CONSTRAINTS ALL IMMEDIATE;
-            SET CONSTRAINTS ALL DEFERRED;
-        END IF;
-    END IF;
-
-    IF NEW.turnover IS NOT NULL AND NEW.turnover <> '' THEN
-        BEGIN
-            stats.turnover := NEW.turnover::INTEGER;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'Invalid turnover integer for row %', to_json(NEW);
-        END;
-
-        SELECT * INTO stat_def
-        FROM stat_definition
-        WHERE code = 'turnover';
-
-        INSERT INTO public.stat_for_unit_era
-            ( stat_definition_id
-            , valid_from
-            , valid_to
-            , establishment_id
-            , value_int
-            )
-        VALUES
-            ( stat_def.id
-            , new_typed.valid_from
-            , new_typed.valid_to
-            , inserted_establishment.id
-            , stats.turnover
-            )
-        RETURNING * INTO inserted_stat_for_unit;
-
-        IF NOT statbus_constraints_already_deferred THEN
-            IF current_setting('client_min_messages') ILIKE 'debug%' THEN
-                DECLARE
-                    row RECORD;
-                BEGIN
-                    RAISE DEBUG 'DEBUG: Selecting from public.stat_for_unit where id = %', inserted_stat_for_unit.id;
-                    FOR row IN
-                        SELECT * FROM public.stat_for_unit WHERE id = inserted_stat_for_unit.id
-                    LOOP
-                        RAISE DEBUG 'stat_for_unit row: %', to_json(row);
-                    END LOOP;
-                END;
-            END IF;
-            SET CONSTRAINTS ALL IMMEDIATE;
-            SET CONSTRAINTS ALL DEFERRED;
-        END IF;
-    END IF;
+    CALL admin.process_stats_for_unit(
+        new_jsonb,
+        'establishment',
+        inserted_establishment.id,
+        new_typed.valid_from,
+        new_typed.valid_to
+        );
 
     IF tag.id IS NOT NULL THEN
         -- UPSERT to avoid multiple tags for different parts of a timeline.
@@ -7317,454 +9287,1086 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER import_establishment_era_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_era
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_era_upsert();
+
+CREATE PROCEDURE admin.generate_import_establishment_era()
+LANGUAGE plpgsql AS $generate_import_establishment_era$
+DECLARE
+    result TEXT := '';
+    ident_type_row RECORD;
+    ident_type_columns TEXT := '';
+    legal_unit_ident_type_columns TEXT := '';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
+
+    view_template TEXT := $view_template$
+CREATE VIEW public.import_establishment_era
+WITH (security_invoker=on) AS
+SELECT '' AS valid_from,
+       '' AS valid_to,
+{{ident_type_columns}}
+{{legal_unit_ident_type_columns}}
+       '' AS name,
+       '' AS birth_date,
+       '' AS death_date,
+       '' AS physical_address_part1,
+       '' AS physical_address_part2,
+       '' AS physical_address_part3,
+       '' AS physical_postal_code,
+       '' AS physical_postal_place,
+       '' AS physical_region_code,
+       '' AS physical_region_path,
+       '' AS physical_country_iso_2,
+       '' AS postal_address_part1,
+       '' AS postal_address_part2,
+       '' AS postal_address_part3,
+       '' AS postal_postal_code,
+       '' AS postal_postal_place,
+       '' AS postal_region_code,
+       '' AS postal_region_path,
+       '' AS postal_country_iso_2,
+       '' AS primary_activity_category_code,
+       '' AS secondary_activity_category_code,
+       '' AS sector_code,
+{{stat_definition_columns}}
+       '' AS tag_path
+;
+    $view_template$;
+BEGIN
+    SELECT
+        string_agg(format(E'       %L AS %I,', '', code), E'\n'),
+        string_agg(format(E'       %L AS %I,', '', 'legal_unit_' || code), E'\n')
+    INTO
+        ident_type_columns,
+        legal_unit_ident_type_columns
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT
+        string_agg(format(E'     %L AS %I,', '', code), E'\n')
+    INTO
+        stat_definition_columns
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'legal_unit_ident_type_columns', legal_unit_ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    RAISE NOTICE 'Creating public.import_establishment_era';
+    EXECUTE view_template;
+
+    COMMENT ON VIEW public.import_establishment_era IS 'Upload of establishment with all available fields';
+
+    CREATE TRIGGER import_establishment_era_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_era
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_era_upsert();
+END;
+$generate_import_establishment_era$;
+
+\echo admin.cleanup_import_establishment_era()
+CREATE PROCEDURE admin.cleanup_import_establishment_era()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_era';
+    DROP VIEW public.import_establishment_era;
+END;
+$$;
+
+\echo Add import_establishment_era callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_era',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_era',
+    'admin.cleanup_import_establishment_era'
+    );
+
+\echo Generating public.generate_import_establishment_era
+CALL admin.generate_import_establishment_era();
 
 
-\echo public.import_establishment_era_for_legal_unit
+\echo admin.generate_import_establishment_current()
+CREATE PROCEDURE admin.generate_import_establishment_current()
+LANGUAGE plpgsql AS $generate_import_establishment_current$
+DECLARE
+    ident_type_row RECORD;
+    ident_type_columns TEXT := '';
+    stat_definition_row RECORD;
+    stat_definition_columns TEXT := '';
+
+    view_template TEXT := $view_template$
+CREATE VIEW public.import_establishment_current WITH (security_invoker=on) AS
+SELECT
+{{ident_type_columns}}
+       '' AS name,
+       '' AS birth_date,
+       '' AS death_date,
+       '' AS physical_address_part1,
+       '' AS physical_address_part2,
+       '' AS physical_address_part3,
+       '' AS physical_postal_code,
+       '' AS physical_postal_place,
+       '' AS physical_region_code,
+       '' AS physical_region_path,
+       '' AS physical_country_iso_2,
+       '' AS postal_address_part1,
+       '' AS postal_address_part2,
+       '' AS postal_address_part3,
+       '' AS postal_postal_code,
+       '' AS postal_postal_place,
+       '' AS postal_region_code,
+       '' AS postal_region_path,
+       '' AS postal_country_iso_2,
+       '' AS primary_activity_category_code,
+       '' AS secondary_activity_category_code,
+       '' AS sector_code,
+       '' AS legal_form_code,
+{{stat_definition_columns}}
+       '' AS tag_path
+FROM public.import_establishment_era;
+    $view_template$;
+
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    function_template TEXT := $function_template$
+CREATE FUNCTION admin.import_establishment_current_upsert()
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_current_upsert$
+DECLARE
+    new_valid_from DATE := current_date;
+    new_valid_to DATE := 'infinity'::date;
+BEGIN
+    INSERT INTO public.import_establishment_era(
+        valid_from,
+        valid_to,
+{{ident_insert_labels}}
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
+        legal_form_code,
+{{stats_insert_labels}}
+        tag_path
+        )
+    VALUES (
+        new_valid_from,
+        new_valid_to,
+{{ident_value_labels}}
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
+        NEW.legal_form_code,
+{{stats_value_labels}}
+        NEW.tag_path
+        );
+    RETURN NULL;
+END;
+$import_establishment_current_upsert$;
+    $function_template$;
+BEGIN
+    SELECT
+        string_agg(format(E'     %L AS %I,', '', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    view_template := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    function_template := admin.render_template(function_template, jsonb_build_object(
+        'ident_insert_labels', ident_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    RAISE NOTICE 'Creating public.import_establishment_current';
+    EXECUTE view_template;
+
+    RAISE NOTICE 'Creating admin.import_establishment_current_upsert()';
+    EXECUTE function_template;
+END;
+$generate_import_establishment_current$;
+
+
+\echo admin.cleanup_import_establishment_current()
+CREATE PROCEDURE admin.cleanup_import_establishment_current()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_current';
+    DROP VIEW public.import_establishment_current;
+
+    RAISE NOTICE 'Deleting admin.import_establishment_current_upsert()';
+    DROP FUNCTION admin.import_establishment_current_upsert();
+END;
+$$;
+
+\echo Add import_establishment_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_current',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_current',
+    'admin.cleanup_import_establishment_current'
+    );
+
+\echo Generating public.import_establishment_current
+\echo Generating admin.import_establishment_current_upsert
+CALL admin.generate_import_establishment_current();
+
+
+\echo admin.generate_import_establishment_era_for_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_era_for_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_era_for_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    legal_unit_ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    legal_unit_ident_missing_check TEXT := '';
+    ident_insert_labels TEXT := '';
+    legal_unit_ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    legal_unit_ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era_for_legal_unit
 WITH (security_invoker=on) AS
-SELECT valid_from
-     , valid_to
-     , tax_ident
-     -- Required - it must connect to an existing legal_unit
-     , legal_unit_tax_ident
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
+SELECT valid_from,
+       valid_to,
+{{ident_type_columns}}
+     -- One of these are required - it must connect to an existing legal_unit
+{{legal_unit_ident_type_columns}}
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
      -- sector_code is Disabled because the legal unit provides the sector_code
-     , employees
-     , turnover
-     , tag_path
+{{stat_definition_columns}}
+       tag_path
 FROM public.import_establishment_era;
-COMMENT ON VIEW public.import_establishment_era_for_legal_unit IS 'Upload of establishment era (any timeline) that must connect to a legal_unit';
+    $view_template$;
 
-\echo admin.import_establishment_era_for_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_era_for_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_era_for_legal_unit_upsert$
 BEGIN
-    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
-      RAISE EXCEPTION 'Missing legal_unit_tax_ident for row %', to_json(NEW);
+    IF {{legal_unit_ident_missing_check}}
+    THEN
+      RAISE EXCEPTION 'Missing legal_unit identifier for row %', to_json(NEW);
     END IF;
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
-        , tax_ident
-        , legal_unit_tax_ident
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , employees
-        , turnover
-        , tag_path
-        )
-    VALUES
-        ( NEW.valid_from
-        , NEW.valid_to
-        , NEW.tax_ident
-        , NEW.legal_unit_tax_ident
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.employees
-        , NEW.turnover
-        , NEW.tag_path
+    INSERT INTO public.import_establishment_era(
+        valid_from,
+        valid_to,
+        --
+{{ident_insert_labels}}
+        --
+{{legal_unit_ident_insert_labels}}
+        --
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+{{stats_insert_labels}}
+        tag_path
+    ) VALUES (
+        NEW.valid_from,
+        NEW.valid_to,
+        --
+{{ident_value_labels}}
+        --
+{{legal_unit_ident_value_labels}}
+        --
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+{{stats_value_labels}}
+        NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_era_for_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        string_agg(format('(NEW.%1$I IS NULL OR NEW.%1$I = %2$L)',
+                          'legal_unit_' || code, ''), ' AND '),
+        string_agg(format(E'       %I,', code), E'\n'),
+        string_agg(format(E'       %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', 'legal_unit_' || code), E'\n')
+    INTO
+        legal_unit_ident_missing_check,
+        ident_type_columns,
+        legal_unit_ident_type_columns,
+        ident_insert_labels,
+        legal_unit_ident_insert_labels,
+        ident_value_labels,
+        legal_unit_ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    -- Process stat_definition_columns and related fields
+    SELECT
+        string_agg(format(E'       %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'legal_unit_ident_type_columns', legal_unit_ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'legal_unit_ident_missing_check', COALESCE(legal_unit_ident_missing_check,'true'),
+        'ident_insert_labels', ident_insert_labels,
+        'legal_unit_ident_insert_labels', legal_unit_ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'legal_unit_ident_value_labels', legal_unit_ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_era_for_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_era_for_legal_unit IS 'Upload of establishment era (any timeline) that must connect to a legal_unit';
+
+    RAISE NOTICE 'Creating admin.import_establishment_era_for_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_era_for_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_era_for_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+END;
+$generate_import_establishment_era_for_legal_unit$;
+
+\echo admin.cleanup_import_establishment_era_for_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_era_for_legal_unit';
+    DROP VIEW public.import_establishment_era_for_legal_unit;
+    RAISE NOTICE 'Deleting admin.import_establishment_era_for_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_era_for_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_era_for_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_era_for_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_era_for_legal_unit',
+    'admin.cleanup_import_establishment_era_for_legal_unit'
+    );
 
-\echo public.import_establishment_current_for_legal_unit
+\echo Generating public.generate_import_establishment_era_for_legal_unit
+CALL admin.generate_import_establishment_era_for_legal_unit();
+
+\echo admin.generate_import_establishment_current_for_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_current_for_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_current_for_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    legal_unit_ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    legal_unit_ident_missing_check TEXT := '';
+    ident_insert_labels TEXT := '';
+    legal_unit_ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    legal_unit_ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_current_for_legal_unit
 WITH (security_invoker=on) AS
-SELECT tax_ident
-     , legal_unit_tax_ident
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
+SELECT {{ident_type_columns}}
+{{legal_unit_ident_type_columns}}
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
      -- sector_code is Disabled because the legal unit provides the sector_code
-     , employees
-     , turnover
-     , tag_path
+{{stat_definition_columns}}
+       tag_path
 FROM public.import_establishment_era;
-COMMENT ON VIEW public.import_establishment_current_for_legal_unit IS 'Upload of establishment from today and forwards that must connect to a legal_unit';
+    $view_template$;
 
-
-\echo admin.import_establishment_current_for_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_current_for_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_current_for_legal_unit_upsert$
 DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    IF NEW.legal_unit_tax_ident IS NULL OR NEW.legal_unit_tax_ident = '' THEN
-      RAISE EXCEPTION 'Missing legal_unit_tax_ident for row %', to_json(NEW);
+    IF {{legal_unit_ident_missing_check}}
+    THEN
+      RAISE EXCEPTION 'Missing legal_unit identifier for row %', to_json(NEW);
     END IF;
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
-        , tax_ident
-        , legal_unit_tax_ident
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , employees
-        , turnover
-        , tag_path
-        )
-    VALUES
-        ( new_valid_from
-        , new_valid_to
-        , NEW.tax_ident
-        , NEW.legal_unit_tax_ident
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.employees
-        , NEW.turnover
-        , NEW.tag_path
+    INSERT INTO public.import_establishment_era(
+        valid_from,
+        valid_to,
+{{ident_insert_labels}}
+{{legal_unit_ident_insert_labels}}
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+{{stats_insert_labels}}
+        tag_path
+    ) VALUES (
+        new_valid_from,
+        new_valid_to,
+{{ident_value_labels}}
+{{legal_unit_ident_value_labels}}
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+{{stats_value_labels}}
+        NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_current_for_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        string_agg(format('(NEW.%1$I IS NULL OR NEW.%1$I = %2$L)',
+                          'legal_unit_' || code, ''), ' AND '),
+        string_agg(format(E'     %I,', code), E'\n'),
+        string_agg(format(E'     %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        %I,', 'legal_unit_' || code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', 'legal_unit_' || code), E'\n')
+    INTO
+        legal_unit_ident_missing_check,
+        ident_type_columns,
+        legal_unit_ident_type_columns,
+        ident_insert_labels,
+        legal_unit_ident_insert_labels,
+        ident_value_labels,
+        legal_unit_ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'legal_unit_ident_type_columns', legal_unit_ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'legal_unit_ident_missing_check', COALESCE(legal_unit_ident_missing_check,'true'),
+        'ident_insert_labels', ident_insert_labels,
+        'legal_unit_ident_insert_labels', legal_unit_ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'legal_unit_ident_value_labels', legal_unit_ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_current_for_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_current_for_legal_unit IS 'Upload of establishment from today and forwards that must connect to a legal_unit';
+
+    RAISE NOTICE 'Creating admin.import_establishment_current_for_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_current_for_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_current_for_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+END;
+$generate_import_establishment_current_for_legal_unit$;
+
+\echo admin.cleanup_import_establishment_current_for_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_current_for_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_current_for_legal_unit';
+    DROP VIEW public.import_establishment_current_for_legal_unit;
+    RAISE NOTICE 'Deleting admin.import_establishment_current_for_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_current_for_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_current_for_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_current_for_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_current_for_legal_unit',
+    'admin.cleanup_import_establishment_current_for_legal_unit'
+    );
+
+\echo Generating public.generate_import_establishment_current_for_legal_unit
+CALL admin.generate_import_establishment_current_for_legal_unit();
 
 
-\echo public.import_establishment_era_without_legal_unit
+\echo admin.generate_import_establishment_era_without_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_era_without_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_era_without_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_era_without_legal_unit
 WITH (security_invoker=on) AS
-SELECT valid_from
-     , valid_to
-     , tax_ident
-     -- legal_unit_tax_ident is Disabled because this is an informal sector
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
-     , sector_code -- Is allowed, since there is no legal unit to provide it.
-     , employees
-     , turnover
-     , tag_path
+SELECT valid_from,
+       valid_to,
+{{ident_type_columns}}
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
+       sector_code, -- Is allowed, since there is no legal unit to provide it.
+{{stat_definition_columns}}
+       tag_path
 FROM public.import_establishment_era;
+    $view_template$;
 
-
-\echo admin.import_establishment_era_without_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_era_without_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_era_without_legal_unit_upsert$
 BEGIN
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
-        , tax_ident
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , sector_code
-        , employees
-        , turnover
-        , tag_path
-        )
-    VALUES
-        ( NEW.valid_from
-        , NEW.valid_to
-        , NEW.tax_ident
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.sector_code
-        , NEW.employees
-        , NEW.turnover
-        , NEW.tag_path
+    INSERT INTO public.import_establishment_era (
+        valid_from,
+        valid_to,
+{{ident_insert_labels}}
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
+{{stats_insert_labels}}
+        tag_path
+    ) VALUES (
+        NEW.valid_from,
+        NEW.valid_to,
+{{ident_value_labels}}
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
+{{stats_value_labels}}
+        NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_era_without_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        string_agg(format(E'     %I,', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'ident_insert_labels', ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_era_without_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_era_without_legal_unit IS 'Upload of establishment without a legal unit for a specified time';
+
+    RAISE NOTICE 'Creating admin.import_establishment_era_without_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_era_without_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_era_without_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+
+END;
+$generate_import_establishment_era_without_legal_unit$;
+
+\echo admin.cleanup_import_establishment_era_without_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_era_without_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_era_without_legal_unit';
+    DROP VIEW public.import_establishment_era_without_legal_unit;
+    RAISE NOTICE 'Deleting admin.import_establishment_era_without_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_era_without_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_era_without_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_era_without_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_era_without_legal_unit',
+    'admin.cleanup_import_establishment_era_without_legal_unit'
+    );
 
-\echo public.import_establishment_current_without_legal_unit
+\echo Generating admin.generate_import_establishment_era_without_legal_unit
+CALL admin.generate_import_establishment_era_without_legal_unit();
+
+
+\echo admin.generate_import_establishment_current_without_legal_unit()
+CREATE PROCEDURE admin.generate_import_establishment_current_without_legal_unit()
+LANGUAGE plpgsql AS $generate_import_establishment_current_without_legal_unit$
+DECLARE
+    ident_type_row RECORD;
+    stat_definition_row RECORD;
+    ident_type_columns TEXT := '';
+    stat_definition_columns TEXT := '';
+    ident_insert_labels TEXT := '';
+    stats_insert_labels TEXT := '';
+    ident_value_labels TEXT := '';
+    stats_value_labels TEXT := '';
+
+    view_template TEXT := $view_template$
 CREATE VIEW public.import_establishment_current_without_legal_unit
 WITH (security_invoker=on) AS
-SELECT tax_ident
+SELECT {{ident_type_columns}}
      -- legal_unit_tax_ident is Disabled because this is an informal sector
-     , name
-     , birth_date
-     , death_date
-     , physical_address_part1
-     , physical_address_part2
-     , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
-     , physical_region_code
-     , physical_region_path
-     , physical_country_iso_2
-     , postal_address_part1
-     , postal_address_part2
-     , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
-     , postal_region_code
-     , postal_region_path
-     , postal_country_iso_2
-     , primary_activity_category_code
-     , secondary_activity_category_code
-     , sector_code -- Is allowed, since there is no legal unit to provide it.
-     , employees
-     , turnover
-     , tag_path
+       name,
+       birth_date,
+       death_date,
+       physical_address_part1,
+       physical_address_part2,
+       physical_address_part3,
+       physical_postal_code,
+       physical_postal_place,
+       physical_region_code,
+       physical_region_path,
+       physical_country_iso_2,
+       postal_address_part1,
+       postal_address_part2,
+       postal_address_part3,
+       postal_postal_code,
+       postal_postal_place,
+       postal_region_code,
+       postal_region_path,
+       postal_country_iso_2,
+       primary_activity_category_code,
+       secondary_activity_category_code,
+       sector_code, -- Is allowed, since there is no legal unit to provide it.
+{{stat_definition_columns}}
+       tag_path
 FROM public.import_establishment_era;
+    $view_template$;
 
-
-\echo admin.import_establishment_current_without_legal_unit_upsert
+    function_template TEXT := $function_template$
 CREATE FUNCTION admin.import_establishment_current_without_legal_unit_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_establishment_current_without_legal_unit_upsert$
 DECLARE
     new_valid_from DATE := current_date;
     new_valid_to DATE := 'infinity'::date;
 BEGIN
-    INSERT INTO public.import_establishment_era
-        ( valid_from
-        , valid_to
-        , tax_ident
-        , name
-        , birth_date
-        , death_date
-        , physical_address_part1
-        , physical_address_part2
-        , physical_address_part3
-        , physical_postal_code
-        , physical_postal_place
-        , physical_region_code
-        , physical_region_path
-        , physical_country_iso_2
-        , postal_address_part1
-        , postal_address_part2
-        , postal_address_part3
-        , postal_postal_code
-        , postal_postal_place
-        , postal_region_code
-        , postal_region_path
-        , postal_country_iso_2
-        , primary_activity_category_code
-        , secondary_activity_category_code
-        , sector_code
-        , employees
-        , turnover
-        , tag_path
-        )
-    VALUES
-        ( new_valid_from
-        , new_valid_to
-        , NEW.tax_ident
-        , NEW.name
-        , NEW.birth_date
-        , NEW.death_date
-        , NEW.physical_address_part1
-        , NEW.physical_address_part2
-        , NEW.physical_address_part3
-        , NEW.physical_postal_code
-        , NEW.physical_postal_place
-        , NEW.physical_region_code
-        , NEW.physical_region_path
-        , NEW.physical_country_iso_2
-        , NEW.postal_address_part1
-        , NEW.postal_address_part2
-        , NEW.postal_address_part3
-        , NEW.postal_postal_code
-        , NEW.postal_postal_place
-        , NEW.postal_region_code
-        , NEW.postal_region_path
-        , NEW.postal_country_iso_2
-        , NEW.primary_activity_category_code
-        , NEW.secondary_activity_category_code
-        , NEW.sector_code
-        , NEW.employees
-        , NEW.turnover
-        , NEW.tag_path
+    INSERT INTO public.import_establishment_era (
+        valid_from,
+        valid_to,
+{{ident_insert_labels}}
+        name,
+        birth_date,
+        death_date,
+        physical_address_part1,
+        physical_address_part2,
+        physical_address_part3,
+        physical_postal_code,
+        physical_postal_place,
+        physical_region_code,
+        physical_region_path,
+        physical_country_iso_2,
+        postal_address_part1,
+        postal_address_part2,
+        postal_address_part3,
+        postal_postal_code,
+        postal_postal_place,
+        postal_region_code,
+        postal_region_path,
+        postal_country_iso_2,
+        primary_activity_category_code,
+        secondary_activity_category_code,
+        sector_code,
+{{stats_insert_labels}}
+        tag_path
+    ) VALUES (
+        new_valid_from,
+        new_valid_to,
+{{ident_value_labels}}
+        NEW.name,
+        NEW.birth_date,
+        NEW.death_date,
+        NEW.physical_address_part1,
+        NEW.physical_address_part2,
+        NEW.physical_address_part3,
+        NEW.physical_postal_code,
+        NEW.physical_postal_place,
+        NEW.physical_region_code,
+        NEW.physical_region_path,
+        NEW.physical_country_iso_2,
+        NEW.postal_address_part1,
+        NEW.postal_address_part2,
+        NEW.postal_address_part3,
+        NEW.postal_postal_code,
+        NEW.postal_postal_place,
+        NEW.postal_region_code,
+        NEW.postal_region_path,
+        NEW.postal_country_iso_2,
+        NEW.primary_activity_category_code,
+        NEW.secondary_activity_category_code,
+        NEW.sector_code,
+{{stats_value_labels}}
+        NEW.tag_path
         );
     RETURN NULL;
 END;
+$import_establishment_current_without_legal_unit_upsert$;
+    $function_template$;
+    view_sql TEXT;
+    function_sql TEXT;
+BEGIN
+    SELECT
+        string_agg(format(E'     %I,', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        ident_type_columns,
+        ident_insert_labels,
+        ident_value_labels
+    FROM (SELECT code FROM public.external_ident_type_active) AS ordered;
+
+    SELECT
+        string_agg(format(E'     %L AS %I,','', code), E'\n'),
+        string_agg(format(E'        %I,', code), E'\n'),
+        string_agg(format(E'        NEW.%I,', code), E'\n')
+    INTO
+        stat_definition_columns,
+        stats_insert_labels,
+        stats_value_labels
+    FROM (SELECT code FROM public.stat_definition_active) AS ordered;
+
+    -- Render the view template
+    view_sql := admin.render_template(view_template, jsonb_build_object(
+        'ident_type_columns', ident_type_columns,
+        'stat_definition_columns', stat_definition_columns
+    ));
+
+    -- Render the function template
+    function_sql := admin.render_template(function_template, jsonb_build_object(
+        'ident_insert_labels', ident_insert_labels,
+        'stats_insert_labels', stats_insert_labels,
+        'ident_value_labels', ident_value_labels,
+        'stats_value_labels', stats_value_labels
+    ));
+
+    -- Continue with the rest of your procedure logic
+    RAISE NOTICE 'Creating public.import_establishment_current_without_legal_unit';
+    EXECUTE view_sql;
+    COMMENT ON VIEW public.import_establishment_current_without_legal_unit IS 'Upload of establishment without a legal unit for a specified time';
+
+    RAISE NOTICE 'Creating admin.import_establishment_current_without_legal_unit_upsert()';
+    EXECUTE function_sql;
+
+    CREATE TRIGGER import_establishment_current_without_legal_unit_upsert_trigger
+    INSTEAD OF INSERT ON public.import_establishment_current_without_legal_unit
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
+
+END;
+$generate_import_establishment_current_without_legal_unit$;
+
+\echo admin.cleanup_import_establishment_current_without_legal_unit()
+CREATE PROCEDURE admin.cleanup_import_establishment_current_without_legal_unit()
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Deleting public.import_establishment_current_without_legal_unit';
+    DROP VIEW public.import_establishment_current_without_legal_unit;
+    RAISE NOTICE 'Deleting admin.import_establishment_current_without_legal_unit_upsert';
+    DROP FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
+END;
 $$;
 
-CREATE TRIGGER import_establishment_current_without_legal_unit_upsert_trigger
-INSTEAD OF INSERT ON public.import_establishment_current_without_legal_unit
-FOR EACH ROW
-EXECUTE FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
+\echo Add import_legal_unit_current callbacks
+CALL lifecycle_callbacks.add(
+    'import_establishment_current_without_legal_unit',
+    ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
+    'admin.generate_import_establishment_current_without_legal_unit',
+    'admin.cleanup_import_establishment_current_without_legal_unit'
+    );
+
+\echo Generating admin.generate_import_establishment_current_without_legal_unit
+CALL admin.generate_import_establishment_current_without_legal_unit();
 
 
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
@@ -7850,7 +10452,6 @@ BEGIN
           END AS birth_date
         , NEW."navn" AS name
         , true AS active
-        , statement_timestamp() AS seen_in_import_at
         , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
@@ -7861,7 +10462,6 @@ BEGIN
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
           , active = upsert_data.active
-          , seen_in_import_at = upsert_data.seen_in_import_at
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
@@ -7877,7 +10477,6 @@ BEGIN
           , birth_date
           , name
           , active
-          , seen_in_import_at
           , edit_comment
           , edit_by_user_id
           )
@@ -7888,7 +10487,6 @@ BEGIN
           , upsert_data.birth_date
           , upsert_data.name
           , upsert_data.active
-          , upsert_data.seen_in_import_at
           , upsert_data.edit_comment
           , upsert_data.edit_by_user_id
         FROM upsert_data
@@ -7902,37 +10500,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-\echo admin.legal_unit_brreg_view_delete_stale
-CREATE FUNCTION admin.legal_unit_brreg_view_delete_stale()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        WHERE uuid = auth.uid()
-        LIMIT 1
-    )
-    UPDATE public.legal_unit
-    SET valid_to = statement_timestamp()
-      , edit_comment = 'Absent from upload'
-      , edit_by_user_id = (SELECT id FROM su)
-      , active = false
-    WHERE seen_in_import_at < statement_timestamp();
-    RETURN NULL;
-END;
-$$;
 
 -- Create triggers for the view
 CREATE TRIGGER legal_unit_brreg_view_upsert
 INSTEAD OF INSERT ON public.legal_unit_brreg_view
 FOR EACH ROW
 EXECUTE FUNCTION admin.legal_unit_brreg_view_upsert();
-
-CREATE TRIGGER legal_unit_brreg_view_delete_stale
-AFTER INSERT ON public.legal_unit_brreg_view
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.legal_unit_brreg_view_delete_stale();
-
 
 -- time psql <<EOS
 -- \copy public.legal_unit_brreg_view FROM 'tmp/enheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -8006,7 +10579,6 @@ BEGIN
           END AS birth_date
         , NEW."navn" AS name
         , true AS active
-        , statement_timestamp() AS seen_in_import_at
         , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
@@ -8017,7 +10589,6 @@ BEGIN
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
           , active = upsert_data.active
-          , seen_in_import_at = upsert_data.seen_in_import_at
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
@@ -8033,7 +10604,6 @@ BEGIN
           , birth_date
           , name
           , active
-          , seen_in_import_at
           , edit_comment
           , edit_by_user_id
           )
@@ -8044,7 +10614,6 @@ BEGIN
           , upsert_data.birth_date
           , upsert_data.name
           , upsert_data.active
-          , upsert_data.seen_in_import_at
           , upsert_data.edit_comment
           , upsert_data.edit_by_user_id
         FROM upsert_data
@@ -8058,37 +10627,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create function for deleting stale countries
-\echo admin.delete_stale_establishment_brreg_view
-CREATE FUNCTION admin.delete_stale_establishment_brreg_view()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    WITH su AS (
-        SELECT *
-        FROM statbus_user
-        WHERE uuid = auth.uid()
-        LIMIT 1
-    )
-    UPDATE public.establishment
-    SET valid_to = statement_timestamp()
-      , edit_comment = 'Absent from upload'
-      , edit_by_user_id = (SELECT id FROM su)
-      , active = false
-    WHERE seen_in_import_at < statement_timestamp();
-    RETURN NULL;
-END;
-$$;
 
 -- Create triggers for the view
 CREATE TRIGGER upsert_establishment_brreg_view
 INSTEAD OF INSERT ON public.establishment_brreg_view
 FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_establishment_brreg_view();
-
-CREATE TRIGGER delete_stale_establishment_brreg_view
-AFTER INSERT ON public.establishment_brreg_view
-FOR EACH STATEMENT
-EXECUTE FUNCTION admin.delete_stale_establishment_brreg_view();
 
 
 \echo public.reset_all_data(boolean confirmed)
@@ -8121,6 +10665,50 @@ BEGIN
     SELECT jsonb_build_object(
         'location', jsonb_build_object(
             'deleted_count', (SELECT COUNT(*) FROM deleted_location)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Add delete for public.tag where type = 'custom'
+    WITH deleted_tag AS (
+        DELETE FROM public.tag WHERE type = 'custom' RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'tag', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_tag)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Add delete for public.stat_definition WHERE code NOT IN ('employees','turnover')
+    WITH deleted_stat_definition AS (
+        DELETE FROM public.stat_definition WHERE code NOT IN ('employees','turnover') RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'stat_definition', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_stat_definition)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Add delete for public.external_ident_type not added by the system
+    WITH deleted_external_ident AS (
+        DELETE FROM public.external_ident WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'external_ident', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident)
+        )
+    ) INTO changed;
+    result := result || changed;
+
+    -- Add delete for public.external_ident_type not added by the system
+    WITH deleted_external_ident_type AS (
+        DELETE FROM public.external_ident_type WHERE code NOT IN ('stat_ident','tax_ident') RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'external_ident_type', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident_type)
         )
     ) INTO changed;
     result := result || changed;
@@ -8281,9 +10869,52 @@ END;
 $$;
 
 
+
 -- time psql <<EOS
 -- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- EOS
+
+
+-- Add helpers
+CREATE FUNCTION public.remove_ephemeral_data_from_hierarchy(data JSONB) RETURNS JSONB
+LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+DECLARE
+    result JSONB;
+    key TEXT;
+    value JSONB;
+    new_value JSONB;
+    ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at'];
+    ephemeral_patterns TEXT[] := ARRAY['%_id','%_ids'];
+BEGIN
+    -- Handle both object and array types at the first level
+    CASE jsonb_typeof(data)
+        WHEN 'object' THEN
+            result := '{}';  -- Initialize result as an empty object
+            FOR key, value IN SELECT * FROM jsonb_each(data) LOOP
+                IF key = ANY(ephemeral_keys) OR key LIKE ANY(ephemeral_patterns) THEN
+                    CONTINUE;
+                END IF;
+                new_value := public.remove_ephemeral_data_from_hierarchy(value);
+                result := jsonb_set(result, ARRAY[key], new_value, true);
+            END LOOP;
+        WHEN 'array' THEN
+            -- No need to initialize result as '{}', let the SELECT INTO handle it
+            SELECT COALESCE
+                ( jsonb_agg(public.remove_ephemeral_data_from_hierarchy(elem))
+                , '[]'::JSONB
+            )
+            INTO result
+            FROM jsonb_array_elements(data) AS elem;
+        ELSE
+            -- If data is neither object nor array, return it as is
+            result := data;
+    END CASE;
+
+    RETURN result;
+END;
+$$;
+
+
 
 -- Add security.
 
@@ -8304,7 +10935,7 @@ $$
 $$;
 
 -- Add security functions
-\echo auth.has_one_of_statbus_roles 
+\echo auth.has_one_of_statbus_roles
 CREATE OR REPLACE FUNCTION auth.has_one_of_statbus_roles (user_uuid UUID, types public.statbus_role_type[])
 RETURNS BOOL
 LANGUAGE SQL
@@ -8321,7 +10952,7 @@ $$
 $$;
 
 
-\echo auth.has_activity_category_access 
+\echo auth.has_activity_category_access
 CREATE OR REPLACE FUNCTION auth.has_activity_category_access (user_uuid UUID, activity_category_id integer)
 RETURNS BOOL
 LANGUAGE SQL
@@ -8484,24 +11115,14 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['external_ident', 'external_ident_type']);
 
 SELECT sql_saga.add_era('public.legal_unit', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['tax_ident']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['by_tag_id', 'by_tag_id_unique_ident']);
 -- TODO: Use a scoped sql_saga unique key for enterprise_id below.
 -- SELECT sql_saga.add_unique_key('public.legal_unit', ARRAY['enterprise_id'], WHERE 'primary_for_enterprise');
 
 SELECT sql_saga.add_era('public.establishment', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.establishment', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['stat_ident']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['tax_ident']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['external_ident', 'external_ident_type']);
-SELECT sql_saga.add_unique_key('public.establishment', ARRAY['by_tag_id', 'by_tag_id_unique_ident']);
 -- TODO: Extend sql_saga with support for predicates by using unique indices instead of constraints.
 --SELECT sql_saga.add_unique_key('public.establishment', ARRAY['legal_unit_id'], WHERE 'primary_for_legal_unit');
 SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');

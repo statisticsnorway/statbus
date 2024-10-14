@@ -8,7 +8,11 @@ import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
-import TimeContextProvider from "@/app/time-context-provider";
+import PopStateHandler from "@/components/PopStateHandler";
+import { ServerBaseDataProvider } from "@/app/BaseDataServer";
+import { ClientBaseDataProvider } from "@/app/BaseDataClient";
+import { AuthProvider } from "@/context/AuthContext";
+import { TimeContextProvider } from "@/app/time-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,18 +34,25 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <TimeContextProvider>
-          <Suspense fallback={<NavbarSkeleton />}>
-            <Navbar />
-          </Suspense>
-          {children}
-        </TimeContextProvider>
-        <CommandPalette />
-        <Toaster />
-        <Suspense fallback={<FooterSkeleton />}>
-          <Footer />
-        </Suspense>
-        <GlobalErrorReporter />
+        <AuthProvider>
+          <ServerBaseDataProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <TimeContextProvider>
+                <PopStateHandler />
+                <Suspense fallback={<NavbarSkeleton />}>
+                  <Navbar />
+                </Suspense>
+                {children}
+                <CommandPalette />
+                <Toaster />
+                <Suspense fallback={<FooterSkeleton />}>
+                  <Footer />
+                </Suspense>
+              </TimeContextProvider>
+            </Suspense>
+          </ServerBaseDataProvider>
+          <GlobalErrorReporter />
+        </AuthProvider>
       </body>
     </html>
   );

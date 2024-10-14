@@ -15,36 +15,34 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { useTimeContext } from "@/app/use-time-context";
-import { useEffect, useState } from "react";
+import { useTimeContext } from "@/app/time-context";
+import { useState } from "react";
+import { useBaseData } from "@/app/BaseDataClient"; // Import the useBaseData hook
 
 export default function TimeContextSelector({
   className,
-  title = "Select period",
+  title = "Select time",
 }: {
   readonly className?: string;
   readonly title?: string;
 }) {
-  const [visible, setVisible] = useState(false);
-  const { selectedPeriod, periods, setSelectedPeriod } = useTimeContext();
+  const { selectedTimeContext, setSelectedTimeContext } = useTimeContext();
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const { timeContexts } = useBaseData(); // Use the useBaseData hook to get timeContexts
 
-  useEffect(() => {
-    setVisible(true);
-  }, []);
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+      <PopoverTrigger asChild onClick={() => setIsPopoverOpen(!isPopoverOpen)}>
         <Button
           variant="outline"
           className={cn(
-            "space-x-2 transition-opacity border-dashed duration-500 bg-transparent",
-            className,
-            visible ? "opacity-100" : "opacity-0"
+            "space-x-2 border-dashed bg-transparent",
+            className
           )}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
-          {selectedPeriod?.name_when_query ?? title}
+          {selectedTimeContext?.name_when_query ?? title}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -56,15 +54,18 @@ export default function TimeContextSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {periods.map((period) => (
+              {timeContexts.map((time_context) => (
                 <CommandItem
-                  key={period.ident}
-                  value={period.ident!}
-                  onSelect={() => setSelectedPeriod(period)}
+                  key={time_context.ident}
+                  value={time_context.ident!}
+                  onSelect={() => {
+                    setSelectedTimeContext(time_context);
+                    setIsPopoverOpen(false);
+                  }}
                   className="space-x-2"
                 >
-                  {selectedPeriod === period ? <Check size={14} /> : null}
-                  <span>{period.name_when_query}</span>
+                  {selectedTimeContext === time_context ? <Check size={14} /> : null}
+                  <span>{time_context.name_when_query}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

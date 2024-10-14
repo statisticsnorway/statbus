@@ -1,24 +1,18 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
-import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
+import { useCallback } from "react";
+import { UNIT_TYPE, unitTypeDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+import { SearchFilterOption } from "../search";
+import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
-interface IProps {
-  readonly urlSearchParam: string | null;
-}
-
-export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
+export default function UnitTypeFilter() {
   const {
-    dispatch,
-    search: {
-      values: { [UNIT_TYPE]: selected = [] },
+    modifySearchState,
+    searchState: {
+      appSearchParams: { [UNIT_TYPE]: selected = [] },
     },
   } = useSearchContext();
-
-  const buildQuery = (values: (string | null)[]) => {
-    return values.length ? `in.(${values.join(",")})` : null;
-  };
 
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
@@ -26,42 +20,14 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: UNIT_TYPE,
-          query: buildQuery(values),
-          values,
-        },
-      });
+      modifySearchState(unitTypeDeriveStateUpdateFromValues(values));
     },
-    [dispatch, selected]
+    [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    dispatch({
-      type: "set_query",
-      payload: {
-        name: UNIT_TYPE,
-        query: null,
-        values: [],
-      },
-    });
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (param) {
-      const initialSelected = param.split(",");
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: UNIT_TYPE,
-          query: buildQuery(initialSelected),
-          values: initialSelected,
-        },
-      });
-    }
-  }, [dispatch, param]);
+    modifySearchState(unitTypeDeriveStateUpdateFromValues(selected));
+  }, [modifySearchState, selected]);
 
   return (
     <OptionsFilter
@@ -73,18 +39,21 @@ export default function UnitTypeFilter({ urlSearchParam: param }: IProps) {
           value: "legal_unit",
           humanReadableValue: "Legal Unit",
           className: "bg-legal_unit-100",
+          icon: <StatisticalUnitIcon type="legal_unit" className="w-4" />,
         },
         {
           label: "Establishment",
           value: "establishment",
           humanReadableValue: "Establishment",
           className: "bg-establishment-100",
+          icon: <StatisticalUnitIcon type="establishment" className="w-4" />,
         },
         {
           label: "Enterprise",
           value: "enterprise",
           humanReadableValue: "Enterprise",
           className: "bg-enterprise-100",
+          icon: <StatisticalUnitIcon type="enterprise" className="w-4" />,
         },
       ]}
       selectedValues={selected}

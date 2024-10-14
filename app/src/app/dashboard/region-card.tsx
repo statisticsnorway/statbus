@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
 
 export const RegionCard = async () => {
-  const client = createClient();
+  const client = await createSupabaseSSRClient();
 
   const { count, error } = await client
     .from("region")
@@ -12,7 +12,7 @@ export const RegionCard = async () => {
 
   return (
     <DashboardCard
-      title="Regions"
+      title="Region Hierarchy"
       icon={<Globe2 className="h-4" />}
       text={count?.toString() ?? "-"}
       failed={!!error}

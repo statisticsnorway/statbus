@@ -17,9 +17,31 @@ services:
     image: ghcr.io/veridit/supabase_postgres:latest
     #image: veridit/supabase_postgres:latest
     # Prevent the database from using too much memory.
-    shm_size: 1g
+    shm_size: 2g
     ports:
       - 127.0.0.1:${DB_PUBLIC_LOCALHOST_PORT}:5432
     volumes:
       # Make all files available for running tests.
       - ..:/statbus
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal # prevents Realtime polling queries from appearing in logs
+      - -c # Disable synchronous_commit to avoid waiting for WAL flush to disk, increasing performance at the cost of durability.
+      - synchronous_commit=off
+      - -c # Delay WAL writes to disk by 500ms to batch more transactions and reduce disk I/O pressure.
+      - wal_writer_delay=500ms
+      - -c # Increase the time between checkpoints to 15 minutes, reducing I/O spikes by having fewer checkpoints.
+      - checkpoint_timeout=15min
+      - -c # Allow checkpoints to be spread over 90% of the time between checkpoints, reducing their performance impact.
+      - checkpoint_completion_target=0.9
+      - -c # Allocate 1GB of shared memory buffers for PostgreSQL to cache more data in RAM, reducing the need for disk reads.
+      - shared_buffers=1GB
+      - -c # Set the work memory to 512MB, allowing larger operations (e.g., sorts, joins) to use more memory and avoid temporary disk usage.
+      - work_mem=512MB
+      - -c # Allocate 512MB for maintenance operations such as VACUUM and CREATE INDEX, improving the performance of these operations.
+      - maintenance_work_mem=512MB
+      - -c # Set WAL buffers to 64MB, allowing more WAL data to be stored in memory before being written to disk, reducing write frequency.
+      - wal_buffers=64MB

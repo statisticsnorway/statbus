@@ -155,10 +155,13 @@ case "$action" in
         if test -z "$TEST_BASENAMES"; then
             echo "Available tests:"
             echo "all"
+            echo "failed"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
         elif test "$TEST_BASENAMES" = "all"; then
             TEST_BASENAMES=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+        elif test "$TEST_BASENAMES" = "failed"; then
+            TEST_BASENAMES=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
         fi
 
         for test_basename in $TEST_BASENAMES; do
@@ -182,6 +185,61 @@ case "$action" in
             --dbname=$PGDATABASE \
             --user=$PGUSER \
             $TEST_BASENAMES
+    ;;
+    'diff-fail-first' )
+      if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+          echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+          exit 1
+      fi
+
+      test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
+      if [ -n "$test" ]; then
+          ui=${1:-tui}
+          shift || true
+          case $ui in
+              'gui')
+                  echo "Running opendiff for test: $test"
+                  opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
+                  ;;
+              'tui')
+                  echo "Running vimdiff for test: $test"
+                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              *)
+                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  exit 1
+              ;;
+          esac
+      else
+          echo "No failing tests found."
+      fi
+    ;;
+    'diff-fail-all' )
+      if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+          echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+          exit 1
+      fi
+
+      grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
+          echo "Next test: $test"
+          echo "Press C to continue, s to skip, or b to break (default: C)"
+          read -n 1 -s input < /dev/tty
+          if [ "$input" = "b" ]; then
+              break
+          elif [ "$input" = "s" ]; then
+              continue
+          fi
+          case "${2:-}" in
+              'ui')
+                  echo "Running opendiff for test: $test"
+                  opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
+                  ;;
+              'text'|*)
+                  echo "Running vimdiff for test: $test"
+                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+          esac
+      done
     ;;
     'activate_sql_saga' )
         eval $(./devops/manage-statbus.sh postgres-variables)
@@ -345,7 +403,6 @@ EOS
 # by `./devops/manage-statbus.sh` that also sets the VERSION
 # required for precise logging by the statbus app.
 ################################################################
-
 EOS
 
         cat >> .env <<'EOS'
@@ -458,6 +515,21 @@ EOF
         export SERVICE_ROLE_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_service_role_payload")
         ./devops/dotenv --file .env set SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 
+        # Add Publicly exposed Next.js variables
+        cat >> .env <<EOS
+################################################################
+# Statbus App Environment Variables
+# Next.js only exposes environment variables with the 'NEXT_PUBLIC_'
+# prefix. Add all the variables here that are exposed publicly,
+# i.e. available in the web page source code for all to see.
+#
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME
+NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE
+#
+################################################################
+EOS
         ;;
      'postgres-variables' )
         PGHOST=127.0.0.1

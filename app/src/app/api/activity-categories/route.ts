@@ -1,36 +1,30 @@
-import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
-import { NextResponse } from "next/server";
-export async function GET(request: Request) {
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const authFetch = setupAuthorizedFetchFn();
+  const client = await createSupabaseSSRClient();
 
-  if (!searchParams.has("select")) {
-    searchParams.set("select", "*");
-  }
+  let query = client.from('activity_category_available')
+    .select(
+      searchParams.get("select") || "*",
+      { count: 'exact', head: true }
+    );
   if (!searchParams.has("order")) {
-    searchParams.set("order", "path");
+    query = query.order("path");
   }
   if (!searchParams.has("limit")) {
-    searchParams.set("limit", "10");
+    query = query.limit(10);
   }
 
-  const response = await authFetch(
-    `${process.env.SUPABASE_URL}/rest/v1/activity_category_available?${searchParams}`,
-    {
-      method: "GET",
-      headers: {
-        Prefer: "count=exact",
-        "Range-Unit": "items",
-      },
-    }
-  );
-  if (!response.ok) {
-    return NextResponse.json({ error: response.statusText });
+  const {data: activityCategories, error, status, count} = await query;
+
+  if (error && status !== 406) {
+    console.log(error)
+    throw error
   }
-  const activityCategories = await response.json();
-  const count = response.headers.get("content-range")?.split("/")[1];
+
   return NextResponse.json({
     activityCategories,
-    count: parseInt(count ?? "-1", 10),
+    count: count ?? -1,
   });
 }

@@ -1,3 +1,4 @@
+"use client";
 import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
@@ -7,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
-import { createClient } from "@/lib/supabase/server";
 
 export function NavbarSkeleton() {
   return (
@@ -19,16 +19,18 @@ export function NavbarSkeleton() {
   );
 }
 
-export default async function Navbar() {
-  const supabase = createClient();
-  const session = await supabase.auth.getSession();
+import { useAuth } from "@/hooks/useAuth";
+
+export default function Navbar() {
+  const { isAuthenticated } = useAuth();
+
   return (
     <header className="bg-ssb-dark text-white">
       <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-2 lg:px-4">
-        <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
+        <Link href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <Image src={logo} alt="Statbus Logo" className="h-10 w-10" />
-        </a>
-        {session.data.session?.user && (
+        </Link>
+        {isAuthenticated && (
           <div className="flex-1 space-x-3 flex items-center justify-end">
             <TimeContextSelector />
             <Link

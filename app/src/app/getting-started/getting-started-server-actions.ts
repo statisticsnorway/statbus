@@ -1,7 +1,6 @@
 "use server";
 import { redirect, RedirectType } from "next/navigation";
-import { setupAuthorizedFetchFn } from "@/lib/supabase/request-helper";
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -30,25 +29,16 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const authFetch = setupAuthorizedFetchFn();
-    const response = await authFetch(
-      `${process.env.SUPABASE_URL}/rest/v1/${uploadView}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/csv",
-        },
-        body: file,
-      }
-    );
+    const client = await createSupabaseSSRClient();
+    // TODO: Specify the contentType for CSV upload.
+    const { error } = await client.from(uploadView).insert(file) //, { contentType: "text/csv" });
 
-    if (!response.ok) {
-      const data = await response.json();
+    if (error) {
       logger.error(
-        { data },
-        `upload to ${uploadView} failed with status ${response.status} ${response.statusText}`
+        { error },
+        `upload to ${uploadView} failed with status ${error.code} ${error.message}`
       );
-      return { error: data.message.replace(/,/g, ", ").replace(/;/g, "; ") };
+      return { error: error.message.replace(/,/g, ", ").replace(/;/g, "; ") };
     }
 
     revalidatePath("/getting-started", "page");
@@ -61,7 +51,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = createClient();
+  const client = await createSupabaseSSRClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

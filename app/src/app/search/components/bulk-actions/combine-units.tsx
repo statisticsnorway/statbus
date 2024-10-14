@@ -5,11 +5,11 @@ import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import logger from "@/lib/client-logger";
-import { useCartContext } from "@/app/search/use-cart-context";
+import { useSelectionContext } from "@/app/search/use-selection-context";
 
 export default function CombineUnits() {
   const router = useRouter();
-  const { selected } = useCartContext();
+  const { selected } = useSelectionContext();
 
   const isEligibleForCombination =
     selected.length === 2 &&

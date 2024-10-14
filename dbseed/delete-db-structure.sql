@@ -31,26 +31,20 @@ SELECT sql_saga.drop_era('public.activity');
 
 \echo public.establishment
 SELECT sql_saga.drop_foreign_key('public.establishment', 'establishment_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_by_tag_id_by_tag_id_unique_ident_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_tax_ident_valid');
-SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.establishment', 'establishment_id_valid');
 SELECT sql_saga.drop_era('public.establishment');
 
 \echo public.legal_unit
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_by_tag_id_by_tag_id_unique_ident_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_tax_ident_valid');
-SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.legal_unit', 'legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.legal_unit');
 
 \echo public.enterprise_group
-SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_external_ident_external_ident_type_valid');
-SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_stat_ident_valid');
 SELECT sql_saga.drop_unique_key('public.enterprise_group', 'enterprise_group_id_valid');
 SELECT sql_saga.drop_era('public.enterprise_group');
+
+
+\echo public.relevant_statistical_units
+DROP FUNCTION public.relevant_statistical_units(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
 
 \echo public.statistical_unit_hierarchy
 DROP FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE);
@@ -76,6 +70,8 @@ DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_l
 DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
 \echo public.tag_for_unit_hierarchy
 DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
+\echo public.external_idents_hierarchy
+DROP FUNCTION public.external_idents_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
 \echo public.activity_category_standard_hierarchy
 DROP FUNCTION public.activity_category_standard_hierarchy(activity_category_standard_id integer);
 
@@ -89,11 +85,14 @@ DROP MATERIALIZED VIEW public.statistical_history_facet;
 \echo public.statistical_history_facet_def
 DROP VIEW public.statistical_history_facet_def;
 
+\echo public.statistical_history_periods
+DROP VIEW public.statistical_history_periods;
+
 \echo public.statistical_history_drilldown
 DROP FUNCTION public.statistical_history_drilldown;
 
-\echo public.statistical_history_type
-DROP TYPE public.statistical_history_type;
+\echo public.history_resolution
+DROP TYPE public.history_resolution;
 
 \echo public.websearch_to_wildcard_tsquery
 DROP FUNCTION public.websearch_to_wildcard_tsquery(text_query text);
@@ -113,13 +112,29 @@ DROP MATERIALIZED VIEW public.statistical_unit;
 
 DROP VIEW public.statistical_unit_def;
 
+DROP VIEW public.enterprise_external_idents;
+DROP FUNCTION public.get_external_idents;
+DROP FUNCTION public.get_tag_paths;
+
 DROP VIEW public.timeline_enterprise;
 DROP VIEW public.timeline_legal_unit;
 DROP VIEW public.timeline_establishment;
 DROP VIEW public.timesegments;
 DROP VIEW public.timepoints;
+DROP FUNCTION public.get_jsonb_stats;
 
 DROP TYPE public.statistical_unit_type;
+
+DROP AGGREGATE public.jsonb_stats_to_summary_agg(jsonb);
+DROP FUNCTION public.jsonb_stats_to_summary(jsonb,jsonb);
+DROP AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb);
+DROP FUNCTION public.jsonb_stats_summary_merge(jsonb,jsonb);
+DROP FUNCTION public.jsonb_stats_to_summary_round(jsonb);
+
+DROP AGGREGATE public.jsonb_concat_agg(jsonb);
+
+DROP AGGREGATE public.array_distinct_concat(anycompatiblearray);
+DROP FUNCTION public.array_distinct_concat_final(anycompatiblearray);
 
 DROP VIEW public.activity_category_isic_v4;
 DROP VIEW public.activity_category_nace_v2_1;
@@ -144,43 +159,9 @@ DROP FUNCTION admin.delete_stale_country();
 
 DROP VIEW public.legal_unit_brreg_view;
 DROP FUNCTION admin.legal_unit_brreg_view_upsert();
-DROP FUNCTION admin.legal_unit_brreg_view_delete_stale();
 
 DROP VIEW public.establishment_brreg_view;
 DROP FUNCTION admin.upsert_establishment_brreg_view();
-DROP FUNCTION admin.delete_stale_establishment_brreg_view();
-
-DROP TRIGGER import_legal_unit_with_delete_current_trigger ON public.import_legal_unit_with_delete_current;
-DROP FUNCTION admin.import_legal_unit_with_delete_current();
-DROP VIEW public.import_legal_unit_with_delete_current;
-
-DROP TRIGGER import_legal_unit_current_upsert_trigger ON public.import_legal_unit_current;
-DROP FUNCTION admin.import_legal_unit_current_upsert();
-DROP VIEW public.import_legal_unit_current;
-
-DROP TRIGGER import_legal_unit_era_upsert_trigger ON public.import_legal_unit_era;
-DROP FUNCTION admin.import_legal_unit_era_upsert();
-DROP VIEW public.import_legal_unit_era;
-
-DROP TRIGGER import_establishment_current_without_legal_unit_upsert_trigger ON public.import_establishment_current_without_legal_unit;
-DROP FUNCTION admin.import_establishment_current_without_legal_unit_upsert();
-DROP VIEW public.import_establishment_current_without_legal_unit;
-
-DROP TRIGGER import_establishment_era_without_legal_unit_upsert_trigger ON public.import_establishment_era_without_legal_unit;
-DROP FUNCTION admin.import_establishment_era_without_legal_unit_upsert();
-DROP VIEW public.import_establishment_era_without_legal_unit;
-
-DROP TRIGGER import_establishment_current_for_legal_unit_upsert_trigger ON public.import_establishment_current_for_legal_unit;
-DROP FUNCTION admin.import_establishment_current_for_legal_unit_upsert();
-DROP VIEW public.import_establishment_current_for_legal_unit;
-
-DROP TRIGGER import_establishment_era_for_legal_unit_upsert_trigger ON public.import_establishment_era_for_legal_unit;
-DROP FUNCTION admin.import_establishment_era_for_legal_unit_upsert();
-DROP VIEW public.import_establishment_era_for_legal_unit;
-
-DROP TRIGGER import_establishment_era_upsert_trigger ON public.import_establishment_era;
-DROP FUNCTION admin.import_establishment_era_upsert();
-DROP VIEW public.import_establishment_era;
 
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();
@@ -213,6 +194,51 @@ DROP VIEW public.legal_form_available;
 DROP VIEW public.legal_form_custom_only;
 DROP FUNCTION admin.legal_form_custom_only_prepare();
 DROP FUNCTION admin.legal_form_custom_only_upsert();
+
+
+DROP FUNCTION admin.import_lookup_tag;
+DROP FUNCTION admin.import_lookup_country;
+DROP FUNCTION admin.import_lookup_region;
+DROP FUNCTION admin.import_lookup_activity_category;
+DROP FUNCTION admin.import_lookup_sector;
+DROP FUNCTION admin.import_lookup_legal_form;
+DROP FUNCTION admin.type_date_field;
+DROP FUNCTION admin.process_external_idents;
+DROP FUNCTION admin.process_enterprise_connection;
+DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
+DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
+DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
+
+TRUNCATE public.external_ident;
+DELETE FROM public.external_ident_type;
+
+TRUNCATE public.stat_for_unit;
+DELETE FROM public.stat_definition;
+
+\echo "Run all the cleanup procedures for all tables."
+CALL lifecycle_callbacks.cleanup();
+
+CALL lifecycle_callbacks.del('import_establishment_current_without_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_era_without_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_current_for_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_era_for_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_current');
+CALL lifecycle_callbacks.del('import_establishment_era');
+CALL lifecycle_callbacks.del('import_legal_unit_current');
+CALL lifecycle_callbacks.del('import_legal_unit_era');
+DROP FUNCTION admin.import_legal_unit_era_upsert;
+DROP FUNCTION admin.import_establishment_era_upsert;
+
+CALL lifecycle_callbacks.del_table('public.external_ident_type');
+CALL lifecycle_callbacks.del_table('public.stat_definition');
+
+\echo public.external_ident
+DROP TABLE public.external_ident;
+\echo Trigger cleanup of external_ident_type generated code.
+DROP VIEW public.external_ident_type_active;
+DROP VIEW public.external_ident_type_ordered;
+DROP TABLE public.external_ident_type;
+DROP FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
 
 SELECT admin.drop_table_views_for_batch_api('public.sector');
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
@@ -248,6 +274,8 @@ DROP TABLE public.activity;
 DROP TABLE public.activity_category_role;
 DROP TABLE public.activity_category;
 DROP TABLE public.activity_category_standard;
+DROP TYPE public.activity_category_code_behaviour;
+DROP FUNCTION public.lookup_parent_and_derive_code();
 
 DROP TABLE public.tag_for_unit;
 DROP TABLE public.person_for_unit;
@@ -256,6 +284,8 @@ DROP TABLE public.analysis_log;
 DROP TABLE public.analysis_queue;
 
 DROP TABLE public.stat_for_unit;
+DROP VIEW public.stat_definition_active;
+DROP VIEW public.stat_definition_ordered;
 DROP TABLE public.stat_definition;
 DROP TYPE public.stat_type;
 DROP TYPE public.stat_frequency;
@@ -275,8 +305,8 @@ DROP TABLE public.custom_analysis_check;
 
 DROP TABLE public.data_source;
 
-DROP VIEW public.period_active;
-DROP TYPE public.period_type;
+DROP VIEW public.time_context;
+DROP TYPE public.time_context_type;
 
 DROP VIEW public.relative_period_with_time;
 DROP TABLE public.relative_period;
@@ -346,8 +376,42 @@ DROP FUNCTION public.connect_legal_unit_to_enterprise(
     valid_to date
     );
 
+DROP TABLE lifecycle_callbacks.registered_callback;
+DROP TABLE lifecycle_callbacks.supported_table;
+DROP PROCEDURE lifecycle_callbacks.add_table(regclass);
+DROP PROCEDURE lifecycle_callbacks.del_table(regclass);
+DROP PROCEDURE lifecycle_callbacks.add(text,regclass[],regproc,regproc);
+DROP PROCEDURE lifecycle_callbacks.del(text);
+DROP FUNCTION lifecycle_callbacks.cleanup_and_generate();
+DROP PROCEDURE lifecycle_callbacks.generate(regclass);
+DROP PROCEDURE lifecycle_callbacks.cleanup(regclass);
+DROP SCHEMA lifecycle_callbacks CASCADE;
+
+DROP PROCEDURE admin.generate_import_legal_unit_current();
+DROP PROCEDURE admin.cleanup_import_legal_unit_current();
+DROP PROCEDURE admin.generate_import_legal_unit_era();
+DROP PROCEDURE admin.cleanup_import_legal_unit_era();
+
+DROP PROCEDURE admin.generate_import_establishment_era();
+DROP PROCEDURE admin.cleanup_import_establishment_era();
+DROP PROCEDURE admin.generate_import_establishment_current();
+DROP PROCEDURE admin.cleanup_import_establishment_current();
+
+DROP PROCEDURE admin.generate_import_establishment_era_for_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_era_for_legal_unit();
+DROP PROCEDURE admin.generate_import_establishment_current_for_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_current_for_legal_unit();
+
+DROP PROCEDURE admin.generate_import_establishment_era_without_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_era_without_legal_unit();
+DROP PROCEDURE admin.generate_import_establishment_current_without_legal_unit();
+DROP PROCEDURE admin.cleanup_import_establishment_current_without_legal_unit();
+
+DROP FUNCTION admin.render_template(text,jsonb);
+DROP FUNCTION public.remove_ephemeral_data_from_hierarchy(JSONB);
+
 \echo public.reset_all_data
-DROP FUNCTION public.reset_all_data (confirmed boolean);
+DROP FUNCTION public.reset_all_data(confirmed boolean);
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();

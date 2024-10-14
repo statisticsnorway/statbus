@@ -1,70 +1,46 @@
 "use client";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
-import { useCallback, useEffect } from "react";
+import { useCallback, useMemo } from "react";
+import { Tables } from "@/lib/database.types";
+import { statisticalVariableParse, statisticalVariableDeriveStateUpdateFromValue } from "../url-search-params";
 
-export default function StatisticalVariablesOptions({
-  label,
-  code,
-  selected: initialSelected,
-}: {
-  readonly label: string;
-  readonly code: string;
-  readonly selected?: { operator?: string; value: string | null };
-}) {
+export default function StatisticalVariablesOptions({ statDefinition }:
+  {
+    readonly statDefinition: Tables<"stat_definition_ordered">;
+  }) {
   const {
-    dispatch,
-    search: {
-      values: { [code]: selected = [] },
+    modifySearchState,
+    searchState: {
+      appSearchParams: { [statDefinition.code!]: selected = [] },
     },
   } = useSearchContext();
 
-  useEffect(() => {
-    if (initialSelected) {
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: code,
-          query: `${initialSelected.operator}.${initialSelected.value}`,
-          values: [`${initialSelected.operator}.${initialSelected.value}`],
-        },
-      });
-    }
-  }, [dispatch, code, initialSelected]);
+  const parsedValue = useMemo(() =>
+    statisticalVariableParse(selected?.[0])
+    , [selected]);
 
-  const update = useCallback(
-    ({ operator, value }: { operator: string; value: string }) => {
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: code,
-          query: operator && value ? `${operator}.${value}` : null,
-          values: operator && value ? [`${operator}.${value}`] : [],
-        },
-      });
-    },
-    [dispatch, code]
-  );
+  const update = useCallback((value : {operator: string, operand: string} | null) => {
+    modifySearchState(
+      statisticalVariableDeriveStateUpdateFromValue(
+        statDefinition,
+        value,
+      )
+    );
+  }, [modifySearchState, statDefinition]);
 
   const reset = useCallback(() => {
-    dispatch({
-      type: "set_query",
-      payload: {
-        name: code,
-        query: null,
-        values: [],
-      },
-    });
-  }, [dispatch, code]);
-
-  const [operator, value] = selected[0]?.split(".") ?? [];
+    modifySearchState(
+      statisticalVariableDeriveStateUpdateFromValue(statDefinition, null)
+    );
+  }, [modifySearchState, statDefinition]);
 
   return (
     <ConditionalFilter
       className="p-2 h-9"
-      title={label}
-      selected={operator && value ? { value, operator } : undefined}
-      onChange={update}
+      title={statDefinition.name!}
+      selected={parsedValue}
+      onChange={update} // Pass `update` which receives the new filter value
       onReset={reset}
     />
   );

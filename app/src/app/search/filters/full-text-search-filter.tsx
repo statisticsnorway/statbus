@@ -1,49 +1,45 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
-import { SEARCH } from "@/app/search/filters/url-search-params";
-import { generateFTSQuery } from "@/app/search/generate-fts-query";
+import { useCallback, useEffect, useState } from "react";
+import { SEARCH, fullTextSearchDeriveStateUpdateFromValue } from "@/app/search/filters/url-search-params";
 
-interface IProps {
-  readonly urlSearchParam: string | null;
-}
-
-export default function FullTextSearchFilter({ urlSearchParam }: IProps) {
+export default function FullTextSearchFilter() {
   const {
-    dispatch,
-    search: {
-      values: { [SEARCH]: selected = [] },
+    modifySearchState,
+    searchState: {
+      appSearchParams: { [SEARCH]: selected = [] },
     },
   } = useSearchContext();
 
+  const [debouncedValue, setDebouncedValue] = useState<string>(selected[0] ?? '');
+
   const update = useCallback(
     (value: string) => {
-      dispatch({
-        type: "set_query",
-        payload: {
-          name: SEARCH,
-          query: value ? `fts(simple).${generateFTSQuery(value)}` : null,
-          values: value ? [value] : [],
-        },
-      });
+      modifySearchState(fullTextSearchDeriveStateUpdateFromValue(value));
     },
-    [dispatch]
+    [modifySearchState]
   );
 
   useEffect(() => {
-    if (urlSearchParam) {
-      update(urlSearchParam);
-    }
-  }, [update, urlSearchParam]);
+    const handler = setTimeout(() => {
+      update(debouncedValue);
+    }, 300); // 300ms delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [debouncedValue, update]);
 
   return (
     <Input
       type="text"
       placeholder="Find units by name"
       className="h-9 w-full md:max-w-[200px]"
-      value={selected[0] ?? ""}
-      onChange={(e) => update(e.target.value)}
+      id="full-text-search"
+      name="full-text-search"
+      value={debouncedValue}
+      onChange={(e) => setDebouncedValue(e.target.value)}
     />
   );
 }

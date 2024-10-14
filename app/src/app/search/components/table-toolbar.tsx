@@ -1,15 +1,5 @@
 import FullTextSearchFilter from "@/app/search/filters/full-text-search-filter";
-import {
-  ACTIVITY_CATEGORY_PATH,
-  INVALID_CODES,
-  LEGAL_FORM,
-  REGION,
-  SEARCH,
-  SECTOR,
-  TAX_REG_IDENT,
-  UNIT_TYPE,
-} from "@/app/search/filters/url-search-params";
-import TaxRegIdentFilter from "@/app/search/filters/tax-reg-ident-filter";
+import ExternalIdentFilter from "@/app/search/filters/external-ident-filter";
 import UnitTypeFilter from "@/app/search/filters/unit-type-filter";
 import { Suspense } from "react";
 import { FilterSkeleton } from "@/app/search/components/filter-skeleton";
@@ -21,38 +11,28 @@ import StatisticalVariablesFilter from "@/app/search/filters/statistical-variabl
 import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 
-interface ITableToolbarProps {
-  readonly urlSearchParams: URLSearchParams;
-}
+import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 
-export default function TableToolbar({ urlSearchParams }: ITableToolbarProps) {
-  const search = urlSearchParams.get(SEARCH);
-  const taxRegIdent = urlSearchParams.get(TAX_REG_IDENT);
-  const unitType = urlSearchParams.get(UNIT_TYPE);
-  const sector = urlSearchParams.get(SECTOR);
-  const region = urlSearchParams.get(REGION);
-  const legalForm = urlSearchParams.get(LEGAL_FORM);
-  const activityCategoryPath = urlSearchParams.get(ACTIVITY_CATEGORY_PATH);
-  const invalidCodes = urlSearchParams.get(INVALID_CODES);
+export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      <FullTextSearchFilter urlSearchParam={search} />
-      <TaxRegIdentFilter urlSearchParam={taxRegIdent} />
-      <UnitTypeFilter urlSearchParam={unitType} />
+      <FullTextSearchFilter/>
+      <ExternalIdentFilter/>
+      <UnitTypeFilter/>
       <Suspense fallback={<FilterSkeleton title="Sector" />}>
-        <SectorFilter urlSearchParam={sector} />
+        <SectorFilter/>
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Region" />}>
-        <RegionFilter urlSearchParam={region} />
+        <RegionFilter/>
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-        <LegalFormFilter urlSearchParam={legalForm} />
+        <LegalFormFilter/>
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-        <ActivityCategoryFilter urlSearchParam={activityCategoryPath} />
+        <ActivityCategoryFilter/>
       </Suspense>
-      <StatisticalVariablesFilter urlSearchParams={urlSearchParams} />
-      <InvalidCodesFilter urlSearchParam={invalidCodes} />
+      <StatisticalVariablesFilter/>
+      <InvalidCodesFilter/>
       <ResetFilterButton />
     </div>
   );

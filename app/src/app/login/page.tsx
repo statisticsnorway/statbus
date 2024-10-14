@@ -1,18 +1,48 @@
 "use client";
 import React from "react";
-import type { LoginState } from "@/app/login/actions";
-import { login } from "@/app/login/actions";
 import Image from "next/image";
-import { useFormState } from "react-dom";
+import { useState } from "react";
 import logo from "@/../public/statbus-logo.png";
+import { useAuth } from "@/hooks/useAuth"; // Import the auth hook
+import { useRouter } from "next/navigation";
 
-const initialState: LoginState = {
-  error: null,
-};
 
 export default function LoginPage() {
-  const [state, formAction] = useFormState(login, initialState);
+  const { isAuthenticated, refreshAuth } = useAuth();
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = formData.get("email");
+    const password = formData.get("password");
+
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      setError(data.error);
+    } else {
+      refreshAuth();
+      router.push("/");
+    }
+  };
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/");
+    }
+  }, [isAuthenticated, router]);
+
+  // Render the login form if not authenticated
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
@@ -29,7 +59,7 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <form className="group space-y-6" action={formAction} noValidate>
+        <form className="group space-y-6" onSubmit={handleSubmit} noValidate>
           <div>
             <label
               htmlFor="email"
@@ -80,11 +110,11 @@ export default function LoginPage() {
           </div>
 
           <div>
-            {state.error ? (
+            {error && (
               <div className="my-2 text-center text-sm text-red-500">
-                {state.error}
+                {error}
               </div>
-            ) : null}
+            )}
             <button
               type="submit"
               className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 group-invalid:pointer-events-none group-invalid:opacity-30"

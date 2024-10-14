@@ -1,12 +1,12 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 
 import { createServerLogger } from "@/lib/server-logger";
 
 export async function refreshStatisticalUnits() {
   "use server";
-  const client = createClient();
+  const client = await createSupabaseSSRClient();
   const logger = await createServerLogger();
 
   try {
@@ -32,7 +32,7 @@ export async function refreshStatisticalUnits() {
 
 export async function resetAll() {
   "use server";
-  const client = createClient();
+  const client = await createSupabaseSSRClient();
   const logger = await createServerLogger();
 
   try {

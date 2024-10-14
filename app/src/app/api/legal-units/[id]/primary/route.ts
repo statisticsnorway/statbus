@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { createServerLogger } from "@/lib/server-logger";
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params: { id } }: { readonly params: { id: string } }
 ) {
   const logger = await createServerLogger();
@@ -25,7 +25,7 @@ export async function POST(
       );
     }
 
-    const client = createClient();
+    const client = await createSupabaseSSRClient();
     const { data, error } = await client.rpc(
       "connect_legal_unit_to_enterprise",
       {

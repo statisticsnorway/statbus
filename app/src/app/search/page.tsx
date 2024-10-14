@@ -1,29 +1,23 @@
 import { Metadata } from "next";
-import { SearchProvider } from "@/app/search/search-provider";
+import { SearchResults } from "@/app/search/SearchResults";
 import TableToolbar from "@/app/search/components/table-toolbar";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
 import SearchResultPagination from "@/app/search/components/search-result-pagination";
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
-import { Cart } from "@/app/search/components/cart";
-import { CartProvider } from "@/app/search/cart-provider";
-import { createClient } from "@/lib/supabase/server";
+import { Selection } from "@/app/search/components/selection";
+import { SelectionProvider } from "@/app/search/selection-provider";
+import { createSupabaseSSRClient } from "@/utils/supabase/server"; // Use SSG client if needed
+import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
+import { defaultOrder } from "./search-filter-reducer";
+import { SearchOrder } from "./search";
 
 export const metadata: Metadata = {
   title: "Statbus | Search statistical units",
 };
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  readonly searchParams: URLSearchParams;
-}) {
-  const params = new URLSearchParams(searchParams);
-
-  const [orderBy, ...orderDirections] = params.get("order")?.split(".") ?? [
-    "name",
-    "asc",
-  ];
+export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {
+  const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
 
   /* TODO - Remove this once the search results include the activity category and region names
    * Until activity category and region names are included in the search results,
@@ -33,32 +27,41 @@ export default async function SearchPage({
    * A better solution would be to include the names in the search results
    * so that we do not need any blocking calls to supabase here.
    */
-  const supabase = createClient();
-  const [activityCategories, regions] = await Promise.all([
-    supabase.from("activity_category_used").select(),
-    supabase.from("region_used").select(),
+  const client = await createSupabaseSSRClient();
+  const [{data: activityCategories}, {data: regions}] = await Promise.all([
+    client.from("activity_category_used").select(),
+    client.from("region_used").select(),
   ]);
+
+  let order = defaultOrder;
+
+  const orderParam = initialUrlSearchParams.get("order")
+  if (orderParam){
+    const [orderBy, orderDirection] = orderParam.split(".");
+    const validOrderDirection: "asc" | "desc" = orderDirection === "desc" ? "desc" : "asc"; // Default to "asc" if invalid
+    order = {name: orderBy, direction: validOrderDirection} as SearchOrder;
+  }
 
   const defaultCurrentPage = 1;
   const defaultPageSize = 10;
-  const currentPage = Number(params.get("page")) || defaultCurrentPage;
+  const currentPage = Number(initialUrlSearchParams.get("page")) || defaultCurrentPage;
 
   return (
-    <SearchProvider
-      order={{ name: orderBy, direction: orderDirections.join(".") }}
-      pagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
-      regions={regions.data}
-      activityCategories={activityCategories.data}
-      urlSearchParams={params}
+    <SearchResults
+      initialOrder={order}
+      initialPagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
+      regions={regions ?? []}
+      activityCategories={activityCategories ?? []}
+      initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
       <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
           Search for statistical units
         </h1>
         <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
-        <CartProvider>
+        <SelectionProvider>
           <section className="space-y-3">
-            <TableToolbar urlSearchParams={params} />
+            <TableToolbar initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
             <div className="rounded-md border overflow-hidden">
               <SearchResultTable />
             </div>
@@ -71,10 +74,10 @@ export default async function SearchPage({
             </div>
           </section>
           <section className="mt-8">
-            <Cart />
+            <Selection />
           </section>
-        </CartProvider>
+        </SelectionProvider>
       </main>
-    </SearchProvider>
+    </SearchResults>
   );
 }

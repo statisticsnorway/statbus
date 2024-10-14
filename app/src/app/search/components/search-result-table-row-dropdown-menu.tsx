@@ -12,14 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Tables } from "@/lib/database.types";
 import { MoreHorizontal, ShoppingBasket } from "lucide-react";
 
-import { useCartContext } from "@/app/search/use-cart-context";
+import { useSelectionContext } from "@/app/search/use-selection-context";
 
 export default function SearchResultTableRowDropdownMenu({
   unit,
 }: {
   readonly unit: Tables<"statistical_unit">;
 }) {
-  const { toggle, selected } = useCartContext();
+  const { toggle, selected } = useSelectionContext();
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );

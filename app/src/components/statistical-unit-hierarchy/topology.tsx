@@ -20,7 +20,7 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const details = searchParams.get("details");
+  const details = searchParams?.get("details");
   const [compact, setCompact] = useState(!details);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   }, [details]);
 
   const handleCompactChange = () => {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
     if (compact) {
       params.set("details", "true");
     } else {

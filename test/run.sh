@@ -38,6 +38,15 @@ if test -z "$TEST_BASENAMES"; then
   TEST_BASENAMES=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
 fi
 
+# Check if the expected output file exists, and create it if it doesn't
+for test_basename in $TEST_BASENAMES; do
+  expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
+  if [ ! -f "$expected_file" ]; then
+    echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
+    touch "$expected_file"
+  fi
+done
+
 # Run the regression tests with database connection details
 $PG_REGRESS \
     --use-existing \

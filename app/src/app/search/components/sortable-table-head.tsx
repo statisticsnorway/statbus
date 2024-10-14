@@ -7,26 +7,29 @@ import { useSearchContext } from "@/app/search/use-search-context";
 interface SortableTableHeadProps
   extends ThHTMLAttributes<HTMLTableCellElement> {
   readonly name: string;
-  readonly children: ReactNode;
+  readonly label?: string;
+  readonly children?: ReactNode;
 }
 
 export default function SortableTableHead({
   children,
   name,
+  label,
   ...props
 }: SortableTableHeadProps) {
   const {
-    search: { order },
-    dispatch,
+    searchState: { order },
+    modifySearchState,
   } = useSearchContext();
   return (
     <TableHead {...props}>
       <button
-        onClick={() => dispatch({ type: "set_order", payload: { name } })}
+        onClick={() => modifySearchState({ type: "set_order", payload: { name } })}
         className={cn("p-0", order.name === name ? "underline" : "")}
       >
-        {children}
+        {label}
       </button>
+      {children}
     </TableHead>
   );
 }

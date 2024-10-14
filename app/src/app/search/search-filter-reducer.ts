@@ -1,36 +1,41 @@
-export function searchFilterReducer(
+import { SearchAction, SearchOrder, SearchState } from "./search";
+
+export const defaultOrder = {name: "name", direction: "asc"} as SearchOrder;
+
+export function modifySearchStateReducer(
   state: SearchState,
   action: SearchAction
 ): SearchState {
   switch (action.type) {
     case "set_query": {
-      const { name, query, values } = action.payload;
+      const {
+        app_param_name,
+        api_param_name,
+        api_param_value,
+        app_param_values,
+      } = action.payload;
       return {
         ...state,
-        queries: { ...state.queries, [name]: query },
-        values: { ...state.values, [name]: values },
+        apiSearchParams: { ...state.apiSearchParams, [api_param_name]: api_param_value },
+        appSearchParams: { ...state.appSearchParams, [app_param_name]: app_param_values },
         pagination: { ...state.pagination, pageNumber: 1 },
       };
     }
     case "reset_all":
       return {
         ...state,
-        queries: {},
-        values: {},
+        apiSearchParams: {},
+        appSearchParams: {},
         pagination: { ...state.pagination, pageNumber: 1 },
+        order: defaultOrder
       };
     case "set_order": {
-      const { name } = action.payload;
-      const order =
-        name == state.order.name
-          ? {
-              ...state.order,
-              direction:
-                state.order.direction === "desc.nullslast"
-                  ? "asc"
-                  : "desc.nullslast",
-            }
-          : { name, direction: "desc.nullslast" };
+      const name = action.payload.name;
+      const flippedDirection = state.order.direction === 'desc' ? 'asc' : 'desc';
+
+      const order: SearchOrder = name === state.order.name
+        ? { ...state.order, direction: flippedDirection }
+        : { name, direction: 'asc' };
       return { ...state, order };
     }
     case "set_page": {

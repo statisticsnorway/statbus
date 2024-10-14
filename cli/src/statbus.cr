@@ -243,13 +243,13 @@ class StatBus
       # The variables are all in the global scope, as an ".env" file is not really an ini file,
       # it just has the same
       global_vars = vars[""]
-      postgres_host = "localhost"
+      postgres_host = "127.0.0.1"
       # global_vars["POSTGRES_HOST"]
       postgres_port = global_vars["DB_PUBLIC_LOCALHOST_PORT"]
-      postgres_password = global_vars["POSTGRES_PASSWORD"]
       postgres_db = global_vars["POSTGRES_DB"]
       postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
-      puts "Import data to postgres_port=#{postgres_port} postgres_password=#{postgres_password} postgres_password=#{postgres_password}" if @verbose
+      postgres_password = global_vars["POSTGRES_PASSWORD"]
+      puts "Import data to postgres_host=#{postgres_host} postgres_port=#{postgres_port} postgres_db=#{postgres_db} postgres_user=#{postgres_user} postgres_password=#{postgres_password}" if @verbose
 
       sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
       sql_fields_list = sql_cli_provided_fields + sql_field_required_list + sql_field_optional_list
@@ -336,7 +336,9 @@ class StatBus
         end
       end
 
-      DB.connect("postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}") do |db|
+      db_connection_string = "postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}"
+      puts db_connection_string if @verbose
+      DB.connect(db_connection_string) do |db|
         if !@import_tag.nil?
           tag = db.query_one?("
             SELECT id, path::text, name, context_valid_from::text, context_valid_to::text
@@ -384,6 +386,9 @@ class StatBus
         case @import_strategy
         when ImportStrategy::Copy
           copy_stream = db.exec_copy "COPY public.#{upload_view_name}(#{sql_fields_str}) FROM STDIN"
+          start_time = Time.monotonic
+          row_count = 0
+
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             sql_row.any? do |value|
               if !value.nil? && value.includes?("\t")
@@ -393,14 +398,22 @@ class StatBus
             sql_text = sql_row.join("\t")
             puts "Uploading #{sql_text}" if @verbose
             copy_stream.puts sql_text
+            row_count += 1
+            nil
           end
           puts "Waiting for processing" if @verbose
           copy_stream.close
+
+          total_duration = Time.monotonic - start_time
+          total_rows_per_second = row_count / total_duration.total_seconds
+          puts "Total rows processed: #{row_count}"
+          puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
+
           db.close
         when ImportStrategy::Insert
           sql_args = (1..(@sql_field_mapping.size)).map { |i| "$#{i}" }.join(",")
-          sql_statment = "INSERT INTO public.#{upload_view_name}(#{sql_fields_str}) VALUES(#{sql_args})"
-          puts "sql_statment = #{sql_statment}" if @verbose
+          sql_statement = "INSERT INTO public.#{upload_view_name}(#{sql_fields_str}) VALUES(#{sql_args})"
+          puts "sql_statement = #{sql_statement}" if @verbose
           db.exec "BEGIN;"
           # Set a config that prevents inner trigger functions form activating constraints,
           # make the deferral moot.
@@ -408,36 +421,54 @@ class StatBus
             db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
             db.exec "SET CONSTRAINTS ALL DEFERRED;"
           end
-          insert = db.build sql_statment
+          start_time = Time.monotonic
+          batch_start_time = start_time
+          row_count = 0
+          insert = db.build sql_statement
           batch_size = 10000
           batch_item = 0
           iterate_csv_stream(csv_stream) do |sql_row, csv_row|
             batch_item += 1
+            row_count += 1
             puts "Uploading #{sql_row}" if @verbose
             insert.exec(args: sql_row)
-            if (batch_item % batch_size) == 0
-              puts "Commit-ing changes"
-              if @delayed_constraint_checking
-                db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+            -> {
+              if (batch_item % batch_size) == 0
+                puts "Commit-ing changes"
+                if @delayed_constraint_checking
+                  db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
+                end
+                db.exec "END;"
+
+                batch_duration = Time.monotonic - batch_start_time
+                batch_rows_per_second = batch_size / batch_duration.total_seconds
+                puts "Processed #{batch_size} rows in #{batch_duration.total_seconds.round(2)} seconds (#{batch_rows_per_second.round(2)} rows/second)"
+                batch_start_time = Time.monotonic
+
+                if @refresh_materialized_views
+                  puts "Refreshing statistical_unit and other materialized views"
+                  db.exec "SELECT statistical_unit_refresh_now();"
+                end
+                db.exec "BEGIN;"
+                if @delayed_constraint_checking
+                  db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
+                  db.exec "SET CONSTRAINTS ALL DEFERRED;"
+                end
+                insert = db.build sql_statement
               end
-              db.exec "END;"
-              if @refresh_materialized_views
-                puts "Refreshing statistical_unit and other materialized views"
-                db.exec "SELECT statistical_unit_refresh_now();"
-              end
-              db.exec "BEGIN;"
-              if @delayed_constraint_checking
-                db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
-                db.exec "SET CONSTRAINTS ALL DEFERRED;"
-              end
-              insert = db.build sql_statment
-            end
+            }
           end
           puts "Commit-ing changes"
           if @delayed_constraint_checking
             db.exec "SET CONSTRAINTS ALL IMMEDIATE;"
           end
           db.exec "END;"
+
+          total_duration = Time.monotonic - start_time
+          total_rows_per_second = row_count / total_duration.total_seconds
+          puts "Total rows processed: #{row_count}"
+          puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
+
           if @refresh_materialized_views
             puts "Refreshing statistical_unit and other materialized views"
             db.exec "SELECT statistical_unit_refresh_now();"
@@ -449,14 +480,14 @@ class StatBus
   end
 
   private def iterate_csv_stream(csv_stream)
-    rowcount = 0
+    row_count = 0
     while csv_stream.next
-      rowcount += 1
+      row_count += 1
       if 0 < @offset
-        if rowcount < @offset
+        if row_count < @offset
           next
-        elsif rowcount == @offset
-          puts "Continuing after  #{rowcount.format(delimiter: '_')} rows"
+        elsif row_count == @offset
+          puts "Continuing after  #{row_count.format(delimiter: '_')} rows"
           next
         end
       end
@@ -476,12 +507,15 @@ class StatBus
           csv_value.strip
         end
       end
-      yield(sql_row, csv_row)
-      if (rowcount % 1000) == 0
-        puts "Uploaded #{rowcount.format(delimiter: '_')} rows"
+      post_process = yield(sql_row, csv_row)
+      if (row_count % 1000) == 0
+        puts "Uploaded #{row_count.format(delimiter: '_')} rows"
+      end
+      if !post_process.nil?
+        post_process.call
       end
     end
-    puts "Wrote #{rowcount} rows"
+    puts "Wrote #{row_count} rows"
   end
 
   private def build_option_parser
