@@ -1,16 +1,12 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
-import { LEGAL_FORM } from "@/app/search/filters/url-search-params";
+import { useCallback } from "react";
+import { LEGAL_FORM, legalFormDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search";
 
-export default function LegalFormOptions({
-  selected: initialSelected,
-  options,
-}: {
+export default function LegalFormOptions({options}: {
   readonly options: SearchFilterOption[];
-  readonly selected: (string | null)[];
 }) {
   const {
     modifySearchState,
@@ -21,48 +17,19 @@ export default function LegalFormOptions({
 
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const next = selected.includes(value)
+      const toggledValue = selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      modifySearchState({
-        type: "set_query",
-        payload: {
-          app_param_name: LEGAL_FORM,
-          api_param_name: LEGAL_FORM,
-          api_param_value: next.length ? `in.(${next.join(",")})` : null,
-          app_param_values: next,
-        },
-      });
+      modifySearchState(legalFormDeriveStateUpdateFromValues(toggledValue));
     },
     [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    modifySearchState({
-      type: "set_query",
-      payload: {
-        app_param_name: LEGAL_FORM,
-        api_param_name: LEGAL_FORM,
-        api_param_value: null,
-        app_param_values: [],
-      },
-    });
+    modifySearchState(legalFormDeriveStateUpdateFromValues([]));
   }, [modifySearchState]);
 
-  useEffect(() => {
-    if (initialSelected.length > 0) {
-      modifySearchState({
-        type: "set_query",
-        payload: {
-          app_param_name: LEGAL_FORM,
-          api_param_name: LEGAL_FORM,
-          api_param_value: `in.(${initialSelected.join(",")})`,
-          app_param_values: initialSelected,
-        },
-      });
-    }
-  }, [modifySearchState, initialSelected]);
 
   return (
     <OptionsFilter

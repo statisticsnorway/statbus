@@ -32,7 +32,7 @@ export type SearchResult = {
 
 export interface ConditionalValue {
   operator: PostgrestOperator;
-  value: string;
+  operand: string;
 }
 
 export interface SetOrder {

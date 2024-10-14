@@ -23,11 +23,11 @@ import { ConditionalValue } from "../search";
 
 interface ITableFilterCustomProps {
   title: string;
-  selected?: {
-    operator?: string;
-    value: string | null;
-  };
-  onChange: ({ value, operator }: ConditionalValue) => void;
+  selected: {
+    operator: string;
+    operand: string;
+  } | null;
+  onChange: ({ operand, operator }: ConditionalValue) => void;
   onReset: () => void;
   className?: string;
 }
@@ -40,14 +40,14 @@ export function ConditionalFilter({
   className,
 }: ITableFilterCustomProps) {
   const [operator, setOperator] = useState<string | null>(
-    selected?.operator ?? null
+    selected?.operator ?? "eq"
   );
-  const [value, setValue] = useState<string | null>(selected?.value ?? null);
+  const [operand, setOperand] = useState<string | null>(selected?.operand ?? null);
 
   const updateFilter = useCallback(() => {
-    if (!value || !operator) return;
-    onChange({ operator, value });
-  }, [operator, value, onChange]);
+    if (!operand || !operator) return;
+    onChange({ operator, operand: operand });
+  }, [operator, operand, onChange]);
 
   return (
     <Popover>
@@ -58,12 +58,12 @@ export function ConditionalFilter({
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           {title}
-          {selected?.value && selected.operator ? (
+          {selected?.operand && selected.operator ? (
             <>
               <Separator orientation="vertical" className="h-1/2" />
               <ConditionalValueBadge
                 operator={selected.operator}
-                value={selected.value}
+                operand={selected.operand}
               />
             </>
           ) : null}
@@ -82,23 +82,28 @@ export function ConditionalFilter({
               <SelectValue placeholder="Condition" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="eq">Equal to</SelectItem>
-              <SelectItem value="gt">Greater than</SelectItem>
-              <SelectItem value="lt">Less than</SelectItem>
+              <SelectItem value="eq">=</SelectItem>
+              <SelectItem value="gt">&gt;</SelectItem>
+              <SelectItem value="lt">&lt;</SelectItem>
               <SelectItem value="in">In list</SelectItem>
             </SelectContent>
           </Select>
           <Input
             className="w-auto max-w-[80px]"
-            value={value ?? ""}
-            onChange={(e) => setValue(e.target.value.trim())}
+            value={operand ?? ""}
+            onChange={(e) => setOperand(e.target.value.trim())}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                updateFilter();
+              }
+            }}
           />
 
           <Button onClick={updateFilter} variant="outline">
             OK
           </Button>
         </Command>
-        {selected?.value && selected.operator ? (
+        {selected?.operand && selected.operator ? (
           <div className="w-full p-2 pt-0">
             <Button onClick={onReset} variant="outline" className="w-full">
               Clear

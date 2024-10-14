@@ -16,23 +16,23 @@ import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      <FullTextSearchFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
-      <ExternalIdentFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
-      <UnitTypeFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+      <FullTextSearchFilter/>
+      <ExternalIdentFilter/>
+      <UnitTypeFilter/>
       <Suspense fallback={<FilterSkeleton title="Sector" />}>
-        <SectorFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+        <SectorFilter/>
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Region" />}>
-        <RegionFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+        <RegionFilter/>
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-        <LegalFormFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+        <LegalFormFilter/>
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-        <ActivityCategoryFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+        <ActivityCategoryFilter/>
       </Suspense>
-      <StatisticalVariablesFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
-      <InvalidCodesFilter initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
+      <StatisticalVariablesFilter/>
+      <InvalidCodesFilter/>
       <ResetFilterButton />
     </div>
   );

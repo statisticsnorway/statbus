@@ -4,14 +4,15 @@ import { ReactNode, useMemo, useReducer } from "react";
 import { useTimeContext } from "@/app/time-context";
 import useSWR from "swr";
 import { modifySearchStateReducer } from "@/app/search/search-filter-reducer";
-import useDerivedUrlSearchParams from "@/app/search/use-updated-url-search-params";
+import useDerivedUrlSearchParams from "@/app/search/use-derived-url-search-params";
 import { useBaseData } from "@/app/BaseDataClient";
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
-import { SearchResult, SearchOrder, SearchPagination, SearchState } from "./search.d"; // Import necessary types
+import { SearchResult, SearchOrder, SearchPagination, SearchState, SearchAction } from "./search.d";
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { getStatisticalUnits } from "./search-requests";
+import { activityCategoryDeriveStateUpdateFromSearchParams, externalIdentDeriveStateUpdateFromSearchParams, fullTextSearchDeriveStateUpdateFromSearchParams, invalidCodesDeriveStateUpdateFromSearchParams, legalFormDeriveStateUpdateFromSearchParams, regionDeriveStateUpdateFromSearchParams, sectorDeriveStateUpdateFromSearchParams, statisticalVariablesDeriveStateUpdateFromSearchParams, unitTypeDeriveStateUpdateFromSearchParams } from "./filters/url-search-params";
 
 const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
   // Notice that the createSupabaseBrowserClientAsync must be inside the fetcher
@@ -27,6 +28,36 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
   }
 };
 
+  /**
+   * Extract values from URLSearchParams and initialize search state.
+   * This avoid a double fetch during loading, because the useEffect of all
+   * the filters are triggered after the useEffect of SearchResults, so their
+   * initial state changes must be incorporated here.
+   */
+  function initializeSearchStateFromUrlSearchParams(
+    modifySearchStateReducer : (state: SearchState, action: SearchAction) => SearchState,
+    emptySearchState : SearchState,
+    initialUrlSearchParams: URLSearchParams,
+    maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
+    statDefinitions: Tables<"stat_definition_ordered">[],
+  ) : SearchState {
+    let actions = [
+      fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      unitTypeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      invalidCodesDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      legalFormDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      externalIdentDeriveStateUpdateFromSearchParams(maybeDefaultExternalIdentType, initialUrlSearchParams),
+    ].concat(
+      statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams)
+    );
+    let result = actions.reduce(modifySearchStateReducer, emptySearchState);
+    return result;
+  };
+
+
 interface SearchResultsProps {
   readonly children: ReactNode;
   readonly initialOrder: SearchOrder;
@@ -35,6 +66,7 @@ interface SearchResultsProps {
   readonly activityCategories: Tables<"activity_category_used">[];
   readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
+
 
 export function SearchResults({
   children,
@@ -48,24 +80,24 @@ export function SearchResults({
   const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
   const { externalIdentTypes, statDefinitions } = useBaseData();
 
-  /**
-   * Extract values from URLSearchParams and initialize search state.
-   * This is not strictly necessary, but gives a more responsive UI when the search page filters are loaded
-   */
-    const valuesFromUrlSearchParams = useMemo(() => {
-      return Array.from(initialUrlSearchParams.keys()).reduce(
-        (acc, key) => ({ ...acc, [key]: initialUrlSearchParams.get(key)?.split(",") }),
-        {}
-      );
-    }, [initialUrlSearchParams]);
-
-  const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, {
+  let emptySearchState = {
     order: initialOrder,
     pagination: initialPagination,
     apiSearchParams: {},
     valid_on: selectedTimeContext.valid_on,
-    appSearchParams: valuesFromUrlSearchParams,
-  } as SearchState);
+    appSearchParams: {},
+  } as SearchState
+
+  let initialSearchState = initializeSearchStateFromUrlSearchParams(
+    modifySearchStateReducer,
+    emptySearchState,
+    initialUrlSearchParams,
+    externalIdentTypes?.[0],
+    statDefinitions,
+  );
+
+  const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, initialSearchState);
+
 
   const { order, pagination, apiSearchParams } = searchState;
 
@@ -81,10 +113,10 @@ export function SearchResults({
     }
 
     if (order.name) {
-      const externalIdent = externalIdentTypes.find(type => type.code === order.name);
+      const externalIdentType = externalIdentTypes.find(type => type.code === order.name);
       const statDefinition = statDefinitions.find(identifier => identifier.code === order.name);
 
-      if (externalIdent) {
+      if (externalIdentType) {
         params.set("order", `external_idents->>${order.name}.${order.direction}`);
       } else if (statDefinition) {
         params.set("order", `stats_summary->${order.name}->sum.${order.direction}`);

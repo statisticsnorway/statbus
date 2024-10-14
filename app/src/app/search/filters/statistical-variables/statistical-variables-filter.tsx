@@ -1,52 +1,23 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
-import { IURLSearchParamsDict, toURLSearchParams } from "@/lib/url-search-params-dict";
 
-export default async function StatisticalVariablesFilter({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
-  const resolve = createURLParamsResolver(toURLSearchParams(initialUrlSearchParamsDict));
+export default async function StatisticalVariablesFilter() {
   const client = await createSupabaseSSRClient();
-  const statisticalVariables = await client
-    .from("stat_definition")
-    .select()
-    .order("priority", { ascending: true });
+  const statDefinitions = await client
+    .from("stat_definition_ordered")
+    .select();
 
   return (
     <>
-      {statisticalVariables.data?.map(({ code, name }) => {
-        const [value, operator] = resolve(code);
+      {statDefinitions.data?.map((statDefinition) => {
         return (
           <StatisticalVariablesOptions
-            key={code}
-            label={name}
-            code={code}
-            selected={value && operator ? { operator, value } : undefined}
-          />
+            key={"stat_var"+statDefinition.code!}
+            statDefinition={statDefinition}
+            />
         );
       })}
     </>
   );
 }
 
-/**
- * Returns a function that resolves value and operator from a URLSearchParams instance.
- * A param typically looks like this: ?name=in.legal_unit,establishment,enterprise which
- * will resolve to ["legal_unit,establishment,enterprise", "in"]
- * If the parameter is not present, it will return null values for both value and operator
- *
- * Example:
- * const params = new URLSearchParams("?name=in.legal_unit,establishment,enterprise");
- * const resolve = createURLParamsResolver(params);
- * const [value, operator] = resolve("name");
- *
- * @param params URLSearchParams
- */
-const createURLParamsResolver =
-  (params: URLSearchParams) =>
-  (name: string): [string | null, string | null] => {
-    const param = params.get(name);
-    if (!param) return [null, null];
-    const dotIndex = param.indexOf(".");
-    const operator = param.substring(0, dotIndex);
-    const value = param.substring(dotIndex + 1);
-    return [value, operator];
-  };

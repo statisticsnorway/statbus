@@ -1,16 +1,11 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
-import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
+import { useCallback } from "react";
+import { UNIT_TYPE, unitTypeDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../search";
 
-import { IURLSearchParamsDict, toURLSearchParams } from "@/lib/url-search-params-dict";
-
-export default function UnitTypeFilter({ initialUrlSearchParamsDict: initialUrlSearchParams }: IURLSearchParamsDict) {
-  const urlSearchParams = toURLSearchParams(initialUrlSearchParams);
-
-  const unitType = urlSearchParams.get(UNIT_TYPE);
+export default function UnitTypeFilter() {
   const {
     modifySearchState,
     searchState: {
@@ -18,55 +13,20 @@ export default function UnitTypeFilter({ initialUrlSearchParamsDict: initialUrlS
     },
   } = useSearchContext();
 
-  const buildQuery = (values: (string | null)[]) => {
-    return values.length ? `in.(${values.join(",")})` : null;
-  };
-
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
       const values = selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      modifySearchState({
-        type: "set_query",
-        payload: {
-          app_param_name: UNIT_TYPE,
-          api_param_name: UNIT_TYPE,
-          api_param_value: buildQuery(values),
-          app_param_values: values,
-        },
-      });
+      modifySearchState(unitTypeDeriveStateUpdateFromValues(values));
     },
     [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    modifySearchState({
-      type: "set_query",
-      payload: {
-        app_param_name: UNIT_TYPE,
-        api_param_name: UNIT_TYPE,
-        api_param_value: null,
-        app_param_values: [],
-      },
-    });
-  }, [modifySearchState]);
-
-  useEffect(() => {
-    if (unitType) {
-      const initialSelected = unitType.split(",");
-      modifySearchState({
-        type: "set_query",
-        payload: {
-          app_param_name: UNIT_TYPE,
-          api_param_name: UNIT_TYPE,
-          api_param_value: buildQuery(initialSelected),
-          app_param_values: initialSelected,
-        },
-      });
-    }
-  }, [modifySearchState, unitType]);
+    modifySearchState(unitTypeDeriveStateUpdateFromValues(selected));
+  }, [modifySearchState, selected]);
 
   return (
     <OptionsFilter

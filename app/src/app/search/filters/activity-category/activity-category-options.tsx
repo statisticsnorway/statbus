@@ -1,16 +1,12 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback, useEffect } from "react";
-import { ACTIVITY_CATEGORY_PATH } from "@/app/search/filters/url-search-params";
+import { useCallback } from "react";
+import { ACTIVITY_CATEGORY_PATH, activityCategoryDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search";
 
-export default function ActivityCategoryOptions({
-  selected: initialSelected,
-  options,
-}: {
+export default function ActivityCategoryOptions({options}: {
   readonly options: SearchFilterOption[];
-  readonly selected: (string | null)[];
 }) {
   const {
     modifySearchState,
@@ -19,53 +15,16 @@ export default function ActivityCategoryOptions({
     },
   } = useSearchContext();
 
-  const buildQuery = (values: (string | null)[]) => {
-    const path = values[0];
-    if (path) return `cd.${path}`;
-    if (path === null) return "is.null";
-    return null;
-  };
-
-  useEffect(() => {
-    if (initialSelected.length > 0) {
-      modifySearchState({
-        type: "set_query",
-        payload: {
-          app_param_name: ACTIVITY_CATEGORY_PATH,
-          api_param_name: ACTIVITY_CATEGORY_PATH,
-          api_param_value: buildQuery(initialSelected),
-          app_param_values: initialSelected,
-        },
-      });
-    }
-  }, [modifySearchState, initialSelected]);
-
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value) ? [] : [value];
-      modifySearchState({
-        type: "set_query",
-        payload: {
-          app_param_name: ACTIVITY_CATEGORY_PATH,
-          api_param_name: ACTIVITY_CATEGORY_PATH,
-          api_param_value: buildQuery(values),
-          app_param_values: values,
-        },
-      });
+      const toggledValues = selected.includes(value) ? [] : [value];
+      modifySearchState(activityCategoryDeriveStateUpdateFromValues(toggledValues));
     },
     [modifySearchState, selected]
   );
 
   const reset = useCallback(() => {
-    modifySearchState({
-      type: "set_query",
-      payload: {
-        app_param_name: ACTIVITY_CATEGORY_PATH,
-        api_param_name: ACTIVITY_CATEGORY_PATH,
-        api_param_value: null,
-        app_param_values: [],
-      },
-    });
+    modifySearchState(activityCategoryDeriveStateUpdateFromValues([]));
   }, [modifySearchState]);
 
   return (
