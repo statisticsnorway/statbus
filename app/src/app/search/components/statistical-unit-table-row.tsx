@@ -11,6 +11,7 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
 import { useBaseData } from "@/app/BaseDataClient";
 import { StatisticalUnit } from "@/app/types";
+import { InvalidCodes } from "./invalid-codes";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -114,9 +115,7 @@ export const StatisticalUnitTableRow = ({
               {invalid_codes && (
                 <>
                   <span>|</span>
-                  <div title={JSON.stringify(invalid_codes)}>
-                    <Bug className="h-3 w-3 stroke-gray-600" />
-                  </div>
+                  <InvalidCodes invalidCodes={JSON.stringify(invalid_codes)} />
                 </>
               )}
             </small>
