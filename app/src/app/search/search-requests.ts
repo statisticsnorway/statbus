@@ -1,7 +1,7 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SearchResult } from './search';
 
-export async function getStatisticalUnits(searchParams: URLSearchParams) {
-  const client = await createSupabaseSSRClient();
+export async function getStatisticalUnits(client: SupabaseClient, searchParams: URLSearchParams): Promise<SearchResult> {
   const apiFetcher = async (url: string, init: RequestInit) => {
       const session = await client.auth.getSession();
       return fetch(url, {
@@ -26,20 +26,15 @@ export async function getStatisticalUnits(searchParams: URLSearchParams) {
   ) as Response;
 
   if (!response.ok) {
-    return { error: response.statusText };
+    throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);
   }
 
   const data = await response.json();
   const count_str = response.headers.get("content-range")?.split("/")[1]
   const count = parseInt(count_str ?? "0", 10);
 
-  // What is a suitable return structure?
-  // Either an error or the data?
   return {
-    statistical_units: data,
-    count: count,
-    status: response.status,
-    statusText: response.statusText,
-    ok: response.ok
-  };
+      statisticalUnits: data,
+      count: count,
+    };
 }

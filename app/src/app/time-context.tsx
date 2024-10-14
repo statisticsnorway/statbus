@@ -100,7 +100,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       setSelectedTimeContextFromIdent,
       appendTcParam,
     }),
-    [selectedTimeContext, appendTcParam, timeContexts]
+    [timeContexts, selectedTimeContext, setSelectedTimeContextFromIdent, appendTcParam]
   );
 
   return (

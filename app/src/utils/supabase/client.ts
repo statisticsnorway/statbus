@@ -1,10 +1,18 @@
 // utils/supabase/client.ts
 import { createBrowserClient } from '@supabase/ssr'
 
-export function createSupabaseBrowserClient() {
-  // Create a supabase client on the browser with project's credentials
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+export async function createSupabaseBrowserClientAsync() {
+  try {
+    // Ensure the return is a promise (assuming createBrowserClient does not always return a promise)
+    const client = await Promise.resolve(
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+    );
+    return client;
+  } catch (error) {
+    console.error('Failed to create Supabase client:', error);
+    throw new Error('Could not initialize the Supabase client.');
+  }
 }

@@ -10,14 +10,17 @@ import { SearchContext, SearchContextState } from "@/app/search/search-context";
 import { SearchResult, SearchOrder, SearchPagination, SearchState } from "./search.d"; // Import necessary types
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
+import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { getStatisticalUnits } from "./search-requests";
 
-const fetcher = async (url: string) => {
+const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
+  // Notice that the createSupabaseBrowserClientAsync must be inside the fetcher
+  // if placed outside we get a strange rendering error.
+  // Error: Element type is invalid. Received a promise that resolves to: undefined. Lazy element type must resolve to a class or function.
+  const client = await createSupabaseBrowserClientAsync();
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
-    }
-    return await response.json();
+    const response = await getStatisticalUnits(client, derivedApiSearchParams);
+    return response
   } catch (error) {
     console.error("Failed to fetch data:", error);
     throw error;
@@ -33,7 +36,7 @@ interface SearchResultsProps {
   readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
 
-export default function SearchResults({
+export function SearchResults({
   children,
   initialOrder,
   initialPagination,
@@ -100,7 +103,7 @@ export default function SearchResults({
 
   const { data: searchResult, error, isLoading } = useSWR<SearchResult>(
     `/api/search?${derivedApiSearchParams}`,
-    fetcher,
+    (url) => fetcher(derivedApiSearchParams),
     { keepPreviousData: true, revalidateOnFocus: false }
   );
 

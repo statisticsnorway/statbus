@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import SearchResults from "@/app/search/SearchResults";
+import { SearchResults } from "@/app/search/SearchResults";
 import TableToolbar from "@/app/search/components/table-toolbar";
 import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
