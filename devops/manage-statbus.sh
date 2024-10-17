@@ -15,15 +15,16 @@ action=${1:-}
 shift || true
 
 set_profile_arg() {
-    profile=${1:-all}
+    profile=${1:-}
 
     # Get the available profiles from Docker Compose
     available_profiles=$(docker compose config --profiles)
 
     # If no profile is provided (fallback to "all"), display available profiles
-    if [ "$profile" = "all" ]; then
+    if test -z "$profile"; then
         echo "No profile provided. Available profiles are:"
         echo "$available_profiles"
+        exit 1
     else
         # Validate if the provided profile exists
         if ! echo "$available_profiles" | grep -wq "$profile"; then
@@ -429,7 +430,7 @@ APP_BIND_ADDRESS=127.0.0.1:3010
 SUPABASE_BIND_ADDRESS=127.0.0.1:3011
 # The publicly exposed address of PostgreSQL inside Supabase
 DB_PUBLIC_LOCALHOST_PORT=3432
-# Updated by manage-statbus.sh start
+# Updated by manage-statbus.sh start all
 VERSION=commit_sha_or_version_of_deployed_commit
 EOS
 
