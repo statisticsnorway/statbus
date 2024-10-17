@@ -1,21 +1,42 @@
 "use client";
 import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
-import { useTimeContext } from "@/app/time-context";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { AlertTriangle } from "lucide-react";
+import { useTimeContext } from "@/app/time-context";
+import { useEffect, useState } from "react";
+import { PostgrestError } from "@supabase/supabase-js";
 
-export const MissingRegionCard = async () => {
+export const MissingRegionCard = () => {
   const { selectedTimeContext } = useTimeContext();
-  const client = await createSupabaseBrowserClientAsync();
 
-  const { count, error } = await client
-    .from("statistical_unit")
-    .select("", { count: "exact" })
-    .is("physical_region_path", null)
-    .neq("unit_type", "enterprise")
-    .lt('valid_from', selectedTimeContext.valid_on)
-    .gte('valid_to', selectedTimeContext.valid_on)
-    .limit(0);
+  const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
+
+  useEffect(() => {
+    const fetchData = async (validOn: string) => {
+      const client = await createSupabaseBrowserClientAsync();
+      const { count, error } = await client
+        .from("statistical_unit")
+        .select("", { count: "exact" })
+        .is("physical_region_path", null)
+        .neq("unit_type", "enterprise")
+        .lt('valid_from', validOn)
+        .gte('valid_to', validOn)
+        .limit(0);
+
+      return { count, error };
+    };
+
+    const fetchDataAsync = async () => {
+      if (selectedTimeContext?.valid_on) {
+        const result = await fetchData(selectedTimeContext.valid_on);
+        setData(result);
+      }
+    };
+
+    fetchDataAsync();
+  }, [selectedTimeContext]);
+
+  const { count, error } = data;
 
   return (
     <DashboardCard
