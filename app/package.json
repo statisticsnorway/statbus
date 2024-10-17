@@ -12,6 +12,7 @@
     "format:fix": "prettier --write src",
     "tsc": "node_modules/.bin/tsc --noEmit",
     "clean": "rimraf .next && rimraf node_modules",
+    "update-shadcn": "npx shadcn@latest add -y -o $(find src/components/ui/ -name '*.tsx' -exec basename {} .tsx \\; | grep -v 'toaster')",
     "update": "pnpm up --latest"
   },
   "dependencies": {
