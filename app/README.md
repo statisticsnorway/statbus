@@ -4,32 +4,49 @@
 
 Ensure you have the correct Node.js version. We recommend using `fnm` (Fast Node Manager) for managing Node.js versions. You can install `fnm` by following the instructions on the [fnm GitHub page](https://github.com/Schniz/fnm).
 
-Once `fnm` is installed, use it to switch to the required Node.js version:
+Once `fnm` is installed, use it to switch to the required Node.js version.
 
 ```bash
 fnm use
 ```
 
+Additionally, enable `pnpm` using Corepack, which is included with Node.js:
+
+```bash
+corepack enable pnpm
+```
+To ensure you are using the latest version of `pnpm`, you can upgrade it with:
+
+```bash
+corepack use pnpm@latest
+```
+
 ### Install Dependencies
 
 ```bash
-npm i
+pnpm install
 ```
 
-Next, create a `.env.local` file in the root of the project and add the following:
+By default the ../.env file is used to contact your locally running
+Supabase instance. If you need to override that you can create
+an `.env.local` file in the root of the project and add the following,
+with adjustments:
 
 ```env
-VERSION=0.0.1.local
-LOG_SERVER=http://localhost:5341
 
-SUPABASE_ANON_KEY={anon_key}
-SUPABASE_URL={supabase_url}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=Development
+NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=dev
+VERSION=0.0.1.local
+SEQ_SERVER_URL=http://localhost:5341
+SEQ_API_KEY=...
 ```
 
 ### Run the Development Server
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ### View Logs
