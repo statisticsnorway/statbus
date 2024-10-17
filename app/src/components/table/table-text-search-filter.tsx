@@ -10,6 +10,7 @@ const TableTextSearchFilter = ({
 }) => {
   return (
     <Input
+      name={`filter-${type}`}
       type="text"
       placeholder={`Filter by ${type}`}
       className="h-9 w-full md:max-w-[200px]"
