@@ -8,7 +8,8 @@ export async function getEnterpriseById(id: string) {
     .eq("id", id)
     .limit(1);
 
-  return { enterprise: enterprises?.[0], error };
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { enterprise: enterprises?.[0], error: errorWithName };
 }
 
 export async function getEstablishmentById(id: string) {
@@ -19,7 +20,8 @@ export async function getEstablishmentById(id: string) {
     .eq("id", id)
     .limit(1);
 
-  return { establishment: establishments?.[0], error };
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { establishment: establishments?.[0], error: errorWithName };
 }
 
 export async function getLegalUnitById(id: string) {
@@ -30,7 +32,8 @@ export async function getLegalUnitById(id: string) {
     .eq("id", id)
     .limit(1);
 
-  return { legalUnit: legalUnits?.[0], error };
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { legalUnit: legalUnits?.[0], error: errorWithName };
 }
 
 export async function getStatisticalUnitHierarchy(
@@ -45,5 +48,6 @@ export async function getStatisticalUnitHierarchy(
     })
     .returns<StatisticalUnitHierarchy>();
 
-  return { hierarchy, error };
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { hierarchy, error: errorWithName };
 }
