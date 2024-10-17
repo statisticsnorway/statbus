@@ -16,6 +16,8 @@ export interface SearchContextState {
    * Indicates whether the search is currently loading new data.
    */
   readonly isLoading: boolean;
+  readonly error?: Error;
+
 }
 
 export const SearchContext = createContext<SearchContextState | null>(null);

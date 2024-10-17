@@ -149,15 +149,15 @@ export function SearchResults({
       activityCategories: activityCategories ?? [],
       selectedTimeContext,
       isLoading,
+      error
     } as SearchContextState),
-    [searchState, searchResult, derivedApiSearchParams, regions, activityCategories, selectedTimeContext, isLoading]
+    [searchState, searchResult, derivedApiSearchParams, regions, activityCategories, selectedTimeContext, isLoading, error]
   );
 
   useDerivedUrlSearchParams(ctx);
 
   return (
     <SearchContext.Provider value={ctx}>
-      {error && <div>Error loading data</div>}
       {children}
     </SearchContext.Provider>
   );
