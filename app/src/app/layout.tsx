@@ -10,7 +10,6 @@ import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
 import { ServerBaseDataProvider } from "@/app/BaseDataServer";
-import { ClientBaseDataProvider } from "@/app/BaseDataClient";
 import { AuthProvider } from "@/context/AuthContext";
 import { TimeContextProvider } from "@/app/time-context";
 

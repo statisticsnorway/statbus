@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useMemo, ReactNode, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import type { TimeContextRow, TimeContextRows } from "@/app/types";
+import type { TimeContextRow } from "@/app/types";
 import { useBaseData } from "@/app/BaseDataClient";
 
 
@@ -30,7 +30,6 @@ interface TimeContextProviderProps {
 }
 
 export function TimeContextProvider({ children }: TimeContextProviderProps) {
-  //const { isAuthenticated } = useAuth();
   const { timeContexts, defaultTimeContext } = useBaseData();
   const pathname = usePathname();
   const searchParams = useSearchParams();
