@@ -97,6 +97,11 @@ services:
           - /rest/v1/
     plugins:
       - name: cors
+        config:
+          # Tell Kong to allow the browser to cache OPTIONS requests.
+          # To avoid having one cors OPTIONS request for every interaction
+          # with the API.
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: true
