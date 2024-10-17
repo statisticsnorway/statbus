@@ -12,3 +12,8 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+}
