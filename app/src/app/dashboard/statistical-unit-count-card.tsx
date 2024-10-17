@@ -1,4 +1,6 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+"use client";
+import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { useTimeContext } from "@/app/time-context";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
@@ -9,12 +11,15 @@ export const StatisticalUnitCountCard = async ({
   readonly unitType: "enterprise" | "legal_unit" | "establishment";
   readonly title: string;
 }) => {
-  const client = await createSupabaseSSRClient();
+  const { selectedTimeContext } = useTimeContext();
+  const client = await createSupabaseBrowserClientAsync();
 
   const { count, error } = await client
     .from("statistical_unit")
     .select("", { count: "exact" })
     .eq("unit_type", unitType)
+    .lt('valid_from', selectedTimeContext.valid_on)
+    .gte('valid_to', selectedTimeContext.valid_on)
     .limit(0);
 
   return (

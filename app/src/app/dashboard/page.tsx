@@ -53,7 +53,7 @@ export default async function Dashboard() {
           </Suspense>
         </Link>
         <Link href="/regions">
-          <Suspense fallback={<FallBackCard title="Regions" />}>
+          <Suspense fallback={<FallBackCard title="Region Hierarchy" />}>
             <RegionCard />
           </Suspense>
         </Link>
