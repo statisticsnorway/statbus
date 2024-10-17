@@ -1,3 +1,7 @@
-# Prevent interaction between local node_modules
-# and image installed node_modules.
+# Prevent interaction between local node_modules and image installed node_modules.
 node_modules/
+# Don't transfer the build results into the build container.
+.next
+# Editor related files.
+.idea
+.vscode
