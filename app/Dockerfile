@@ -1,33 +1,33 @@
-FROM node:20.10-alpine  AS base
+FROM node:20-alpine AS base
+COPY .nvmrc ./
+RUN if [ "$(head -n 1 .nvmrc | cut -d'.' -f1)" != "v20" ]; then \
+      echo "Node.js version in .nvmrc is not v20. Please update the FROM image or .nvmrc to match."; \
+      exit 1; \
+    fi
 
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
+FROM base AS build
+RUN corepack enable pnpm && corepack install -g pnpm
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY pnpm-lock.yaml ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
+COPY package.json ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install -r --offline --frozen-lockfile --aggregate-output
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM base AS runner
 RUN apk add --no-cache dumb-init
-WORKDIR /app
-ENV NODE_ENV=production
-RUN addgroup -g 1001 -S nodejs
+RUN addgroup -S nodejs -g 1001
 RUN adduser -S nextjs -u 1001
-COPY --from=builder /app/public ./public
-
+WORKDIR /app
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./.next/standalone
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
 ENV NODE_ENV production
-
-CMD ["dumb-init","node", "server.js"]
+CMD ["dumb-init","node", "/app/.next/standalone/server.js"]
