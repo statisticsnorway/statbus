@@ -54,16 +54,13 @@ case "$action" in
         eval docker compose $compose_profile_arg up $build_arg --detach
       ;;
     'stop' )
-        set_profile_arg "$@"
-        eval docker compose $compose_profile_arg down
+        eval docker compose --profile all down
       ;;
     'logs' )
-        set_profile_arg "$@"
-        eval docker compose $compose_profile_arg logs --follow
+        eval docker compose logs --follow
       ;;
     'ps' )
-        set_profile_arg "$@"
-        eval docker compose $compose_profile_arg ps
+        eval docker compose ps
       ;;
     'continous-integration-test' )
         # Validate arguments
