@@ -12,7 +12,7 @@ const config: Config = {
   prefix: "",
   theme: {
   	container: {
-  		center: 'true',
+  		center: true,
   		padding: '2rem',
   		screens: {
   			'2xl': '1400px'
@@ -35,39 +35,26 @@ const config: Config = {
   				to: {
   					height: '0'
   				}
-  			},
-  			'accordion-down': {
-  				from: {
-  					height: '0'
-  				},
-  				to: {
-  					height: 'var(--radix-accordion-content-height)'
-  				}
-  			},
-  			'accordion-up': {
-  				from: {
-  					height: 'var(--radix-accordion-content-height)'
-  				},
-  				to: {
-  					height: '0'
-  				}
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out',
-  			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		},
   		colors: {
-  			enterprise: 'colors.pink',
-  			legal_unit: 'colors.lime',
-  			establishment: 'colors.indigo',
+  			enterprise: colors.pink,
+  			legal_unit: colors.lime,
+  			establishment: colors.indigo,
   			ssb: {
   				dark: '#274247',
   				light: '#f0f8f9',
   				neon: '#b6e8b8'
   			}
+  		},
+  		borderRadius: {
+  			lg: 'var(--radius)',
+  			md: 'calc(var(--radius) - 2px)',
+  			sm: 'calc(var(--radius) - 4px)'
   		}
   	}
   },
