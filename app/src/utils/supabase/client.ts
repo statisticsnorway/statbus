@@ -6,8 +6,8 @@ export async function createSupabaseBrowserClientAsync() {
     // Ensure the return is a promise (assuming createBrowserClient does not always return a promise)
     const client = await Promise.resolve(
       createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        process.env.NEXT_PUBLIC_BROWSER_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         { cookieOptions }
       )
     );

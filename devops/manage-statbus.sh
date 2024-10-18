@@ -393,7 +393,8 @@ EOF
         DEPLOYMENT_SLOT_PORT_OFFSET=$(./devops/dotenv --file $CONFIG_FILE generate DEPLOYMENT_SLOT_PORT_OFFSET echo "1")
         # Urls configured in Caddy and DNS.
         STATBUS_URL=$(./devops/dotenv --file $CONFIG_FILE generate STATBUS_URL echo "http://localhost:3010")
-        SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate SUPABASE_URL echo "http://localhost:3011")
+        BROWSER_SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate BROWSER_SUPABASE_URL echo "http://localhost:3011")
+        SERVER_SUPABASE_URL=$(./devops/dotenv --file $CONFIG_FILE generate SERVER_SUPABASE_URL echo "http://kong:8000")
         # Logging server
         SEQ_SERVER_URL=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_SERVER_URL echo "https://log.statbus.org")
         SEQ_API_KEY=$(./devops/dotenv --file $CONFIG_FILE generate SEQ_API_KEY echo "secret_seq_api_key")
@@ -451,7 +452,8 @@ EOS
 DEPLOYMENT_SLOT_NAME=Example
 # Urls configured in Caddy and DNS.
 STATBUS_URL=https://www.ex.statbus.org
-SUPABASE_URL=https://api.ex.statbus.org
+BROWSER_SUPABASE_URL=https://api.ex.statbus.org
+SERVER_SUPABASE_URL=http://kong:8000
 # Logging server
 SEQ_SERVER_URL=https://log.statbus.org
 SEQ_API_KEY=secret_seq_api_key
@@ -484,7 +486,8 @@ EOS
         ./devops/dotenv --file .env set DEPLOYMENT_SLOT_NAME="$DEPLOYMENT_SLOT_NAME"
         ./devops/dotenv --file .env set COMPOSE_INSTANCE_NAME="statbus-$DEPLOYMENT_SLOT_CODE"
         ./devops/dotenv --file .env set STATBUS_URL=$STATBUS_URL
-        ./devops/dotenv --file .env set SUPABASE_URL=$SUPABASE_URL
+        ./devops/dotenv --file .env set BROWSER_SUPABASE_URL=$BROWSER_SUPABASE_URL
+        ./devops/dotenv --file .env set SERVER_SUPABASE_URL=$SERVER_SUPABASE_URL
         ./devops/dotenv --file .env set SEQ_SERVER_URL=$SEQ_SERVER_URL
         ./devops/dotenv --file .env set SEQ_API_KEY=$SEQ_API_KEY
         ./devops/dotenv --file .env set SLACK_TOKEN=$SLACK_TOKEN
@@ -506,8 +509,8 @@ EOS
         ./devops/dotenv --file .env set DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
 
         ./devops/dotenv --file .env set SITE_URL=$STATBUS_URL
-        ./devops/dotenv --file .env set API_EXTERNAL_URL=$SUPABASE_URL
-        ./devops/dotenv --file .env set SUPABASE_PUBLIC_URL=$SUPABASE_URL
+        ./devops/dotenv --file .env set API_EXTERNAL_URL=$BROWSER_SUPABASE_URL
+        ./devops/dotenv --file .env set SUPABASE_PUBLIC_URL=$BROWSER_SUPABASE_URL
         # Maps to GOTRUE_EXTERNAL_EMAIL_ENABLED to allow authentication with Email at all.
         # So SIGNUP really means SIGNIN
         ./devops/dotenv --file .env set ENABLE_EMAIL_SIGNUP=true
@@ -528,12 +531,13 @@ EOS
         cat >> .env <<EOS
 ################################################################
 # Statbus App Environment Variables
-# Next.js only exposes environment variables with the 'NEXT_PUBLIC_'
-# prefix. Add all the variables here that are exposed publicly,
+# Next.js only exposes environment variables with the 'NEXT_PUBLIC_' prefix
+# to the browser cdoe.
+# Add all the variables here that are exposed publicly,
 # i.e. available in the web page source code for all to see.
 #
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
-NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+NEXT_PUBLIC_BROWSER_SUPABASE_URL=$BROWSER_SUPABASE_URL
 NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME
 NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE
 #

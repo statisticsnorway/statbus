@@ -10,7 +10,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export const createSupabaseSSGClient = async () => {
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
   const client = await createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SERVER_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions,
@@ -43,7 +43,7 @@ export const createSupabaseSSRClient = async () => {
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
   const client = await createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SERVER_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions,
@@ -75,7 +75,7 @@ export const createMiddlewareClientAsync = async (request: NextRequest) => {
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
   const client = await createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SERVER_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions,
@@ -115,7 +115,7 @@ export const createApiClientAsync = async () => {
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
   const client = await createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SERVER_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions,
