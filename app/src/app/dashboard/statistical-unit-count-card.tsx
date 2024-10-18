@@ -24,7 +24,7 @@ export const StatisticalUnitCountCard = ({
         .from("statistical_unit")
         .select("", { count: "exact" })
         .eq("unit_type", unitType)
-        .lt('valid_from', validOn)
+        .lte('valid_from', validOn)
         .gte('valid_to', validOn)
         .limit(0);
 

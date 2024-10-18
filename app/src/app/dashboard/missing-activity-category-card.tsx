@@ -19,7 +19,7 @@ export const MissingActivityCategoryCard = () => {
         .select("", { count: "exact" })
         .is("primary_activity_category_path", null)
         .neq("unit_type", "enterprise")
-        .lt('valid_from', validOn)
+        .lte('valid_from', validOn)
         .gte('valid_to', validOn)
         .limit(0);
 

@@ -19,7 +19,7 @@ export const MissingRegionCard = () => {
         .select("", { count: "exact" })
         .is("physical_region_path", null)
         .neq("unit_type", "enterprise")
-        .lt('valid_from', validOn)
+        .lte('valid_from', validOn)
         .gte('valid_to', validOn)
         .limit(0);
 

@@ -19,7 +19,7 @@ export const InvalidCodesCard = () => {
         .select("", { count: "exact" })
         .not("invalid_codes", "is", null)
         .neq("unit_type", "enterprise")
-        .lt('valid_from', validOn)
+        .lte('valid_from', validOn)
         .gte('valid_to', validOn)
         .limit(0);
 
