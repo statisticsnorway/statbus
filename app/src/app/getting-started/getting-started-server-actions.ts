@@ -4,6 +4,7 @@ import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
+import { Fetch } from "@supabase/auth-js/src/lib/fetch";
 
 interface State {
   readonly error: string | null;
@@ -30,15 +31,26 @@ export async function uploadFile(
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
     const client = await createSupabaseSSRClient();
-    // TODO: Specify the contentType for CSV upload.
-    const { error } = await client.from(uploadView).insert(file) //, { contentType: "text/csv" });
 
-    if (error) {
+    const authFetch = (client as any).rest.fetch as Fetch;
+    const supabaseUrl = (client as any).rest.url as String;
+    const response = await authFetch(
+      `${supabaseUrl}/${uploadView}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/csv",
+        },
+        body: file,
+      }
+    );
+    if (!response.ok) {
+      const data = await response.json();
       logger.error(
-        { error },
-        `upload to ${uploadView} failed with status ${error.code} ${error.message}`
+        { data },
+        `upload to ${uploadView} failed with status ${response.status} ${response.statusText}`
       );
-      return { error: error.message.replace(/,/g, ", ").replace(/;/g, "; ") };
+      return { error: data.message.replace(/,/g, ", ").replace(/;/g, "; ") };
     }
 
     revalidatePath("/getting-started", "page");
