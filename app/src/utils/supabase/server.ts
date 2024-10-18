@@ -4,6 +4,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { Database } from "@/lib/database.types";
+import { cookieOptions } from "./cookieOptions";
 import { NextResponse, type NextRequest } from 'next/server'
 
 export const createSupabaseSSGClient = async () => {
@@ -12,6 +13,7 @@ export const createSupabaseSSGClient = async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions,
       cookies: {
         getAll() {
           // If the client *tries* to access the cookies, then it breaks SSG
@@ -44,6 +46,7 @@ export const createSupabaseSSRClient = async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions,
       cookies: {
         getAll() {
           return cookieStore?.getAll();
@@ -75,6 +78,7 @@ export const createMiddlewareClientAsync = async (request: NextRequest) => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions,
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -114,6 +118,7 @@ export const createApiClientAsync = async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions,
       cookies: {
         getAll() {
           return cookieStore.getAll();

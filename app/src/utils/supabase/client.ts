@@ -8,6 +8,7 @@ export async function createSupabaseBrowserClientAsync() {
       createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        { cookieOptions }
       )
     );
     return client;
@@ -16,3 +17,4 @@ export async function createSupabaseBrowserClientAsync() {
     throw new Error('Could not initialize the Supabase client.');
   }
 }
+import { cookieOptions } from "./cookieOptions";
