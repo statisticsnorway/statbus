@@ -2,20 +2,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SearchResult } from './search';
 
 export async function getStatisticalUnits(client: SupabaseClient, searchParams: URLSearchParams): Promise<SearchResult> {
-  const apiFetcher = async (url: string, init: RequestInit) => {
-    const session = await client.auth.getSession();
-    return fetch(url, {
-      ...init,
-      headers: {
-        ...init.headers,
-        Authorization: `Bearer ${session.data.session?.access_token}`,
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      },
-    });
-  };
-
+  // Inspect inside the client and get the correct url,
+  // as server side and client side code uses different urls.
+  // due to running inside docker containers.
+  const apiFetcher = (client as any).rest.fetch as Fetcher;
+  const supabase_url = (client as any).rest.url as String
   var response = await apiFetcher(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/statistical_unit?${searchParams}`,
+    `${supabase_url}/statistical_unit?${searchParams}`,
     {
       method: "GET",
       headers: {
