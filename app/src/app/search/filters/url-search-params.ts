@@ -4,6 +4,26 @@ import { Tables } from "@/lib/database.types";
 
 export const SEARCH = "search";
 
+function buildPathQuery(values: (string | null | undefined)[]): string | null {
+  const path = values[0];
+  if (path=== undefined) {
+    return null;
+  }
+  if (path === null || path === '' || path === 'null') {
+    return "is.null";
+  }
+  return `cd.${path}`;
+}
+
+function parseInitialValues(initialValue: string | null): (string | null)[] {
+  return initialValue?.split(",").map(value => {
+    if (value === '' || value === 'null') {
+      return null;
+    }
+    return value;
+  }) ?? [];
+}
+
 export function fullTextSearchDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(SEARCH);
   return fullTextSearchDeriveStateUpdateFromValue(initialValue);
@@ -25,7 +45,7 @@ export const UNIT_TYPE = "unit_type";
 
 export function unitTypeDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(UNIT_TYPE);
-  const initialValues = initialValue?.split(",") ?? [];
+  const initialValues = parseInitialValues(initialValue);
   return unitTypeDeriveStateUpdateFromValues(initialValues);
 }
 
@@ -70,7 +90,7 @@ export function invalidCodesDeriveStateUpdateFromValues(value: (string | null)):
 export const LEGAL_FORM = "legal_form_code";
 export function legalFormDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(LEGAL_FORM);
-  const initialValues = initialValue?.split(",") ?? [];
+  const initialValues = parseInitialValues(initialValue);
   return legalFormDeriveStateUpdateFromValues(initialValues);
 }
 
@@ -92,23 +112,17 @@ export const REGION = "physical_region_path";
 
 export function regionDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(REGION);
-  const initialValues = initialValue?.split(",") ?? [];
+  const initialValues = parseInitialValues(initialValue);
   return regionDeriveStateUpdateFromValues(initialValues);
 }
 
-const regionBuildQuery = (values: (string | null)[]) => {
-  const path = values[0];
-  if (path) return `cd.${path}`;
-  if (path === null) return "is.null";
-  return null;
-};
 export function regionDeriveStateUpdateFromValues(values: (string | null)[]): SearchAction {
   let result = {
     type: "set_query",
     payload: {
       app_param_name: REGION,
       api_param_name: REGION,
-      api_param_value: regionBuildQuery(values),
+      api_param_value: buildPathQuery(values),
       app_param_values: values,
     },
   } as SearchAction;
@@ -120,23 +134,17 @@ export const SECTOR = "sector_path";
 
 export function sectorDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(SECTOR);
-  const initialValues = initialValue?.split(",") ?? [];
+  const initialValues = parseInitialValues(initialValue);
   return sectorDeriveStateUpdateFromValues(initialValues);
 }
 
-const sectorBuildQuery = (values: (string | null)[]) => {
-  const path = values[0];
-  if (path) return `cd.${path}`;
-  if (path === null) return "is.null";
-  return null;
-};
 export function sectorDeriveStateUpdateFromValues(values: (string | null)[]): SearchAction {
   let result = {
     type: "set_query",
     payload: {
       app_param_name: SECTOR,
       api_param_name: SECTOR,
-      api_param_value: sectorBuildQuery(values),
+      api_param_value: buildPathQuery(values),
       app_param_values: values,
     },
   } as SearchAction;
@@ -148,23 +156,17 @@ export const ACTIVITY_CATEGORY_PATH = "primary_activity_category_path";
 
 export function activityCategoryDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(ACTIVITY_CATEGORY_PATH);
-  const initialValues = initialValue?.split(",") ?? [];
+  const initialValues = parseInitialValues(initialValue);
   return activityCategoryDeriveStateUpdateFromValues(initialValues);
 }
 
-const activityCategoryBuildQuery = (values: (string | null)[]) => {
-  const path = values[0];
-  if (path) return `cd.${path}`;
-  if (path === null) return "is.null";
-  return null;
-};
 export function activityCategoryDeriveStateUpdateFromValues(values: (string | null)[]): SearchAction {
   let result = {
     type: "set_query",
     payload: {
       app_param_name: ACTIVITY_CATEGORY_PATH,
       api_param_name: ACTIVITY_CATEGORY_PATH,
-      api_param_value: activityCategoryBuildQuery(values),
+      api_param_value: buildPathQuery(values),
       app_param_values: values,
     },
   } as SearchAction;
