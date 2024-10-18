@@ -345,6 +345,44 @@ EOS
         DASHBOARD_USERNAME=$(./devops/dotenv --file $CREDENTIALS_FILE generate DASHBOARD_USERNAME echo admin)
         DASHBOARD_PASSWORD=$(./devops/dotenv --file $CREDENTIALS_FILE generate DASHBOARD_PASSWORD pwgen 20)
 
+        # While the JWT tokens are calculates, but the way Supabase is configured, it seems it does a TEXTUAL
+        # equality check of the ANON JWT, and not an actual secret based calculation.
+        # so if the JWT token is generated again, with a different timestamp, even if it is signed
+        # with the same secret, it fails.
+        # Therefore we store the derived JWT tokens as a credential, because it can not change without
+        # invalidating the deployed or copied tokens. 🤦‍♂️
+
+        # Issued At Time: Current timestamp in seconds since the Unix epoch
+        iat=$(date +%s)
+        # Number of seconds in 5 years (5 years * 365 days/year * 24 hours/day * 60 minutes/hour * 60 seconds/minute)
+        seconds_in_5_years=$((5 * 365 * 24 * 60 * 60))
+        # Expiration Time: Calculate exp as iat plus the seconds in 5 years
+        exp=$((iat + seconds_in_5_years))
+        jwt_anon_payload=$(cat <<EOF
+{
+  "role": "anon",
+  "iss": "supabase",
+  "iat": $iat,
+  "exp": $exp
+}
+EOF
+)
+        jwt_service_role_payload=$(cat <<EOF
+{
+  "role": "service_role",
+  "iss": "supabase",
+  "iat": $iat,
+  "exp": $exp
+}
+EOF
+)
+        # brew install mike-engel/jwt-cli/jwt-cli
+        export ANON_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_anon_payload")
+        ANON_KEY=$(./devops/dotenv --file $CREDENTIALS_FILE generate ANON_KEY echo $ANON_KEY)
+
+        export SERVICE_ROLE_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_service_role_payload")
+        SERVICE_ROLE_KEY=$(./devops/dotenv --file $CREDENTIALS_FILE generate SERVICE_ROLE_KEY echo $SERVICE_ROLE_KEY)
+
         CONFIG_FILE=".env.config"
         echo Using config from $CONFIG_FILE
         # The name displayed on the web
@@ -482,35 +520,8 @@ EOS
         # Sets the project name in the Supabase API portal.
         ./devops/dotenv --file .env set STUDIO_DEFAULT_PROJECT="$DEPLOYMENT_SLOT_NAME"
 
-        # Issued At Time: Current timestamp in seconds since the Unix epoch
-        iat=$(date +%s)
-        # Number of seconds in 5 years (5 years * 365 days/year * 24 hours/day * 60 minutes/hour * 60 seconds/minute)
-        seconds_in_5_years=$((5 * 365 * 24 * 60 * 60))
-        # Expiration Time: Calculate exp as iat plus the seconds in 5 years
-        exp=$((iat + seconds_in_5_years))
-        jwt_anon_payload=$(cat <<EOF
-{
-  "role": "anon",
-  "iss": "supabase",
-  "iat": $iat,
-  "exp": $exp
-}
-EOF
-)
-        jwt_service_role_payload=$(cat <<EOF
-{
-  "role": "service_role",
-  "iss": "supabase",
-  "iat": $iat,
-  "exp": $exp
-}
-EOF
-)
-        # brew install mike-engel/jwt-cli/jwt-cli
-        export ANON_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_anon_payload")
+        # JWT Tokens, used by Supabase Docker images
         ./devops/dotenv --file .env set ANON_KEY=$ANON_KEY
-
-        export SERVICE_ROLE_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_service_role_payload")
         ./devops/dotenv --file .env set SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 
         # Add Publicly exposed Next.js variables
