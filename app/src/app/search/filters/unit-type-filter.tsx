@@ -26,8 +26,8 @@ export default function UnitTypeFilter() {
   );
 
   const reset = useCallback(() => {
-    modifySearchState(unitTypeDeriveStateUpdateFromValues(selected));
-  }, [modifySearchState, selected]);
+    modifySearchState(unitTypeDeriveStateUpdateFromValues([]));
+  }, [modifySearchState]);
 
   return (
     <OptionsFilter
