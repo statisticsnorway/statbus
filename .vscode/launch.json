@@ -37,7 +37,8 @@
       "name": "Next.js: debug server-side",
       "type": "node-terminal",
       "request": "launch",
-      "command": "npm run dev"
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/app"
     },
     {
       "name": "Next.js: debug client-side",
