@@ -53,8 +53,6 @@ export async function uploadFile(
       return { error: data.message.replace(/,/g, ", ").replace(/;/g, "; ") };
     }
 
-    revalidatePath("/getting-started", "page");
-
     return { error: null, success: true };
   } catch (e) {
     return { error: `failed to upload in view ${uploadView}` };
