@@ -38,7 +38,12 @@ export default async function SetupStatus() {
     .select("*", { count: "exact" })
     .limit(0);
 
-  return (
+  const { count: numberOfStatisticalUnits } = await client
+    .from("statistical_unit")
+    .select("*", { count: "exact" })
+    .limit(0);
+
+    return (
     <nav>
       <h2 className="text-2xl font-normal mb-12 text-center">
         Steps to get started
@@ -100,8 +105,16 @@ export default async function SetupStatus() {
             subtitle={`${numberOfEstablishments} establishments uploaded`}
           />
         </li>
+        <li className="mb-6">
+          <NavItem
+            done={!!numberOfStatisticalUnits}
+            title="8. Analysis for Search and Reports"
+            href="/getting-started/analyse-data-for-search-and-reports"
+            subtitle="Analyse data for search and reports"
+          />
+        </li>
         <li>
-          <NavItem title="8. Summary" href="/getting-started/summary" />
+          <NavItem title="9. Summary" href="/getting-started/summary" />
         </li>
       </ul>
     </nav>

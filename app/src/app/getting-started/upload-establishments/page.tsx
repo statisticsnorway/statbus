@@ -32,7 +32,7 @@ export default async function UploadEstablishmentsPage() {
 
       <UploadCSVForm
         uploadView="import_establishment_current_for_legal_unit"
-        nextPage="/getting-started/summary"
+        nextPage="/getting-started/analyse-data-for-search-and-reports"
       />
 
       <Accordion type="single" collapsible>

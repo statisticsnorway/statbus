@@ -25,6 +25,11 @@ export default async function OnboardingCompletedPage() {
     .select("id", { count: "exact" })
     .limit(0);
 
+  const { count: numberOfStatisticalUnits } = await client
+    .from("statistical_unit")
+    .select("*", { count: "exact" })
+    .limit(0);
+
   return (
     <div className="space-y-8">
       <h1 className="text-center text-2xl">Summary</h1>
@@ -66,15 +71,23 @@ export default async function OnboardingCompletedPage() {
         />
       </div>
 
+      <SummaryBlock
+        success={!!numberOfStatisticalUnits}
+        successText="Analysis for Search and Reports completed."
+        failureText="Statistical Units and Reports are not available"
+        failureLink="/getting-started/refresh-statistical-units"
+      />
       {!!settings?.[0]?.activity_category_standard &&
-      numberOfRegions &&
-      numberOfLegalUnits ? (
+        numberOfRegions &&
+        numberOfLegalUnits &&
+        numberOfStatisticalUnits ? (
         <div className="text-center">
           <Link className="underline" href="/">
             Start using Statbus
           </Link>
         </div>
       ) : null}
+
     </div>
   );
 }
