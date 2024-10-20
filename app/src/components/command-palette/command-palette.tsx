@@ -77,6 +77,7 @@ export function CommandPalette() {
         "refresh_time_ms",
       ]);
     }
+    navigate("/");
   };
 
   const handleStatisticalUnitsRefresh = async () => {
