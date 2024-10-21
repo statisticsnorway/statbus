@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useMemo, ReactNode, useEffect, use
 import { usePathname, useSearchParams } from "next/navigation";
 import type { TimeContextRow } from "@/app/types";
 import { useBaseData } from "@/app/BaseDataClient";
+import { useAuth } from "@/hooks/useAuth";
 
 
 interface TimeContextState {
@@ -30,7 +31,8 @@ interface TimeContextProviderProps {
 }
 
 export function TimeContextProvider({ children }: TimeContextProviderProps) {
-  const { timeContexts, defaultTimeContext } = useBaseData();
+  const { timeContexts, defaultTimeContext, hasStatisticalUnits } = useBaseData();
+  const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -77,8 +79,11 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       }
     };
 
-    handleRouteChange();
-  }, [/*isAuthenticated, */ pathname, searchParams, updateQueryParam, selectedTimeContext, timeContexts, defaultTimeContext]);
+    if (isAuthenticated && hasStatisticalUnits){
+      handleRouteChange();
+    }
+
+  }, [pathname, searchParams, updateQueryParam, selectedTimeContext, timeContexts, defaultTimeContext, hasStatisticalUnits]);
 
   const appendTcParam = useCallback((url: string) => {
     const urlObj = new URL(url, window.location.origin);
