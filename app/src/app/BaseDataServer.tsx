@@ -10,6 +10,7 @@ export interface BaseData {
   externalIdentTypes: Tables<"external_ident_type_ordered">[];
   timeContexts: Tables<"time_context">[];
   defaultTimeContext: Tables<"time_context">;
+  hasStatisticalUnits: Boolean;
 }
 
 export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
@@ -18,16 +19,18 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
     throw new Error('Supabase client is not properly initialized.');
   }
 
-  let maybeStatDefinitions, maybeExternalIdentTypes, maybeTimeContexts;
+  let maybeStatDefinitions, maybeExternalIdentTypes, maybeTimeContexts, maybeStatisticalUnit;
   try {
     [
       { data: maybeStatDefinitions },
       { data: maybeExternalIdentTypes },
       { data: maybeTimeContexts },
+      { data: maybeStatisticalUnit},
     ] = await Promise.all([
       client.from("stat_definition_ordered").select(),
       client.from("external_ident_type_ordered").select(),
       client.from("time_context").select(),
+      client.from("statistical_unit").select("*").limit(1),
     ]);
   } catch (error) {
     if (error instanceof Error) {
@@ -44,12 +47,14 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   const externalIdentTypes = maybeExternalIdentTypes as NonNullable<typeof maybeExternalIdentTypes>;
   const timeContexts = maybeTimeContexts as NonNullable<typeof maybeTimeContexts>;
   const defaultTimeContext = timeContexts[0];
+  const hasStatisticalUnits = maybeStatisticalUnit !== null && maybeStatisticalUnit.length > 0;
 
   return {
     statDefinitions,
     externalIdentTypes,
     timeContexts,
     defaultTimeContext,
+    hasStatisticalUnits,
   };
 }
 

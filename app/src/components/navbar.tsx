@@ -20,9 +20,11 @@ export function NavbarSkeleton() {
 }
 
 import { useAuth } from "@/hooks/useAuth";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export default function Navbar() {
   const { isAuthenticated } = useAuth();
+  const { hasStatisticalUnits } = useBaseData();
 
   return (
     <header className="bg-ssb-dark text-white">
@@ -32,27 +34,30 @@ export default function Navbar() {
         </Link>
         {isAuthenticated && (
           <div className="flex-1 space-x-3 flex items-center justify-end">
-            <TimeContextSelector />
-            <Link
-              href="/reports"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "space-x-2 hidden lg:flex"
-              )}
-            >
-              <BarChartHorizontal size={16} />
-              <span>Reports</span>
-            </Link>
-            <Link
-              href="/search"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "space-x-2 hidden lg:flex"
-              )}
-            >
-              <Search size={16} />
-              <span>Statistical Units</span>
-            </Link>
+            {hasStatisticalUnits && (
+              <>
+                <TimeContextSelector />
+                <Link
+                  href="/reports"
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "sm" }),
+                    "space-x-2 hidden lg:flex"
+                  )}
+                >
+                  <BarChartHorizontal size={16} />
+                  <span>Reports</span>
+                </Link>
+                <Link
+                  href="/search"
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "sm" }),
+                    "space-x-2 hidden lg:flex"
+                  )}
+                >
+                  <Search size={16} />
+                  <span>Statistical Units</span>
+                </Link>
+              </>)}
             <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
             <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
           </div>
