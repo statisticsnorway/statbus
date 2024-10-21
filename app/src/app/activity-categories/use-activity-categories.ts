@@ -8,9 +8,11 @@ type Pagination = {
   pageNumber: number;
 };
 
-type Queries = {
+export type QueryKeys = 'name' | 'code' | 'custom';
+export type Queries = {
   name: string;
   code: string;
+  custom: boolean | null;
 };
 
 type ActivityCategoryResult = {
@@ -30,6 +32,10 @@ const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries
 
   if (queries.name) query = query.ilike('name', `%${queries.name}%`);
   if (queries.code) query = query.like('code', `${queries.code}%`);
+  if (queries.custom != null) {
+    const customValue = typeof queries.custom === 'boolean' ? queries.custom.toString() : queries.custom;
+    query = query.filter('custom', 'eq', customValue);
+  }
 
   const { data: maybeActivityCategories, count: maybeCount } = await query;
   const activityCategories = maybeActivityCategories ?? [];
@@ -39,11 +45,11 @@ const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries
 };
 export default function useActivityCategories() {
   const [pagination, setPagination] = useState({ pageSize: 10, pageNumber: 1 } as Pagination);
-  const [queries, setQueries] = useState({ name: "", code: "" } as Queries);
+  const [queries, setQueries] = useState({ name: "", code: "", custom: null } as Queries);
 
   const { data, isLoading } = useSWR<ActivityCategoryResult>(
     `activity-categories?${JSON.stringify(pagination)}${JSON.stringify(queries)}`,
-    () => fetcher({ pagination, queries }),
+    (key) => fetcher({ pagination, queries }),
     {
       keepPreviousData: true,
       revalidateOnFocus: false,
