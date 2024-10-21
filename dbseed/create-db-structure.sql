@@ -769,6 +769,7 @@ SELECT acs.code AS standard_code
      , ac.label
      , ac.name
      , ac.description
+     , ac.custom
 FROM public.activity_category AS ac
 JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
 LEFT JOIN public.activity_category AS acp ON ac.parent_id = acp.id
