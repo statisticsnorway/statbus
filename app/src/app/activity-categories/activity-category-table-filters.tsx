@@ -33,12 +33,12 @@ export default function ActivityCategoryTableFilters({
       <TableTextSearchFilter
         onFilterChange={handleFilterChange}
         queries={queries}
-        type="name"
+        type="code"
       />
       <TableTextSearchFilter
         onFilterChange={handleFilterChange}
         queries={queries}
-        type="code"
+        type="name"
       />
 
       <ResetFilterButton onReset={handleResetFilter} />
