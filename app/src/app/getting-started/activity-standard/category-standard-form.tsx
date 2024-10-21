@@ -94,12 +94,6 @@ export default function CategoryStandardForm({
         />
         <div className="space-x-3">
           <Button type="submit">Confirm</Button>
-          <Link
-            href="/getting-started/upload-regions"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Skip
-          </Link>
         </div>
       </form>
     </Form>
