@@ -1,4 +1,4 @@
-import React from "react";
+import { GettingStartedProvider } from "./GettingStartedContext";
 
 export default function GettingStartedLayout({
   children,
@@ -8,6 +8,7 @@ export default function GettingStartedLayout({
   readonly progress: React.ReactNode;
 }) {
   return (
+    <GettingStartedProvider>
     <main className="w-full mx-auto max-w-screen-xl px-2 py-8 md:py-12 grid lg:grid-cols-12 gap-8">
       <aside className="p-6 col-span-12 lg:col-span-4 bg-ssb-light">
         {progress}
@@ -16,5 +17,6 @@ export default function GettingStartedLayout({
         <div className="max-w-2xl mx-auto">{children}</div>
       </div>
     </main>
+    </GettingStartedProvider>
   );
 }

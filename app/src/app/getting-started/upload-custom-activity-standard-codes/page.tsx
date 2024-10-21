@@ -1,6 +1,8 @@
-import React from "react";
+"use client";
+
+import React, { useEffect } from "react";
+import { useGettingStarted } from "../GettingStartedContext";
 import { InfoBox } from "@/components/info-box";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
   Accordion,
@@ -9,12 +11,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-export default async function UploadCustomActivityCategoryCodesPage() {
-  const client = await createSupabaseSSRClient();
-  const { count } = await client
-    .from("activity_category_available_custom")
-    .select("*", { count: "exact", head: true })
-    .limit(0);
+export default function UploadCustomActivityCategoryCodesPage() {
+  const { numberOfCustomActivityCategoryCodes, refreshNumberOfCustomActivityCategoryCodes } = useGettingStarted();
 
   return (
     <section className="space-y-8">
@@ -26,17 +24,16 @@ export default async function UploadCustomActivityCategoryCodesPage() {
         you want to use in your analysis.
       </p>
 
-      {count && count > 0 ? (
+      {!!numberOfCustomActivityCategoryCodes && numberOfCustomActivityCategoryCodes > 0 && (
         <InfoBox>
-          <p>
-            There are already {count} custom activity category codes defined
-          </p>
+          <p>There are already {numberOfCustomActivityCategoryCodes} custom activity category codes defined</p>
         </InfoBox>
-      ) : null}
+      )}
 
       <UploadCSVForm
         uploadView="activity_category_available_custom"
         nextPage="/getting-started/upload-legal-units"
+        refreshRelevantCounts={refreshNumberOfCustomActivityCategoryCodes}
       />
 
       <Accordion type="single" collapsible>

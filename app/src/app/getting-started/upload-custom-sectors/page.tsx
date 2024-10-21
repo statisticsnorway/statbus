@@ -1,6 +1,8 @@
-import React from "react";
+"use client";
+
+import React, { useEffect } from "react";
+import { useGettingStarted } from "../GettingStartedContext";
 import { InfoBox } from "@/components/info-box";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
   Accordion,
@@ -9,12 +11,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-export default async function UploadCustomSectorsPage() {
-  const client = await createSupabaseSSRClient();
-  const { count } = await client
-    .from("sector_custom")
-    .select("*", { count: "exact", head: true })
-    .limit(0);
+export default function UploadCustomSectorsPage() {
+  const { numberOfCustomSectors, refreshNumberOfCustomSectors } = useGettingStarted();
 
   return (
     <section className="space-y-8">
@@ -24,15 +22,16 @@ export default async function UploadCustomSectorsPage() {
         analysis.
       </p>
 
-      {count && count > 0 ? (
+      {!!numberOfCustomSectors && numberOfCustomSectors > 0 && (
         <InfoBox>
-          <p>There are already {count} custom sectors defined</p>
+          <p>There are already {numberOfCustomSectors} custom sectors defined</p>
         </InfoBox>
-      ) : null}
+      )}
 
       <UploadCSVForm
         uploadView="sector_custom_only"
         nextPage="/getting-started/upload-custom-legal-forms"
+        refreshRelevantCounts={refreshNumberOfCustomSectors}
       />
 
       <Accordion type="single" collapsible>

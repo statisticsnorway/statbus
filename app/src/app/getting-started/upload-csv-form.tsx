@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import React, { useEffect } from "react";
+import { useGettingStarted } from "./GettingStartedContext";
 import { ErrorBox } from "@/components/error-box";
 import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
 import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
@@ -44,9 +45,11 @@ const UploadFormButtons = ({
 export const UploadCSVForm = ({
   uploadView,
   nextPage,
+  refreshRelevantCounts,
 }: {
   uploadView: UploadView;
   nextPage: string;
+  refreshRelevantCounts: () => Promise<void>;
 }) => {
   const filename = "upload-file";
   const [state, formAction] = useFormState(
@@ -58,8 +61,9 @@ export const UploadCSVForm = ({
   useEffect(() => {
     if (state.success) {
       router.push(nextPage);
+      refreshRelevantCounts();
     }
-  }, [state.success, router, nextPage]);
+  }, [state.success, router, nextPage, refreshRelevantCounts]);
 
   return (
     <form action={formAction} className="bg-ssb-light p-6">

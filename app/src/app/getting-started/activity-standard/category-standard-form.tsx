@@ -2,7 +2,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -12,7 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import Link from "next/link";
+import { useGettingStarted } from "../GettingStartedContext";
 import { Tables } from "@/lib/database.types";
 import { setCategoryStandard } from "@/app/getting-started/getting-started-server-actions";
 
@@ -40,6 +40,8 @@ export default function CategoryStandardForm({
     },
   });
 
+  const { refreshCounts } = useGettingStarted();
+
   async function onSubmit({
     activity_category_standard_id,
   }: z.infer<typeof FormSchema>) {
@@ -49,6 +51,7 @@ export default function CategoryStandardForm({
       activity_category_standard_id.toString(10)
     );
     await setCategoryStandard(formData);
+    await refreshCounts();
   }
 
   return (

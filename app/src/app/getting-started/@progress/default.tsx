@@ -1,49 +1,20 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+"use client";
+import { useGettingStarted } from "../GettingStartedContext";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 
-export default async function SetupStatus() {
-  const client = await createSupabaseSSRClient();
-  const { data: settings } = await client
-    .from("settings")
-    .select("activity_category_standard(id,name)")
-    .limit(1);
+export default function SetupStatus() {
+  const {
+    activity_category_standard,
+    numberOfRegions,
+    numberOfLegalUnits,
+    numberOfEstablishments,
+    numberOfCustomActivityCategoryCodes,
+    numberOfCustomSectors,
+    numberOfCustomLegalForms,
+    numberOfStatisticalUnits,
+  } = useGettingStarted();
 
-  const { count: numberOfRegions } = await client
-    .from("region")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-  const { count: numberOfLegalUnits } = await client
-    .from("legal_unit")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-  const { count: numberOfEstablishments } = await client
-    .from("establishment")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-  const { count: numberOfCustomActivityCategoryCodes } = await client
-    .from("activity_category_available_custom")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-  const { count: numberOfCustomSectors } = await client
-    .from("sector_custom")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-  const { count: numberOfCustomLegalForms } = await client
-    .from("legal_form_custom")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-  const { count: numberOfStatisticalUnits } = await client
-    .from("statistical_unit")
-    .select("*", { count: "exact" })
-    .limit(0);
-
-    return (
+  return (
     <nav>
       <h2 className="text-2xl font-normal mb-12 text-center">
         Steps to get started
@@ -51,10 +22,10 @@ export default async function SetupStatus() {
       <ul className="text-sm">
         <li className="mb-6">
           <NavItem
-            done={!!settings?.[0]?.activity_category_standard}
+            done={!!activity_category_standard}
             title="1. Set Activity Category Standard"
             href="/getting-started/activity-standard"
-            subtitle={settings?.[0]?.activity_category_standard?.name}
+            subtitle={activity_category_standard?.name}
           />
         </li>
         <li className="mb-6">

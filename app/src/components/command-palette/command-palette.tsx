@@ -77,7 +77,10 @@ export function CommandPalette() {
         "refresh_time_ms",
       ]);
     }
-    navigate("/");
+
+    // Reload the application and reset all state by navigating to '/'
+    window.location.href = "/";
+
   };
 
   const handleStatisticalUnitsRefresh = async () => {

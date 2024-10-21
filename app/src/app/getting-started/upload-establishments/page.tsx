@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Accordion,
   AccordionContent,
@@ -5,16 +7,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import React from "react";
+import { useGettingStarted } from "../GettingStartedContext";
 import { InfoBox } from "@/components/info-box";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 
-export default async function UploadEstablishmentsPage() {
-  const client = await createSupabaseSSRClient();
-  const { count } = await client
-    .from("establishment")
-    .select("*", { count: "exact", head: true })
-    .limit(0);
+export default function UploadEstablishmentsPage() {
+  const { numberOfEstablishments, refreshNumberOfEstablishments } = useGettingStarted();
 
   return (
     <section className="space-y-8">
@@ -24,15 +22,16 @@ export default async function UploadEstablishmentsPage() {
         analysis.
       </p>
 
-      {count && count > 0 ? (
+      {!!numberOfEstablishments && numberOfEstablishments > 0 && (
         <InfoBox>
-          <p>There are already {count} establishments defined</p>
+          <p>There are already {numberOfEstablishments} establishments defined</p>
         </InfoBox>
-      ) : null}
+      )}
 
       <UploadCSVForm
         uploadView="import_establishment_current_for_legal_unit"
         nextPage="/getting-started/analyse-data-for-search-and-reports"
+        refreshRelevantCounts={refreshNumberOfEstablishments}
       />
 
       <Accordion type="single" collapsible>

@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useGettingStarted } from "../GettingStartedContext";
 import {
   Accordion,
   AccordionContent,
@@ -6,15 +9,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 
-export default async function UploadRegionsPage() {
-  const client = await createSupabaseSSRClient();
-  const { count } = await client
-    .from("region")
-    .select("*", { count: "exact", head: true })
-    .limit(0);
+export default function UploadRegionsPage() {
+  const { numberOfRegions, refreshNumberOfRegions } = useGettingStarted();
 
   return (
     <section className="space-y-8">
@@ -24,15 +22,16 @@ export default async function UploadRegionsPage() {
         analysis.
       </p>
 
-      {count && count > 0 ? (
+      {!!numberOfRegions && numberOfRegions > 0 && (
         <InfoBox>
-          <p>There are already {count} regions defined</p>
+          <p>There are already {numberOfRegions} regions defined</p>
         </InfoBox>
-      ) : null}
+      )}
 
       <UploadCSVForm
         uploadView="region_upload"
         nextPage="/getting-started/upload-custom-sectors"
+        refreshRelevantCounts={refreshNumberOfRegions}
       />
 
       <Accordion type="single" collapsible>
