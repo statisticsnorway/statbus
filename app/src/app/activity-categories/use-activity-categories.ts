@@ -20,7 +20,7 @@ type ActivityCategoryResult = {
 
 const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries: Queries }> = async ({ pagination, queries }) => {
   const client = await createSupabaseBrowserClientAsync();
-  let query = client.from('activity_category').select('*', { count: 'exact' });
+  let query = client.from('activity_category_available').select('*', { count: 'exact' });
 
   const offset = pagination.pageNumber && pagination.pageSize
     ? (pagination.pageNumber - 1) * pagination.pageSize
