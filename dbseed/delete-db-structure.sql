@@ -67,7 +67,7 @@ DROP FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER);
 \echo public.location_hierarchy
 DROP FUNCTION public.location_hierarchy(parent_establishment_id INTEGER,parent_legal_unit_id INTEGER,valid_on DATE);
 \echo public.stat_for_unit_hierarchy
-DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER,valid_on DATE);
+DROP FUNCTION public.stat_for_unit_hierarchy(parent_establishment_id INTEGER, parent_legal_unit_id INTEGER,valid_on DATE);
 \echo public.tag_for_unit_hierarchy
 DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
 \echo public.external_idents_hierarchy
