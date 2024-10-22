@@ -6098,7 +6098,8 @@ $$;
 
 \echo public.stat_for_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
-  parent_establishment_id INTEGER,
+  parent_establishment_id INTEGER DEFAULT NULL,
+  parent_legal_unit_id INTEGER DEFAULT NULL,
   valid_on DATE DEFAULT current_date
 ) RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH ordered_data AS (
@@ -6114,7 +6115,9 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
            END AS data
     FROM public.stat_for_unit AS sfu
     JOIN public.stat_definition AS sd ON sd.id = sfu.stat_definition_id
-    WHERE parent_establishment_id IS NOT NULL AND sfu.establishment_id = parent_establishment_id
+    WHERE (  parent_establishment_id    IS NOT NULL AND sfu.establishment_id    = parent_establishment_id
+          OR parent_legal_unit_id       IS NOT NULL AND sfu.legal_unit_id       = parent_legal_unit_id
+          )
       AND sfu.valid_after < valid_on AND valid_on <= sfu.valid_to
     ORDER BY sd.code
 ), data_list AS (
@@ -6335,7 +6338,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
         || (SELECT public.external_idents_hierarchy(es.id,NULL,NULL,NULL))
         || (SELECT public.activity_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
-        || (SELECT public.stat_for_unit_hierarchy(es.id,valid_on))
+        || (SELECT public.stat_for_unit_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.sector_hierarchy(es.sector_id))
         || (SELECT public.tag_for_unit_hierarchy(es.id,NULL,NULL,NULL))
         AS data
@@ -6364,6 +6367,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
         || (SELECT public.establishment_hierarchy(lu.id, NULL, valid_on))
         || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
+        || (SELECT public.stat_for_unit_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.sector_hierarchy(lu.sector_id))
         || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
         || (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL))
