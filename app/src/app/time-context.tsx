@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 
 interface TimeContextState {
-  readonly selectedTimeContext: TimeContextRow;
+  readonly selectedTimeContext: TimeContextRow | null;
   readonly setSelectedTimeContext: (period: TimeContextRow) => void;
   readonly setSelectedTimeContextFromIdent: (ident: string) => void;
   readonly appendTcParam: (url: string) => string;
@@ -36,7 +36,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContextRow>(defaultTimeContext);
+  const [selectedTimeContext, setSelectedTimeContext] = useState<TimeContextRow | null>();
 
   const setSelectedTimeContextFromIdent = useCallback((ident: string) => {
     const selectedContext = timeContexts.find(
@@ -65,12 +65,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       if (selectedTimeContext) {
         updateQueryParam(selectedTimeContext.ident);
       } else if (tcQueryParam) {
-        const selectedContext = timeContexts.find(
-          (timeContext) => timeContext.ident === tcQueryParam
-        );
-        if (selectedContext) {
-          setSelectedTimeContext(selectedContext);
-        }
+        setSelectedTimeContextFromIdent(tcQueryParam);
       } else {
         if (defaultTimeContext?.ident) {
           setSelectedTimeContext(defaultTimeContext);
@@ -79,7 +74,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       }
     };
 
-    if (isAuthenticated && hasStatisticalUnits){
+    if (isAuthenticated && hasStatisticalUnits) {
       handleRouteChange();
     }
 
@@ -103,7 +98,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       setSelectedTimeContext,
       setSelectedTimeContextFromIdent,
       appendTcParam,
-    }),
+    } as TimeContextState),
     [timeContexts, selectedTimeContext, setSelectedTimeContextFromIdent, appendTcParam]
   );
 

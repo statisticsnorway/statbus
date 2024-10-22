@@ -84,7 +84,7 @@ export function SearchResults({
     order: initialOrder,
     pagination: initialPagination,
     apiSearchParams: {},
-    valid_on: selectedTimeContext.valid_on,
+    valid_on: selectedTimeContext !== null ? selectedTimeContext?.valid_on : new Date().toISOString().split('T')[0],
     appSearchParams: {},
   } as SearchState
 
