@@ -6119,7 +6119,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
           OR parent_legal_unit_id       IS NOT NULL AND sfu.legal_unit_id       = parent_legal_unit_id
           )
       AND sfu.valid_after < valid_on AND valid_on <= sfu.valid_to
-    ORDER BY sd.code
+    ORDER BY sd.priority ASC NULLS LAST, sd.code
 ), data_list AS (
     SELECT jsonb_agg(data) AS data FROM ordered_data
 )
