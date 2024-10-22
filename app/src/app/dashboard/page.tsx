@@ -70,7 +70,7 @@ export default async function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/getting-started/upload-custom-activity-standard-codes">
+        <Link href="/activity-categories?custom=true">
           <Suspense
             fallback={<FallBackCard title="Custom Activity Category Codes" />}
           >

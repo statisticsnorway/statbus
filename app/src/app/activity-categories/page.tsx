@@ -1,4 +1,6 @@
 "use client";
+import { useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { TableResultCount } from "@/components/table/table-result-count";
 import ActivityCategoryTable from "./activity-category-table";
 import TablePagination from "@/components/table/table-pagination";
@@ -7,6 +9,19 @@ import TableFilters from "./activity-category-table-filters";
 export default function ActivityCategoryPage() {
   const { data, pagination, setPagination, queries, setQueries } =
     useActivityCategories();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const customParam = searchParams.get("custom");
+    if (customParam === "true") {
+      setQueries((prev) => ({ ...prev, custom: true }));
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete("custom");
+      router.replace(`/activity-categories?${newParams.toString()}`);
+    }
+  }, [searchParams, setQueries, router]);
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
       <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
