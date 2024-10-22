@@ -10685,6 +10685,17 @@ BEGIN
     ) INTO changed;
     result := result || changed;
 
+    -- Apply pattern for 'stat_for_unit'
+    WITH deleted_stat_for_unit AS (
+        DELETE FROM public.stat_for_unit WHERE id > 0 RETURNING *
+    )
+    SELECT jsonb_build_object(
+        'stat_for_unit', jsonb_build_object(
+            'deleted_count', (SELECT COUNT(*) FROM deleted_stat_for_unit)
+        )
+    ) INTO changed;
+    result := result || changed;
+
     -- Add delete for public.stat_definition WHERE code NOT IN ('employees','turnover')
     WITH deleted_stat_definition AS (
         DELETE FROM public.stat_definition WHERE code NOT IN ('employees','turnover') RETURNING *
@@ -10718,19 +10729,7 @@ BEGIN
     ) INTO changed;
     result := result || changed;
 
-    -- Apply pattern for 'stat_for_unit'
-    WITH deleted_stat_for_unit AS (
-        DELETE FROM public.stat_for_unit WHERE id > 0 RETURNING *
-    )
-    SELECT jsonb_build_object(
-        'stat_for_unit', jsonb_build_object(
-            'deleted_count', (SELECT COUNT(*) FROM deleted_stat_for_unit)
-        )
-    ) INTO changed;
-    result := result || changed;
-
-    -- Repeating the pattern for each remaining table...
-
+    --
     WITH deleted_establishment AS (
         DELETE FROM public.establishment WHERE id > 0 RETURNING *
     )
