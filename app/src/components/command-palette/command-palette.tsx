@@ -140,6 +140,22 @@ export function CommandPalette() {
             <span>Upload Regions</span>
           </CommandItem>
           <CommandItem
+            onSelect={() => navigate("/getting-started/upload-custom-sectors")}
+            value="Upload Sectors"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            <span>Upload Sectors</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() =>
+              navigate("/getting-started/upload-custom-legal-forms")
+            }
+            value="Upload Legal Forms"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            <span>Upload Legal Forms</span>
+          </CommandItem>
+          <CommandItem
             value="Upload Custom Activity Category Standards"
             onSelect={() =>
               navigate("/getting-started/upload-custom-activity-standard-codes")
