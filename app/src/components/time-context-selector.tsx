@@ -64,7 +64,7 @@ export default function TimeContextSelector({
                   }}
                   className="space-x-2"
                 >
-                  {selectedTimeContext === time_context ? <Check size={14} /> : null}
+                  {selectedTimeContext?.ident === time_context?.ident ? <Check size={14} /> : null}
                   <span>{time_context.name_when_query}</span>
                 </CommandItem>
               ))}
