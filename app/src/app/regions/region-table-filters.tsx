@@ -31,12 +31,12 @@ export default function RegionTableFilters({
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
       <TableTextSearchFilter
         onFilterChange={handleFilterChange}
-        queries={queries}
+        value={queries["code"]}
         type="code"
       />
       <TableTextSearchFilter
         onFilterChange={handleFilterChange}
-        queries={queries}
+        value={queries["name"]}
         type="name"
       />
       <ResetFilterButton onReset={handleResetFilter} />
