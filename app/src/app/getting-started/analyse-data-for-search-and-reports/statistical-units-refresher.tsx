@@ -4,26 +4,25 @@ import { useEffect, useState } from "react";
 import { refreshStatisticalUnits } from "@/components/command-palette/command-palette-server-actions";
 import { Spinner } from "@/components/ui/spinner";
 import { useGettingStarted, } from "../GettingStartedContext";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { useBaseData } from "@/app/BaseDataClient";
 
 type AnalysisState = "checking" | "refreshing" | "finished" | "failed";
 
 export function StatisticalUnitsRefresher({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState("checking" as AnalysisState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { numberOfStatisticalUnits, refreshNumberOfStatisticalUnits } = useGettingStarted();
+  const { hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
 
   useEffect(() => {
     const checkAndRefresh = async () => {
       if (state == "checking") {
-        if (numberOfStatisticalUnits != null) {
-          if (numberOfStatisticalUnits > 0) {
+        if (hasStatisticalUnits) {
             setState("finished");
           } else {
             setState("refreshing");
           }
         }
-      }
+
       if (state == "refreshing") {
         const response = await refreshStatisticalUnits();
         if (response?.error) {
@@ -31,13 +30,13 @@ export function StatisticalUnitsRefresher({ children }: { children: React.ReactN
           setErrorMessage(response.error);
         } else {
           setState("finished");
-          refreshNumberOfStatisticalUnits();
+          refreshHasStatisticalUnits();
         }
       }
     };
 
     checkAndRefresh();
-  }, [numberOfStatisticalUnits, refreshNumberOfStatisticalUnits, state]);
+  }, [state, hasStatisticalUnits, refreshHasStatisticalUnits]);
 
   if (state == "checking") {
     return <Spinner message="Checking data for Search and Reports...." />;

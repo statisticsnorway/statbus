@@ -10,7 +10,7 @@ export interface BaseData {
   externalIdentTypes: Tables<"external_ident_type_ordered">[];
   timeContexts: Tables<"time_context">[];
   defaultTimeContext: Tables<"time_context">;
-  hasStatisticalUnits: Boolean;
+  hasStatisticalUnits: boolean;
 }
 
 export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
@@ -64,7 +64,7 @@ export const ServerBaseDataProvider = async ({ children }: { children: React.Rea
   const baseData = await getBaseData(client);
 
   return (
-    <ClientBaseDataProvider baseData={baseData}>
+    <ClientBaseDataProvider initalBaseData={baseData}>
       {children}
     </ClientBaseDataProvider>
   );

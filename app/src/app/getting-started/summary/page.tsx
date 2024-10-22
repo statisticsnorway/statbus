@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { useGettingStarted } from "../GettingStartedContext";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export default function OnboardingCompletedPage() {
   const {
@@ -11,8 +12,8 @@ export default function OnboardingCompletedPage() {
     numberOfRegions,
     numberOfLegalUnits,
     numberOfEstablishments,
-    numberOfStatisticalUnits,
   } = useGettingStarted();
+  const { hasStatisticalUnits } = useBaseData();
   return (
     <div className="space-y-8">
       <h1 className="text-center text-2xl">Summary</h1>
@@ -55,7 +56,7 @@ export default function OnboardingCompletedPage() {
       </div>
 
       <SummaryBlock
-        success={!!numberOfStatisticalUnits}
+        success={hasStatisticalUnits}
         successText="Analysis for Search and Reports completed."
         failureText="Statistical Units and Reports are not available"
         failureLink="/getting-started/refresh-statistical-units"
@@ -63,7 +64,7 @@ export default function OnboardingCompletedPage() {
       {!!activity_category_standard &&
         numberOfRegions &&
         numberOfLegalUnits &&
-        numberOfStatisticalUnits ? (
+        hasStatisticalUnits ? (
         <div className="text-center">
           <Link className="underline" href="/">
             Start using Statbus

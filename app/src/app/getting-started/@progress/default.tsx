@@ -1,6 +1,7 @@
 "use client";
 import { useGettingStarted } from "../GettingStartedContext";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
+import { useBaseData } from "@/app/BaseDataClient";
 
 export default function SetupStatus() {
   const {
@@ -11,8 +12,8 @@ export default function SetupStatus() {
     numberOfCustomActivityCategoryCodes,
     numberOfCustomSectors,
     numberOfCustomLegalForms,
-    numberOfStatisticalUnits,
   } = useGettingStarted();
+  const { hasStatisticalUnits } = useBaseData();
 
   return (
     <nav>
@@ -78,7 +79,7 @@ export default function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
-            done={!!numberOfStatisticalUnits}
+            done={hasStatisticalUnits}
             title="8. Analysis for Search and Reports"
             href="/getting-started/analyse-data-for-search-and-reports"
             subtitle="Analyse data for search and reports"

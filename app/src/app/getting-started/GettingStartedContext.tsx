@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { SupabaseClient } from '@supabase/supabase-js';
 
@@ -11,7 +11,6 @@ interface GettingStartedState {
   numberOfCustomActivityCategoryCodes: number | null;
   numberOfCustomSectors: number | null;
   numberOfCustomLegalForms: number | null;
-  numberOfStatisticalUnits: number | null;
 }
 
 interface GettingStartedContextType extends GettingStartedState {
@@ -22,7 +21,6 @@ interface GettingStartedContextType extends GettingStartedState {
   refreshNumberOfCustomActivityCategoryCodes: () => Promise<void>;
   refreshNumberOfCustomSectors: () => Promise<void>;
   refreshNumberOfCustomLegalForms: () => Promise<void>;
-  refreshNumberOfStatisticalUnits: () => Promise<void>;
 }
 
 const GettingStartedContext = createContext<GettingStartedContextType | undefined>(undefined);
@@ -36,7 +34,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     numberOfCustomActivityCategoryCodes: null,
     numberOfCustomSectors: null,
     numberOfCustomLegalForms: null,
-    numberOfStatisticalUnits: null,
   });
 
   const [client, setClient] = useState<SupabaseClient | null>(null);
@@ -121,16 +118,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     }));
   }, [client]);
 
-  const refreshNumberOfStatisticalUnits = useCallback(async () => {
-    if (!client) return;
-
-    const { count: numberOfStatisticalUnits } = await client.from("statistical_unit").select("*", { count: "exact" }).limit(0);
-
-    setState((prevState) => ({
-      ...prevState,
-      numberOfStatisticalUnits,
-    }));
-  }, [client]);
 
   const refreshCounts = useCallback(async () => {
     await refreshActivityCategoryStandard();
@@ -140,7 +127,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     await refreshNumberOfCustomActivityCategoryCodes();
     await refreshNumberOfCustomSectors();
     await refreshNumberOfCustomLegalForms();
-    await refreshNumberOfStatisticalUnits();
   }, [
     refreshActivityCategoryStandard,
     refreshNumberOfCustomActivityCategoryCodes,
@@ -149,7 +135,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     refreshNumberOfEstablishments,
     refreshNumberOfLegalUnits,
     refreshNumberOfRegions,
-    refreshNumberOfStatisticalUnits,
   ]);
 
   useEffect(() => {
@@ -177,7 +162,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
         refreshNumberOfCustomActivityCategoryCodes,
         refreshNumberOfCustomSectors,
         refreshNumberOfCustomLegalForms,
-        refreshNumberOfStatisticalUnits,
       }}
     >
       {children}
