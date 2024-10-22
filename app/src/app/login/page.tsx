@@ -30,8 +30,7 @@ export default function LoginPage() {
       const data = await response.json();
       setError(data.error);
     } else {
-      refreshAuth();
-      router.push("/");
+      window.location.href = "/";
     }
   };
 
