@@ -13,19 +13,23 @@ export const StatisticalUnitTableHeader = ({
   readonly setRegionLevel: (level: number) => void;
   readonly maxRegionLevel: number;
 }) => {
-  const { statDefinitions } = useBaseData();
-
+  const { statDefinitions, externalIdentTypes } = useBaseData();
 
   return (
     <TableHeader className="bg-gray-50">
       <TableRow>
-        <SortableTableHead name="name" label="Name" />
+        <SortableTableHead name="name" label="Name">
+          <small className="flex">
+            {externalIdentTypes.map(({ code }) => code).join(" | ")}
+          </small>
+        </SortableTableHead>
+
         <SortableTableHead
           className="text-left hidden lg:table-cell [&>*]:align-middle"
           name="physical_region_path"
           label="Region"
         >
-          <small className="flex items-center">
+          <small className="flex items-center whitespace-nowrap">
             <Button
               variant="ghost"
               disabled={regionLevel === 1}

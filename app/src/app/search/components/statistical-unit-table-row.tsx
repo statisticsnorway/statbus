@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
-import { Bug } from "lucide-react";
 import { useSelectionContext } from "@/app/search/use-selection-context";
 import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
@@ -45,7 +44,6 @@ export const StatisticalUnitTableRow = ({
     invalid_codes,
   } = unit as StatisticalUnit;
 
-  const external_ident = external_idents[externalIdentTypes?.[0]?.code!];
   const getRegionByPath = (physical_region_path: unknown) => {
     if (typeof physical_region_path !== "string") return undefined;
     const regionParts = physical_region_path.split(".");
@@ -109,9 +107,11 @@ export const StatisticalUnitTableRow = ({
               <span className="font-medium">{name}</span>
             )}
             <small className="text-gray-700 flex items-center space-x-1">
-              <span>{external_ident}</span>
-              <span>|</span>
-              <span>{prettifyUnitType(type)}</span>
+              <span className="flex">
+                {externalIdentTypes
+                  ?.map(({ code }) => external_idents[code!] || "")
+                  .join(" | ")}
+              </span>
               {invalid_codes && (
                 <>
                   <span>|</span>
