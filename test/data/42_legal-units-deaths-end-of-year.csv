@@ -1,0 +1,5 @@
+valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code
+2010-01-01,2012-12-30,823573673,Kranløft Vestland,2010-01-01,,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,AS
+2012-12-31,2012-12-31,823573673,Kranløft Vestland,2010-01-01,2012-12-31,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,AS
+2010-01-01,2011-12-30,921835809,Kranløft Østland,2010-01-01,,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,AS
+2011-12-31,2011-12-31,921835809,Kranløft Østland,2010-01-01,2011-12-31,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,AS
