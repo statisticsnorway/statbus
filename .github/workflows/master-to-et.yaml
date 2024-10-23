@@ -1,0 +1,16 @@
+name: Push master -> devops/deploy-to-et
+on:
+  # Allow manual deployment in github
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: 'master'
+        ssh-key: ${{ secrets.SSH_KEY }}
+    - name: Push for deployment
+      run: |
+        git push --force origin HEAD:devops/deploy-to-et
