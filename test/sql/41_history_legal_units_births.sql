@@ -64,7 +64,7 @@ WHERE unit_type = 'legal_unit';
 \echo "Check statistical unit history by year - births should be 1 for year 2010 and 2011"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year' 
+WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -72,7 +72,7 @@ AND unit_type = 'legal_unit';
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year-month' 
+WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -110,7 +110,7 @@ WHERE unit_type = 'legal_unit';
 \echo "Check statistical unit history by year - births should be 1 for year 2010 and 2011"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year' 
+WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -118,7 +118,7 @@ AND unit_type = 'legal_unit';
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-2 and 2011-2"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year-month' 
+WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -157,7 +157,7 @@ WHERE unit_type = 'legal_unit';
 \echo "Check statistical unit history by year - births should be 1 for year 2010 and 2011"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year' 
+WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -165,7 +165,7 @@ AND unit_type = 'legal_unit';
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year-month' 
+WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
