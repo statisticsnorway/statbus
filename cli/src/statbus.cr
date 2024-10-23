@@ -446,8 +446,11 @@ class StatBus
                 batch_start_time = Time.monotonic
 
                 if @refresh_materialized_views
+                  start_refresh_time = Time.monotonic
                   puts "Refreshing statistical_unit and other materialized views"
                   db.exec "SELECT statistical_unit_refresh_now();"
+                  refresh_duration = Time.monotonic - start_refresh_time
+                  puts "Refreshing completed (#{refresh_duration.total_seconds.round(2)} seconds)"
                 end
                 db.exec "BEGIN;"
                 if @delayed_constraint_checking
