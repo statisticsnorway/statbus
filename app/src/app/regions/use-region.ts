@@ -20,7 +20,8 @@ const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}
     const client = await createSupabaseBrowserClientAsync();
     let query = client
       .from('region')
-      .select('*', {count: 'exact'});
+      .select('*', {count: 'exact'})
+      .order('path',{ ascending: true});
 
       const offset = pagination.pageNumber && pagination.pageSize
         ? (pagination.pageNumber - 1) * pagination.pageSize
