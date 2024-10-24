@@ -28,7 +28,7 @@ ${statbus_users}
 ############################################################
 API: ${NEXT_PUBLIC_BROWSER_SUPABASE_URL}
 API Username ${DASHBOARD_USERNAME}
-Shell Access: 'ssh ${USER}@libu.statbus.org'
+Shell Access: 'ssh ${USER}@niue.statbus.org'
 ############################################################
 
 EOS
