@@ -11,6 +11,7 @@ interface DrillDownChartProps {
   readonly variable: string;
   readonly title: string;
   readonly onSelect: (p: DrillDownPoint) => void;
+  readonly maxTopLevelValue: number;
 }
 
 export const DrillDownChart = ({
@@ -18,6 +19,7 @@ export const DrillDownChart = ({
   variable,
   title,
   onSelect,
+  maxTopLevelValue,
 }: DrillDownChartProps) => {
   const _ref = useRef<HTMLDivElement>(null);
   const _chart = useRef<Chart | null>(null);
@@ -57,6 +59,7 @@ export const DrillDownChart = ({
           alternateGridColor: '#e6e6e6',
         },
         yAxis: {
+          max: maxTopLevelValue,
           visible: true,
           gridLineColor: "transparent",
           title: {

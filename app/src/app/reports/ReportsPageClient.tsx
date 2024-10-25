@@ -1,7 +1,7 @@
 "use client";
 
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import * as highcharts from "highcharts";
 import HC_drilldown from "highcharts/modules/drilldown";
 import HC_a11y from "highcharts/modules/accessibility";
@@ -13,6 +13,7 @@ import { useBaseData } from "@/app/BaseDataClient";
 
 export default function ReportsPageClient({
 }) {
+  const [maxStatValuesNoFiltering, setMaxStatValuesNoFiltering] = useState<Record<string, {region: number, activity: number}>>({});
   const {
     drillDown,
     region,
@@ -20,6 +21,28 @@ export default function ReportsPageClient({
     activityCategory,
     setActivityCategory,
   } = useDrillDownData();
+
+  // Calculate max values only for unfiltered top-level data
+  useEffect(() => {
+    if (drillDown && !region && !activityCategory) {
+      const newMaxValues: Record<string, {region: number, activity: number}> = {};
+
+      statisticalVariables.forEach(({ value }) => {
+        const regionMax = Math.max(...drillDown.available.region.map(point =>
+          value === "count" ? point.count : (point.stats_summary?.[value]?.sum as number) ?? 0
+        ));
+        const categoryMax = Math.max(...drillDown.available.activity_category.map(point =>
+          value === "count" ? point.count : (point.stats_summary?.[value]?.sum as number) ?? 0
+        ));
+        newMaxValues[value] = {
+          region: regionMax,
+          activity: categoryMax
+        };
+      });
+
+      setMaxStatValuesNoFiltering(newMaxValues);
+    }
+  }, [drillDown, region, activityCategory]);
 
   const { statDefinitions } = useBaseData();
 
@@ -80,6 +103,7 @@ export default function ReportsPageClient({
                       onSelect={setRegion}
                       variable={statisticalVariable.value}
                       title={statisticalVariable.title}
+                      maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.region}
                     />
                   </>
                 )}
@@ -98,6 +122,7 @@ export default function ReportsPageClient({
                       onSelect={setActivityCategory}
                       variable={statisticalVariable.value}
                       title={statisticalVariable.title}
+                      maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.activity}
                     />
                   </>
                 )}
