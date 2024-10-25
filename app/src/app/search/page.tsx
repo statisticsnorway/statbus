@@ -54,15 +54,15 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
       activityCategories={activityCategories ?? []}
       initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
-      <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
+      <main className="mx-auto flex w-full flex-col py-8 md:py-12 px-4">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
           Search for statistical units
         </h1>
-        <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full"></div>
+        <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-full"></div>
         <SelectionProvider>
           <section className="space-y-3">
             <TableToolbar initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
-            <div className="rounded-md border overflow-hidden">
+            <div className="rounded-md border min-w-[300px] overflow-auto">
               <SearchResultTable />
             </div>
             <div className="flex items-center justify-center text-xs text-gray-500">
