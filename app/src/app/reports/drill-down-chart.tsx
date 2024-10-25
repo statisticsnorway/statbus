@@ -54,6 +54,7 @@ export const DrillDownChart = ({
         },
         xAxis: {
           type: "category",
+          alternateGridColor: '#e6e6e6',
         },
         yAxis: {
           visible: true,
