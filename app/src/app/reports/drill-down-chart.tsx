@@ -3,6 +3,9 @@ import { useEffect, useRef } from "react";
 import type { Chart } from "highcharts";
 import { chart } from "highcharts";
 
+const ROW_HEIGHT = 40;
+const BASE_HEIGHT = 50;
+
 interface DrillDownChartProps {
   readonly points: DrillDownPoint[];
   readonly variable: string;
@@ -24,6 +27,7 @@ export const DrillDownChart = ({
       _chart.current?.destroy();
       _chart.current = chart({
         chart: {
+          height: (BASE_HEIGHT+ROW_HEIGHT*points.length),
           renderTo: _ref.current,
           events: {
             drilldown: (e) =>
