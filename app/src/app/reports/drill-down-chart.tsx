@@ -41,6 +41,11 @@ export const DrillDownChart = ({
             dataLabels: {
               enabled: true,
               format: "{point.y:,.0f}",
+              style: {
+                fontWeight: 'normal',
+                format: '{point.y:,.0f}',
+                textOutline: 'none',
+              }
             },
           },
         },
