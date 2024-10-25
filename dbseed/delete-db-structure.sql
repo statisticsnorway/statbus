@@ -106,6 +106,7 @@ DROP MATERIALIZED VIEW public.statistical_unit_facet;
 DROP MATERIALIZED VIEW public.region_used;
 DROP MATERIALIZED VIEW public.activity_category_used;
 DROP MATERIALIZED VIEW public.sector_used;
+DROP MATERIALIZED VIEW public.data_source_used;
 DROP MATERIALIZED VIEW public.legal_form_used;
 DROP MATERIALIZED VIEW public.country_used;
 DROP MATERIALIZED VIEW public.statistical_unit;
@@ -207,7 +208,7 @@ DROP FUNCTION admin.process_external_idents;
 DROP FUNCTION admin.process_enterprise_connection;
 DROP PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB);
 DROP FUNCTION admin.process_linked_legal_unit_external_idents(jsonb);
-DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date);
+DROP PROCEDURE admin.process_stats_for_unit(jsonb,text,integer,date,date,integer);
 
 TRUNCATE public.external_ident;
 DELETE FROM public.external_ident_type;
