@@ -1670,6 +1670,7 @@ CREATE TABLE public.activity (
     valid_to date NOT NULL DEFAULT 'infinity',
     type public.activity_type NOT NULL,
     category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
+    data_source_id integer REFERENCES public.data_source(id) ON DELETE SET NULL,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     establishment_id integer,
@@ -1842,6 +1843,7 @@ CREATE TABLE public.location (
     altitude numeric(6, 1),
     establishment_id integer,
     legal_unit_id integer,
+    data_source_id integer REFERENCES public.data_source(id) ON DELETE SET NULL,
     updated_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
@@ -2495,6 +2497,7 @@ CREATE TABLE public.stat_for_unit (
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
     valid_to date NOT NULL DEFAULT 'infinity',
+    data_source_id integer REFERENCES public.data_source(id) ON DELETE SET NULL,
     establishment_id integer,
     legal_unit_id integer,
     CONSTRAINT "One and only one statistical unit id must be set"
@@ -3622,6 +3625,22 @@ CREATE AGGREGATE public.jsonb_concat_agg(jsonb) (
 );
 
 
+-- Final function to remove duplicates from concatenated arrays
+CREATE FUNCTION public.array_distinct_concat_final(anycompatiblearray)
+RETURNS anycompatiblearray LANGUAGE sql AS $$
+SELECT array_agg(DISTINCT elem)
+  FROM unnest($1) as elem;
+$$;
+
+-- Aggregate function using array_cat for concatenation and public.array_distinct_concat_final to remove duplicates
+CREATE AGGREGATE public.array_distinct_concat(anycompatiblearray) (
+  SFUNC = pg_catalog.array_cat,
+  STYPE = anycompatiblearray,
+  FINALFUNC = public.array_distinct_concat_final,
+  INITCOND = '{}'
+);
+
+
 \echo public.get_jsonb_stats
 CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
     p_establishment_id INTEGER,
@@ -3667,6 +3686,8 @@ CREATE VIEW public.timeline_establishment
     , sector_path
     , sector_code
     , sector_name
+    , data_source_ids
+    , data_source_codes
     , legal_form_id
     , legal_form_code
     , legal_form_name
@@ -3718,6 +3739,10 @@ CREATE VIEW public.timeline_establishment
            , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
+           --
+           , ds.ids AS data_source_ids
+           , ds.codes AS data_source_codes
+           --
            , NULL::INTEGER AS legal_form_id
            , NULL::TEXT    AS legal_form_code
            , NULL::TEXT    AS legal_form_name
@@ -3794,6 +3819,24 @@ CREATE VIEW public.timeline_establishment
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT JOIN LATERAL (
+            SELECT array_agg(sfu.data_source_id) AS data_source_ids
+            FROM public.stat_for_unit AS sfu
+            WHERE sfu.establishment_id = es.id
+              AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sfu.valid_after, sfu.valid_to, '(]')
+        ) AS sfu ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT array_agg(ds.id) AS ids
+             , array_agg(ds.code) AS codes
+        FROM public.data_source AS ds
+        WHERE COALESCE(ds.id = es.data_source_id       , FALSE)
+           OR COALESCE(ds.id = pa.data_source_id       , FALSE)
+           OR COALESCE(ds.id = sa.data_source_id       , FALSE)
+           OR COALESCE(ds.id = phl.data_source_id      , FALSE)
+           OR COALESCE(ds.id = pol.data_source_id      , FALSE)
+           OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
+        ) AS ds ON TRUE
       --
       ORDER BY t.unit_type, t.unit_id, t.valid_after
 ;
@@ -3820,6 +3863,8 @@ CREATE VIEW public.timeline_legal_unit
     , sector_path
     , sector_code
     , sector_name
+    , data_source_ids
+    , data_source_codes
     , legal_form_id
     , legal_form_code
     , legal_form_name
@@ -3873,6 +3918,10 @@ CREATE VIEW public.timeline_legal_unit
            , s.path  AS sector_path
            , s.code  AS sector_code
            , s.name  AS sector_name
+           --
+           , ds.ids AS data_source_ids
+           , ds.codes AS data_source_codes
+           --
            , lf.id   AS legal_form_id
            , lf.code AS legal_form_code
            , lf.name AS legal_form_name
@@ -3950,10 +3999,30 @@ CREATE VIEW public.timeline_legal_unit
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT JOIN LATERAL (
+              SELECT array_agg(sfu.data_source_id) AS data_source_ids
+              FROM public.stat_for_unit AS sfu
+              WHERE sfu.legal_unit_id = lu.id
+                AND daterange(t.valid_after, t.valid_to, '(]')
+                && daterange(sfu.valid_after, sfu.valid_to, '(]')
+        ) AS sfu ON TRUE
+      LEFT JOIN LATERAL (
+          SELECT array_agg(ds.id) AS ids
+               , array_agg(ds.code) AS codes
+          FROM public.data_source AS ds
+         WHERE COALESCE(ds.id = lu.data_source_id       , FALSE)
+            OR COALESCE(ds.id = pa.data_source_id       , FALSE)
+            OR COALESCE(ds.id = sa.data_source_id       , FALSE)
+            OR COALESCE(ds.id = phl.data_source_id      , FALSE)
+            OR COALESCE(ds.id = pol.data_source_id      , FALSE)
+            OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
+        ) AS ds ON TRUE
       ), aggregation AS (
         SELECT tes.legal_unit_id
              , basis.valid_after
              , basis.valid_to
+             , public.array_distinct_concat(tes.data_source_ids) AS data_source_ids
+             , public.array_distinct_concat(tes.data_source_codes) AS data_source_codes
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
              , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
@@ -3981,6 +4050,22 @@ CREATE VIEW public.timeline_legal_unit
            , basis.sector_path
            , basis.sector_code
            , basis.sector_name
+           , (
+               SELECT array_agg(DISTINCT id)
+               FROM (
+                   SELECT unnest(basis.data_source_ids) AS id
+                   UNION ALL
+                   SELECT unnest(aggregation.data_source_ids) AS id
+               ) AS ids
+           ) AS data_source_ids
+           , (
+               SELECT array_agg(DISTINCT id)
+               FROM (
+                   SELECT unnest(basis.data_source_codes) AS id
+                   UNION ALL
+                   SELECT unnest(aggregation.data_source_codes) AS id
+               ) AS ids
+           ) AS data_source_codes
            , basis.legal_form_id
            , basis.legal_form_code
            , basis.legal_form_name
@@ -4023,22 +4108,6 @@ CREATE VIEW public.timeline_legal_unit
 
 --SELECT * FROM public.timeline_legal_unit;
 
--- Final function to remove duplicates from concatenated arrays
-CREATE FUNCTION public.array_distinct_concat_final(anycompatiblearray)
-RETURNS anycompatiblearray LANGUAGE sql AS $$
-SELECT array_agg(DISTINCT elem)
-  FROM unnest($1) as elem;
-$$;
-
--- Aggregate function using array_cat for concatenation and public.array_distinct_concat_final to remove duplicates
-CREATE AGGREGATE public.array_distinct_concat(anycompatiblearray) (
-  SFUNC = pg_catalog.array_cat,
-  STYPE = anycompatiblearray,
-  FINALFUNC = public.array_distinct_concat_final,
-  INITCOND = '{}'
-);
-
-
 
 \echo public.timeline_enterprise
 CREATE VIEW public.timeline_enterprise
@@ -4060,6 +4129,8 @@ CREATE VIEW public.timeline_enterprise
     , sector_path
     , sector_code
     , sector_name
+    , data_source_ids
+    , data_source_codes
     , legal_form_id
     , legal_form_code
     , legal_form_name
@@ -4114,6 +4185,10 @@ CREATE VIEW public.timeline_enterprise
            , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
+           --
+           , ds.ids AS data_source_ids
+           , ds.codes AS data_source_codes
+           --
            , lf.id   AS legal_form_id
            , lf.code AS legal_form_code
            , lf.name AS legal_form_name
@@ -4192,6 +4267,24 @@ CREATE VIEW public.timeline_enterprise
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT JOIN LATERAL (
+              SELECT array_agg(sfu.data_source_id) AS data_source_ids
+              FROM public.stat_for_unit AS sfu
+              WHERE sfu.legal_unit_id = plu.id
+                AND daterange(t.valid_after, t.valid_to, '(]')
+                && daterange(sfu.valid_after, sfu.valid_to, '(]')
+        ) AS sfu ON TRUE
+      LEFT JOIN LATERAL (
+          SELECT array_agg(ds.id) AS ids
+               , array_agg(ds.code) AS codes
+          FROM public.data_source AS ds
+          WHERE COALESCE(ds.id = plu.data_source_id      , FALSE)
+             OR COALESCE(ds.id = pa.data_source_id       , FALSE)
+             OR COALESCE(ds.id = sa.data_source_id       , FALSE)
+             OR COALESCE(ds.id = phl.data_source_id      , FALSE)
+             OR COALESCE(ds.id = pol.data_source_id      , FALSE)
+             OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
+        ) AS ds ON TRUE
       ), basis_with_establishment AS (
       SELECT t.unit_type
            , t.unit_id
@@ -4216,6 +4309,10 @@ CREATE VIEW public.timeline_enterprise
            , s.path AS sector_path
            , s.code AS sector_code
            , s.name AS sector_name
+           --
+           , ds.ids AS data_source_ids
+           , ds.codes AS data_source_codes
+           --
            -- An establishment has no legal_form, that is for legal_unit only.
            , NULL::INTEGER AS legal_form_id
            , NULL::VARCHAR AS legal_form_code
@@ -4291,10 +4388,30 @@ CREATE VIEW public.timeline_enterprise
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT JOIN LATERAL (
+            SELECT array_agg(sfu.data_source_id) AS data_source_ids
+            FROM public.stat_for_unit AS sfu
+            WHERE sfu.legal_unit_id = pes.id
+              AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(sfu.valid_after, sfu.valid_to, '(]')
+        ) AS sfu ON TRUE
+      LEFT JOIN LATERAL (
+          SELECT array_agg(ds.id) AS ids
+               , array_agg(ds.code) AS codes
+          FROM public.data_source AS ds
+         WHERE COALESCE(ds.id = pes.data_source_id      , FALSE)
+            OR COALESCE(ds.id = pa.data_source_id       , FALSE)
+            OR COALESCE(ds.id = sa.data_source_id       , FALSE)
+            OR COALESCE(ds.id = phl.data_source_id      , FALSE)
+            OR COALESCE(ds.id = pol.data_source_id      , FALSE)
+            OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
+        ) AS ds ON TRUE
       ), establishment_aggregation AS (
         SELECT tes.enterprise_id
              , basis.valid_after
              , basis.valid_to
+             , public.array_distinct_concat(tes.data_source_ids) AS data_source_ids
+             , public.array_distinct_concat(tes.data_source_codes) AS data_source_codes
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids
              , public.jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
           FROM public.timeline_establishment AS tes
@@ -4307,6 +4424,8 @@ CREATE VIEW public.timeline_enterprise
         SELECT tlu.enterprise_id
              , basis.valid_after
              , basis.valid_to
+             , public.array_distinct_concat(tlu.data_source_ids) AS data_source_ids
+             , public.array_distinct_concat(tlu.data_source_codes) AS data_source_codes
              , public.array_distinct_concat(tlu.establishment_ids) AS establishment_ids
              , array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids
              , public.jsonb_stats_summary_merge_agg(tlu.stats_summary) AS stats_summary
@@ -4335,6 +4454,22 @@ CREATE VIEW public.timeline_enterprise
                , basis.sector_path
                , basis.sector_code
                , basis.sector_name
+               , (
+                   SELECT array_agg(DISTINCT id)
+                   FROM (
+                       SELECT unnest(basis.data_source_ids) AS id
+                       UNION
+                       SELECT unnest(lua.data_source_ids) AS id
+                   ) AS ids
+               ) AS data_source_ids
+               , (
+                   SELECT array_agg(DISTINCT id)
+                   FROM (
+                       SELECT unnest(basis.data_source_codes) AS id
+                       UNION
+                       SELECT unnest(lua.data_source_codes) AS id
+                   ) AS ids
+               ) AS data_source_codes
                , basis.legal_form_id
                , basis.legal_form_code
                , basis.legal_form_name
@@ -4387,6 +4522,22 @@ CREATE VIEW public.timeline_enterprise
                , basis.sector_path
                , basis.sector_code
                , basis.sector_name
+               , (
+                   SELECT array_agg(DISTINCT id)
+                   FROM (
+                       SELECT unnest(basis.data_source_ids) AS id
+                       UNION
+                       SELECT unnest(esa.data_source_ids) AS id
+                   ) AS ids
+               ) AS data_source_ids
+               , (
+                   SELECT array_agg(DISTINCT id)
+                   FROM (
+                       SELECT unnest(basis.data_source_codes) AS id
+                       UNION
+                       SELECT unnest(esa.data_source_codes) AS id
+                   ) AS ids
+               ) AS data_source_codes
                , basis.legal_form_id
                , basis.legal_form_code
                , basis.legal_form_name
@@ -4516,6 +4667,8 @@ CREATE VIEW public.statistical_unit_def
     , sector_path
     , sector_code
     , sector_name
+    , data_source_ids
+    , data_source_codes
     , legal_form_id
     , legal_form_code
     , legal_form_name
@@ -4569,6 +4722,8 @@ CREATE VIEW public.statistical_unit_def
            , sector_path
            , sector_code
            , sector_name
+           , data_source_ids
+           , data_source_codes
            , legal_form_id
            , legal_form_code
            , legal_form_name
@@ -4625,6 +4780,8 @@ CREATE VIEW public.statistical_unit_def
            , sector_path
            , sector_code
            , sector_name
+           , data_source_ids
+           , data_source_codes
            , legal_form_id
            , legal_form_code
            , legal_form_name
@@ -4677,6 +4834,8 @@ CREATE VIEW public.statistical_unit_def
            , sector_path
            , sector_code
            , sector_name
+           , data_source_ids
+           , data_source_codes
            , legal_form_id
            , legal_form_code
            , legal_form_name
@@ -4727,6 +4886,8 @@ CREATE VIEW public.statistical_unit_def
          , data.sector_path
          , data.sector_code
          , data.sector_name
+         , data.data_source_ids
+         , data.data_source_codes
          , data.legal_form_id
          , data.legal_form_code
          , data.legal_form_name
@@ -4790,6 +4951,9 @@ CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit 
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
 \echo idx_statistical_unit_sector_id
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
+
+\echo idx_statistical_unit_data_source_ids
+CREATE INDEX idx_statistical_unit_data_source_ids ON public.statistical_unit USING GIN (data_source_ids);
 
 CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit(sector_path);
 CREATE INDEX idx_gist_statistical_unit_sector_path ON public.statistical_unit USING GIST (sector_path);
@@ -4883,6 +5047,23 @@ ORDER BY s.path;
 
 CREATE UNIQUE INDEX "sector_used_key"
     ON public.sector_used (path);
+
+\echo public.data_source_used
+CREATE MATERIALIZED VIEW public.data_source_used AS
+SELECT s.id
+     , s.code
+     , s.name
+FROM public.data_source AS s
+WHERE s.id IN (
+    SELECT unnest(public.array_distinct_concat(data_source_ids))
+      FROM public.statistical_unit
+     WHERE data_source_ids IS NOT NULL
+  )
+  AND s.active
+ORDER BY s.code;
+
+CREATE UNIQUE INDEX "data_source_used_key"
+    ON public.data_source_used (code);
 
 \echo public.legal_form_used
 CREATE MATERIALIZED VIEW public.legal_form_used AS
@@ -6178,6 +6359,17 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 
+\echo public.data_source_hierarchy
+CREATE OR REPLACE FUNCTION public.data_source_hierarchy(data_source_id INTEGER)
+RETURNS JSONB LANGUAGE sql STABLE AS $$
+    WITH data AS (
+        SELECT jsonb_build_object('data_source', to_jsonb(s.*)) AS data
+          FROM public.data_source AS s
+         WHERE data_source_id IS NOT NULL AND s.id = data_source_id
+         ORDER BY s.code
+    )
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
+$$;
 
 
 \echo public.stat_for_unit_hierarchy
@@ -6196,7 +6388,9 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
             WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
             WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
             WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
-           END AS data
+           END
+        || (SELECT public.data_source_hierarchy(sfu.data_source_id))
+        AS data
     FROM public.stat_for_unit AS sfu
     JOIN public.stat_definition AS sd ON sd.id = sfu.stat_definition_id
     WHERE (  parent_establishment_id    IS NOT NULL AND sfu.establishment_id    = parent_establishment_id
@@ -6278,6 +6472,7 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
     SELECT to_jsonb(l.*)
         || (SELECT public.region_hierarchy(l.region_id))
         || (SELECT public.country_hierarchy(l.country_id))
+        || (SELECT public.data_source_hierarchy(l.data_source_id))
         AS data
       FROM public.location AS l
      WHERE l.valid_after < valid_on AND valid_on <= l.valid_to
@@ -6340,6 +6535,7 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
     WITH ordered_data AS (
         SELECT to_jsonb(a.*)
                || (SELECT public.activity_category_hierarchy(a.category_id))
+               || (SELECT public.data_source_hierarchy(a.data_source_id))
                AS data
           FROM public.activity AS a
          WHERE a.valid_after < valid_on AND valid_on <= a.valid_to
@@ -6424,6 +6620,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.sector_hierarchy(es.sector_id))
+        || (SELECT public.data_source_hierarchy(es.data_source_id))
         || (SELECT public.tag_for_unit_hierarchy(es.id,NULL,NULL,NULL))
         AS data
     FROM public.establishment AS es
@@ -6454,6 +6651,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
         || (SELECT public.stat_for_unit_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.sector_hierarchy(lu.sector_id))
         || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
+        || (SELECT public.data_source_hierarchy(lu.data_source_id))
         || (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL))
         AS data
     FROM public.legal_unit AS lu
@@ -7810,6 +8008,34 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+\echo admin.import_lookup_data_source
+CREATE FUNCTION admin.import_lookup_data_source(
+    new_jsonb JSONB,
+    OUT data_source_id INTEGER,
+    INOUT updated_invalid_codes JSONB
+) RETURNS RECORD AS $$
+DECLARE
+    data_source_code TEXT;
+BEGIN
+    -- Get the value of the data_source_code field from the JSONB parameter
+    data_source_code := new_jsonb ->> 'data_source_code';
+
+    -- Check if data_source_code is not null and not empty
+    IF data_source_code IS NOT NULL AND data_source_code <> '' THEN
+        SELECT id INTO data_source_id
+        FROM public.data_source
+        WHERE code = data_source_code
+          AND active;
+
+        IF NOT FOUND THEN
+            RAISE WARNING 'Could not find data_source_code for row %', new_jsonb;
+            updated_invalid_codes := jsonb_set(updated_invalid_codes, '{data_source_code}', to_jsonb(data_source_code), true);
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
 \echo admin.import_lookup_legal_form
 CREATE FUNCTION admin.import_lookup_legal_form(
     new_jsonb JSONB,
@@ -8068,7 +8294,8 @@ CREATE PROCEDURE admin.process_stats_for_unit(
     unit_type TEXT,
     unit_id INTEGER,
     valid_from DATE,
-    valid_to DATE
+    valid_to DATE,
+    data_source_id INTEGER
 ) LANGUAGE plpgsql AS $process_stats_for_unit$
 DECLARE
     stat_code TEXT;
@@ -8101,10 +8328,11 @@ BEGIN
                     'stat_definition_id', stat_def_row.id,
                     'valid_from', valid_from,
                     'valid_to', valid_to,
+                    'data_source_id', data_source_id,
                     unit_fk_field, unit_id,
                     'value_' || stat_type, stat_value
                 );
-                stat_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+                stat_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
                 BEGIN
                     -- Assign jsonb to the row - casting the fields as required,
                     -- possibly throwing an error message.
@@ -8117,6 +8345,7 @@ BEGIN
                     , valid_after
                     , valid_from
                     , valid_to
+                    , data_source_id
                     , establishment_id
                     , legal_unit_id
                     , value_int
@@ -8128,6 +8357,7 @@ BEGIN
                       , stat_row.valid_after
                       , stat_row.valid_from
                       , stat_row.valid_to
+                      , stat_row.data_source_id
                       , stat_row.establishment_id
                       , stat_row.legal_unit_id
                       , stat_row.value_int
@@ -8257,6 +8487,7 @@ DECLARE
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
+    data_source RECORD;
     legal_form RECORD;
     upsert_data RECORD;
     new_typed RECORD;
@@ -8291,6 +8522,7 @@ BEGIN
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS id INTO legal_form;
     SELECT NULL::int AS id INTO tag;
 
@@ -8329,6 +8561,10 @@ BEGIN
     SELECT sector_id , updated_invalid_codes
     INTO   sector.id , invalid_codes
     FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
+
+    SELECT data_source_id , updated_invalid_codes
+    INTO   data_source.id , invalid_codes
+    FROM admin.import_lookup_data_source(new_jsonb, invalid_codes);
 
     SELECT legal_form_id , updated_invalid_codes
     INTO   legal_form.id , invalid_codes
@@ -8390,6 +8626,7 @@ BEGIN
         , invalid_codes
         , enterprise_id
         , primary_for_enterprise
+        , data_source_id
         , edit_by_user_id
         )
     VALUES
@@ -8406,6 +8643,7 @@ BEGIN
         , upsert_data.invalid_codes
         , enterprise.id
         , is_primary_for_enterprise
+        , data_source.id
         , edited_by_user.id
         )
      RETURNING *
@@ -8458,6 +8696,7 @@ BEGIN
             , postal_place
             , region_id
             , country_id
+            , data_source_id
             , updated_by_user_id
             )
         VALUES
@@ -8472,6 +8711,7 @@ BEGIN
             , NULLIF(NEW.physical_postal_place,'')
             , physical_region.id
             , physical_country.id
+            , data_source.id
             , edited_by_user.id
             )
         RETURNING *
@@ -8508,6 +8748,7 @@ BEGIN
             , postal_place
             , region_id
             , country_id
+            , data_source_id
             , updated_by_user_id
             )
         VALUES
@@ -8522,6 +8763,7 @@ BEGIN
             , NULLIF(NEW.postal_postal_place,'')
             , postal_region.id
             , postal_country.id
+            , data_source.id
             , edited_by_user.id
             )
         RETURNING *
@@ -8552,6 +8794,7 @@ BEGIN
             , legal_unit_id
             , type
             , category_id
+            , data_source_id
             , updated_by_user_id
             , updated_at
             )
@@ -8561,6 +8804,7 @@ BEGIN
             , inserted_legal_unit.id
             , 'primary'
             , primary_activity_category.id
+            , data_source.id
             , edited_by_user.id
             , statement_timestamp()
             )
@@ -8592,6 +8836,7 @@ BEGIN
             , legal_unit_id
             , type
             , category_id
+            , data_source_id
             , updated_by_user_id
             , updated_at
             )
@@ -8601,6 +8846,7 @@ BEGIN
             , inserted_legal_unit.id
             , 'secondary'
             , secondary_activity_category.id
+            , data_source.id
             , edited_by_user.id
             , statement_timestamp()
             )
@@ -8630,7 +8876,8 @@ BEGIN
         'legal_unit',
         inserted_legal_unit.id,
         new_typed.valid_from,
-        new_typed.valid_to
+        new_typed.valid_to,
+        data_source.id
         );
 
     IF tag.id IS NOT NULL THEN
@@ -8694,6 +8941,7 @@ SELECT '' AS valid_from,
        '' AS primary_activity_category_code,
        '' AS secondary_activity_category_code,
        '' AS sector_code,
+       '' AS data_source_code,
        '' AS legal_form_code,
 {{stat_definition_columns}}
        '' AS tag_path
@@ -8781,6 +9029,7 @@ SELECT
      '' AS primary_activity_category_code,
      '' AS secondary_activity_category_code,
      '' AS sector_code,
+     '' AS data_source_code,
      '' AS legal_form_code,
 {{stat_definition_columns}}
      '' AS tag_path
@@ -8950,6 +9199,7 @@ DECLARE
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
+    data_source RECORD;
     upsert_data RECORD;
     new_typed RECORD;
     external_idents_to_add public.external_ident[] := ARRAY[]::public.external_ident[];
@@ -8987,6 +9237,7 @@ BEGIN
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS employees
          , NULL::int AS turnover
         INTO stats;
@@ -9044,6 +9295,10 @@ BEGIN
     SELECT sector_id , updated_invalid_codes
     INTO   sector.id , invalid_codes
     FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
+
+    SELECT data_source_id , updated_invalid_codes
+    INTO   data_source.id , invalid_codes
+    FROM admin.import_lookup_data_source(new_jsonb, invalid_codes);
 
     SELECT external_idents        , prior_id
     INTO   external_idents_to_add , prior_establishment_id
@@ -9111,6 +9366,7 @@ BEGIN
         , enterprise_id
         , legal_unit_id
         , primary_for_legal_unit
+        , data_source_id
         , edit_by_user_id
         )
     VALUES
@@ -9127,6 +9383,7 @@ BEGIN
         , upsert_data.enterprise_id
         , upsert_data.legal_unit_id
         , upsert_data.primary_for_legal_unit
+        , data_source.id
         , edited_by_user.id
         )
      RETURNING *
@@ -9177,6 +9434,7 @@ BEGIN
             , postal_place
             , region_id
             , country_id
+            , data_source_id
             , updated_by_user_id
             )
         VALUES
@@ -9191,6 +9449,7 @@ BEGIN
             , NULLIF(NEW.physical_postal_place,'')
             , physical_region.id
             , physical_country.id
+            , data_source.id
             , edited_by_user.id
             )
         RETURNING *
@@ -9227,6 +9486,7 @@ BEGIN
             , postal_place
             , region_id
             , country_id
+            , data_source_id
             , updated_by_user_id
             )
         VALUES
@@ -9241,6 +9501,7 @@ BEGIN
             , NULLIF(NEW.postal_postal_place,'')
             , postal_region.id
             , postal_country.id
+            , data_source.id
             , edited_by_user.id
             )
         RETURNING * INTO inserted_location;
@@ -9270,6 +9531,7 @@ BEGIN
             , establishment_id
             , type
             , category_id
+            , data_source_id
             , updated_by_user_id
             , updated_at
             )
@@ -9279,6 +9541,7 @@ BEGIN
             , inserted_establishment.id
             , 'primary'
             , primary_activity_category.id
+            , data_source.id
             , edited_by_user.id
             , statement_timestamp()
             )
@@ -9310,6 +9573,7 @@ BEGIN
             , establishment_id
             , type
             , category_id
+            , data_source_id
             , updated_by_user_id
             , updated_at
             )
@@ -9319,6 +9583,7 @@ BEGIN
             , inserted_establishment.id
             , 'secondary'
             , secondary_activity_category.id
+            , data_source.id
             , edited_by_user.id
             , statement_timestamp()
             )
@@ -9348,7 +9613,8 @@ BEGIN
         'establishment',
         inserted_establishment.id,
         new_typed.valid_from,
-        new_typed.valid_to
+        new_typed.valid_to,
+        data_source.id
         );
 
     IF tag.id IS NOT NULL THEN
@@ -9416,6 +9682,7 @@ SELECT '' AS valid_from,
        '' AS primary_activity_category_code,
        '' AS secondary_activity_category_code,
        '' AS sector_code,
+       '' AS data_source_code,
 {{stat_definition_columns}}
        '' AS tag_path
 ;
@@ -9509,6 +9776,7 @@ SELECT
        '' AS primary_activity_category_code,
        '' AS secondary_activity_category_code,
        '' AS sector_code,
+       '' AS data_source_code,
        '' AS legal_form_code,
 {{stat_definition_columns}}
        '' AS tag_path
@@ -9704,6 +9972,7 @@ SELECT valid_from,
        postal_country_iso_2,
        primary_activity_category_code,
        secondary_activity_category_code,
+       data_source_code,
      -- sector_code is Disabled because the legal unit provides the sector_code
 {{stat_definition_columns}}
        tag_path
@@ -9747,6 +10016,7 @@ BEGIN
         postal_country_iso_2,
         primary_activity_category_code,
         secondary_activity_category_code,
+        data_source_code,
 {{stats_insert_labels}}
         tag_path
     ) VALUES (
@@ -9778,6 +10048,7 @@ BEGIN
         NEW.postal_country_iso_2,
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
+        NEW.data_source_code,
 {{stats_value_labels}}
         NEW.tag_path
         );
@@ -9916,6 +10187,7 @@ SELECT {{ident_type_columns}}
        postal_country_iso_2,
        primary_activity_category_code,
        secondary_activity_category_code,
+       data_source_code,
      -- sector_code is Disabled because the legal unit provides the sector_code
 {{stat_definition_columns}}
        tag_path
@@ -9959,6 +10231,7 @@ BEGIN
         postal_country_iso_2,
         primary_activity_category_code,
         secondary_activity_category_code,
+        data_source_code,
 {{stats_insert_labels}}
         tag_path
     ) VALUES (
@@ -9987,6 +10260,7 @@ BEGIN
         NEW.postal_country_iso_2,
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
+        NEW.data_source_code,
 {{stats_value_labels}}
         NEW.tag_path
         );
@@ -10123,6 +10397,7 @@ SELECT valid_from,
        primary_activity_category_code,
        secondary_activity_category_code,
        sector_code, -- Is allowed, since there is no legal unit to provide it.
+       data_source_code,
 {{stat_definition_columns}}
        tag_path
 FROM public.import_establishment_era;
@@ -10158,6 +10433,7 @@ BEGIN
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
+        data_source_code,
 {{stats_insert_labels}}
         tag_path
     ) VALUES (
@@ -10186,6 +10462,7 @@ BEGIN
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,
+        NEW.data_source_code,
 {{stats_value_labels}}
         NEW.tag_path
         );
@@ -10309,6 +10586,7 @@ SELECT {{ident_type_columns}}
        primary_activity_category_code,
        secondary_activity_category_code,
        sector_code, -- Is allowed, since there is no legal unit to provide it.
+       data_source_code,
 {{stat_definition_columns}}
        tag_path
 FROM public.import_establishment_era;
@@ -10347,6 +10625,7 @@ BEGIN
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
+        data_source_code,
 {{stats_insert_labels}}
         tag_path
     ) VALUES (
@@ -10375,6 +10654,7 @@ BEGIN
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,
+        NEW.data_source_code,
 {{stats_value_labels}}
         NEW.tag_path
         );

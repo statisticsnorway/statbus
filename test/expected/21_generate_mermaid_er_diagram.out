@@ -221,6 +221,7 @@ erDiagram
 		"date" valid_to
 		"activity_type" type
 		"integer" category_id
+		"integer" data_source_id
 		"integer" updated_by_user_id
 		"timestamp with time zone" updated_at
 		"integer" establishment_id
@@ -458,6 +459,7 @@ erDiagram
 		"numeric(6,1)" altitude
 		"integer" establishment_id
 		"integer" legal_unit_id
+		"integer" data_source_id
 		"integer" updated_by_user_id
 	}
 	person["person"] {
@@ -586,6 +588,7 @@ erDiagram
 		"date" valid_after
 		"date" valid_from
 		"date" valid_to
+		"integer" data_source_id
 		"integer" establishment_id
 		"integer" legal_unit_id
 		"integer" value_int
@@ -742,6 +745,7 @@ erDiagram
 	auth_sso_domains }o--|| auth.sso_providers : sso_domains_sso_provider_id_fkey
 	pgsodium_key }o--o| pgsodium.key : key_parent_key_fkey
 	activity }o--|| activity_category : activity_category_id_fkey
+	activity }o--o| data_source : activity_data_source_id_fkey
 	activity }o--|| statbus_user : activity_updated_by_user_id_fkey
 	activity_category }o--o| activity_category : activity_category_parent_id_fkey
 	activity_category }|--|| activity_category_standard : activity_category_standard_id_fkey
@@ -772,6 +776,7 @@ erDiagram
 	legal_unit }o--o| sector : legal_unit_sector_id_fkey
 	legal_unit }o--o| unit_size : legal_unit_unit_size_id_fkey
 	location }o--|| country : location_country_id_fkey
+	location }o--o| data_source : location_data_source_id_fkey
 	location }o--o| region : location_region_id_fkey
 	location }o--|| statbus_user : location_updated_by_user_id_fkey
 	person }|--o| country : person_country_id_fkey
@@ -782,6 +787,7 @@ erDiagram
 	region_role }o--|| statbus_role : region_role_role_id_fkey
 	sample_frame }o--o| statbus_user : sample_frame_user_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
+	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey
 	statbus_user }|--|| auth.users : statbus_user_uuid_fkey
 	statbus_user }|--|| statbus_role : statbus_user_role_id_fkey

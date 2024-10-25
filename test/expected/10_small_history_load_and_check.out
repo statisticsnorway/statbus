@@ -363,6 +363,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "5350",                                      +
                       |     "postal_region_path": "46.26",                                     +
                       |     "establishment_count": 0,                                          +
@@ -409,6 +410,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -455,6 +457,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -501,6 +504,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -547,6 +551,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -593,6 +598,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -652,6 +658,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -711,6 +718,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -770,6 +778,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -829,6 +838,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -875,6 +885,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -921,6 +932,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -967,6 +979,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1026,6 +1039,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1085,6 +1099,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1144,6 +1159,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "5350",                                      +
                       |     "postal_region_path": "46.26",                                     +
                       |     "establishment_count": 0,                                          +
@@ -1189,6 +1205,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1234,6 +1251,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1279,6 +1297,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1324,6 +1343,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1369,6 +1389,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -1426,6 +1447,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -1483,6 +1505,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -1540,6 +1563,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": 0,                                          +
@@ -1597,6 +1621,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1642,6 +1667,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1687,6 +1713,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1732,6 +1759,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1789,6 +1817,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
@@ -1846,6 +1875,7 @@ statistical_unit_data | {                                                       
                       |     "legal_form_name": null,                                           +
                       |     "enterprise_count": 1,                                             +
                       |     "legal_unit_count": 1,                                             +
+                      |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": 0,                                          +
