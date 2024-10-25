@@ -29,7 +29,7 @@ export const DrillDownChart = ({
       _chart.current?.destroy();
       _chart.current = chart({
         chart: {
-          height: (BASE_HEIGHT+ROW_HEIGHT*points.length),
+          height: (BASE_HEIGHT+ROW_HEIGHT*(points?.length ?? 0)),
           renderTo: _ref.current,
           events: {
             drilldown: (e) =>
