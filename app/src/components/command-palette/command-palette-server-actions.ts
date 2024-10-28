@@ -36,7 +36,8 @@ export async function resetAll() {
   const logger = await createServerLogger();
 
   try {
-    const { data, error } = await client.rpc("reset_all_data", {
+    const { data, error } = await client.rpc("reset", {
+      reset_scope: 'data',
       confirmed: true,
     });
 
