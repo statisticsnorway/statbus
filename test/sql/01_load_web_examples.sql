@@ -84,7 +84,9 @@ SELECT unit_type
 
 \a
 \echo "Checking that reset works"
-SELECT jsonb_pretty(public.reset_all_data(confirmed := true) - 'statistical_unit_refresh_now') AS reset_all_data;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_data;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_getting_started;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_all;
 \a
 
 ROLLBACK;
