@@ -5,7 +5,7 @@ RUN if [ "$(head -n 1 .nvmrc | cut -d'.' -f1)" != "v20" ]; then \
       exit 1; \
     fi
 
-FROM base AS build
+FROM base AS install
 RUN corepack enable
 RUN corepack prepare pnpm@latest --activate
 WORKDIR /app
@@ -23,7 +23,21 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 ENV NEXT_PUBLIC_BROWSER_SUPABASE_URL=${NEXT_PUBLIC_BROWSER_SUPABASE_URL}
 ENV NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
 ENV NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE}
+
+FROM install AS build
 RUN pnpm run build
+
+# Run the tests with
+#   docker build --target test -t statbus-app-test .
+#   docker run --rm statbus-app-test
+#
+FROM install AS test
+COPY --from=install /app /app
+WORKDIR /app
+CMD pnpm run tsc && \
+    pnpm run lint --quiet && \
+    pnpm test -- --ci --silent && \
+    pnpm run build
 
 FROM base AS runner
 RUN apk add --no-cache dumb-init

@@ -17,8 +17,8 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build app
         run: |
-          cd app
-          npm ci
-          npm test -- --ci --silent
-          npm run lint -- --quiet
-          npm run build -- --no-lint
+          docker build --target test -t statbus-app-test -f app/Dockerfile app
+
+      - name: Run App Tests
+        run: |
+          docker run --rm statbus-app-test
