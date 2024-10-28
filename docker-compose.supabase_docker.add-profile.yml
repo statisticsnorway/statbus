@@ -47,3 +47,7 @@ services:
     profiles:
       - all
       - not_app
+  supavisor:
+    profiles:
+      - all
+      - not_app
