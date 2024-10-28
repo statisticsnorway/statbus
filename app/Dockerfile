@@ -6,7 +6,8 @@ RUN if [ "$(head -n 1 .nvmrc | cut -d'.' -f1)" != "v20" ]; then \
     fi
 
 FROM base AS build
-RUN corepack enable pnpm && corepack install -g pnpm
+RUN corepack enable
+RUN corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
