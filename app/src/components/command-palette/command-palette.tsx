@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import {
   BarChartHorizontal,

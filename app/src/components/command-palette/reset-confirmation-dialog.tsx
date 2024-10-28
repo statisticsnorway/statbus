@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEffect, useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Enums } from "@/lib/database.types";
 import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 
