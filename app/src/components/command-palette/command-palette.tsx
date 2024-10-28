@@ -28,6 +28,8 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 import DataDump from "@/components/data-dump";
 
@@ -103,6 +105,12 @@ export function CommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
+      <VisuallyHidden>
+        <DialogTitle>Command Palette</DialogTitle>
+      </VisuallyHidden>
+      <VisuallyHidden>
+        <DialogDescription>Fast access to all functionality</DialogDescription>
+      </VisuallyHidden>
       <CommandInput placeholder="Type a command or search..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
