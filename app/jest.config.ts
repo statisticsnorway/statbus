@@ -188,7 +188,7 @@ const config: Config = {
   // ],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
-  // unmockedModulePathPatterns: undefined,
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
 
   // Indicates whether each individual test should be reported during the run
   // verbose: undefined,
