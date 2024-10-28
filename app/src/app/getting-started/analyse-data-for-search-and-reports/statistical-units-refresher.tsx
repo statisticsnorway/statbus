@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { refreshStatisticalUnits } from "@/components/command-palette/command-palette-server-actions";
+import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
-import { useGettingStarted, } from "../GettingStartedContext";
 import { useBaseData } from "@/app/BaseDataClient";
 
 type AnalysisState = "checking" | "refreshing" | "finished" | "failed";
@@ -17,21 +16,33 @@ export function StatisticalUnitsRefresher({ children }: { children: React.ReactN
     const checkAndRefresh = async () => {
       if (state == "checking") {
         if (hasStatisticalUnits) {
-            setState("finished");
-          } else {
-            setState("refreshing");
-          }
+          setState("finished");
+        } else {
+          setState("refreshing");
         }
+      }
 
       if (state == "refreshing") {
-        const response = await refreshStatisticalUnits();
-        if (response?.error) {
+        try {
+          const client = await createSupabaseBrowserClientAsync();
+          const { status, statusText, data, error } = await client.rpc(
+            "statistical_unit_refresh_now"
+          );
+
+          if (error) {
+            setState("failed");
+            setErrorMessage(error.message);
+          } else {
+            setState("finished");
+            refreshHasStatisticalUnits();
+          }
+        } catch (error) {
           setState("failed");
-          setErrorMessage(response.error);
-        } else {
-          setState("finished");
-          refreshHasStatisticalUnits();
+          setErrorMessage("Error refreshing statistical units");
         }
+      } else {
+        setState("finished");
+        refreshHasStatisticalUnits();
       }
     };
 
