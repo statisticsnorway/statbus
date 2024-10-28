@@ -411,8 +411,9 @@ DROP PROCEDURE admin.cleanup_import_establishment_current_without_legal_unit();
 DROP FUNCTION admin.render_template(text,jsonb);
 DROP FUNCTION public.remove_ephemeral_data_from_hierarchy(JSONB);
 
-\echo public.reset_all_data
-DROP FUNCTION public.reset_all_data(confirmed boolean);
+\echo public.reset
+DROP FUNCTION public.reset (confirmed boolean, scope public.reset_scope);
+DROP TYPE public.reset_scope;
 
 DROP FUNCTION admin.apply_rls_and_policies(regclass);
 DROP FUNCTION admin.enable_rls_on_public_tables();
