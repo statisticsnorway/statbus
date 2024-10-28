@@ -54,7 +54,8 @@ case "$action" in
         eval docker compose $compose_profile_arg up $build_arg --detach
       ;;
     'stop' )
-        eval docker compose --profile all down
+        set_profile_arg "$@"
+        eval docker compose $compose_profile_arg down
       ;;
     'logs' )
         eval docker compose logs --follow
