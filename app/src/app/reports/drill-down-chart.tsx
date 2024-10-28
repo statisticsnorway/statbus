@@ -105,7 +105,7 @@ export const DrillDownChart = ({
         ],
       });
     }
-  }, [points, onSelect, variable, title]);
+  }, [points, onSelect, variable, title, maxTopLevelValue]);
 
   return <div ref={_ref} />;
 };

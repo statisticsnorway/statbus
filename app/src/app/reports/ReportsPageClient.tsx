@@ -1,7 +1,7 @@
 "use client";
 
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as highcharts from "highcharts";
 import HC_drilldown from "highcharts/modules/drilldown";
 import HC_a11y from "highcharts/modules/accessibility";
@@ -13,7 +13,7 @@ import { useBaseData } from "@/app/BaseDataClient";
 
 export default function ReportsPageClient({
 }) {
-  const [maxStatValuesNoFiltering, setMaxStatValuesNoFiltering] = useState<Record<string, {region: number, activity: number}>>({});
+  const [maxStatValuesNoFiltering, setMaxStatValuesNoFiltering] = useState<Record<string, { region: number, activity: number }>>({});
   const {
     drillDown,
     region,
@@ -21,6 +21,24 @@ export default function ReportsPageClient({
     activityCategory,
     setActivityCategory,
   } = useDrillDownData();
+
+  const { statDefinitions } = useBaseData();
+
+  useEffect(() => {
+    HC_a11y(highcharts);
+    HC_drilldown(highcharts);
+  }, []);
+
+  const statisticalVariables = useMemo(() => {
+    return [
+      { value: "count", label: "Count", title: "Number of enterprises" },
+      ...(statDefinitions.map(({ code, name }) => ({
+        value: code!,
+        label: code!,
+        title: name!,
+      })) ?? []),
+    ];
+  }, [statDefinitions]);
 
   // Calculate max values only for unfiltered top-level data
   useEffect(() => {
@@ -51,27 +69,7 @@ export default function ReportsPageClient({
         return newMaxValues;
       });
     }
-  }, [drillDown, region, activityCategory]);
-
-  const { statDefinitions } = useBaseData();
-
-  useEffect(() => {
-    HC_a11y(highcharts);
-    HC_drilldown(highcharts);
-  }, []);
-
-  const statisticalVariables: {
-    value: string;
-    label: string;
-    title: string;
-  }[] = [
-    { value: "count", label: "Count", title: "Number of enterprises" },
-    ...(statDefinitions.map(({ code, name }) => ({
-      value: code!,
-      label: code!,
-      title: name!,
-    })) ?? []),
-  ];
+  }, [drillDown, region, activityCategory, statisticalVariables]);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-12">

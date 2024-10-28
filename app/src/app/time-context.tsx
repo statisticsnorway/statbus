@@ -78,7 +78,7 @@ export function TimeContextProvider({ children }: TimeContextProviderProps) {
       handleRouteChange();
     }
 
-  }, [pathname, searchParams, updateQueryParam, selectedTimeContext, timeContexts, defaultTimeContext, hasStatisticalUnits, isAuthenticated]);
+  }, [pathname, searchParams, updateQueryParam, selectedTimeContext, timeContexts, defaultTimeContext, hasStatisticalUnits, isAuthenticated, setSelectedTimeContextFromIdent]);
 
   const appendTcParam = useCallback((url: string) => {
     const urlObj = new URL(url, window.location.origin);
