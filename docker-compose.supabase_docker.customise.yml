@@ -45,3 +45,29 @@ services:
       - maintenance_work_mem=512MB
       - -c # Set WAL buffers to 64MB, allowing more WAL data to be stored in memory before being written to disk, reducing write frequency.
       - wal_buffers=64MB
+  storage:
+    # Override the address of the healthcheck from localhost that resolves to ::1 (IPv6)
+    # instead of the correct 127.0.0.1 (IPv4) that storage listens to, as it binds
+    # to 0.0.0.0 (IPv4) and not ::1 (IPv6).
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:5000/status"
+        ]
+  studio:
+    # Override the address of the healthcheck from localhost that resolves to 127.0.0.1 (IPv4) that studio
+    # does *NOT* listen to, as it binds to the exposed interface only!!
+    # Use the docker lookup of studio to the assigned IP address instead.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://studio:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+        ]
