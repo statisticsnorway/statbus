@@ -16,6 +16,7 @@ export type UploadView =
   | "import_legal_unit_current"
   | "activity_category_available_custom"
   | "import_establishment_current_for_legal_unit"
+  | "import_establishment_current_without_legal_unit"
   | "sector_custom_only"
   | "legal_form_custom_only";
 
