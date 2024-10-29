@@ -41,11 +41,14 @@ export async function middleware(request: NextRequest) {
       .from("legal_unit")
       .select("id")
       .limit(1);
-    if (!legalUnits?.length) {
-      return NextResponse.redirect(
-        `${request.nextUrl.origin}/getting-started/upload-legal-units`,
-        { headers: response.headers }
-      );
+    const { data: establishments } = await client
+      .from("establishment")
+      .select("id")
+      .limit(1);
+    if (!legalUnits?.length && !establishments?.length) {
+      return NextResponse.redirect(`${request.nextUrl.origin}/import`, {
+        headers: response.headers,
+      });
     }
   }
 
