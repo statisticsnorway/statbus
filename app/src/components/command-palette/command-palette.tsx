@@ -171,20 +171,29 @@ export function CommandPalette() {
               <span>Upload Custom Activity Category Standards</span>
             </CommandItem>
             <CommandItem
-              onSelect={() => navigate("/getting-started/upload-legal-units")}
+              onSelect={() => navigate("/import/legal-units")}
               value="Upload Legal Units"
             >
               <Upload className="mr-2 h-4 w-4" />
               <span>Upload Legal Units</span>
             </CommandItem>
             <CommandItem
-              onSelect={() => navigate("/getting-started/upload-establishments")}
+              onSelect={() => navigate("/import/establishments")}
               value="Upload Establishments"
             >
               <Upload className="mr-2 h-4 w-4" />
               <span>Upload Establishments</span>
             </CommandItem>
-            <CommandItem onSelect={() => navigate("/profile")} value="Profile">
+            <CommandItem
+            onSelect={() =>
+              navigate("/import/establishments-without-legal-unit")
+            }
+            value="Upload Establishments Without Legal Unit"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            <span>Upload Establishments Without Legal Unit</span>
+          </CommandItem>
+          <CommandItem onSelect={() => navigate("/profile")} value="Profile">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </CommandItem>
