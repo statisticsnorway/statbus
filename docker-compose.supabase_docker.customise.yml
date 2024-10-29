@@ -23,6 +23,11 @@ services:
     volumes:
       # Make all files available for running tests.
       - ..:/statbus
+    environment:
+      # Update to match https://github.com/supabase/postgres/blob/develop/Dockerfile-16#L214
+      # for the new setup where postres is not the default user.
+      POSTGRES_USER: supabase_admin
+      POSTGRES_DB: postgres
     command:
       - postgres
       - -c
