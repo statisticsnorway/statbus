@@ -272,9 +272,10 @@ case "$action" in
 
         # Check if the directory is accessible
         if ! test -r "$DIRECTORY" || ! test -w "$DIRECTORY" || ! test -x "$DIRECTORY"; then
-          echo "Removing with sudo"
+          echo "Removing '$DIRECTORY' with sudo"
           sudo rm -rf "$DIRECTORY"
         else
+          echo "Removing '$DIRECTORY'"
           rm -rf "$DIRECTORY"
         fi
       ;;
