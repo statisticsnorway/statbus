@@ -79,6 +79,7 @@ export const DrillDownChart = ({
           activeAxisLabelStyle: {
             color: "black",
             fontWeight: "normal",
+            textDecoration: "none",
           },
           activeDataLabelStyle: {
             color: "black",
@@ -113,12 +114,12 @@ export const DrillDownChart = ({
 const getStatValue = (point: DrillDownPoint, variable: string): number =>
   variable === "count"
     ? point.count
-    : (point.stats_summary?.[variable]?.sum as number) ?? 0;
+    : ((point.stats_summary?.[variable]?.sum as number) ?? 0);
 
 const toPointOptionObject = (point: DrillDownPoint, variable: string) => ({
   name: `${point.path} - ${point.name}`,
   y: getStatValue(point, variable),
   drilldown: point.has_children ? "1" : "",
   custom: point,
-  color: "#00719c",
+  color: "#86ABD4",
 });
