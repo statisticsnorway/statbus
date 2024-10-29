@@ -24,15 +24,19 @@ export default function UploadCustomActivityCategoryCodesPage() {
         you want to use in your analysis.
       </p>
 
-      {!!numberOfCustomActivityCategoryCodes && numberOfCustomActivityCategoryCodes > 0 && (
-        <InfoBox>
-          <p>There are already {numberOfCustomActivityCategoryCodes} custom activity category codes defined</p>
-        </InfoBox>
-      )}
+      {!!numberOfCustomActivityCategoryCodes &&
+        numberOfCustomActivityCategoryCodes > 0 && (
+          <InfoBox>
+            <p>
+              There are already {numberOfCustomActivityCategoryCodes} custom
+              activity category codes defined
+            </p>
+          </InfoBox>
+        )}
 
       <UploadCSVForm
         uploadView="activity_category_available_custom"
-        nextPage="/getting-started/upload-legal-units"
+        nextPage="/getting-started/summary"
         refreshRelevantCounts={refreshNumberOfCustomActivityCategoryCodes}
       />
 
