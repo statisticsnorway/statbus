@@ -266,7 +266,7 @@ case "$action" in
         ./devops/manage-statbus.sh create-db
       ;;
     'delete-db' )
-        ./devops/manage-statbus.sh stop
+        ./devops/manage-statbus.sh stop all
         # Define the directory path
         DIRECTORY="$WORKSPACE/supabase_docker/volumes/db/data"
 
