@@ -103,6 +103,9 @@ case "$action" in
             git checkout -B "$BRANCH" "$COMMIT"
         fi
 
+        ./devops/manage-statbus.sh generate-config
+        ./devops/manage-statbus.sh delete-db
+
         # Proceed with the rest of the workflow
         ./devops/manage-statbus.sh create-db > /dev/null
 
