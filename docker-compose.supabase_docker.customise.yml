@@ -14,7 +14,7 @@ services:
       PGRST_DB_AGGREGATES_ENABLED: true
   db:
     # Use a custom build with sql_saga extension for temporal tables.
-    image: ghcr.io/veridit/supabase_postgres:latest
+    image: ghcr.io/veridit/supabase_postgres:c035263a
     #image: veridit/supabase_postgres:latest
     # Prevent the database from using too much memory.
     shm_size: 2g
