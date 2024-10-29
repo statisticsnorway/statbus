@@ -3,5 +3,5 @@ services:
     ports: !reset []
   analytics:
     ports: !reset []
-  db:
+  supavisor:
     ports: !reset []

@@ -23,3 +23,5 @@ services:
     container_name: ${COMPOSE_INSTANCE_NAME:-statbus}-db
   vector:
     container_name: ${COMPOSE_INSTANCE_NAME:-statbus}-vector
+  supavisor:
+    container_name: ${COMPOSE_INSTANCE_NAME:-statbus}-supavisor
