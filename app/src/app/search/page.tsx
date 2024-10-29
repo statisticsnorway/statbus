@@ -28,9 +28,10 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
    * so that we do not need any blocking calls to supabase here.
    */
   const client = await createSupabaseSSRClient();
-  const [{data: activityCategories}, {data: regions}] = await Promise.all([
+  const [{data: activityCategories}, {data: regions}, {data: dataSources}] = await Promise.all([
     client.from("activity_category_used").select(),
     client.from("region_used").select(),
+    client.from("data_source").select().filter('active','eq',true),
   ]);
 
   let order = defaultOrder;
@@ -52,6 +53,7 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
       initialPagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
       regions={regions ?? []}
       activityCategories={activityCategories ?? []}
+      dataSources={dataSources ?? []}
       initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
       <main className="mx-auto flex w-full flex-col py-8 md:py-12 px-4">

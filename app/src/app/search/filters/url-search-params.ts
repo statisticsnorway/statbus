@@ -174,6 +174,34 @@ export function activityCategoryDeriveStateUpdateFromValues(values: (string | nu
 }
 
 
+export const DATA_SOURCE = "data_source";
+
+export function dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams, dataSources: Tables<"data_source">[]): SearchAction {
+  const initialValue = urlSearchParams.get(DATA_SOURCE);
+  const initialValues = parseInitialValues(initialValue);
+  return dataSourceDeriveStateUpdateFromValues(initialValues, dataSources);
+}
+
+export function dataSourceDeriveStateUpdateFromValues(values: (string | null)[], dataSources: Tables<"data_source">[]): SearchAction {
+  const codeToIdMap = new Map(dataSources.map(ds => [ds.code, ds.id]));
+  const ids = values
+    .filter(value => value !== null) // Remove null values
+    .map(value => codeToIdMap.get(value))
+    .filter(id => id !== undefined); // Remove undefined ids (in case of unmatched codet)
+
+  const searchAction = {
+    type: "set_query",
+    payload: {
+      app_param_name: DATA_SOURCE,
+      api_param_name: "data_source_ids",
+      api_param_value: ids.length ? `cs.{${ids.join(",")}}` : null,
+      app_param_values: values,
+    },
+  } as SearchAction;
+  return searchAction;
+}
+
+
 export function externalIdentDeriveStateUpdateFromSearchParams(
   maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
   urlSearchParams: URLSearchParams
