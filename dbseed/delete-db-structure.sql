@@ -203,6 +203,7 @@ DROP FUNCTION admin.import_lookup_region;
 DROP FUNCTION admin.import_lookup_activity_category;
 DROP FUNCTION admin.import_lookup_sector;
 DROP FUNCTION admin.import_lookup_legal_form;
+DROP FUNCTION admin.import_lookup_data_source;
 DROP FUNCTION admin.type_date_field;
 DROP FUNCTION admin.process_external_idents;
 DROP FUNCTION admin.process_enterprise_connection;
