@@ -51,9 +51,9 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
     <SearchResults
       initialOrder={order}
       initialPagination={{ pageNumber: currentPage, pageSize: defaultPageSize }}
-      regions={regions ?? []}
-      activityCategories={activityCategories ?? []}
-      dataSources={dataSources ?? []}
+      allRegions={regions ?? []}
+      allActivityCategories={activityCategories ?? []}
+      allDataSources={dataSources ?? []}
       initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
       <main className="mx-auto flex w-full flex-col py-8 md:py-12 px-4">

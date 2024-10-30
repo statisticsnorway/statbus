@@ -9,8 +9,9 @@ export interface SearchContextState {
   readonly modifySearchState: Dispatch<SearchAction>;
   readonly searchResult?: SearchResult;
   readonly derivedApiSearchParams: URLSearchParams;
-  readonly regions: Tables<"region_used">[];
-  readonly activityCategories: Tables<"activity_category_available">[];
+  readonly allRegions: Tables<"region_used">[];
+  readonly allActivityCategories: Tables<"activity_category_available">[];
+  readonly allDataSources: Tables<"data_source">[];
   readonly selectedTimeContext: TimeContextRow;
   /**
    * Indicates whether the search is currently loading new data.

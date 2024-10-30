@@ -194,7 +194,7 @@ export function dataSourceDeriveStateUpdateFromValues(values: (string | null)[],
     payload: {
       app_param_name: DATA_SOURCE,
       api_param_name: "data_source_ids",
-      api_param_value: ids.length ? `cs.{${ids.join(",")}}` : null,
+      api_param_value: ids.length ? `ov.{${ids.join(",")}}` : null,
       app_param_values: values,
     },
   } as SearchAction;

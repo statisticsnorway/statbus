@@ -11,6 +11,8 @@ import { thousandSeparator } from "@/lib/number-utils";
 import { useBaseData } from "@/app/BaseDataClient";
 import { StatisticalUnit } from "@/app/types";
 import { InvalidCodes } from "./invalid-codes";
+import { Popover, PopoverContent } from "@/components/ui/popover";
+import { PopoverTrigger } from "@radix-ui/react-popover";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -23,7 +25,7 @@ export const StatisticalUnitTableRow = ({
   className,
   regionLevel,
 }: SearchResultTableRowProps) => {
-  const { regions, activityCategories } = useSearchContext();
+  const { allRegions, allActivityCategories, allDataSources } = useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { selected } = useSelectionContext();
 
@@ -42,32 +44,32 @@ export const StatisticalUnitTableRow = ({
     sector_name,
     sector_code,
     invalid_codes,
+    data_source_ids,
   } = unit as StatisticalUnit;
 
   const getRegionByPath = (physical_region_path: unknown) => {
     if (typeof physical_region_path !== "string") return undefined;
     const regionParts = physical_region_path.split(".");
     const selectedRegionPath = regionParts.slice(0, regionLevel).join(".");
-    return regions.find(({ path }) => path === selectedRegionPath);
+    return allRegions.find(({ path }) => path === selectedRegionPath);
   };
 
   const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
-    activityCategories.find(
+    allActivityCategories.find(
       ({ path }) => path === primary_activity_category_path
     );
-
-  /* TODO - Remove this once the search results include the activity category and region names
-   * Until activity category and region names are included in the search results,
-   * we need to provide activity categories and regions via the search provider
-   * so that the names can be displayed in the search results.
-   *
-   * A better solution would be to include the names in the search results
-   * so that we do not need any blocking calls to supabase here.
-   */
 
   const activityCategory = getActivityCategoryByPath(
     primary_activity_category_path
   );
+
+  const getDataSourcesByIds = (data_source_ids: number[] | null) => {
+    if (!data_source_ids) return [];
+    return data_source_ids
+      .map((id) => allDataSources.find((ds) => ds.id === id));
+  };
+
+  const dataSources = getDataSourcesByIds(data_source_ids ?? []);
 
   const region = getRegionByPath(physical_region_path);
 
@@ -158,6 +160,22 @@ export const StatisticalUnitTableRow = ({
           <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
             {activityCategory?.name}
           </small>
+        </div>
+      </TableCell>
+      <TableCell className="py-2 text-left hidden lg:table-cell">
+        <div className="flex flex-col space-y-0.5 leading-tight">
+          {dataSources.map((ds) => (
+            <Popover key={`dataSource-${ds?.id}`}>
+              <PopoverTrigger asChild>
+                <span className="cursor-pointer" title={ds?.name}>
+                  {ds?.code}
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="p-1.5 w-full">
+                <p className="text-xs">{ds?.name}</p>
+              </PopoverContent>
+            </Popover>
+          ))}
         </div>
       </TableCell>
       <TableCell className="p-1 text-right">

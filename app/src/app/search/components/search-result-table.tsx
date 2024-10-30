@@ -8,7 +8,7 @@ import { SearchResultTableBodySkeleton } from "@/app/search/components/search-re
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
 
 export default function SearchResultTable() {
-  const { searchResult, error, isLoading, regions } = useSearchContext();
+  const { searchResult, error, isLoading, allRegions: regions } = useSearchContext();
   const { regionLevel, setRegionLevel } = useRegionLevel();
   const maxRegionLevel = Math.max(
     ...(regions?.map((region) => region.level ?? 0) ?? [])

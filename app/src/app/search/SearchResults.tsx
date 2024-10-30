@@ -40,7 +40,7 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
     initialUrlSearchParams: URLSearchParams,
     maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
     statDefinitions: Tables<"stat_definition_ordered">[],
-    dataSources: Tables<"data_source">[],
+    allDataSources: Tables<"data_source">[],
   ) : SearchState {
     let actions = [
       fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
@@ -50,7 +50,7 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
       regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
       sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
       activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      dataSourceDeriveStateUpdateFromSearchParams(initialUrlSearchParams, dataSources),
+      dataSourceDeriveStateUpdateFromSearchParams(initialUrlSearchParams, allDataSources),
       externalIdentDeriveStateUpdateFromSearchParams(maybeDefaultExternalIdentType, initialUrlSearchParams),
     ].concat(
       statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams)
@@ -64,9 +64,9 @@ interface SearchResultsProps {
   readonly children: ReactNode;
   readonly initialOrder: SearchOrder;
   readonly initialPagination: SearchPagination;
-  readonly regions: Tables<"region_used">[];
-  readonly activityCategories: Tables<"activity_category_used">[];
-  readonly dataSources: Tables<"data_source">[];
+  readonly allRegions: Tables<"region_used">[];
+  readonly allActivityCategories: Tables<"activity_category_used">[];
+  readonly allDataSources: Tables<"data_source">[];
   readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
 
@@ -75,9 +75,9 @@ export function SearchResults({
   children,
   initialOrder,
   initialPagination,
-  regions,
-  activityCategories,
-  dataSources,
+  allRegions,
+  allActivityCategories,
+  allDataSources,
   initialUrlSearchParamsDict,
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
@@ -98,7 +98,7 @@ export function SearchResults({
     initialUrlSearchParams,
     externalIdentTypes?.[0],
     statDefinitions,
-    dataSources,
+    allDataSources,
   );
 
   const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, initialSearchState);
@@ -150,13 +150,14 @@ export function SearchResults({
       modifySearchState,
       searchResult,
       derivedApiSearchParams,
-      regions: regions ?? [],
-      activityCategories: activityCategories ?? [],
+      allRegions: allRegions ?? [],
+      allActivityCategories: allActivityCategories ?? [],
+      allDataSources: allDataSources ?? [],
       selectedTimeContext,
       isLoading,
       error
     } as SearchContextState),
-    [searchState, searchResult, derivedApiSearchParams, regions, activityCategories, selectedTimeContext, isLoading, error]
+    [searchState, searchResult, derivedApiSearchParams, allRegions, allActivityCategories, allDataSources, selectedTimeContext, isLoading, error]
   );
 
   useDerivedUrlSearchParams(ctx);
