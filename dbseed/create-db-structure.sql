@@ -2049,41 +2049,80 @@ EXECUTE FUNCTION admin.delete_stale_country();
 
 -- Helpers to generate views for bach API handling of all the system provided configuration
 -- that can also be overridden.
-CREATE TYPE admin.view_type_enum AS ENUM ('system', 'custom');
-
+CREATE TYPE admin.view_type_enum AS ENUM ('ordered', 'available', 'system', 'custom');
+CREATE TYPE admin.batch_api_table_properties AS (
+    has_priority boolean,
+    has_active boolean,
+    has_archived boolean,
+    has_path boolean,
+    has_code boolean,
+    has_custom boolean,
+    has_description boolean,
+    schema_name text,
+    table_name text
+);
 
 \echo admin.generate_view
-CREATE FUNCTION admin.generate_view(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_view(
+    table_properties admin.batch_api_table_properties,
+    view_type admin.view_type_enum)
 RETURNS regclass AS $generate_view$
 DECLARE
     view_sql text;
     view_name_str text;
     view_name regclass;
-    custom_condition text;
-    schema_name_str text;
-    table_name_str text;
+    from_str text;
+    where_clause_str text := '';
+    order_clause_str text := '';
 BEGIN
-    -- Extract schema and table name
-    SELECT n.nspname, c.relname INTO schema_name_str, table_name_str
-    FROM pg_catalog.pg_class c
-    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-    WHERE c.oid = table_name;
+    -- Construct the view name
+    view_name_str := table_properties.table_name || '_' || view_type::text;
 
-    -- Construct view name without duplicating the schema
-    view_name_str := table_name_str || '_' || view_type::text;
-
-    -- Determine custom condition based on view type
-    IF view_type = 'system' THEN
-        custom_condition := 'false';
-    ELSIF view_type = 'custom' THEN
-        custom_condition := 'true';
+    -- Determine where clause and ordering logic based on view type and table properties
+    CASE view_type
+    WHEN 'ordered' THEN
+      from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name);
+      IF table_properties.has_priority AND table_properties.has_code THEN
+          order_clause_str := 'ORDER BY priority ASC NULLS LAST, code ASC';
+      ELSIF table_properties.has_path THEN
+          order_clause_str := 'ORDER BY path ASC';
+      ELSIF table_properties.has_code THEN
+          order_clause_str := 'ORDER BY code ASC';
+      ELSE
+        RAISE EXCEPTION 'Invalid table properties or unsupported table structure for: %', table_properties;
+      END IF;
+    WHEN 'available' THEN
+      from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_ordered');
+      IF table_properties.has_active THEN
+        where_clause_str := 'WHERE active';
+      ELSIF table_properties.has_archived THEN
+        where_clause_str := 'WHERE NOT archived';
+      ELSE
+        RAISE EXCEPTION 'Invalid table properties or unsupported table structure for: %', table_properties;
+      END IF;
+    WHEN 'system' THEN
+      from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_available');
+      where_clause_str := 'WHERE custom = false';
+    WHEN 'custom' THEN
+      from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_available');
+      where_clause_str := 'WHERE custom = true';
     ELSE
         RAISE EXCEPTION 'Invalid view type: %', view_type;
-    END IF;
+    END CASE;
 
     -- Construct the SQL statement for the view
-    view_sql := format('CREATE VIEW public.%I WITH (security_invoker=on) AS SELECT * FROM %I.%I WHERE custom = %s',
-                       view_name_str, schema_name_str, table_name_str, custom_condition);
+    view_sql := format($view$
+CREATE VIEW public.%1$I WITH (security_invoker=on) AS
+SELECT *
+FROM %2$s
+%3$s
+%4$s
+$view$
+, view_name_str                -- %1$
+, from_str                     -- %2$
+, where_clause_str             -- %3$
+, order_clause_str             -- %4$
+);
 
     EXECUTE view_sql;
 
@@ -2096,28 +2135,42 @@ $generate_view$ LANGUAGE plpgsql;
 
 
 \echo admin.generate_active_code_custom_unique_constraint
-CREATE FUNCTION admin.generate_active_code_custom_unique_constraint(table_name regclass)
+CREATE FUNCTION admin.generate_active_code_custom_unique_constraint(
+    table_properties admin.batch_api_table_properties)
 RETURNS VOID AS $generate_active_code_custom_unique_constraint$
--- Construct the SQL constraint for the upsert function
-    DECLARE
-        table_name_str text;
-        constraint_sql text;
-    BEGIN
-        SELECT relname INTO table_name_str
-        FROM pg_catalog.pg_class
-        WHERE oid = table_name;
-
+DECLARE
+    constraint_sql text;
+BEGIN
+    -- Generate constraint for (active, path, custom) if columns exist
+    IF table_properties.has_active AND table_properties.has_path AND table_properties.has_custom THEN
+        constraint_sql := format($$
+            CREATE UNIQUE INDEX ix_%1$s_active_path_custom ON public.%1$I USING btree (active, path, custom);
+        $$, table_properties.table_name);
+        EXECUTE constraint_sql;
+        RAISE NOTICE 'Created unique constraint on (active, path, custom) for table %', table_properties.table_name;
+    -- Generate constraint for (active, code, custom) if columns exist
+    ELSEIF table_properties.has_active AND table_properties.has_code AND table_properties.has_custom THEN
         constraint_sql := format($$
             CREATE UNIQUE INDEX ix_%1$s_active_code_custom ON public.%1$I USING btree (active, code, custom);
-        $$, table_name_str);
+        $$, table_properties.table_name);
         EXECUTE constraint_sql;
-        RAISE NOTICE 'Created unique constraint on %(active, code, custom)', table_name_str;
-    END;
+        RAISE NOTICE 'Created unique constraint on (active, code, custom) for table %', table_properties.table_name;
+    -- Generate constraint for (archived, code, custom) if columns exist
+    ELSEIF table_properties.has_archived AND table_properties.has_code THEN
+        constraint_sql := format($$
+            CREATE UNIQUE INDEX ix_%1$s_archived_code ON public.%1$I USING btree (archived, code);
+        $$, table_properties.table_name);
+        EXECUTE constraint_sql;
+        RAISE NOTICE 'Created unique constraint on (archived, code, custom) for table %', table_properties.table_name;
+    END IF;
+END;
 $generate_active_code_custom_unique_constraint$ LANGUAGE plpgsql;
 
 
 \echo admin.generate_code_upsert_function
-CREATE FUNCTION admin.generate_code_upsert_function(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_code_upsert_function(
+    table_properties admin.batch_api_table_properties,
+    view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_code_upsert_function$
 DECLARE
     function_schema text := 'admin';
@@ -2125,25 +2178,14 @@ DECLARE
     function_name regprocedure;
     function_sql text;
     custom_value boolean;
-    table_name_str text;
+    schema_name_str text := table_properties.schema_name;
+    table_name_str text := table_properties.table_name;
     content_columns text := 'name';
     content_values text := 'NEW.name';
     content_update_sets text := 'name = NEW.name';
-    has_description boolean;
 BEGIN
-    -- Extract table name without schema
-    SELECT relname INTO table_name_str
-    FROM pg_catalog.pg_class
-    WHERE oid = table_name;
-
-    -- Check if table has 'description' column
-    SELECT EXISTS (
-        SELECT 1
-        FROM pg_attribute
-        WHERE attrelid = table_name
-        AND attname = 'description'
-    ) INTO has_description;
-    IF has_description THEN
+    -- Utilize has_description from table_properties
+    IF table_properties.has_description THEN
         content_columns := content_columns || ', description';
         content_values := content_values || ', NEW.description';
         content_update_sets := content_update_sets || ', description = NEW.description';
@@ -2161,20 +2203,32 @@ BEGIN
     END IF;
 
     -- Construct the SQL statement for the upsert function
-    function_sql := format($$CREATE FUNCTION %I.%I()
-                            RETURNS TRIGGER AS $body$
-                            BEGIN
-                                INSERT INTO %s (code, %s, active, custom, updated_at)
-                                VALUES (NEW.code, %s, %L, %L, statement_timestamp())
-                                ON CONFLICT (active, code, custom) DO UPDATE SET
-                                    %s,
-                                    custom = %L,
-                                    updated_at = statement_timestamp()
-                                WHERE %I.id = EXCLUDED.id;
-                                RETURN NULL;
-                            END;
-                            $body$ LANGUAGE plpgsql;$$,
-                            function_schema, function_name_str, table_name, content_columns, content_values, not custom_value, custom_value, content_update_sets, custom_value, table_name_str);
+function_sql := format($function$
+CREATE FUNCTION %1$I.%2$I()
+RETURNS TRIGGER AS $body$
+BEGIN
+    INSERT INTO %3$I.%4$I (code, %5$s, active, custom, updated_at)
+    VALUES (NEW.code, %6$s, %7$L, %8$L, statement_timestamp())
+    ON CONFLICT (active, code, custom) DO UPDATE SET
+        %9$s,
+        custom = %10$L,
+        updated_at = statement_timestamp()
+    WHERE %4$I.id = EXCLUDED.id;
+    RETURN NULL;
+END;
+$body$ LANGUAGE plpgsql;
+$function$
+, function_schema              -- %1$: Function schema name
+, function_name_str            -- %2$: Function name
+, table_properties.schema_name -- %3$: Schema name for the table
+, table_properties.table_name  -- %4$: Table name
+, content_columns              -- %5$: Columns to be inserted/updated
+, content_values               -- %6$: Values to be inserted
+, not custom_value             -- %7$: Boolean indicating system or custom (inverted for INSERT)
+, custom_value                 -- %8$: Boolean indicating system or custom
+, content_update_sets          -- %9$: SET clause for the ON CONFLICT update
+, custom_value                 -- %10$: Value for custom in the ON CONFLICT update
+);
 
     EXECUTE function_sql;
 
@@ -2186,10 +2240,10 @@ END;
 $generate_code_upsert_function$ LANGUAGE plpgsql;
 
 
-
-
 \echo admin.generate_path_upsert_function
-CREATE FUNCTION admin.generate_path_upsert_function(table_name regclass, view_type admin.view_type_enum)
+CREATE FUNCTION admin.generate_path_upsert_function(
+    table_properties admin.batch_api_table_properties,
+    view_type admin.view_type_enum)
 RETURNS regprocedure AS $generate_path_upsert_function$
 DECLARE
     function_schema text := 'admin';
@@ -2197,13 +2251,8 @@ DECLARE
     function_name regprocedure;
     function_sql text;
     custom_value boolean;
-    table_name_str text;
+    table_name_str text := table_properties.table_name;
 BEGIN
-    -- Extract table name without schema
-    SELECT relname INTO table_name_str
-    FROM pg_catalog.pg_class
-    WHERE oid = table_name;
-
     function_name_str := 'upsert_' || table_name_str || '_' || view_type::text;
 
     -- Determine custom value based on view type
@@ -2216,26 +2265,34 @@ BEGIN
     END IF;
 
     -- Construct the SQL statement for the upsert function
-    function_sql := format($$CREATE FUNCTION %I.%I()
-                            RETURNS TRIGGER AS $body$
-                            BEGIN
-                                WITH parent AS (
-                                    SELECT id
-                                    FROM %s
-                                    WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
-                                )
-                                INSERT INTO %s (path, parent_id, name, active, custom, updated_at)
-                                VALUES (NEW.path, (SELECT id FROM parent), NEW.name, %L, %L, statement_timestamp())
-                                ON CONFLICT (path) DO UPDATE SET
-                                    parent_id = (SELECT id FROM parent),
-                                    name = EXCLUDED.name,
-                                    custom = %L,
-                                    updated_at = statement_timestamp()
-                                WHERE %I.id = EXCLUDED.id;
-                                RETURN NULL;
-                            END;
-                            $body$ LANGUAGE plpgsql;$$,
-                            function_schema, function_name_str, table_name, table_name, not custom_value, custom_value, custom_value, table_name_str);
+    function_sql := format($function$
+    CREATE FUNCTION %1$I.%2$I()
+    RETURNS TRIGGER AS $body$
+    BEGIN
+        WITH parent AS (
+            SELECT id
+            FROM %3$I.%4$I
+            WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
+        )
+        INSERT INTO %3$I.%4$I (path, parent_id, name, active, custom, updated_at)
+        VALUES (NEW.path, (SELECT id FROM parent), NEW.name, %5$L, %6$L, statement_timestamp())
+        ON CONFLICT (path) DO UPDATE SET
+            parent_id = (SELECT id FROM parent),
+            name = EXCLUDED.name,
+            custom = %6$L,
+            updated_at = statement_timestamp()
+        WHERE %4$I.id = EXCLUDED.id;
+        RETURN NULL;
+    END;
+    $body$ LANGUAGE plpgsql;
+$function$
+, function_schema            -- %1$: Function schema name
+, function_name_str          -- %2$: Function name
+, table_properties.schema_name -- %3$: Schema name for the target table
+, table_name_str             -- %4$: Table name
+, not custom_value           -- %5$: Boolean indicating system or custom (inverted for INSERT)
+, custom_value               -- %6$: Value for custom in the INSERT and ON CONFLICT update
+);
 
     EXECUTE function_sql;
 
@@ -2349,13 +2406,91 @@ END;
 $generate_triggers$ LANGUAGE plpgsql;
 
 
+CREATE FUNCTION admin.detect_batch_api_table_properties(table_name regclass)
+RETURNS admin.batch_api_table_properties AS $$
+DECLARE
+    result admin.batch_api_table_properties;
+BEGIN
+    -- Initialize the result with default values
+    result.has_priority := false;
+    result.has_active := false;
+    result.has_archived := false;
+    result.has_path := false;
+    result.has_code := false;
+    result.has_custom := false;
+    result.has_description := false;
+    result.schema_name := '';
+    result.table_name := '';
 
-CREATE TYPE admin.table_type_enum AS ENUM ('code', 'path');
+    -- Populate schema_name and table_name
+    SELECT n.nspname, c.relname
+    INTO result.schema_name, result.table_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = table_name;
+
+    -- Check if specific columns exist
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'priority' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_priority := true;
+    END IF;
+
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'active' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_active := true;
+    END IF;
+
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'archived' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_archived := true;
+    END IF;
+
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'path' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_path := true;
+    END IF;
+
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'code' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_code := true;
+    END IF;
+
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'custom' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_custom := true;
+    END IF;
+
+    PERFORM 1
+    FROM pg_attribute
+    WHERE attrelid = table_name AND attname = 'description' AND NOT attisdropped;
+    IF FOUND THEN
+        result.has_description := true;
+    END IF;
+
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
 
 \echo admin.generate_table_views_for_batch_api
-CREATE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass, table_type admin.table_type_enum)
+CREATE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass)
 RETURNS void AS $$
 DECLARE
+    table_properties admin.batch_api_table_properties;
+    view_name_ordered regclass;
+    view_name_available regclass;
     view_name_system regclass;
     view_name_custom regclass;
     upsert_function_name_system regprocedure;
@@ -2365,28 +2500,36 @@ DECLARE
     triggers_name_system text[];
     triggers_name_custom text[];
 BEGIN
-    view_name_system := admin.generate_view(table_name, 'system');
-    view_name_custom := admin.generate_view(table_name, 'custom');
+    table_properties := admin.detect_batch_api_table_properties(table_name);
 
-    PERFORM admin.generate_active_code_custom_unique_constraint(table_name);
+    view_name_ordered := admin.generate_view(table_properties, 'ordered');
+    view_name_available := admin.generate_view(table_properties, 'available');
+    view_name_system := admin.generate_view(table_properties, 'system');
+    view_name_custom := admin.generate_view(table_properties, 'custom');
 
-    IF table_type = 'code' THEN
-        upsert_function_name_system := admin.generate_code_upsert_function(table_name,'system');
-        upsert_function_name_custom := admin.generate_code_upsert_function(table_name,'custom');
-    ELSIF table_type = 'path' THEN
-        upsert_function_name_system := admin.generate_path_upsert_function(table_name,'system');
-        upsert_function_name_custom := admin.generate_path_upsert_function(table_name,'custom');
+    PERFORM admin.generate_active_code_custom_unique_constraint(table_properties);
+
+    -- Determine the upsert function names based on table properties
+    IF table_properties.has_path THEN
+        upsert_function_name_system := admin.generate_path_upsert_function(table_properties, 'system');
+        upsert_function_name_custom := admin.generate_path_upsert_function(table_properties, 'custom');
+    ELSIF table_properties.has_code THEN
+        upsert_function_name_system := admin.generate_code_upsert_function(table_properties, 'system');
+        upsert_function_name_custom := admin.generate_code_upsert_function(table_properties, 'custom');
     ELSE
-        RAISE EXCEPTION 'Invalid table type: %', table_type;
+        RAISE EXCEPTION 'Invalid table properties or unsupported table structure for: %', table_properties;
     END IF;
 
+    -- Generate delete functions
     delete_function_name_system := admin.generate_delete_function(table_name, 'system');
     delete_function_name_custom := admin.generate_delete_function(table_name, 'custom');
 
+    -- Generate view triggers
     triggers_name_system := admin.generate_view_triggers(view_name_system, upsert_function_name_system, delete_function_name_system);
     triggers_name_custom := admin.generate_view_triggers(view_name_custom, upsert_function_name_custom, delete_function_name_custom);
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 \echo admin.drop_table_views_for_batch_api
@@ -2395,6 +2538,8 @@ RETURNS void AS $$
 DECLARE
     schema_name_str text;
     table_name_str text;
+    view_name_ordered text;
+    view_name_available text;
     view_name_system text;
     view_name_custom text;
     upsert_function_name_system text;
@@ -2409,24 +2554,32 @@ BEGIN
     WHERE c.oid = table_name;
 
     -- Construct view and function names
-    view_name_system := schema_name_str || '.' || table_name_str || '_system';
     view_name_custom := schema_name_str || '.' || table_name_str || '_custom';
+    view_name_system := schema_name_str || '.' || table_name_str || '_system';
+    view_name_available := schema_name_str || '.' || table_name_str || '_available';
+    view_name_ordered := schema_name_str || '.' || table_name_str || '_ordered';
+
     upsert_function_name_system := 'admin.upsert_' || table_name_str || '_system';
     upsert_function_name_custom := 'admin.upsert_' || table_name_str || '_custom';
+
     delete_function_name_system := 'admin.delete_stale_' || table_name_str || '_system';
     delete_function_name_custom := 'admin.delete_stale_' || table_name_str || '_custom';
 
     -- Drop views
-    EXECUTE 'DROP VIEW ' || view_name_system;
     EXECUTE 'DROP VIEW ' || view_name_custom;
+    EXECUTE 'DROP VIEW ' || view_name_system;
+    EXECUTE 'DROP VIEW ' || view_name_available;
+    EXECUTE 'DROP VIEW ' || view_name_ordered;
 
     -- Drop functions
     EXECUTE 'DROP FUNCTION ' || upsert_function_name_system || '()';
     EXECUTE 'DROP FUNCTION ' || upsert_function_name_custom || '()';
+
     EXECUTE 'DROP FUNCTION ' || delete_function_name_system || '()';
     EXECUTE 'DROP FUNCTION ' || delete_function_name_custom || '()';
 END;
 $$ LANGUAGE plpgsql;
+
 
 \echo public.region_role
 CREATE TABLE public.region_role (
@@ -7027,17 +7180,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-\echo public.sector_available
-CREATE VIEW public.sector_available(path, name, custom, description)
-WITH (security_invoker=on) AS
-SELECT ac.path
-     , ac.name
-     , ac.custom
-     , ac.description
-FROM public.sector AS ac
-WHERE ac.active
-ORDER BY path;
-
 \echo public.sector_custom_only
 CREATE VIEW public.sector_custom_only(path, name, description)
 WITH (security_invoker=on) AS
@@ -7144,15 +7286,6 @@ BEFORE INSERT ON public.sector_custom_only
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.sector_custom_only_prepare();
 
-\echo public.legal_form_available
-CREATE VIEW public.legal_form_available(code, name, custom)
-WITH (security_invoker=on) AS
-SELECT ac.code
-     , ac.name
-     , ac.custom
-FROM public.legal_form AS ac
-WHERE ac.active
-ORDER BY code;
 
 \echo public.legal_form_custom_only
 CREATE VIEW public.legal_form_custom_only(code, name)
@@ -7227,63 +7360,63 @@ EXECUTE FUNCTION admin.legal_form_custom_only_prepare();
 
 -- Load seed data after all constraints are in place
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.sector', 'path');
+SELECT admin.generate_table_views_for_batch_api('public.sector');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.sector_system(path, name) FROM 'dbseed/sector.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.legal_form', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.legal_form');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.legal_form_system(code, name) FROM 'dbseed/legal_form.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.reorg_type', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.reorg_type');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.reorg_type_system(code, name, description) FROM 'dbseed/reorg_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.foreign_participation', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.foreign_participation');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.foreign_participation_system(code, name) FROM 'dbseed/foreign_participation.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.data_source', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.data_source');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.data_source_system(code, name) FROM 'dbseed/data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.unit_size', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.unit_size');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.unit_size_system(code, name) FROM 'dbseed/unit_size.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.person_type', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.person_type');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.person_type_system(code, name) FROM 'dbseed/person_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_type', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_type');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.enterprise_group_type_system(code, name) FROM 'dbseed/enterprise_group_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_role', 'code');
+SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_role');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
