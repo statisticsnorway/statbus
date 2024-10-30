@@ -44,8 +44,16 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
 
       <Accordion type="single" collapsible>
         <AccordionItem value="Establishments">
-          <AccordionTrigger>What is an Establishment?</AccordionTrigger>
+          <AccordionTrigger>
+            What is an Informal Establishment? (Without corresponding Legal
+            Unit)
+          </AccordionTrigger>
           <AccordionContent>
+            <p className="mb-3">
+              This option is typically used for surveys /censuses of informal
+              economy. There is no column pointing to any legal units in this
+              file.
+            </p>
             <p className="mb-3">
               An <i>Establishment</i> is typically defined as the smallest unit
               of a business or organization that is capable of organizing its
@@ -61,25 +69,20 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
             <p className="mb-3">
               <strong>Economic Activity:</strong> It engages in one, or
               predominantly one, kind of economic activity. This means that the
-              establishment&#39;s primary business activity can be classified
-              under a specific category in the NACE or similar industry
-              classification system.
-            </p>
-            <p>
-              <strong>Operational Independence:</strong> Although it might be
-              part of a larger enterprise, an establishment typically has a
-              degree of operational independence, especially in terms of its
-              production processes, management, and reporting.
+              establishment&#39;s primary business activity should be classified
+              under a specific category in the NACE / ISIC classification.
             </p>
           </AccordionContent>
         </AccordionItem>
         <AccordionItem value="Establishments File">
-          <AccordionTrigger>What is an Establishments file?</AccordionTrigger>
+          <AccordionTrigger>
+            What is an Informal Establishments file?
+          </AccordionTrigger>
           <AccordionContent>
             <p className="mb-3">
-              An Establishments file is a CSV file containing the establishments
-              you want to use in your analysis. The file must conform to a
-              specific format in order to be processed correctly. Have a look at
+              An Informal Establishments file is a CSV file containing the
+              establishments independent of legal units. Only ids for the
+              establishments should be presented in this option. Have a look at
               this example CSV file to get an idea of how the file should be
               structured:
             </p>
