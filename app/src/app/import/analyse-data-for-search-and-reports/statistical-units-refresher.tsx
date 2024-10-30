@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { refreshStatisticalUnits } from "@/components/command-palette/command-palette-server-actions";
+import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData } from "@/app/BaseDataClient";
 
@@ -27,13 +27,22 @@ export function StatisticalUnitsRefresher({
       }
 
       if (state == "refreshing") {
-        const response = await refreshStatisticalUnits();
-        if (response?.error) {
+        try {
+          const client = await createSupabaseBrowserClientAsync();
+          const { status, statusText, data, error } = await client.rpc(
+            "statistical_unit_refresh_now"
+          );
+
+          if (error) {
+            setState("failed");
+            setErrorMessage(error.message);
+          } else {
+            setState("finished");
+            refreshHasStatisticalUnits();
+          }
+        } catch (error) {
           setState("failed");
-          setErrorMessage(response.error);
-        } else {
-          setState("finished");
-          refreshHasStatisticalUnits();
+          setErrorMessage("Error refreshing statistical units");
         }
       }
     };
