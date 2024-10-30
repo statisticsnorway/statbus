@@ -29,7 +29,7 @@ export const DrillDownChart = ({
       _chart.current?.destroy();
       _chart.current = chart({
         chart: {
-          height: (BASE_HEIGHT+ROW_HEIGHT*(points?.length ?? 0)),
+          height: BASE_HEIGHT + ROW_HEIGHT * (points?.length ?? 0),
           renderTo: _ref.current,
           events: {
             drilldown: (e) =>
@@ -44,10 +44,10 @@ export const DrillDownChart = ({
               enabled: true,
               format: "{point.y:,.0f}",
               style: {
-                fontWeight: 'normal',
-                format: '{point.y:,.0f}',
-                textOutline: 'none',
-              }
+                fontWeight: "normal",
+                format: "{point.y:,.0f}",
+                textOutline: "none",
+              },
             },
           },
         },
@@ -56,7 +56,6 @@ export const DrillDownChart = ({
         },
         xAxis: {
           type: "category",
-          alternateGridColor: '#e6e6e6',
         },
         yAxis: {
           max: maxTopLevelValue,
