@@ -16,7 +16,7 @@ export default function UploadRegionsPage() {
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-2xl">Upload Regions</h1>
+      <h1 className="text-center text-2xl">Upload Region Hierarchy</h1>
       <p>
         Upload a CSV file containing the regions you want to use in your
         analysis.

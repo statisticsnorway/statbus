@@ -28,7 +28,7 @@ export default function SetupStatus() {
         <li className="mb-6">
           <NavItem
             done={!!numberOfRegions}
-            title="2. Upload Regions"
+            title="2. Upload Region Hierarchy"
             href="/getting-started/upload-regions"
             subtitle={`${numberOfRegions} regions uploaded`}
           />
