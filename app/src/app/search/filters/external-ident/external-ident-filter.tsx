@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/popover";
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { ExternalIdentInputs } from "./external-ident-inputs";
+import { ActiveExternalIdentBadges } from "./active-external-ident-badges";
 
 export default async function ExternalIdentFilter() {
   const client = await createSupabaseSSRClient();
@@ -23,6 +24,7 @@ export default async function ExternalIdentFilter() {
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           External Identifiers
+          <ActiveExternalIdentBadges externalIdentTypes={externalIdentTypes.data ?? []} />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="start">
