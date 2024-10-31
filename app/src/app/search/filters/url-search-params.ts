@@ -211,19 +211,18 @@ export function externalIdentDeriveStateUpdateFromSearchParams(
 }
 
 export function externalIdentDeriveStateUpdateFromValues(
-  maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
-  value: (string | null)
+  externalIdentType: Tables<"external_ident_type_ordered">,
+  value: string | null
 ): SearchAction {
-  let result = maybeDefaultExternalIdentType &&
-    {
-      type: "set_query",
-      payload: {
-        app_param_name: maybeDefaultExternalIdentType.code,
-        api_param_name: `external_idents->>${maybeDefaultExternalIdentType.code}`,
-        api_param_value: value ? `eq.${value}` : null,
-        app_param_values: value ? [value] : [],
-      },
-    } as SearchAction;
+  let result = {
+    type: "set_query",
+    payload: {
+      app_param_name: externalIdentType.code!,
+      api_param_name: `external_idents->>${externalIdentType.code}`,
+      api_param_value: value ? `eq.${value}` : null,
+      app_param_values: value ? [value] : [],
+    },
+  } as SearchAction;
   return result;
 }
 

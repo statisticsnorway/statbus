@@ -109,6 +109,31 @@ DROP MATERIALIZED VIEW public.sector_used;
 DROP MATERIALIZED VIEW public.data_source_used;
 DROP MATERIALIZED VIEW public.legal_form_used;
 DROP MATERIALIZED VIEW public.country_used;
+
+\echo "Run all the cleanup procedures for all tables."
+CALL lifecycle_callbacks.cleanup();
+
+CALL lifecycle_callbacks.del('import_establishment_current_without_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_era_without_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_current_for_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_era_for_legal_unit');
+CALL lifecycle_callbacks.del('import_establishment_current');
+CALL lifecycle_callbacks.del('import_establishment_era');
+CALL lifecycle_callbacks.del('import_legal_unit_current');
+CALL lifecycle_callbacks.del('import_legal_unit_era');
+CALL lifecycle_callbacks.del('statistical_unit_jsonb_indices');
+
+\echo admin.cleanup_statistical_unit_jsonb_indices
+DROP PROCEDURE admin.cleanup_statistical_unit_jsonb_indices();
+\echo admin.generate_statistical_unit_jsonb_indices
+DROP PROCEDURE admin.generate_statistical_unit_jsonb_indices();
+
+DROP FUNCTION admin.import_legal_unit_era_upsert;
+DROP FUNCTION admin.import_establishment_era_upsert;
+
+CALL lifecycle_callbacks.del_table('public.external_ident_type');
+CALL lifecycle_callbacks.del_table('public.stat_definition');
+
 DROP MATERIALIZED VIEW public.statistical_unit;
 
 DROP VIEW public.statistical_unit_def;
@@ -213,23 +238,6 @@ DELETE FROM public.external_ident_type;
 
 TRUNCATE public.stat_for_unit;
 DELETE FROM public.stat_definition;
-
-\echo "Run all the cleanup procedures for all tables."
-CALL lifecycle_callbacks.cleanup();
-
-CALL lifecycle_callbacks.del('import_establishment_current_without_legal_unit');
-CALL lifecycle_callbacks.del('import_establishment_era_without_legal_unit');
-CALL lifecycle_callbacks.del('import_establishment_current_for_legal_unit');
-CALL lifecycle_callbacks.del('import_establishment_era_for_legal_unit');
-CALL lifecycle_callbacks.del('import_establishment_current');
-CALL lifecycle_callbacks.del('import_establishment_era');
-CALL lifecycle_callbacks.del('import_legal_unit_current');
-CALL lifecycle_callbacks.del('import_legal_unit_era');
-DROP FUNCTION admin.import_legal_unit_era_upsert;
-DROP FUNCTION admin.import_establishment_era_upsert;
-
-CALL lifecycle_callbacks.del_table('public.external_ident_type');
-CALL lifecycle_callbacks.del_table('public.stat_definition');
 
 \echo public.external_ident
 DROP TABLE public.external_ident;
