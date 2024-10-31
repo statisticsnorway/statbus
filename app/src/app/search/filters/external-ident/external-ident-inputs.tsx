@@ -5,6 +5,7 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { useCallback, useEffect, useState } from "react";
 import { Tables } from "@/lib/database.types";
 import { externalIdentDeriveStateUpdateFromValues } from "../url-search-params";
+import { Button } from "@/components/ui/button";
 
 export function ExternalIdentInputs({ 
   externalIdentTypes 
@@ -27,6 +28,23 @@ export function ExternalIdentInputs({
     );
   }, [modifySearchState]);
 
+  // Add reset function to clear all external identifier inputs
+  const reset = useCallback(() => {
+    // Create empty values for all inputs
+    const emptyValues = externalIdentTypes.reduce((acc, type) => ({
+      ...acc,
+      [type.code!]: ''
+    }), {});
+    
+    // Clear all debounced values
+    setDebouncedValues(emptyValues);
+    
+    // Clear all external identifier filters
+    externalIdentTypes.forEach(identType => {
+      updateIdentifier(identType, '');
+    });
+  }, [externalIdentTypes, updateIdentifier]);
+
   // Add debounce effect for each input
   useEffect(() => {
     const handlers = externalIdentTypes.map(identType => {
@@ -40,6 +58,9 @@ export function ExternalIdentInputs({
 
     return () => handlers.forEach(cleanup => cleanup());
   }, [debouncedValues, externalIdentTypes, updateIdentifier]);
+
+  // Check if any identifier has a value
+  const hasValues = Object.values(debouncedValues).some(value => value !== '');
 
   return (
     <div className="grid gap-4">
@@ -59,6 +80,11 @@ export function ExternalIdentInputs({
           </div>
         );
       })}
+      {hasValues && (
+        <Button onClick={reset} variant="outline" className="w-full">
+          Clear
+        </Button>
+      )}
     </div>
   );
 }
