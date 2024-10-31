@@ -23,7 +23,7 @@ export default async function ExternalIdentFilter() {
           className="space-x-2 border-dashed p-2 h-9"
         >
           <PlusCircle className="mr-2 h-4 w-4" />
-          External Identifiers
+          Identifiers
           <ActiveExternalIdentBadges externalIdentTypes={externalIdentTypes.data ?? []} />
         </Button>
       </PopoverTrigger>
